@@ -8,12 +8,6 @@
 #define rs_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
-#ifdef NDEBUG
-
-#define rs_assert(...) ((void)0)
-
-#else
-
 template<typename ... MSGTS>
 void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
@@ -27,8 +21,16 @@ void _rs_assert(const char* file, uint32_t line, const char* function, const cha
     abort();
 }
 
+#ifdef NDEBUG
+
+#define rs_assert(...) ((void)0)
+
+#else
+
 #define rs_assert(...) rs_macro_overload(rs_assert,__VA_ARGS__)
 #define rs_assert_1(JUDGEMENT) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT),0)))
 #define rs_assert_2(JUDGEMENT, REASON) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT, REASON),0)))
 
 #endif
+
+#define rs_error(REASON) ((void)_rs_assert(__FILE__, __LINE__, __func__, "Runtime error." , REASON))
