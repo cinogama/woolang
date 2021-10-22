@@ -20,10 +20,28 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rs_assert.h">
+    <ClInclude Include="rs_gc.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="rs_macro.h">
+    <ClInclude Include="rs_macro.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_meta.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_assert.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_instruct.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_basic_type.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_ir_compiler.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_vm.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

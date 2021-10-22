@@ -134,6 +134,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -146,8 +147,14 @@
     <ClCompile Include="rs_main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rs_assert.h" />
-    <ClInclude Include="rs_macro.h" />
+    <ClInclude Include="rs_vm.hpp" />
+    <ClInclude Include="rs_assert.hpp" />
+    <ClInclude Include="rs_basic_type.hpp" />
+    <ClInclude Include="rs_gc.hpp" />
+    <ClInclude Include="rs_instruct.hpp" />
+    <ClInclude Include="rs_ir_compiler.hpp" />
+    <ClInclude Include="rs_macro.hpp" />
+    <ClInclude Include="rs_meta.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
