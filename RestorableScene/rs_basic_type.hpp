@@ -43,12 +43,18 @@ namespace rs
 
         enum class valuetype : uint8_t
         {
+            integer_type = 0,
             real_type,
-            integer_type,
             handle_type,
-            string_type,
 
             is_ref,
+
+            need_gc = 0xF0,
+
+            string_type,
+            mapping_type,
+
+
 
             invalid = 0xff,
         };

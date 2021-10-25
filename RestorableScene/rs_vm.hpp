@@ -14,12 +14,12 @@ namespace rs
     {
         ir_compiler::runtime_env rt_env;
         byte_t* ip;
+    public:
 
         value* cr;
         value* stacktop;
         value* stackbuttom;
 
-    public:
         void set_runtime(ir_compiler::runtime_env _rt_env)
         {
             rt_env = _rt_env;
@@ -71,6 +71,7 @@ namespace rs
             // addressing macro
 #define RS_IPVAL (*(rt_ip))
 #define RS_IPVAL_MOVE_1 (*(rt_ip++))
+#define RS_IPVAL_MOVE_2 (*(uint16_t*)((rt_ip+=2)-2))
 #define RS_IPVAL_MOVE_4 (*(uint32_t*)((rt_ip+=4)-4))
 #define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
@@ -123,7 +124,27 @@ namespace rs
                     (rt_sp++)->set_ref(opnum1);
                     break;
                 }
-                    /// OPERATE
+                case instruct::opcode::pop:
+                {
+                    if (dr & 0b01)
+                    {
+                        RS_ADDRESSING_N1_REF;
+                        opnum1->set_val((--rt_sp));
+                    }
+                    else
+                        rt_sp -= RS_IPVAL_MOVE_2;
+
+                    break;
+                }
+                case instruct::opcode::popr:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    opnum1->set_ref((--rt_sp)->get());
+
+                    break;
+                }
+
+                /// OPERATE
                 case instruct::opcode::addi:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -179,6 +200,7 @@ namespace rs
                     cr->set_ref((opnum1->integer %= opnum2->integer, opnum1));
                     break;
                 }
+
                 case instruct::opcode::addr:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -234,6 +256,7 @@ namespace rs
                     cr->set_ref((opnum1->real = fmod(opnum1->real, opnum2->real), opnum1));
                     break;
                 }
+
                 case instruct::opcode::addh:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -256,6 +279,7 @@ namespace rs
                     cr->set_ref((opnum1->handle -= opnum2->handle, opnum1));
                     break;
                 }
+
                 case instruct::opcode::adds:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -268,6 +292,8 @@ namespace rs
                     break;
                 }
                 /// OPERATE
+
+
                 case instruct::opcode::set:
                 {
                     RS_ADDRESSING_N1;
@@ -338,19 +364,103 @@ namespace rs
 
                     break;
                 }
-                case instruct::opcode::gti:
+                case instruct::opcode::lds:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    rs_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    rs_assert(opnum2->type == value::valuetype::integer_type);
+                    opnum1->set_val((rt_bp + opnum2->integer)->get());
+                    break;
+                }
+                case instruct::opcode::ldsr:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer > opnum2->integer;
+                    rs_assert(opnum2->type == value::valuetype::integer_type);
+                    opnum1->set_ref((rt_bp + opnum2->integer)->get());
+                    break;
+                }
+                case instruct::opcode::equ:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer = opnum1->integer == opnum2->integer;
                     cr->type = value::valuetype::integer_type;
 
                     break;
                 }
+                case instruct::opcode::nequ:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer = opnum1->integer != opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::equs:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer =
+                        opnum1->type == value::valuetype::string_type
+                        && opnum1->type == opnum2->type
+                        && *opnum1->string == *opnum2->string;
+
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::nequs:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer =
+                        opnum1->type != value::valuetype::string_type
+                        || opnum1->type != opnum2->type
+                        || *opnum1->string != *opnum2->string;
+
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+
+                case instruct::opcode::land:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer = opnum1->integer && opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::lor:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->integer = opnum1->integer || opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::lnot:
+                {
+                    RS_ADDRESSING_N1_REF;
+
+                    cr->integer = !opnum1->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+
                 case instruct::opcode::lti:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -364,6 +474,46 @@ namespace rs
 
                     break;
                 }
+                case instruct::opcode::gti:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    cr->integer = opnum1->integer > opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::elti:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    cr->integer = opnum1->integer <= opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::egti:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    cr->integer = opnum1->integer >= opnum2->integer;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+
                 case instruct::opcode::ltr:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -390,6 +540,86 @@ namespace rs
 
                     break;
                 }
+                case instruct::opcode::eltr:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    cr->integer = opnum1->real <= opnum2->real;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::egtr:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    cr->integer = opnum1->real >= opnum2->real;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+
+                case instruct::opcode::lth:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
+
+                    cr->integer = opnum1->handle < opnum2->handle;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::gth:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
+
+                    cr->integer = opnum1->handle > opnum2->handle;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::elth:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
+
+                    cr->integer = opnum1->handle <= opnum2->handle;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+                case instruct::opcode::egth:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    rs_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
+
+                    cr->integer = opnum1->handle >= opnum2->handle;
+                    cr->type = value::valuetype::integer_type;
+
+                    break;
+                }
+
                 case instruct::opcode::jmp:
                     rt_ip = rt_env.rt_codes + RS_IPVAL_MOVE_4;
                     break;
@@ -407,6 +637,7 @@ namespace rs
                         rt_ip = rt_env.rt_codes + aimplace;
                     break;
                 }
+
                 case instruct::opcode::end:
                 {
                     return;

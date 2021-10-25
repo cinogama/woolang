@@ -9,6 +9,7 @@
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
 template<typename ... MSGTS>
+[[noreturn]]
 void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     std::cerr << "Assert failed: " << judgement << std::endl;
@@ -21,15 +22,17 @@ void _rs_assert(const char* file, uint32_t line, const char* function, const cha
     abort();
 }
 
+#define rs_test(...) rs_macro_overload(rs_test,__VA_ARGS__)
+#define rs_test_1(JUDGEMENT) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT),0)))
+#define rs_test_2(JUDGEMENT, REASON) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT, REASON),0)))
+
 #ifdef NDEBUG
 
 #define rs_assert(...) ((void)0)
 
 #else
 
-#define rs_assert(...) rs_macro_overload(rs_assert,__VA_ARGS__)
-#define rs_assert_1(JUDGEMENT) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT),0)))
-#define rs_assert_2(JUDGEMENT, REASON) ((void)((!!(JUDGEMENT))||(_rs_assert(__FILE__, __LINE__, __func__, #JUDGEMENT, REASON),0)))
+#define rs_assert(...) rs_test(__VA_ARGS__)
 
 #endif
 

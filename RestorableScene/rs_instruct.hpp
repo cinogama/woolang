@@ -46,43 +46,49 @@ struct instruct
         pshr = 19 RS_OPCODE_SPACE,  // pshr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
         popr = 20 RS_OPCODE_SPACE,  // popr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
 
-        lds = 21 RS_OPCODE_SPACE,   // lds(dr_0)            REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
-        ldsr = 22 RS_OPCODE_SPACE,  // ldsr(dr_0)           REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
-        ldg = 23 RS_OPCODE_SPACE,   // ldg(dr_0)            REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
-        ldgr = 24 RS_OPCODE_SPACE,  // ldgr(dr_0)           REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
+        lds = 21 RS_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
+        ldsr = 22 RS_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+        // ldg = 23 RS_OPCODE_SPACE,   // ldg(dr_0)            REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
+        // ldgr = 24 RS_OPCODE_SPACE,  // ldgr(dr_0)           REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
 
         //  Logic operator, the result will store to logic_state
         equ = 25 RS_OPCODE_SPACE,   // equ(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
         nequ = 26 RS_OPCODE_SPACE,  // nequ
+
         lti = 27 RS_OPCODE_SPACE,    // lt
         gti = 28 RS_OPCODE_SPACE,    // gt
         elti = 29 RS_OPCODE_SPACE,   // elt
         egti = 30 RS_OPCODE_SPACE,   // egt
         land = 31 RS_OPCODE_SPACE,  // land             
         lor = 32 RS_OPCODE_SPACE,   // lor
+        lnot = 33 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
 
-        lth = 33 RS_OPCODE_SPACE,    // lt
-        gth = 34 RS_OPCODE_SPACE,    // gt
-        elth = 35 RS_OPCODE_SPACE,   // elt
-        egth = 36 RS_OPCODE_SPACE,   // egt
+        lth = 34 RS_OPCODE_SPACE,    // lt
+        gth = 35 RS_OPCODE_SPACE,    // gt
+        elth = 36 RS_OPCODE_SPACE,   // elt
+        egth = 37 RS_OPCODE_SPACE,   // egt
 
-        ltr = 37 RS_OPCODE_SPACE,    // lt
-        gtr = 38 RS_OPCODE_SPACE,    // gt
-        eltr = 39 RS_OPCODE_SPACE,   // elt
-        egtr = 40 RS_OPCODE_SPACE,   // egt
+        ltr = 38 RS_OPCODE_SPACE,    // lt
+        gtr = 39 RS_OPCODE_SPACE,    // gt
+        eltr = 40 RS_OPCODE_SPACE,   // elt
+        egtr = 41 RS_OPCODE_SPACE,   // egt
 
-        call = 41 RS_OPCODE_SPACE,  // call(ISNATIVE?)  REGID(1BYTE)/DIFF(4BYTE)
-        ret = 42 RS_OPCODE_SPACE,   // ret
-        jt = 43 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
-        jf = 44 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
-        jmp = 45 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
+        call = 42 RS_OPCODE_SPACE,  // call(ISNATIVE?)  REGID(1BYTE)/DIFF(4BYTE)
+        ret = 43 RS_OPCODE_SPACE,   // ret
+        jt = 44 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
+        jf = 45 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
+        jmp = 46 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-        movr2i = 46 RS_OPCODE_SPACE,
-        movi2r = 47 RS_OPCODE_SPACE,
-        setr2i = 48 RS_OPCODE_SPACE,
-        seti2r = 49 RS_OPCODE_SPACE,
+        movr2i = 47 RS_OPCODE_SPACE,
+        movi2r = 48 RS_OPCODE_SPACE,
+        setr2i = 49 RS_OPCODE_SPACE,
+        seti2r = 50 RS_OPCODE_SPACE,
 
-        abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)       
+        abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)     
+
+        equs = 52 RS_OPCODE_SPACE,   // equs(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        nequs = 53 RS_OPCODE_SPACE,  // nequs
+
         end = 63 RS_OPCODE_SPACE,   // end()                                        1 byte
 #undef RS_OPCODE_SPACE
     };
