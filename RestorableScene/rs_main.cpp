@@ -42,6 +42,59 @@ int main()
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
 
+    ir_compiler c11;                                // 
+    c11.jmp(tag("demo_main"));                      //      jmp     demo_main;
+    c11.tag("demo_func_01");                        //  :demo_func_01
+    c11.mov(reg(reg::t0), imm(666));                //      mov     t0,     666;
+    c11.set(reg(reg::er), imm("example exception"));//      set     er,     "example exception";
+    c11.addi(reg(reg::t0), imm(233));               //      addi    t0,     233; 
+    c11.ret();                                      //      ret
+    c11.tag("demo_main");                           //  :demo_main
+    c11.veh_begin(tag("jmp_excep_happend"));        //      veh beg jmp_excep_happend
+    c11.call(tag("demo_func_01"));                  //      call    demo_func_01;
+    c11.veh_clean(tag("jmp_no_excep"));             //      veh cle jmp_no_excep
+    c11.tag("jmp_excep_happend");                   //  :jmp_excep_happend
+    c11.addi(reg(reg::t0), imm(1024));              //      addi    t0,     1024
+    c11.tag("jmp_no_excep");                        //  :jmp_no_excep
+    c11.end();                                      //      end
+
+    vmm.set_runtime(c11.finalize());
+    vmm.run();
+
+    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
+    rs_test(vmm.stacktop == vmm.env.stack_begin);
+    rs_test(vmm.veh->last == nullptr);
+    rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 233);
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c10;                                // 
+    c10.jmp(tag("demo_main"));                      //      jmp     demo_main;
+    c10.tag("demo_func_01");                        //  :demo_func_01
+    c10.mov(reg(reg::t0), imm(666));                //      mov     t0,     666;
+    c10.set(reg(reg::er), imm("example exception"));//      set     er,     "example exception";
+    c10.veh_throw();                                //      veh throw
+    c10.addi(reg(reg::t0), imm(233));               //      addi    t0,     233; 
+    c10.ret();                                      //      ret
+    c10.tag("demo_main");                           //  :demo_main
+    c10.veh_begin(tag("jmp_excep_happend"));        //      veh beg jmp_excep_happend
+    c10.call(tag("demo_func_01"));                  //      call    demo_func_01;
+    c10.veh_clean(tag("jmp_no_excep"));             //      veh cle jmp_no_excep
+    c10.tag("jmp_excep_happend");                   //  :jmp_excep_happend
+    c10.addi(reg(reg::t0), imm(1024));              //      addi    t0,     1024
+    c10.tag("jmp_no_excep");                        //  :jmp_no_excep
+    c10.end();                                      //      end
+
+    vmm.set_runtime(c10.finalize());
+    vmm.run();
+
+    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
+    rs_test(vmm.stacktop == vmm.env.stack_begin);
+    rs_test(vmm.veh->last == nullptr);
+    rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 1024);
+    ///////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////
+
     ir_compiler c9;                         // 
     c9.jmp(tag("demo_main"));               //      jmp     demo_main;
     c9.tag("demo_func_01");                 //  :demo_func_01
@@ -61,14 +114,14 @@ int main()
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    /*
+    
     ir_compiler c8;                                     // 
     c8.call(&veh_exception_test);
     c8.end();                                          //      end
 
     vmm.set_runtime(c8.finalize());
     vmm.run();
-    */
+    
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c7;                                     // 

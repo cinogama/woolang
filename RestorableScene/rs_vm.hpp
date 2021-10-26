@@ -71,9 +71,9 @@ namespace rs
         }
     };
 
-#define RS_READY_EXCEPTION_HANDLE(VM,IP,SP,BP)\
+#define RS_READY_EXCEPTION_HANDLE(VM,IP,ROLLBACKIP,SP,BP)\
     bool _rs_restore_from_exception = false;\
-    exception_recovery::_ready((VM),(IP),(SP),(BP));\
+    exception_recovery::_ready((VM),(ROLLBACKIP),(SP),(BP));\
     if (std::setjmp((VM)->veh->native_env))\
     {\
         _rs_restore_from_exception = true;\
@@ -85,7 +85,7 @@ namespace rs
 
     class vm : public vmbase
     {
-      
+
     public:
         ir_compiler::runtime_env env;
 
@@ -152,11 +152,11 @@ namespace rs
                 value* _uselesssp = nullptr;
                 value* _uselessbp = nullptr;
 
-                RS_READY_EXCEPTION_HANDLE(this, _uselessip, _uselesssp, _uselessbp)
+                RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
                 {
                     // unhandled exception happend.
-                    std::cerr << "Unexpected exception: "<< rs_cast_string((rs_value)er) << std::endl;
-                    
+                    std::cerr << "Unexpected exception: " << rs_cast_string((rs_value)er) << std::endl;
+
                     return;
 
                 }
@@ -787,7 +787,27 @@ namespace rs
                         rt_ip = rt_env->rt_codes + aimplace;
                     break;
                 }
-
+                case instruct::opcode::veh:
+                {
+                    if (dr & 0b10)
+                    {
+                        //begin
+                        RS_READY_EXCEPTION_HANDLE(this, rt_ip, rt_env->rt_codes + RS_IPVAL_MOVE_4, rt_sp, rt_bp)
+                        {}
+                    }
+                    else if (dr & 0b01)
+                    {
+                        // throw
+                        rs::exception_recovery::rollback(this);
+                    }
+                    else
+                    {
+                        // clean
+                        rs::exception_recovery::ok(this);
+                        rt_ip = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                    }
+                    break;
+                }
                 case instruct::opcode::end:
                 {
                     return;

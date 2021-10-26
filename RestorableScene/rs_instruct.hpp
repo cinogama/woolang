@@ -84,7 +84,10 @@ struct instruct
         seti2r = 49 RS_OPCODE_SPACE,
 
         // exception handler
-          = 50 RS_OPCODE_SPACE, // excep(RAISE?_ROLLBACK?) RAISE? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
+        veh = 50 RS_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
+                                    //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
+                                    //  01 thorw
+                                    //  00 clean
 
         abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)     
 

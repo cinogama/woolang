@@ -142,7 +142,7 @@ namespace rs
             {
                 v->type = type();
                 if constexpr (sfinae::is_string<T>::value)
-                    string_t::gc_new(v->string,val);
+                    string_t::gc_new(v->string, val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
@@ -790,7 +790,20 @@ namespace rs
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
         }
 
+        void veh_begin(const opnum::tag& op1)
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::veh, RS_OPNUM(op1));
+        }
 
+        void veh_clean(const opnum::tag& op1)
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::veh, nullptr, RS_OPNUM(op1));
+        }
+
+        void veh_throw()
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::veh);
+        }
 
 #undef RS_OPNUM
 #undef RS_PUT_IR_TO_BUFFER
@@ -1187,7 +1200,39 @@ namespace rs
                     break;
                 case instruct::opcode::ret:
                     runtime_command_buffer.push_back(RS_OPCODE(ret, 00));
+                    break;
+                case instruct::opcode::veh:
+                    if (RS_IR.op1)
+                    {
+                        // begin
+                        rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
 
+                        runtime_command_buffer.push_back(RS_OPCODE(veh, 10));
+                        jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
+                            .push_back(runtime_command_buffer.size());
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                    }
+                    else if (RS_IR.op2)
+                    {
+                        // clean
+                        rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op2) != nullptr, "Operator num should be a tag.");
+                        
+                        runtime_command_buffer.push_back(RS_OPCODE(veh, 00));
+                        jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op2)->name]
+                            .push_back(runtime_command_buffer.size());
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                    }
+                    else
+                    {                        
+                        // throw
+                        runtime_command_buffer.push_back(RS_OPCODE(veh, 01));
+                    }
                     break;
                 case instruct::opcode::abrt:
                     runtime_command_buffer.push_back(RS_OPCODE(abrt, 00));

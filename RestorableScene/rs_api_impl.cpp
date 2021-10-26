@@ -205,9 +205,18 @@ rs_string_t rs_cast_string(rs_value value)
         // Not impl now
     default:
         rs_fail("This value can not cast to string.");
-        return 0;
+        return "";
         break;
     }
 
     return _buf.c_str();
+}
+
+rs_value* rs_args(rs_vm vm)
+{
+    return (rs_value*)(reinterpret_cast<rs::vmbase*>(vm)->stackbuttom + 2);
+}
+rs_integer_t rs_argc(rs_vm vm)
+{
+    return reinterpret_cast<rs::vmbase*>(vm)->tc->integer;
 }

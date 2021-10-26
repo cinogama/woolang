@@ -35,6 +35,7 @@ typedef struct _rs_vm
 *rs_vm;
 typedef struct _rs_value
 { /* reserved, and prevent from type casting. */
+    uint8_t _take_palce_[16];
 }
 *rs_value;
 typedef enum _rs_value_type
@@ -61,7 +62,8 @@ typedef void(*rs_native_func)(rs_vm);
 typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason);
 
 RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler);
-RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason);
+RS_API void         rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason);
+
 #define rs_fail(REASON) ((void)rs_cause_fail(__FILE__, __LINE__, __func__, REASON))
 
 RS_API rs_string_t  rs_compile_date (void);
@@ -79,6 +81,9 @@ RS_API rs_integer_t rs_cast_integer(rs_value value);
 RS_API rs_real_t    rs_cast_real(rs_value value);
 RS_API rs_handle_t  rs_cast_handle(rs_value value);
 RS_API rs_string_t  rs_cast_string(rs_value value);
+
+RS_API rs_value*    rs_args(rs_vm vm);
+RS_API rs_integer_t rs_argc(rs_vm vm);
 
 #ifdef __cplusplus
 #include <exception>

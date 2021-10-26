@@ -2,6 +2,13 @@
 
 namespace rs
 {
+    template<typename NodeT>
+    struct atomic_list
+    {
+        NodeT* head_point;
+
+    };
+
     struct gcbase
     {
         enum gctype
@@ -12,6 +19,10 @@ namespace rs
             old,
         };
         gctype gc_type = gctype::no_gc;
+        uint16_t gc_mark_version;
+
+        // used in linklist;
+        gcbase* next = nullptr;
 
         virtual ~gcbase() = default;
     };
