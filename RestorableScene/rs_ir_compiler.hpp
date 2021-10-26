@@ -3,7 +3,7 @@
 #include "rs_assert.hpp"
 #include "rs_basic_type.hpp"
 #include "rs_instruct.hpp"
-
+#include "rs_meta.hpp"
 namespace rs
 {
     namespace opnum
@@ -55,6 +55,9 @@ namespace rs
 
                 // special regist
                 op_trace_result = 0b00100000, cr = op_trace_result,
+                argument_count, tc = argument_count,
+                exception_result, er = exception_result,
+
                 last_special_register = 0b00111111,
             };
 
@@ -139,7 +142,7 @@ namespace rs
             {
                 v->type = type();
                 if constexpr (sfinae::is_string<T>::value)
-                    v->string = string_t::gc_new(val);
+                    string_t::gc_new(v->string,val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
@@ -261,7 +264,7 @@ namespace rs
         void psh(const OP1T& op1)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                ,"Argument(s) should be opnum.");
+                , "Argument(s) should be opnum.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, RS_OPNUM(op1));
         }
@@ -270,7 +273,7 @@ namespace rs
         void pshr(const OP1T& op1)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                ,"Argument(s) should be opnum.");
+                , "Argument(s) should be opnum.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::pshr, RS_OPNUM(op1));
         }
@@ -279,13 +282,13 @@ namespace rs
         {
             if constexpr (std::is_integral<OP1T>::value)
             {
-                rs_assert(0 < op1 && op1 <= 65535);
+                rs_assert(0 < op1 && op1 <= UINT16_MAX);
                 RS_PUT_IR_TO_BUFFER(instruct::opcode::pop, nullptr, nullptr, (uint16_t)op1);
             }
             else
             {
                 static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                    ,"Argument(s) should be opnum.");
+                    , "Argument(s) should be opnum.");
                 static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                     "Can not pop value to immediate.");
 
@@ -297,7 +300,7 @@ namespace rs
         void popr(const OP1T& op1)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                ,"Argument(s) should be opnum.");
+                , "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not pop value to immediate.");
@@ -523,7 +526,7 @@ namespace rs
         void lnot(const OP1T& op1)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                ,"Argument(s) should be opnum.");
+                , "Argument(s) should be opnum.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::lnot, RS_OPNUM(op1));
         }
@@ -719,6 +722,34 @@ namespace rs
             RS_PUT_IR_TO_BUFFER(instruct::opcode::seti2r, RS_OPNUM(op1), RS_OPNUM(op2));
         }
 
+        template<typename OP1T>
+        void call(const OP1T& op1)
+        {
+            if constexpr (std::is_base_of<opnum::tag, OP1T>::value)
+            {
+                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, RS_OPNUM(op1));
+            }
+            else if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
+            {
+                RS_PUT_IR_TO_BUFFER(instruct::opcode::call, RS_OPNUM(op1));
+            }
+            else if constexpr (std::is_pointer<OP1T>::value)
+            {
+                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(op1));
+            }
+            else if constexpr (std::is_integral<OP1T>::value)
+            {
+                rs_assert(0 <= op1 && op1 <= UINT32_MAX, "Immediate instruct address is to large to call.");
+
+                uint32_t address = (uint32_t)op1;
+                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, reinterpret_cast<int32_t>(op1));
+            }
+            else
+            {
+                static_assert(false, "Argument(s) should be opnum or integer.");
+            }
+        }
+
         void jt(const opnum::tag& op1)
         {
             RS_PUT_IR_TO_BUFFER(instruct::opcode::jt, RS_OPNUM(op1));
@@ -732,6 +763,11 @@ namespace rs
         void jmp(const opnum::tag& op1)
         {
             RS_PUT_IR_TO_BUFFER(instruct::opcode::jmp, RS_OPNUM(op1));
+        }
+
+        void ret()
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::ret);
         }
 
         void nop()
@@ -779,7 +815,7 @@ namespace rs
             size_t constant_value_count = constant_record_list.size();
             size_t global_value_count = 0;
             size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-            size_t runtime_stack_count = 65535;  // by default
+            size_t runtime_stack_count = 65536;  // by default
 
             size_t preserve_memory_size =
                 constant_value_count
@@ -874,11 +910,11 @@ namespace rs
                     if (nullptr == RS_IR.op1)
                     {
                         runtime_command_buffer.push_back(RS_OPCODE(pop, 00));
-       
-                        rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= USHRT_MAX
+
+                        rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
                             , "Invalid count to pop from stack.");
 
-                        uint16_t opushort= (uint16_t)RS_IR.opinteger;
+                        uint16_t opushort = (uint16_t)RS_IR.opinteger;
                         byte_t* readptr = (byte_t*)&opushort;
 
                         runtime_command_buffer.push_back(readptr[0]);
@@ -1110,6 +1146,49 @@ namespace rs
                     runtime_command_buffer.push_back(0x00);
                     break;
 
+                case instruct::opcode::call:
+                    runtime_command_buffer.push_back(RS_OPCODE(call));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::calln:
+                    if (RS_IR.op2)
+                    {
+                        rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op2) != nullptr, "Operator num should be a tag.");
+
+                        runtime_command_buffer.push_back(RS_OPCODE(calln, 00));
+
+                        jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op2)->name]
+                            .push_back(runtime_command_buffer.size());
+
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                        runtime_command_buffer.push_back(0x00);
+                    }
+                    else if (RS_IR.op1)
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(calln, 01));
+
+                        byte_t* readptr = (byte_t*)&RS_IR.op1;
+                        for (size_t index = 0; index < sizeof(RS_IR.op1); index++)
+                        {
+                            runtime_command_buffer.push_back(readptr[index]);
+                        }
+                    }
+                    else
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(calln, 00));
+                        byte_t* readptr = (byte_t*)&RS_IR.opinteger;
+                        runtime_command_buffer.push_back(readptr[0]);
+                        runtime_command_buffer.push_back(readptr[1]);
+                        runtime_command_buffer.push_back(readptr[2]);
+                        runtime_command_buffer.push_back(readptr[3]);
+                    }
+                    break;
+                case instruct::opcode::ret:
+                    runtime_command_buffer.push_back(RS_OPCODE(ret, 00));
+
+                    break;
                 case instruct::opcode::abrt:
                     runtime_command_buffer.push_back(RS_OPCODE(abrt, 00));
                     break;
@@ -1140,8 +1219,8 @@ namespace rs
 
             runtime_env env;
             env.constant_global_reg_rtstack = preserved_memory;
-            env.reg_begin = preserved_memory + constant_value_count + global_value_count;
-            env.stack_begin = env.reg_begin + real_register_count;
+            env.reg_begin = env.constant_global_reg_rtstack + constant_value_count + global_value_count;
+            env.stack_begin = env.constant_global_reg_rtstack + (preserve_memory_size - 1);
 
             env.constant_value_count = constant_value_count;
             env.global_value_count = global_value_count;

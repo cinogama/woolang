@@ -14,13 +14,71 @@
 #include "rs_ir_compiler.hpp"
 #include "rs_vm.hpp"
 
+void example(rs::vmbase* vm)
+{
+    printf("what the hell!\n");
+
+    vm->cr->integer = 9926;
+    vm->cr->type = rs::value::valuetype::integer_type;
+}
+
+void veh_exception_test(rs::vmbase* vm)
+{
+    rs_fail("veh_exception_test.");
+}
+
+#define RS_IMPL
+#include "rs.h"
+
 int main()
 {
     using namespace rs;
     using namespace rs::opnum;
 
-    vm vmm;
+    std::cout << "RestorableScene ver." << rs_version() << " " << rs_compile_date() << std::endl;
+    std::cout << rs_compile_date() << std::endl;
 
+
+    vm vmm;
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c9;                         // 
+    c9.jmp(tag("demo_main"));               //      jmp     demo_main;
+    c9.tag("demo_func_01");                 //  :demo_func_01
+    c9.mov(reg(reg::t0), imm(666));         //      mov     t0,     666;
+    c9.addi(reg(reg::t0), imm(233));        //      addi    t0,     233; 
+    c9.ret();                               //      ret
+    c9.tag("demo_main");                    //  :demo_main
+    c9.call(tag("demo_func_01"));           //      call    demo_func_01;
+    c9.end();                               //      end
+
+    vmm.set_runtime(c9.finalize());
+    vmm.run();
+
+    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
+    rs_test(vmm.stacktop == vmm.env.stack_begin);
+    rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 233+666);
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    /*
+    ir_compiler c8;                                     // 
+    c8.call(&veh_exception_test);
+    c8.end();                                          //      end
+
+    vmm.set_runtime(c8.finalize());
+    vmm.run();
+    */
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c7;                                     // 
+    c7.call(&example);
+    c7.end();                                          //      end
+
+    vmm.set_runtime(c7.finalize());
+    vmm.run();
+
+    rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 9926);
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c6;                                     // 

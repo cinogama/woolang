@@ -1,10 +1,17 @@
 #pragma once
 
+#define RS_IMPL
+#include "rs.h"
+
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <set>
 #include <vector>
+
+#include "rs_gc.hpp"
+#include "rs_assert.hpp"
 
 namespace rs
 {
@@ -32,31 +39,38 @@ namespace rs
 
         union
         {
-            real_t      real;
-            int64_t     integer;
-            uint64_t    handle;
-            string_t* string;     // ADD-ABLE TYPE
-            mapping_t* mapping;
+            rs_real_t      real;
+            rs_integer_t   integer;
+            rs_handle_t    handle;
+
+            string_t*      string;     // ADD-ABLE TYPE
+            mapping_t*     mapping;
+
+            struct
+            {
+                uint32_t bp;
+                uint32_t ret_ip;
+            };
 
             value* ref;
         };
 
         enum class valuetype : uint8_t
         {
-            integer_type = 0,
+            invalid = 0x0,
+
+            integer_type,
             real_type,
             handle_type,
 
             is_ref,
+            callstack,
 
             need_gc = 0xF0,
 
             string_type,
             mapping_type,
 
-
-
-            invalid = 0xff,
         };
         valuetype type;
 
@@ -97,4 +111,7 @@ namespace rs
             return handle;
         }
     };
+    static_assert(sizeof(value) == 16);
+
+    using native_func_t = rs_native_func;
 }

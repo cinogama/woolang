@@ -26,9 +26,10 @@ namespace rs
         }
 
         template<typename ... ArgTs>
-        static gcunit<T>* gc_new(ArgTs && ... args)
+        static gcunit<T>* gc_new(gcunit<T>*& write_aim, ArgTs && ... args)
         {
-            return new gcunit<T>(args...);
+            write_aim = new gcunit<T>(args...);
+            return write_aim;
         }
 
         template<typename TT>

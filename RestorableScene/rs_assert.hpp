@@ -8,9 +8,8 @@
 #define rs_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
-template<typename ... MSGTS>
 [[noreturn]]
-void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
+static void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     std::cerr << "Assert failed: " << judgement << std::endl;
     if (reason)

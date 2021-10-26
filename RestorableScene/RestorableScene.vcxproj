@@ -144,9 +144,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="rs_api_impl.cpp" />
     <ClCompile Include="rs_main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="rs.h" />
     <ClInclude Include="rs_vm.hpp" />
     <ClInclude Include="rs_assert.hpp" />
     <ClInclude Include="rs_basic_type.hpp" />

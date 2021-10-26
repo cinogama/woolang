@@ -18,6 +18,9 @@
     <ClCompile Include="rs_main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_api_impl.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_gc.hpp">
@@ -42,6 +45,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="rs_vm.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

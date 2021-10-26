@@ -48,41 +48,43 @@ struct instruct
 
         lds = 21 RS_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
         ldsr = 22 RS_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
-        // ldg = 23 RS_OPCODE_SPACE,   // ldg(dr_0)            REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
-        // ldgr = 24 RS_OPCODE_SPACE,  // ldgr(dr_0)           REGID(1BYTE)/DIFF(4BYTE) DIFF(4BYTE SIGN)   4-7 byte
 
         //  Logic operator, the result will store to logic_state
-        equ = 25 RS_OPCODE_SPACE,   // equ(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        nequ = 26 RS_OPCODE_SPACE,  // nequ
+        equ = 23 RS_OPCODE_SPACE,   // equ(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        nequ = 24 RS_OPCODE_SPACE,  // nequ
 
-        lti = 27 RS_OPCODE_SPACE,    // lt
-        gti = 28 RS_OPCODE_SPACE,    // gt
-        elti = 29 RS_OPCODE_SPACE,   // elt
-        egti = 30 RS_OPCODE_SPACE,   // egt
-        land = 31 RS_OPCODE_SPACE,  // land             
-        lor = 32 RS_OPCODE_SPACE,   // lor
-        lnot = 33 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
+        lti = 25 RS_OPCODE_SPACE,    // lt
+        gti = 26 RS_OPCODE_SPACE,    // gt
+        elti = 27 RS_OPCODE_SPACE,   // elt
+        egti = 28 RS_OPCODE_SPACE,   // egt
+        land = 29 RS_OPCODE_SPACE,  // land             
+        lor = 30 RS_OPCODE_SPACE,   // lor
+        lnot = 31 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
 
-        lth = 34 RS_OPCODE_SPACE,    // lt
-        gth = 35 RS_OPCODE_SPACE,    // gt
-        elth = 36 RS_OPCODE_SPACE,   // elt
-        egth = 37 RS_OPCODE_SPACE,   // egt
+        lth = 32 RS_OPCODE_SPACE,    // lt
+        gth = 33 RS_OPCODE_SPACE,    // gt
+        elth = 34 RS_OPCODE_SPACE,   // elt
+        egth = 35 RS_OPCODE_SPACE,   // egt
 
-        ltr = 38 RS_OPCODE_SPACE,    // lt
-        gtr = 39 RS_OPCODE_SPACE,    // gt
-        eltr = 40 RS_OPCODE_SPACE,   // elt
-        egtr = 41 RS_OPCODE_SPACE,   // egt
+        ltr = 36 RS_OPCODE_SPACE,    // lt
+        gtr = 37 RS_OPCODE_SPACE,    // gt
+        eltr = 38 RS_OPCODE_SPACE,   // elt
+        egtr = 39 RS_OPCODE_SPACE,   // egt
 
-        call = 42 RS_OPCODE_SPACE,  // call(ISNATIVE?)  REGID(1BYTE)/DIFF(4BYTE)
-        ret = 43 RS_OPCODE_SPACE,   // ret
-        jt = 44 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
-        jf = 45 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
-        jmp = 46 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
+        call = 40 RS_OPCODE_SPACE,  // call(dr_0)  REGID(1BYTE)/DIFF(4BYTE) 
+        calln = 41 RS_OPCODE_SPACE,  // calln(0_ISNATIVE)  VM_IR_DIFF(4BYTE)/NATIVE_FUNC(8BYTE)
+        ret = 42 RS_OPCODE_SPACE,   // ret
+        jt = 43 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
+        jf = 44 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
+        jmp = 45 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-        movr2i = 47 RS_OPCODE_SPACE,
-        movi2r = 48 RS_OPCODE_SPACE,
-        setr2i = 49 RS_OPCODE_SPACE,
-        seti2r = 50 RS_OPCODE_SPACE,
+        movr2i = 46 RS_OPCODE_SPACE,
+        movi2r = 47 RS_OPCODE_SPACE,
+        setr2i = 48 RS_OPCODE_SPACE,
+        seti2r = 49 RS_OPCODE_SPACE,
+
+        // exception handler
+          = 50 RS_OPCODE_SPACE, // excep(RAISE?_ROLLBACK?) RAISE? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
 
         abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)     
 
