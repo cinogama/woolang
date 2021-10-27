@@ -142,7 +142,7 @@ namespace rs
             {
                 v->type = type();
                 if constexpr (sfinae::is_string<T>::value)
-                    string_t::gc_new(v->string, val);
+                    string_t::gc_new<gcbase::gctype::eden>(v->string, val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)

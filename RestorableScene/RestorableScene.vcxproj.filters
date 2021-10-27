@@ -21,6 +21,9 @@
     <ClCompile Include="rs_api_impl.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_gc_work.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_gc.hpp">

@@ -27,8 +27,19 @@ void veh_exception_test(rs::vmbase* vm)
     rs_fail("veh_exception_test.");
 }
 
+void cost_time_test_gc(rs::vmbase* vm)
+{
+    using namespace std;
+    printf("vvvvvv GC SHOULD WORK vvvvvv\n");
+    std::this_thread::sleep_for(20s);
+    printf("^^^^^^ IN THIS RANGE ^^^^^^^\n");
+}
+
+
 #define RS_IMPL
 #include "rs.h"
+
+#include <thread>
 
 int main()
 {
@@ -38,8 +49,37 @@ int main()
     std::cout << "RestorableScene ver." << rs_version() << " " << rs_compile_date() << std::endl;
     std::cout << rs_compile_date() << std::endl;
 
+    gc::gc_start();
 
     vm vmm;
+    ///////////////////////////////////////////////////////////////////////////////////////
+    /*
+    ir_compiler c13;                                // 
+    c13.tag("program_begin");
+    c13.mov(reg(reg::t0), imm("hello"));
+    c13.adds(reg(reg::t0), imm(",world"));
+    c13.jmp(tag("program_begin"));
+    c13.end();                                      //      end
+
+    vmm.set_runtime(c13.finalize());
+
+    vmm.run();*/
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c12;                                // 
+    c12.call(&cost_time_test_gc);
+    c12.end();                                      //      end
+
+    vmm.set_runtime(c12.finalize());
+
+    auto begin_gc_count = gc::gc_work_round_count();
+    vmm.run();
+    auto end_gc_count = gc::gc_work_round_count();
+
+    rs_test(vmm.bp == vmm.env.stack_begin);
+    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(end_gc_count - begin_gc_count >= 2);
+
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c11;                                // 
@@ -61,8 +101,8 @@ int main()
     vmm.set_runtime(c11.finalize());
     vmm.run();
 
-    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
-    rs_test(vmm.stacktop == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env.stack_begin);
+    rs_test(vmm.sp == vmm.env.stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 233);
 
@@ -88,8 +128,8 @@ int main()
     vmm.set_runtime(c10.finalize());
     vmm.run();
 
-    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
-    rs_test(vmm.stacktop == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env.stack_begin);
+    rs_test(vmm.sp == vmm.env.stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 1024);
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -108,20 +148,20 @@ int main()
     vmm.set_runtime(c9.finalize());
     vmm.run();
 
-    rs_test(vmm.stackbuttom == vmm.env.stack_begin);
-    rs_test(vmm.stacktop == vmm.env.stack_begin);
-    rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 233+666);
+    rs_test(vmm.bp == vmm.env.stack_begin);
+    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 233 + 666);
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ///////////////////////////////////////////////////////////////////////////////////////
-    
+
     ir_compiler c8;                                     // 
     c8.call(&veh_exception_test);
     c8.end();                                          //      end
 
     vmm.set_runtime(c8.finalize());
     vmm.run();
-    
+
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c7;                                     // 

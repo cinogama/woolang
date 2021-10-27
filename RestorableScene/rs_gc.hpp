@@ -11,15 +11,16 @@ namespace rs
 
     struct gcbase
     {
-        enum gctype
+        enum class gctype
         {
             no_gc,
+
             eden,
             young,
             old,
         };
         gctype gc_type = gctype::no_gc;
-        uint16_t gc_mark_version;
+        uint16_t gc_mark_version = 0;
 
         // used in linklist;
         gcbase* next = nullptr;
@@ -36,10 +37,11 @@ namespace rs
 
         }
 
-        template<typename ... ArgTs>
+        template<gcbase::gctype AllocType, typename ... ArgTs>
         static gcunit<T>* gc_new(gcunit<T>*& write_aim, ArgTs && ... args)
         {
             write_aim = new gcunit<T>(args...);
+            write_aim->gc_type = AllocType;
             return write_aim;
         }
 
@@ -51,4 +53,10 @@ namespace rs
         }
     };
 
+    namespace gc
+    {
+        uint16_t gc_work_round_count();
+
+        void gc_start();
+    }
 }

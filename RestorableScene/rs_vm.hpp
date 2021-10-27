@@ -4,6 +4,8 @@
 #include "rs_ir_compiler.hpp"
 
 #include <csetjmp>
+#include <shared_mutex>
+#include <thread>
 
 namespace rs
 {
@@ -11,22 +13,126 @@ namespace rs
 
     struct vmbase
     {
+        inline static std::shared_mutex _alive_vm_list_mx;
+        inline static cxx_set_t<vmbase*> _alive_vm_list;
+
+        vmbase(const vmbase&) = delete;
+        vmbase(vmbase&&) = delete;
+        vmbase& operator=(const vmbase&) = delete;
+        vmbase& operator=(vmbase&&) = delete;
+
+        enum vm_interrupt_type
+        {
+            NOTHING = 0,
+            GC_INTERRUPT = 1,
+        };
+
+        std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
+
+        inline bool interrupt(vm_interrupt_type type)
+        {
+            return !(type & vm_interrupt.fetch_or(type));
+        }
+
+        inline bool clear_interrupt(vm_interrupt_type type)
+        {
+            return type & vm_interrupt.fetch_and(~type);
+        }
+
+        inline bool wait_interrupt(vm_interrupt_type type)
+        {
+            interrupt(type);
+            constexpr int MAX_TRY_COUNT = 1000;
+            int i = 0;
+            for (i = 0; i < MAX_TRY_COUNT && (vm_interrupt & type); i++)
+            {
+                std::this_thread::yield();
+            }
+            if (i >= MAX_TRY_COUNT)
+                return false;
+
+            return true;
+        }
+
+        std::mutex _vm_hang_mx;
+        std::condition_variable _vm_hang_cv;
+        bool _vm_hang_flag=false;
+
+        inline void hangup()
+        {
+            do
+            {
+                std::lock_guard g1(_vm_hang_mx);
+                _vm_hang_flag = true;
+
+            } while (0);
+            std::unique_lock ug1(_vm_hang_mx);
+            _vm_hang_cv.wait(ug1, [this]() {return !_vm_hang_flag; });
+
+
+        }
+
+        inline void wakeup()
+        {
+            do
+            {
+                std::lock_guard g1(_vm_hang_mx);
+                _vm_hang_flag = false;
+
+            } while (0);
+            _vm_hang_cv.notify_one();
+        }
+
+        vmbase()
+        {
+            std::lock_guard g1(_alive_vm_list_mx);
+
+            rs_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),
+                "This vm is already exists in _alive_vm_list, that is illegal.");
+
+            _alive_vm_list.insert(this);
+        }
+        ~vmbase()
+        {
+            std::lock_guard g1(_alive_vm_list_mx);
+
+            rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
+                "This vm not exists in _alive_vm_list, that is illegal.");
+
+            _alive_vm_list.erase(this);
+        }
+
         inline thread_local static vmbase* _this_thread_vm;
 
         // vm exception handler
         exception_recovery* veh = nullptr;
 
         // next ircode pointer
-        byte_t* ip;
+        byte_t* ip = nullptr;
 
         // special regist
-        value* cr;  // op result trace & function return;
-        value* tc;  // arugument count
-        value* er;  // exception result
+        value* cr = nullptr;  // op result trace & function return;
+        value* tc = nullptr;  // arugument count
+        value* er = nullptr;  // exception result
 
         // stack info
-        value* stacktop;
-        value* stackbuttom;
+        volatile value* sp = nullptr;
+        volatile value* bp = nullptr;
+
+        ir_compiler::runtime_env env;
+
+        void set_runtime(ir_compiler::runtime_env _env)
+        {
+            env = _env;
+
+            ip = env.rt_codes;
+            cr = env.reg_begin + opnum::reg::spreg::cr;
+            tc = env.reg_begin + opnum::reg::spreg::tc;
+            er = env.reg_begin + opnum::reg::spreg::er;
+            sp = bp = env.stack_begin;
+        }
+
+
     };
 
     class exception_recovery
@@ -87,19 +193,7 @@ namespace rs
     {
 
     public:
-        ir_compiler::runtime_env env;
-
-        void set_runtime(ir_compiler::runtime_env _env)
-        {
-            env = _env;
-
-            ip = env.rt_codes;
-            cr = env.reg_begin + opnum::reg::spreg::cr;
-            tc = env.reg_begin + opnum::reg::spreg::tc;
-            er = env.reg_begin + opnum::reg::spreg::er;
-            stacktop = stackbuttom = env.stack_begin;
-        }
-
+      
         void run()
         {
             // used for restoring IP
@@ -128,8 +222,8 @@ namespace rs
             value* reg_begin = rt_env->reg_begin;
 
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
-            ip_restore_raii _o2((void*&)rt_bp, (void*&)stackbuttom);
-            ip_restore_raii _o3((void*&)rt_sp, (void*&)stacktop);
+            ip_restore_raii _o2((void*&)rt_bp, (void*&)sp);
+            ip_restore_raii _o3((void*&)rt_sp, (void*&)bp);
 
             auto* _nullptr = this;
             ip_restore_raii _o4((void*&)_this_thread_vm, (void*&)_nullptr);
@@ -210,6 +304,9 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
 
                     (rt_sp--)->set_val(opnum1);
+
+                    rs_assert(rt_sp <= rt_bp);
+
                     break;
                 }
                 case instruct::opcode::pshr:
@@ -217,6 +314,9 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
 
                     (rt_sp--)->set_ref(opnum1);
+
+                    rs_assert(rt_sp <= rt_bp);
+
                     break;
                 }
                 case instruct::opcode::pop:
@@ -229,12 +329,16 @@ namespace rs
                     else
                         rt_sp += RS_IPVAL_MOVE_2;
 
+                    rs_assert(rt_sp <= rt_bp);
+
                     break;
                 }
                 case instruct::opcode::popr:
                 {
                     RS_ADDRESSING_N1_REF;
                     opnum1->set_ref((++rt_sp)->get());
+
+                    rs_assert(rt_sp <= rt_bp);
 
                     break;
                 }
@@ -383,7 +487,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type);
 
-                    cr->set_ref((string_t::gc_new(opnum1->string, *opnum1->string + *opnum2->string), opnum1));
+                    cr->set_ref((string_t::gc_new<gcbase::gctype::eden>(opnum1->string, *opnum1->string + *opnum2->string), opnum1));
                     break;
                 }
                 /// OPERATE
@@ -729,6 +833,7 @@ namespace rs
                     if (opnum1->type == value::valuetype::handle_type)
                     {
                         // Call native
+                        sp = rt_sp;
                         reinterpret_cast<native_func_t>(opnum1->handle)(reinterpret_cast<rs_vm>(this));
                     }
                     else
@@ -754,6 +859,7 @@ namespace rs
                     if (dr)
                     {
                         // Call native
+                        sp = rt_sp;
                         reinterpret_cast<native_func_t>(RS_IPVAL_MOVE_8)(reinterpret_cast<rs_vm>(this));
                     }
                     else
@@ -821,7 +927,19 @@ namespace rs
                 default:
                     rs_error("Unknown instruct.");
                 }
-            }
+
+                if (vm_interrupt)
+                {
+                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                    {
+                        // write regist(sp) data, then clear interrupt mark.
+                        sp = rt_sp;
+                        if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                            hangup();   // SLEEP UNTIL WAKE UP
+                    }
+                }
+
+            }// vm loop end.
 #undef RS_ADDRESSING_N2_REF
 #undef RS_ADDRESSING_N1_REF
 #undef RS_ADDRESSING_N2

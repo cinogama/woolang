@@ -100,8 +100,8 @@ namespace rs
 
         inline value* set_val(value* _val)
         {
-            type = _val->type;
             handle = _val->handle;
+            type = _val->type;
 
             return this;
         }

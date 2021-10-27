@@ -55,7 +55,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
         case 3:
             if (rs::vmbase::_this_thread_vm)
             {
-                rs::string_t::gc_new(rs::vmbase::_this_thread_vm->er->string, reason);
+                rs::string_t::gc_new<rs::gcbase::gctype::eden>(rs::vmbase::_this_thread_vm->er->string, reason);
                 rs::vmbase::_this_thread_vm->er->type = rs::value::valuetype::string_type;
 
                 rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
@@ -214,7 +214,7 @@ rs_string_t rs_cast_string(rs_value value)
 
 rs_value* rs_args(rs_vm vm)
 {
-    return (rs_value*)(reinterpret_cast<rs::vmbase*>(vm)->stackbuttom + 2);
+    return (rs_value*)(reinterpret_cast<rs::vmbase*>(vm)->sp);
 }
 rs_integer_t rs_argc(rs_vm vm)
 {
