@@ -817,6 +817,8 @@ namespace rs
             size_t constant_value_count;
             size_t global_value_count;
             size_t real_register_count;
+            size_t cgr_global_value_count;
+
             size_t runtime_stack_count;
 
             byte_t* rt_codes;
@@ -1270,6 +1272,10 @@ namespace rs
             env.constant_value_count = constant_value_count;
             env.global_value_count = global_value_count;
             env.real_register_count = real_register_count;
+            env.cgr_global_value_count  = env.constant_value_count
+                                        + env.global_value_count
+                                        + env.real_register_count;
+
             env.runtime_stack_count = runtime_stack_count;
 
             env.rt_codes = (byte_t*)malloc(runtime_command_buffer.size() * sizeof(byte_t));

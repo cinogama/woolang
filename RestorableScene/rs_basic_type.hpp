@@ -43,6 +43,7 @@ namespace rs
             rs_integer_t   integer;
             rs_handle_t    handle;
 
+            gcbase* gcbase;
             string_t*      string;     // ADD-ABLE TYPE
             mapping_t*     mapping;
 

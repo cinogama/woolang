@@ -47,9 +47,31 @@ namespace rs
                         {
                             auto& env = vmimpl->env;
 
-                            forenv.constant_global_reg_rtstack
-                        }
+                            // walk thorgh global.
+                            for (int cgr_index = 0;
+                                cgr_index < env.cgr_global_value_count;
+                                cgr_index++)
+                            {
+                                auto& global_val = env.constant_global_reg_rtstack[cgr_index];
+                                if ((uint8_t)global_val.type & (uint8_t)value::valuetype::need_gc)
+                                {
+                                    // mark it
+                                    global_val.gcbase->gc_mark_color =  gcbase::gcmarkcolor::self_mark;
+                                }
+                            }
 
+                            // walk thorgh stack.
+                            for (auto* stack_walker = env.stack_begin;
+                                vmimpl->sp < stack_walker;
+                                stack_walker--)
+                            {
+                                if ((uint8_t)stack_walker->type & (uint8_t)value::valuetype::need_gc)
+                                {
+                                    // mark it
+                                    stack_walker->gcbase->gc_mark_color = gcbase::gcmarkcolor::self_mark;
+                                }
+                            }
+                        }
                         // over, if vm still not manage vmbase::GC_INTERRUPT clean it
                         // or wake up vm.
                         if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
@@ -127,8 +149,18 @@ namespace rs
 
                 } while (0);
 
+                // Mark end, do gc
+                // Scan all eden, then scan all gray elem
 
+                // if full gc 
+                // delete unref elem, move others back to list
 
+                // Manage young,
+                // delete unref elem, move others back to list,
+                // if scan over spcfy count, move elem to old
+
+                // Move all eden to young
+                
                 // Run MINOR-GC once per 5 sec, Run FULL-GC once per 5 MINOR-GC
                 // Or you can awake gc-work manually.
 

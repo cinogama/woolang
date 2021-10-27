@@ -11,7 +11,7 @@ namespace rs
 
     struct gcbase
     {
-        enum class gctype
+        enum class gctype : uint8_t
         {
             no_gc,
 
@@ -19,8 +19,16 @@ namespace rs
             young,
             old,
         };
+        enum class gcmarkcolor : uint8_t
+        {
+            no_mark,
+            self_mark,
+            full_mark,
+        };
+
         gctype gc_type = gctype::no_gc;
-        uint16_t gc_mark_version = 0;
+        gcmarkcolor gc_mark_color = gcmarkcolor::no_mark;
+        std::
 
         // used in linklist;
         gcbase* next = nullptr;
