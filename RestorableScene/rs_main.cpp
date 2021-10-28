@@ -16,7 +16,10 @@
 
 void example(rs::vmbase* vm)
 {
-    printf("what the hell!\n");
+    // printf("what the hell!\n");
+    using namespace std;
+
+    // std::this_thread::sleep_for(1s);
 
     vm->cr->integer = 9926;
     vm->cr->type = rs::value::valuetype::integer_type;
@@ -46,7 +49,7 @@ int main()
     using namespace rs;
     using namespace rs::opnum;
 
-    std::cout << "RestorableScene ver." << rs_version() << " " << rs_compile_date() << std::endl;
+    std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
 
     gc::gc_start();
@@ -55,10 +58,11 @@ int main()
     ///////////////////////////////////////////////////////////////////////////////////////
     
     ir_compiler c13;                                // 
-    c13.tag("program_begin");
-    c13.mov(reg(reg::t0), imm("hello"));
-    c13.adds(reg(reg::t0), imm(",world"));
-    c13.jmp(tag("program_begin"));
+    c13.tag("program_begin");                       //  program_begin:
+    c13.call(&example);                             //      call    example
+    c13.mov(reg(reg::t0), imm("hello"));            //      mov     t0, "hello"
+    c13.adds(reg(reg::t0), imm(",world"));          //      adds    t0, ",world"
+    c13.jmp(tag("program_begin"));                  //      jmp     program_begin
     c13.end();                                      //      end
 
     vmm.set_runtime(c13.finalize());

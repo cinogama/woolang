@@ -5,6 +5,15 @@
 
 namespace rs
 {
+    namespace gc
+    {
+        uint16_t gc_work_round_count();
+
+        void gc_start();
+
+        void gc_begin(bool full_gc);
+    }
+
     template<typename NodeT>
     struct atomic_list
     {
@@ -136,7 +145,7 @@ namespace rs
 
         inline gcmarkcolor gc_marked(uint16_t version)
         {
-            if (version== gc_mark_version)
+            if (version == gc_mark_version)
             {
                 return gc_mark_color;
             }
@@ -183,7 +192,7 @@ namespace rs
         template<gcbase::gctype AllocType, typename ... ArgTs>
         static gcunit<T>* gc_new(gcunit<T>*& write_aim, ArgTs && ... args)
         {
-            gc_new_count++;
+            ++gc_new_count;
 
             write_aim = new gcunit<T>(args...);
             write_aim->gc_type = AllocType;
@@ -218,10 +227,5 @@ namespace rs
         }
     };
 
-    namespace gc
-    {
-        uint16_t gc_work_round_count();
 
-        void gc_start();
-    }
 }

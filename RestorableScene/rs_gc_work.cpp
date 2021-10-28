@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <chrono>
+#include <execution>
 
 namespace rs
 {
@@ -13,6 +14,11 @@ namespace rs
         constexpr uint16_t          _gc_work_thread_count = 4;
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
         std::condition_variable     _gc_cv;
+
+        uint32_t                    _gc_immediately_edge = 50000;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 100;
+
+        volatile bool               _gc_fullgc_stopping_the_world = false;
 
         class gc_mark_thread
         {
@@ -35,8 +41,9 @@ namespace rs
 
                     for (auto* vmimpl : gmt->_gc_working_vm)
                     {
-                        rs_asure_warn(vmimpl->wait_interrupt(vmbase::GC_INTERRUPT),
-                            "Virtual machine not accept GC_INTERRUPT. skip waiting.");
+                        if (!_gc_fullgc_stopping_the_world)
+                            rs_asure_warn(vmimpl->wait_interrupt(vmbase::GC_INTERRUPT),
+                                "Virtual machine not accept GC_INTERRUPT. skip waiting.");
 
                         // do mark
 
@@ -75,8 +82,9 @@ namespace rs
                         }
                         // over, if vm still not manage vmbase::GC_INTERRUPT clean it
                         // or wake up vm.
-                        if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                            vmimpl->wakeup();
+                        if (!_gc_fullgc_stopping_the_world)
+                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                vmimpl->wakeup();
 
                     }
 
@@ -258,14 +266,47 @@ namespace rs
 
                 using namespace std;
 
-                if (gcbase::gc_new_count < 0)
+
+                if (gcbase::gc_new_count > _gc_stop_the_world_edge)
+                {
+                    // Stop world immediately, then reboot gc...
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                        vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+
+                    gcbase::gc_new_count -= _gc_stop_the_world_edge;
+
+                    _gc_fullgc_stopping_the_world = true;
+
+                    continue;
+                }
+
+                if (_gc_fullgc_stopping_the_world)
+                {
+                    _gc_fullgc_stopping_the_world = false;
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    {
+                        if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                        {
+                            vmimpl->wakeup();
+                        }
+                    }
+                    continue;
+                }
+
+                if (gcbase::gc_new_count < _gc_immediately_edge)
                 {
                     std::unique_lock ug1(_gc_mx);
-                    _gc_cv.wait_for(ug1, 5s);
+
+                    for (int i = 0; i < 50; i++)
+                    {
+                        _gc_cv.wait_for(ug1, 0.1s);
+                        if (gcbase::gc_new_count > _gc_immediately_edge)
+                            break;
+                    }
                 }
                 else
                 {
-                    gcbase::gc_new_count = 0;
+                    gcbase::gc_new_count -= _gc_immediately_edge;
                 }
 
             } while (true);
@@ -281,6 +322,10 @@ namespace rs
             return _gc_round_count;
         }
 
+        void gc_begin(bool full_gc)
+        {
+            _gc_cv.notify_all();
+        }
 
     }// namespace gc
 }

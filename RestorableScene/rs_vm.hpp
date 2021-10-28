@@ -25,13 +25,17 @@ namespace rs
         {
             NOTHING = 0,
             GC_INTERRUPT = 1,
+            LEAVE_INTERRUPT = 1 << 1,
         };
 
         std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
 
         inline bool interrupt(vm_interrupt_type type)
         {
-            return !(type & vm_interrupt.fetch_or(type));
+            bool result;
+            rs_test(result = !(type & vm_interrupt.fetch_or(type)));
+
+            return result;
         }
 
         inline bool clear_interrupt(vm_interrupt_type type)
@@ -42,15 +46,21 @@ namespace rs
         inline bool wait_interrupt(vm_interrupt_type type)
         {
             interrupt(type);
+
             constexpr int MAX_TRY_COUNT = 1000;
             int i = 0;
-            for (i = 0; i < MAX_TRY_COUNT && (vm_interrupt & type); i++)
+            while (vm_interrupt & type)
             {
+                if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                {
+                    if (++i > MAX_TRY_COUNT)
+                        return false;
+                }
+                else
+                    i = 0;
+
                 std::this_thread::yield();
             }
-            if (i >= MAX_TRY_COUNT)
-                return false;
-
             return true;
         }
 
@@ -60,20 +70,31 @@ namespace rs
 
         inline void hangup()
         {
-            std::unique_lock ug1(_vm_hang_mx);
+            do
+            {
+                std::lock_guard g1(_vm_hang_mx);
+                --_vm_hang_flag;
+            } while (0);
 
-            ++_vm_hang_flag;
-            _vm_hang_cv.wait(ug1, [this]() {return _vm_hang_flag > 0; });
+            std::unique_lock ug1(_vm_hang_mx);
+            _vm_hang_cv.wait(ug1, [this]() {return _vm_hang_flag >= 0; });
         }
 
         inline void wakeup()
         {
-            --_vm_hang_flag;
+            do
+            {
+                std::lock_guard g1(_vm_hang_mx);
+                ++_vm_hang_flag;
+            } while (0);
+
             _vm_hang_cv.notify_one();
         }
 
         vmbase()
         {
+            interrupt(vm_interrupt_type::LEAVE_INTERRUPT);
+
             std::lock_guard g1(_alive_vm_list_mx);
 
             rs_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),
@@ -83,6 +104,8 @@ namespace rs
         }
         ~vmbase()
         {
+            rs_test(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+
             std::lock_guard g1(_alive_vm_list_mx);
 
             rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
@@ -185,6 +208,19 @@ namespace rs
 
         void run()
         {
+            struct auto_leave
+            {
+                vmbase* vm;
+                auto_leave(vmbase* _vm)
+                    :vm(_vm)
+                {
+                    rs_asure(vm->clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                }
+                ~auto_leave()
+                {
+                    rs_asure(vm->interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                }
+            };
             // used for restoring IP
             struct ip_restore_raii
             {
@@ -210,13 +246,15 @@ namespace rs
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
             value* reg_begin = rt_env->reg_begin;
 
+            auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
             ip_restore_raii _o2((void*&)rt_bp, (void*&)sp);
             ip_restore_raii _o3((void*&)rt_sp, (void*&)bp);
 
-            auto* _nullptr = this;
+            vmbase* last_this_thread_vm = _this_thread_vm;
+            vmbase* _nullptr = this;
             ip_restore_raii _o4((void*&)_this_thread_vm, (void*&)_nullptr);
-            _nullptr = nullptr;
+            _nullptr = last_this_thread_vm;
 
             rs_assert(rt_env->reg_begin == rt_env->constant_global_reg_rtstack
                 + rt_env->constant_value_count
@@ -285,6 +323,23 @@ namespace rs
                 byte_t opcode_dr = *(rt_ip++);
                 instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
                 unsigned dr = opcode_dr & 0b00000011u;
+
+                if (vm_interrupt)
+                {
+                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                    {
+                        // write regist(sp) data, then clear interrupt mark.
+                        sp = rt_sp;
+                        if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                            hangup();   // SLEEP UNTIL WAKE UP
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                    {
+                        // That should not be happend...
+
+                        rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                    }
+                }
 
                 switch (opcode)
                 {
@@ -822,8 +877,10 @@ namespace rs
                     if (opnum1->type == value::valuetype::handle_type)
                     {
                         // Call native
-                        sp = rt_sp;
+                        bp = sp = rt_sp;
+                        rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         reinterpret_cast<native_func_t>(opnum1->handle)(reinterpret_cast<rs_vm>(this));
+                        rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                     }
                     else
                     {
@@ -848,8 +905,10 @@ namespace rs
                     if (dr)
                     {
                         // Call native
-                        sp = rt_sp;
+                        bp = sp = rt_sp;
+                        rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         reinterpret_cast<native_func_t>(RS_IPVAL_MOVE_8)(reinterpret_cast<rs_vm>(this));
+                        rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                     }
                     else
                     {
@@ -915,17 +974,6 @@ namespace rs
                     rs_error("executed 'abrt'.");
                 default:
                     rs_error("Unknown instruct.");
-                }
-
-                if (vm_interrupt)
-                {
-                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
-                    {
-                        // write regist(sp) data, then clear interrupt mark.
-                        sp = rt_sp;
-                        if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                            hangup();   // SLEEP UNTIL WAKE UP
-                    }
                 }
 
             }// vm loop end.
