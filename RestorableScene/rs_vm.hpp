@@ -56,30 +56,19 @@ namespace rs
 
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
-        bool _vm_hang_flag=false;
+        std::atomic_int8_t _vm_hang_flag = 0;
 
         inline void hangup()
         {
-            do
-            {
-                std::lock_guard g1(_vm_hang_mx);
-                _vm_hang_flag = true;
-
-            } while (0);
             std::unique_lock ug1(_vm_hang_mx);
-            _vm_hang_cv.wait(ug1, [this]() {return !_vm_hang_flag; });
 
-
+            ++_vm_hang_flag;
+            _vm_hang_cv.wait(ug1, [this]() {return _vm_hang_flag > 0; });
         }
 
         inline void wakeup()
         {
-            do
-            {
-                std::lock_guard g1(_vm_hang_mx);
-                _vm_hang_flag = false;
-
-            } while (0);
+            --_vm_hang_flag;
             _vm_hang_cv.notify_one();
         }
 
@@ -193,7 +182,7 @@ namespace rs
     {
 
     public:
-      
+
         void run()
         {
             // used for restoring IP

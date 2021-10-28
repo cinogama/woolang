@@ -82,17 +82,15 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
 
     } while (true);
 }
-static rs_fail_handler _rs_fail_handler_function = &_default_fail_handler;
+static std::atomic<rs_fail_handler> _rs_fail_handler_function = &_default_fail_handler;
 
 RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler)
 {
-    return std::atomic_exchange(
-        reinterpret_cast<std::atomic<rs_fail_handler>*>(&_rs_fail_handler_function),
-        new_handler);;
+    return _rs_fail_handler_function.exchange(new_handler);
 }
 RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason)
 {
-    _rs_fail_handler_function(src_file, lineno, functionname, reason);
+    _rs_fail_handler_function.load()(src_file, lineno, functionname, reason);
 }
 
 rs_string_t  rs_compile_date(void)

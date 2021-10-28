@@ -53,7 +53,7 @@ int main()
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
-    /*
+    
     ir_compiler c13;                                // 
     c13.tag("program_begin");
     c13.mov(reg(reg::t0), imm("hello"));
@@ -63,7 +63,7 @@ int main()
 
     vmm.set_runtime(c13.finalize());
 
-    vmm.run();*/
+    vmm.run();
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c12;                                // 
@@ -251,15 +251,19 @@ int main()
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c1;
+    c1.tag("all_program_begin");
     c1.psh(imm(0));                                     //      psh     0
     c1.set(reg(reg::bp_offset(0)), imm(0));             //      set     [bp+0],  0              int  i=0
     c1.tag("loop_begin");                               //  :loop_begin
-    c1.lti(reg(reg::bp_offset(0)), imm(100000000));     //      lti     [bp+0],   100000000     while i < 100000000
+    c1.lti(reg(reg::bp_offset(0)), imm(10));     //      lti     [bp+0],   100000000     while i < 100000000
     c1.jf(tag("loop_end"));                             //      jf      loop_end                {
     c1.addi(reg(reg::bp_offset(0)), imm(1));            //      addi    [bp+0],  1                  i+=1;
     c1.jmp(tag("loop_begin"));                          //      jmp     loop_begin              }
     c1.tag("loop_end");                                 //  :loop_end
-    c1.pop(1);                                     //      pop     1
+    c1.pop(1);                                          //      pop     1
+    c1.set(reg(reg::t0), imm("Hello"));
+    c1.adds(reg(reg::t0), imm("world"));
+    c1.jmp(tag("all_program_begin"));
     c1.end();                                           //      end;
 
 
