@@ -60,11 +60,13 @@ namespace rs
                                 cgr_index < env.cgr_global_value_count;
                                 cgr_index++)
                             {
-                                auto global_val = env.constant_global_reg_rtstack[cgr_index].get();
-                                if ((uint8_t)global_val->type & (uint8_t)value::valuetype::need_gc)
+                                auto global_val = env.constant_global_reg_rtstack + cgr_index;
+
+                                gcbase * gcunit_address = global_val->get_gcunit_with_barrier();
+                                if (gcunit_address)
                                 {
                                     // mark it
-                                    global_val->gcunit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+                                    gcunit_address->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
                                 }
                             }
 
@@ -73,11 +75,13 @@ namespace rs
                                 vmimpl->sp < stack_walker;
                                 stack_walker--)
                             {
-                                auto stack_val = stack_walker->get();
-                                if ((uint8_t)stack_val->get()->type & (uint8_t)value::valuetype::need_gc)
+                                auto stack_val = stack_walker;
+
+                                gcbase* gcunit_address = stack_val->get_gcunit_with_barrier();
+                                if (gcunit_address)
                                 {
                                     // mark it
-                                    stack_val->gcunit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+                                    gcunit_address->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
                                 }
                             }
                         }

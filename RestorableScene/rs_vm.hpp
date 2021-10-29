@@ -32,20 +32,20 @@ namespace rs
                                         // failed, it means vm already hangned(or trying hangs now), GC work
                                         // will call 'wakeup' to resume vm.
 
-            LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                        // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                        // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                        // a limitted time.
-                                        // VM will set LEAVE_INTERRUPT when:
-                                        // 1) calling native function
-                                        // 2) leaving vm run()
-                                        // 3) vm was created.
-                                        // VM will clean LEAVE_INTERRUPT when:
-                                        // 1) the native function calling was end.
-                                        // 2) enter vm run()
-                                        // 3) vm destructed.
-                                        // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                        //            successful. (We use 'rs_asure' here)
+                                        LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                                                    // a limitted time.
+                                                                    // VM will set LEAVE_INTERRUPT when:
+                                                                    // 1) calling native function
+                                                                    // 2) leaving vm run()
+                                                                    // 3) vm was created.
+                                                                    // VM will clean LEAVE_INTERRUPT when:
+                                                                    // 1) the native function calling was end.
+                                                                    // 2) enter vm run()
+                                                                    // 3) vm destructed.
+                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                                                    //            successful. (We use 'rs_asure' here)
         };
 
         std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
@@ -153,15 +153,20 @@ namespace rs
 
         ir_compiler::runtime_env env;
 
-        void set_runtime(ir_compiler::runtime_env _env)
+        void set_runtime(ir_compiler& _compiler)
         {
-            env = _env;
+            // using LEAVE_INTERRUPT to stop GC
+            rs_asure(clear_interrupt(LEAVE_INTERRUPT));
+
+            env = _compiler.finalize();
 
             ip = env.rt_codes;
             cr = env.reg_begin + opnum::reg::spreg::cr;
             tc = env.reg_begin + opnum::reg::spreg::tc;
             er = env.reg_begin + opnum::reg::spreg::er;
             sp = bp = env.stack_begin;
+
+            rs_asure(interrupt(LEAVE_INTERRUPT));
         }
 
 
@@ -338,28 +343,17 @@ namespace rs
 #define RS_ADDRESSING_N1_REF RS_ADDRESSING_N1 -> get()
 #define RS_ADDRESSING_N2_REF RS_ADDRESSING_N2 -> get()
 
+            byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
+            instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+            unsigned dr = opcode_dr & 0b00000011u;
+
+            goto _vm_check_interrupt_first;
+
             for (;;)
             {
-                byte_t opcode_dr = *(rt_ip++);
-                instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
-                unsigned dr = opcode_dr & 0b00000011u;
-
-                if (vm_interrupt)
-                {
-                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
-                    {
-                        // write regist(sp) data, then clear interrupt mark.
-                        sp = rt_sp;
-                        if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                            hangup();   // SLEEP UNTIL WAKE UP
-                    }
-                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
-                    {
-                        // That should not be happend...
-
-                        rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
-                    }
-                }
+                opcode_dr = *(rt_ip++);
+                opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+                dr = opcode_dr & 0b00000011u;
 
                 switch (opcode)
                 {
@@ -994,6 +988,25 @@ namespace rs
                     rs_error("executed 'abrt'.");
                 default:
                     rs_error("Unknown instruct.");
+                }
+
+            _vm_check_interrupt_first:
+
+                if (vm_interrupt)
+                {
+                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                    {
+                        // write regist(sp) data, then clear interrupt mark.
+                        sp = rt_sp;
+                        if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                            hangup();   // SLEEP UNTIL WAKE UP
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                    {
+                        // That should not be happend...
+
+                        rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                    }
                 }
 
             }// vm loop end.

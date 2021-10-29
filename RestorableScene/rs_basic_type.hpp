@@ -60,9 +60,9 @@ namespace rs
             rs_integer_t   integer;
             rs_handle_t    handle;
 
-            gcbase*        gcunit;
-            string_t*      string;     // ADD-ABLE TYPE
-            mapping_t*     mapping;
+            gcbase* gcunit;
+            string_t* string;     // ADD-ABLE TYPE
+            mapping_t* mapping;
 
             struct
             {
@@ -71,10 +71,16 @@ namespace rs
             };
 
             value* ref;
+
+            std::atomic<gcbase*> atomic_gcunit_ptr;
         };
 
-      
-        valuetype type;
+        union
+        {
+            valuetype type;
+
+            std::atomic_uint8_t atomic_type;
+        };
 
         inline value* get()
         {
@@ -85,6 +91,37 @@ namespace rs
                 return ref;
             }
             return this;
+        }
+
+        inline void set_gcunit_with_barrier(valuetype gcunit_type)
+        {
+            atomic_gcunit_ptr = nullptr;
+            atomic_type = (uint8_t)gcunit_type;
+        }
+
+        inline void set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
+        {
+            atomic_gcunit_ptr = nullptr;
+            atomic_type = (uint8_t)gcunit_type;
+            atomic_gcunit_ptr = gcunit_ptr;
+        }
+
+        inline gcbase* get_gcunit_with_barrier()
+        {
+            do
+            {
+                gcbase* gcunit_addr = atomic_gcunit_ptr;
+                if (atomic_type.load() & (uint8_t)valuetype::need_gc)
+                {
+                    if (gcunit_addr == atomic_gcunit_ptr)
+                        return gcunit_addr;
+
+                    continue;
+                }
+
+                return nullptr;
+
+            } while (true);
         }
 
         inline value* set_ref(value* _ref)
@@ -102,18 +139,14 @@ namespace rs
 
         inline value* set_val(value* _val)
         {
-            handle = _val->handle;
             type = _val->type;
+            handle = _val->handle;
 
             return this;
         }
-
-        inline bool is_nil()const
-        {
-            return handle;
-        }
     };
     static_assert(sizeof(value) == 16);
-
+    static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
+    static_assert(std::atomic<gcbase*>::is_always_lock_free);
     using native_func_t = rs_native_func;
 }

@@ -56,21 +56,44 @@ int main()
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
-    
+
+    ir_compiler c14;                                // 
+    c14.mov(reg(reg::t0), imm(0));
+    c14.tag("loop_begin");                          //      jmp     program_begin
+    c14.lti(reg(reg::t0), imm(100000000));
+    c14.jf(tag("loop_end"));
+    c14.addi(reg(reg::t0), imm(1));
+    c14.jmp(tag("loop_begin"));
+    c14.tag("loop_end");
+    c14.end();                                      //      end
+
+    for (int i = 0; i < 5; i++)
+    {
+        vmm.set_runtime(c14);
+
+        auto beg = clock();
+        vmm.run();
+        auto end = clock();
+
+        std::cout << (end - beg) << std::endl;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+
     ir_compiler c13;                                // 
     c13.tag("program_begin");                       //  program_begin:
     c13.call(&example);                             //      call    example
     c13.mov(reg(reg::t0), imm("hello"));            //      mov     t0, "hello"
     c13.adds(reg(reg::t0), imm(",world"));          //      adds    t0, ",world"
-    c13.set(reg(reg::t1), reg(reg::t0));          
-    c13.set(reg(reg::t0), imm(0xCCCCCCCC));          
-    c13.set(reg(reg::t0), reg(reg::t1));     
+    c13.set(reg(reg::t1), reg(reg::t0));
+    c13.set(reg(reg::t0), imm(0xCCCCCCCC));
+    c13.set(reg(reg::t0), reg(reg::t1));
     c13.set(reg(reg::t1), imm(0xCCCCCCCC));
     c13.set(reg(reg::t0), imm(0xCCCCCCCC));
     c13.jmp(tag("program_begin"));                  //      jmp     program_begin
     c13.end();                                      //      end
 
-    vmm.set_runtime(c13.finalize());
+    vmm.set_runtime(c13);
 
     vmm.run();
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -79,7 +102,7 @@ int main()
     c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
     c12.end();                                      //      end
 
-    vmm.set_runtime(c12.finalize());
+    vmm.set_runtime(c12);
 
     auto begin_gc_count = gc::gc_work_round_count();
     vmm.run();
@@ -107,7 +130,7 @@ int main()
     c11.tag("jmp_no_excep");                        //  :jmp_no_excep
     c11.end();                                      //      end
 
-    vmm.set_runtime(c11.finalize());
+    vmm.set_runtime(c11);
     vmm.run();
 
     rs_test(vmm.bp == vmm.env.stack_begin);
@@ -134,7 +157,7 @@ int main()
     c10.tag("jmp_no_excep");                        //  :jmp_no_excep
     c10.end();                                      //      end
 
-    vmm.set_runtime(c10.finalize());
+    vmm.set_runtime(c10);
     vmm.run();
 
     rs_test(vmm.bp == vmm.env.stack_begin);
@@ -154,7 +177,7 @@ int main()
     c9.call(tag("demo_func_01"));           //      call    demo_func_01;
     c9.end();                               //      end
 
-    vmm.set_runtime(c9.finalize());
+    vmm.set_runtime(c9);
     vmm.run();
 
     rs_test(vmm.bp == vmm.env.stack_begin);
@@ -168,7 +191,7 @@ int main()
     c8.call(&veh_exception_test);
     c8.end();                                          //      end
 
-    vmm.set_runtime(c8.finalize());
+    vmm.set_runtime(c8);
     vmm.run();
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -177,7 +200,7 @@ int main()
     c7.call(&example);
     c7.end();                                          //      end
 
-    vmm.set_runtime(c7.finalize());
+    vmm.set_runtime(c7);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 9926);
@@ -189,7 +212,7 @@ int main()
     c6.lnot(reg(reg::cr));
     c6.end();                                          //      end
 
-    vmm.set_runtime(c6.finalize());
+    vmm.set_runtime(c6);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 0);
@@ -203,7 +226,7 @@ int main()
     c5.lds(reg(reg::cr), imm(0));
     c5.end();                                           //      end
 
-    vmm.set_runtime(c5.finalize());
+    vmm.set_runtime(c5);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "Helloworld");
@@ -219,7 +242,7 @@ int main()
     c4.pop(reg(reg::cr));
     c4.end();                                           //      end
 
-    vmm.set_runtime(c4.finalize());
+    vmm.set_runtime(c4);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2);
@@ -231,7 +254,7 @@ int main()
     c3.adds(reg(reg::cr), imm("world!"));               //      adds    cr,   "world!";
     c3.end();                                           //      end
 
-    vmm.set_runtime(c3.finalize());
+    vmm.set_runtime(c3);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "hello,world!");
@@ -242,7 +265,7 @@ int main()
     c2.mov(reg(reg::cr), reg(reg::bp_offset(0)));       //      mov     cr,   [bp+0]
     c2.end();                                           //      end
 
-    vmm.set_runtime(c2.finalize());
+    vmm.set_runtime(c2);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2333);
@@ -253,7 +276,7 @@ int main()
     c0.movr2i(reg(reg::cr), reg(reg::bp_offset(0)));     //      movr2i cr,   [bp+0]
     c0.end();                                            //      end
 
-    vmm.set_runtime(c0.finalize());
+    vmm.set_runtime(c0);
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2333);
@@ -278,7 +301,7 @@ int main()
 
     while (true)
     {
-        vmm.set_runtime(c1.finalize());
+        vmm.set_runtime(c1);
 
         auto beg = clock();
         vmm.run();
