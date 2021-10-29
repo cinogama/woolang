@@ -579,11 +579,7 @@ namespace rs
                     RS_ADDRESSING_N2_REF;
 
                     rs_assert(opnum2->type == value::valuetype::integer_type);
-
-                    opnum1->real = (real_t)opnum2->integer;
-                    opnum1->type = value::valuetype::real_type;
-                    cr->set_ref(opnum1);
-
+                    cr->set_ref(opnum1->set_real((real_t)opnum2->integer));
                     break;
                 }
                 case instruct::opcode::movr2i:
@@ -593,11 +589,7 @@ namespace rs
                     RS_ADDRESSING_N2_REF;
 
                     rs_assert(opnum2->type == value::valuetype::real_type);
-
-                    opnum1->integer = (int64_t)opnum2->real;
-                    opnum1->type = value::valuetype::integer_type;
-                    cr->set_ref(opnum1);
-
+                    cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->real));
                     break;
                 }
                 case instruct::opcode::seti2r:
@@ -606,11 +598,7 @@ namespace rs
                     RS_ADDRESSING_N2_REF;
 
                     rs_assert(opnum2->type == value::valuetype::integer_type);
-
-                    opnum1->real = (real_t)opnum2->integer;
-                    opnum1->type = value::valuetype::real_type;
-                    cr->set_ref(opnum1);
-
+                    cr->set_ref(opnum1->set_real((real_t)opnum2->integer));
                     break;
                 }
                 case instruct::opcode::setr2i:
@@ -620,11 +608,7 @@ namespace rs
                     RS_ADDRESSING_N2_REF;
 
                     rs_assert(opnum2->type == value::valuetype::real_type);
-
-                    opnum1->integer = (int64_t)opnum2->real;
-                    opnum1->type = value::valuetype::integer_type;
-                    cr->set_ref(opnum1);
-
+                    cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->real));
                     break;
                 }
                 case instruct::opcode::lds:

@@ -54,15 +54,15 @@ namespace rs
 
         };
 
-        union
+        union _rs_value_data_seg_type
         {
             rs_real_t      real;
             rs_integer_t   integer;
             rs_handle_t    handle;
 
-            gcbase*        gcunit;
-            string_t*      string;     // ADD-ABLE TYPE
-            mapping_t*     mapping;
+            gcbase* gcunit;
+            string_t* string;     // ADD-ABLE TYPE
+            mapping_t* mapping;
 
             struct
             {
@@ -71,10 +71,85 @@ namespace rs
             };
 
             value* ref;
+            uint64_t _data_seg;
         };
 
-      
-        valuetype type;
+        union
+        {
+            rs_real_t      real;
+            rs_integer_t   integer;
+            rs_handle_t    handle;
+
+            gcbase* gcunit;
+            string_t* string;     // ADD-ABLE TYPE
+            mapping_t* mapping;
+
+            struct
+            {
+                uint32_t bp;
+                uint32_t ret_ip;
+            };
+
+            value* ref;
+
+            std::atomic_uint64_t _rs_value_data_seg;
+        };
+
+        union _rs_value_type_seg_type
+        {
+            valuetype type;
+            uint64_t _type_seg;
+        };
+
+        union
+        {
+            valuetype type;
+
+            std::atomic_uint64_t _rs_value_type_seg;
+        };
+
+        inline void atomic_read_value(_rs_value_data_seg_type* out_data_seg, _rs_value_type_seg_type* out_type_seg) const
+        {
+            do
+            {
+                out_data_seg->_data_seg = _rs_value_data_seg;
+                out_type_seg->_type_seg = _rs_value_type_seg;
+            } while (out_data_seg->_data_seg != _rs_value_data_seg);
+        }
+
+        inline void atomic_write_value(_rs_value_data_seg_type data_seg, _rs_value_type_seg_type type_seg)
+        {
+            do
+            {
+                _rs_value_data_seg = data_seg._data_seg;
+                _rs_value_type_seg = type_seg._type_seg;
+            } while (_rs_value_data_seg != data_seg._data_seg);
+        }
+
+        inline value* set_integer(rs_integer_t val)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.integer = val;
+            _ts.type = valuetype::integer_type;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
+        inline value* set_real(rs_real_t val)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.real = val;
+            _ts.type = valuetype::integer_type;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
 
         inline value* get()
         {
@@ -114,6 +189,10 @@ namespace rs
         }
     };
     static_assert(sizeof(value) == 16);
+    static_assert(sizeof(std::atomic_uint64_t) == 8);
+    static_assert(sizeof(value::_rs_value_data_seg_type) == 8);
+    static_assert(sizeof(value::_rs_value_type_seg_type) == 8);
+    static_assert(std::atomic_uint64_t::is_always_lock_free);
 
     using native_func_t = rs_native_func;
 }
