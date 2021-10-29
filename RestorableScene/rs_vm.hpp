@@ -52,10 +52,7 @@ namespace rs
 
         inline bool interrupt(vm_interrupt_type type)
         {
-            bool result;
-            rs_test(result = !(type & vm_interrupt.fetch_or(type)));
-
-            return result;
+            return !(type & vm_interrupt.fetch_or(type));
         }
 
         inline bool clear_interrupt(vm_interrupt_type type)

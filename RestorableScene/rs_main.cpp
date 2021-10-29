@@ -67,7 +67,7 @@ int main()
     c14.tag("loop_end");
     c14.end();                                      //      end
 
-    while (true)
+    for (int i = 0; i < 5; i++)
     {
         vmm.set_runtime(c14.finalize());
 
@@ -79,15 +79,15 @@ int main()
     }
     ///////////////////////////////////////////////////////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////////////////
-    
+
     ir_compiler c13;                                // 
     c13.tag("program_begin");                       //  program_begin:
     c13.call(&example);                             //      call    example
     c13.mov(reg(reg::t0), imm("hello"));            //      mov     t0, "hello"
     c13.adds(reg(reg::t0), imm(",world"));          //      adds    t0, ",world"
-    c13.set(reg(reg::t1), reg(reg::t0));          
-    c13.set(reg(reg::t0), imm(0xCCCCCCCC));          
-    c13.set(reg(reg::t0), reg(reg::t1));     
+    c13.set(reg(reg::t1), reg(reg::t0));
+    c13.set(reg(reg::t0), imm(0xCCCCCCCC));
+    c13.set(reg(reg::t0), reg(reg::t1));
     c13.set(reg(reg::t1), imm(0xCCCCCCCC));
     c13.set(reg(reg::t0), imm(0xCCCCCCCC));
     c13.jmp(tag("program_begin"));                  //      jmp     program_begin
@@ -95,7 +95,7 @@ int main()
 
     vmm.set_runtime(c13.finalize());
 
-    vmm.run();
+    // vmm.run();
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c12;                                // 
