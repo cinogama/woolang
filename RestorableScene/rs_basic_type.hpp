@@ -138,6 +138,18 @@ namespace rs
 
             return this;
         }
+        inline value* set_handle(rs_handle_t val)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.handle = val;
+            _ts.type = valuetype::handle_type;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
         inline value* set_real(rs_real_t val)
         {
             _rs_value_data_seg_type _ds;
@@ -150,42 +162,100 @@ namespace rs
 
             return this;
         }
+        inline value* set_string(string_t* val)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.string = val;
+            _ts.type = valuetype::string_type;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
+        inline value* set_mapping(mapping_t* val)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.mapping = val;
+            _ts.type = valuetype::mapping_type;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
+        inline value* set_callstack(uint32_t _bp, uint32_t _ret)
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            _ds.bp = _bp;
+            _ds.ret_ip = _ret;
+            _ts.type = valuetype::callstack;
+
+            atomic_write_value(_ds, _ts);
+
+            return this;
+        }
 
         inline value* get()
         {
-            if (type == valuetype::is_ref)
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            atomic_read_value(&_ds, &_ts);
+            if (_ts.type == valuetype::is_ref)
             {
-                rs_assert(ref && ref->type != valuetype::is_ref,
+                rs_assert(_ds.ref && _ds.ref->type != valuetype::is_ref,
                     "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
-                return ref;
+                return _ds.ref;
             }
             return this;
+        }
+        inline gcbase* get_gcunit()
+        {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
+            atomic_read_value(&_ds, &_ts);
+            
+            rs_assert(_ts.type == valuetype::is_ref);
+
+            if ((uint8_t)_ts.type & (uint8_t)valuetype::need_gc)
+            {
+                return _ds.gcunit;
+            }
+            return nullptr;
         }
 
         inline value* set_ref(value* _ref)
         {
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
+
             if (_ref != this)
             {
                 rs_assert(_ref && _ref->type != valuetype::is_ref,
                     "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
 
-                type = valuetype::is_ref;
-                ref = _ref;
+                _ds.ref = _ref;
+                _ts.type = valuetype::is_ref;
+
+                atomic_write_value(_ds, _ts);
             }
             return this;
         }
 
         inline value* set_val(value* _val)
         {
-            handle = _val->handle;
-            type = _val->type;
+            _rs_value_data_seg_type _ds;
+            _rs_value_type_seg_type _ts;
 
+            _val->atomic_read_value(&_ds, &_ts);
+            atomic_write_value(_ds, _ts);
             return this;
-        }
-
-        inline bool is_nil()const
-        {
-            return handle;
         }
     };
     static_assert(sizeof(value) == 16);

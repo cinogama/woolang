@@ -634,9 +634,7 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer == opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle == opnum2->handle);
                     break;
                 }
                 case instruct::opcode::nequ:
@@ -644,9 +642,7 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer != opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle != opnum2->handle);
                     break;
                 }
                 case instruct::opcode::equs:
@@ -654,13 +650,10 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer =
+                    cr->set_integer(
                         opnum1->type == value::valuetype::string_type
                         && opnum1->type == opnum2->type
-                        && *opnum1->string == *opnum2->string;
-
-                    cr->type = value::valuetype::integer_type;
-
+                        && *opnum1->string == *opnum2->string);
                     break;
                 }
                 case instruct::opcode::nequs:
@@ -668,13 +661,10 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer =
+                    cr->set_integer(
                         opnum1->type != value::valuetype::string_type
                         || opnum1->type != opnum2->type
-                        || *opnum1->string != *opnum2->string;
-
-                    cr->type = value::valuetype::integer_type;
-
+                        || *opnum1->string != *opnum2->string);
                     break;
                 }
 
@@ -683,9 +673,7 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer && opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer && opnum2->integer);
                     break;
                 }
                 case instruct::opcode::lor:
@@ -693,18 +681,14 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer || opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer || opnum2->integer);
                     break;
                 }
                 case instruct::opcode::lnot:
                 {
                     RS_ADDRESSING_N1_REF;
 
-                    cr->integer = !opnum1->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(!opnum1->integer);
                     break;
                 }
 
@@ -716,9 +700,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer < opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer < opnum2->integer);
                     break;
                 }
                 case instruct::opcode::gti:
@@ -729,9 +711,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer > opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer > opnum2->integer);
                     break;
                 }
                 case instruct::opcode::elti:
@@ -742,9 +722,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer <= opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer <= opnum2->integer);
                     break;
                 }
                 case instruct::opcode::egti:
@@ -755,9 +733,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer >= opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->integer >= opnum2->integer);
                     break;
                 }
 
@@ -769,9 +745,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real < opnum2->real;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->real < opnum2->real);
                     break;
                 }
                 case instruct::opcode::gtr:
@@ -782,9 +756,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real > opnum2->real;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->real > opnum2->real);
                     break;
                 }
                 case instruct::opcode::eltr:
@@ -795,9 +767,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real <= opnum2->real;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->real <= opnum2->real);
                     break;
                 }
                 case instruct::opcode::egtr:
@@ -808,9 +778,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real >= opnum2->real;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->real >= opnum2->real);
                     break;
                 }
 
@@ -822,9 +790,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::handle_type);
 
-                    cr->integer = opnum1->handle < opnum2->handle;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle < opnum2->handle);
                     break;
                 }
                 case instruct::opcode::gth:
@@ -835,9 +801,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::handle_type);
 
-                    cr->integer = opnum1->handle > opnum2->handle;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle > opnum2->handle);
                     break;
                 }
                 case instruct::opcode::elth:
@@ -848,9 +812,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::handle_type);
 
-                    cr->integer = opnum1->handle <= opnum2->handle;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle <= opnum2->handle);
                     break;
                 }
                 case instruct::opcode::egth:
@@ -861,9 +823,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::handle_type);
 
-                    cr->integer = opnum1->handle >= opnum2->handle;
-                    cr->type = value::valuetype::integer_type;
-
+                    cr->set_integer(opnum1->handle >= opnum2->handle);
                     break;
                 }
                 case instruct::opcode::ret:
@@ -892,13 +852,12 @@ namespace rs
 
                         byte_t* aimplace = rt_env->rt_codes + opnum1->integer;
 
-                        rt_sp->type = value::valuetype::callstack;
-                        rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->bp = (uint32_t)(rt_env->stack_begin - rt_bp);
+                        rt_sp->set_callstack(
+                            (uint32_t)(rt_env->stack_begin - rt_bp),
+                            (uint32_t)(rt_ip - rt_env->rt_codes));
+                      
                         rt_bp = --rt_sp;
-
                         rt_ip = aimplace;
-
                     }
                     break;
                 }
@@ -918,11 +877,10 @@ namespace rs
                     {
                         byte_t* aimplace = rt_env->rt_codes + RS_IPVAL_MOVE_4;
 
-                        rt_sp->type = value::valuetype::callstack;
-                        rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->bp = (uint32_t)(rt_env->stack_begin - rt_bp);
+                        rt_sp->set_callstack(
+                            (uint32_t)(rt_env->stack_begin - rt_bp),
+                            (uint32_t)(rt_ip - rt_env->rt_codes));
                         rt_bp = --rt_sp;
-
                         rt_ip = aimplace;
 
                     }

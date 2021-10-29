@@ -56,6 +56,29 @@ int main()
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c14;                                // 
+    c14.set(reg(reg::t0), imm(0));
+    c14.tag("loop_begin");
+    c14.lti(reg(reg::t0), imm(100000000));
+    c14.jf(tag("loop_end"));
+    c14.addi(reg(reg::t0), imm(1));
+    c14.jmp(tag("loop_begin"));
+    c14.tag("loop_end");
+    c14.end();                                      //      end
+
+    while (true)
+    {
+        vmm.set_runtime(c14.finalize());
+
+        auto beg = clock();
+        vmm.run();
+        auto end = clock();
+
+        std::cout << (end - beg) << std::endl;
+    }
+    ///////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////
     
     ir_compiler c13;                                // 
     c13.tag("program_begin");                       //  program_begin:
