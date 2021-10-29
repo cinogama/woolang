@@ -1184,11 +1184,17 @@ namespace rs
                     {
                         runtime_command_buffer.push_back(RS_OPCODE(calln, 01));
 
-                        byte_t* readptr = (byte_t*)&RS_IR.op1;
-                        for (size_t index = 0; index < sizeof(RS_IR.op1); index++)
-                        {
-                            runtime_command_buffer.push_back(readptr[index]);
-                        }
+                        uint64_t addr = (uint64_t)(RS_IR.op1);
+
+                        byte_t* readptr = (byte_t*)&addr;
+                        runtime_command_buffer.push_back(readptr[0]);
+                        runtime_command_buffer.push_back(readptr[1]);
+                        runtime_command_buffer.push_back(readptr[2]);
+                        runtime_command_buffer.push_back(readptr[3]);
+                        runtime_command_buffer.push_back(readptr[4]);
+                        runtime_command_buffer.push_back(readptr[5]);
+                        runtime_command_buffer.push_back(readptr[6]);
+                        runtime_command_buffer.push_back(readptr[7]);
                     }
                     else
                     {

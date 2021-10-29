@@ -62,6 +62,11 @@ int main()
     c13.call(&example);                             //      call    example
     c13.mov(reg(reg::t0), imm("hello"));            //      mov     t0, "hello"
     c13.adds(reg(reg::t0), imm(",world"));          //      adds    t0, ",world"
+    c13.set(reg(reg::t1), reg(reg::t0));          
+    c13.set(reg(reg::t0), imm(0xCCCCCCCC));          
+    c13.set(reg(reg::t0), reg(reg::t1));     
+    c13.set(reg(reg::t1), imm(0xCCCCCCCC));
+    c13.set(reg(reg::t0), imm(0xCCCCCCCC));
     c13.jmp(tag("program_begin"));                  //      jmp     program_begin
     c13.end();                                      //      end
 
@@ -71,7 +76,7 @@ int main()
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c12;                                // 
-    c12.call(&cost_time_test_gc);
+    c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
     c12.end();                                      //      end
 
     vmm.set_runtime(c12.finalize());

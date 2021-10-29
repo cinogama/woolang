@@ -16,7 +16,7 @@ namespace rs
         std::condition_variable     _gc_cv;
 
         uint32_t                    _gc_immediately_edge = 50000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 100;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 1000;
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
 
@@ -60,11 +60,11 @@ namespace rs
                                 cgr_index < env.cgr_global_value_count;
                                 cgr_index++)
                             {
-                                auto& global_val = env.constant_global_reg_rtstack[cgr_index];
-                                if ((uint8_t)global_val.type & (uint8_t)value::valuetype::need_gc)
+                                auto global_val = env.constant_global_reg_rtstack[cgr_index].get();
+                                if ((uint8_t)global_val->type & (uint8_t)value::valuetype::need_gc)
                                 {
                                     // mark it
-                                    global_val.gcbase->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+                                    global_val->gcunit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
                                 }
                             }
 
@@ -73,10 +73,11 @@ namespace rs
                                 vmimpl->sp < stack_walker;
                                 stack_walker--)
                             {
-                                if ((uint8_t)stack_walker->type & (uint8_t)value::valuetype::need_gc)
+                                auto stack_val = stack_walker->get();
+                                if ((uint8_t)stack_val->get()->type & (uint8_t)value::valuetype::need_gc)
                                 {
                                     // mark it
-                                    stack_walker->gcbase->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+                                    stack_val->gcunit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
                                 }
                             }
                         }
@@ -301,11 +302,12 @@ namespace rs
                     {
                         _gc_cv.wait_for(ug1, 0.1s);
                         if (gcbase::gc_new_count > _gc_immediately_edge)
-                            break;
+                            goto gc_immediately;
                     }
                 }
                 else
                 {
+                gc_immediately:
                     gcbase::gc_new_count -= _gc_immediately_edge;
                 }
 

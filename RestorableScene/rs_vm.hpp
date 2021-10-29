@@ -23,9 +23,29 @@ namespace rs
 
         enum vm_interrupt_type
         {
-            NOTHING = 0,
-            GC_INTERRUPT = 1,
-            LEAVE_INTERRUPT = 1 << 1,
+            NOTHING = 0,                // There is no interrupt
+
+            GC_INTERRUPT = 1,           // GC work will cause this interrupt, if vm received this interrupt,
+                                        // should clean this interrupt flag, if clean-operate is successful,
+                                        // vm should call 'hangup' to wait for GC work. 
+                                        // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
+                                        // failed, it means vm already hangned(or trying hangs now), GC work
+                                        // will call 'wakeup' to resume vm.
+
+            LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+                                        // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                        // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                        // a limitted time.
+                                        // VM will set LEAVE_INTERRUPT when:
+                                        // 1) calling native function
+                                        // 2) leaving vm run()
+                                        // 3) vm was created.
+                                        // VM will clean LEAVE_INTERRUPT when:
+                                        // 1) the native function calling was end.
+                                        // 2) enter vm run()
+                                        // 3) vm destructed.
+                                        // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                        //            successful. (We use 'rs_asure' here)
         };
 
         std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;

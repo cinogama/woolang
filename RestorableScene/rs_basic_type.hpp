@@ -36,26 +36,6 @@ namespace rs
         /*
         *
         */
-
-        union
-        {
-            rs_real_t      real;
-            rs_integer_t   integer;
-            rs_handle_t    handle;
-
-            gcbase* gcbase;
-            string_t*      string;     // ADD-ABLE TYPE
-            mapping_t*     mapping;
-
-            struct
-            {
-                uint32_t bp;
-                uint32_t ret_ip;
-            };
-
-            value* ref;
-        };
-
         enum class valuetype : uint8_t
         {
             invalid = 0x0,
@@ -73,6 +53,27 @@ namespace rs
             mapping_type,
 
         };
+
+        union
+        {
+            rs_real_t      real;
+            rs_integer_t   integer;
+            rs_handle_t    handle;
+
+            gcbase*        gcunit;
+            string_t*      string;     // ADD-ABLE TYPE
+            mapping_t*     mapping;
+
+            struct
+            {
+                uint32_t bp;
+                uint32_t ret_ip;
+            };
+
+            value* ref;
+        };
+
+      
         valuetype type;
 
         inline value* get()
