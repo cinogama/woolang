@@ -108,8 +108,8 @@ int main()
     vmm.run();
     auto end_gc_count = gc::gc_work_round_count();
 
-    rs_test(vmm.bp == vmm.env.stack_begin);
-    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(end_gc_count - begin_gc_count >= 2);
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -133,8 +133,8 @@ int main()
     vmm.set_runtime(c11);
     vmm.run();
 
-    rs_test(vmm.bp == vmm.env.stack_begin);
-    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 233);
 
@@ -160,8 +160,8 @@ int main()
     vmm.set_runtime(c10);
     vmm.run();
 
-    rs_test(vmm.bp == vmm.env.stack_begin);
-    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 1024);
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -180,8 +180,8 @@ int main()
     vmm.set_runtime(c9);
     vmm.run();
 
-    rs_test(vmm.bp == vmm.env.stack_begin);
-    rs_test(vmm.sp == vmm.env.stack_begin);
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 233 + 666);
     ///////////////////////////////////////////////////////////////////////////////////////
 

@@ -151,7 +151,7 @@ namespace rs
         volatile value* sp = nullptr;
         volatile value* bp = nullptr;
 
-        ir_compiler::runtime_env env;
+        std::unique_ptr<ir_compiler::runtime_env> env;
 
         void set_runtime(ir_compiler& _compiler)
         {
@@ -160,16 +160,14 @@ namespace rs
 
             env = _compiler.finalize();
 
-            ip = env.rt_codes;
-            cr = env.reg_begin + opnum::reg::spreg::cr;
-            tc = env.reg_begin + opnum::reg::spreg::tc;
-            er = env.reg_begin + opnum::reg::spreg::er;
-            sp = bp = env.stack_begin;
+            ip = env->rt_codes;
+            cr = env->reg_begin + opnum::reg::spreg::cr;
+            tc = env->reg_begin + opnum::reg::spreg::tc;
+            er = env->reg_begin + opnum::reg::spreg::er;
+            sp = bp = env->stack_begin;
 
             rs_asure(interrupt(LEAVE_INTERRUPT));
         }
-
-
     };
 
     class exception_recovery
@@ -265,7 +263,7 @@ namespace rs
                 }
             };
 
-            ir_compiler::runtime_env* rt_env = &env;
+            ir_compiler::runtime_env* rt_env = env.get();
             byte_t* rt_ip;
             value* rt_bp, * rt_sp;
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
@@ -961,7 +959,9 @@ namespace rs
                     {
                         //begin
                         RS_READY_EXCEPTION_HANDLE(this, rt_ip, rt_env->rt_codes + RS_IPVAL_MOVE_4, rt_sp, rt_bp)
-                        {}
+                        {
+                            // Maybe need something to solve exception?
+                        }
                     }
                     else if (dr & 0b01)
                     {

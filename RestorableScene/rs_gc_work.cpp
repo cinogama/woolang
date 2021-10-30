@@ -20,6 +20,13 @@ namespace rs
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
 
+
+        void deep_in_to_mark_unit(gcbase* unit)
+        {
+            unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::full_mark);
+
+        } // void deep_in_to_mark_unit(gcbase * unit)
+
         class gc_mark_thread
         {
             std::mutex _gc_mark_fence_mx;
@@ -57,21 +64,23 @@ namespace rs
 
                             // walk thorgh global.
                             for (int cgr_index = 0;
-                                cgr_index < env.cgr_global_value_count;
+                                cgr_index < env->cgr_global_value_count;
                                 cgr_index++)
                             {
-                                auto global_val = env.constant_global_reg_rtstack + cgr_index;
+                                auto global_val = env->constant_global_reg_rtstack + cgr_index;
 
-                                gcbase * gcunit_address = global_val->get_gcunit_with_barrier();
+                                gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
                                 if (gcunit_address)
                                 {
                                     // mark it
-                                    gcunit_address->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+
+                                    // TODO: HERE USING STOPPED-GC, USING 3-COLOR IN FUTURE.
+                                    deep_in_to_mark_unit(gcunit_address);
                                 }
                             }
 
                             // walk thorgh stack.
-                            for (auto* stack_walker = env.stack_begin;
+                            for (auto* stack_walker = env->stack_begin;
                                 vmimpl->sp < stack_walker;
                                 stack_walker--)
                             {
@@ -81,7 +90,7 @@ namespace rs
                                 if (gcunit_address)
                                 {
                                     // mark it
-                                    gcunit_address->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
+                                    deep_in_to_mark_unit(gcunit_address);
                                 }
                             }
                         }
@@ -141,31 +150,6 @@ namespace rs
 
         };
 
-        void deep_in_to_mark(gcbase* list)
-        {
-            while (list)
-            {
-                if (gcbase::gcmarkcolor::no_mark != list->gc_marked(_gc_round_count))
-                {
-                    if (gcbase::gcmarkcolor::full_mark != list->gc_marked(_gc_round_count))
-                    {
-                        // is self marked, do search
-                        gcbase::gc_write_guard gcwg1(list);
-
-                        // TODO: if mapping, deep mark it..
-                        // 
-                        // 
-                        // or is string, just mark to full:
-                        list->gc_mark(_gc_round_count, gcbase::gcmarkcolor::full_mark);
-
-
-                    }
-                } // ~
-
-                list = list->last;
-            }
-        } // void deep_in_to_mark(gcbase * list)
-
         void check_and_move_edge_to_edge(gcbase* picked_list,
             rs::atomic_list<rs::gcbase>* origin_list,
             rs::atomic_list<rs::gcbase>* aim_edge,
@@ -205,7 +189,7 @@ namespace rs
 
                 picked_list = last;
             }
-        } // void deep_in_to_mark(gcbase * list)
+        }
 
         void gc_work_thread()
         {
@@ -238,19 +222,11 @@ namespace rs
                 } while (0);
 
                 // Mark end, do gc
-                // Scan all eden, then scan all gray elem
-                auto* eden_list = gcbase::eden_age_gcunit_list.last_node.load();
-                auto* young_list = gcbase::young_age_gcunit_list.last_node.load();
-                auto* old_list = gcbase::old_age_gcunit_list.last_node.load();
-
-                deep_in_to_mark(eden_list);
-                deep_in_to_mark(young_list);
-                deep_in_to_mark(old_list);
 
                 // just full gc:
-                eden_list = gcbase::eden_age_gcunit_list.pick_all();
-                young_list = gcbase::young_age_gcunit_list.pick_all();
-                old_list = gcbase::old_age_gcunit_list.pick_all();
+                auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
+                auto* young_list = gcbase::young_age_gcunit_list.pick_all();
+                auto* old_list = gcbase::old_age_gcunit_list.pick_all();
 
                 check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
                 check_and_move_edge_to_edge(young_list, &gcbase::young_age_gcunit_list, &gcbase::old_age_gcunit_list, gcbase::gctype::old, _gc_max_count_to_move_young_to_old);

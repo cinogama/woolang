@@ -174,12 +174,16 @@ namespace rs
         };
     } // namespace opnum;
 
+    struct vmbase;
+
     class ir_compiler
     {
         // IR COMPILER:
         /*
         *
         */
+
+        friend struct vmbase;
 
         struct ir_command
         {
@@ -320,6 +324,7 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::addi, RS_OPNUM(op1), RS_OPNUM(op2));
         }
+        
         template<typename OP1T, typename OP2T>
         void subi(const OP1T& op1, const OP2T& op2)
         {
@@ -824,7 +829,8 @@ namespace rs
             byte_t* rt_codes;
         };
 
-        runtime_env finalize()
+    private:
+        std::unique_ptr<runtime_env> finalize()
         {
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
@@ -1227,7 +1233,7 @@ namespace rs
                     {
                         // clean
                         rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op2) != nullptr, "Operator num should be a tag.");
-                        
+
                         runtime_command_buffer.push_back(RS_OPCODE(veh, 00));
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op2)->name]
                             .push_back(runtime_command_buffer.size());
@@ -1237,7 +1243,7 @@ namespace rs
                         runtime_command_buffer.push_back(0x00);
                     }
                     else
-                    {                        
+                    {
                         // throw
                         runtime_command_buffer.push_back(RS_OPCODE(veh, 01));
                     }
@@ -1270,24 +1276,25 @@ namespace rs
                 }
             }
 
-            runtime_env env;
-            env.constant_global_reg_rtstack = preserved_memory;
-            env.reg_begin = env.constant_global_reg_rtstack + constant_value_count + global_value_count;
-            env.stack_begin = env.constant_global_reg_rtstack + (preserve_memory_size - 1);
+            std::unique_ptr<runtime_env> env = std::make_unique<runtime_env>();
 
-            env.constant_value_count = constant_value_count;
-            env.global_value_count = global_value_count;
-            env.real_register_count = real_register_count;
-            env.cgr_global_value_count  = env.constant_value_count
-                                        + env.global_value_count
-                                        + env.real_register_count;
+            env->constant_global_reg_rtstack = preserved_memory;
+            env->reg_begin = env->constant_global_reg_rtstack + constant_value_count + global_value_count;
+            env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
 
-            env.runtime_stack_count = runtime_stack_count;
+            env->constant_value_count = constant_value_count;
+            env->global_value_count = global_value_count;
+            env->real_register_count = real_register_count;
+            env->cgr_global_value_count = env->constant_value_count
+                + env->global_value_count
+                + env->real_register_count;
 
-            env.rt_codes = (byte_t*)malloc(runtime_command_buffer.size() * sizeof(byte_t));
-            rs_assert(env.rt_codes, "Alloc memory fail.");
+            env->runtime_stack_count = runtime_stack_count;
 
-            memcpy(env.rt_codes, runtime_command_buffer.data(), runtime_command_buffer.size() * sizeof(byte_t));
+            env->rt_codes = (byte_t*)malloc(runtime_command_buffer.size() * sizeof(byte_t));
+            rs_assert(env->rt_codes, "Alloc memory fail.");
+
+            memcpy(env->rt_codes, runtime_command_buffer.data(), runtime_command_buffer.size() * sizeof(byte_t));
 
             return env;
         }
