@@ -546,6 +546,495 @@ namespace rs
                     cr->set_ref((string_t::gc_new<gcbase::gctype::eden>(opnum1->string, *opnum1->string + *opnum2->string), opnum1));
                     break;
                 }
+
+                case instruct::opcode::addx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+
+                    if (opnum1->type != max_type)
+                    {
+                        opnum1->type = max_type;
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->integer = (rs_integer_t)opnum1->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->integer = (rs_integer_t)opnum1->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = (rs_real_t)opnum1->integer; break;
+                            case value::valuetype::handle_type:
+                                opnum1->real = (rs_real_t)opnum1->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::handle_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->handle = (rs_handle_t)opnum1->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->handle = (rs_handle_t)opnum1->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////
+
+                    if (opnum2->type == max_type)
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->integer += opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->real += opnum2->real; break;
+                        case value::valuetype::handle_type:
+                            opnum1->handle += opnum2->handle; break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+                    else
+                    {
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->integer += (rs_integer_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->integer += (rs_integer_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->integer += (rs_integer_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real += (rs_real_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->real += (rs_real_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->real += (rs_real_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::handle_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->handle += (rs_handle_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->handle += (rs_handle_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->handle += (rs_handle_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
+
+                case instruct::opcode::subx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+
+                    if (opnum1->type != max_type)
+                    {
+                        opnum1->type = max_type;
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->integer = (rs_integer_t)opnum1->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->integer = (rs_integer_t)opnum1->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = (rs_real_t)opnum1->integer; break;
+                            case value::valuetype::handle_type:
+                                opnum1->real = (rs_real_t)opnum1->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::handle_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->handle = (rs_handle_t)opnum1->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->handle = (rs_handle_t)opnum1->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////
+
+                    if (opnum2->type == max_type)
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->integer -= opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->real -= opnum2->real; break;
+                        case value::valuetype::handle_type:
+                            opnum1->handle -= opnum2->handle; break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+                    else
+                    {
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->integer -= (rs_integer_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->integer -= (rs_integer_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->integer -= (rs_integer_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real -= (rs_real_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->real -= (rs_real_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->real -= (rs_real_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::handle_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->handle -= (rs_handle_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->handle -= (rs_handle_t)opnum2->real; break;
+                            case value::valuetype::handle_type:
+                                opnum1->handle -= (rs_handle_t)opnum2->handle; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
+
+                case instruct::opcode::mulx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+
+                    if (opnum1->type != max_type)
+                    {
+                        opnum1->type = max_type;
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->integer = (rs_integer_t)opnum1->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = (rs_real_t)opnum1->integer; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////
+
+                    if (opnum2->type == max_type)
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->integer *= opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->real *= opnum2->real; break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+                    else
+                    {
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->integer *= (rs_integer_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->integer *= (rs_integer_t)opnum2->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real *= (rs_real_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->real *= (rs_real_t)opnum2->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
+
+                case instruct::opcode::divx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+
+                    if (opnum1->type != max_type)
+                    {
+                        opnum1->type = max_type;
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->integer = (rs_integer_t)opnum1->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = (rs_real_t)opnum1->integer; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////
+
+                    if (opnum2->type == max_type)
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->integer /= opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->real /= opnum2->real; break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+                    else
+                    {
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->integer /= (rs_integer_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->integer /= (rs_integer_t)opnum2->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real /= (rs_real_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->real /= (rs_real_t)opnum2->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
+
+                case instruct::opcode::modx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+
+                    if (opnum1->type != max_type)
+                    {
+                        opnum1->type = max_type;
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->integer = (rs_integer_t)opnum1->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum1->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = (rs_real_t)opnum1->integer; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    ///////////////////////////////////////////////
+
+                    if (opnum2->type == max_type)
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->integer %= opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->real = fmod(opnum1->real, opnum2->real); break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+                    else
+                    {
+                        switch (max_type)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->integer %= (rs_integer_t)opnum2->integer; break;
+                            case value::valuetype::real_type:
+                                opnum1->integer %= (rs_integer_t)opnum2->real; break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        case rs::value::valuetype::real_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->real = fmod(opnum1->real, (rs_real_t)opnum2->integer); break;
+                            case value::valuetype::real_type:
+                                opnum1->real = fmod(opnum1->real, (rs_real_t)opnum2->real); break;
+                            default:
+                                rs_fail("Mismatch type for operating."); break;
+                            }
+                            break;
+                        default:
+                            rs_fail("Mismatch type for operating."); break;
+                        }
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
+
                 /// OPERATE
 
 
@@ -565,6 +1054,63 @@ namespace rs
                     cr->set_ref(opnum1->set_val(opnum2));
                     break;
                 }
+                case instruct::opcode::movx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    if (opnum1->type == opnum2->type)
+                        opnum1->handle = opnum2->handle;  // Has same type, just move all data.
+
+                    switch (opnum1->type)
+                    {
+                    case value::valuetype::integer_type:
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::real_type:
+                            opnum1->integer = (rs_integer_t)opnum2->real; break;
+                        case value::valuetype::handle_type:
+                            opnum1->integer = (rs_integer_t)opnum2->handle; break;
+                        default:
+                            rs_fail("Type mismatch between two opnum.");
+                            break;
+                        }break;
+                    }
+                    case value::valuetype::real_type:
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->real = (rs_real_t)opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            opnum1->real = (rs_real_t)opnum2->handle; break;
+                        default:
+                            rs_fail("Type mismatch between two opnum.");
+                            break;
+                        }break;
+                    }
+                    case value::valuetype::handle_type:
+                    {
+                        switch (opnum2->type)
+                        {
+                        case value::valuetype::integer_type:
+                            opnum1->handle = (rs_handle_t)opnum2->integer; break;
+                        case value::valuetype::real_type:
+                            opnum1->handle = (rs_handle_t)opnum2->real; break;
+                        default:
+                            rs_fail("Type mismatch between two opnum.");
+                            break;
+                        }break;
+                    }
+                    default:
+                        rs_fail("Type mismatch between two opnum.");
+                        break;
+                    }
+
+                    cr->set_ref(opnum1);
+                    break;
+                }
                 case instruct::opcode::movi2r:
                 {
                     RS_ADDRESSING_N1_REF;
@@ -572,8 +1118,9 @@ namespace rs
 
                     rs_assert(opnum2->type == value::valuetype::integer_type);
 
-                    opnum1->real = (real_t)opnum2->integer;
                     opnum1->type = value::valuetype::real_type;
+                    opnum1->real = (real_t)opnum2->integer;
+
                     cr->set_ref(opnum1);
 
                     break;
@@ -586,8 +1133,9 @@ namespace rs
 
                     rs_assert(opnum2->type == value::valuetype::real_type);
 
-                    opnum1->integer = (int64_t)opnum2->real;
                     opnum1->type = value::valuetype::integer_type;
+                    opnum1->integer = (int64_t)opnum2->real;
+
                     cr->set_ref(opnum1);
 
                     break;
@@ -599,8 +1147,8 @@ namespace rs
 
                     rs_assert(opnum2->type == value::valuetype::integer_type);
 
-                    opnum1->real = (real_t)opnum2->integer;
                     opnum1->type = value::valuetype::real_type;
+                    opnum1->real = (real_t)opnum2->integer;
                     cr->set_ref(opnum1);
 
                     break;
@@ -613,8 +1161,8 @@ namespace rs
 
                     rs_assert(opnum2->type == value::valuetype::real_type);
 
-                    opnum1->integer = (int64_t)opnum2->real;
                     opnum1->type = value::valuetype::integer_type;
+                    opnum1->integer = (int64_t)opnum2->real;
                     cr->set_ref(opnum1);
 
                     break;
@@ -637,52 +1185,88 @@ namespace rs
                     opnum1->set_ref((rt_bp + opnum2->integer)->get());
                     break;
                 }
-                case instruct::opcode::equ:
+                case instruct::opcode::equb:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
+                    cr->type = value::valuetype::integer_type;
                     cr->integer = opnum1->integer == opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
 
                     break;
                 }
-                case instruct::opcode::nequ:
+                case instruct::opcode::nequb:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
+                    cr->type = value::valuetype::integer_type;
                     cr->integer = opnum1->integer != opnum2->integer;
-                    cr->type = value::valuetype::integer_type;
-
                     break;
                 }
-                case instruct::opcode::equs:
+                case instruct::opcode::equx:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer =
-                        opnum1->type == value::valuetype::string_type
-                        && opnum1->type == opnum2->type
-                        && *opnum1->string == *opnum2->string;
-
                     cr->type = value::valuetype::integer_type;
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer == opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle == opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real == opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string == *opnum2->string; break;
 
+                        case value::valuetype::mapping_type:
+                        case value::valuetype::array_type:
+                            cr->integer = opnum1->gcunit == opnum2->gcunit; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = 1;
                     break;
+
                 }
-                case instruct::opcode::nequs:
+                case instruct::opcode::nequx:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer =
-                        opnum1->type != value::valuetype::string_type
-                        || opnum1->type != opnum2->type
-                        || *opnum1->string != *opnum2->string;
-
                     cr->type = value::valuetype::integer_type;
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer != opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle != opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real != opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string != *opnum2->string; break;
 
+                        case value::valuetype::mapping_type:
+                        case value::valuetype::array_type:
+                            cr->integer = opnum1->gcunit != opnum2->gcunit; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = 0;
                     break;
                 }
 
@@ -691,8 +1275,8 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer && opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer && opnum2->integer;
 
                     break;
                 }
@@ -701,8 +1285,8 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    cr->integer = opnum1->integer || opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer || opnum2->integer;
 
                     break;
                 }
@@ -710,8 +1294,8 @@ namespace rs
                 {
                     RS_ADDRESSING_N1_REF;
 
-                    cr->integer = !opnum1->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = !opnum1->integer;
 
                     break;
                 }
@@ -724,8 +1308,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer < opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer < opnum2->integer;
+
 
                     break;
                 }
@@ -737,8 +1322,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer > opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer > opnum2->integer;
+
 
                     break;
                 }
@@ -750,8 +1336,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer <= opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer <= opnum2->integer;
+
 
                     break;
                 }
@@ -763,8 +1350,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::integer_type);
 
-                    cr->integer = opnum1->integer >= opnum2->integer;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->integer >= opnum2->integer;
+
 
                     break;
                 }
@@ -777,8 +1365,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real < opnum2->real;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->real < opnum2->real;
+
 
                     break;
                 }
@@ -790,8 +1379,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real > opnum2->real;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->real > opnum2->real;
+
 
                     break;
                 }
@@ -803,8 +1393,9 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
-                    cr->integer = opnum1->real <= opnum2->real;
                     cr->type = value::valuetype::integer_type;
+                    cr->integer = opnum1->real <= opnum2->real;
+
 
                     break;
                 }
@@ -816,62 +1407,125 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::real_type);
 
+                    cr->type = value::valuetype::integer_type;
                     cr->integer = opnum1->real >= opnum2->real;
-                    cr->type = value::valuetype::integer_type;
+
 
                     break;
                 }
 
-                case instruct::opcode::lth:
+                case instruct::opcode::ltx:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    rs_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
-
-                    cr->integer = opnum1->handle < opnum2->handle;
                     cr->type = value::valuetype::integer_type;
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer < opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle < opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real < opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string < *opnum2->string; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = opnum1->type < opnum2->type;
 
                     break;
                 }
-                case instruct::opcode::gth:
+                case instruct::opcode::gtx:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    rs_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
-
-                    cr->integer = opnum1->handle > opnum2->handle;
                     cr->type = value::valuetype::integer_type;
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer > opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle > opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real > opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string > *opnum2->string; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = opnum1->type > opnum2->type;
+                    break;
+                }
+                case instruct::opcode::eltx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    cr->type = value::valuetype::integer_type;
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer <= opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle <= opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real <= opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string <= *opnum2->string; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = opnum1->type <= opnum2->type;
 
                     break;
                 }
-                case instruct::opcode::elth:
+                case instruct::opcode::egtx:
                 {
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    rs_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
-
-                    cr->integer = opnum1->handle <= opnum2->handle;
                     cr->type = value::valuetype::integer_type;
-
-                    break;
-                }
-                case instruct::opcode::egth:
-                {
-                    RS_ADDRESSING_N1_REF;
-                    RS_ADDRESSING_N2_REF;
-
-                    rs_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
-
-                    cr->integer = opnum1->handle >= opnum2->handle;
-                    cr->type = value::valuetype::integer_type;
-
+                    if (opnum1->type == opnum2->type)
+                    {
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::integer_type:
+                            cr->integer = opnum1->integer >= opnum2->integer; break;
+                        case value::valuetype::handle_type:
+                            cr->integer = opnum1->handle >= opnum2->handle; break;
+                        case value::valuetype::real_type:
+                            cr->integer = opnum1->real >= opnum2->real; break;
+                        case value::valuetype::string_type:
+                            cr->integer = *opnum1->string >= *opnum2->string; break;
+                        default:
+                            rs_fail("Values of this type cannot be compared.");
+                            cr->integer = 0;
+                            break;
+                        }
+                    }
+                    else
+                        cr->integer = opnum1->type >= opnum2->type;
                     break;
                 }
                 case instruct::opcode::ret:
@@ -976,6 +1630,38 @@ namespace rs
                     }
                     break;
                 }
+                case instruct::opcode::ext:
+                {
+                    // extern code page:
+                    int page_index = dr;
+
+                    opcode_dr = *(rt_ip++);
+                    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+                    dr = opcode_dr & 0b00000011u;
+
+                    switch (page_index)
+                    {
+                    case 0:     // extern-opcode-page-0
+                        switch ((instruct::extern_opcode_page_0)(opcode))
+                        {
+                        case instruct::extern_opcode_page_0::setref:
+                        {
+                            RS_ADDRESSING_N1;
+                            RS_ADDRESSING_N2_REF;
+                            cr->set_ref(opnum1->set_ref(opnum2));
+                            break;
+                        }
+                        default:
+                            rs_error("Unknown instruct.");
+                            break;
+                        }
+
+                    default:
+                        rs_error("Unknown extern-opcode-page.");
+                    }
+
+                    break;
+                }
                 case instruct::opcode::end:
                 {
                     return;
@@ -1015,7 +1701,9 @@ namespace rs
 #undef RS_ADDRESSING_N2
 #undef RS_ADDRESSING_N1
 #undef RS_SIGNED_SHIFT
+#undef RS_IPVAL_MOVE_8
 #undef RS_IPVAL_MOVE_4
+#undef RS_IPVAL_MOVE_2
 #undef RS_IPVAL_MOVE_1
 #undef RS_IPVAL
 

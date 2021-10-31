@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdint>
-
 #include "rs_assert.hpp"
+
+#include <cstdint>
 
 struct instruct
 {
@@ -20,81 +20,122 @@ struct instruct
     enum opcode : uint8_t
     {
 #define RS_OPCODE_SPACE <<2
-        nop = 1 RS_OPCODE_SPACE,    // nop()                                                        1 byte
-        mov = 2 RS_OPCODE_SPACE,    // mov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        set = 3 RS_OPCODE_SPACE,    // set(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        nop = 0 RS_OPCODE_SPACE,    // nop()                                                        1 byte
+        
+        mov = 1 RS_OPCODE_SPACE,    // mov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        set = 2 RS_OPCODE_SPACE,    // set(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
 
-        addi = 4 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        subi = 5 RS_OPCODE_SPACE,    // sub
-        muli = 6 RS_OPCODE_SPACE,    // mul
-        divi = 7 RS_OPCODE_SPACE,    // div
-        modi = 8 RS_OPCODE_SPACE,    // mod
+        addi = 3 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        subi = 4 RS_OPCODE_SPACE,    // sub
+        muli = 5 RS_OPCODE_SPACE,    // mul
+        divi = 6 RS_OPCODE_SPACE,    // div
+        modi = 7 RS_OPCODE_SPACE,    // mod
 
-        addr = 9 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        subr = 10 RS_OPCODE_SPACE,    // sub
-        mulr = 11 RS_OPCODE_SPACE,    // mul
-        divr = 12 RS_OPCODE_SPACE,    // div
-        modr = 13 RS_OPCODE_SPACE,    // mod
+        addr = 8 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        subr = 9 RS_OPCODE_SPACE,    // sub
+        mulr = 10 RS_OPCODE_SPACE,    // mul
+        divr = 11 RS_OPCODE_SPACE,    // div
+        modr = 12 RS_OPCODE_SPACE,    // mod
 
-        addh = 14 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        subh = 15 RS_OPCODE_SPACE,    // sub
+        addh = 13 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        subh = 14 RS_OPCODE_SPACE,    // sub
 
-        adds = 16 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        adds = 15 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
 
-        psh = 17 RS_OPCODE_SPACE,    // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
-        pop = 18 RS_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       3-5 byte
-        pshr = 19 RS_OPCODE_SPACE,  // pshr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
-        popr = 20 RS_OPCODE_SPACE,  // popr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
+        psh = 16 RS_OPCODE_SPACE,    // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
+        pop = 17 RS_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       3-5 byte
+        pshr = 18 RS_OPCODE_SPACE,  // pshr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
+        popr = 19 RS_OPCODE_SPACE,  // popr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
 
-        lds = 21 RS_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
-        ldsr = 22 RS_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+        lds = 20 RS_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
+        ldsr = 21 RS_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
 
         //  Logic operator, the result will store to logic_state
-        equ = 23 RS_OPCODE_SPACE,   // equ(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        nequ = 24 RS_OPCODE_SPACE,  // nequ
+        equb = 22 RS_OPCODE_SPACE,   // equb(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        nequb = 23 RS_OPCODE_SPACE,  // nequb
 
-        lti = 25 RS_OPCODE_SPACE,    // lt
-        gti = 26 RS_OPCODE_SPACE,    // gt
-        elti = 27 RS_OPCODE_SPACE,   // elt
-        egti = 28 RS_OPCODE_SPACE,   // egt
-        land = 29 RS_OPCODE_SPACE,  // land             
-        lor = 30 RS_OPCODE_SPACE,   // lor
-        lnot = 31 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
+        lti = 24 RS_OPCODE_SPACE,    // lt
+        gti = 25 RS_OPCODE_SPACE,    // gt
+        elti = 26 RS_OPCODE_SPACE,   // elt
+        egti = 27 RS_OPCODE_SPACE,   // egt
 
-        lth = 32 RS_OPCODE_SPACE,    // lt
-        gth = 33 RS_OPCODE_SPACE,    // gt
-        elth = 34 RS_OPCODE_SPACE,   // elt
-        egth = 35 RS_OPCODE_SPACE,   // egt
+        land = 28 RS_OPCODE_SPACE,  // land             
+        lor = 29 RS_OPCODE_SPACE,   // lor
+        lnot = 30 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
 
-        ltr = 36 RS_OPCODE_SPACE,    // lt
-        gtr = 37 RS_OPCODE_SPACE,    // gt
-        eltr = 38 RS_OPCODE_SPACE,   // elt
-        egtr = 39 RS_OPCODE_SPACE,   // egt
+        ltx = 31 RS_OPCODE_SPACE,    // lt
+        gtx = 32 RS_OPCODE_SPACE,    // gt
+        eltx = 33 RS_OPCODE_SPACE,   // elt
+        egtx = 34 RS_OPCODE_SPACE,   // egt
 
-        call = 40 RS_OPCODE_SPACE,  // call(dr_0)  REGID(1BYTE)/DIFF(4BYTE) 
-        calln = 41 RS_OPCODE_SPACE,  // calln(0_ISNATIVE)  VM_IR_DIFF(4BYTE)/NATIVE_FUNC(8BYTE)
-        ret = 42 RS_OPCODE_SPACE,   // ret
-        jt = 43 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
-        jf = 44 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
-        jmp = 45 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
+        ltr = 35 RS_OPCODE_SPACE,    // lt
+        gtr = 36 RS_OPCODE_SPACE,    // gt
+        eltr = 37 RS_OPCODE_SPACE,   // elt
+        egtr = 38 RS_OPCODE_SPACE,   // egt
 
-        movr2i = 46 RS_OPCODE_SPACE,
-        movi2r = 47 RS_OPCODE_SPACE,
-        setr2i = 48 RS_OPCODE_SPACE,
-        seti2r = 49 RS_OPCODE_SPACE,
+        call = 39 RS_OPCODE_SPACE,  // call(dr_0)  REGID(1BYTE)/DIFF(4BYTE) 
+        calln = 40 RS_OPCODE_SPACE,  // calln(0_ISNATIVE)  VM_IR_DIFF(4BYTE)/NATIVE_FUNC(8BYTE)
+        ret = 41 RS_OPCODE_SPACE,   // ret
+        jt = 42 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
+        jf = 43 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
+        jmp = 44 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
+
+        movr2i = 45 RS_OPCODE_SPACE,
+        movi2r = 46 RS_OPCODE_SPACE,
+        setr2i = 47 RS_OPCODE_SPACE,
+        seti2r = 48 RS_OPCODE_SPACE,
 
         // exception handler
-        veh = 50 RS_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
+        veh = 49 RS_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
                                     //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
                                     //  01 thorw
                                     //  00 clean
-
+        
+        ext = 50 RS_OPCODE_SPACE,       // ext(PAGECODE)     extern code, it used for extern command of vm,
+        
         abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)     
 
-        equs = 52 RS_OPCODE_SPACE,   // equs(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-        nequs = 53 RS_OPCODE_SPACE,  // nequs
+        equx = 52 RS_OPCODE_SPACE,   // equx(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+        nequx = 53 RS_OPCODE_SPACE,  // nequx
 
+        mkarr = 54 RS_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+        mkmap = 55 RS_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+        idx = 56 RS_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+
+        movx = 57 RS_OPCODE_SPACE,       // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+        
+        addx = 58 RS_OPCODE_SPACE,      // addx(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+        subx = 59 RS_OPCODE_SPACE,      // subx
+        mulx = 60 RS_OPCODE_SPACE,      // mulx
+        divx = 61 RS_OPCODE_SPACE,      // divx
+        modx = 62 RS_OPCODE_SPACE,      // modx
+        
         end = 63 RS_OPCODE_SPACE,   // end()                                        1 byte
+
+    };
+
+    enum extern_opcode_page_0 : uint8_t
+    {
+        // Here to store extern_opcode. 
+        // Here is no nop in extern code page.
+
+        setref = 0 RS_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+    };
+    enum extern_opcode_page_1 : uint8_t
+    {
+        // Here to store extern_opcode. 
+        // Here is no nop in extern code page.
+    };
+    enum extern_opcode_page_2 : uint8_t
+    {
+        // Here to store extern_opcode. 
+        // Here is no nop in extern code page.
+    };
+    enum extern_opcode_page_3 : uint8_t
+    {
+        // Here to store extern_opcode. 
+        // Here is no nop in extern code page.
+
 #undef RS_OPCODE_SPACE
     };
 

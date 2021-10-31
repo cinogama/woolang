@@ -194,6 +194,15 @@ namespace rs
 
             int32_t opinteger;
 
+            uint8_t ext_page_id;
+            union
+            {
+                instruct::extern_opcode_page_0 ext_opcode_p0;
+                instruct::extern_opcode_page_1 ext_opcode_p1;
+                instruct::extern_opcode_page_2 ext_opcode_p2;
+                instruct::extern_opcode_page_3 ext_opcode_p3;
+            };
+
 #define RS_IS_REG(OPNUM)(dynamic_cast<opnum::reg*>(OPNUM))
             uint8_t dr()
             {
@@ -235,7 +244,7 @@ namespace rs
 
     public:
 
-#define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.push_back(ir_command{OPCODE, __VA_ARGS__});
+#define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
 #define RS_OPNUM(OPNUM) (_check_and_add_const(new sfinae::origin_type<decltype(OPNUM)>(OPNUM)))
 
         template<typename OP1T, typename OP2T>
@@ -324,7 +333,7 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::addi, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-        
+
         template<typename OP1T, typename OP2T>
         void subi(const OP1T& op1, const OP2T& op2)
         {
@@ -333,7 +342,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not sub value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::subi, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -345,7 +354,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not mul value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::muli, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -357,7 +366,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not div value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::divi, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -369,9 +378,84 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not mod value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::modi, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+
+        template<typename OP1T, typename OP2T>
+        void movx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mov value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::movx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+
+        template<typename OP1T, typename OP2T>
+        void addx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not add value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::addx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+
+        template<typename OP1T, typename OP2T>
+        void subx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not sub value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void mulx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mul value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void divx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not div value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void modx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mod value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
@@ -394,7 +478,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not sub value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::subr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -406,7 +490,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not mul value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::mulr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -418,7 +502,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not div value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::divr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -430,7 +514,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not mod value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::modr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -455,7 +539,7 @@ namespace rs
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not add value to immediate.");
+                "Can not sub value to immediate.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::subh, RS_OPNUM(op1), RS_OPNUM(op2));
         }
@@ -474,41 +558,43 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
-        void equ(const OP1T& op1, const OP2T& op2)
+        void equb(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::equ, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::equb, RS_OPNUM(op1), RS_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void nequ(const OP1T& op1, const OP2T& op2)
+        void nequb(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::nequ, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::nequb, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+
+        template<typename OP1T, typename OP2T>
+        void equx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::equx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void equs(const OP1T& op1, const OP2T& op2)
+        void nequx(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::equs, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::nequx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-        template<typename OP1T, typename OP2T>
-        void nequs(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::nequs, RS_OPNUM(op1), RS_OPNUM(op2));
-        }
         template<typename OP1T, typename OP2T>
         void land(const OP1T& op1, const OP2T& op2)
         {
@@ -612,17 +698,17 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
-        void lth(const OP1T& op1, const OP2T& op2)
+        void ltx(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::lth, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::ltx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
-        void gth(const OP1T& op1, const OP2T& op2)
+        void gtx(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -631,23 +717,23 @@ namespace rs
             RS_PUT_IR_TO_BUFFER(instruct::opcode::gth, RS_OPNUM(op1), RS_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void elth(const OP1T& op1, const OP2T& op2)
+        void eltx(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::elth, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::eltx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
-        void egth(const OP1T& op1, const OP2T& op2)
+        void egtx(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::egth, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::egtx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
@@ -810,6 +896,18 @@ namespace rs
             RS_PUT_IR_TO_BUFFER(instruct::opcode::veh);
         }
 
+        template<typename OP1T, typename OP2T>
+        void ext_setref(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode = instruct::extern_opcode_page_0::setref;
+        }
+
 #undef RS_OPNUM
 #undef RS_PUT_IR_TO_BUFFER
 
@@ -882,6 +980,10 @@ namespace rs
 #define RS_OPCODE(...) rs_macro_overload(RS_OPCODE,__VA_ARGS__)
 #define RS_OPCODE_1(OPCODE) (instruct(instruct::opcode::OPCODE, RS_IR.dr()).opcode_dr)
 #define RS_OPCODE_2(OPCODE,DR) (instruct(instruct::opcode::OPCODE, 0b000000##DR).opcode_dr)
+
+#define RS_OPCODE_EXT0(...) rs_macro_overload(RS_OPCODE_EXT0,__VA_ARGS__)
+#define RS_OPCODE_EXT0_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, RS_IR.dr()).opcode_dr)
+#define RS_OPCODE_EXT0_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, 0b000000##DR).opcode_dr)
 
                 switch (RS_IR.opcode)
                 {
@@ -986,6 +1088,36 @@ namespace rs
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
+                case instruct::opcode::movx:
+                    runtime_command_buffer.push_back(RS_OPCODE(movx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::addx:
+                    runtime_command_buffer.push_back(RS_OPCODE(addx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::subx:
+                    runtime_command_buffer.push_back(RS_OPCODE(subx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::mulx:
+                    runtime_command_buffer.push_back(RS_OPCODE(mulx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::divx:
+                    runtime_command_buffer.push_back(RS_OPCODE(divx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::modx:
+                    runtime_command_buffer.push_back(RS_OPCODE(modx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
                 case instruct::opcode::addr:
                     runtime_command_buffer.push_back(RS_OPCODE(addr));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
@@ -1027,23 +1159,23 @@ namespace rs
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
 
-                case instruct::opcode::equ:
-                    runtime_command_buffer.push_back(RS_OPCODE(equ));
+                case instruct::opcode::equb:
+                    runtime_command_buffer.push_back(RS_OPCODE(equb));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::nequ:
-                    runtime_command_buffer.push_back(RS_OPCODE(nequ));
+                case instruct::opcode::nequb:
+                    runtime_command_buffer.push_back(RS_OPCODE(nequb));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::equs:
-                    runtime_command_buffer.push_back(RS_OPCODE(equs));
+                case instruct::opcode::equx:
+                    runtime_command_buffer.push_back(RS_OPCODE(equx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::nequs:
-                    runtime_command_buffer.push_back(RS_OPCODE(nequs));
+                case instruct::opcode::nequx:
+                    runtime_command_buffer.push_back(RS_OPCODE(nequx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
@@ -1105,23 +1237,23 @@ namespace rs
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
 
-                case instruct::opcode::gth:
-                    runtime_command_buffer.push_back(RS_OPCODE(gth));
+                case instruct::opcode::gtx:
+                    runtime_command_buffer.push_back(RS_OPCODE(gtx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::lth:
-                    runtime_command_buffer.push_back(RS_OPCODE(lth));
+                case instruct::opcode::ltx:
+                    runtime_command_buffer.push_back(RS_OPCODE(ltx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::egth:
-                    runtime_command_buffer.push_back(RS_OPCODE(egth));
+                case instruct::opcode::egtx:
+                    runtime_command_buffer.push_back(RS_OPCODE(egtx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
-                case instruct::opcode::elth:
-                    runtime_command_buffer.push_back(RS_OPCODE(elth));
+                case instruct::opcode::eltx:
+                    runtime_command_buffer.push_back(RS_OPCODE(eltx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
@@ -1247,6 +1379,47 @@ namespace rs
                         // throw
                         runtime_command_buffer.push_back(RS_OPCODE(veh, 01));
                     }
+                    break;
+                case instruct::opcode::ext:
+
+                    switch (RS_IR.ext_page_id)
+                    {
+                    case 0:
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(ext, 00));
+                        switch (RS_IR.ext_opcode_p0)
+                        {
+                        case instruct::extern_opcode_page_0::setref:
+                            RS_OPCODE_EXT0(setref);
+                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            break;
+                        default:
+                            rs_error("Unknown instruct.");
+                            break;
+                        }
+                        break;
+                    }
+                    case 1:
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(ext, 01));
+                        break;
+                    }
+                    case 2:
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(ext, 10));
+                        break;
+                    }
+                    case 3:
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(ext, 11));
+                        break;
+                    }
+                    default:
+                        rs_error("Unknown extern-opcode-page.");
+                        break;
+                    }
+
                     break;
                 case instruct::opcode::abrt:
                     runtime_command_buffer.push_back(RS_OPCODE(abrt, 00));

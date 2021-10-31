@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
+    <ClCompile Include="rs_basic_type_support.cpp" />
     <ClCompile Include="rs_gc_work.cpp" />
     <ClCompile Include="rs_main.cpp" />
   </ItemGroup>

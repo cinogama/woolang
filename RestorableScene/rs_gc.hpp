@@ -183,11 +183,7 @@ namespace rs
     template<typename T>
     struct gcunit : public gcbase, public T
     {
-        template<typename ... ArgTs>
-        gcunit(ArgTs && ... args) : T(args...)
-        {
-
-        }
+        
 
         template<gcbase::gctype AllocType, typename ... ArgTs>
         static gcunit<T>* gc_new(gcunit<T>*& write_aim, ArgTs && ... args)
@@ -217,6 +213,12 @@ namespace rs
             }
 
             return write_aim;
+        }
+
+        template<typename ... ArgTs>
+        gcunit(ArgTs && ... args) : T(args...)
+        {
+
         }
 
         template<typename TT>

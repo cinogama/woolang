@@ -3,6 +3,10 @@
 #define RS_IMPL
 #include "rs.h"
 
+#include "rs_gc.hpp"
+#include "rs_assert.hpp"
+
+
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
@@ -10,18 +14,21 @@
 #include <set>
 #include <vector>
 
-#include "rs_gc.hpp"
-#include "rs_assert.hpp"
-
 namespace rs
 {
     struct value;
+    struct value_compare
+    {
+        inline bool operator()(const value& lhs, const value& rhs) const;
+    };
 
     using byte_t = uint8_t;
     using real_t = double;
     using hash_t = uint64_t;
+
     using string_t = gcunit<std::string>;
-    using mapping_t = gcunit<std::unordered_map<hash_t, value*>>;
+    using mapping_t = gcunit<std::map<value, value, value_compare>>;
+    using array_t = gcunit<std::vector<value>>;
 
     template<typename ... TS>
     using cxx_vec_t = std::vector<TS...>;
@@ -51,6 +58,7 @@ namespace rs
 
             string_type,
             mapping_type,
+            array_type,
 
         };
 

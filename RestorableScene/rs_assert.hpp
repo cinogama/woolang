@@ -1,9 +1,9 @@
 #pragma once
 
+#include "rs_macro.hpp"
+
 #include <iostream>
 #include <cstdlib>
-
-#include "rs_macro.hpp"
 
 #define rs_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")

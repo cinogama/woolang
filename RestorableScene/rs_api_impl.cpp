@@ -33,10 +33,10 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     std::cerr << "\tAt function: \t" << functionname << std::endl;
     std::cerr << std::endl;
     std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
-    std::cerr << "1) Abort program." << std::endl;
-    std::cerr << "2) Continue. (May cause unknown errors.)" << std::endl;
-    std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY. (Safe, but may cause memory leak.)" << std::endl;
-    std::cerr << "4) Throw exception. (Not exactly safe.)" << std::endl;
+    std::cerr << "1) Abort program.(You can attatch debugee.)" << std::endl;
+    std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
+    std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak.)" << std::endl;
+    std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
 
     do
     {
