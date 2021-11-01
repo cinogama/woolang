@@ -25,7 +25,9 @@ constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 0) RS_DEBUG_SFX;
 #include <cstdlib>
 #include <string>
 
-void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason)
+#include "rs_exceptions.hpp"
+
+void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname,uint32_t rterrcode, rs_string_t reason)
 {
     std::cerr << "RS Runtime happend a failure: " << reason << std::endl;
     std::cerr << "\tAt source: \t" << src_file << std::endl;
@@ -55,9 +57,8 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
         case 3:
             if (rs::vmbase::_this_thread_vm)
             {
-                rs::string_t::gc_new<rs::gcbase::gctype::eden>(rs::vmbase::_this_thread_vm->er->string, reason);
-                rs::vmbase::_this_thread_vm->er->type = rs::value::valuetype::string_type;
-
+                rs::vmbase::_this_thread_vm->er->set_gcunit_with_barrier(rs::value::valuetype::string_type);
+                rs::string_t::gc_new<rs::gcbase::gctype::eden>(rs::vmbase::_this_thread_vm->er->gcunit, reason);
                 rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
             }
             else
@@ -65,7 +66,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
             
             break;
         case 4:
-            throw rs::rs_runtime_error(reason);
+            throw rs::rsruntime_exception(rterrcode, reason);
 
             // in debug, if there is no catcher for rs_runtime_error, 
             // the program may continue working.
@@ -88,9 +89,9 @@ RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler)
 {
     return _rs_fail_handler_function.exchange(new_handler);
 }
-RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason)
+RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
-    _rs_fail_handler_function.load()(src_file, lineno, functionname, reason);
+    _rs_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
 rs_string_t  rs_compile_date(void)

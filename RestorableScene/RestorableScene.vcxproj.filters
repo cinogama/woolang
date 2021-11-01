@@ -24,6 +24,9 @@
     <ClCompile Include="rs_gc_work.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_basic_type_support.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_gc.hpp">
@@ -51,6 +54,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="rs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_exceptions.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>

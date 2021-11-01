@@ -142,7 +142,7 @@ namespace rs
             {
                 v->type = type();
                 if constexpr (sfinae::is_string<T>::value)
-                    string_t::gc_new<gcbase::gctype::eden>(v->string, val);
+                    string_t::gc_new<gcbase::gctype::eden>(v->gcunit, val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
@@ -897,6 +897,40 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
+        void mkarr(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mkarr, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void mkmap(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mkmap, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void idx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::idx, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
+
+        template<typename OP1T, typename OP2T>
         void ext_setref(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -913,18 +947,27 @@ namespace rs
 
         struct runtime_env
         {
-            value* constant_global_reg_rtstack;
-            value* reg_begin;
-            value* stack_begin;
+            value* constant_global_reg_rtstack = nullptr;
+            value* reg_begin = nullptr;
+            value* stack_begin = nullptr;
 
-            size_t constant_value_count;
-            size_t global_value_count;
-            size_t real_register_count;
-            size_t cgr_global_value_count;
+            size_t constant_value_count = 0;
+            size_t global_value_count = 0;
+            size_t real_register_count = 0;
+            size_t cgr_global_value_count = 0;
 
-            size_t runtime_stack_count;
+            size_t runtime_stack_count = 0;
 
-            byte_t* rt_codes;
+            byte_t* rt_codes = nullptr;
+
+            ~runtime_env()
+            {
+                if (constant_global_reg_rtstack)
+                    free(constant_global_reg_rtstack);
+
+                if (rt_codes)
+                    free(rt_codes);
+            }
         };
 
     private:
@@ -1254,6 +1297,21 @@ namespace rs
                     break;
                 case instruct::opcode::eltx:
                     runtime_command_buffer.push_back(RS_OPCODE(eltx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::mkarr:
+                    runtime_command_buffer.push_back(RS_OPCODE(mkarr));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::mkmap:
+                    runtime_command_buffer.push_back(RS_OPCODE(mkmap));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::idx:
+                    runtime_command_buffer.push_back(RS_OPCODE(idx));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;

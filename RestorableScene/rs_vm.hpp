@@ -9,6 +9,7 @@
 
 namespace rs
 {
+
     class exception_recovery;
 
     struct vmbase
@@ -229,7 +230,7 @@ namespace rs
 
     public:
 
-        void run()
+        void run() try
         {
             struct auto_leave
             {
@@ -543,7 +544,7 @@ namespace rs
                     rs_assert(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type);
 
-                    cr->set_ref((string_t::gc_new<gcbase::gctype::eden>(opnum1->string, *opnum1->string + *opnum2->string), opnum1));
+                    cr->set_ref((string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string), opnum1));
                     break;
                 }
 
@@ -609,6 +610,8 @@ namespace rs
                             opnum1->real += opnum2->real; break;
                         case value::valuetype::handle_type:
                             opnum1->handle += opnum2->handle; break;
+                        case value::valuetype::string_type:
+                            string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string); break;
                         default:
                             rs_fail("Mismatch type for operating."); break;
                         }
@@ -1630,6 +1633,77 @@ namespace rs
                     }
                     break;
                 }
+                case instruct::opcode::mkarr:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
+                    auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+
+                    rs_assert(opnum2->type == value::valuetype::integer_type);
+                    // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
+
+                    gcbase::gc_write_guard gwg1(created_array);
+
+                    created_array->resize((size_t)opnum2->integer);
+                    for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+                    {
+                        (*created_array)[i].set_val((++rt_sp)->get());
+                    }
+                    break;
+                }
+                case instruct::opcode::mkmap:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
+                    auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+
+                    rs_assert(opnum2->type == value::valuetype::integer_type);
+                    // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
+
+                    gcbase::gc_write_guard gwg1(created_map);
+
+                    for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+                    {
+                        value* val = ++rt_sp;
+                        value* key = ++rt_sp;
+                        (*created_map)[*(key->get())].set_val(val->get());
+                    }
+                    break;
+                }
+                case instruct::opcode::idx:
+                {
+                    RS_ADDRESSING_N1_REF;
+                    RS_ADDRESSING_N2_REF;
+
+                    if (nullptr == opnum1->gcunit)
+                        rs_fail("the unit trying to access is 'nil'.");
+                    else
+                    {
+                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                        switch (opnum1->type)
+                        {
+                        case value::valuetype::string_type:
+                            cr->type = value::valuetype::integer_type;
+                            cr->integer = (unsigned char)(*opnum1->string)[(size_t)opnum2->integer];
+                            break;
+                        case value::valuetype::array_type:
+                            cr->set_ref(&(*opnum1->array)[(size_t)opnum2->integer]);
+                            break;
+                        case value::valuetype::mapping_type:
+                            cr->set_ref(&(*opnum1->mapping)[*opnum2]);
+                            break;
+                        default:
+                            rs_fail("unknown type to index.");
+                            break;
+                        }
+                    }
+                    break;
+                }
                 case instruct::opcode::ext:
                 {
                     // extern code page:
@@ -1655,7 +1729,27 @@ namespace rs
                             rs_error("Unknown instruct.");
                             break;
                         }
-
+                        break;
+                    case 1:     // extern-opcode-page-1
+                        switch ((instruct::extern_opcode_page_1)(opcode))
+                        {
+                        case instruct::extern_opcode_page_1::prnt:
+                        {
+                            RS_ADDRESSING_N1_REF;
+                            rs_error("This command not impl now");
+                            break;
+                        }
+                        case instruct::extern_opcode_page_1::detail:
+                        {
+                            RS_ADDRESSING_N1;
+                            rs_error("This command not impl now");
+                            break;
+                        }
+                        default:
+                            rs_error("Unknown instruct.");
+                            break;
+                        }
+                        break;
                     default:
                         rs_error("Unknown extern-opcode-page.");
                     }
@@ -1707,6 +1801,9 @@ namespace rs
 #undef RS_IPVAL_MOVE_1
 #undef RS_IPVAL
 
+        }catch (const std::exception& any_excep)
+        {
+            rs::exception_recovery::rollback(this);
         }
     };
 }

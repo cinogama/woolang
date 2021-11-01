@@ -19,7 +19,7 @@ namespace rs
     struct value;
     struct value_compare
     {
-        inline bool operator()(const value& lhs, const value& rhs) const;
+        bool operator()(const value& lhs, const value& rhs) const;
     };
 
     using byte_t = uint8_t;
@@ -70,6 +70,7 @@ namespace rs
 
             gcbase* gcunit;
             string_t* string;     // ADD-ABLE TYPE
+            array_t* array;
             mapping_t* mapping;
 
             struct
@@ -80,14 +81,14 @@ namespace rs
 
             value* ref;
 
-            std::atomic<gcbase*> atomic_gcunit_ptr;
+            // std::atomic<gcbase*> atomic_gcunit_ptr;
         };
 
         union
         {
             valuetype type;
 
-            std::atomic_uint8_t atomic_type;
+            // std::atomic_uint8_t atomic_type;
         };
 
         inline value* get()
@@ -103,25 +104,25 @@ namespace rs
 
         inline void set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            atomic_gcunit_ptr = nullptr;
-            atomic_type = (uint8_t)gcunit_type;
+            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
+            *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
         }
 
         inline void set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            atomic_gcunit_ptr = nullptr;
-            atomic_type = (uint8_t)gcunit_type;
-            atomic_gcunit_ptr = gcunit_ptr;
+            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
+            *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
+            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = gcunit_ptr;
         }
 
-        inline gcbase* get_gcunit_with_barrier()
+        inline gcbase* get_gcunit_with_barrier() const
         {
             do
             {
-                gcbase* gcunit_addr = atomic_gcunit_ptr;
-                if (atomic_type.load() & (uint8_t)valuetype::need_gc)
+                gcbase* gcunit_addr = *reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit);
+                if (*reinterpret_cast<const std::atomic_uint8_t*>(&type) & (uint8_t)valuetype::need_gc)
                 {
-                    if (gcunit_addr == atomic_gcunit_ptr)
+                    if (gcunit_addr == *reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit))
                         return gcunit_addr;
 
                     continue;
@@ -144,11 +145,20 @@ namespace rs
             }
             return this;
         }
+        inline bool is_gcunit() const
+        {
+            return (uint8_t)type & (uint8_t)valuetype::need_gc;
+        }
 
         inline value* set_val(value* _val)
         {
-            type = _val->type;
-            handle = _val->handle;
+            if (_val->is_gcunit())
+                set_gcunit_with_barrier(_val->type, _val->gcunit);
+            else
+            {
+                type = _val->type;
+                handle = _val->handle;
+            }
 
             return this;
         }

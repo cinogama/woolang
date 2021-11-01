@@ -183,15 +183,17 @@ namespace rs
     template<typename T>
     struct gcunit : public gcbase, public T
     {
-        
 
-        template<gcbase::gctype AllocType, typename ... ArgTs>
-        static gcunit<T>* gc_new(gcunit<T>*& write_aim, ArgTs && ... args)
+
+        template<gcbase::gctype AllocType, typename ... ArgTs >
+        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
         {
             ++gc_new_count;
 
-            write_aim = new gcunit<T>(args...);
-            write_aim->gc_type = AllocType;
+            auto* created_gcnuit = new gcunit<T>(args...);
+            created_gcnuit->gc_type = AllocType;
+
+            *reinterpret_cast<std::atomic<gcbase*>*>(&write_aim) = created_gcnuit;
 
             switch (AllocType)
             {
@@ -199,20 +201,20 @@ namespace rs
                 /* DO NOTHING */
                 break;
             case rs::gcbase::gctype::eden:
-                eden_age_gcunit_list.add_one(write_aim);
+                eden_age_gcunit_list.add_one(created_gcnuit);
                 break;
             case rs::gcbase::gctype::young:
-                young_age_gcunit_list.add_one(write_aim);
+                young_age_gcunit_list.add_one(created_gcnuit);
                 break;
             case rs::gcbase::gctype::old:
-                old_age_gcunit_list.add_one(write_aim);
+                old_age_gcunit_list.add_one(created_gcnuit);
                 break;
             default:
                 // rs_error("Unknown gc type.");
                 break;
             }
 
-            return write_aim;
+            return created_gcnuit;
         }
 
         template<typename ... ArgTs>

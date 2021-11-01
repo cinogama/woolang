@@ -2,7 +2,7 @@
 
 namespace rs
 {
-    inline bool value_compare::operator()(const value& lhs, const value& rhs) const
+    bool value_compare::operator()(const value& lhs, const value& rhs) const
     {
         if (lhs.type == rhs.type)
         {

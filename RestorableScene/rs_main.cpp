@@ -42,8 +42,6 @@ void cost_time_test_gc(rs::vmbase* vm)
 #define RS_IMPL
 #include "rs.h"
 
-#include <thread>
-
 int main()
 {
     using namespace rs;
@@ -55,6 +53,80 @@ int main()
     gc::gc_start();
 
     vm vmm;
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c17;
+    c17.psh(imm("name"));
+    c17.psh(imm("joy"));
+    c17.psh(imm("age"));
+    c17.psh(imm("19"));
+    c17.mkmap(reg(reg::t0), imm(2));
+    c17.idx(reg(reg::t0), imm("name"));
+    c17.mov(reg(reg::t1), reg(reg::cr));
+    c17.idx(reg(reg::t0), imm("age"));
+    c17.addx(reg(reg::t1), reg(reg::cr));
+    c17.set(reg(reg::cr), reg(reg::cr));
+    c17.end();
+
+    vmm.set_runtime(c17);
+    vmm.run();
+
+
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
+    rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "joy19");
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    
+    ir_compiler c16;
+    c16.tag("program_begin");
+    c16.psh(imm("friend"));
+    c16.psh(imm("my"));
+    c16.psh(imm("world"));
+    c16.psh(imm("hello"));
+    c16.mkarr(reg(reg::t0), imm(4));
+    c16.idx(reg(reg::t0), imm(0));
+    c16.mov(reg(reg::t1), reg(reg::cr));
+    c16.idx(reg(reg::t0), imm(1));
+    c16.addx(reg(reg::t1), reg(reg::cr));
+    c16.idx(reg(reg::t0), imm(2));
+    c16.addx(reg(reg::t1), reg(reg::cr));
+    c16.idx(reg(reg::t0), imm(3));
+    c16.addx(reg(reg::t1), reg(reg::cr));
+    c16.set(reg(reg::cr), reg(reg::cr));
+    c16.jmp(tag("program_begin"));
+    c16.end();
+
+    vmm.set_runtime(c16);
+    vmm.run();
+
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c15;
+    c15.psh(imm("friend"));
+    c15.psh(imm("my"));
+    c15.psh(imm("world"));
+    c15.psh(imm("hello"));
+    c15.mkarr(reg(reg::t0), imm(4));
+    c15.idx(reg(reg::t0), imm(0));
+    c15.mov(reg(reg::t1), reg(reg::cr));
+    c15.idx(reg(reg::t0), imm(1));
+    c15.addx(reg(reg::t1), reg(reg::cr));
+    c15.idx(reg(reg::t0), imm(2));
+    c15.addx(reg(reg::t1), reg(reg::cr));
+    c15.idx(reg(reg::t0), imm(3));
+    c15.addx(reg(reg::t1), reg(reg::cr));
+    c15.set(reg(reg::cr), reg(reg::cr));
+    c15.end();
+
+    vmm.set_runtime(c15);
+    vmm.run();
+
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
+    rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "helloworldmyfriend");
+
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c14;                                // 

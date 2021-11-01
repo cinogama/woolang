@@ -25,6 +25,25 @@ namespace rs
         {
             unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::full_mark);
 
+            if (array_t* rs_arr = dynamic_cast<array_t*>(unit))
+            {
+                for (auto& val : *rs_arr)
+                {
+                    if (gcbase* gcunit_addr = val.get_gcunit_with_barrier())
+                        deep_in_to_mark_unit(gcunit_addr);
+                }
+            }
+            else if (mapping_t* rs_map = dynamic_cast<mapping_t*>(unit))
+            {
+                for (auto& [key, val] : *rs_map)
+                {
+                    if (gcbase* gcunit_addr = key.get_gcunit_with_barrier())
+                        deep_in_to_mark_unit(gcunit_addr);
+                    if (gcbase* gcunit_addr = val.get_gcunit_with_barrier())
+                        deep_in_to_mark_unit(gcunit_addr);
+                }
+            }
+
         } // void deep_in_to_mark_unit(gcbase * unit)
 
         class gc_mark_thread

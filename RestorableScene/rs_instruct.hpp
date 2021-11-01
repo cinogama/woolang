@@ -119,12 +119,19 @@ struct instruct
         // Here to store extern_opcode. 
         // Here is no nop in extern code page.
 
+        // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
+
         setref = 0 RS_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
     };
     enum extern_opcode_page_1 : uint8_t
     {
         // Here to store extern_opcode. 
         // Here is no nop in extern code page.
+
+        // THIS PAGE USED FOR STORING DEBUG OPCODE
+
+        prnt = 0 RS_OPCODE_SPACE,
+        detail = 1 RS_OPCODE_SPACE,
     };
     enum extern_opcode_page_2 : uint8_t
     {

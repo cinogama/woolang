@@ -59,10 +59,10 @@ rs_type;
 
 typedef void(*rs_native_func)(rs_vm);
 
-typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason);
+typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
 RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler);
-RS_API void         rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, rs_string_t reason);
+RS_API void         rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
 #define rs_fail(REASON) ((void)rs_cause_fail(__FILE__, __LINE__, __func__, REASON))
 
@@ -85,25 +85,33 @@ RS_API rs_string_t  rs_cast_string(rs_value value);
 RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
+// Here to define RSRuntime code accroding to the type.
+
+#if defined(RS_NEED_RTERROR_CODES) || defined(RS_IMPL)
+
+// Not allowed to using UNKNOWN as a error type.
+
+// Minor error:
+// Following error will not cause deadly problem, and in most cases, there 
+// will be a relatively proper default solution. The main reason for reporting
+// these errors at runtime is due to errors and usage or usage habits. In order
+// to avoid more serious problems, please correct them as soon as possible. 
+#define RS_RTERRCODE_TYPE_CAST_FAIL 0x0001
+
+// Medium error:
+// These errors are caused by incorrect coding, some of which may have default
+// solutions, but the default solutions may cause domino-like chain errors. 
+#define RS_RTERRCODE_INDEX_NIL 0x1001
+
+// Heavy error:
+// 
+#define RS_RTERRCODE_INDEX_NIL 0x2001
+
+// dEADLY 
+
+#endif
+
 #ifdef __cplusplus
-#include <exception>
 
-namespace rs
-{
-    class rs_runtime_error :public std::exception
-    {
-        rs_string_t _reason;
-    public:
-        rs_runtime_error(rs_string_t __reason) noexcept
-            :_reason(__reason)
-        {
-        }
-
-        virtual char const* what() const override
-        {
-            return _reason;
-        }
-    };
-}
 
 #endif
