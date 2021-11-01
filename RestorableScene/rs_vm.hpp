@@ -33,20 +33,20 @@ namespace rs
                                         // failed, it means vm already hangned(or trying hangs now), GC work
                                         // will call 'wakeup' to resume vm.
 
-                                        LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                                                    // a limitted time.
-                                                                    // VM will set LEAVE_INTERRUPT when:
-                                                                    // 1) calling native function
-                                                                    // 2) leaving vm run()
-                                                                    // 3) vm was created.
-                                                                    // VM will clean LEAVE_INTERRUPT when:
-                                                                    // 1) the native function calling was end.
-                                                                    // 2) enter vm run()
-                                                                    // 3) vm destructed.
-                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                    //            successful. (We use 'rs_asure' here)
+            LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+                                        // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                        // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                        // a limitted time.
+                                        // VM will set LEAVE_INTERRUPT when:
+                                        // 1) calling native function
+                                        // 2) leaving vm run()
+                                        // 3) vm was created.
+                                        // VM will clean LEAVE_INTERRUPT when:
+                                        // 1) the native function calling was end.
+                                        // 2) enter vm run()
+                                        // 3) vm destructed.
+                                        // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                        //            successful. (We use 'rs_asure' here)
         };
 
         std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
@@ -270,6 +270,22 @@ namespace rs
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
             value* reg_begin = rt_env->reg_begin;
 
+            if (!veh)
+            {
+                byte_t* _uselessip = nullptr;
+                value* _uselesssp = nullptr;
+                value* _uselessbp = nullptr;
+
+                RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
+                {
+                    // unhandled exception happend.
+                    std::cerr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << std::endl;
+
+                    return;
+
+                }
+            }
+
             auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
             ip_restore_raii _o2((void*&)rt_bp, (void*&)sp);
@@ -290,22 +306,6 @@ namespace rs
                 + rt_env->real_register_count
                 + (rt_env->runtime_stack_count - 1)
             );
-
-            if (!veh)
-            {
-                byte_t* _uselessip = nullptr;
-                value* _uselesssp = nullptr;
-                value* _uselessbp = nullptr;
-
-                RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
-                {
-                    // unhandled exception happend.
-                    std::cerr << "Unexpected exception: " << rs_cast_string((rs_value)er) << std::endl;
-
-                    return;
-
-                }
-            }
 
             // addressing macro
 #define RS_IPVAL (*(rt_ip))
@@ -568,7 +568,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->integer = (rs_integer_t)opnum1->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -579,7 +579,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->real = (rs_real_t)opnum1->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::handle_type:
@@ -590,11 +590,11 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->handle = (rs_handle_t)opnum1->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -613,7 +613,7 @@ namespace rs
                         case value::valuetype::string_type:
                             string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string); break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
                     else
@@ -630,7 +630,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->integer += (rs_integer_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -643,7 +643,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->real += (rs_real_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::handle_type:
@@ -656,11 +656,11 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->handle += (rs_handle_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -688,7 +688,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->integer = (rs_integer_t)opnum1->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -699,7 +699,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->real = (rs_real_t)opnum1->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::handle_type:
@@ -710,11 +710,11 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->handle = (rs_handle_t)opnum1->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -731,7 +731,7 @@ namespace rs
                         case value::valuetype::handle_type:
                             opnum1->handle -= opnum2->handle; break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
                     else
@@ -748,7 +748,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->integer -= (rs_integer_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -761,7 +761,7 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->real -= (rs_real_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::handle_type:
@@ -774,11 +774,11 @@ namespace rs
                             case value::valuetype::handle_type:
                                 opnum1->handle -= (rs_handle_t)opnum2->handle; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -804,7 +804,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer = (rs_integer_t)opnum1->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -813,11 +813,11 @@ namespace rs
                             case value::valuetype::integer_type:
                                 opnum1->real = (rs_real_t)opnum1->integer; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -832,7 +832,7 @@ namespace rs
                         case value::valuetype::real_type:
                             opnum1->real *= opnum2->real; break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
                     else
@@ -847,7 +847,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer *= (rs_integer_t)opnum2->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -858,11 +858,11 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->real *= (rs_real_t)opnum2->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -888,7 +888,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer = (rs_integer_t)opnum1->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -897,11 +897,11 @@ namespace rs
                             case value::valuetype::integer_type:
                                 opnum1->real = (rs_real_t)opnum1->integer; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -916,7 +916,7 @@ namespace rs
                         case value::valuetype::real_type:
                             opnum1->real /= opnum2->real; break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
                     else
@@ -931,7 +931,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer /= (rs_integer_t)opnum2->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -942,11 +942,11 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->real /= (rs_real_t)opnum2->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -972,7 +972,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer = (rs_integer_t)opnum1->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -981,11 +981,11 @@ namespace rs
                             case value::valuetype::integer_type:
                                 opnum1->real = (rs_real_t)opnum1->integer; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -1000,7 +1000,7 @@ namespace rs
                         case value::valuetype::real_type:
                             opnum1->real = fmod(opnum1->real, opnum2->real); break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
                     else
@@ -1015,7 +1015,7 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->integer %= (rs_integer_t)opnum2->real; break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         case rs::value::valuetype::real_type:
@@ -1026,11 +1026,11 @@ namespace rs
                             case value::valuetype::real_type:
                                 opnum1->real = fmod(opnum1->real, (rs_real_t)opnum2->real); break;
                             default:
-                                rs_fail("Mismatch type for operating."); break;
+                                rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                             break;
                         default:
-                            rs_fail("Mismatch type for operating."); break;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                         }
                     }
 
@@ -1076,7 +1076,7 @@ namespace rs
                         case value::valuetype::handle_type:
                             opnum1->integer = (rs_integer_t)opnum2->handle; break;
                         default:
-                            rs_fail("Type mismatch between two opnum.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Type mismatch between two opnum.");
                             break;
                         }break;
                     }
@@ -1089,7 +1089,7 @@ namespace rs
                         case value::valuetype::handle_type:
                             opnum1->real = (rs_real_t)opnum2->handle; break;
                         default:
-                            rs_fail("Type mismatch between two opnum.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Type mismatch between two opnum.");
                             break;
                         }break;
                     }
@@ -1102,12 +1102,12 @@ namespace rs
                         case value::valuetype::real_type:
                             opnum1->handle = (rs_handle_t)opnum2->real; break;
                         default:
-                            rs_fail("Type mismatch between two opnum.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Type mismatch between two opnum.");
                             break;
                         }break;
                     }
                     default:
-                        rs_fail("Type mismatch between two opnum.");
+                        rs_fail(RS_ERR_TYPE_FAIL, "Type mismatch between two opnum.");
                         break;
                     }
 
@@ -1122,7 +1122,7 @@ namespace rs
                     rs_assert(opnum2->type == value::valuetype::integer_type);
 
                     opnum1->type = value::valuetype::real_type;
-                    opnum1->real = (real_t)opnum2->integer;
+                    opnum1->real = (rs_real_t)opnum2->integer;
 
                     cr->set_ref(opnum1);
 
@@ -1151,7 +1151,7 @@ namespace rs
                     rs_assert(opnum2->type == value::valuetype::integer_type);
 
                     opnum1->type = value::valuetype::real_type;
-                    opnum1->real = (real_t)opnum2->integer;
+                    opnum1->real = (rs_real_t)opnum2->integer;
                     cr->set_ref(opnum1);
 
                     break;
@@ -1230,7 +1230,7 @@ namespace rs
                         case value::valuetype::array_type:
                             cr->integer = opnum1->gcunit == opnum2->gcunit; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                             cr->integer = 0;
                             break;
                         }
@@ -1263,8 +1263,8 @@ namespace rs
                         case value::valuetype::array_type:
                             cr->integer = opnum1->gcunit != opnum2->gcunit; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
-                            cr->integer = 0;
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
+                            cr->integer = 1;
                             break;
                         }
                     }
@@ -1436,7 +1436,7 @@ namespace rs
                         case value::valuetype::string_type:
                             cr->integer = *opnum1->string < *opnum2->string; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                             cr->integer = 0;
                             break;
                         }
@@ -1465,7 +1465,7 @@ namespace rs
                         case value::valuetype::string_type:
                             cr->integer = *opnum1->string > *opnum2->string; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                             cr->integer = 0;
                             break;
                         }
@@ -1493,7 +1493,7 @@ namespace rs
                         case value::valuetype::string_type:
                             cr->integer = *opnum1->string <= *opnum2->string; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                             cr->integer = 0;
                             break;
                         }
@@ -1522,7 +1522,7 @@ namespace rs
                         case value::valuetype::string_type:
                             cr->integer = *opnum1->string >= *opnum2->string; break;
                         default:
-                            rs_fail("Values of this type cannot be compared.");
+                            rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                             cr->integer = 0;
                             break;
                         }
@@ -1680,7 +1680,10 @@ namespace rs
                     RS_ADDRESSING_N2_REF;
 
                     if (nullptr == opnum1->gcunit)
-                        rs_fail("the unit trying to access is 'nil'.");
+                    {
+                        rs_fail(RS_ERR_ACCESS_NIL, "the unit trying to access is 'nil'.");
+                        cr->set_nil();
+                    }
                     else
                     {
                         gcbase::gc_read_guard gwg1(opnum1->gcunit);
@@ -1698,7 +1701,8 @@ namespace rs
                             cr->set_ref(&(*opnum1->mapping)[*opnum2]);
                             break;
                         default:
-                            rs_fail("unknown type to index.");
+                            rs_fail(RS_ERR_INDEX_FAIL, "unknown type to index.");
+                            cr->set_nil();
                             break;
                         }
                     }
@@ -1803,6 +1807,7 @@ namespace rs
 
         }catch (const std::exception& any_excep)
         {
+            er->set_string(any_excep.what());
             rs::exception_recovery::rollback(this);
         }
     };

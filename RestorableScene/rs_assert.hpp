@@ -2,6 +2,9 @@
 
 #include "rs_macro.hpp"
 
+#define RS_IMPL
+#include "rs.h"
+
 #include <iostream>
 #include <cstdlib>
 
@@ -11,9 +14,9 @@ static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 [[noreturn]]
 static void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
-    std::cerr << "Assert failed: " << judgement << std::endl;
+    std::cerr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << std::endl;
     if (reason)
-        std::cerr << "\t" << reason << std::endl;
+        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
 
     std::cerr << "Function : " << function << std::endl;
     std::cerr << "File : " << file << std::endl;
@@ -23,9 +26,9 @@ static void _rs_assert(const char* file, uint32_t line, const char* function, co
 
 static void _rs_warning(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
-    std::cerr << "Warning: " << judgement << std::endl;
+    std::cerr << ANSI_HIY "Warning: " ANSI_RST << judgement << std::endl;
     if (reason)
-        std::cerr << "\t" << reason << std::endl;
+        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
 
     std::cerr << "Function : " << function << std::endl;
     std::cerr << "File : " << file << std::endl;
@@ -57,5 +60,5 @@ static void _rs_warning(const char* file, uint32_t line, const char* function, c
 
 #endif
 
-#define rs_error(REASON) ((void)_rs_assert(__FILE__, __LINE__, __func__, "Runtime error." , REASON))
+#define rs_error(REASON) ((void)_rs_assert(__FILE__, __LINE__, __func__, "Runtime error:" , REASON))
 #define rs_warning(REASON) ((void)_rs_warning(__FILE__, __LINE__, __func__, "Runtime warning." , REASON))

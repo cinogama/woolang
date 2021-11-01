@@ -23,7 +23,6 @@ namespace rs
     };
 
     using byte_t = uint8_t;
-    using real_t = double;
     using hash_t = uint64_t;
 
     using string_t = gcunit<std::string>;
@@ -115,6 +114,31 @@ namespace rs
             *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = gcunit_ptr;
         }
 
+        inline void set_string(const char* str)
+        {
+            set_gcunit_with_barrier(valuetype::string_type);
+            string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
+        }
+        inline void set_integer(rs_integer_t val)
+        {
+            type = valuetype::integer_type;
+            integer = val;
+        }
+        inline void set_real(rs_real_t val)
+        {
+            type = valuetype::integer_type;
+            real = val;
+        }
+        inline void set_handle(rs_handle_t val)
+        {
+            type = valuetype::handle_type;
+            handle = val;
+        }
+        inline void set_nil()
+        {
+            type = valuetype::invalid;
+            handle = 0;
+        }
         inline gcbase* get_gcunit_with_barrier() const
         {
             do

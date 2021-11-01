@@ -27,9 +27,10 @@ constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 0) RS_DEBUG_SFX;
 
 #include "rs_exceptions.hpp"
 
-void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname,uint32_t rterrcode, rs_string_t reason)
+void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
-    std::cerr << "RS Runtime happend a failure: " << reason << std::endl;
+    std::cerr << ANSI_HIR "RS Runtime happend a failure: "
+        << ANSI_HIY << reason << " (" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << std::endl;
     std::cerr << "\tAt source: \t" << src_file << std::endl;
     std::cerr << "\tAt line: \t" << lineno << std::endl;
     std::cerr << "\tAt function: \t" << functionname << std::endl;
@@ -44,9 +45,11 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     {
         int choice;
 
-        std::cerr << "Please input your choice: ";
+        std::cerr << "Please input your choice: " ANSI_HIY;
 
         std::cin >> choice;
+
+        std::cerr << ANSI_RST;
 
         switch (choice)
         {
@@ -62,8 +65,8 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
                 rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
             }
             else
-                std::cerr << "No virtual machine running in this thread." << std::endl;
-            
+                std::cerr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << std::endl;
+
             break;
         case 4:
             throw rs::rsruntime_exception(rterrcode, reason);
@@ -74,7 +77,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
             rs_error(reason);
 
         default:
-            std::cerr << "Invalid choice" << std::endl;
+            std::cerr << ANSI_HIR "Invalid choice" ANSI_RST << std::endl;
         }
 
         char _useless_for_clear = 0;
@@ -141,7 +144,7 @@ rs_integer_t rs_cast_integer(rs_value value)
     case rs::value::valuetype::string_type:
         return (rs_integer_t)atoll(reinterpret_cast<rs::value*>(value)->string->c_str());
     default:
-        rs_fail("This value can not cast to integer.");
+        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
         break;
     }
@@ -159,7 +162,7 @@ rs_real_t rs_cast_real(rs_value value)
     case rs::value::valuetype::string_type:
         return atof(reinterpret_cast<rs::value*>(value)->string->c_str());
     default:
-        rs_fail("This value can not cast to real.");
+        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to real.");
         return 0;
         break;
     }
@@ -177,7 +180,7 @@ rs_handle_t rs_cast_handle(rs_value value)
     case rs::value::valuetype::string_type:
         return (rs_handle_t)atoll(reinterpret_cast<rs::value*>(value)->string->c_str());
     default:
-        rs_fail("This value can not cast to handle.");
+        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to handle.");
         return 0;
         break;
     }
@@ -202,8 +205,11 @@ rs_string_t rs_cast_string(rs_value value)
         return reinterpret_cast<rs::value*>(value)->string->c_str();
     case rs::value::valuetype::mapping_type:
         // Not impl now
+    case rs::value::valuetype::invalid:
+        return "nil";
+        break;
     default:
-        rs_fail("This value can not cast to string.");
+        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to string.");
         return "";
         break;
     }

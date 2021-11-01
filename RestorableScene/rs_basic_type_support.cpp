@@ -17,7 +17,7 @@ namespace rs
             case value::valuetype::string_type:
                 return (*lhs.string) < (*rhs.string);
             default:
-                rs_fail("Values of this type cannot be compared.");
+                rs_fail(RS_ERR_TYPE_FAIL, "Values of this type cannot be compared.");
                 return false;
             }
         }
