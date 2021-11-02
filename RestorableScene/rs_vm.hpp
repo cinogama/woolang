@@ -1106,6 +1106,16 @@ namespace rs
                             break;
                         }break;
                     }
+                    case value::valuetype::array_type:
+                    case value::valuetype::mapping_type:
+                        if (opnum2->type == value::valuetype::invalid)
+                        {
+                            rs_assert(opnum2->handle == 0);
+
+                            opnum1->gcunit = nullptr;
+                            break;
+                        }
+                        /* fall through~~~ */
                     default:
                         rs_fail(RS_ERR_TYPE_FAIL, "Type mismatch between two opnum.");
                         break;
@@ -1679,27 +1689,34 @@ namespace rs
                     RS_ADDRESSING_N1_REF;
                     RS_ADDRESSING_N2_REF;
 
-                    if (nullptr == opnum1->gcunit)
+                    if (nullptr == opnum1->gcunit && opnum1->is_gcunit())
                     {
                         rs_fail(RS_ERR_ACCESS_NIL, "the unit trying to access is 'nil'.");
                         cr->set_nil();
                     }
                     else
                     {
-                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
-
                         switch (opnum1->type)
                         {
                         case value::valuetype::string_type:
+                        {
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
                             cr->type = value::valuetype::integer_type;
                             cr->integer = (unsigned char)(*opnum1->string)[(size_t)opnum2->integer];
                             break;
+                        }
                         case value::valuetype::array_type:
+                        {
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
                             cr->set_ref(&(*opnum1->array)[(size_t)opnum2->integer]);
                             break;
+                        }
                         case value::valuetype::mapping_type:
+                        {
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
                             cr->set_ref(&(*opnum1->mapping)[*opnum2]);
                             break;
+                        }
                         default:
                             rs_fail(RS_ERR_INDEX_FAIL, "unknown type to index.");
                             cr->set_nil();

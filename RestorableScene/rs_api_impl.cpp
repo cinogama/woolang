@@ -30,7 +30,7 @@ constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 0) RS_DEBUG_SFX;
 void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
     std::cerr << ANSI_HIR "RS Runtime happend a failure: "
-        << ANSI_HIY << reason << " (" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << std::endl;
+        << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << std::endl;
     std::cerr << "\tAt source: \t" << src_file << std::endl;
     std::cerr << "\tAt line: \t" << lineno << std::endl;
     std::cerr << "\tAt function: \t" << functionname << std::endl;
@@ -38,7 +38,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
     std::cerr << "1) Abort program.(You can attatch debugee.)" << std::endl;
     std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
-    std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak.)" << std::endl;
+    std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << std::endl;
     std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
 
     do
