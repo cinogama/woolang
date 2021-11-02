@@ -89,22 +89,30 @@ int main()
     c17.psh(imm(4));
     c17.psh(imm(5));
     c17.psh(imm(6));
-    c17.mkarr(reg(reg::t2),imm(6));         //  mkarr   t2,     6
-    c17.idx(reg(reg::t0), imm("my_array")); //  idx     t0,     "my_array"
-    c17.mov(reg(reg::cr), reg(reg::t2));    //  mov     cr,     t0
-    // c17.ext_setref(reg(reg::t3), reg(reg::t0));    //  ext setref     t3,     t0
-    c17.set(reg(reg::cr), reg(reg::t1));    //  set     cr,     t1
+    c17.mkarr(reg(reg::t2),imm(6));                 //  mkarr   t2,     6
+    c17.idx(reg(reg::t0), imm("my_array"));         //  idx     t0,     "my_array"
+    c17.mov(reg(reg::cr), reg(reg::t2));            //  mov     cr,     t0
+    c17.ext_setref(reg(reg::t3), reg(reg::t0));     //  ext setref     t3,     t0
+    c17.set(reg(reg::cr), reg(reg::t1));            //  set     cr,     t1
     c17.end();
-
     vmm.set_runtime(c17);
+
+    auto * v = (vm*)vmm.make_machine();
+    v->run();
+
+    std::cout << ANSI_HIR << rs_cast_string((rs_value)v->register_mem_begin + reg::t3) << ANSI_RST << std::endl;
+    std::cout << ANSI_HIC << rs_cast_string((rs_value)v->register_mem_begin + reg::t0) << ANSI_RST << std::endl;
+
+    rs_test(v->bp == v->sp);
+    rs_test(v->cr->type == value::valuetype::string_type && *v->cr->string == "joy19");
+
     vmm.run();
-
-    rs_test(vmm.bp == vmm.env->stack_begin);
-    rs_test(vmm.sp == vmm.env->stack_begin);
-    rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "joy19");
-
     std::cout << ANSI_HIR << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t3) << ANSI_RST << std::endl;
     std::cout << ANSI_HIC << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t0) << ANSI_RST << std::endl;
+
+    rs_test(vmm.bp == vmm.sp);
+    rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "joy19");
+
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c16;

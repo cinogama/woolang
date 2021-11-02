@@ -23,6 +23,9 @@ namespace rs
 
         void deep_in_to_mark_unit(gcbase* unit)
         {
+            if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::full_mark)
+                return;
+
             unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::full_mark);
 
             if (array_t* rs_arr = dynamic_cast<array_t*>(unit))

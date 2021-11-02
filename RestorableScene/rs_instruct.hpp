@@ -122,6 +122,8 @@ struct instruct
         // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
 
         setref = 0 RS_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+        mknilarr = 1 RS_OPCODE_SPACE,   // ext(00) mknilarr(dr_0) REGID(1BYTE)/DIFF(4BYTE)
+        mknilmap = 2 RS_OPCODE_SPACE,   // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
     };
     enum extern_opcode_page_1 : uint8_t
     {

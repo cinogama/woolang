@@ -937,9 +937,40 @@ namespace rs
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set immediate as ref.");
+
             auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::setref;
+        }
+
+        template<typename OP1T>
+        void ext_mknilmap(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set immediate as ref.");
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mknilmap;
+        }
+
+        template<typename OP1T>
+        void ext_mknilarr(const OP1T& op1)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set immediate as ref.");
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mknilarr;
         }
 
 #undef RS_OPNUM
@@ -1448,9 +1479,17 @@ namespace rs
                         switch (RS_IR.ext_opcode_p0)
                         {
                         case instruct::extern_opcode_page_0::setref:
-                            RS_OPCODE_EXT0(setref);
+                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(setref));
                             RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                             RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            break;
+                        case instruct::extern_opcode_page_0::mknilarr:
+                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(mknilarr));
+                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            break;
+                        case instruct::extern_opcode_page_0::mknilmap:
+                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(mknilmap));
+                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                             break;
                         default:
                             rs_error("Unknown instruct.");

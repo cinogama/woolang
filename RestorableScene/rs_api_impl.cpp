@@ -138,6 +138,7 @@ rs_string_t rs_string(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
 
+    rs::gcbase::gc_read_guard rg1(_rsvalue->string);
     return _rsvalue->string->c_str();
 }
 
@@ -154,7 +155,10 @@ rs_integer_t rs_cast_integer(rs_value value)
     case rs::value::valuetype::real_type:
         return (rs_integer_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
         return (rs_integer_t)atoll(_rsvalue->string->c_str());
+    }
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
@@ -174,7 +178,10 @@ rs_real_t rs_cast_real(rs_value value)
     case rs::value::valuetype::real_type:
         return _rsvalue->real;
     case rs::value::valuetype::string_type:
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
         return atof(_rsvalue->string->c_str());
+    }
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to real.");
         return 0;
@@ -194,7 +201,10 @@ rs_handle_t rs_cast_handle(rs_value value)
     case rs::value::valuetype::real_type:
         return (rs_handle_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
         return (rs_handle_t)atoll(_rsvalue->string->c_str());
+    }
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to handle.");
         return 0;
@@ -221,10 +231,14 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         *out_str += std::to_string((rs_integer_t)_rsvalue->real);
         return;
     case rs::value::valuetype::string_type:
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
         *out_str += *_rsvalue->string;
         return;
+    }
     case rs::value::valuetype::mapping_type:
     {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->mapping);
         if (rs::mapping_t* map = _rsvalue->mapping)
         {
             if ((*traveled_gcunit)[map] >= 1)
@@ -260,6 +274,7 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     }
     case rs::value::valuetype::array_type:
     {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->array);
         if (rs::array_t* arr = _rsvalue->array)
         {
             if ((*traveled_gcunit)[arr] >= 1)

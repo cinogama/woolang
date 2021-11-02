@@ -16,11 +16,7 @@ namespace rs
     {
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
-
-        vmbase(const vmbase&) = delete;
-        vmbase(vmbase&&) = delete;
-        vmbase& operator=(const vmbase&) = delete;
-        vmbase& operator=(vmbase&&) = delete;
+        inline thread_local static vmbase* _this_thread_vm;
 
         enum vm_interrupt_type
         {
@@ -49,7 +45,15 @@ namespace rs
                                                                     //            successful. (We use 'rs_asure' here)
         };
 
+        vmbase(const vmbase&) = delete;
+        vmbase(vmbase&&) = delete;
+        vmbase& operator=(const vmbase&) = delete;
+        vmbase& operator=(vmbase&&) = delete;
+
         std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
+        std::mutex _vm_hang_mx;
+        std::condition_variable _vm_hang_cv;
+        std::atomic_int8_t _vm_hang_flag = 0;
 
         inline bool interrupt(vm_interrupt_type type)
         {
@@ -58,12 +62,10 @@ namespace rs
 
             return result;
         }
-
         inline bool clear_interrupt(vm_interrupt_type type)
         {
             return type & vm_interrupt.fetch_and(~type);
         }
-
         inline bool wait_interrupt(vm_interrupt_type type)
         {
             interrupt(type);
@@ -85,10 +87,6 @@ namespace rs
             return true;
         }
 
-        std::mutex _vm_hang_mx;
-        std::condition_variable _vm_hang_cv;
-        std::atomic_int8_t _vm_hang_flag = 0;
-
         inline void hangup()
         {
             do
@@ -100,7 +98,6 @@ namespace rs
             std::unique_lock ug1(_vm_hang_mx);
             _vm_hang_cv.wait(ug1, [this]() {return _vm_hang_flag >= 0; });
         }
-
         inline void wakeup()
         {
             do
@@ -123,19 +120,20 @@ namespace rs
 
             _alive_vm_list.insert(this);
         }
-        ~vmbase()
+        virtual ~vmbase()
         {
             rs_test(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
             std::lock_guard g1(_alive_vm_list_mx);
+
+            if (_self_stack_reg_mem_buf)
+                free(_self_stack_reg_mem_buf);
 
             rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                 "This vm not exists in _alive_vm_list, that is illegal.");
 
             _alive_vm_list.erase(this);
         }
-
-        inline thread_local static vmbase* _this_thread_vm;
 
         // vm exception handler
         exception_recovery* veh = nullptr;
@@ -155,7 +153,9 @@ namespace rs
         value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
 
-        std::unique_ptr<ir_compiler::runtime_env> env;
+        value* _self_stack_reg_mem_buf = nullptr;
+
+        std::shared_ptr<ir_compiler::runtime_env> env;
 
         void set_runtime(ir_compiler& _compiler)
         {
@@ -174,6 +174,36 @@ namespace rs
             sp = bp = stack_mem_begin;
 
             rs_asure(interrupt(LEAVE_INTERRUPT));
+        }
+
+        virtual vmbase* create_machine() const = 0;
+
+        vmbase* make_machine() const
+        {
+            rs_assert(env != nullptr);
+
+            vmbase* new_vm = create_machine();
+
+            // using LEAVE_INTERRUPT to stop GC
+            rs_asure(new_vm->clear_interrupt(LEAVE_INTERRUPT));
+
+            new_vm->env = env;
+
+            new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
+                (env->real_register_count + env->runtime_stack_count));
+
+            new_vm->stack_mem_begin = new_vm->_self_stack_reg_mem_buf
+                + (env->real_register_count + env->runtime_stack_count - 1);
+            new_vm->register_mem_begin = new_vm->_self_stack_reg_mem_buf;
+
+            new_vm->ip = env->rt_codes;
+            new_vm->cr = new_vm->register_mem_begin + opnum::reg::spreg::cr;
+            new_vm->tc = new_vm->register_mem_begin + opnum::reg::spreg::tc;
+            new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
+            new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
+
+            rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
+            return new_vm;
         }
     };
 
@@ -233,6 +263,11 @@ namespace rs
 
     class vm : public vmbase
     {
+        vmbase* create_machine() const override
+        {
+            return new vm;
+        }
+
     public:
         void run()
         {
@@ -272,7 +307,7 @@ namespace rs
             byte_t* rt_ip;
             value* rt_bp, * rt_sp;
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
-            value* reg_begin = rt_env->reg_begin;
+            value* reg_begin = register_mem_begin;
 
             auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
@@ -1718,7 +1753,16 @@ namespace rs
                             }
                             case value::valuetype::mapping_type:
                             {
-                                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                                {
+                                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                                    auto fnd = opnum1->mapping->find(*opnum2);
+                                    if (fnd != opnum1->mapping->end())
+                                    {
+                                        cr->set_ref(&fnd->second);
+                                        break;
+                                    }
+                                }
+                                gcbase::gc_write_guard gwg1(opnum1->gcunit);
                                 cr->set_ref(&(*opnum1->mapping)[*opnum2]);
                                 break;
                             }
@@ -1749,6 +1793,20 @@ namespace rs
                                 RS_ADDRESSING_N1;
                                 RS_ADDRESSING_N2_REF;
                                 cr->set_ref(opnum1->set_ref(opnum2));
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::mknilarr:
+                            {
+                                RS_ADDRESSING_N1_REF;
+                                opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
+                                cr->set_ref(opnum1);
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::mknilmap:
+                            {
+                                RS_ADDRESSING_N1_REF;
+                                opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                cr->set_ref(opnum1);
                                 break;
                             }
                             default:
