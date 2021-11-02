@@ -72,17 +72,28 @@ int main()
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c17;
-    c17.idx(imm(0), imm(0));
-    c17.psh(imm("name"));
-    c17.psh(imm("joy"));
-    c17.psh(imm("age"));
-    c17.psh(imm("19"));
-    c17.mkmap(reg(reg::t0), imm(2));
-    c17.idx(reg(reg::t0), imm("name"));
-    c17.mov(reg(reg::t1), reg(reg::cr));
-    c17.idx(reg(reg::t0), imm("age"));
-    c17.addx(reg(reg::t1), reg(reg::cr));
-    c17.set(reg(reg::cr), reg(reg::cr));
+    c17.psh(imm("name"));                   //  psh     "name"
+    c17.psh(imm("joy"));                    //  psh     "joy"
+    c17.psh(imm("age"));                    //  psh     "age"
+    c17.psh(imm("19"));                     //  psh     "19"
+    c17.mkmap(reg(reg::t0), imm(2));        //  mkmap   t0,     2
+    c17.idx(reg(reg::t0), imm("name"));     //  idx     t0,     "name"
+    c17.mov(reg(reg::t1), reg(reg::cr));    //  mov     t1,     cr
+    c17.idx(reg(reg::t0), imm("age"));      //  idx     t0,     "age"
+    c17.addx(reg(reg::t1), reg(reg::cr));   //  addx    t1,     cr
+    c17.idx(reg(reg::t0), imm("my_self"));  //  idx     t0,     "my_self"
+    c17.mov(reg(reg::cr), reg(reg::t0));    //  mov     cr,     t0
+    c17.psh(imm(1));
+    c17.psh(imm(2));
+    c17.psh(imm(3));
+    c17.psh(imm(4));
+    c17.psh(imm(5));
+    c17.psh(imm(6));
+    c17.mkarr(reg(reg::t2),imm(6));         //  mkarr   t2,     6
+    c17.idx(reg(reg::t0), imm("my_array")); //  idx     t0,     "my_array"
+    c17.mov(reg(reg::cr), reg(reg::t2));    //  mov     cr,     t0
+    // c17.ext_setref(reg(reg::t3), reg(reg::t0));    //  ext setref     t3,     t0
+    c17.set(reg(reg::cr), reg(reg::t1));    //  set     cr,     t1
     c17.end();
 
     vmm.set_runtime(c17);
@@ -92,6 +103,8 @@ int main()
     rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "joy19");
 
+    std::cout << ANSI_HIR << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t3) << ANSI_RST << std::endl;
+    std::cout << ANSI_HIC << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t0) << ANSI_RST << std::endl;
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c16;

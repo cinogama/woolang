@@ -939,7 +939,7 @@ namespace rs
 
             auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
             codeb.ext_page_id = 0;
-            codeb.ext_opcode = instruct::extern_opcode_page_0::setref;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::setref;
         }
 
 #undef RS_OPNUM

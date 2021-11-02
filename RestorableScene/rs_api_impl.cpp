@@ -112,37 +112,49 @@ rs_integer_t rs_version_int(void)
 
 rs_type rs_valuetype(rs_value value)
 {
-    return (rs_type)reinterpret_cast<rs::value*>(value)->type;
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
+    return (rs_type)_rsvalue->type;
 }
 rs_integer_t rs_integer(rs_value value)
 {
-    return reinterpret_cast<rs::value*>(value)->integer;
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
+    return _rsvalue->integer;
 }
 rs_real_t rs_real(rs_value value)
 {
-    return reinterpret_cast<rs::value*>(value)->real;
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
+    return _rsvalue->real;
 }
 rs_handle_t rs_handle(rs_value value)
 {
-    return reinterpret_cast<rs::value*>(value)->handle;
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
+    return _rsvalue->handle;
 }
 rs_string_t rs_string(rs_value value)
 {
-    return reinterpret_cast<rs::value*>(value)->string->c_str();
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
+    return _rsvalue->string->c_str();
 }
 
 rs_integer_t rs_cast_integer(rs_value value)
 {
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
     switch (reinterpret_cast<rs::value*>(value)->type)
     {
     case rs::value::valuetype::integer_type:
-        return reinterpret_cast<rs::value*>(value)->integer;
+        return _rsvalue->integer;
     case rs::value::valuetype::handle_type:
-        return (rs_integer_t)reinterpret_cast<rs::value*>(value)->handle;
+        return (rs_integer_t)_rsvalue->handle;
     case rs::value::valuetype::real_type:
-        return (rs_integer_t)reinterpret_cast<rs::value*>(value)->real;
+        return (rs_integer_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
-        return (rs_integer_t)atoll(reinterpret_cast<rs::value*>(value)->string->c_str());
+        return (rs_integer_t)atoll(_rsvalue->string->c_str());
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
@@ -151,16 +163,18 @@ rs_integer_t rs_cast_integer(rs_value value)
 }
 rs_real_t rs_cast_real(rs_value value)
 {
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
     switch (reinterpret_cast<rs::value*>(value)->type)
     {
     case rs::value::valuetype::integer_type:
-        return (rs_real_t)reinterpret_cast<rs::value*>(value)->integer;
+        return (rs_real_t)_rsvalue->integer;
     case rs::value::valuetype::handle_type:
-        return (rs_real_t)reinterpret_cast<rs::value*>(value)->handle;
+        return (rs_real_t)_rsvalue->handle;
     case rs::value::valuetype::real_type:
-        return reinterpret_cast<rs::value*>(value)->real;
+        return _rsvalue->real;
     case rs::value::valuetype::string_type:
-        return atof(reinterpret_cast<rs::value*>(value)->string->c_str());
+        return atof(_rsvalue->string->c_str());
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to real.");
         return 0;
@@ -169,16 +183,18 @@ rs_real_t rs_cast_real(rs_value value)
 }
 rs_handle_t rs_cast_handle(rs_value value)
 {
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+
     switch (reinterpret_cast<rs::value*>(value)->type)
     {
     case rs::value::valuetype::integer_type:
-        return (rs_handle_t)reinterpret_cast<rs::value*>(value)->integer;
+        return (rs_handle_t)_rsvalue->integer;
     case rs::value::valuetype::handle_type:
-        return reinterpret_cast<rs::value*>(value)->handle;
+        return _rsvalue->handle;
     case rs::value::valuetype::real_type:
-        return (rs_handle_t)reinterpret_cast<rs::value*>(value)->real;
+        return (rs_handle_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
-        return (rs_handle_t)atoll(reinterpret_cast<rs::value*>(value)->string->c_str());
+        return (rs_handle_t)atoll(_rsvalue->string->c_str());
     default:
         rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to handle.");
         return 0;
@@ -186,33 +202,113 @@ rs_handle_t rs_cast_handle(rs_value value)
     }
 }
 
-rs_string_t rs_cast_string(rs_value value)
+void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
+{
+    auto _rsvalue = value->get();
+
+    if (value->type == rs::value::valuetype::is_ref)
+        *out_str += "*&";
+
+    switch (_rsvalue->type)
+    {
+    case rs::value::valuetype::integer_type:
+        *out_str += std::to_string(_rsvalue->integer);
+        return;
+    case rs::value::valuetype::handle_type:
+        *out_str += std::to_string((rs_integer_t)_rsvalue->handle);
+        return;
+    case rs::value::valuetype::real_type:
+        *out_str += std::to_string((rs_integer_t)_rsvalue->real);
+        return;
+    case rs::value::valuetype::string_type:
+        *out_str += *_rsvalue->string;
+        return;
+    case rs::value::valuetype::mapping_type:
+    {
+        if (rs::mapping_t* map = _rsvalue->mapping)
+        {
+            if ((*traveled_gcunit)[map] >= 1)
+            {
+                _fit_layout = true;
+                if ((*traveled_gcunit)[map] >= 2)
+                {
+                    *out_str += "{ ... }";
+                    return;
+                }
+            }
+            (*traveled_gcunit)[map]++;
+
+            *out_str += _fit_layout ? "{" : "{\n";
+            for (auto& [v_key, v_val] : *map)
+            {
+                for (int i = 0; !_fit_layout && i <= depth; i++)
+                    *out_str += "    ";
+                _rs_cast_string(const_cast<rs::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1);
+                *out_str += _fit_layout ? ":" : " : ";
+                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
+                *out_str += _fit_layout ? ", " : ",\n";
+            }
+            for (int i = 0; !_fit_layout && i < depth; i++)
+                *out_str += "    ";
+            *out_str += "}";
+
+            (*traveled_gcunit)[map]--;
+        }
+        else
+            *out_str += "nil";
+        return;
+    }
+    case rs::value::valuetype::array_type:
+    {
+        if (rs::array_t* arr = _rsvalue->array)
+        {
+            if ((*traveled_gcunit)[arr] >= 1)
+            {
+                _fit_layout = true;
+                if ((*traveled_gcunit)[arr] >= 2)
+                {
+                    *out_str += "[ ... ]";
+                    return;
+                }
+            }
+            (*traveled_gcunit)[arr]++;
+
+            *out_str += _fit_layout ? "[" : "[\n";
+            for (auto& v_val : *arr)
+            {
+                for (int i = 0; !_fit_layout && i <= depth; i++)
+                    *out_str += "    ";
+                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
+                *out_str += _fit_layout ? "," : ",\n";
+            }
+            for (int i = 0; !_fit_layout && i < depth; i++)
+                *out_str += "    ";
+            *out_str += "]";
+
+            (*traveled_gcunit)[arr]--;
+        }
+        else
+            *out_str += "nil";
+        return;
+    }
+    case rs::value::valuetype::invalid:
+        *out_str += "nil";
+        return;
+    default:
+        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to string.");
+        *out_str += "";
+        break;
+    }
+}
+
+rs_string_t rs_cast_string(const rs_value value)
 {
     thread_local std::string _buf;
 
-    switch (reinterpret_cast<rs::value*>(value)->type)
-    {
-    case rs::value::valuetype::integer_type:
-        _buf = std::to_string(reinterpret_cast<rs::value*>(value)->integer);
-        break;
-    case rs::value::valuetype::handle_type:
-        _buf = std::to_string((rs_integer_t)reinterpret_cast<rs::value*>(value)->handle);
-        break;
-    case rs::value::valuetype::real_type:
-        _buf = std::to_string((rs_integer_t)reinterpret_cast<rs::value*>(value)->real);
-        break;
-    case rs::value::valuetype::string_type:
-        return reinterpret_cast<rs::value*>(value)->string->c_str();
-    case rs::value::valuetype::mapping_type:
-        // Not impl now
-    case rs::value::valuetype::invalid:
-        return "nil";
-        break;
-    default:
-        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to string.");
-        return "";
-        break;
-    }
+    _buf = "";
+
+    std::map<rs::gcbase*, int> _tved_gcunit;
+    _rs_cast_string(reinterpret_cast<rs::value*>(value), &_tved_gcunit, false, &_buf, 0);
 
     return _buf.c_str();
 }

@@ -167,7 +167,7 @@ namespace rs
                 type = valuetype::is_ref;
                 ref = _ref;
             }
-            return this;
+            return _ref;
         }
         inline bool is_gcunit() const
         {

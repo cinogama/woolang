@@ -70,17 +70,17 @@ RS_API rs_string_t  rs_compile_date (void);
 RS_API rs_string_t  rs_version      (void);
 RS_API rs_integer_t rs_version_int  (void);
 
-RS_API rs_type      rs_valuetype    (rs_value value);
+RS_API rs_type      rs_valuetype    (const rs_value value);
 
-RS_API rs_integer_t rs_integer(rs_value value);
-RS_API rs_real_t    rs_real(rs_value value);
-RS_API rs_handle_t  rs_handle(rs_value value);
-RS_API rs_string_t  rs_string(rs_value value);
+RS_API rs_integer_t rs_integer(const rs_value value);
+RS_API rs_real_t    rs_real(const rs_value value);
+RS_API rs_handle_t  rs_handle(const rs_value value);
+RS_API rs_string_t  rs_string(const rs_value value);
 
-RS_API rs_integer_t rs_cast_integer(rs_value value);
-RS_API rs_real_t    rs_cast_real(rs_value value);
-RS_API rs_handle_t  rs_cast_handle(rs_value value);
-RS_API rs_string_t  rs_cast_string(rs_value value);
+RS_API rs_integer_t rs_cast_integer(const rs_value value);
+RS_API rs_real_t    rs_cast_real(const rs_value value);
+RS_API rs_handle_t  rs_cast_handle(const rs_value value);
+RS_API rs_string_t  rs_cast_string(const rs_value value);
 
 RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
