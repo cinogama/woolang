@@ -146,6 +146,8 @@ int main()
     rs_test(v->bp == v->sp);
     rs_test(v->cr->type == value::valuetype::string_type && *v->cr->string == "joy19");
 
+    delete v;
+
     vmm.run();
     std::cout << ANSI_HIR << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t3) << ANSI_RST << std::endl;
     std::cout << ANSI_HIC << rs_cast_string((rs_value)vmm.register_mem_begin + reg::t0) << ANSI_RST << std::endl;
@@ -214,7 +216,7 @@ int main()
     c14.end();                                      //      end
 
     std::chrono::system_clock sc;
-    for (int i = 0; i < 50; i++)
+    for (int i = 0; i < 5; i++)
     {
 
         vmm.set_runtime(c14);

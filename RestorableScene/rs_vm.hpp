@@ -30,19 +30,19 @@ namespace rs
                                         // will call 'wakeup' to resume vm.
 
                                         LEAVE_INTERRUPT = 1 << 9,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                                                                                // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                                                                                // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                                                                                // a limitted time.
-                                                                                                // VM will set LEAVE_INTERRUPT when:
-                                                                                                // 1) calling native function
-                                                                                                // 2) leaving vm run()
-                                                                                                // 3) vm was created.
-                                                                                                // VM will clean LEAVE_INTERRUPT when:
-                                                                                                // 1) the native function calling was end.
-                                                                                                // 2) enter vm run()
-                                                                                                // 3) vm destructed.
-                                                                                                // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                                                //            successful. (We use 'rs_asure' here)
+                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                                                    // a limitted time.
+                                                                    // VM will set LEAVE_INTERRUPT when:
+                                                                    // 1) calling native function
+                                                                    // 2) leaving vm run()
+                                                                    // 3) vm was created.
+                                                                    // VM will clean LEAVE_INTERRUPT when:
+                                                                    // 1) the native function calling was end.
+                                                                    // 2) enter vm run()
+                                                                    // 3) vm destructed.
+                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                                                    //            successful. (We use 'rs_asure' here)
         };
 
         vmbase(const vmbase&) = delete;
@@ -77,11 +77,14 @@ namespace rs
         {
             interrupt(type);
 
-            constexpr int MAX_TRY_COUNT = 1000;
+            constexpr int MAX_TRY_COUNT = 2000;
             int i = 0;
-            while (vm_interrupt & type)
+
+            uint32_t vm_interrupt_mask = 0xFFFFFFFF;
+            do
             {
-                if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                vm_interrupt_mask = vm_interrupt.load();
+                if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
                 {
                     if (++i > MAX_TRY_COUNT)
                         return false;
@@ -90,7 +93,9 @@ namespace rs
                     i = 0;
 
                 std::this_thread::yield();
-            }
+
+            } while (vm_interrupt_mask & type);
+
             return true;
         }
 
