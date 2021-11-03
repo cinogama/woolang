@@ -46,6 +46,8 @@ void cost_time_test_gc(rs::vmbase* vm)
 #include <Windows.h>
 #endif
 
+#include "rs_compiler_lexer.hpp"
+
 int main()
 {
     using namespace rs;
@@ -68,6 +70,44 @@ int main()
 
     gc::gc_start();
 
+    rs::lexer lx1(
+        LR"(
+1.235
+2258
+0X123
+0xasdasd
+0235
+08
+02545
+@"[Helloworld~]"
+366H
+"JH\kk"
+"Hell\x6fw\x6frld"
+"asdqwd5
+)");
+    rs::lexer::lex_type lex_type;
+
+    do
+    {
+        std::wstring str;
+        lex_type = lx1.next(&str);
+
+        std::cout << lex_type << " ";
+        std::wcout << str << std::endl;
+
+    } while (lex_type != rs::lexer::lex_type::l_eof);
+
+
+    for (auto exp : lx1.lex_error_list)
+    {
+        std::wcout <<"Error" << exp.row << "," << exp.col << " " << exp.describe << std::endl;
+    }
+
+    for (auto exp : lx1.lex_warn_list)
+    {
+        std::wcout << "Warning" << exp.row << "," << exp.col << " " << exp.describe << std::endl;
+    }
+
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
 
@@ -89,7 +129,7 @@ int main()
     c17.psh(imm(4));
     c17.psh(imm(5));
     c17.psh(imm(6));
-    c17.mkarr(reg(reg::t2),imm(6));                 //  mkarr   t2,     6
+    c17.mkarr(reg(reg::t2), imm(6));                 //  mkarr   t2,     6
     c17.idx(reg(reg::t0), imm("my_array"));         //  idx     t0,     "my_array"
     c17.mov(reg(reg::cr), reg(reg::t2));            //  mov     cr,     t0
     c17.ext_setref(reg(reg::t3), reg(reg::t0));     //  ext setref     t3,     t0
@@ -97,7 +137,7 @@ int main()
     c17.end();
     vmm.set_runtime(c17);
 
-    auto * v = (vm*)vmm.make_machine();
+    auto* v = (vm*)vmm.make_machine();
     v->run();
 
     std::cout << ANSI_HIR << rs_cast_string((rs_value)v->register_mem_begin + reg::t3) << ANSI_RST << std::endl;
@@ -176,7 +216,7 @@ int main()
     std::chrono::system_clock sc;
     for (int i = 0; i < 50; i++)
     {
-        
+
         vmm.set_runtime(c14);
 
         //auto beg = clock();
@@ -187,7 +227,7 @@ int main()
         auto end = sc.now();
         //auto end = clock();
 
-        std::cout << (end - beg).count()/10000000.0f << std::endl;
+        std::cout << (end - beg).count() / 10000000.0f << std::endl;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////

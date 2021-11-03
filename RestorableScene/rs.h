@@ -105,7 +105,7 @@ RS_API rs_integer_t rs_argc(rs_vm vm);
 // * If you are re-write fail-handler-function, you can ignore this error.
 // * (But dont forget display it.)
 //
-//#define RS_ERR_MINOR 0x0000
+//#define RS_ERR_MINOR 0x9000
 
 // Medium error:
 // These errors are caused by incorrect coding, some of which may have default
@@ -113,8 +113,8 @@ RS_API rs_integer_t rs_argc(rs_vm vm);
 //
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
-//#define RS_ERR_MEDIUM 0x1000
-#define RS_ERR_TYPE_FAIL 0x1001
+//#define RS_ERR_MEDIUM 0xA000
+#define RS_ERR_TYPE_FAIL 0xA001
 
 // Heavy error:
 // Such errors will make it difficult for the program to continue running.
@@ -123,9 +123,9 @@ RS_API rs_integer_t rs_argc(rs_vm vm);
 //
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
-//#define RS_ERR_HEAVY 0x2000
-#define RS_ERR_ACCESS_NIL 0x2001
-#define RS_ERR_INDEX_FAIL 0x2002
+//#define RS_ERR_HEAVY 0xB000
+#define RS_ERR_ACCESS_NIL 0xB001
+#define RS_ERR_INDEX_FAIL 0xB002
 
 // Deadly error:
 // This type of error is caused by complex reasons, any default solutions are useless,

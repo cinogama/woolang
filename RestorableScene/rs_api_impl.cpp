@@ -217,7 +217,7 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     auto _rsvalue = value->get();
 
     if (value->type == rs::value::valuetype::is_ref)
-        *out_str += "*&";
+        *out_str += "<is_ref>";
 
     switch (_rsvalue->type)
     {
