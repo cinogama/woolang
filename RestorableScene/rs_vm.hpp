@@ -22,27 +22,27 @@ namespace rs
         {
             NOTHING = 0,                // There is no interrupt
 
-            GC_INTERRUPT = 1,           // GC work will cause this interrupt, if vm received this interrupt,
+            GC_INTERRUPT = 1 << 8,           // GC work will cause this interrupt, if vm received this interrupt,
                                         // should clean this interrupt flag, if clean-operate is successful,
                                         // vm should call 'hangup' to wait for GC work. 
                                         // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
                                         // failed, it means vm already hangned(or trying hangs now), GC work
                                         // will call 'wakeup' to resume vm.
 
-                                        LEAVE_INTERRUPT = 1 << 1,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                                                    // a limitted time.
-                                                                    // VM will set LEAVE_INTERRUPT when:
-                                                                    // 1) calling native function
-                                                                    // 2) leaving vm run()
-                                                                    // 3) vm was created.
-                                                                    // VM will clean LEAVE_INTERRUPT when:
-                                                                    // 1) the native function calling was end.
-                                                                    // 2) enter vm run()
-                                                                    // 3) vm destructed.
-                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                    //            successful. (We use 'rs_asure' here)
+                                        LEAVE_INTERRUPT = 1 << 9,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+                                                                                                // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                                                                                // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                                                                                // a limitted time.
+                                                                                                // VM will set LEAVE_INTERRUPT when:
+                                                                                                // 1) calling native function
+                                                                                                // 2) leaving vm run()
+                                                                                                // 3) vm was created.
+                                                                                                // VM will clean LEAVE_INTERRUPT when:
+                                                                                                // 1) the native function calling was end.
+                                                                                                // 2) enter vm run()
+                                                                                                // 3) vm destructed.
+                                                                                                // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                                                                                //            successful. (We use 'rs_asure' here)
         };
 
         vmbase(const vmbase&) = delete;
@@ -50,7 +50,14 @@ namespace rs
         vmbase& operator=(const vmbase&) = delete;
         vmbase& operator=(vmbase&&) = delete;
 
-        std::atomic<int> vm_interrupt = vm_interrupt_type::NOTHING;
+        union
+        {
+            std::atomic<uint32_t> vm_interrupt;
+            uint32_t fast_ro_vm_interrupt;
+        };
+        static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
+        static_assert(std::atomic<uint32_t>::is_always_lock_free);
+
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
@@ -111,6 +118,7 @@ namespace rs
 
         vmbase()
         {
+            vm_interrupt = vm_interrupt_type::NOTHING;
             interrupt(vm_interrupt_type::LEAVE_INTERRUPT);
 
             std::lock_guard g1(_alive_vm_list_mx);
@@ -386,15 +394,13 @@ namespace rs
             unsigned dr = opcode_dr & 0b00000011u;
             try
             {
-                goto _vm_check_interrupt_first;
-
                 for (;;)
                 {
                     opcode_dr = *(rt_ip++);
                     opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
                     dr = opcode_dr & 0b00000011u;
 
-                    switch (opcode)
+                    switch (fast_ro_vm_interrupt | opcode)
                     {
                     case instruct::opcode::psh:
                     {
@@ -1851,28 +1857,28 @@ namespace rs
                     case instruct::opcode::abrt:
                         rs_error("executed 'abrt'.");
                     default:
-                        rs_error("Unknown instruct.");
-                    }
-
-                _vm_check_interrupt_first:
-
-                    if (vm_interrupt)
                     {
-                        if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                        if (vm_interrupt)
                         {
-                            // write regist(sp) data, then clear interrupt mark.
-                            sp = rt_sp;
-                            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                                hangup();   // SLEEP UNTIL WAKE UP
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
-                        {
-                            // That should not be happend...
+                            --rt_ip;    // Move back one command.
+                            if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                            {
+                                // write regist(sp) data, then clear interrupt mark.
+                                sp = rt_sp;
+                                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                                    hangup();   // SLEEP UNTIL WAKE UP
+                            }
+                            else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                            {
+                                // That should not be happend...
 
-                            rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                                rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                            }
                         }
+                        else
+                            rs_error("Unknown instruct.");
                     }
-
+                    }
                 }// vm loop end.
 #undef RS_ADDRESSING_N2_REF
 #undef RS_ADDRESSING_N1_REF
