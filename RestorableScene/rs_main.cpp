@@ -173,15 +173,21 @@ int main()
     c14.tag("loop_end");
     c14.end();                                      //      end
 
-    for (int i = 0; i < 5; i++)
+    std::chrono::system_clock sc;
+    for (int i = 0; i < 50; i++)
     {
+        
         vmm.set_runtime(c14);
 
-        auto beg = clock();
-        vmm.run();
-        auto end = clock();
+        //auto beg = clock();
+        auto beg = sc.now();
 
-        std::cout << (end - beg) << std::endl;
+        vmm.run();
+
+        auto end = sc.now();
+        //auto end = clock();
+
+        std::cout << (end - beg).count()/10000000.0f << std::endl;
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////

@@ -300,7 +300,7 @@ namespace rs
                 {
                     std::unique_lock ug1(_gc_mx);
 
-                    for (int i = 0; i < 50; i++)
+                    for (int i = 0; i < 100; i++)
                     {
                         _gc_cv.wait_for(ug1, 0.1s);
                         if (gcbase::gc_new_count > _gc_immediately_edge)
