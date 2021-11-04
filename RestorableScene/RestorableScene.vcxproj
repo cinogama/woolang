@@ -151,6 +151,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs.h" />
+    <ClInclude Include="rs_compiler_lexer.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
     <ClInclude Include="rs_vm.hpp" />
     <ClInclude Include="rs_assert.hpp" />

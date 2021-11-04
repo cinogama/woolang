@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="头文件\runtime">
+      <UniqueIdentifier>{55da0602-8c9d-405e-8ac4-ade6d6ce16fb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\compile">
+      <UniqueIdentifier>{927f8eae-bf6a-432d-b164-e52452671274}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -29,9 +35,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rs_gc.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="rs_macro.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -41,23 +44,29 @@
     <ClInclude Include="rs_assert.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="rs_instruct.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_basic_type.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_ir_compiler.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_vm.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="rs.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="rs_vm.hpp">
+      <Filter>头文件\runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_compiler_lexer.hpp">
+      <Filter>头文件\compile</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_ir_compiler.hpp">
+      <Filter>头文件\compile</Filter>
+    </ClInclude>
     <ClInclude Include="rs_exceptions.hpp">
-      <Filter>头文件</Filter>
+      <Filter>头文件\runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_basic_type.hpp">
+      <Filter>头文件\runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_instruct.hpp">
+      <Filter>头文件\runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_gc.hpp">
+      <Filter>头文件\runtime</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
