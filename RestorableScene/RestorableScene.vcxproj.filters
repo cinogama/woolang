@@ -80,5 +80,8 @@
     <ClInclude Include="rs_compiler_parser.hpp">
       <Filter>头文件\compiler</Filter>
     </ClInclude>
+    <ClInclude Include="enum.h">
+      <Filter>头文件\3rd</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

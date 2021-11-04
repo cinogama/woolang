@@ -150,6 +150,7 @@
     <ClCompile Include="rs_main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="enum.h" />
     <ClInclude Include="rs.h" />
     <ClInclude Include="rs_compiler_lexer.hpp" />
     <ClInclude Include="rs_compiler_parser.hpp" />

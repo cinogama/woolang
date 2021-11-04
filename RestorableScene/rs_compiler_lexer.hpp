@@ -7,6 +7,8 @@
 #include <vector>
 #include <cwchar>
 
+#include "enum.h"
+
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN
 #define ANSI_WIDE_CHAR_SIGN L
@@ -14,52 +16,57 @@
 
 namespace rs
 {
+    BETTER_ENUM(lex_type, int,
+        l_eof = -1,
+        l_error = 0,
+
+        l_empty,          // [empty]
+
+        l_identifier,           // identifier.
+        l_literal_integer,      // 1 233 0x123456 0b1101001 032
+        l_literal_handle,       // 0L 256L 0xFFL
+        l_literal_real,         // 0.2  0.  .235
+        l_literal_string,       // "" "helloworld" @"(println("hello");)"
+        l_semicolon,            // ;
+        l_comma,                // ,
+
+        l_add,                  // +
+        l_sub,                  // - 
+        l_mul,                  // * 
+        l_div,                  // / 
+        l_mod,                  // % 
+        l_assign,               // =
+        l_add_assign,           // +=
+        l_sub_assign,           // -= 
+        l_mul_assign,           // *=
+        l_div_assign,           // /= 
+        l_mod_assign,           // %= 
+        l_equal,                // ==
+        l_not_equal,            // !=
+        l_larg_or_equal,        // >=
+        l_less_or_equal,        // <=
+        l_less,                 // <
+        l_larg,                 // >
+        l_land,                 // &&
+        l_lor,                  // ||
+        l_not,                  // !
+        l_scopeing,             // ::
+
+        l_left_brackets,        // (
+        l_right_brackets,       // )
+        l_left_curly_braces,    // {
+        l_right_curly_braces,   // }
+
+        l_import,               // import
+
+        l_inf,
+        l_nil
+    );
+
     class lexer
     {
     public:
-        enum lex_type
-        {
-            l_eof = -1,
-            l_error = 0,
-            l_identifier,           // identifier.
-            l_literal_integer,      // 1 233 0x123456 0b1101001 032
-            l_literal_handle,       // 0L 256L 0xFFL
-            l_literal_real,         // 0.2  0.  .235
-            l_literal_string,       // "" "helloworld" @"(println("hello");)"
-            l_semicolon,            // ;
 
-            l_add,                  // +
-            l_sub,                  // - 
-            l_mul,                  // * 
-            l_div,                  // / 
-            l_mod,                  // % 
-            l_assign,               // =
-            l_add_assign,           // +=
-            l_sub_assign,           // -= 
-            l_mul_assign,           // *=
-            l_div_assign,           // /= 
-            l_mod_assign,           // %= 
-            l_equal,                // ==
-            l_not_equal,            // !=
-            l_larg_or_equal,        // >=
-            l_less_or_equal,        // <=
-            l_less,                 // <
-            l_larg,                 // >
-            l_land,                 // &&
-            l_lor,                  // ||
-            l_not,                  // !
-            l_scopeing,             // ::
-
-            l_left_brackets,        // (
-            l_right_brackets,       // )
-            l_left_curly_braces,    // {
-            l_right_curly_braces,   // }
-
-            l_import,               // import
-
-            l_inf,
-            l_nil,
-        };
 
         struct lex_operator_info
         {
@@ -85,34 +92,34 @@ namespace rs
 
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
         {
-            {L"+",      {l_add}},
-            {L"-",      {l_sub}},
-            {L"*",      {l_mul}},
-            {L"/",      {l_div}},
-            {L"%",      {l_mod}},
-            {L"=",      {l_assign}},
-            {L"+=",     {l_add_assign}},
-            {L"-=",     {l_sub_assign}},
-            {L"*=",     {l_mul_assign}},
-            {L"/=",     {l_div_assign}},
-            {L"%=",     {l_mod_assign}},
-            {L"==",     {l_equal}},                // ==
-            {L"!=",     {l_not_equal}},            // !=
-            {L">=",     {l_larg_or_equal}},        // >=
-            {L"<=",     {l_less_or_equal}},        // <=
-            {L"<",      {l_less}},                 // <
-            {L">",      {l_larg}},                 // >
-            {L"&&",     {l_land}},                 // &&
-            {L"||",     {l_lor}},                  // ||
-            {L"!",      {l_not}},            // !=
-            {L"::",     {l_scopeing}}
+            {L"+",      {lex_type::l_add}},
+            {L"-",      {lex_type::l_sub}},
+            {L"*",      {lex_type::l_mul}},
+            {L"/",      {lex_type::l_div}},
+            {L"%",      {lex_type::l_mod}},
+            {L"=",      {lex_type::l_assign}},
+            {L"+=",     {lex_type::l_add_assign}},
+            {L"-=",     {lex_type::l_sub_assign}},
+            {L"*=",     {lex_type::l_mul_assign}},
+            {L"/=",     {lex_type::l_div_assign}},
+            {L"%=",     {lex_type::l_mod_assign}},
+            {L"==",     {lex_type::l_equal}},                // ==
+            {L"!=",     {lex_type::l_not_equal}},            // !=
+            {L">=",     {lex_type::l_larg_or_equal}},        // >=
+            {L"<=",     {lex_type::l_less_or_equal}},        // <=
+            {L"<",      {lex_type::l_less}},                 // <
+            {L">",      {lex_type::l_larg}},                 // >
+            {L"&&",     {lex_type::l_land}},                 // &&
+            {L"||",     {lex_type::l_lor}},                  // ||
+            {L"!",      {lex_type::l_not}},            // !=
+            {L"::",     {lex_type::l_scopeing}}
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
         {
-            {L"import", {l_import}},
-            {L"inf", {l_inf}},
-            {L"nil", {l_nil}},
+            {L"import", {lex_type::l_import}},
+            {L"inf", {lex_type::l_inf}},
+            {L"nil", {lex_type::l_nil}},
         };
 
 
@@ -123,7 +130,7 @@ namespace rs
             {
                 return lex_operator_list.at(op).in_lexer_type;
             }
-            return l_error;
+            return lex_type::l_error;
         }
         static lex_type lex_is_keyword(const std::wstring& op)
         {
@@ -131,7 +138,7 @@ namespace rs
             {
                 return key_word_list.at(op).in_lexer_type;
             }
-            return l_error;
+            return lex_type::l_error;
         }
         static bool lex_isoperatorch(int ch)
         {
@@ -250,11 +257,14 @@ namespace rs
         std::vector<lex_error_msg> lex_error_list;
         std::vector<lex_error_msg> lex_warn_list;
 
+        bool just_have_err = false; // it will be clear at next()
+
         template<typename ... TS>
         lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
         {
+            just_have_err = true;
             if (!lex_enable_error_warn)
-                return l_error;
+                return lex_type::l_error;
 
             size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
             std::vector<wchar_t> describe;
@@ -272,7 +282,7 @@ namespace rs
             );
             skip_error_line();
 
-            return l_error;
+            return lex_type::l_error;
         }
         template<typename ... TS>
         void lex_warning(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
@@ -294,6 +304,67 @@ namespace rs
                     describe.data()
                 }
             );
+        }
+
+        template<typename ... TS>
+        lex_type parser_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        {
+            just_have_err = true;
+            if (!lex_enable_error_warn)
+                return lex_type::l_error;
+
+            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
+            std::vector<wchar_t> describe;
+            describe.resize(needed_sz + 1);
+            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            lex_error_msg& msg = lex_error_list.emplace_back(
+                lex_error_msg
+                {
+                    false,
+                    0x1000 + errorno,
+                    next_file_rowno,
+                    next_file_colno,
+                    describe.data()
+                }
+            );
+            skip_error_line();
+
+            return lex_type::l_error;
+        }
+        template<typename ... TS>
+        void parser_warning(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        {
+            if (!lex_enable_error_warn)
+                return;
+
+            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
+            std::vector<wchar_t> describe;
+            describe.resize(needed_sz + 1);
+            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            lex_error_msg& msg = lex_warn_list.emplace_back(
+                lex_error_msg
+                {
+                    true,
+                    errorno,
+                    next_file_rowno,
+                    next_file_colno,
+                    describe.data()
+                }
+            );
+        }
+
+        void reset()
+        {
+            next_reading_index = (0);
+            now_file_rowno = (1);
+            now_file_colno = (0);
+            next_file_rowno = (1);
+            next_file_colno = (1);
+
+            lex_error_list.clear();
+            lex_warn_list.clear();
+
+            lex_enable_error_warn = false;
         }
 
     public:
@@ -409,7 +480,11 @@ namespace rs
 
         lex_type next(std::wstring* out_literal)
         {
-            auto write_result = [&](int ch) {if (out_literal)(*out_literal) += (wchar_t)ch; };
+            just_have_err = false;
+
+            std::wstring tmp_result;
+            auto write_result = [&](int ch) {if (out_literal)(*out_literal) += (wchar_t)ch; else tmp_result += (wchar_t)ch; };
+            auto read_result = [&]() -> std::wstring& {if (out_literal)return *out_literal; return  tmp_result; };
 
             if (out_literal)
                 (*out_literal) = L"";
@@ -532,17 +607,17 @@ namespace rs
                 rs_assert(!(is_real && is_handle));
 
                 if (is_real)
-                    return l_literal_real;
+                    return lex_type::l_literal_real;
                 if (is_handle)
-                    return l_literal_handle;
-                return l_literal_integer;
+                    return lex_type::l_literal_handle;
+                return lex_type::l_literal_integer;
 
 
             } // l_literal_integer/l_literal_handle/l_literal_real end
             else if (readed_ch == L';')
             {
                 write_result(readed_ch);
-                return l_semicolon;
+                return lex_type::l_semicolon;
             }
             else if (readed_ch == L'@')
             {
@@ -557,7 +632,7 @@ namespace rs
                         if (following_ch == L'"' && peek_one() == L'@')
                         {
                             next_one();
-                            return l_literal_string;
+                            return lex_type::l_literal_string;
                         }
 
                         if (following_ch != EOF)
@@ -576,7 +651,7 @@ namespace rs
                 {
                     following_ch = next_one();
                     if (following_ch == L'"')
-                        return l_literal_string;
+                        return lex_type::l_literal_string;
                     if (following_ch != EOF && following_ch != '\n')
                     {
                         if (following_ch == L'\\')
@@ -670,15 +745,15 @@ namespace rs
                 }
                 // TODO: Check it, does this str is a keyword?
 
-                if (lex_type keyword_type = lex_is_keyword(*out_literal); l_error == keyword_type)
-                    return l_identifier;
+                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+                    return lex_type::l_identifier;
                 else
                     return keyword_type;
             }
             else if (lex_isoperatorch(readed_ch))
             {
                 write_result(readed_ch);
-                lex_type operator_type = lex_is_valid_operator(*out_literal);
+                lex_type operator_type = lex_is_valid_operator(read_result());
 
                 int following_ch;
                 do
@@ -688,14 +763,14 @@ namespace rs
                     if (!lex_isoperatorch(following_ch))
                         break;
 
-                    lex_type tmp_op_type = lex_is_valid_operator(*out_literal + (wchar_t)following_ch);
-                    if (tmp_op_type != l_error)
+                    lex_type tmp_op_type = lex_is_valid_operator(read_result() + (wchar_t)following_ch);
+                    if (tmp_op_type != +lex_type::l_error)
                     {
                         // maxim eat!
                         operator_type = tmp_op_type;
                         write_result(next_one());
                     }
-                    else if (operator_type == l_error)
+                    else if (operator_type == +lex_type::l_error)
                     {
                         // not valid yet, continue...
                     }
@@ -704,8 +779,8 @@ namespace rs
 
                 } while (true);
 
-                if (operator_type == l_error)
-                    return lex_error(0x0003, L"Unknown operator: '%s'.", out_literal->c_str());
+                if (operator_type == +lex_type::l_error)
+                    return lex_error(0x0003, L"Unknown operator: '%s'.", read_result().c_str());
 
                 return operator_type;
             }
@@ -713,29 +788,29 @@ namespace rs
             {
                 write_result(readed_ch);
 
-                return l_left_brackets;
+                return lex_type::l_left_brackets;
             }
             else if (readed_ch == L')')
             {
                 write_result(readed_ch);
 
-                return l_right_brackets;
+                return lex_type::l_right_brackets;
             }
             else if (readed_ch == L'{')
             {
                 write_result(readed_ch);
 
-                return l_left_curly_braces;
+                return lex_type::l_left_curly_braces;
             }
             else if (readed_ch == L'}')
             {
                 write_result(readed_ch);
 
-                return l_right_curly_braces;
+                return lex_type::l_right_curly_braces;
             }
             else if (readed_ch == EOF)
             {
-                return l_eof;
+                return lex_type::l_eof;
             }
             ///////////////////////////////////////////////////////////////////////////////////////
             return lex_error(0x000, L"Lexer error, unknown begin character: '%c'.", readed_ch);

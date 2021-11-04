@@ -72,21 +72,15 @@ int main()
 
     rs::lexer lx1(
         LR"(
-import system;
-importx system;
+@"Helloworld"@ +
+ "that will cause error" +
+ "asdasd"
 
-var a = 2533;
-var b = 6533;
+"my" + "friend"
 
-func main()
-{   
-    var str = "fxasdasdasdax";
-    system::io::println(@"Helloworld"@);
-}
 
 )");
-    rs::lexer::lex_type lex_type;
-
+   /* rs::lex_type lex_type= lex_type::l_empty;
     do
     {
         std::wstring str;
@@ -95,8 +89,38 @@ func main()
         std::cout << lex_type << " ";
         std::wcout << str << std::endl;
 
-    } while (lex_type != rs::lexer::lex_type::l_eof);
+    } while (lex_type != +rs::lex_type::l_eof);*/
 
+    using gm = rs::grammar;
+    auto * rs_grammar = new rs::grammar{
+        {
+            //文法定义形如
+            // nt >> list{nt/te ... } [>> ast_create_function]
+            gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")},
+            gm::nt(L"PROGRAM")           >> gm::symlist{gm::nt(L"STRINGS")},
+
+            gm::nt(L"STRINGS")           >> gm::symlist{gm::nt(L"STRING"),gm::nt(L"STRINGS")},
+            gm::nt(L"STRINGS")           >> gm::symlist{gm::te(lex_type::l_empty)},
+
+            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_literal_string)},
+            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_literal_string)
+                                                        , gm::te(lex_type::l_add)
+                                                        , gm::nt(L"STRING")},
+        }
+    };
+
+    rs_grammar->check_lr1();
+
+    rs_grammar->display();
+
+    rs_grammar->check(lx1);
+    lx1.reset();
+    if (auto result = rs_grammar->gen(lx1))
+    {
+        std::wcout << " OK!!! " << std::endl;
+
+        result->display();
+    }
 
     for (auto exp : lx1.lex_error_list)
     {
