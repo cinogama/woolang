@@ -16,8 +16,17 @@
     <Filter Include="头文件\runtime">
       <UniqueIdentifier>{55da0602-8c9d-405e-8ac4-ade6d6ce16fb}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\compile">
+    <Filter Include="头文件\compiler">
       <UniqueIdentifier>{927f8eae-bf6a-432d-b164-e52452671274}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\basic">
+      <UniqueIdentifier>{7d9a7b23-d5b2-48f1-99a5-5bab126fda79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\lang">
+      <UniqueIdentifier>{14547a97-153f-4356-99b0-37f4e77918b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="头文件\3rd">
+      <UniqueIdentifier>{95417a9b-5055-4861-8d62-52e14ac3a47a}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -35,15 +44,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rs_macro.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_meta.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_assert.hpp">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="rs.h">
       <Filter>头文件</Filter>
     </ClInclude>
@@ -51,10 +51,10 @@
       <Filter>头文件\runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_compiler_lexer.hpp">
-      <Filter>头文件\compile</Filter>
+      <Filter>头文件\compiler</Filter>
     </ClInclude>
-    <ClInclude Include="rs_ir_compiler.hpp">
-      <Filter>头文件\compile</Filter>
+    <ClInclude Include="rs_compiler_ir.hpp">
+      <Filter>头文件\compiler</Filter>
     </ClInclude>
     <ClInclude Include="rs_exceptions.hpp">
       <Filter>头文件\runtime</Filter>
@@ -67,6 +67,18 @@
     </ClInclude>
     <ClInclude Include="rs_gc.hpp">
       <Filter>头文件\runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_meta.hpp">
+      <Filter>头文件\basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_macro.hpp">
+      <Filter>头文件\basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_assert.hpp">
+      <Filter>头文件\basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_compiler_parser.hpp">
+      <Filter>头文件\compiler</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -152,13 +152,14 @@
   <ItemGroup>
     <ClInclude Include="rs.h" />
     <ClInclude Include="rs_compiler_lexer.hpp" />
+    <ClInclude Include="rs_compiler_parser.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
     <ClInclude Include="rs_vm.hpp" />
     <ClInclude Include="rs_assert.hpp" />
     <ClInclude Include="rs_basic_type.hpp" />
     <ClInclude Include="rs_gc.hpp" />
     <ClInclude Include="rs_instruct.hpp" />
-    <ClInclude Include="rs_ir_compiler.hpp" />
+    <ClInclude Include="rs_compiler_ir.hpp" />
     <ClInclude Include="rs_macro.hpp" />
     <ClInclude Include="rs_meta.hpp" />
   </ItemGroup>

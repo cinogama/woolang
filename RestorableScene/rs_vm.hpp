@@ -1,7 +1,7 @@
 #pragma once
 
 #include "rs_basic_type.hpp"
-#include "rs_ir_compiler.hpp"
+#include "rs_compiler_ir.hpp"
 
 #include <csetjmp>
 #include <shared_mutex>

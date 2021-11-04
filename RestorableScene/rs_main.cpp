@@ -11,7 +11,7 @@
 #include "rs_gc.hpp"
 #include "rs_instruct.hpp"
 #include "rs_basic_type.hpp"
-#include "rs_ir_compiler.hpp"
+#include "rs_compiler_ir.hpp"
 #include "rs_vm.hpp"
 
 void example(rs::vmbase* vm)
@@ -46,7 +46,7 @@ void cost_time_test_gc(rs::vmbase* vm)
 #include <Windows.h>
 #endif
 
-#include "rs_compiler_lexer.hpp"
+#include "rs_compiler_parser.hpp"
 
 int main()
 {
@@ -72,18 +72,18 @@ int main()
 
     rs::lexer lx1(
         LR"(
-1.235
-2258
-0X123
-0xasdasd
-0235
-08
-02545
-@"[Helloworld~]"
-366H
-"JH\kk"
-"Hell\x6fw\x6frld"
-"asdqwd5
+import system;
+importx system;
+
+var a = 2533;
+var b = 6533;
+
+func main()
+{   
+    var str = "fxasdasdasdax";
+    system::io::println(@"Helloworld"@);
+}
+
 )");
     rs::lexer::lex_type lex_type;
 
@@ -100,12 +100,12 @@ int main()
 
     for (auto exp : lx1.lex_error_list)
     {
-        std::wcout <<"Error" << exp.row << "," << exp.col << " " << exp.describe << std::endl;
+        std::wcout << exp.to_wstring() << std::endl;
     }
 
     for (auto exp : lx1.lex_warn_list)
     {
-        std::wcout << "Warning" << exp.row << "," << exp.col << " " << exp.describe << std::endl;
+        std::wcout << exp.to_wstring() << std::endl;
     }
 
     vm vmm;
