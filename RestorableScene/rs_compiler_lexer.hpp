@@ -3,8 +3,11 @@
 #include "rs_assert.hpp"
 
 #include <string>
-#include <cwctype>
 #include <vector>
+#include <map>
+#include <set>
+
+#include <cwctype>
 #include <cwchar>
 
 #include "enum.h"
@@ -28,8 +31,8 @@ namespace rs
         l_literal_real,         // 0.2  0.  .235
         l_literal_string,       // "" "helloworld" @"(println("hello");)"
         l_semicolon,            // ;
-        l_comma,                // ,
 
+        l_comma,                // ,
         l_add,                  // +
         l_sub,                  // - 
         l_mul,                  // * 
@@ -49,8 +52,12 @@ namespace rs
         l_larg,                 // >
         l_land,                 // &&
         l_lor,                  // ||
-        l_not,                  // !
+        l_lnot,                  // !
         l_scopeing,             // ::
+        l_typecast,              // :
+        l_index_point,          // .
+        l_index_begin,          // '['
+        l_index_end,            // ']'
 
         l_left_brackets,        // (
         l_right_brackets,       // )
@@ -60,8 +67,16 @@ namespace rs
         l_import,               // import
 
         l_inf,
-        l_nil
-    );
+        l_nil,
+        l_while,
+        l_if,
+        l_else,
+
+        l_var,
+        l_ref,
+        l_func,
+        l_return
+        );
 
     class lexer
     {
@@ -111,8 +126,13 @@ namespace rs
             {L">",      {lex_type::l_larg}},                 // >
             {L"&&",     {lex_type::l_land}},                 // &&
             {L"||",     {lex_type::l_lor}},                  // ||
-            {L"!",      {lex_type::l_not}},            // !=
-            {L"::",     {lex_type::l_scopeing}}
+            {L"!",      {lex_type::l_lnot}},                  // !=
+            {L"::",     {lex_type::l_scopeing}},
+            {L",",      {lex_type::l_comma}},
+            {L":",      {lex_type::l_typecast}},
+            {L".",      {lex_type::l_index_point}},
+            {L"[",      {lex_type::l_index_begin}},
+            {L"]",      {lex_type::l_index_end}},
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
@@ -120,10 +140,35 @@ namespace rs
             {L"import", {lex_type::l_import}},
             {L"inf", {lex_type::l_inf}},
             {L"nil", {lex_type::l_nil}},
+            {L"while", {lex_type::l_while}},
+            {L"if", {lex_type::l_if}},
+            {L"else", {lex_type::l_else}},
+            {L"var", {lex_type::l_var}},
+            {L"ref", {lex_type::l_ref}},
+            {L"func", {lex_type::l_func}},
+            {L"return", {lex_type::l_return}},
         };
 
 
     public:
+        static const wchar_t* lex_is_operate_type(lex_type tt)
+        {
+            for (auto& [op_str, op_type] : lex_operator_list)
+            {
+                if (op_type.in_lexer_type == tt)
+                    return op_str.c_str();
+            }
+            return nullptr;
+        }
+        static const wchar_t* lex_is_keyword_type(lex_type tt)
+        {
+            for (auto& [op_str, op_type] : key_word_list)
+            {
+                if (op_type.in_lexer_type == tt)
+                    return op_str.c_str();
+            }
+            return nullptr;
+        }
         static lex_type lex_is_valid_operator(const std::wstring& op)
         {
             if (lex_operator_list.find(op) != lex_operator_list.end())
@@ -262,9 +307,11 @@ namespace rs
         template<typename ... TS>
         lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
         {
-            just_have_err = true;
+
             if (!lex_enable_error_warn)
                 return lex_type::l_error;
+
+            just_have_err = true;
 
             size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
             std::vector<wchar_t> describe;
@@ -309,9 +356,10 @@ namespace rs
         template<typename ... TS>
         lex_type parser_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
         {
-            just_have_err = true;
             if (!lex_enable_error_warn)
                 return lex_type::l_error;
+
+            just_have_err = true;
 
             size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
             std::vector<wchar_t> describe;
@@ -364,7 +412,7 @@ namespace rs
             lex_error_list.clear();
             lex_warn_list.clear();
 
-            lex_enable_error_warn = false;
+            lex_enable_error_warn = true;
         }
 
     public:

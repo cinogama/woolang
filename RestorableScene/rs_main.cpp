@@ -46,7 +46,7 @@ void cost_time_test_gc(rs::vmbase* vm)
 #include <Windows.h>
 #endif
 
-#include "rs_compiler_parser.hpp"
+#include "rs_lang_grammar_loader.hpp"
 
 int main()
 {
@@ -73,52 +73,20 @@ int main()
     rs::lexer lx1(
         LR"(
 @"Helloworld"@ +
- "that will cause error" +
- "asdasd"
+ "that will cause error" + "XX"
+ + "asdasd";
 
-"my" + "friend"
+"my" + "friend";
 
-import xxx;
+import cao;
 
 )");
-   /* rs::lex_type lex_type= lex_type::l_empty;
-    do
-    {
-        std::wstring str;
-        lex_type = lx1.next(&str);
 
-        std::cout << lex_type << " ";
-        std::wcout << str << std::endl;
-
-    } while (lex_type != +rs::lex_type::l_eof);*/
-
-    using gm = rs::grammar;
-    auto * rs_grammar = new rs::grammar{
-        {
-            //文法定义形如
-            // nt >> list{nt/te ... } [>> ast_create_function]
-            gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")},
-            gm::nt(L"PROGRAM")           >> gm::symlist{gm::nt(L"STRINGS")},
-
-            gm::nt(L"STRINGS")           >> gm::symlist{gm::nt(L"STRING"),gm::nt(L"STRINGS")},
-            gm::nt(L"STRINGS")           >> gm::symlist{gm::te(lex_type::l_empty)},
-
-            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_literal_string)},
-            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_literal_string)
-                                                        , gm::te(lex_type::l_add)
-                                                        , gm::nt(L"STRING")},
-            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_import)
-                                                        , gm::te(lex_type::l_identifier,L"cao")},
-             gm::nt(L"STRING")           >> gm::symlist{gm::te(lex_type::l_empty)},
-        }
-    };
-
-    rs_grammar->check_lr1();
-
-    rs_grammar->display();
+    auto* rs_grammar = get_rs_grammar();
 
     rs_grammar->check(lx1);
     lx1.reset();
+
     if (auto result = rs_grammar->gen(lx1))
     {
         std::wcout << " OK!!! " << std::endl;

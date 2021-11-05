@@ -13,6 +13,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <functional>
 #include <queue>
 #include <stack>
+#include <sstream>
 
 namespace rs
 {
@@ -166,8 +167,6 @@ namespace rs
                 return defaultAST;
             };
 
-
-
             nonterminal(const std::wstring& name = L"") :
                 nt_name(name)
 
@@ -219,9 +218,10 @@ namespace rs
                 return !left_is_te;
             }
         };
+        using sym_nts_t = std::map< sym, std::set< te>, sym_less>;
 
-        std::map< sym, std::set< te>, sym_less>FIRST_SET;
-        std::map< sym, std::set< te>, sym_less>FOLLOW_SET;
+        sym_nts_t FIRST_SET;
+        sym_nts_t FOLLOW_SET;
 
         struct lr_item//lr分析项目
         {
@@ -314,6 +314,9 @@ namespace rs
 
         };
 
+        std::map<std::set<lr_item>, std::set<lr_item>>CLOSURE_SET;
+        std::vector<std::set<lr_item>> C_SET;
+
         std::set< te>& FIRST(const sym& _sym)
         {
             if (std::holds_alternative<te>(_sym))//_sym是终结符
@@ -340,11 +343,6 @@ namespace rs
                 return empty_set;
             return FOLLOW_SET.at(noterim);
         }
-
-
-
-        std::map<std::set<lr_item>, std::set<lr_item>>CLOSURE_SET;
-        std::vector<std::set<lr_item>> C_SET;
 
         std::set<lr_item>& CLOSURE(const std::set<lr_item>& i)
         {
@@ -488,7 +486,9 @@ namespace rs
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
 
+        using lr1table_t = std::map<size_t, std::map<sym, std::set<action>, sym_less>>;
         std::map<size_t, std::map<sym, std::set<action>, sym_less>> LR1_TABLE;
+        // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
 
         const std::set<action>& LR1_TABLE_READ(size_t a, const sym& b) const
         {
@@ -507,9 +507,12 @@ namespace rs
 
         friend static std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
 
+        grammar()
+        {
+            // DONOTHING FOR READING FROM AUTO GENN
+        }
         grammar(const std::vector<rule>& p)
         {
-
             ORGIN_P = p;
             if (p.size())
             {
@@ -911,7 +914,7 @@ namespace rs
             std::wcout << "fff";*/
         }
 
-        void check_lr1(std::wostream& ostrm = std::wcout)
+        bool check_lr1(std::wostream& ostrm = std::wcout)
         {
             for (size_t i = 0; i < ORGIN_P.size(); i++)
             {
@@ -941,10 +944,12 @@ namespace rs
 
                         ostrm << std::endl;
 
-
+                        return true;
                     }
                 }
             }
+
+            return false;
         }
 
         void display(std::wostream& ostrm = std::wcout)
@@ -1049,10 +1054,20 @@ namespace rs
             auto NOW_STACK_STATE = [&]()->size_t& {return state_stack.top(); };
             auto NOW_STACK_SYMBO = [&]()->sym& {return sym_stack.top(); };
 
+            bool success_flag = true;
+
             do
             {
                 std::wstring out_indentifier;
                 lex_type type = tkr.peek(&out_indentifier);
+
+                if (type == +lex_type::l_error)
+                {
+                    // have a lex error, skip this error.
+                    std::wcout << "fail: lex_error, skip it." << std::endl;
+                    type = tkr.next(&out_indentifier);
+                    continue;
+                }
 
                 auto top_symbo =
                     (state_stack.size() == sym_stack.size() ?
@@ -1118,8 +1133,11 @@ namespace rs
                     }
                     else if (take_action.act == grammar::action::act_type::accept)
                     {
-                        std::wcout << "acc!" << std::endl;
-                        return true;
+                        if (success_flag)
+                            std::wcout << "acc!" << std::endl;
+                        else
+                            std::wcout << "acc, but there are something fail." << std::endl;
+                        return success_flag;
                     }
                     else if (take_action.act == grammar::action::act_type::state_goto)
                     {
@@ -1166,6 +1184,13 @@ namespace rs
             {
                 std::wstring out_indentifier;
                 lex_type type = tkr.peek(&out_indentifier);
+
+                if (type == +lex_type::l_error)
+                {
+                    // have a lex error, skip this error.
+                    type = tkr.next(&out_indentifier);
+                    continue;
+                }
 
                 auto top_symbo =
                     (state_stack.size() == sym_stack.size() ?
@@ -1288,28 +1313,59 @@ namespace rs
                             }
                         }
 
-                    std::wstring advise = L" ";
-                    if (std::find(should_be.begin(), should_be.end(), te{lex_type::l_semicolon}) != should_be.end())
+                    std::wstring advise = L"";
+
+                    if (should_be.size())
                     {
-                        advise += L"Here should be" L"\";\"";
-                    }
-                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_identifier }) != should_be.end())
-                    {
-                        advise += L"excepted " L"'identifier'";
-                    }
-                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_right_brackets }) != should_be.end())
-                    {
-                        advise += L"excepted " L"\")\"";
-                    }
-                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_right_curly_braces }) != should_be.end())
-                    {
-                        advise += L"excepted " L"\"}\"";
+                        advise = L", excepted ";
+                        for (auto& excepted_te : should_be)
+                        {
+                            if (excepted_te.t_name != L"")
+                            {
+                                advise += L"'" + excepted_te.t_name + L"' ";
+                            }
+                            else
+                            {
+                                const wchar_t* spfy_op_key_str = lexer::lex_is_keyword_type(excepted_te.t_type);
+                                spfy_op_key_str = spfy_op_key_str? spfy_op_key_str: lexer::lex_is_operate_type(excepted_te.t_type);
+                                if (spfy_op_key_str)
+                                {
+                                    advise += std::wstring(L"'") + spfy_op_key_str + L"'";
+                                }
+                                else
+                                {
+                                    switch (excepted_te.t_type)
+                                    {
+                                    case lex_type::l_semicolon:
+                                        advise += L"';'"; break;
+                                    case lex_type::l_right_brackets:
+                                        advise += L"')'"; break;
+                                    case lex_type::l_left_brackets:
+                                        advise += L"'('"; break;
+                                    case lex_type::l_right_curly_braces:
+                                        advise += L"')'"; break;
+                                    case lex_type::l_left_curly_braces:
+                                        advise += L"'('"; break;
+                                    default:
+                                    {
+                                        std::wstringstream used_for_enum_to_wstr;
+                                        used_for_enum_to_wstr << excepted_te.t_type;
+                                        advise += used_for_enum_to_wstr.str() + L" ";
+
+                                        break;
+                                    }
+                                    }
+                                }
+                            }
+
+
+                        }
                     }
 
                     std::wstring err_info = L"Unexcepted symbol: " +
-                        (L"\"" + (out_indentifier) + L"\"") + advise;
+                        (L"'" + (out_indentifier)+L"'") + advise;
 
-
+                    // 如果刚刚发生了相同的错误， 结束处理
                     if (tkr.just_have_err)
                         goto error_handle_fail;
 
@@ -1405,33 +1461,12 @@ namespace rs
                     0;
                 }
 
-
-
             } while (true);
 
             tkr.parser_error(0x0000, L"Unexcepted EOF.");
 
             return nullptr;
         }
-
-        /* void display_compile_error(std::wostream& ostrm = std::wcout)
-         {
-             for (auto& errline : compile_error_list)
-             {
-                 size_t line_id = errline.first;
-                 for (auto& errrow : errline.second)
-                 {
-                     size_t row_id = errrow.first;
-
-                     for (auto& errinfo : errrow.second)
-                     {
-                         ostrm << "(" << line_id << "," << row_id << ") " << (errinfo) << std::endl;
-                     }
-                 }
-             }
-         }*/
-
-
     };
 
     inline static std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
