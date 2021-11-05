@@ -1156,8 +1156,6 @@ namespace rs
             std::stack<sym> sym_stack;
             std::stack<ASTNode> node_stack;
 
-
-
             state_stack.push(0);
             sym_stack.push(grammar::te{ lex_type::l_eof });
 
@@ -1277,7 +1275,7 @@ namespace rs
                 {
 
                 error_handle:
-                    std::vector<std::wstring> should_be;
+                    std::vector<te> should_be;
 
                     if (LR1_TABLE.find(NOW_STACK_STATE()) != LR1_TABLE.end())
                         for (auto& actslist : LR1_TABLE.at(NOW_STACK_STATE()))
@@ -1286,30 +1284,30 @@ namespace rs
                                 actslist.second.size() &&
                                 (actslist.second.begin()->act != action::act_type::error && actslist.second.begin()->act != action::act_type::state_goto))
                             {
-                                should_be.push_back(std::get<te>(actslist.first).t_name);
+                                should_be.push_back(std::get<te>(actslist.first));
                             }
                         }
 
                     std::wstring advise = L" ";
-                    if (std::find(should_be.begin(), should_be.end(), L"line_end_token") != should_be.end())
+                    if (std::find(should_be.begin(), should_be.end(), te{lex_type::l_semicolon}) != should_be.end())
                     {
                         advise += L"Here should be" L"\";\"";
                     }
-                    else if (std::find(should_be.begin(), should_be.end(), L"identifier_token") != should_be.end())
+                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_identifier }) != should_be.end())
                     {
-                        advise += L"Missing: " L"'identifier'";
+                        advise += L"excepted " L"'identifier'";
                     }
-                    else if (std::find(should_be.begin(), should_be.end(), L")") != should_be.end())
+                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_right_brackets }) != should_be.end())
                     {
-                        advise += L"Missing: " L"\")\"";
+                        advise += L"excepted " L"\")\"";
                     }
-                    else if (std::find(should_be.begin(), should_be.end(), L"}") != should_be.end())
+                    else if (std::find(should_be.begin(), should_be.end(), te{ lex_type::l_right_curly_braces }) != should_be.end())
                     {
-                        advise += L"Missing: " L"\"}\"";
+                        advise += L"excepted " L"\"}\"";
                     }
 
                     std::wstring err_info = L"Unexcepted symbol: " +
-                        (L"\"" + (out_indentifier)+L"\"") + advise;
+                        (L"\"" + (out_indentifier) + L"\"") + advise;
 
 
                     if (tkr.just_have_err)

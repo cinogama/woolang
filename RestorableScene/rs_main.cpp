@@ -78,6 +78,7 @@ int main()
 
 "my" + "friend"
 
+import xxx;
 
 )");
    /* rs::lex_type lex_type= lex_type::l_empty;
@@ -106,6 +107,9 @@ int main()
             gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_literal_string)
                                                         , gm::te(lex_type::l_add)
                                                         , gm::nt(L"STRING")},
+            gm::nt(L"STRING")            >> gm::symlist{gm::te(lex_type::l_import)
+                                                        , gm::te(lex_type::l_identifier,L"cao")},
+             gm::nt(L"STRING")           >> gm::symlist{gm::te(lex_type::l_empty)},
         }
     };
 
