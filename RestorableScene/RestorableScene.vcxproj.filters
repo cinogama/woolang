@@ -45,6 +45,9 @@
     <ClCompile Include="rs_lang_grammar.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs.h">
@@ -94,6 +97,9 @@
     </ClInclude>
     <ClInclude Include="rs_crc_64.hpp">
       <Filter>头文件\basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_lang_ast.h">
+      <Filter>头文件\lang</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

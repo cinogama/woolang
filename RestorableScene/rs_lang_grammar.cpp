@@ -47,9 +47,24 @@ gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")},
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"PARAGRAPH"),gm::nt(L"SENTENCE")},
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE")},
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)},
+
+gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
+
+gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)},
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)},
+
+gm::nt(L"SENTENCE") >> gm::symlist{
+                        gm::te(gm::ttype::l_func),
+                        gm::te(gm::ttype::l_identifier),
+                        gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
+                        gm::nt(L"RETURN_TYPE_DECLEAR"),
+                        gm::nt(L"SENTENCE")},
+
+
 //WHILE语句
 gm::nt(L"SENTENCE") >> gm::symlist{
                         gm::te(gm::ttype::l_while),
@@ -107,103 +122,104 @@ gm::nt(L"VARDEFINE") >> gm::symlist{
                                 //变量定义表达式
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"),gm::te(gm::ttype::l_semicolon)},
 
-                            gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)},//返回值可以是空产生式
-                            gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")},//返回值也可以是一个表达式
+gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)},//返回值可以是空产生式
+gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")},//返回值也可以是一个表达式
 
-                            //语句与表达式
-                            gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon)},
-                            //	RIGHT当然是一个表达式
-                            //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
-                            gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")},
-                            //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
+//语句与表达式
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon)},
+//	RIGHT当然是一个表达式
+//gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
+gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")},
+//gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT")},
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT")},
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT")},
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT")},
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT")},
-                            gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT")},
+gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT")},
 
-                            //右值是仅取值的表达式 ，赋值语句当然也是一个右值		
+//右值是仅取值的表达式 ，赋值语句当然也是一个右值		
 
-                            gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
-                            //		func定义式
-                            gm::nt(L"RIGHT") >> gm::symlist{
-                            gm::te(gm::ttype::l_func),
-                            gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                            gm::nt(L"RETURN_TYPE_DECLEAR"),
-                            gm::nt(L"SENTENCE")},
+gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
+//		func定义式
+gm::nt(L"RIGHT") >> gm::symlist{
+                        gm::te(gm::ttype::l_func),
+                        gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
+                        gm::nt(L"RETURN_TYPE_DECLEAR"),
+                        gm::nt(L"SENTENCE")},
 
+// May empty
 
-                            gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
-                            gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
-                            gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
+gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
+gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) },
 
-                                gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_empty)},
-                                gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
-                                gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
-                                gm::nt(L"ARGDEFINE") >> gm::symlist{gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
-                                gm::nt(L"ARGDEFINE") >> gm::symlist{gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)},
-
-
-                                //		运算转换，左值可以转化为右值ASTUnary
+gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"ARGDEFINE") >> gm::symlist{gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
+gm::nt(L"ARGDEFINE") >> gm::symlist{gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)},
 
 
-                                gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")} ,
-                                //	逻辑运算表达式
-                                    gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_AND")} ,
-                                    gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND")} ,
+//		运算转换，左值可以转化为右值ASTUnary
 
-                                    gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"RELATION")} ,
-                                    gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION")} ,
 
-                                    //	关系判别表达式 < > >= <=
-                                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"EQUATION")} ,
-                                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION")} ,
-                                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION")} ,
-                                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION")} ,
-                                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION")} ,
-                                        // 等价判别表达式
-                                            gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"SUMMATION")} ,
-                                            gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION")} ,
-                                            gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION")} ,
-                                            // 加减运算表达式		
+gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")} ,
+//	逻辑运算表达式
+gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_AND")} ,
+gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND")} ,
 
-                                                gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"MULTIPLICATION")} ,
-                                                gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION")} ,
-                                                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
+gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"RELATION")} ,
+gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION")} ,
 
-                                                // 乘除运算表达式
-                                                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") } ,
-                                                    gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR")} ,
-                                                    gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
-                                                    gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR")} ,
+//	关系判别表达式 < > >= <=
+gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"EQUATION")} ,
+gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION")} ,
+gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION")} ,
+gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION")} ,
+gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION")} ,
+// 等价判别表达式
+gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"SUMMATION")} ,
+gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION")} ,
+gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION")} ,
+// 加减运算表达式		
 
-                                                    //	RIGHT可以作为因子
-                                                        gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") },
-                                                        gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"LEFT")} ,
-                                                        gm::nt(L"FACTOR") >> gm::symlist{gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets)},
-                                                        gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") } ,
+gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"MULTIPLICATION")} ,
+gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION")} ,
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
 
-                                                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) } ,
-                                                        gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)} ,
-                                                        gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_string)} ,
-                                                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) } ,
+// 乘除运算表达式
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") } ,
+gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR")} ,
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
+gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR")} ,
 
-                                                        //单目运算符
-                                                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
-                                                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
+//	RIGHT可以作为因子
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") },
+gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"LEFT")} ,
+gm::nt(L"FACTOR") >> gm::symlist{gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets)},
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") } ,
 
-                                                        //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
-                                        gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)},
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) } ,
+gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)} ,
+gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_string)} ,
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) } ,
 
-                                        gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
-                                        gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_right_brackets)},
-                                            gm::nt(L"ARGLIST") >> gm::symlist{gm::te(gm::ttype::l_empty)},//参数表可以是空的
-                                            gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"RIGHT")},
-                                            gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_comma),gm::nt(L"RIGHT")},
+//单目运算符
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
 
-                                        gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
+//左值是被赋值的对象，应该是一个标识符或者一个函数表达式
+gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)},
+
+gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
+gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_right_brackets)},
+gm::nt(L"ARGLIST") >> gm::symlist{gm::te(gm::ttype::l_empty)},//参数表可以是空的
+gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"RIGHT")},
+gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_comma),gm::nt(L"RIGHT")},
+
+gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
                 }
             );
 
@@ -241,19 +257,23 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
             cachefile << L"namespace rs" << endl;
             cachefile << L"{" << endl;
 
+
             {
-                cachefile << L"inline void rs_read_lr1_to(rs::grammar::lr1table_t & out_lr1table)" << endl;
+                int state_lr1_block_count = 0;
+                cachefile << L"void rs_read_lr1_to_" << state_lr1_block_count << L"(rs::grammar::lr1table_t & out_lr1table)" << endl;
+                cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
                 cachefile << L"{" << endl;
                 cachefile << tab << "using gm = rs::grammar;" << endl;
                 cachefile << endl;
 
+                int state_lr1_count = 0;
                 for (auto& lr1_item : rs_grammar->LR1_TABLE)
                 {
                     if (lr1_item.second.empty())
                         continue;
 
-                    std::wstring now_lr1_state = L"lr1_state_" + std::to_wstring(lr1_item.first);
-                    cachefile << tab << L"auto & " << now_lr1_state << L" = out_lr1table[" << lr1_item.first << L"]; " << endl;
+
+                    cachefile << tab << L"out_lr1table[" << lr1_item.first << L"] = { " << endl;
 
                     int i = 0;
                     for (auto& [lr1_item_sym, lr1_item_act_set] : lr1_item.second)
@@ -261,8 +281,7 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
                         if (lr1_item_act_set.empty())
                             continue;
 
-                        std::wstring now_lr1_state_act = L"lr1_state_" + std::to_wstring(lr1_item.first) + L"_act_" + std::to_wstring(i);
-                        cachefile << tab << tab << L"auto & " << now_lr1_state_act << L" = " << now_lr1_state << L"[";
+                        cachefile << tab << tab << L"{ ";
                         if (std::holds_alternative<gm::te>(lr1_item_sym))
                         {
                             // if is a term
@@ -272,11 +291,11 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
                         {
                             cachefile << L"gm::nt(L\"" << std::get<gm::nt>(lr1_item_sym).nt_name << L"\")";
                         }
-                        cachefile << L"];" << endl;
+                        cachefile << L", {" << endl;
 
                         for (auto& action_set : lr1_item_act_set)
                         {
-                            cachefile << tab << tab << tab << now_lr1_state_act << L".insert(gm::action{gm::action::act_type::";
+                            cachefile << tab << tab << tab << L"gm::action{gm::action::act_type::";
 
                             switch (action_set.act)
                             {
@@ -293,17 +312,56 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
                             default:
                                 break;
                             }
-                            cachefile << L", gm::te(lex_type::" << action_set.prospect.t_type << L", L\"" << action_set.prospect.t_name << L"\"), " << action_set.state << "});" << endl;
+                            cachefile << L", gm::te(lex_type::" << action_set.prospect.t_type << L", L\"" << action_set.prospect.t_name << L"\"), " << action_set.state << "}, " << endl;
                         }
+
+                        cachefile << tab << tab << tab << "}," << endl;
+                        cachefile << tab << tab << "}," << endl;
                         i++;
+
+                    }
+
+                    cachefile << tab << "};" << endl;
+
+                    state_lr1_count++;
+                    if (state_lr1_count % 5 == 0)
+                    {
+                        cachefile << "}" << endl;
+                        cachefile << L"#else" << endl;
+                        cachefile << L";" << endl;
+                        cachefile << L"#endif" << endl;
+                        state_lr1_block_count++;
+                        cachefile << L"void rs_read_lr1_to_" << state_lr1_block_count << L"(rs::grammar::lr1table_t & out_lr1table)" << endl;
+                        cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
+                        cachefile << L"{" << endl;
+                        cachefile << tab << "using gm = rs::grammar;" << endl;
+                        cachefile << endl;
                     }
                 }
 
                 cachefile << "}" << endl;
+                cachefile << L"#else" << endl;
+                cachefile << L";" << endl;
+                cachefile << L"#endif" << endl;
+
+                cachefile << L"void rs_read_lr1_to(rs::grammar::lr1table_t & out_lr1table)" << endl;
+                cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
+                cachefile << L"{" << endl;
+
+                for (int i = 0; i <= state_lr1_block_count; i++)
+                {
+                    cachefile << tab << L"rs_read_lr1_to_" << i << L"(out_lr1table);" << endl;
+                }
+                cachefile << "}" << endl;
+                cachefile << L"#else" << endl;
+                cachefile << L";" << endl;
+                cachefile << L"#endif" << endl;
             }
+
             {
 
-                cachefile << L"inline void rs_read_follow_set_to(rs::grammar::sym_nts_t & out_followset)" << endl;
+                cachefile << L"void rs_read_follow_set_to(rs::grammar::sym_nts_t & out_followset)" << endl;
+                cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
                 cachefile << L"{" << endl;
                 cachefile << tab << "using gm = rs::grammar;" << endl;
                 cachefile << endl;
@@ -335,10 +393,14 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
                     follow_index++;
                 }
                 cachefile << "}" << endl;
+                cachefile << L"#else" << endl;
+                cachefile << L";" << endl;
+                cachefile << L"#endif" << endl;
             }
 
             {
-                cachefile << L"inline void rs_read_origin_p_to(std::vector<rs::grammar::rule> & out_origin_p)" << endl;
+                cachefile << L"void rs_read_origin_p_to(std::vector<rs::grammar::rule> & out_origin_p)" << endl;
+                cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
                 cachefile << L"{" << endl;
                 cachefile << tab << "using gm = rs::grammar;" << endl;
                 cachefile << endl;
@@ -367,6 +429,9 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALU
                 }
 
                 cachefile << "}" << endl;
+                cachefile << L"#else" << endl;
+                cachefile << L";" << endl;
+                cachefile << L"#endif" << endl;
             }
 
             cachefile << endl;

@@ -72,13 +72,12 @@ int main()
 
     rs::lexer lx1(
         LR"(
-@"Helloworld"@ +
- "that will cause error" + "XX"
- + "asdasd";
+import system;
 
-"my" + "friend";
-
-import cao;
+func main()
+{
+    system::io::println(@"Helloworld"@);
+}
 
 )");
 

@@ -1336,6 +1336,8 @@ namespace rs
                                 {
                                     switch (excepted_te.t_type)
                                     {
+                                    case lex_type::l_eof:
+                                        advise += L"<EOF>"; break;
                                     case lex_type::l_semicolon:
                                         advise += L"';'"; break;
                                     case lex_type::l_right_brackets:
@@ -1362,8 +1364,18 @@ namespace rs
                         }
                     }
 
-                    std::wstring err_info = L"Unexcepted symbol: " +
-                        (L"'" + (out_indentifier)+L"'") + advise;
+                    std::wstring err_info;
+
+                    if (type == +lex_type::l_eof)
+                    {
+                        err_info = L"Unexcepted end of file" + advise;
+                    }
+                    else
+                    {
+                        err_info = L"Unexcepted symbol: " +
+                            (L"'" + (out_indentifier)+L"'") + advise;
+                    }
+                    
 
                     // 如果刚刚发生了相同的错误， 结束处理
                     if (tkr.just_have_err)
@@ -1463,7 +1475,7 @@ namespace rs
 
             } while (true);
 
-            tkr.parser_error(0x0000, L"Unexcepted EOF.");
+            tkr.parser_error(0x0000, L"Unexcepted end of file.");
 
             return nullptr;
         }
