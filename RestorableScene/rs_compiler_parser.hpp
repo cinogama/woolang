@@ -175,7 +175,6 @@ namespace rs
             }
         };
 
-
         struct ast_default :public ast_base
         {
             bool stores_terminal = false;
@@ -220,6 +219,7 @@ namespace rs
         {
             std::wstring nt_name;
 
+            size_t builder_index = 0;
             std::function<std::any(const std::wstring&, std::vector<std::any>&)> ast_create_func =
                 [](const std::wstring& name, std::vector<std::any>& chs)->std::any
             {
@@ -248,8 +248,9 @@ namespace rs
                 return (ast_base*)defaultAST;
             };
 
-            nonterminal(const std::wstring& name = L"") :
-                nt_name(name)
+            nonterminal(const std::wstring& name = L"", size_t _builder_index = 0)
+                : nt_name(name)
+                , builder_index(_builder_index)
 
             {
 
@@ -1339,12 +1340,20 @@ namespace rs
                         if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
 
                             ast_base* node;
+                            token tk = { lex_type::l_error };
                             if (cast_any_to<ast_base*>(astn, node))
                             {
                                 if (ast_default* de_node = dynamic_cast<ast_default*>(node))
                                 {
                                     if (de_node->stores_terminal && de_node->terminal_token.type == +lex_type::l_error)
                                         return true;
+                                }
+                            }
+                            else if (cast_any_to<token>(astn, tk))
+                            {
+                                if (tk.type == +lex_type::l_error)
+                                {
+                                    return true;
                                 }
                             }
 
@@ -1496,67 +1505,80 @@ namespace rs
                     {
                         size_t stateid = state_stack.top();
                         if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+                        {
                             for (auto act : LR1_TABLE.at(stateid))
                             {
-                                if (std::holds_alternative<nt>(act.first) && act.second.size() && act.second.begin()->act == action::act_type::reduction)
+                                if (std::holds_alternative<nt>(act.first))
                                 {
-                                    //找到对应的非终结符
-                                    //找到这个非终结符的FOLLOW集
-
-                                    auto& follow_set = FOLLOW_READ(std::get<nt>(act.first));
-
-                                    rs::lex_type out_lex = lex_type::l_empty;
-                                    std::wstring out_str;
-                                    while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
+                                    if (act.second.size())
                                     {
-                                        out_lex = tkr.next(&out_str);
-
-                                        auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
-
-                                            return t.t_name == L"" ?
-                                                t.t_type == out_lex
-                                                :
-                                                t.t_name == out_str &&
-                                                t.t_type == out_lex;
-
-                                            });
-                                        if (place != follow_set.end())
+                                        if (act.second.begin()->act == action::act_type::reduction)
                                         {
-                                            //开始处理归约
+                                            //找到对应的非终结符
+                                            //找到这个非终结符的FOLLOW集
 
-                                            auto& red_rule = ORGIN_P[act.second.begin()->state];
-                                            //node_stack.push(tokens_queue.front());
+                                            auto& follow_set = FOLLOW_READ(std::get<nt>(act.first));
 
-                                            //for (size_t i = red_rule.second.size(); i > 0; i--)
-                                            //{
-                                            //	size_t index = i - 1;
+                                            rs::lex_type out_lex = lex_type::l_empty;
+                                            std::wstring out_str;
+                                            while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
+                                            {
+                                                out_lex = tkr.next(&out_str);
 
-                                            //	state_stack.pop();
-                                            //	sym_stack.pop();
+                                                auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
 
-                                            //	//bnodes.push_back(node_stack.top());
-                                            //	node_stack.pop();
-                                            //}
-                                            state_stack.push(act.second.begin()->state);
-                                            sym_stack.push(red_rule.first);
-                                            node_stack.push(token{ +lex_type::l_error });
-                                            /*	state_stack.pop();
+                                                    return t.t_name == L"" ?
+                                                        t.t_type == out_lex
+                                                        :
+                                                        t.t_name == out_str &&
+                                                        t.t_type == out_lex;
 
-                                                state_stack.push(act.second.begin()->state);
-
-                                                while (sym_stack.size() >= state_stack.size())
+                                                    });
+                                                if (place != follow_set.end())
                                                 {
-                                                    sym_stack.pop();
+                                                    //开始处理归约
+
+                                                    auto& red_rule = ORGIN_P[act.second.begin()->state];
+
+                                                    state_stack.push(act.second.begin()->state);
+                                                    sym_stack.push(red_rule.first);
+                                                    node_stack.push(token{ +lex_type::l_error });
+
+                                                    goto error_progress_end;
+                                                    //完成假归约
                                                 }
-                                                sym_stack.push(act.first);*/
-                                            goto error_progress_end;
-                                            //完成假归约
+                                            }
+
+                                            goto error_handle_fail;
                                         }
                                     }
-
-                                    goto error_handle_fail;
                                 }
                             }
+
+                            // FAIL TO REDUCTION TRY SET VIRTUAL OP
+                            for (auto act : LR1_TABLE.at(stateid))
+                            {
+                                if (act.second.size())
+                                {
+                                    if (std::holds_alternative<te>(act.first))
+                                    {
+                                        auto& tk_type = std::get<te>(act.first).t_type;
+                                        if (tk_type == +lex_type::l_semicolon
+                                            || tk_type == +lex_type::l_right_brackets
+                                            || tk_type == +lex_type::l_left_curly_braces)
+                                        {
+                                            if (act.second.begin()->act == action::act_type::reduction)
+                                            {
+                                                tkr.push_temp_for_error_recover(tk_type, std::get<te>(act.first).t_name);
+                                                goto error_progress_end;
+
+                                            }
+                                        }
+
+                                    }
+                                }
+                            }
+                        }
 
 
                         if (node_stack.size())
@@ -1567,12 +1589,14 @@ namespace rs
                         }
                         else
                         {
-                            goto error_handle_fail;
+                            // 直接继续
+                            goto error_progress_end;
                         }
                     }
 
                     //此处进行错误例程，恢复错误状态，检测可能的错误可能，然后继续
                 error_handle_fail:
+                    tkr.parser_error(0x0000, L"Unable to recover from now error state, abort.");
                     return nullptr;
 
                 error_progress_end:

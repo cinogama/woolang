@@ -98,7 +98,7 @@
     <ClInclude Include="rs_crc_64.hpp">
       <Filter>头文件\basic</Filter>
     </ClInclude>
-    <ClInclude Include="rs_lang_ast.h">
+    <ClInclude Include="rs_lang_ast_builder.hpp">
       <Filter>头文件\lang</Filter>
     </ClInclude>
   </ItemGroup>

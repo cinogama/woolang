@@ -2,6 +2,8 @@
 #include "rs_lang_grammar_lr1_autogen.hpp"
 #include "rs_crc_64.hpp"
 
+#include "rs_lang_ast_builder.hpp"
+
 #include <fstream>
 
 #define _RS_LSTR(X) L##X
@@ -15,6 +17,8 @@ namespace rs
 
         if (rs_grammar)
             return rs_grammar;
+
+        ast::init_builder();
 
         std::ifstream this_grammar_file("rs_lang_grammar.cpp");
         uint64_t rs_lang_grammar_crc64 = 0;
@@ -41,7 +45,7 @@ namespace rs
             rs_read_follow_set_to(rs_grammar->FOLLOW_SET);
             rs_read_origin_p_to(rs_grammar->ORGIN_P);
 
-            return rs_grammar;
+            goto register_ast_builder_function;
         }
         else
         {
@@ -141,10 +145,12 @@ gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)},//返回值可以是空
 gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")},//返回值也可以是一个表达式
 
 //语句与表达式
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon)},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon)}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 //	RIGHT当然是一个表达式
 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
-gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")},
+gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
 gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT")},
@@ -156,9 +162,11 @@ gm::nt(L"ASSIGNMENT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_ass
 
 //右值是仅取值的表达式 ，赋值语句当然也是一个右值		
 
-gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
+gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"ASSIGNMENT")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 //		func定义式
-gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"FUNC_DEFINE")},
+gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"FUNC_DEFINE")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         gm::te(gm::ttype::l_func),
@@ -182,62 +190,77 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         //		运算转换，左值可以转化为右值ASTUnary
 
 
-                        gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")} ,
+                        gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")} 
+                        >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                         //	逻辑运算表达式
-                        gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_AND")} ,
+                        gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_AND")}
+                        >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                         gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND")} ,
 
-                        gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"RELATION")} ,
+                        gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"RELATION")}
+                        >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                         gm::nt(L"LOGICAL_AND") >> gm::symlist{gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION")} ,
 
-                        //	关系判别表达式 < > >= <=
-                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"EQUATION")} ,
-                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION")} ,
-                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION")} ,
-                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION")} ,
-                        gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION")} ,
-                        // 等价判别表达式
-                        gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"SUMMATION")} ,
-                        gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION")} ,
-                        gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION")} ,
-                        // 加减运算表达式		
+                //	关系判别表达式 < > >= <=
+                gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"EQUATION")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION")} ,
+                gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION")} ,
+                gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION")} ,
+                gm::nt(L"RELATION") >> gm::symlist{gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION")} ,
+                // 等价判别表达式
+                gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"SUMMATION")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION")} ,
+                gm::nt(L"EQUATION") >> gm::symlist{gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION")} ,
+                // 加减运算表达式		
 
-                        gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"MULTIPLICATION")} ,
-                        gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION")} ,
-                        gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
+                gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"MULTIPLICATION")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SUMMATION") >> gm::symlist{gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION")} ,
+                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
 
-                        // 乘除运算表达式
-                        gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") } ,
-                        gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR")} ,
-                        gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
-                        gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR")} ,
+                // 乘除运算表达式
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR")} ,
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR")} ,
 
-                        //	RIGHT可以作为因子
-                        gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") },
-                        gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"LEFT")} ,
-                        gm::nt(L"FACTOR") >> gm::symlist{gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets)},
-                        gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") } ,
+                //	RIGHT可以作为因子
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") },
+                gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"LEFT")} 
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FACTOR") >> gm::symlist{gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets)},
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") } 
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) } ,
-                        gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)} ,
-                        gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_string)} ,
-                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) } ,
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_real)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNIT") >> gm::symlist{gm::te(gm::ttype::l_literal_string)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                        //单目运算符
-                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
-                        gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
+                //单目运算符
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
 
-                        //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
-                        gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)},
+                //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
+                gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                        gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
-                        gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") },
-                        gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_right_brackets)},
-                        gm::nt(L"ARGLIST") >> gm::symlist{gm::te(gm::ttype::l_empty)},//参数表可以是空的
-                        gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"RIGHT")},
-                        gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_comma),gm::nt(L"RIGHT")},
+                gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_right_brackets)},
+                gm::nt(L"ARGLIST") >> gm::symlist{gm::te(gm::ttype::l_empty)},//参数表可以是空的
+                gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"RIGHT")},
+                gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_comma),gm::nt(L"RIGHT")},
 
-                        gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
+                gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
                 }
             );
 
@@ -429,7 +452,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         continue;
 
                     cachefile << tab << "out_origin_p.emplace_back(std::make_pair<gm::nt, gm::symlist>(";
-                    cachefile << L"gm::nt(L\"" << op.first.nt_name << L"\"), {";
+                    cachefile << L"gm::nt(L\"" << op.first.nt_name << L"\", " << op.first.builder_index << L"), {";
                     for (auto sym_item : op.second)
                     {
                         if (std::holds_alternative<gm::te>(sym_item))
@@ -465,6 +488,14 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 #endif
 
         // DESCRIBE HOW TO GENERATE AST HERE:
+    register_ast_builder_function:
+        // finally work
+
+        for (auto& [rule_nt, _tokens] : rs_grammar->ORGIN_P)
+        {
+            if (rule_nt.builder_index)
+                rule_nt.ast_create_func = ast::get_builder(rule_nt.builder_index);
+        }
 
         return rs_grammar;
 

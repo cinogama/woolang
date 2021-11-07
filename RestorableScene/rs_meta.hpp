@@ -4,7 +4,7 @@
 
 namespace rs
 {
-    namespace sfinae
+    namespace meta
     {
         template<typename T>
         using origin_type = typename std::remove_cv<typename std::decay<T>::type>::type;
@@ -30,5 +30,8 @@ namespace rs
                 std::is_convertible<origin_type<T> , std::string>::value;
 
         };
-    } // namespace sfinae;
+
+        template<typename T>
+        size_t type_hash = typeid(T).hash_code();
+    } // namespace meta;
 }

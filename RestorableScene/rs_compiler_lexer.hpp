@@ -6,6 +6,7 @@
 #include <vector>
 #include <map>
 #include <set>
+#include <stack>
 
 #include <cwctype>
 #include <cwchar>
@@ -416,11 +417,20 @@ namespace rs
         }
 
     public:
+        std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
 
         lex_type peek(std::wstring* out_literal)
         {
             // Will store next_reading_index / file_rowno/file_colno
             // And disable error write:
+
+            if (!temp_token_buff_stack.empty())
+            {
+                just_have_err = false;
+                if (out_literal)
+                    *out_literal = temp_token_buff_stack.top().second;
+                return temp_token_buff_stack.top().first;
+            }
 
             lex_enable_error_warn = false;
 
@@ -526,9 +536,21 @@ namespace rs
             return result;
         }
 
+
+
         lex_type next(std::wstring* out_literal)
         {
             just_have_err = false;
+
+            if (!temp_token_buff_stack.empty())
+            {
+                if (out_literal)
+                    *out_literal = temp_token_buff_stack.top().second;
+                auto type = temp_token_buff_stack.top().first;
+
+                temp_token_buff_stack.pop();
+                return type;
+            }
 
             std::wstring tmp_result;
             auto write_result = [&](int ch) {if (out_literal)(*out_literal) += (wchar_t)ch; else tmp_result += (wchar_t)ch; };
@@ -862,6 +884,11 @@ namespace rs
             }
             ///////////////////////////////////////////////////////////////////////////////////////
             return lex_error(0x000, L"Lexer error, unknown begin character: '%c'.", readed_ch);
+        }
+
+        void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal)
+        {
+            temp_token_buff_stack.push({ type ,out_literal });
         }
     };
 }

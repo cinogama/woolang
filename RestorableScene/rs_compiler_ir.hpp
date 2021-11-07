@@ -113,7 +113,7 @@ namespace rs
 
             value::valuetype type()const noexcept override
             {
-                if constexpr (sfinae::is_string<T>::value)
+                if constexpr (meta::is_string<T>::value)
                     return value::valuetype::string_type;
                 else if constexpr (std::is_pointer<T>::value)
                     return value::valuetype::handle_type;
@@ -141,7 +141,7 @@ namespace rs
             void apply(value* v) const override
             {
                 v->type = type();
-                if constexpr (sfinae::is_string<T>::value)
+                if constexpr (meta::is_string<T>::value)
                     string_t::gc_new<gcbase::gctype::eden>(v->gcunit, val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
@@ -245,7 +245,7 @@ namespace rs
     public:
 
 #define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
-#define RS_OPNUM(OPNUM) (_check_and_add_const(new sfinae::origin_type<decltype(OPNUM)>(OPNUM)))
+#define RS_OPNUM(OPNUM) (_check_and_add_const(new meta::origin_type<decltype(OPNUM)>(OPNUM)))
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)

@@ -48,6 +48,8 @@ void cost_time_test_gc(rs::vmbase* vm)
 
 #include "rs_lang_grammar_loader.hpp"
 
+#include "rs_lang_ast_builder.hpp"
+
 int main()
 {
     using namespace rs;
@@ -74,8 +76,13 @@ int main()
         LR"(
 import system;
 
-func main()
+func main() : void
 {
+    var 0;
+    var t = 1+2*;
+    var a = 2 : real
+    var b = 2 : real;
+    var c = 2 : real
     system::io::println(@"Helloworld"@);
 }
 
