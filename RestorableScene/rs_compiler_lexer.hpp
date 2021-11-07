@@ -76,7 +76,7 @@ namespace rs
         l_ref,
         l_func,
         l_return
-        );
+    );
 
     class lexer
     {
@@ -96,7 +96,7 @@ namespace rs
     private:
         std::wstring  reading_buffer;  // use wide char-code.
         size_t        next_reading_index;
-
+    public:
         size_t        now_file_rowno;
         size_t        now_file_colno;
 

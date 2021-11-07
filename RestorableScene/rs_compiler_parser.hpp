@@ -14,6 +14,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <queue>
 #include <stack>
 #include <sstream>
+#include <any>
 
 namespace rs
 {
@@ -31,6 +32,20 @@ namespace rs
             os << "(error)";
         os << " }";
         return os;
+    }
+
+    template<typename T>
+    inline bool cast_any_to(std::any& any_val, T& out_value)
+    {
+        try
+        {
+            out_value = std::any_cast<T>(any_val);
+            return true;
+        }
+        catch (std::bad_any_cast&)
+        {
+            return false;
+        }
     }
 
     struct grammar
@@ -79,17 +94,22 @@ namespace rs
         class ast_base
         {
         private:
-            inline static std::vector<ast_base*> list;
-          
+            inline thread_local static std::vector<ast_base*> list;
+
         public:
             ast_base* parent;
             ast_base* children;
             ast_base* sibling;
 
+            size_t row_no;
+            size_t col_no;
+
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)
                 , sibling(nullptr)
+                , row_no(0)
+                , col_no(0)
             {
                 list.push_back(this);
             }
@@ -99,6 +119,13 @@ namespace rs
                 rs_test(ast_node->sibling == nullptr);
 
                 ast_node->parent = this;
+
+                if (!children)
+                {
+                    children = ast_node;
+                    return;
+                }
+
                 ast_base* childs = children;
                 while (childs)
                 {
@@ -107,8 +134,8 @@ namespace rs
                         childs->sibling = ast_node;
                         return;
                     }
+                    childs = childs->sibling;
                 }
-                children = childs;
             }
             void remove_child(ast_base* ast_node)
             {
@@ -148,54 +175,23 @@ namespace rs
             }
         };
 
-        struct ASTNode
-        {
-            token terminal = { lex_type::l_error };
-            ast_base* nonterminal = nullptr;
-
-            bool is_terminal()const
-            {
-                return !nonterminal;
-            }
-            ASTNode(const token& te) :
-                terminal(te)
-            {
-
-            }
-            ASTNode(ast_base* astb) :
-                nonterminal(astb)
-            {
-                const int a = 5;
-                const int b = 6;
-
-                const int r =  a + b;
-
-                const int r2 = ((a & b) << 1) ^ (a ^ b);
-
-            }
-
-
-        };
 
         struct ast_default :public ast_base
         {
-            bool stores_terminal;
-
-            size_t line_no;
-            size_t row_no;
+            bool stores_terminal = false;
 
             std::wstring nonterminal_name;
-            te           terminal_token;
-            
+            token        terminal_token = { lex_type::l_error };
+
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 if (stores_terminal)
                 {
-                    space(os, lay); os << "<ast_default: " << (nonterminal_name) << ">" << std::endl;
+                    space(os, lay); os << "<ast_default: " << (terminal_token) << ">" << std::endl;
                 }
                 else
                 {
-                    space(os, lay); os << "<ast_default: " << (terminal_token) << ">" << std::endl;
+                    space(os, lay); os << "<ast_default: " << (nonterminal_name) << ">" << std::endl;
                 }
 
                 auto* mychild = children;
@@ -205,14 +201,15 @@ namespace rs
 
                     mychild = mychild->sibling;
                 }
-               
+
             }
         };
         struct ast_error :public ast_base
         {
             std::wstring what;
+            ast_base* happend_at;
 
-            ast_error(const std::wstring& errmsg) :
+            ast_error(const std::wstring& errmsg, ast_base* error_node = nullptr) :
                 what(errmsg)
             {
 
@@ -223,12 +220,32 @@ namespace rs
         {
             std::wstring nt_name;
 
-            std::function<std::shared_ptr<ASTBase>(const std::wstring&, const ASTBase::nodes&)> ast_create_func =
-                [](const std::wstring& name, const ASTBase::nodes& chs) {
-                auto defaultAST = std::make_shared<grammar::ASTDefault>();
-                defaultAST->name = name;
-                defaultAST->childs = chs;
-                return defaultAST;
+            std::function<std::any(const std::wstring&, std::vector<std::any>&)> ast_create_func =
+                [](const std::wstring& name, std::vector<std::any>& chs)->std::any
+            {
+                auto defaultAST = new ast_default;// <grammar::ASTDefault>();
+                defaultAST->nonterminal_name = name;
+
+                for (auto& any_value : chs)
+                {
+                    if (ast_base* child_ast; cast_any_to<ast_base*>(any_value, child_ast))
+                    {
+                        defaultAST->add_child(child_ast);
+                    }
+                    else if (token child_token = { lex_type::l_error }; cast_any_to<token>(any_value, child_token))
+                    {
+                        auto teAST = new ast_default;// <grammar::ASTDefault>();
+                        teAST->terminal_token = child_token;
+                        teAST->stores_terminal = true;
+
+                        defaultAST->add_child(teAST);
+                    }
+                    else
+                    {
+                        return new ast_error(L"Unexcepted node type: should be ast node or token.");
+                    }
+                }
+                return (ast_base*)defaultAST;
             };
 
             nonterminal(const std::wstring& name = L"") :
@@ -1236,7 +1253,7 @@ namespace rs
 
             std::stack<size_t> state_stack;
             std::stack<sym> sym_stack;
-            std::stack<ASTNode> node_stack;
+            std::stack<std::any> node_stack;
 
             state_stack.push(0);
             sym_stack.push(grammar::te{ lex_type::l_eof });
@@ -1296,7 +1313,7 @@ namespace rs
                     {
                         auto& red_rule = ORGIN_P[take_action.state];
 
-                        ASTBase::nodes bnodes;
+                        std::vector<std::any> bnodes;
 
                         for (size_t i = red_rule.second.size(); i > 0; i--)
                         {
@@ -1319,18 +1336,33 @@ namespace rs
 
                         sym_stack.push(red_rule.first);
 
-                        if (std::find_if(bnodes.begin(), bnodes.end(), [](const ASTNode& astn) {
-                            return astn.is_terminal() && astn.terminal.type == +lex_type::l_error;
+                        if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
+
+                            ast_base* node;
+                            if (cast_any_to<ast_base*>(astn, node))
+                            {
+                                if (ast_default* de_node = dynamic_cast<ast_default*>(node))
+                                {
+                                    if (de_node->stores_terminal && de_node->terminal_token.type == +lex_type::l_error)
+                                        return true;
+                                }
+                            }
+
+                            return false;
                             }) != bnodes.end())//bnodes包含拒绝表达式
                         {
-                            node_stack.push(ASTNode(token{ +lex_type::l_error }));
+                            node_stack.push(token{ +lex_type::l_error });
                         }
                         else
                         {
                             auto astnode = red_rule.first.ast_create_func(red_rule.first.nt_name, bnodes);
-                            //astnode->build(bnodes);
+                            if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
+                            {
+                                ast_node_->row_no = tkr.next_file_rowno;
+                                ast_node_->col_no = tkr.next_file_colno;
+                            }
 
-                            if (auto err_node = dynamic_cast<ASTError*>(astnode.get()))
+                            if (ast_error* err_node; cast_any_to<ast_error*>(astnode, err_node))
                             {
                                 // 如果节点生成器返回的是ASTError节点，那么说明节点生成时发生了错误
 
@@ -1348,7 +1380,17 @@ namespace rs
                         //std::wcout << "acc!" << std::endl;
                         if (!tkr.lex_error_list.empty())
                             return nullptr;
-                        return node_stack.top().nonterminal;
+
+                        ast_base* result;
+                        if (cast_any_to<ast_base*>(node_stack.top(), result))
+                        {
+                            return result;
+                        }
+                        else
+                        {
+                            tkr.parser_error(0x0000, L"Unknown error when parsing: unexcepted node type.");
+                            return nullptr;
+                        }
                     }
                     else if (take_action.act == grammar::action::act_type::state_goto)
                     {
@@ -1497,7 +1539,7 @@ namespace rs
                                             //}
                                             state_stack.push(act.second.begin()->state);
                                             sym_stack.push(red_rule.first);
-                                            node_stack.push(ASTNode(token{ +lex_type::l_error }));
+                                            node_stack.push(token{ +lex_type::l_error });
                                             /*	state_stack.pop();
 
                                                 state_stack.push(act.second.begin()->state);
