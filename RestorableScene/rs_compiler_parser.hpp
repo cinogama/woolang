@@ -1556,6 +1556,8 @@ namespace rs
                             }
 
                             // FAIL TO REDUCTION TRY SET VIRTUAL OP
+
+                            std::vector<te> _termi_want_to_inserts;
                             for (auto act : LR1_TABLE.at(stateid))
                             {
                                 if (act.second.size())
@@ -1563,21 +1565,33 @@ namespace rs
                                     if (std::holds_alternative<te>(act.first))
                                     {
                                         auto& tk_type = std::get<te>(act.first).t_type;
-                                        if (tk_type == +lex_type::l_semicolon
-                                            || tk_type == +lex_type::l_right_brackets
-                                            || tk_type == +lex_type::l_left_curly_braces)
-                                        {
-                                            if (act.second.begin()->act == action::act_type::reduction)
-                                            {
-                                                tkr.push_temp_for_error_recover(tk_type, std::get<te>(act.first).t_name);
-                                                goto error_progress_end;
-
-                                            }
-                                        }
-
+                                        _termi_want_to_inserts.push_back(tk_type);
                                     }
                                 }
                             }
+
+                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                                +lex_type::l_semicolon)
+                                != _termi_want_to_inserts.end())
+                            {
+                                tkr.push_temp_for_error_recover(lex_type::l_semicolon, L"");
+                                goto error_progress_end;
+                            }
+                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                                +lex_type::l_right_brackets)
+                                != _termi_want_to_inserts.end())
+                            {
+                                tkr.push_temp_for_error_recover(lex_type::l_right_brackets, L"");
+                                goto error_progress_end;
+                            }
+                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                                +lex_type::l_right_curly_braces)
+                                != _termi_want_to_inserts.end())
+                            {
+                                tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
+                                goto error_progress_end;
+                            }
+
                         }
 
 
