@@ -76,11 +76,82 @@ namespace rs
         using symlist = std::vector<sym>;
         using ttype = lex_type;//token类型 简记法
 
-        struct ASTBase;
+        class ast_base
+        {
+        private:
+            inline static std::vector<ast_base*> list;
+          
+        public:
+            ast_base* parent;
+            ast_base* children;
+            ast_base* sibling;
+
+            ast_base()
+                : parent(nullptr)
+                , children(nullptr)
+                , sibling(nullptr)
+            {
+                list.push_back(this);
+            }
+            void add_child(ast_base* ast_node)
+            {
+                rs_test(ast_node->parent == nullptr);
+                rs_test(ast_node->sibling == nullptr);
+
+                ast_node->parent = this;
+                ast_base* childs = children;
+                while (childs)
+                {
+                    if (childs->sibling == nullptr)
+                    {
+                        childs->sibling = ast_node;
+                        return;
+                    }
+                }
+                children = childs;
+            }
+            void remove_child(ast_base* ast_node)
+            {
+                ast_base* last_childs = nullptr;
+                ast_base* childs = children;
+                while (childs)
+                {
+                    if (ast_node == childs)
+                    {
+                        if (last_childs)
+                        {
+                            last_childs->sibling = childs->sibling;
+                            ast_node->parent = nullptr;
+                            ast_node->sibling = nullptr;
+
+                            return;
+                        }
+                    }
+
+                    last_childs = childs;
+                    childs = childs->sibling;
+                }
+
+                rs_error("There is no such a child node.");
+            }
+        public:
+            static void space(std::wostream& os, size_t layer)
+            {
+                for (size_t i = 0; i < layer; i++)
+                {
+                    os << "  ";
+                }
+            }
+            virtual void display(std::wostream& os = std::wcout, size_t lay = 0) const
+            {
+                space(os, lay); os << L"<ast_base from " << typeid(this).name() << L">" << std::endl;
+            }
+        };
+
         struct ASTNode
         {
             token terminal = { lex_type::l_error };
-            std::shared_ptr<ASTBase> nonterminal = nullptr;
+            ast_base* nonterminal = nullptr;
 
             bool is_terminal()const
             {
@@ -91,64 +162,57 @@ namespace rs
             {
 
             }
-            ASTNode(const std::shared_ptr<ASTBase>& astb) :
+            ASTNode(ast_base* astb) :
                 nonterminal(astb)
             {
+                const int a = 5;
+                const int b = 6;
+
+                const int r =  a + b;
+
+                const int r2 = ((a & b) << 1) ^ (a ^ b);
 
             }
 
 
         };
 
-        struct ASTBase
+        struct ast_default :public ast_base
         {
-            using nodes = std::vector<ASTNode>;
+            bool stores_terminal;
 
-            /*virtual void build(const nodes&) = 0;*/
+            size_t line_no;
+            size_t row_no;
 
-            std::wstring name;
-
-            static void space(std::wostream& os, size_t layer)
+            std::wstring nonterminal_name;
+            te           terminal_token;
+            
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
-                for (size_t i = 0; i < layer; i++)
+                if (stores_terminal)
                 {
-                    os << "  ";
+                    space(os, lay); os << "<ast_default: " << (nonterminal_name) << ">" << std::endl;
                 }
-            }
-            virtual void display(std::wostream& os = std::wcout, size_t lay = 0)
-            {
-                space(os, lay); os << "<" << (name) << ">" << std::endl;
-            }
-
-        };
-
-        struct ASTDefault :public ASTBase
-        {
-            nodes childs;
-
-            /*void build(const nodes& n)override
-            {
-                childs = n;
-            }*/
-            void display(std::wostream& os = std::wcout, size_t lay = 0)override
-            {
-                space(os, lay); os << "<ASTDefault: " << (name) << ">" << std::endl;
-                for (auto& n : childs)
+                else
                 {
-                    if (n.is_terminal() == false)
-                        n.nonterminal->display(os, lay + 1);
-                    else
-                    {
-                        space(os, lay + 1); os << n.terminal << std::endl;
-                    }
+                    space(os, lay); os << "<ast_default: " << (terminal_token) << ">" << std::endl;
                 }
+
+                auto* mychild = children;
+                while (mychild)
+                {
+                    mychild->display(os, lay + 1);
+
+                    mychild = mychild->sibling;
+                }
+               
             }
         };
-        struct ASTError :public ASTBase
+        struct ast_error :public ast_base
         {
             std::wstring what;
 
-            ASTError(const std::wstring& errmsg) :
+            ast_error(const std::wstring& errmsg) :
                 what(errmsg)
             {
 
@@ -1164,7 +1228,7 @@ namespace rs
 
 
 
-        std::shared_ptr<ASTBase> gen(lexer& tkr) const
+        ast_base* gen(lexer& tkr) const
         {
             //build_list.resize(ORGIN_P.size(), []()->std::shared_ptr<ASTBase> {return std::make_shared<ASTDefault>(); });
 
@@ -1327,7 +1391,7 @@ namespace rs
                             else
                             {
                                 const wchar_t* spfy_op_key_str = lexer::lex_is_keyword_type(excepted_te.t_type);
-                                spfy_op_key_str = spfy_op_key_str? spfy_op_key_str: lexer::lex_is_operate_type(excepted_te.t_type);
+                                spfy_op_key_str = spfy_op_key_str ? spfy_op_key_str : lexer::lex_is_operate_type(excepted_te.t_type);
                                 if (spfy_op_key_str)
                                 {
                                     advise += std::wstring(L"'") + spfy_op_key_str + L"'";
@@ -1375,7 +1439,7 @@ namespace rs
                         err_info = L"Unexcepted symbol: " +
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
-                    
+
 
                     // 如果刚刚发生了相同的错误， 结束处理
                     if (tkr.just_have_err)
@@ -1570,65 +1634,7 @@ namespace rs
 
     class parser
     {
-        class ast_base
-        {
-        private:
-            inline static std::vector<ast_base*> list;
-            ast_base* parent;
-            ast_base* children;
-            ast_base* sibling;
-        public:
-            ast_base()
-                : parent(nullptr)
-                , children(nullptr)
-                , sibling(nullptr)
-            {
-                list.push_back(this);
-            }
-            void add_child(ast_base* ast_node)
-            {
-                rs_test(ast_node->parent == nullptr);
-                rs_test(ast_node->sibling == nullptr);
 
-                ast_node->parent = this;
-                ast_base* childs = children;
-                while (childs)
-                {
-                    if (childs->sibling == nullptr)
-                    {
-                        childs->sibling = ast_node;
-                        return;
-                    }
-                }
-                children = childs;
-            }
-            void remove_child(ast_base* ast_node)
-            {
-                ast_base* last_childs = nullptr;
-                ast_base* childs = children;
-                while (childs)
-                {
-                    if (ast_node == childs)
-                    {
-                        if (last_childs)
-                        {
-                            last_childs->sibling = childs->sibling;
-                            ast_node->parent = nullptr;
-                            ast_node->sibling = nullptr;
-
-                            return;
-                        }
-                    }
-
-                    last_childs = childs;
-                    childs = childs->sibling;
-                }
-
-                rs_error("There is no such a child node.");
-            }
-        public:
-            virtual std::wstring to_wstring() = 0;
-        };
 
         ///////////////////////////////////////////////
 

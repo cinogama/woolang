@@ -151,7 +151,7 @@ namespace rs
         }
     }
 
-    inline uint64_t crc_64(std::ifstream &fle)
+    inline uint64_t crc_64(std::ifstream& fle)
     {
         uint64_t crc = 0;
         int ch = EOF;
