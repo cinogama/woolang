@@ -27,7 +27,7 @@ namespace rs
             rs_error("Fail to load grammar.");
 #endif // RS_LANG_GRAMMAR_LR1_AUTO_GENED
 
-    }
+        }
         rs_lang_grammar_crc64 = crc_64(this_grammar_file);
 
 #ifdef RS_LANG_GRAMMAR_LR1_AUTO_GENED
@@ -468,7 +468,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
         return rs_grammar;
 
-}
+    }
 }
 
 
