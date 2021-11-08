@@ -919,6 +919,7 @@ namespace rs
 
         bool check_lr1(std::wostream& ostrm = std::wcout)
         {
+            bool result = false;
             for (size_t i = 0; i < ORGIN_P.size(); i++)
             {
                 ostrm << i << L"\t" << lr_item{ ORGIN_P[i],size_t(-1),te(ttype::l_eof) } << std::endl;;
@@ -930,8 +931,9 @@ namespace rs
                 {
                     if (LR.second.size() >= 2)
                     {
-                        ostrm << L"LR1 has a grammatical conflict:" << std::endl;
-                        ostrm << L"State: " << LR1.first << L" Symbol: ";
+                        if (!result)
+                            ostrm << L"LR1 has a grammatical conflict:" << std::endl;
+                        ostrm << L"In state: " << LR1.first << L" Symbol: ";
                         if (std::holds_alternative<te>(LR.first))
                             ostrm << std::get<te>(LR.first) << std::endl;
                         else
@@ -945,14 +947,14 @@ namespace rs
                                 ostrm << "S" << act.state << std::endl;
                         }
 
-                        ostrm << std::endl;
+                        ostrm << std::endl << std::endl;
 
-                        return true;
+                        result = true;
                     }
                 }
             }
 
-            return false;
+            return result;
         }
 
         void display(std::wostream& ostrm = std::wcout)

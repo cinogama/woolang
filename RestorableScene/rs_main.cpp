@@ -79,12 +79,25 @@ func main() : void
     var d = 0xFFFF_0000_0000_0000h : string, e=0, f="hello";
 
     var e = d:handle;
-    var n = nil:integer;
+    var n = 9:integer;
     system::io::println(@"Helloworld"@);
-}
+
+
+    var m = {};
+    var m1 = {
+                {"name", "joy"},
+                {"age", 19},
+             };
+    var arr = [];
+    var arr1 = [1,2,3,4,];
+    var arr2 = [5,6,7,8,];
 
     if (this_console_handle != INVALID_HANDLE_VALUE)
-        0;
+    {
+    }
+}
+
+    
 
 func foo(var a, var b)
 {
@@ -98,8 +111,8 @@ func foo(var a, var b)
 
     auto* rs_grammar = get_rs_grammar();
 
-    //rs_grammar->check(lx1);
-    //lx1.reset();
+    rs_grammar->check(lx1);
+    lx1.reset();
 
     if (auto result = rs_grammar->gen(lx1))
     {

@@ -1296,8 +1296,12 @@ namespace rs
                                 break;
                             }
                         }
-                        else
+                        else if (opnum1->is_nil()&&opnum2->is_nil())
+                        {
                             cr->integer = 1;
+                        }
+                        else 
+                            cr->integer = 0;
                         break;
 
                     }
@@ -1329,8 +1333,10 @@ namespace rs
                                 break;
                             }
                         }
-                        else
+                        else if (opnum1->is_nil() && opnum2->is_nil())
                             cr->integer = 0;
+                        else
+                            cr->integer = 1;
                         break;
                     }
 

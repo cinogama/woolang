@@ -299,8 +299,8 @@ namespace rs
             {
                 space(os, lay); os << L"< " << ANSI_HIR << L"cast" << ANSI_RST << L" : >" << std::endl;
                 _be_cast_value_node->display(os, lay + 1);
-                
-                space(os, lay); os << L"< " << ANSI_HIR<< L" to "
+
+                space(os, lay); os << L"< " << ANSI_HIR << L" to "
                     << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
             }
         };
@@ -317,7 +317,7 @@ namespace rs
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
-                space(os, lay); os << L"< "<< ANSI_HIY <<L"variable: "
+                space(os, lay); os << L"< " << ANSI_HIY << L"variable: "
                     << ANSI_HIR
                     << var_name
                     << ANSI_RST
@@ -400,15 +400,23 @@ namespace rs
                         switch (type_node->value_type)
                         {
                         case value::valuetype::real_type:
+                            if (last_value.is_nil())
+                                goto try_cast_nil_to_int_handle_real_str;
                             cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
                             break;
                         case value::valuetype::integer_type:
+                            if (last_value.is_nil())
+                                goto try_cast_nil_to_int_handle_real_str;
                             cast_result->_constant_value.set_integer(rs_cast_integer((rs_value)&last_value));
                             break;
                         case value::valuetype::string_type:
+                            if (last_value.is_nil())
+                                goto try_cast_nil_to_int_handle_real_str;
                             cast_result->_constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
                             break;
                         case value::valuetype::handle_type:
+                            if (last_value.is_nil())
+                                goto try_cast_nil_to_int_handle_real_str;
                             cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
                             break;
                         case value::valuetype::mapping_type:
@@ -424,6 +432,7 @@ namespace rs
                                 break;
                             }
                         default:
+                        try_cast_nil_to_int_handle_real_str:
                             lex.lex_error(0x0000, L"Can not cast this value to '%s'.", type_node->type_name.c_str());
                             cast_result->_constant_value.set_nil();
                             break;
