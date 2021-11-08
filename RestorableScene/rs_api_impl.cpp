@@ -238,9 +238,9 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     }
     case rs::value::valuetype::mapping_type:
     {
-        rs::gcbase::gc_read_guard rg1(_rsvalue->mapping);
         if (rs::mapping_t* map = _rsvalue->mapping)
         {
+            rs::gcbase::gc_read_guard rg1(_rsvalue->mapping);
             if ((*traveled_gcunit)[map] >= 1)
             {
                 _fit_layout = true;
@@ -274,9 +274,9 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     }
     case rs::value::valuetype::array_type:
     {
-        rs::gcbase::gc_read_guard rg1(_rsvalue->array);
         if (rs::array_t* arr = _rsvalue->array)
-        {
+        { 
+            rs::gcbase::gc_read_guard rg1(_rsvalue->array);
             if ((*traveled_gcunit)[arr] >= 1)
             {
                 _fit_layout = true;

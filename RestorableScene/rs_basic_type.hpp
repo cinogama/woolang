@@ -132,7 +132,7 @@ namespace rs
         }
         inline void set_real(rs_real_t val)
         {
-            type = valuetype::integer_type;
+            type = valuetype::real_type;
             real = val;
         }
         inline void set_handle(rs_handle_t val)
@@ -144,6 +144,10 @@ namespace rs
         {
             type = valuetype::invalid;
             handle = 0;
+        }
+        inline bool is_nil() const
+        {
+            return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
         }
         inline gcbase* get_gcunit_with_barrier() const
         {

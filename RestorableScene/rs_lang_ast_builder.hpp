@@ -58,11 +58,70 @@ namespace rs
 #endif
         /////////////////////////////////////////////////////////////////////////////////
 
+        struct ast_type : public grammar::ast_base
+        {
+            std::wstring type_name;
+            value::valuetype value_type;
+
+            inline static const std::map<std::wstring, value::valuetype> name_type_pair =
+            {
+                {L"integer", value::valuetype::integer_type },
+                {L"handle", value::valuetype::handle_type },
+                {L"real", value::valuetype::real_type },
+                {L"string", value::valuetype::string_type },
+                {L"map", value::valuetype::mapping_type },
+                {L"array", value::valuetype::array_type },
+                {L"nil", value::valuetype::invalid },
+            };
+
+            static std::wstring get_name_from_type(value::valuetype _type)
+            {
+                for (auto& [tname, vtype] : name_type_pair)
+                {
+                    if (vtype == _type)
+                    {
+                        return tname;
+                    }
+                }
+
+                return L"unknown";
+            }
+
+            static value::valuetype get_type_from_name(const std::wstring& name)
+            {
+                if (name_type_pair.find(name) != name_type_pair.end())
+                    return name_type_pair.at(name);
+                return value::valuetype::invalid;
+            }
+
+            ast_type(const std::wstring& _type_name)
+            {
+                type_name = _type_name;
+                value_type = get_type_from_name(_type_name);
+            }
+
+            ast_type(const value& _val)
+            {
+                type_name = get_name_from_type(_val.type);
+                value_type = _val.type;
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"<"
+                    << ANSI_HIR
+                    << L"type"
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << type_name << ANSI_RST << L" >" << std::endl;
+            }
+        };
+
         struct ast_value : public grammar::ast_base
         {
             // this type of ast node is used for stand a value or product a value.
             // liter functioncall variable and so on will belong this type of node.
-
+            ast_type* value_type = nullptr;
             bool is_constant = false;
             virtual rs::value get_constant_value() const
             {
@@ -187,6 +246,8 @@ namespace rs
                     rs_error("Unexcepted literal type.");
                     break;
                 }
+
+                value_type = new ast_type(_constant_value);
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -202,6 +263,10 @@ namespace rs
                 case value::valuetype::handle_type:
                     os << L"handle"; break;
                 case value::valuetype::string_type:
+                    os << L"string"; break;
+                case value::valuetype::mapping_type:
+                    os << L"map"; break;
+                case value::valuetype::array_type:
                     os << L"string"; break;
                 case value::valuetype::invalid:
                     os << L"nil"; break;
@@ -220,48 +285,46 @@ namespace rs
             };
         };
 
-        struct ast_type
-        {
-            std::wstring type_name;
-            value::valuetype value_type;
-
-            inline static const std::map<std::wstring, value::valuetype> name_type_pair =
-            {
-                {L"integer", value::valuetype::integer_type },
-                {L"handle", value::valuetype::handle_type },
-                {L"real", value::valuetype::real_type },
-                {L"string", value::valuetype::string_type },
-                {L"map", value::valuetype::mapping_type },
-                {L"array", value::valuetype::array_type },
-            };
-            static value::valuetype get_type_from_name(const std::wstring& name)
-            {
-                if (name_type_pair.find(name) != name_type_pair.end())
-                    return name_type_pair.at(name);
-                return value::valuetype::invalid;
-            }
-
-            ast_type(const std::wstring& _type_name)
-            {
-                type_name = _type_name;
-                value_type = get_type_from_name(_type_name);
-
-            }
-        };
-
-
         struct ast_type_cast_value : public ast_value
         {
-            ast_type* _cast_to_type;
             ast_value* _be_cast_value_node;
             ast_type_cast_value(ast_value* value, ast_type* type)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
-                _cast_to_type = type;
+                value_type = type;
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIR << L"cast" << ANSI_RST << L" : >" << std::endl;
+                _be_cast_value_node->display(os, lay + 1);
+                
+                space(os, lay); os << L"< " << ANSI_HIR<< L" to "
+                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
             }
         };
 
+        struct ast_variable : ast_value
+        {
+            std::wstring var_name;
+
+            ast_variable(const std::wstring& _var_name)
+            {
+                var_name = _var_name;
+                value_type = new ast_type(L"nil");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< "<< ANSI_HIY <<L"variable: "
+                    << ANSI_HIR
+                    << var_name
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
+            }
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -320,12 +383,13 @@ namespace rs
                 ast_basic* _value_node = nullptr;
                 cast_any_to<ast_basic*>(input[0], _value_node);
 
-                ast_basic* _type_ident = nullptr;
-                cast_any_to<ast_basic*>(input[2], _type_ident);
+                ast_basic* _type_node = nullptr;
+                cast_any_to<ast_basic*>(input[1], _type_node);
 
-                if (ast_value* value_node;
-                    (value_node = dynamic_cast<ast_value*>(_value_node))
-                    && _type_ident.type == +lex_type::l_identifier)
+                ast_value* value_node;
+                ast_type* type_node;
+                if ((value_node = dynamic_cast<ast_value*>(_value_node))
+                    && (type_node = dynamic_cast<ast_type*>(_type_node)))
                 {
                     if (value_node->is_constant)
                     {
@@ -333,7 +397,7 @@ namespace rs
                         value last_value = value_node->get_constant_value();
                         ast_literal_value* cast_result = new ast_literal_value;
 
-                        switch (ast_type::get_type_from_name(_type_ident.identifier))
+                        switch (type_node->value_type)
                         {
                         case value::valuetype::real_type:
                             cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
@@ -347,8 +411,20 @@ namespace rs
                         case value::valuetype::handle_type:
                             cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
                             break;
+                        case value::valuetype::mapping_type:
+                            if (last_value.is_nil())
+                            {
+                                cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                break;
+                            }
+                        case value::valuetype::array_type:
+                            if (last_value.is_nil())
+                            {
+                                cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
+                                break;
+                            }
                         default:
-                            lex.lex_error(0x0000, L"Can not cast this value to '%s'.", _type_ident.identifier.c_str());
+                            lex.lex_error(0x0000, L"Can not cast this value to '%s'.", type_node->type_name.c_str());
                             cast_result->_constant_value.set_nil();
                             break;
                         }
@@ -356,7 +432,7 @@ namespace rs
                     }
                     else
                     {
-                        rs_error("Not support now.");
+                        return (ast_basic*)new ast_type_cast_value(value_node, type_node);
                     }
                 }
 
@@ -366,10 +442,30 @@ namespace rs
             }
         };
 
+        struct pass_variable :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 1);
+
+                if (token tk = { lex_type::l_error }; cast_any_to<token>(input[0], tk))
+                {
+                    if (tk.type == +lex_type::l_identifier)
+                        return (grammar::ast_base*)new ast_variable(tk.identifier);
+                }
+
+                rs_error("Unexcepted token type.");
+
+                return (grammar::ast_base*)new grammar::ast_error(L"Unexcepted token type.");
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_variable>]
+                = _register_builder<pass_variable>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_decl>]
                 = _register_builder<pass_type_decl>();

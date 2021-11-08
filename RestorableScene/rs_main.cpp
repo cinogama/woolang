@@ -75,8 +75,11 @@ func main() : void
     var _a = 1 + 2 + 3 + 4 + 5 + 6;
     var a = nil : map;
     var b = 2 : real;
-    var c = 2 : real;
-    var d = 0xFFFF_0000_0000_0000h, e=0, f="hello";
+    var c = 2.5;
+    var d = 0xFFFF_0000_0000_0000h : string, e=0, f="hello";
+
+    var e = d:handle;
+    var n = nil:integer;
     system::io::println(@"Helloworld"@);
 }
 

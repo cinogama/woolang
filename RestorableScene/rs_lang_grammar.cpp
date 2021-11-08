@@ -180,7 +180,8 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
 
                                         gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
                                         gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
-                                        gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) },
+                                        gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) }
+                                        >> RS_ASTBUILDER_INDEX(ast::pass_type_decl),
 
                                         gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_empty)},
                                         gm::nt(L"ARGDEFINE") >> gm::symlist{gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
@@ -189,11 +190,11 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
                                         gm::nt(L"ARGDEFINE") >> gm::symlist{gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)},
 
 
-                                        //		运算转换，左值可以转化为右值ASTUnary
+                //		运算转换，左值可以转化为右值ASTUnary
 
 
-                                        gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")}
-                                        >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"RIGHT") >> gm::symlist{gm::nt(L"LOGICAL_OR")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 //	逻辑运算表达式
                 gm::nt(L"LOGICAL_OR") >> gm::symlist{gm::nt(L"LOGICAL_AND")}
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -231,7 +232,9 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
 
                 //	RIGHT可以作为因子
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") },
-                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") },
+                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
+
                 gm::nt(L"FACTOR") >> gm::symlist{gm::nt(L"LEFT")}
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"FACTOR") >> gm::symlist{gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets)},
@@ -257,7 +260,7 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
 
                 //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
                 gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                >> RS_ASTBUILDER_INDEX(ast::pass_variable),
 
                 gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
