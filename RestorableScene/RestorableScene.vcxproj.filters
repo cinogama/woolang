@@ -28,6 +28,9 @@
     <Filter Include="头文件\3rd">
       <UniqueIdentifier>{95417a9b-5055-4861-8d62-52e14ac3a47a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="头文件\environment">
+      <UniqueIdentifier>{0310393a-6084-4248-a807-ad07e7d0f719}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -100,6 +103,9 @@
     </ClInclude>
     <ClInclude Include="rs_lang_ast_builder.hpp">
       <Filter>头文件\lang</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_env_locale.hpp">
+      <Filter>头文件\environment</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

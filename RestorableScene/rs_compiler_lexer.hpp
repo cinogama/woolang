@@ -214,6 +214,26 @@ namespace rs
             // so we can use 'iswalpha' directly.
             return iswalpha(ch);
         }
+        static bool lex_isidentbeg(int ch)
+        {
+            // if ch can used as begin of identifier, return true
+            if (ch == EOF)
+                return false;
+
+            // according to ISO-30112, Chinese character is belonging alpha-set,
+            // so we can use 'iswalpha' directly.
+            return iswalpha(ch) || ch == L'_';
+        }
+        static bool lex_isident(int ch)
+        {
+            // if ch can used as begin of identifier, return true
+            if (ch == EOF)
+                return false;
+
+            // according to ISO-30112, Chinese character is belonging alpha-set,
+            // so we can use 'iswalpha' directly.
+            return iswalnum(ch) || ch == L'_';
+        }
         static bool lex_isalnum(int ch)
         {
             // if ch can used in identifier (not first character), return true
@@ -597,6 +617,15 @@ namespace rs
                 do
                 {
                     following_chs = peek_one();
+
+                    if (following_chs == '_')
+                    {
+                        // this behavior is learn from rust
+                        // You can freely use the _ mark in the number literal, except for the leading mark (0 0x 0b) 
+                        next_one();
+                        continue;
+                    }
+
                     if (base == 10)
                     {
                         if (lex_isdigit(following_chs))
@@ -610,10 +639,11 @@ namespace rs
                         }
                         else if (lex_toupper(following_chs) == L'H')
                         {
-                            write_result(next_one());
                             if (is_real)
                                 return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                            next_one();
                             is_handle = true;
+                            break;
                         }
                         else if (lex_isalnum(following_chs))
                             return lex_error(0x0004, L"Illegal decimal literal.", following_chs, readed_ch);
@@ -628,8 +658,9 @@ namespace rs
                             return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
-                            write_result(next_one());
+                            next_one();
                             is_handle = true;
+                            break;
                         }
                         else if (lex_isalnum(following_chs))
                             return lex_error(0x0004, L"Illegal hexadecimal literal.", following_chs, readed_ch);
@@ -644,8 +675,9 @@ namespace rs
                             return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
-                            write_result(next_one());
+                            next_one();
                             is_handle = true;
+                            break;
                         }
                         else if (lex_isalnum(following_chs))
                             return lex_error(0x0004, L"Illegal octal literal.", following_chs, readed_ch);
@@ -660,7 +692,7 @@ namespace rs
                             return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
-                            write_result(next_one());
+                            next_one();
                             is_handle = true;
                         }
                         else if (lex_isalnum(following_chs))
@@ -799,7 +831,7 @@ namespace rs
                         return lex_error(0x0002, L"Unexcepted end of line when parsing string.");
                 }
             }
-            else if (lex_isalpha(readed_ch))
+            else if (lex_isidentbeg(readed_ch))
             {
                 // l_identifier or key world..
                 write_result(readed_ch);
@@ -808,7 +840,7 @@ namespace rs
                 while (true)
                 {
                     following_ch = peek_one();
-                    if (lex_isalnum(following_ch))
+                    if (lex_isident(following_ch))
                         write_result(next_one());
                     else
                         break;

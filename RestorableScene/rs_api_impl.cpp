@@ -225,10 +225,10 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         *out_str += std::to_string(_rsvalue->integer);
         return;
     case rs::value::valuetype::handle_type:
-        *out_str += std::to_string((rs_integer_t)_rsvalue->handle);
+        *out_str += std::to_string(_rsvalue->handle);
         return;
     case rs::value::valuetype::real_type:
-        *out_str += std::to_string((rs_integer_t)_rsvalue->real);
+        *out_str += std::to_string(_rsvalue->real);
         return;
     case rs::value::valuetype::string_type:
     {

@@ -119,6 +119,12 @@ namespace rs
             set_gcunit_with_barrier(valuetype::string_type);
             string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
         }
+        inline void set_string_nogc(const char* str)
+        {
+            // You must 'delete' it manual
+            set_gcunit_with_barrier(valuetype::string_type);
+            string_t::gc_new<gcbase::gctype::no_gc>(gcunit, str);
+        }
         inline void set_integer(rs_integer_t val)
         {
             type = valuetype::integer_type;
@@ -174,7 +180,7 @@ namespace rs
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
         }
 
-        inline value* set_val(value* _val)
+        inline value* set_val(const value* _val)
         {
             if (_val->is_gcunit())
                 set_gcunit_with_barrier(_val->type, _val->gcunit);

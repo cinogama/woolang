@@ -37,12 +37,12 @@ namespace rs
     template<typename T>
     inline bool cast_any_to(std::any& any_val, T& out_value)
     {
-        try
+        if (any_val.type() == typeid(T))
         {
             out_value = std::any_cast<T>(any_val);
             return true;
         }
-        catch (std::bad_any_cast&)
+        else
         {
             return false;
         }
@@ -220,8 +220,8 @@ namespace rs
             std::wstring nt_name;
 
             size_t builder_index = 0;
-            std::function<std::any(const std::wstring&, std::vector<std::any>&)> ast_create_func =
-                [](const std::wstring& name, std::vector<std::any>& chs)->std::any
+            std::function<std::any(lexer&, const std::wstring&, std::vector<std::any>&)> ast_create_func =
+                [](lexer& lex, const std::wstring& name, std::vector<std::any>& chs)->std::any
             {
                 auto defaultAST = new ast_default;// <grammar::ASTDefault>();
                 defaultAST->nonterminal_name = name;
@@ -914,86 +914,7 @@ namespace rs
                 }
 
             }
-            /*std::vector<std::
-            for ()
-            {
 
-            }*/
-            /*std::wcout << "ID" << "\t";
-            std::wcout << "|\t";
-            for (auto& NT_I : P_TERMINAL_SET)
-            {
-                std::wcout << NT_I << "\t";
-            }
-            std::wcout << "|\t";
-            for (auto& NT_I : P_NOTERMINAL_SET)
-            {
-                std::wcout << NT_I << "\t";
-            }
-            std::wcout << std::endl;
-            for (auto& LR0_INFO : lr1_table)
-            {
-                size_t state_max_count = 0;
-                for (auto& act_set : LR0_INFO.second)
-                {
-                    if (act_set.second.size() > state_max_count)
-                        state_max_count = act_set.second.size();
-                }
-                std::wcout << LR0_INFO.first;
-
-
-                for (size_t item_index = 0; item_index < state_max_count; item_index++)
-                {
-                    std::wcout << "\t|\t";
-
-                    for (auto& TOK : P_TERMINAL_SET)
-                    {
-                        if (item_index < LR0_INFO.second[TOK].size())
-                        {
-                            auto index = LR0_INFO.second[TOK].begin();
-                            for (size_t i = 0; i < item_index; i++)
-                            {
-                                index++;
-                            }
-                            std::wcout << (*index) << "\t";
-                        }
-                        else
-                            std::wcout << " \t";
-                    }
-                    std::wcout << "|\t";
-                    for (auto& TOK : P_NOTERMINAL_SET)
-                    {
-                        if (item_index < LR0_INFO.second[TOK].size())
-                        {
-                            auto index = LR0_INFO.second[TOK].begin();
-                            for (size_t i = 0; i < item_index; i++)
-                            {
-                                index++;
-                            }
-                            std::wcout << (*index) << "\t";
-                        }
-                        else
-                            std::wcout << "\t";
-                    }
-                    std::wcout << std::endl;
-                }
-            }
-
-            size_t CI_COUNT = 0;
-
-            for (auto& CI : C)
-            {
-                std::wcout << "Item: " << CI_COUNT << std::endl;
-                CI_COUNT++;
-                for (auto item : CI)
-                {
-                    std::wcout << item << std::endl;
-                }
-                std::wcout << "===================" << std::endl;
-            }
-
-
-            std::wcout << "fff";*/
         }
 
         bool check_lr1(std::wostream& ostrm = std::wcout)
@@ -1148,6 +1069,7 @@ namespace rs
                     // have a lex error, skip this error.
                     std::wcout << "fail: lex_error, skip it." << std::endl;
                     type = tkr.next(&out_indentifier);
+                    success_flag = false;
                     continue;
                 }
 
@@ -1364,7 +1286,7 @@ namespace rs
                         }
                         else
                         {
-                            auto astnode = red_rule.first.ast_create_func(red_rule.first.nt_name, bnodes);
+                            auto astnode = red_rule.first.ast_create_func(tkr, red_rule.first.nt_name, bnodes);
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
                                 ast_node_->row_no = tkr.next_file_rowno;
@@ -1460,9 +1382,9 @@ namespace rs
                                     case lex_type::l_left_brackets:
                                         advise += L"'('"; break;
                                     case lex_type::l_right_curly_braces:
-                                        advise += L"')'"; break;
+                                        advise += L"'}'"; break;
                                     case lex_type::l_left_curly_braces:
-                                        advise += L"'('"; break;
+                                        advise += L"'{'"; break;
                                     default:
                                     {
                                         std::wstringstream used_for_enum_to_wstr;
@@ -1491,12 +1413,31 @@ namespace rs
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
 
+                    static size_t last_error_rowno = 0;
+                    static size_t last_error_colno = 0;
+                    static size_t try_recover_count = 0;
 
                     // 如果刚刚发生了相同的错误， 结束处理
-                    if (tkr.just_have_err)
-                        goto error_handle_fail;
+                    if (tkr.just_have_err ||
+                        (last_error_rowno == tkr.now_file_rowno &&
+                            last_error_colno == tkr.now_file_colno))
+                    {
+                        try_recover_count++;
 
-                    tkr.parser_error(0x0000, err_info.c_str());
+                        if (try_recover_count >= 3)
+                            goto error_handle_fail;
+
+                    }
+                    else
+                    {
+                        try_recover_count = 0;
+                        tkr.parser_error(0x0000, err_info.c_str());
+                        last_error_rowno = tkr.now_file_rowno;
+                        last_error_colno = tkr.now_file_colno;
+
+                    }
+
+
 
                     //tokens_queue.front();//当前错误符号
                     //恐慌模式，查找可能的状态A
@@ -1570,21 +1511,21 @@ namespace rs
                                 }
                             }
 
-                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                            if (try_recover_count == 0 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
                                 +lex_type::l_semicolon)
                                 != _termi_want_to_inserts.end())
                             {
                                 tkr.push_temp_for_error_recover(lex_type::l_semicolon, L"");
                                 goto error_progress_end;
                             }
-                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                            if (try_recover_count == 1 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
                                 +lex_type::l_right_brackets)
                                 != _termi_want_to_inserts.end())
                             {
                                 tkr.push_temp_for_error_recover(lex_type::l_right_brackets, L"");
                                 goto error_progress_end;
                             }
-                            if (std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
+                            if (try_recover_count == 2 && std::find(_termi_want_to_inserts.begin(), _termi_want_to_inserts.end(),
                                 +lex_type::l_right_curly_braces)
                                 != _termi_want_to_inserts.end())
                             {
@@ -1603,8 +1544,7 @@ namespace rs
                         }
                         else
                         {
-                            // 直接继续
-                            goto error_progress_end;
+                            goto error_handle_fail;
                         }
                     }
 
@@ -1711,59 +1651,4 @@ namespace rs
 
         return ost;
     }
-
-    class parser
-    {
-
-
-        ///////////////////////////////////////////////
-
-        lexer* lex;
-
-    public:
-        parser(lexer& rs_lex)
-            :lex(&rs_lex)
-        {
-
-        }
-
-        void LEFT_VALUE_handler()
-        {
-            // LEFT_VALUE   >>  l_identifier
-            //                  LEFT_VALUE . l_identifier
-            //                  LEFT_VALUE ( ARG_DEFINE )
-            //                  LEFT_VALUE :: l_identifier
-        }
-
-        void ASSIGNMENT_handler()
-        {
-            // ASSIGNMENT   >>  LEFT_VALUE = RIGHT_VALUE
-            //                  LEFT_VALUE += RIGHT_VALUE
-            //                  LEFT_VALUE -= RIGHT_VALUE
-            //                  LEFT_VALUE *= RIGHT_VALUE
-            //                  LEFT_VALUE /= RIGHT_VALUE
-            //                  LEFT_VALUE %= RIGHT_VALUE
-        }
-
-        void RIGHT_VALUE_handler()
-        {
-            // RIGHT_VALUE  >>  ASSIGNMENT
-            //                  func( ARG_DEFINE ) RETURN_TYPE_DECLEAR SENTENCE
-            //                  LOGICAL_OR
-        }
-
-        void EXPRESSION_handler()
-        {
-            // This function will product a expr, if failed return nullptr;
-            // 
-            // EXPRESSION   >>  RIGHT_VALUE
-
-            return RIGHT_VALUE_handler();
-        }
-
-        void build_ast()
-        {
-            //
-        }
-    };
 }

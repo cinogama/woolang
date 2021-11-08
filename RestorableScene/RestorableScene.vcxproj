@@ -158,6 +158,7 @@
     <ClInclude Include="rs_compiler_lexer.hpp" />
     <ClInclude Include="rs_compiler_parser.hpp" />
     <ClInclude Include="rs_crc_64.hpp" />
+    <ClInclude Include="rs_env_locale.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
     <ClInclude Include="rs_lang_ast_builder.hpp" />
     <ClInclude Include="rs_lang_grammar_loader.hpp" />

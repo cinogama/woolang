@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include <iostream>
 #include <string>
 #include <vector>
@@ -48,24 +50,16 @@ void cost_time_test_gc(rs::vmbase* vm)
 
 #include "rs_lang_grammar_loader.hpp"
 
-#include "rs_lang_ast_builder.hpp"
+#include "rs_env_locale.hpp"
 
 int main()
 {
     using namespace rs;
     using namespace rs::opnum;
+    
+    rs::rs_init_locale();
 
-#if defined(RS_NEED_ANSI_CONTROL) && defined(_WIN32)
-    auto this_console_handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (this_console_handle != INVALID_HANDLE_VALUE)
-    {
-        DWORD console_mode = 0;
-        if (GetConsoleMode(this_console_handle, &console_mode))
-        {
-            SetConsoleMode(this_console_handle, console_mode | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
-        }
-    }
-#endif
+
     std::cout << ANSI_RST;
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
@@ -78,20 +72,31 @@ import system;
 
 func main() : void
 {
-    var 0;
-    var t = 1+2*;
-    var a = 2 : real
+    var _a = 1 + 2 + 3 + 4 + 5 + 6;
+    var a = nil : map;
     var b = 2 : real;
-    var c = 2 : real
+    var c = 2 : real;
+    var d = 0xFFFF_0000_0000_0000h, e=0, f="hello";
     system::io::println(@"Helloworld"@);
+}
+
+    if (this_console_handle != INVALID_HANDLE_VALUE)
+        0;
+
+func foo(var a, var b)
+{
+    a = 25;
+    return a + b;
+
+    foo(a+b, 0);
 }
 
 )");
 
     auto* rs_grammar = get_rs_grammar();
 
-    rs_grammar->check(lx1);
-    lx1.reset();
+    //rs_grammar->check(lx1);
+    //lx1.reset();
 
     if (auto result = rs_grammar->gen(lx1))
     {
@@ -109,6 +114,8 @@ func main() : void
     {
         std::wcout << exp.to_wstring() << std::endl;
     }
+
+    return 0;
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
