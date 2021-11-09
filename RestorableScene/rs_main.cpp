@@ -114,8 +114,8 @@ func foo(var a, var b)
 
     auto* rs_grammar = get_rs_grammar();
 
-    rs_grammar->check(lx1);
-    lx1.reset();
+    //rs_grammar->check(lx1);
+    //lx1.reset();
 
     if (auto result = rs_grammar->gen(lx1))
     {
