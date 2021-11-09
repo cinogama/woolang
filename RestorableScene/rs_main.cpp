@@ -83,6 +83,9 @@ func main() : void
     system::io::println(@"Helloworld"@);
 
 
+    {};
+    {{"val":string, 25565:handle}};
+
     var m = {};
     var m1 = {
                 {"name", "joy"},

@@ -6,6 +6,7 @@
 
 #include <any>
 #include <type_traits>
+#include <cmath>
 
 namespace rs
 {
@@ -72,6 +73,7 @@ namespace rs
                 {L"map", value::valuetype::mapping_type },
                 {L"array", value::valuetype::array_type },
                 {L"nil", value::valuetype::invalid },
+                {L"dynamic", value::valuetype::invalid },
             };
 
             static std::wstring get_name_from_type(value::valuetype _type)
@@ -104,6 +106,11 @@ namespace rs
             {
                 type_name = get_name_from_type(_val.type);
                 value_type = _val.type;
+            }
+
+            bool is_dynamic() const
+            {
+                return type_name == L"dynamic";
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -252,7 +259,7 @@ namespace rs
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
-                space(os, lay); os << L"<" << ANSI_HIC << rs_cast_string((rs_value)&_constant_value) << ANSI_RST L" : " ANSI_HIG;
+                space(os, lay); os << L"< " << ANSI_HIC << rs_cast_string((rs_value)&_constant_value) << ANSI_RST L" : " ANSI_HIG;
 
                 switch (_constant_value.type)
                 {
@@ -300,7 +307,7 @@ namespace rs
                 space(os, lay); os << L"< " << ANSI_HIR << L"cast" << ANSI_RST << L" : >" << std::endl;
                 _be_cast_value_node->display(os, lay + 1);
 
-                space(os, lay); os << L"< " << ANSI_HIR << L" to "
+                space(os, lay); os << L"< " << ANSI_HIR << L"to "
                     << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
             }
         };

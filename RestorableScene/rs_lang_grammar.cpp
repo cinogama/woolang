@@ -9,7 +9,7 @@
 #define _RS_LSTR(X) L##X
 #define RS_LSTR(X) _RS_LSTR(X)
 
-#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 1
+#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 0
 
 namespace rs
 {
@@ -64,7 +64,6 @@ gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")},
 
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"PARAGRAPH"),gm::nt(L"SENTENCE")},
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE")},
- gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)},
 
@@ -74,6 +73,17 @@ gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)},
+
+// Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
+// gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+// So, just make a production like this:
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)},
+// NOTE: Why the production can solve the conflict?
+//       A > {}
+//       B > {l_empty}
+//       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
+//       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
+
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)},
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")},
@@ -238,7 +248,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
     gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
     >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-    gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) },
+    gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
     gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
     >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -263,13 +273,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                                         gm::nt(L"CONSTANT_ARRAY_ITEMS"),
                                         gm::te(gm::ttype::l_index_end) },
 
-    gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY_ITEM") },
-    gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY_ITEMS")
-                                                    ,gm::te(gm::ttype::l_comma)
-                                                    ,gm::nt(L"CONSTANT_ARRAY_ITEM") },
-
-    gm::nt(L"CONSTANT_ARRAY_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
-    gm::nt(L"CONSTANT_ARRAY_ITEM") >> gm::symlist{ gm::nt(L"RIGHT") },
+    gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") },
 
     gm::nt(L"CONSTANT_MAP") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_curly_braces),
@@ -297,10 +301,14 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_right_brackets)},
-                gm::nt(L"ARGLIST") >> gm::symlist{gm::te(gm::ttype::l_empty)},//参数表可以是空的
-                gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"RIGHT")},
-                gm::nt(L"ARGLIST") >> gm::symlist{gm::nt(L"ARGLIST"),gm::te(gm::ttype::l_comma),gm::nt(L"RIGHT")},
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets)},
+
+                gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS") },
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEM") },
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"COMMA_EXPR_ITEM") },
+
+                gm::nt(L"COMMA_EXPR_ITEM") >> gm::symlist{gm::nt(L"RIGHT")},
+                gm::nt(L"COMMA_EXPR_ITEM") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 
                 gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
                 }
@@ -345,8 +353,8 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
                 {
                     int state_lr1_block_count = 0;
-                    cachefile << L"void rs_read_lr1_to_" << state_lr1_block_count << L"(rs::grammar::lr1table_t & out_lr1table)" << endl;
                     cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
+                    cachefile << L"void rs_read_lr1_to_" << state_lr1_block_count << L"(rs::grammar::lr1table_t & out_lr1table)" << endl;       
                     cachefile << L"{" << endl;
                     cachefile << tab << "using gm = rs::grammar;" << endl;
                     cachefile << endl;
@@ -412,12 +420,8 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         if (state_lr1_count % 5 == 0)
                         {
                             cachefile << "}" << endl;
-                            cachefile << L"#else" << endl;
-                            cachefile << L";" << endl;
-                            cachefile << L"#endif" << endl;
                             state_lr1_block_count++;
                             cachefile << L"void rs_read_lr1_to_" << state_lr1_block_count << L"(rs::grammar::lr1table_t & out_lr1table)" << endl;
-                            cachefile << L"#ifdef RS_LANG_GRAMMAR_LR1_IMPL" << endl;
                             cachefile << L"{" << endl;
                             cachefile << tab << "using gm = rs::grammar;" << endl;
                             cachefile << endl;
@@ -521,7 +525,6 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
                 cachefile << endl;
                 cachefile << "}" << endl;
-
                 cachefile.flush();
 
                 std::cout << ANSI_HIG "RSGramma: " ANSI_RST "Finished." << std::endl;

@@ -4,6 +4,9 @@
 #include "rs_basic_type.hpp"
 #include "rs_instruct.hpp"
 #include "rs_meta.hpp"
+
+#include <cstring>
+
 namespace rs
 {
     namespace opnum
@@ -714,7 +717,7 @@ namespace rs
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::gth, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::gtx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
         void eltx(const OP1T& op1, const OP2T& op2)
@@ -837,7 +840,12 @@ namespace rs
             }
             else
             {
-                static_assert(false, "Argument(s) should be opnum or integer.");
+                static_assert(
+                    !std::is_base_of<opnum::tag, OP1T>::value
+                    && !std::is_base_of<opnum::opnumbase, OP1T>::value
+                    && !std::is_pointer<OP1T>::value
+                    && !std::is_integral<OP1T>::value
+                    , "Argument(s) should be opnum or integer.");
             }
         }
 

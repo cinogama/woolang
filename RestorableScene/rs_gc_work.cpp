@@ -2,7 +2,6 @@
 
 #include <thread>
 #include <chrono>
-#include <execution>
 
 namespace rs
 {

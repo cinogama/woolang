@@ -351,7 +351,7 @@ namespace rs
                 return !(*this == another);
             }
 
-
+            friend inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
         };
 
         struct lr0_item//lr·ÖÎöÏîÄ¿
@@ -587,7 +587,7 @@ namespace rs
             return LR1_TABLE.at(a).at(b);
         }
 
-        friend static std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
+
 
         grammar()
         {
@@ -1567,7 +1567,7 @@ namespace rs
         }
     };
 
-    inline static std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
+    inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
         ost << (lri.item_rule.first.nt_name) << "->";
         size_t index = 0;
@@ -1575,7 +1575,7 @@ namespace rs
         {
             if (index == lri.next_sign)
             {
-                ost << L"¡¤";
+                ost << L" * ";
             }
             if (std::holds_alternative<grammar::te>(s))
             {
@@ -1598,13 +1598,13 @@ namespace rs
         }
         if (index == lri.next_sign)
         {
-            ost << "¡¤";
+            ost << L" * ";
         }
         ost << "," << lri.prospect;
         return ost;
     }
 
-    inline static std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter)
+    inline std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter)
     {
         if (ter.t_name == L"")
         {
@@ -1621,13 +1621,13 @@ namespace rs
             ost << (ter.t_name);
         return ost;
     }
-    inline static std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter)
+    inline std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter)
     {
         ost << (noter.nt_name);
         return ost;
     }
 
-    inline static std::wostream& operator<<(std::wostream& ost, const  grammar::action& act)
+    inline std::wostream& operator<<(std::wostream& ost, const  grammar::action& act)
     {
         switch (act.act)
         {

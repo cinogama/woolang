@@ -7,6 +7,8 @@
 #include <shared_mutex>
 #include <thread>
 
+#include <cmath>
+
 namespace rs
 {
 
@@ -244,7 +246,7 @@ namespace rs
         inline static void rollback(vmbase* _vm)
         {
             if (_vm->veh)
-                std::longjmp(_vm->veh->native_env, 1);
+                longjmp(_vm->veh->native_env, 1);
             else
             {
                 rs_error("No 'veh' in this vm.");
@@ -265,7 +267,7 @@ namespace rs
 #define RS_READY_EXCEPTION_HANDLE(VM,IP,ROLLBACKIP,SP,BP)\
     bool _rs_restore_from_exception = false;\
     exception_recovery::_ready((VM),(ROLLBACKIP),(SP),(BP));\
-    if (std::setjmp((VM)->veh->native_env))\
+    if (setjmp((VM)->veh->native_env))\
     {\
         _rs_restore_from_exception = true;\
         (IP) = (VM)->veh->ip;\
