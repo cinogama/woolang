@@ -248,7 +248,8 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -556,7 +557,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
             }
 
 #if defined(RS_LANG_GRAMMAR_LR1_AUTO_GENED) && !RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE
-    }
+        }
 #undef RS_LANG_GRAMMAR_LR1_AUTO_GENED
 #endif
 
@@ -573,7 +574,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
         return rs_grammar;
 
-}
+    }
 }
 
 

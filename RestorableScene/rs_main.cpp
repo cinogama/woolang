@@ -56,7 +56,7 @@ int main()
 {
     using namespace rs;
     using namespace rs::opnum;
-    
+
     rs::rs_init_locale();
 
 
@@ -72,6 +72,7 @@ import system;
 
 func main() : void
 {
+    var ff = 5*(1,2+6,3+9);
     var _a = 1 + 2 + 3 + 4 + 5 + 6;
     var a = nil : map;
     var b = 2 : real;
