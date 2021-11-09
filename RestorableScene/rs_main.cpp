@@ -66,8 +66,7 @@ int main()
 
     gc::gc_start();
 
-    rs::lexer lx1(
-        LR"(
+    std::wstring src_code = LR"(
 import system;
 
 func main() : void
@@ -101,8 +100,6 @@ func main() : void
     }
 }
 
-    
-
 func foo(var a, var b)
 {
     a = 25;
@@ -111,14 +108,24 @@ func foo(var a, var b)
     foo(a+b, 0);
 }
 
-)");
+)";
+
+    rs::lexer lx1(
+        src_code
+       );
+
+    std::chrono::system_clock sc;
 
     auto* rs_grammar = get_rs_grammar();
 
     //rs_grammar->check(lx1);
     //lx1.reset();
+    auto beg = sc.now();   
+    auto result = rs_grammar->gen(lx1);
+    auto end = sc.now();
+    std::cout << src_code.size()<<"byte  " <<(end - beg).count() / 10000000.0f << std::endl;
 
-    if (auto result = rs_grammar->gen(lx1))
+    if (result)
     {
         std::wcout << " OK!!! " << std::endl;
 
@@ -244,7 +251,7 @@ func foo(var a, var b)
     c14.tag("loop_end");
     c14.end();                                      //      end
 
-    std::chrono::system_clock sc;
+   
     for (int i = 0; i < 5; i++)
     {
 

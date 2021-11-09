@@ -438,11 +438,21 @@ namespace rs
 
     public:
         std::stack<std::pair<lex_type, std::wstring>> temp_token_buff_stack;
+        lex_type peek_result_type = lex_type::l_error;
+        std::wstring peek_result_str;
+        bool peeked_flag = false;
 
         lex_type peek(std::wstring* out_literal)
         {
             // Will store next_reading_index / file_rowno/file_colno
             // And disable error write:
+
+            if (peeked_flag)
+            {
+                if (out_literal)
+                    *out_literal = peek_result_str;
+                return peek_result_type;
+            }
 
             if (!temp_token_buff_stack.empty())
             {
@@ -460,7 +470,12 @@ namespace rs
             auto old_next_file_rowno = next_file_rowno;
             auto old_next_file_colno = next_file_colno;
 
-            auto result = next(out_literal);
+            
+            peek_result_type = next(&peek_result_str);
+            if (out_literal)
+                *out_literal = peek_result_str;
+
+            peeked_flag = true;
 
             next_reading_index = old_index;
             now_file_rowno = old_now_file_rowno;
@@ -470,7 +485,7 @@ namespace rs
 
             lex_enable_error_warn = true;
 
-            return result;
+            return peek_result_type;
         }
 
         int peek_ch()
@@ -561,6 +576,7 @@ namespace rs
         lex_type next(std::wstring* out_literal)
         {
             just_have_err = false;
+            peeked_flag = false;
 
             if (!temp_token_buff_stack.empty())
             {
