@@ -35,6 +35,7 @@ typedef double      rs_real_t;
 
 typedef struct _rs_vm
 { /* reserved, and prevent from type casting. */
+    uint8_t _take_palce_[1];
 }
 *rs_vm;
 typedef struct _rs_value

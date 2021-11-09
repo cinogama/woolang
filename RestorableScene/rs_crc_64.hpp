@@ -149,6 +149,8 @@ namespace rs
             crc = _crc_64((uint8_t)*str, crc);
             str++;
         }
+
+        return crc;
     }
 
     inline uint64_t crc_64(std::ifstream& fle)

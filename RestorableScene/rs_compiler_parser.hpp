@@ -1555,8 +1555,7 @@ namespace rs
                     tkr.parser_error(0x0000, L"Unable to recover from now error state, abort.");
                     return nullptr;
 
-                error_progress_end:
-                    0;
+                error_progress_end:;
                 }
 
             } while (true);
