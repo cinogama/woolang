@@ -59,7 +59,7 @@ namespace rs
 #endif
         /////////////////////////////////////////////////////////////////////////////////
 
-        struct ast_type : public grammar::ast_base
+        struct ast_type : virtual public grammar::ast_base
         {
             std::wstring type_name;
             value::valuetype value_type;
@@ -124,7 +124,7 @@ namespace rs
             }
         };
 
-        struct ast_value : public grammar::ast_base
+        struct ast_value : virtual public grammar::ast_base
         {
             // this type of ast node is used for stand a value or product a value.
             // liter functioncall variable and so on will belong this type of node.
@@ -140,7 +140,7 @@ namespace rs
             };
         };
 
-        struct ast_literal_value : public ast_value
+        struct ast_literal_value : virtual public ast_value
         {
             value _constant_value;
 
@@ -312,14 +312,14 @@ namespace rs
             }
         };
 
-        struct ast_variable : ast_value
+        struct ast_variable : virtual ast_value
         {
             std::wstring var_name;
 
             ast_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;
-                value_type = new ast_type(L"nil");
+                value_type = new ast_type(L"dynamic");
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -331,6 +331,79 @@ namespace rs
                     << L" : "
                     << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
             }
+        };
+
+        struct ast_list : virtual public grammar::ast_base
+        {
+            void append_at_head(grammar::ast_base* astnode)
+            {
+                // item LIST
+                if (children)
+                {
+                    auto bkup = children;
+                    children = nullptr;
+                    add_child(astnode);
+                    astnode->sibling = bkup;
+                }
+                else
+                    add_child(astnode);
+            }
+            void append_at_end(grammar::ast_base* astnode)
+            {
+                // LIST item
+                add_child(astnode);
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << typeid(*this).name() << ANSI_RST << L" >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                auto* mychild = children;
+                while (mychild)
+                {
+                    mychild->display(os, lay + 1);
+
+                    mychild = mychild->sibling;
+                }
+                space(os, lay); os << L"}" << std::endl;
+            }
+
+        };
+
+        struct ast_comma_list :virtual public ast_list
+        {
+
+        };
+
+        struct ast_empty : virtual public grammar::ast_base
+        {
+            // used for stand fro l_empty
+            // some passer will ignore this xx
+
+            static bool is_empty(std::any& any)
+            {
+                if (grammar::ast_base* _node; cast_any_to<grammar::ast_base*>(any, _node))
+                {
+                    if (dynamic_cast<ast_empty*>(_node))
+                    {
+                        return true;
+                    }
+                }
+                if (token _node = { lex_type::l_error }; cast_any_to<token>(any, _node))
+                {
+                    if (_node.type == +lex_type::l_empty)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                /*display nothing*/
+            }
+
         };
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -476,10 +549,103 @@ namespace rs
             }
         };
 
+        template<typename listtype, size_t first_node>
+        struct pass_create_list :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(first_node < input.size());
+
+                static_assert(std::is_base_of<ast_list, listtype>::value);
+
+                listtype* result = new listtype();
+                if (ast_empty::is_empty(input[first_node]))
+                    return (grammar::ast_base*)result;
+
+                if (ast_basic* _node; cast_any_to<ast_basic*>(input[first_node], _node))
+                {
+                    result->append_at_end(_node);
+                    return (grammar::ast_base*)result;
+                }
+
+                rs_error("Unexcepted token type.");
+                return (grammar::ast_base*)new grammar::ast_error(L"Unexcepted token type.");
+
+            }
+        };
+
+        template<size_t from, size_t to_list>
+        struct pass_append_list :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() > std::max(from, to_list));
+
+                if (ast_basic* _list; cast_any_to<ast_basic*>(input[to_list], _list))
+                {
+                    ast_list* list = dynamic_cast<ast_list*>(_list);
+                    if (list)
+                    {
+                        if (ast_empty::is_empty(input[from]))
+                            return (grammar::ast_base*)list;
+
+                        if (ast_basic* _from; cast_any_to<ast_basic*>(input[from], _from))
+                        {
+                            if (from < to_list)
+                            {
+                                list->append_at_head(_from);
+                            }
+                            else if (from > to_list)
+                            {
+                                list->append_at_end(_from);
+                            }
+                            else
+                            {
+                                rs_error("You cannot add list to itself.");
+                                return (grammar::ast_base*)new grammar::ast_error(L"You cannot add list to itself..");
+                            }
+                            return (grammar::ast_base*)list;
+                        }
+                        rs_error("Unexcepted token type, only ast_node can add to 'ast_list'.");
+                        return (grammar::ast_base*)new grammar::ast_error(L"Unexcepted token type, only ast_node can add to 'ast_list'.");
+                    }
+                    rs_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
+                    return (grammar::ast_base*)new grammar::ast_error(L"Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
+                }
+                rs_error("Unexcepted token type.");
+                return (grammar::ast_base*)new grammar::ast_error(L"Unexcepted token type.");
+
+            }
+        };
+
+        struct pass_empty :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                return (grammar::ast_base*)new ast_empty();
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_empty>]
+                = _register_builder<pass_empty>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_create_list<ast_comma_list, 0>>]
+                = _register_builder<pass_create_list<ast_comma_list, 0>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_create_list<ast_list, 0>>]
+                = _register_builder<pass_create_list<ast_list, 0>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 0>>]
+                = _register_builder<pass_append_list<1, 0>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<2, 0>>]
+                = _register_builder<pass_append_list<2, 0>>();
+
+
             _registed_builder_function_id_list[meta::type_hash<pass_variable>]
                 = _register_builder<pass_variable>();
 
@@ -515,5 +681,5 @@ namespace rs
         return ost;
     }
 #endif
-#define RS_ASTBUILDER_INDEX(T) ast::index<T>()
+#define RS_ASTBUILDER_INDEX(...) ast::index<##__VA_ARGS__##>()
 }

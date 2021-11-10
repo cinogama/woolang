@@ -5,6 +5,7 @@
 
 #ifdef _WIN32
 #       include <Windows.h>
+#       undef max      // fucking windows.
 #endif
 
 namespace rs

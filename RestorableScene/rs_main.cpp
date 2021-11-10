@@ -36,7 +36,7 @@ void cost_time_test_gc(rs::vmbase* vm)
 {
     using namespace std;
     printf("vvvvvv GC SHOULD WORK vvvvvv\n");
-    std::this_thread::sleep_for(20s);
+    std::this_thread::sleep_for(25s);
     printf("^^^^^^ IN THIS RANGE ^^^^^^^\n");
 }
 
@@ -67,11 +67,24 @@ int main()
     gc::gc_start();
 
     std::wstring src_code = LR"(
+F(1,2,3,);
+
 import system;
+
+func foo1() : integer
+    system::io::println("Helloworld");
+
+func foo2() : integer
+{
+}
+
+func foo3() : integer
+{
+}
 
 func main() : void
 {
-    var ff = 5*(1,2+6,3+9);
+    var ff = 5*(3+9);
     var _a = 1 + 2 + 3 + 4 + 5 + 6;
     var a = nil : map;
     var b = 2 : real;
@@ -80,7 +93,7 @@ func main() : void
 
     var e = d:handle;
     var n = 9:integer;
-    system::io::println(@"Helloworld"@);
+    system::math::sin(60:real);
 
 
     {};
@@ -142,7 +155,7 @@ func foo(var a, var b)
         std::wcout << exp.to_wstring() << std::endl;
     }
 
-    return 0;
+    // return 0;
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -165,7 +178,7 @@ func foo(var a, var b)
     c17.psh(imm(4));
     c17.psh(imm(5));
     c17.psh(imm(6));
-    c17.mkarr(reg(reg::t2), imm(6));                 //  mkarr   t2,     6
+    c17.mkarr(reg(reg::t2), imm(6));                //  mkarr   t2,     6
     c17.idx(reg(reg::t0), imm("my_array"));         //  idx     t0,     "my_array"
     c17.mov(reg(reg::cr), reg(reg::t2));            //  mov     cr,     t0
     c17.ext_setref(reg(reg::t3), reg(reg::t0));     //  ext setref     t3,     t0
@@ -280,7 +293,7 @@ func foo(var a, var b)
     c13.set(reg(reg::t0), reg(reg::t1));
     c13.set(reg(reg::t1), imm(0xCCCCCCCC));
     c13.set(reg(reg::t0), imm(0xCCCCCCCC));
-    c13.jmp(tag("program_begin"));                  //      jmp     program_begin
+    // c13.jmp(tag("program_begin"));                  //      jmp     program_begin
     c13.end();                                      //      end
 
     vmm.set_runtime(c13);
@@ -288,6 +301,7 @@ func foo(var a, var b)
     vmm.run();
     ///////////////////////////////////////////////////////////////////////////////////////
 
+    
     ir_compiler c12;                                // 
     c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
     c12.end();                                      //      end

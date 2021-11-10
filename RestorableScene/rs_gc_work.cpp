@@ -14,7 +14,7 @@ namespace rs
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
         std::condition_variable     _gc_cv;
 
-        uint32_t                    _gc_immediately_edge = 50000;
+        uint32_t                    _gc_immediately_edge = 5000000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 1000;
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
@@ -70,8 +70,7 @@ namespace rs
                     for (auto* vmimpl : gmt->_gc_working_vm)
                     {
                         if (!_gc_fullgc_stopping_the_world)
-                            rs_asure_warn(vmimpl->wait_interrupt(vmbase::GC_INTERRUPT),
-                                "Virtual machine not accept GC_INTERRUPT. skip waiting.");
+                            vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
 
                         // do mark
 
@@ -219,6 +218,10 @@ namespace rs
             std::mutex          _gc_mx;
             gc_mark_thread      _gc_work_threads[_gc_work_thread_count];
 
+#ifdef RS_GC_DEBUG
+            std::chrono::system_clock _gc_debug_system_clock;
+#endif
+
             do
             {
                 _gc_round_count++;
@@ -234,11 +237,22 @@ namespace rs
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                         _gc_work_threads[(vm_distribute_index++) % _gc_work_thread_count].append(vmimpl);
 
+
+#ifdef RS_GC_DEBUG
+                    std::cout << "===== GC WORK BEGIN =====" << std::endl;
+                    auto _gcdebug_start_time = _gc_debug_system_clock.now();
+#endif
                     for (auto& gc_work_thread : _gc_work_threads)
                         gc_work_thread.start();
 
                     for (auto& gc_work_thread : _gc_work_threads)
                         gc_work_thread.wait();
+
+#ifdef RS_GC_DEBUG   
+                    auto _gcdebug_end_time = _gc_debug_system_clock.now();
+                    std::cout << "GC Time cost: " << (_gcdebug_end_time - _gcdebug_start_time).count() / 10000000.0f << std::endl;
+                    std::cout << "===== GC WORK END =====" << std::endl;
+#endif
 
                 } while (0);
 
@@ -262,7 +276,7 @@ namespace rs
 
                 // Move all eden to young
 
-                // -----Run MINOR-GC once per 5 sec, Run FULL-GC once per 5 MINOR-GC
+                // -----Run MINOR-GC once per 10 sec, Run FULL-GC once per 5 MINOR-GC
                 // -----Or you can awake gc-work manually.
                 // Here to modify gc setting..
 

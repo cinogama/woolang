@@ -62,8 +62,10 @@ namespace rs
 gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")},
 gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")},
 
-gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"PARAGRAPH"),gm::nt(L"SENTENCE")},
-gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE")},
+gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"PARAGRAPH"),gm::nt(L"SENTENCE")}
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
+gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE")}
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_list,0>),
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)},
 
@@ -72,21 +74,22 @@ gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-// Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
-// gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
-// So, just make a production like this:
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)},
-// NOTE: Why the production can solve the conflict?
-//       A > {}
-//       B > {l_empty}
-//       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
-//       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
+                // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
+                // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+                // So, just make a production like this:
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)},
+                // NOTE: Why the production can solve the conflict?
+                //       A > {}
+                //       B > {l_empty}
+                //       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
+                //       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)},
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)},
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")},
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")},
 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
@@ -114,7 +117,8 @@ gm::nt(L"IF") >> gm::symlist{
                         gm::nt(L"SENTENCE"),
                         gm::nt(L"ELSE")
                     },
-gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"SENTENCE")},
 
 //变量定义表达式
@@ -189,129 +193,150 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
                         // May empty
 
-                        gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
-                        gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
-                        gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) }
-                        >> RS_ASTBUILDER_INDEX(ast::pass_type_decl),
+gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
+gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
+gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) }
+>> RS_ASTBUILDER_INDEX(ast::pass_type_decl),
 
-    gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
-    gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier) },
-    gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
-    gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier) },
-    gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_list, 0>),
 
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_VAR_ITEM") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_list, 0>),
 
-                //		运算转换，左值可以转化为右值ASTUnary
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_REF_ITEM") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_list, 0>),
 
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_VAR_ITEM") }
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
+gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
+
+//		运算转换，左值可以转化为右值ASTUnary
+
+gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+//	逻辑运算表达式
+gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") },
+
+gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"RELATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION") },
+
+//	关系判别表达式 < > >= <=
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") },
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") },
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") },
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") },
+// 等价判别表达式
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION") },
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION") },
+// 加减运算表达式		
+
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") },
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
+
+// 乘除运算表达式
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR") },
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR") },
+
+//	RIGHT可以作为因子
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") },
+gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
+
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_real) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_string) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_inf) }
+>> RS_ASTBUILDER_INDEX(ast::pass_literal),
+
+gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_MAP") },
+gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY") },
+
+gm::nt(L"CONSTANT_ARRAY") >> gm::symlist{
+                                    gm::te(gm::ttype::l_index_begin),
+                                    gm::nt(L"CONSTANT_ARRAY_ITEMS"),
+                                    gm::te(gm::ttype::l_index_end) },
+
+gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") },
+
+gm::nt(L"CONSTANT_MAP") >> gm::symlist{
+                                    gm::te(gm::ttype::l_left_curly_braces),
+                                    gm::nt(L"CONSTANT_MAP_PAIRS"),
+                                    gm::te(gm::ttype::l_right_curly_braces) },
+
+gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIR") },
+gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
+                                                gm::te(gm::ttype::l_comma),
+                                                gm::nt(L"CONSTANT_MAP_PAIR") },
+
+gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
+gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
+                                                gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT"),
+                                                gm::te(gm::ttype::l_right_curly_braces) },
+
+                //单目运算符
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
+
+                //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
+                gm::nt(L"LEFT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_variable),
+
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier) },
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                //	逻辑运算表达式
-                gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") },
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
 
-                gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"RELATION") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION") },
-
-                //	关系判别表达式 < > >= <=
-                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") },
-                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") },
-                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") },
-                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") },
-                // 等价判别表达式
-                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION") },
-                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION") },
-                // 加减运算表达式		
-
-                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") },
-                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
-
-                // 乘除运算表达式
-                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR") },
-                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
-                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR") },
-
-                //	RIGHT可以作为因子
-                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") },
-                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
-
-                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
-                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
+                gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_real) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_string) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_inf) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
 
-                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_MAP") },
-                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY") },
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"RIGHT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
 
-                gm::nt(L"CONSTANT_ARRAY") >> gm::symlist{
-                                                    gm::te(gm::ttype::l_index_begin),
-                                                    gm::nt(L"CONSTANT_ARRAY_ITEMS"),
-                                                    gm::te(gm::ttype::l_index_end) },
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") },
+                gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-                gm::nt(L"CONSTANT_MAP") >> gm::symlist{
-                                                    gm::te(gm::ttype::l_left_curly_braces),
-                                                    gm::nt(L"CONSTANT_MAP_PAIRS"),
-                                                    gm::te(gm::ttype::l_right_curly_braces) },
+                gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-                gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIR") },
-                gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
-                                                                gm::te(gm::ttype::l_comma),
-                                                                gm::nt(L"CONSTANT_MAP_PAIR") },
-
-                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
-                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
-                                                               gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT"),
-                                                              gm::te(gm::ttype::l_right_curly_braces) },
-
-                                                              //单目运算符
-                                                              gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
-                                                              gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
-
-                                                              //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
-                                                              gm::nt(L"LEFT") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
-                                                              >> RS_ASTBUILDER_INDEX(ast::pass_variable),
-
-                                                              gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier)},
-                                                              gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
-                                                              >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                                                              gm::nt(L"FUNCTION_CALL") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets)},
-
-                                                              gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS") },
-                                                              gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEM") },
-                                                              gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"COMMA_EXPR_ITEM") },
-
-                                                              gm::nt(L"COMMA_EXPR_ITEM") >> gm::symlist{gm::nt(L"RIGHT")},
-                                                              gm::nt(L"COMMA_EXPR_ITEM") >> gm::symlist{gm::te(gm::ttype::l_empty)},
-
-                                                              gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
+                gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
                 }
             );
 
@@ -571,6 +596,8 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
             if (rule_nt.builder_index)
                 rule_nt.ast_create_func = ast::get_builder(rule_nt.builder_index);
         }
+
+        rs_grammar->finish_rt();
 
         return rs_grammar;
 

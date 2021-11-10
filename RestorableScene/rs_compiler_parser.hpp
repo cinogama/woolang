@@ -103,7 +103,7 @@ namespace rs
 
             size_t row_no;
             size_t col_no;
-
+            virtual ~ast_base() = default;
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)
@@ -171,7 +171,7 @@ namespace rs
             }
             virtual void display(std::wostream& os = std::wcout, size_t lay = 0) const
             {
-                space(os, lay); os << L"<ast_base from " << typeid(this).name() << L">" << std::endl;
+                space(os, lay); os << L"<ast_base from " << typeid(*this).name() << L">" << std::endl;
             }
         };
 
@@ -504,34 +504,6 @@ namespace rs
         std::set<te> P_TERMINAL_SET;
         std::set<nt> P_NOTERMINAL_SET;
 
-        /*
-                struct action
-        {
-            enum class act_type
-            {
-                error,
-                state_goto,
-                push_stack,
-                reduction,
-                accept,
-
-            }act = act_type::error;
-
-            size_t state = 0;
-
-
-            bool operator<(const action& another)const
-            {
-                if (act == another.act)
-                {
-                    return state < another.state;
-                }
-                return act < another.act;
-            }
-
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
-        };
-        */
         struct action/*_lr1*/
         {
             enum class act_type
@@ -542,12 +514,19 @@ namespace rs
                 reduction,
                 accept,
 
-            }act = act_type::error;
+            }act;
             te prospect;
-            size_t state = 0;
+            size_t state;
 
+            action(act_type _type = act_type::error,
+                te _prospect = { lex_type::l_error },
+                size_t _state = (size_t)(-1))
+                :act(_type)
+                , prospect(_prospect)
+                , state(_state)
+            {
 
-
+            }
 
             bool operator<(const action& another)const
             {
@@ -570,24 +549,24 @@ namespace rs
 
         using lr1table_t = std::map<size_t, std::map<sym, std::set<action>, sym_less>>;
         std::map<size_t, std::map<sym, std::set<action>, sym_less>> LR1_TABLE;
+
+        using te_nt_index_t = signed int;
+        struct rt_rule
+        {
+            te_nt_index_t production_aim;
+            size_t rule_right_count;
+            std::wstring rule_left_name;
+            std::function<std::any(lexer&, const std::wstring&, std::vector<std::any>&)> ast_create_func;
+        };
+        std::vector<std::vector<action>> RT_LR1_TABLE; // te_nt_index_t
+        std::vector<rt_rule> RT_PRODUCTION;
+
         // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
 
-        const std::set<action>& LR1_TABLE_READ(size_t a, const sym& b) const
+        const action& LR1_TABLE_READ(size_t a, te_nt_index_t b) const
         {
-            static std::set<action> empty_action;
-
-            if (LR1_TABLE.find(a) == LR1_TABLE.end())
-            {
-                return empty_action;
-            }
-            if (LR1_TABLE.at(a).find(b) == LR1_TABLE.at(a).end())
-            {
-                return empty_action;
-            }
-            return LR1_TABLE.at(a).at(b);
+            return RT_LR1_TABLE[a][b];
         }
-
-
 
         grammar()
         {
@@ -939,6 +918,13 @@ namespace rs
                         else
                             ostrm << std::get<nt>(LR.first) << std::endl;
 
+                        ostrm << "========================" << std::endl;
+
+                        for (auto& lr1_ : C_SET[LR1.first])
+                            ostrm << lr1_ << std::endl;
+
+                        ostrm << "========================" << std::endl;
+
                         for (auto& act : LR.second)
                         {
                             if (act.act == action::act_type::reduction)
@@ -955,6 +941,67 @@ namespace rs
             }
 
             return result;
+        }
+
+        std::map<std::wstring, te_nt_index_t> NONTERM_MAP;
+        std::map<lex_type, te_nt_index_t> TERM_MAP;
+        void finish_rt()
+        {
+            size_t maxim_state_count = 0;
+            te_nt_index_t nt_te_index = 0;
+
+            lex_type leof = lex_type::l_eof;
+            TERM_MAP[leof] = ++nt_te_index;
+
+            for (auto& [_state, act_list] : LR1_TABLE)
+            {
+                for (auto& [symb, _action] : act_list)
+                {
+                    if (std::holds_alternative<te>(symb))
+                    {
+                        if (TERM_MAP.find(std::get<te>(symb).t_type) == TERM_MAP.end())
+                            TERM_MAP[std::get<te>(symb).t_type] = ++nt_te_index;
+                    }
+                    else
+                    {
+                        if (NONTERM_MAP.find(std::get<nt>(symb).nt_name) == NONTERM_MAP.end())
+                            NONTERM_MAP[std::get<nt>(symb).nt_name] = ++nt_te_index;
+                    }
+
+                    // In face, we can just LR1_TABLE.end()-1).first to get this value
+                    // but i just want to do so~~
+                    if (_state > maxim_state_count)
+                        maxim_state_count = _state;
+                }
+            }
+
+            RT_LR1_TABLE.resize(maxim_state_count + 1);
+            for (auto& [_state, act_list] : LR1_TABLE)
+            {
+                RT_LR1_TABLE[_state].resize(nt_te_index + 1);
+                for (auto& [symb, _action] : act_list)
+                {
+                    if (!_action.empty())
+                    {
+                        if (std::holds_alternative<te>(symb))
+                            RT_LR1_TABLE[_state][TERM_MAP[std::get<te>(symb).t_type]] = *_action.begin();
+                        else
+                            RT_LR1_TABLE[_state][NONTERM_MAP[std::get<nt>(symb).nt_name]] = *_action.begin();
+                    }
+                }
+            }
+
+            // OK Then RT_PRODUCTION 
+            RT_PRODUCTION.resize(ORGIN_P.size());
+            for (size_t rt_pi = 0; rt_pi < RT_PRODUCTION.size(); rt_pi++)
+            {
+                RT_PRODUCTION[rt_pi].production_aim = NONTERM_MAP[ORGIN_P[rt_pi].first.nt_name];
+                RT_PRODUCTION[rt_pi].rule_right_count = ORGIN_P[rt_pi].second.size();
+                RT_PRODUCTION[rt_pi].ast_create_func = ORGIN_P[rt_pi].first.ast_create_func;
+                RT_PRODUCTION[rt_pi].rule_left_name = ORGIN_P[rt_pi].first.nt_name;
+            }
+
+            // OK!
         }
 
         void display(std::wostream& ostrm = std::wcout)
@@ -1040,10 +1087,6 @@ namespace rs
             }*/
 
         }
-
-
-
-
 
 
         bool check(lexer& tkr)
@@ -1172,19 +1215,18 @@ namespace rs
 
         ast_base* gen(lexer& tkr) const
         {
-            //build_list.resize(ORGIN_P.size(), []()->std::shared_ptr<ASTBase> {return std::make_shared<ASTDefault>(); });
-
-            //读取token_reader，检查是否符合语法
-
             std::stack<size_t> state_stack;
-            std::stack<sym> sym_stack;
+            std::stack<te_nt_index_t> sym_stack;
             std::stack<std::any> node_stack;
 
+            const te_nt_index_t te_leof_index = TERM_MAP.at(+lex_type::l_eof);
+            const te_nt_index_t te_lempty_index = TERM_MAP.at(+lex_type::l_empty);
+
             state_stack.push(0);
-            sym_stack.push(grammar::te{ lex_type::l_eof });
+            sym_stack.push(te_leof_index);
 
             auto NOW_STACK_STATE = [&]()->size_t& {return state_stack.top(); };
-            auto NOW_STACK_SYMBO = [&]()->sym& {return sym_stack.top(); };
+            auto NOW_STACK_SYMBO = [&]()->te_nt_index_t& {return sym_stack.top(); };
 
             do
             {
@@ -1200,22 +1242,22 @@ namespace rs
 
                 auto top_symbo =
                     (state_stack.size() == sym_stack.size() ?
-                        grammar::te{ type, out_indentifier }
+                        TERM_MAP.at(type)
                         :
                         NOW_STACK_SYMBO());
 
 
                 const auto& actions = LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo);// .at().at();
-                auto& e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), grammar::te{ grammar::ttype::l_empty });// LR1_TABLE.at(NOW_STACK_STATE()).at();
+                auto& e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index);// LR1_TABLE.at(NOW_STACK_STATE()).at();
 
-                if (actions.size() || e_actions.size())
+                if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
                 {
                     bool e_rule = false;
-                    if (!actions.size())
+                    if (actions.act == action::act_type::error)
                     {
                         e_rule = true;
                     }
-                    auto& take_action = actions.size() ? *actions.begin() : *e_actions.begin();
+                    auto& take_action = actions.act != action::act_type::error ? actions : e_actions;
 
                     if (take_action.act == grammar::action::act_type::push_stack)
                     {
@@ -1224,23 +1266,23 @@ namespace rs
                         if (e_rule)
                         {
                             node_stack.push(token{ grammar::ttype::l_empty });
-                            sym_stack.push(grammar::te{ grammar::ttype::l_empty });
+                            sym_stack.push(te_lempty_index);
                         }
                         else
                         {
                             node_stack.push(token{ type, out_indentifier });
-                            sym_stack.push(grammar::te{ type,out_indentifier });
+                            sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
                         }
 
                     }
                     else if (take_action.act == grammar::action::act_type::reduction)
                     {
-                        auto& red_rule = ORGIN_P[take_action.state];
+                        auto& red_rule = RT_PRODUCTION[take_action.state];
 
                         std::vector<std::any> bnodes;
 
-                        for (size_t i = red_rule.second.size(); i > 0; i--)
+                        for (size_t i = red_rule.rule_right_count; i > 0; i--)
                         {
                             size_t index = i - 1;
 
@@ -1259,7 +1301,7 @@ namespace rs
 
                         std::reverse(bnodes.begin(), bnodes.end());
 
-                        sym_stack.push(red_rule.first);
+                        sym_stack.push(red_rule.production_aim);
 
                         if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
 
@@ -1288,19 +1330,20 @@ namespace rs
                         }
                         else
                         {
-                            auto astnode = red_rule.first.ast_create_func(tkr, red_rule.first.nt_name, bnodes);
+                            auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, bnodes);
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
                                 ast_node_->row_no = tkr.next_file_rowno;
                                 ast_node_->col_no = tkr.next_file_colno;
                             }
 
-                            if (ast_error* err_node; cast_any_to<ast_error*>(astnode, err_node))
+                            if (ast_base* astbase_node; cast_any_to<ast_base*>(astnode, astbase_node))
                             {
                                 // 如果节点生成器返回的是ASTError节点，那么说明节点生成时发生了错误
 
                                 // TODO: HERE NEED FIX
-                                tkr.parser_error(0x0000, err_node->what.c_str());
+                                if (ast_error* err_node = dynamic_cast<ast_error*>(astbase_node))
+                                    tkr.parser_error(0x0000, err_node->what.c_str());
                             }
 
                             node_stack.push(astnode);
@@ -1481,10 +1524,10 @@ namespace rs
                                                 {
                                                     //开始处理归约
 
-                                                    auto& red_rule = ORGIN_P[act.second.begin()->state];
+                                                    auto& red_rule = RT_PRODUCTION[act.second.begin()->state];
 
                                                     state_stack.push(act.second.begin()->state);
-                                                    sym_stack.push(red_rule.first);
+                                                    sym_stack.push(red_rule.production_aim);
                                                     node_stack.push(token{ +lex_type::l_error });
 
                                                     goto error_progress_end;

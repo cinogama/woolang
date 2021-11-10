@@ -79,7 +79,7 @@ namespace rs
         {
             interrupt(type);
 
-            constexpr int MAX_TRY_COUNT = 2000;
+            constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
 
             uint32_t vm_interrupt_mask = 0xFFFFFFFF;
@@ -245,6 +245,7 @@ namespace rs
         std::jmp_buf native_env;
         inline static void rollback(vmbase* _vm)
         {
+            _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
             if (_vm->veh)
                 longjmp(_vm->veh->native_env, 1);
             else
@@ -275,6 +276,8 @@ namespace rs
         (BP) = (VM)->veh->bp;\
         exception_recovery::ok((VM));\
     }if(_rs_restore_from_exception)
+
+    ////////////////////////////////////////////////////////////////////////////////
 
     class vm : public vmbase
     {
