@@ -76,6 +76,8 @@ func foo1() : integer
 
 func foo2() : integer
 {
+    var a = 55;
+    a = 77 + 55.0;
 }
 
 func foo3() : integer
@@ -86,6 +88,16 @@ func main() : void
 {
     var ff = 5*(3+9);
     var _a = 1 + 2 + 3 + 4 + 5 + 6;
+
+    var _b = 56:dynamic;
+
+    _a = nil;
+    _a = 1 + "1.75":real * 25.6;
+    _a = 566 + 434;
+    _a = "Hello" + @"world!"@;
+    _a = nil:array:dynamic;
+    // _a = "Fuckyou"[3];
+
     var a = nil : map;
     var b = 2 : real;
     var c = 2.5;

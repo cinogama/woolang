@@ -170,12 +170,18 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") },
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") },
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT") },
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT") },
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT") },
-gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") },
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 //右值是仅取值的表达式 ，赋值语句当然也是一个右值		
 
@@ -222,40 +228,56 @@ gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
 //	逻辑运算表达式
 gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") },
+gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"RELATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION") },
+gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 //	关系判别表达式 < > >= <=
 gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") },
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") },
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") },
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") },
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 // 等价判别表达式
 gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION") },
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION") },
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 // 加减运算表达式		
 
 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") },
-gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") },
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 // 乘除运算表达式
 gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR") },
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") },
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR") },
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 //	RIGHT可以作为因子
-gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") },
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+// TYPE CASTING..
 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
 
@@ -305,38 +327,41 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                                                 gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT"),
                                                 gm::te(gm::ttype::l_right_curly_braces) },
 
-                //单目运算符
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
+//单目运算符
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
 
-                //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
-                gm::nt(L"LEFT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_variable),
+//左值是被赋值的对象，应该是一个标识符或者一个函数表达式
+gm::nt(L"LEFT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+>> RS_ASTBUILDER_INDEX(ast::pass_variable),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier) },
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
+gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR"),gm::te(gm::ttype::l_index_begin),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_index_end) }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-                gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
 
-                gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
+gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"RIGHT") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
+gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<ast::ast_comma_list,0>),
 
-                gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
-                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT") }
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-                gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
+gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+gm::nt(L"LEFT") >> gm::symlist{gm::nt(L"LEFT"),gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier)},
                 }
             );
 

@@ -203,17 +203,6 @@ namespace rs
 
             }
         };
-        struct ast_error :public ast_base
-        {
-            std::wstring what;
-            ast_base* happend_at;
-
-            ast_error(const std::wstring& errmsg, ast_base* error_node = nullptr) :
-                what(errmsg)
-            {
-
-            }
-        };
 
         struct nonterminal
         {
@@ -242,7 +231,7 @@ namespace rs
                     }
                     else
                     {
-                        return new ast_error(L"Unexcepted node type: should be ast node or token.");
+                        return lex.parser_error(0x0000, L"Unexcepted node type: should be ast node or token.");
                     }
                 }
                 return (ast_base*)defaultAST;
@@ -1273,8 +1262,10 @@ namespace rs
                             node_stack.push(token{ type, out_indentifier });
                             sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
-                        }
 
+                            // std::wcout << "stackin: " << type._to_string() << std::endl;
+                        }
+                        
                     }
                     else if (take_action.act == grammar::action::act_type::reduction)
                     {
@@ -1285,12 +1276,6 @@ namespace rs
                         for (size_t i = red_rule.rule_right_count; i > 0; i--)
                         {
                             size_t index = i - 1;
-
-                            //需要验证？
-                            /*if (sym_stack.top() != red_rule.second[index])
-                            {
-                                return false;
-                            }*/
 
                             state_stack.pop();
                             sym_stack.pop();
@@ -1305,28 +1290,26 @@ namespace rs
 
                         if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
 
-                            ast_base* node;
-                            token tk = { lex_type::l_error };
-                            if (cast_any_to<ast_base*>(astn, node))
+                           if (astn.type() == typeid(token))
                             {
-                                if (ast_default* de_node = dynamic_cast<ast_default*>(node))
-                                {
-                                    if (de_node->stores_terminal && de_node->terminal_token.type == +lex_type::l_error)
-                                        return true;
-                                }
-                            }
-                            else if (cast_any_to<token>(astn, tk))
-                            {
-                                if (tk.type == +lex_type::l_error)
+                                if (std::any_cast<token>(astn).type == +lex_type::l_error)
                                 {
                                     return true;
                                 }
                             }
-
+                            else if (astn.type() == typeid(lex_type))
+                            {
+                                if (std::any_cast<lex_type>(astn) == +lex_type::l_error)
+                                {
+                                    return true;
+                                }
+                            }
+                         
                             return false;
                             }) != bnodes.end())//bnodes包含拒绝表达式
                         {
                             node_stack.push(token{ +lex_type::l_error });
+                            // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
                         }
                         else
                         {
@@ -1336,20 +1319,10 @@ namespace rs
                                 ast_node_->row_no = tkr.next_file_rowno;
                                 ast_node_->col_no = tkr.next_file_colno;
                             }
-
-                            if (ast_base* astbase_node; cast_any_to<ast_base*>(astnode, astbase_node))
-                            {
-                                // 如果节点生成器返回的是ASTError节点，那么说明节点生成时发生了错误
-
-                                // TODO: HERE NEED FIX
-                                if (ast_error* err_node = dynamic_cast<ast_error*>(astbase_node))
-                                    tkr.parser_error(0x0000, err_node->what.c_str());
-                            }
-
                             node_stack.push(astnode);
                         }
 
-                        //std::wcout << "reduce: " << grammar::lr_item{ red_rule,size_t(-1) ,{grammar::ttype::l_eof} } << std::endl;
+                        // std::wcout << "reduce: " << grammar::lr_item{ ORGIN_P[take_action.state] ,size_t(-1) ,{grammar::ttype::l_eof} } << std::endl;
                     }
                     else if (take_action.act == grammar::action::act_type::accept)
                     {
@@ -1370,7 +1343,7 @@ namespace rs
                     }
                     else if (take_action.act == grammar::action::act_type::state_goto)
                     {
-                        //std::wcout << "goto: " << take_action.state << std::endl;
+                        // std::wcout << "goto: " << take_action.state << std::endl;
                         state_stack.push(take_action.state);
                     }
                     else

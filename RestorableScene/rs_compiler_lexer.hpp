@@ -396,8 +396,6 @@ namespace rs
                     describe.data()
                 }
             );
-            skip_error_line();
-
             return lex_type::l_error;
         }
         template<typename ... TS>
@@ -470,7 +468,7 @@ namespace rs
             auto old_next_file_rowno = next_file_rowno;
             auto old_next_file_colno = next_file_colno;
 
-            
+
             peek_result_type = next(&peek_result_str);
             if (out_literal)
                 *out_literal = peek_result_str;
@@ -573,6 +571,15 @@ namespace rs
 
 
 
+        //lex_type next(std::wstring* out_literal)
+        //{
+        //    std::wstring fff;
+        //    auto fffff = _next(&fff);
+        //    if (lex_enable_error_warn)
+        //        std::wcout << ANSI_HIG << "GET! " << fffff._to_string() << " " << fff << ANSI_RST << std::endl;
+        //    if (out_literal)*out_literal = fff;
+        //    return fffff;
+        //}
         lex_type next(std::wstring* out_literal)
         {
             just_have_err = false;
@@ -603,6 +610,15 @@ namespace rs
                 goto re_try_read_next_one;
 
             // //////////////////////////////////////////////////////////////////////////////////
+            if (readed_ch == L'/')
+            {
+                if (peek_one() == L'/')
+                {
+                    // skip this line..
+                    skip_error_line();
+                    goto re_try_read_next_one;
+                }
+            }
 
             if (lex_isdigit(readed_ch))
             {
