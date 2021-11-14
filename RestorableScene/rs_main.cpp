@@ -67,71 +67,29 @@ int main()
     gc::gc_start();
 
     std::wstring src_code = LR"(
-F(1,2,3,);
 
-import system;
-
-func foo1() : integer
-    system::io::println("Helloworld");
-
-func foo2() : integer
-{
-    var a = 55;
-    a = 77 + 55.0;
-}
-
-func foo3() : integer
+namespace emp
 {
 }
 
-func main() : void
-{
-    var ff = 5*(3+9);
-    var _a = 1 + 2 + 3 + 4 + 5 + 6;
-
-    var _b = 56:dynamic;
-
-    _a = nil;
-    _a = 1 + "1.75":real * 25.6;
-    _a = 566 + 434;
-    _a = "Hello" + @"world!"@;
-    _a = nil:array:dynamic;
-    // _a = "Fuckyou"[3];
-
-    var a = nil : map;
-    var b = 2 : real;
-    var c = 2.5;
-    var d = 0xFFFF_0000_0000_0000h : string, e=0, f="hello";
-
-    var e = d:handle;
-    var n = 9:integer;
-    system::math::sin(60:real);
-
-
-    {};
-    {{"val":string, 25565:handle}};
-
-    var m = {};
-    var m1 = {
-                {"name", "joy"},
-                {"age", 19},
-             };
-    var arr = [];
-    var arr1 = [1,2,3,4,];
-    var arr2 = [5,6,7,8,];
-
-    if (this_console_handle != INVALID_HANDLE_VALUE)
+namespace std
+    namespace rs
     {
+        var f = 25;
+        ref r = f;
     }
-}
 
-func foo(var a, var b)
+namespace example
 {
-    a = 25;
-    return a + b;
-
-    foo(a+b, 0);
+    var a = @"Hello"@;
+    var c = "helloworld"[0];
+    var d = c.member:array;
 }
+var b = "world!~";
+
+a+b;
+a=a+b;
+
 
 )";
 
@@ -167,7 +125,7 @@ func foo(var a, var b)
         std::wcout << exp.to_wstring() << std::endl;
     }
 
-    // return 0;
+     return 0;
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////

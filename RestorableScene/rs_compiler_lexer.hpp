@@ -72,6 +72,7 @@ namespace rs
         l_while,
         l_if,
         l_else,
+        l_namespace,
 
         l_var,
         l_ref,
@@ -148,6 +149,7 @@ namespace rs
             {L"ref", {lex_type::l_ref}},
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},
+            {L"namespace", {lex_type::l_namespace}},
         };
 
 
@@ -612,11 +614,42 @@ namespace rs
             // //////////////////////////////////////////////////////////////////////////////////
             if (readed_ch == L'/')
             {
-                if (peek_one() == L'/')
+                int nextch = peek_one();
+                if (nextch == L'/')
                 {
                     // skip this line..
                     skip_error_line();
                     goto re_try_read_next_one;
+                }
+                else if (nextch == L'*')
+                {
+                    next_one();
+                    auto fcol_begin = now_file_colno;
+                    auto frow_begin = now_file_rowno;
+
+                    do
+                    {
+                        int readed_ch = next_one();
+                        if (readed_ch == L'*')
+                        {
+                            if (next_one() == L'/')
+                            {
+                                goto re_try_read_next_one;
+                            }
+                        }
+                        if (readed_ch == EOF)
+                        {
+                            lex_enable_error_warn = true;
+                            now_file_colno= fcol_begin;
+                            now_file_rowno= frow_begin;
+                            lex_error(0x0005, L"Mismatched annotation symbols.");
+                            fcol_begin = now_file_colno;
+                            frow_begin = now_file_rowno;
+                            lex_enable_error_warn = false;// This error only caused once in peek, force error.
+                            goto re_try_read_next_one;
+                        }
+
+                    } while (true);
                 }
             }
 

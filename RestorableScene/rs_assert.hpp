@@ -11,7 +11,6 @@
 #define rs_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
-[[noreturn]]
 static void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     std::cerr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << std::endl;

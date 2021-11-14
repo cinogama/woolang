@@ -107,5 +107,8 @@
     <ClInclude Include="rs_env_locale.hpp">
       <Filter>头文件\environment</Filter>
     </ClInclude>
+    <ClInclude Include="rs_lang.hpp">
+      <Filter>头文件\lang</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

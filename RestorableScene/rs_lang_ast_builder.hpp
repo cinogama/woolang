@@ -156,11 +156,11 @@ namespace rs
             };
         };
 
-        struct ast_literal_value : virtual public ast_value
+        struct ast_value_literal : virtual public ast_value
         {
             value _constant_value;
 
-            ~ast_literal_value()
+            ~ast_value_literal()
             {
                 if (_constant_value.is_gcunit())
                 {
@@ -241,13 +241,13 @@ namespace rs
                 return std::stod(str);
             }
 
-            ast_literal_value()
+            ast_value_literal()
             {
                 is_constant = true;
                 _constant_value.set_nil();
             }
 
-            ast_literal_value(const token& te)
+            ast_value_literal(const token& te)
             {
                 is_constant = true;
 
@@ -313,10 +313,10 @@ namespace rs
             };
         };
 
-        struct ast_type_cast_value : public ast_value
+        struct ast_value_type_cast : public ast_value
         {
             ast_value* _be_cast_value_node;
-            ast_type_cast_value(ast_value* value, ast_type* type)
+            ast_value_type_cast(ast_value* value, ast_type* type)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
@@ -333,11 +333,11 @@ namespace rs
             }
         };
 
-        struct ast_variable : virtual ast_value
+        struct ast_value_variable : virtual ast_value
         {
             std::wstring var_name;
 
-            ast_variable(const std::wstring& _var_name)
+            ast_value_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;
                 value_type = new ast_type(L"pending");
@@ -377,7 +377,7 @@ namespace rs
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
-                space(os, lay); os << L"< " << ANSI_HIY << typeid(*this).name() << ANSI_RST << L" >" << std::endl;
+                space(os, lay); os << L"< " << ANSI_HIY << L"list" << ANSI_RST << L" >" << std::endl;
                 space(os, lay); os << L"{" << std::endl;
                 auto* mychild = children;
                 while (mychild)
@@ -388,11 +388,6 @@ namespace rs
                 }
                 space(os, lay); os << L"}" << std::endl;
             }
-
-        };
-
-        struct ast_comma_list :virtual public ast_list
-        {
 
         };
 
@@ -451,6 +446,42 @@ namespace rs
             }
         };
 
+        struct ast_namespace : virtual public grammar::ast_base
+        {
+            std::wstring scope_name;
+            ast_list* in_scope_sentence;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"namespace: " << scope_name << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                in_scope_sentence->display(os, lay + 1);
+                space(os, lay); os << L"}" << std::endl;
+            }
+        };
+
+        struct ast_varref_defines : virtual public grammar::ast_base
+        {
+            bool is_ref;
+            struct varref_define
+            {
+                std::wstring ident_name;
+                ast_value* init_val;
+            };
+            std::vector<varref_define> var_refs;
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << (is_ref ? L"ref defines" : L"var defines") << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                for (auto& vr_define : var_refs)
+                {
+                    space(os, lay+1); os << vr_define.ident_name << L" = " << std::endl;
+                    vr_define.init_val->display(os, lay + 1);
+                }
+                space(os, lay); os << L"}" << std::endl;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -471,7 +502,80 @@ namespace rs
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 1);
-                return (grammar::ast_base*)new ast_literal_value(RS_NEED_TOKEN(0));
+                return (grammar::ast_base*)new ast_value_literal(RS_NEED_TOKEN(0));
+            }
+        };
+
+        struct pass_namespace :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                if (ast_empty::is_empty(input[2]))
+                    return input[2];
+
+                ast_namespace* result = new ast_namespace();
+                result->scope_name = RS_NEED_TOKEN(1).identifier;
+
+                if (auto* list = dynamic_cast<ast_list*>(RS_NEED_AST(2)))
+                {
+                    result->in_scope_sentence = list;
+                }
+                else
+                {
+                    result->in_scope_sentence = new ast_list();
+                    result->in_scope_sentence->append_at_end(RS_NEED_AST(2));
+                }
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_begin_varref_define :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                ast_varref_defines* result = new ast_varref_defines;
+                result->is_ref = false;
+
+                ast_value* init_val = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                rs_test(init_val);
+
+                result->var_refs.push_back(
+                    { RS_NEED_TOKEN(0).identifier, init_val }
+                );
+
+                return (ast_basic*)result;
+            }
+        };
+        struct pass_add_varref_define :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 5);
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(0));
+
+                ast_value* init_val = dynamic_cast<ast_value*>(RS_NEED_AST(4));
+                rs_test(result && init_val);
+
+                result->var_refs.push_back(
+                    { RS_NEED_TOKEN(2).identifier, init_val }
+                );
+
+                return (ast_basic*)result;
+            }
+        };
+        struct pass_mark_as_ref_define :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(1));
+                rs_test(result);
+
+                result->is_ref = true;
+
+                return (ast_basic*)result;
             }
         };
 
@@ -508,7 +612,7 @@ namespace rs
                     {
                         // just cast the value!
                         value last_value = value_node->get_constant_value();
-                        ast_literal_value* cast_result = new ast_literal_value;
+                        ast_value_literal* cast_result = new ast_value_literal;
 
                         value::valuetype aim_real_type = type_node->value_type;
                         if (type_node->is_dynamic())
@@ -519,7 +623,7 @@ namespace rs
                         {
                             lex.parser_warning(0x0000, L"Overridden 'dynamic' attributes.");
                         }
-                    
+
 
                         switch (aim_real_type)
                         {
@@ -571,7 +675,7 @@ namespace rs
                     }
                     else
                     {
-                        return (ast_basic*)new ast_type_cast_value(value_node, type_node);
+                        return (ast_basic*)new ast_value_type_cast(value_node, type_node);
                     }
                 }
 
@@ -589,7 +693,7 @@ namespace rs
                 token tk = RS_NEED_TOKEN(0);
 
                 if (tk.type == +lex_type::l_identifier)
-                    return (grammar::ast_base*)new ast_variable(tk.identifier);
+                    return (grammar::ast_base*)new ast_value_variable(tk.identifier);
 
 
                 rs_error("Unexcepted token type.");
@@ -597,16 +701,14 @@ namespace rs
             }
         };
 
-        template<typename listtype, size_t first_node>
+        template<size_t first_node>
         struct pass_create_list :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(first_node < input.size());
 
-                static_assert(std::is_base_of<ast_list, listtype>::value);
-
-                listtype* result = new listtype();
+                ast_list* result = new ast_list();
                 if (ast_empty::is_empty(input[first_node]))
                     return (grammar::ast_base*)result;
 
@@ -855,7 +957,7 @@ namespace rs
 
                 if (left_v->is_constant && right_v->is_constant)
                 {
-                    ast_literal_value* const_result = new ast_literal_value();
+                    ast_value_literal* const_result = new ast_value_literal();
                     const_result->value_type = result_type;
 
                     value _left_val = left_v->get_constant_value();
@@ -890,14 +992,18 @@ namespace rs
                         );
                         break;
                     case value::valuetype::string_type:
+                    {
+                        std::string left_str = rs_cast_string((rs_value)&_left_val);
+                        std::string right_str = rs_cast_string((rs_value)&_right_val);
                         const_result->_constant_value.set_string_nogc(
                             binary_operate(lex,
-                                rs_cast_string((rs_value)&_left_val),
-                                rs_cast_string((rs_value)&_right_val),
+                                (rs_string_t)left_str.c_str(),
+                                (rs_string_t)right_str.c_str(),
                                 _token.type
                             )
                         );
-                        break;
+                    }
+                    break;
                     default:
                         return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
                         break;
@@ -916,21 +1022,96 @@ namespace rs
             }
         };
 
+        struct pass_index_op :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() >= 3);
+
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                token _token = RS_NEED_TOKEN(1);
+
+                if (_token.type == +lex_type::l_index_begin)
+                {
+                    ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                    rs_test(left_v && right_v);
+
+                    if (left_v->is_constant && right_v->is_constant)
+                    {
+                        rs_test(left_v->value_type->value_type == value::valuetype::string_type);
+
+                        if (right_v->value_type->value_type != value::valuetype::integer_type
+                            && right_v->value_type->value_type != value::valuetype::handle_type)
+                        {
+                            return lex.parser_error(0x0000, L"Can not index string with this type of value.");
+                        }
+
+                        ast_value_literal* const_result = new ast_value_literal();
+                        const_result->value_type = new ast_type(L"integer");
+                        const_result->_constant_value.set_integer(
+                            (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
+                        );
+
+                        return (grammar::ast_base*)const_result;
+                    }
+
+                    ast_value_binary* vbin = new ast_value_binary();
+                    vbin->left = left_v;
+                    vbin->operate = lex_type::l_index_begin;
+                    vbin->right = right_v;
+                    return (grammar::ast_base*)vbin;
+                }
+                else if (_token.type == +lex_type::l_index_point)
+                {
+                    token right_tk = RS_NEED_TOKEN(2);
+                    rs_test(left_v && right_tk.type == +lex_type::l_identifier);
+
+                    ast_value_literal* const_result = new ast_value_literal();
+                    const_result->value_type = new ast_type(L"string");
+                    const_result->_constant_value.set_string_nogc(
+                        wstr_to_str(right_tk.identifier).c_str()
+                    );
+
+                    ast_value_binary* vbin = new ast_value_binary();
+                    vbin->left = left_v;
+                    vbin->operate = lex_type::l_index_begin;
+                    vbin->right = const_result;
+                    return (grammar::ast_base*)vbin;
+                }
+
+                rs_error("Unexcepted token type.");
+                return lex.parser_error(0x0000, L"Unexcepted token type.");
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+
+            _registed_builder_function_id_list[meta::type_hash<pass_begin_varref_define>]
+                = _register_builder<pass_begin_varref_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>]
+                = _register_builder<pass_add_varref_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_as_ref_define>]
+                = _register_builder<pass_mark_as_ref_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_namespace>]
+                = _register_builder<pass_namespace>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_index_op>]
+                = _register_builder<pass_index_op>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_empty>]
                 = _register_builder<pass_empty>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_binary_op>]
                 = _register_builder<pass_binary_op>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_create_list<ast_comma_list, 0>>]
-                = _register_builder<pass_create_list<ast_comma_list, 0>>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_create_list<ast_list, 0>>]
-                = _register_builder<pass_create_list<ast_list, 0>>();
+            _registed_builder_function_id_list[meta::type_hash<pass_create_list<0>>]
+                = _register_builder<pass_create_list<0>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 0>>]
                 = _register_builder<pass_append_list<1, 0>>();

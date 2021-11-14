@@ -217,8 +217,8 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
 {
     auto _rsvalue = value->get();
 
-    if (value->type == rs::value::valuetype::is_ref)
-        *out_str += "<is_ref>";
+    //if (value->type == rs::value::valuetype::is_ref)
+    //    *out_str += "<is_ref>";
 
     switch (_rsvalue->type)
     {
@@ -320,8 +320,28 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
 rs_string_t rs_cast_string(const rs_value value)
 {
     thread_local std::string _buf;
-
     _buf = "";
+
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    switch (_rsvalue->type)
+    {
+    case rs::value::valuetype::integer_type:
+        _buf = std::to_string(_rsvalue->integer);
+        return _buf.c_str();
+    case rs::value::valuetype::handle_type:
+        _buf = std::to_string(_rsvalue->handle);
+        return _buf.c_str();
+    case rs::value::valuetype::real_type:
+        _buf = std::to_string(_rsvalue->real);
+        return _buf.c_str();
+    case rs::value::valuetype::string_type:
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
+        return _rsvalue->string->c_str();
+    }
+    case rs::value::valuetype::invalid:
+        return "nil";
+    }
 
     std::map<rs::gcbase*, int> _tved_gcunit;
     _rs_cast_string(reinterpret_cast<rs::value*>(value), &_tved_gcunit, false, &_buf, 0);
