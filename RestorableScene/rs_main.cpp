@@ -71,23 +71,31 @@ namespace emp
 {
 }
 
+var xx = std::rs::t = ::example::c;
+
+var edio = xx;
+
 namespace std
     namespace rs
     {
         var f = 25;
-        ref r = f;
+        var r = f;
+        var t = p;
+        var p = 55:real;
     }
+
 
 namespace example
 {
     var a = @"Hello"@;
     var c = "helloworld"[0];
-    var d = c.member:array;
 }
 var b = "world!~";
 
 a+b;
 a=a+b;
+
+var a= example::a;
 
 
 )";
@@ -107,11 +115,19 @@ a=a+b;
 
     std::cout << src_code.size() << "byte  " << (end - beg).count() / 10000000.0f << std::endl;
 
+    rs::lang lng(lx1);
+    lng.analyze_pass1(result);
+    lng.analyze_pass2(result);
+
     if (result)
     {
         std::wcout << " OK!!! " << std::endl;
 
         result->display();
+
+        std::wcout << " PASS 1 " << std::endl;
+
+        
     }
 
     for (auto exp : lx1.lex_error_list)

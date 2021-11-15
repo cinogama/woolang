@@ -430,18 +430,8 @@ namespace rs
 
             just_have_err = true;
 
-            size_t col_no = 0;
-            size_t row_no = 0;
-            while (tree_node)
-            {
-                if (tree_node->row_no)
-                {
-                    row_no = tree_node->row_no;
-                    col_no = tree_node->col_no;
-                    break;
-                }
-                tree_node = tree_node->parent;
-            }
+            size_t row_no = tree_node->row_no;
+            size_t col_no = tree_node->col_no;
 
             size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
             std::vector<wchar_t> describe;
@@ -470,18 +460,8 @@ namespace rs
             describe.resize(needed_sz + 1);
             swprintf(describe.data(), needed_sz + 1, fmt, args...);
 
-            size_t col_no = 0;
-            size_t row_no = 0;
-            while (tree_node)
-            {
-                if (tree_node->row_no)
-                {
-                    row_no = tree_node->row_no;
-                    col_no = tree_node->col_no;
-                    break;
-                }
-                tree_node = tree_node->parent;
-            }
+            size_t row_no = tree_node->row_no;
+            size_t col_no = tree_node->col_no;
 
             lex_error_msg& msg = lex_warn_list.emplace_back(
                 lex_error_msg

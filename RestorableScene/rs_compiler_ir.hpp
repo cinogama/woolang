@@ -162,6 +162,7 @@ namespace rs
                     return val;
 
                 rs_error("Immediate is not integer.");
+                return 0;
             }
         };
 

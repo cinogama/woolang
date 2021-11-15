@@ -338,6 +338,9 @@ namespace rs
         struct ast_value_variable : virtual ast_value
         {
             std::wstring var_name;
+            std::vector<std::wstring> scope_namespaces;
+            bool search_from_global_namespace = false;
+
             lang_symbol* symbol = nullptr;
 
             ast_value_variable(const std::wstring& _var_name)
@@ -345,16 +348,19 @@ namespace rs
                 var_name = _var_name;
                 value_type = new ast_type(L"pending");
             }
-            ~ast_value_variable()
-            {
-                if (symbol)
-                    delete symbol;
-            }
+
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << L"variable: "
-                    << ANSI_HIR
-                    << var_name
+                    << ANSI_HIR;
+
+                if (search_from_global_namespace)
+                    os << "::";
+                for (auto& nspx : scope_namespaces)
+                {
+                    os << nspx << "::";
+                }
+                os << var_name
                     << ANSI_RST
                     << L" : "
                     << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
@@ -480,7 +486,7 @@ namespace rs
                 space(os, lay); os << L"{" << std::endl;
                 for (auto& vr_define : var_refs)
                 {
-                    space(os, lay+1); os << vr_define.ident_name << L" = " << std::endl;
+                    space(os, lay + 1); os << vr_define.ident_name << L" = " << std::endl;
                     vr_define.init_val->display(os, lay + 1);
                 }
                 space(os, lay); os << L"}" << std::endl;
@@ -697,12 +703,62 @@ namespace rs
 
                 token tk = RS_NEED_TOKEN(0);
 
+                rs_test(tk.type == +lex_type::l_identifier);
+                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
+            }
+        };
+
+        struct pass_append_serching_namespace :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+
+                token tk = RS_NEED_TOKEN(1);
+                ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(2));
+
+                rs_assert(tk.type == +lex_type::l_identifier && result);
+
+                result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+
+                return (grammar::ast_base*)result;
+            }
+        };
+
+        struct pass_finalize_serching_namespace :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                token tk = RS_NEED_TOKEN(0);
+                ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
+
+                rs_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
                 if (tk.type == +lex_type::l_identifier)
-                    return (grammar::ast_base*)new ast_value_variable(tk.identifier);
+                {
+                    result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+                }
+                else
+                {
+                    result->search_from_global_namespace = true;
+                }
 
+                return (grammar::ast_base*)result;
+            }
+        };
 
-                rs_error("Unexcepted token type.");
-                return 0;
+        struct pass_variable_in_namespace :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                token tk = RS_NEED_TOKEN(1);
+
+                rs_test(tk.type == +lex_type::l_identifier);
+
+                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
             }
         };
 
@@ -864,6 +920,89 @@ namespace rs
                 }
                 return T{};
             }
+
+            static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
+            {
+                if (left_v->is_dynamic() || right_v->is_dynamic())
+                {
+                    return  new ast_type(L"dynamic");
+                }
+
+                auto left_t = left_v->value_type;
+                auto right_t = right_v->value_type;
+
+                switch (left_t)
+                {
+                case value::valuetype::integer_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"integer");
+                        break;
+                    case value::valuetype::real_type:
+                        return new ast_type(L"real");
+                        break;
+                    case value::valuetype::handle_type:
+                        return new ast_type(L"handle");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::real_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"real");
+                        break;
+                    case value::valuetype::real_type:
+                        return new ast_type(L"real");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::handle_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"handle");
+                        break;
+                    case value::valuetype::handle_type:
+                        return new ast_type(L"handle");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::string_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::string_type:
+                        return new ast_type(L"string");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                default:
+                    return nullptr;
+                    break;
+                }
+            }
+
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() >= 3);
@@ -888,76 +1027,8 @@ namespace rs
                 }
                 else
                 {
-                    switch (left_v->value_type->value_type)
-                    {
-                    case value::valuetype::integer_type:
-                    {
-                        switch (right_v->value_type->value_type)
-                        {
-                        case value::valuetype::integer_type:
-                            result_type = new ast_type(L"integer");
-                            break;
-                        case value::valuetype::real_type:
-                            result_type = new ast_type(L"real");
-                            break;
-                        case value::valuetype::handle_type:
-                            result_type = new ast_type(L"handle");
-                            break;
-                        default:
-                            return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
-                            break;
-                        }
-                        break;
-                    }
-                    case value::valuetype::real_type:
-                    {
-                        switch (right_v->value_type->value_type)
-                        {
-                        case value::valuetype::integer_type:
-                            result_type = new ast_type(L"real");
-                            break;
-                        case value::valuetype::real_type:
-                            result_type = new ast_type(L"real");
-                            break;
-                        default:
-                            return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
-                            break;
-                        }
-                        break;
-                    }
-                    case value::valuetype::handle_type:
-                    {
-                        switch (right_v->value_type->value_type)
-                        {
-                        case value::valuetype::integer_type:
-                            result_type = new ast_type(L"handle");
-                            break;
-                        case value::valuetype::handle_type:
-                            result_type = new ast_type(L"handle");
-                            break;
-                        default:
-                            return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
-                            break;
-                        }
-                        break;
-                    }
-                    case value::valuetype::string_type:
-                    {
-                        switch (right_v->value_type->value_type)
-                        {
-                        case value::valuetype::string_type:
-                            result_type = new ast_type(L"string");
-                            break;
-                        default:
-                            return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
-                            break;
-                        }
-                        break;
-                    }
-                    default:
-                        return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
-                        break;
-                    }
+                    if (nullptr == (result_type = binary_upper_type(left_v->value_type, right_v->value_type)))
+                        lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
                 }
 
                 if (left_v->is_constant && right_v->is_constant)
@@ -1081,6 +1152,9 @@ namespace rs
                     vbin->left = left_v;
                     vbin->operate = lex_type::l_index_begin;
                     vbin->right = const_result;
+
+                    rs_error("boomed! pls use ast_value_index but not binary");
+
                     return (grammar::ast_base*)vbin;
                 }
 
@@ -1093,6 +1167,14 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_finalize_serching_namespace>]
+                = _register_builder<pass_finalize_serching_namespace>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_append_serching_namespace>]
+                = _register_builder<pass_append_serching_namespace>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_variable_in_namespace>]
+                = _register_builder<pass_variable_in_namespace>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_begin_varref_define>]
                 = _register_builder<pass_begin_varref_define>();
