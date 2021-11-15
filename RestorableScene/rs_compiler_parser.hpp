@@ -95,8 +95,19 @@ namespace rs
         {
         private:
             inline thread_local static std::vector<ast_base*> list;
-
+        private:
+            ast_base* last;
         public:
+
+            static void clean_this_thread_ast()
+            {
+                for (auto astnode : list)
+                {
+                    delete astnode;
+                }
+                list.clear();
+            }
+
             ast_base* parent;
             ast_base* children;
             ast_base* sibling;
@@ -108,6 +119,7 @@ namespace rs
                 : parent(nullptr)
                 , children(nullptr)
                 , sibling(nullptr)
+                , last(nullptr)
                 , row_no(0)
                 , col_no(0)
             {
@@ -120,25 +132,19 @@ namespace rs
 
                 ast_node->parent = this;
 
-                if (!children)
+                if (!last)
                 {
-                    children = ast_node;
+                    children = last = ast_node;
                     return;
                 }
 
-                ast_base* childs = children;
-                while (childs)
-                {
-                    if (childs->sibling == nullptr)
-                    {
-                        childs->sibling = ast_node;
-                        return;
-                    }
-                    childs = childs->sibling;
-                }
+                last->sibling = ast_node;
+                last = ast_node;
+
             }
             void remove_child(ast_base* ast_node)
             {
+                // WARNING: THIS FUNCTION HAS NOT BEEN TEST.
                 ast_base* last_childs = nullptr;
                 ast_base* childs = children;
                 while (childs)
@@ -150,9 +156,14 @@ namespace rs
                             last_childs->sibling = childs->sibling;
                             ast_node->parent = nullptr;
                             ast_node->sibling = nullptr;
-
-                            return;
                         }
+                        else
+                            childs = last_childs;
+
+                        if (last == ast_node)
+                            last = last_childs;
+
+                        return;
                     }
 
                     last_childs = childs;
@@ -1265,32 +1276,25 @@ namespace rs
 
                             // std::wcout << "stackin: " << type._to_string() << std::endl;
                         }
-                        
+
                     }
                     else if (take_action.act == grammar::action::act_type::reduction)
                     {
                         auto& red_rule = RT_PRODUCTION[take_action.state];
 
-                        std::vector<std::any> bnodes;
-
+                        std::vector<std::any> bnodes(red_rule.rule_right_count);
                         for (size_t i = red_rule.rule_right_count; i > 0; i--)
                         {
-                            size_t index = i - 1;
-
                             state_stack.pop();
                             sym_stack.pop();
-
-                            bnodes.push_back(node_stack.top());
+                            bnodes[i-1] = std::move(node_stack.top());
                             node_stack.pop();
                         }
-
-                        std::reverse(bnodes.begin(), bnodes.end());
-
                         sym_stack.push(red_rule.production_aim);
 
                         if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
 
-                           if (astn.type() == typeid(token))
+                            if (astn.type() == typeid(token))
                             {
                                 if (std::any_cast<token>(astn).type == +lex_type::l_error)
                                 {
@@ -1304,7 +1308,7 @@ namespace rs
                                     return true;
                                 }
                             }
-                         
+
                             return false;
                             }) != bnodes.end())//bnodes包含拒绝表达式
                         {

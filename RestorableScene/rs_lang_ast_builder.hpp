@@ -333,16 +333,23 @@ namespace rs
             }
         };
 
+        struct lang_symbol;
+
         struct ast_value_variable : virtual ast_value
         {
             std::wstring var_name;
+            lang_symbol* symbol = nullptr;
 
             ast_value_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;
                 value_type = new ast_type(L"pending");
             }
-
+            ~ast_value_variable()
+            {
+                if (symbol)
+                    delete symbol;
+            }
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << L"variable: "
@@ -454,9 +461,7 @@ namespace rs
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << L"namespace: " << scope_name << ANSI_RST << " >" << std::endl;
-                space(os, lay); os << L"{" << std::endl;
-                in_scope_sentence->display(os, lay + 1);
-                space(os, lay); os << L"}" << std::endl;
+                in_scope_sentence->display(os, lay + 0);
             }
         };
 

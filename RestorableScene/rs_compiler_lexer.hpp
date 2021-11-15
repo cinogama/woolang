@@ -422,6 +422,79 @@ namespace rs
             );
         }
 
+        template<typename AstT, typename ... TS>
+        lex_type lang_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
+        {
+            if (!lex_enable_error_warn)
+                return lex_type::l_error;
+
+            just_have_err = true;
+
+            size_t col_no = 0;
+            size_t row_no = 0;
+            while (tree_node)
+            {
+                if (tree_node->row_no)
+                {
+                    row_no = tree_node->row_no;
+                    col_no = tree_node->col_no;
+                    break;
+                }
+                tree_node = tree_node->parent;
+            }
+
+            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
+            std::vector<wchar_t> describe;
+            describe.resize(needed_sz + 1);
+            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            lex_error_msg& msg = lex_error_list.emplace_back(
+                lex_error_msg
+                {
+                    false,
+                    0x1000 + errorno,
+                    row_no,
+                    col_no,
+                    describe.data()
+                }
+            );
+            return lex_type::l_error;
+        }
+        template<typename AstT, typename ... TS>
+        void lang_warning(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
+        {
+            if (!lex_enable_error_warn)
+                return;
+
+            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
+            std::vector<wchar_t> describe;
+            describe.resize(needed_sz + 1);
+            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+
+            size_t col_no = 0;
+            size_t row_no = 0;
+            while (tree_node)
+            {
+                if (tree_node->row_no)
+                {
+                    row_no = tree_node->row_no;
+                    col_no = tree_node->col_no;
+                    break;
+                }
+                tree_node = tree_node->parent;
+            }
+
+            lex_error_msg& msg = lex_warn_list.emplace_back(
+                lex_error_msg
+                {
+                    true,
+                    errorno,
+                    row_no,
+                    col_no,
+                    describe.data()
+                }
+            );
+        }
+
         void reset()
         {
             next_reading_index = (0);
@@ -640,8 +713,8 @@ namespace rs
                         if (readed_ch == EOF)
                         {
                             lex_enable_error_warn = true;
-                            now_file_colno= fcol_begin;
-                            now_file_rowno= frow_begin;
+                            now_file_colno = fcol_begin;
+                            now_file_rowno = frow_begin;
                             lex_error(0x0005, L"Mismatched annotation symbols.");
                             fcol_begin = now_file_colno;
                             frow_begin = now_file_rowno;

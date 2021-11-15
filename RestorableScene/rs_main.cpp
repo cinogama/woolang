@@ -49,7 +49,7 @@ void cost_time_test_gc(rs::vmbase* vm)
 #endif
 
 #include "rs_lang_grammar_loader.hpp"
-
+#include "rs_lang.hpp"
 #include "rs_env_locale.hpp"
 
 int main()
@@ -58,7 +58,6 @@ int main()
     using namespace rs::opnum;
 
     rs::rs_init_locale();
-
 
     std::cout << ANSI_RST;
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
@@ -92,21 +91,21 @@ a=a+b;
 
 
 )";
+    std::chrono::system_clock sc;
 
     rs::lexer lx1(
         src_code
-       );
-
-    std::chrono::system_clock sc;
+    );
 
     auto* rs_grammar = get_rs_grammar();
 
     //rs_grammar->check(lx1);
     //lx1.reset();
-    auto beg = sc.now();   
+    auto beg = sc.now();
     auto result = rs_grammar->gen(lx1);
     auto end = sc.now();
-    std::cout << src_code.size()<<"byte  " <<(end - beg).count() / 10000000.0f << std::endl;
+
+    std::cout << src_code.size() << "byte  " << (end - beg).count() / 10000000.0f << std::endl;
 
     if (result)
     {
@@ -125,7 +124,9 @@ a=a+b;
         std::wcout << exp.to_wstring() << std::endl;
     }
 
-     return 0;
+    grammar::ast_base::clean_this_thread_ast();
+
+    return 0;
 
     vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -234,7 +235,7 @@ a=a+b;
     c14.tag("loop_end");
     c14.end();                                      //      end
 
-   
+
     for (int i = 0; i < 5; i++)
     {
 
@@ -271,7 +272,7 @@ a=a+b;
     vmm.run();
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    
+
     ir_compiler c12;                                // 
     c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
     c12.end();                                      //      end
