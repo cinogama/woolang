@@ -10,6 +10,9 @@
 
 namespace rs
 {
+    struct lang_symbol;
+    struct lang_scope;
+
     namespace ast
     {
 #if 1
@@ -61,8 +64,14 @@ namespace rs
 
         struct ast_type : virtual public grammar::ast_base
         {
+            bool is_function_type = false;
+            bool is_variadic_function_type = false;
+            // if this type is function, following type information will describe the return type;
             std::wstring type_name;
             value::valuetype value_type;
+            bool is_pending_type = false;
+
+            std::vector<ast_type*> argument_types;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
@@ -75,6 +84,7 @@ namespace rs
                 {L"nil", value::valuetype::invalid },
 
                 // special type
+                {L"void", value::valuetype::invalid },
                 {L"pending", value::valuetype::invalid },
                 {L"dynamic", value::valuetype::invalid },
             };
@@ -102,10 +112,48 @@ namespace rs
                 return value::valuetype::invalid;
             }
 
+            static bool cast_able(ast_type* to, ast_type* from)
+            {
+                if (from->is_dynamic() || to->is_dynamic())
+                    return true;
+                if (from->is_pending() || to->is_pending())
+                    return false;
+
+                if(from->is_nil())
+            }
+
+            static bool is_custom_type(const std::wstring& name)
+            {
+                if (name_type_pair.find(name) != name_type_pair.end())
+                    return false;
+                return true;
+            }
+
             ast_type(const std::wstring& _type_name)
             {
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
+                if (is_pending() || (value_type == value::valuetype::invalid && is_custom_type(_type_name)))
+                {
+                    is_pending_type = true;
+                }
+                else
+                {
+                    is_pending_type = false;
+                }
+            }
+
+            void set_as_function_type()
+            {
+                is_function_type = true;
+            }
+            void append_function_argument_type(ast_type* arg_type)
+            {
+                argument_types.push_back(arg_type);
+            }
+            void set_as_variadic_arg_func()
+            {
+                is_variadic_function_type = true;
             }
 
             ast_type(const value& _val)
@@ -120,13 +168,46 @@ namespace rs
             }
             bool is_pending() const
             {
-                return type_name == L"pending";
+                return is_pending_type || type_name == L"pending";
+            }
+            bool is_void() const
+            {
+                return type_name == L"void";
+            }
+            bool is_nil() const
+            {
+                return type_name == L"nil";
             }
             bool is_same(const ast_type* another)const
             {
                 rs_test(!is_pending() && !another->is_pending());
 
                 return type_name == another->type_name;
+            }
+            bool is_func()const
+            {
+                return is_function_type;
+            }
+            std::wstring get_type_name()const
+            {
+                std::wstring result = type_name + (is_pending() ? L"<pending>" : L"");
+                if (is_function_type)
+                {
+                    result += L"(";
+                    for (size_t index = 0; index < argument_types.size(); index++)
+                    {
+                        result += argument_types[index]->get_type_name();
+                        if (index + 1 != argument_types.size() || is_variadic_function_type)
+                            result += L", ";
+                    }
+
+                    if (is_variadic_function_type)
+                    {
+                        result += L"...";
+                    }
+                    result += L")";
+                }
+                return result;
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -136,7 +217,7 @@ namespace rs
                     << L"type"
                     << ANSI_RST
                     << L" : "
-                    << ANSI_HIM << type_name << ANSI_RST << L" >" << std::endl;
+                    << ANSI_HIM << get_type_name() << ANSI_RST << L" >" << std::endl;
             }
         };
 
@@ -296,11 +377,8 @@ namespace rs
                 default:
                     break;
                 }
+                os << ANSI_RST << "(" << ANSI_HIR << value_type->get_type_name() << ANSI_RST << ")";
 
-                if (value_type->is_dynamic())
-                {
-                    os << ANSI_RST << "(" << ANSI_HIR << "dynamic" << ANSI_RST << ")";
-                }
 
                 os << ANSI_RST L" >" << std::endl;
             }
@@ -329,19 +407,24 @@ namespace rs
                 _be_cast_value_node->display(os, lay + 1);
 
                 space(os, lay); os << L"< " << ANSI_HIR << L"to "
-                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+
+                os << L" >" << std::endl;
             }
         };
 
-        struct lang_symbol;
-
-        struct ast_value_variable : virtual ast_value
+        struct ast_value_symbolable_base : virtual ast_value
         {
-            std::wstring var_name;
             std::vector<std::wstring> scope_namespaces;
             bool search_from_global_namespace = false;
 
             lang_symbol* symbol = nullptr;
+            lang_scope* searching_begin_namespace_in_pass2 = nullptr;
+        };
+
+        struct ast_value_variable : virtual ast_value_symbolable_base
+        {
+            std::wstring var_name;
 
             ast_value_variable(const std::wstring& _var_name)
             {
@@ -363,7 +446,7 @@ namespace rs
                 os << var_name
                     << ANSI_RST
                     << L" : "
-                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST << L" >" << std::endl;
             }
         };
 
@@ -493,6 +576,42 @@ namespace rs
             }
         };
 
+        struct ast_value_function_define : virtual ast_value_symbolable_base
+        {
+            std::wstring function_name;
+            ast_list* in_function_sentence;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"func "
+                    << ANSI_HIR;
+
+                if (search_from_global_namespace)
+                    os << "::";
+                for (auto& nspx : scope_namespaces)
+                {
+                    os << nspx << "::";
+                }
+                os << function_name
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
+                os << "{" << std::endl;
+                in_function_sentence->display(os, lay + 1);
+                os << "}" << std::endl;
+            }
+        };
+
+        struct ast_token : grammar::ast_base
+        {
+            token tokens;
+            ast_token(const token& tk)
+                :tokens(tk)
+            {
+
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -505,6 +624,33 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_function_define :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 7 || input.size() == 6);
+
+                auto* ast_func = new ast_value_function_define;
+                if (input.size() == 7)
+                {
+                    // function with name..
+                    ast_func->function_name = RS_NEED_TOKEN(1).identifier;
+                    ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+
+                }
+                else
+                {
+                    // anonymous function
+                    ast_func->function_name = L"anonymous_"; // just get a fucking name
+                    ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                }
+                // many things to do..
+
+                // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
+                return (grammar::ast_base*)ast_func;
             }
         };
 
@@ -590,7 +736,7 @@ namespace rs
             }
         };
 
-        struct pass_type_decl :public astnode_builder
+        /*struct pass_type_decl :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
@@ -606,7 +752,7 @@ namespace rs
                 rs_error("Unexcepted token type.");
                 return 0;
             }
-        };
+        };*/
 
         struct pass_type_cast :public astnode_builder
         {
@@ -634,7 +780,6 @@ namespace rs
                         {
                             lex.parser_warning(0x0000, L"Overridden 'dynamic' attributes.");
                         }
-
 
                         switch (aim_real_type)
                         {
@@ -676,8 +821,15 @@ namespace rs
                             break;
                         default:
                         try_cast_nil_to_int_handle_real_str:
-                            lex.parser_error(0x0000, L"Can not cast this value to '%s'.", type_node->type_name.c_str());
-                            cast_result->_constant_value.set_nil();
+                            if (last_value.is_nil() && type_node->is_func())
+                            {
+
+                            }
+                            else
+                            {
+                                lex.parser_error(0x0000, L"Can not cast this value to '%s'.", type_node->get_type_name().c_str());
+                                cast_result->_constant_value.set_nil();
+                            }
                             break;
                         }
 
@@ -1163,10 +1315,60 @@ namespace rs
             }
         };
 
+        struct pass_build_type :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                token tk = RS_NEED_TOKEN(0);
+                auto* result = new ast_type(tk.identifier);
+                if (ast_empty::is_empty(input[1]))
+                {
+                    return (ast_basic*)result;
+                }
+                else
+                {
+                    result->set_as_function_type();
+                    auto* arg_list = dynamic_cast<ast_list*>(RS_NEED_AST(1));
+                    auto* child = arg_list->children;
+                    while (child)
+                    {
+                        if (auto* type = dynamic_cast<ast_type*>(child))
+                        {
+                            result->append_function_argument_type(type);
+                        }
+                        else
+                        {
+                            auto* tktype = dynamic_cast<ast_token*>(child);
+                            rs_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
+                            //must be last elem..
+
+                            result->set_as_variadic_arg_func();
+                        }
+
+                        child = child->sibling;
+                    }
+                    return (ast_basic*)result;
+                }
+            }
+        };
+
+        struct pass_token :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                return (grammar::ast_base*)new ast_token(RS_NEED_TOKEN(0));
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_token>]
+                = _register_builder<pass_token>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_finalize_serching_namespace>]
                 = _register_builder<pass_finalize_serching_namespace>();
 
@@ -1210,8 +1412,8 @@ namespace rs
             _registed_builder_function_id_list[meta::type_hash<pass_variable>]
                 = _register_builder<pass_variable>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_type_decl>]
-                = _register_builder<pass_type_decl>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_type>]
+                = _register_builder<pass_build_type>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_cast>]
                 = _register_builder<pass_type_cast>();

@@ -69,11 +69,22 @@ int main()
 
 namespace emp
 {
+    func foo(var a:integer, var b:string, ref c:array) : integer
+    {
+        return 25 + a:integer + b:integer;
+    }
 }
 
-var xx = std::rs::t = ::example::c;
+var xx = example::c = std::rs::t;
 
-var edio = xx;
+var fxx1 = nil:void();
+var fxx2 = nil:void(integer);
+var fxx3 = nil:integer(integer);
+var fxx4 = nil:void(integer, array);
+var fxx5 = nil:void(integer, array, ...);
+var fxx6 = nil:void(...);
+
+var fxx7 = fxx6;
 
 namespace std
     namespace rs

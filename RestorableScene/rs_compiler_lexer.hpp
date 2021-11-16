@@ -57,6 +57,8 @@ namespace rs
         l_scopeing,             // ::
         l_typecast,              // :
         l_index_point,          // .
+        l_double_index_point,          // ..  may be used? hey..
+        l_variadic_sign,          // ...
         l_index_begin,          // '['
         l_index_end,            // ']'
 
@@ -133,6 +135,8 @@ namespace rs
             {L",",      {lex_type::l_comma}},
             {L":",      {lex_type::l_typecast}},
             {L".",      {lex_type::l_index_point}},
+            {L"..",      {lex_type::l_double_index_point}},
+            {L"...",      {lex_type::l_variadic_sign}},
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
         };

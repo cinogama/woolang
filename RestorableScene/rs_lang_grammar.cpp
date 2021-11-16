@@ -202,8 +202,43 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
 gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) },
 gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") },
-gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::te(gm::ttype::l_identifier) }
->> RS_ASTBUILDER_INDEX(ast::pass_type_decl),
+gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier),gm::nt(L"FUNC_ARG_TYPES") }
+>> RS_ASTBUILDER_INDEX(ast::pass_build_type),
+
+gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_empty)}
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARG_TYPES_WITH_VARIADIC"),gm::te(gm::ttype::l_right_brackets) }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"VARIADIC_ARG_SIGN") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES"), gm::te(gm::ttype::l_comma) ,gm::nt(L"VARIADIC_ARG_SIGN") }
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"ARG_TYPES"),gm::te(gm::ttype::l_comma),gm::nt(L"TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+
+
+gm::nt(L"VARIADIC_ARG_SIGN") >> gm::symlist{gm::te(gm::ttype::l_variadic_sign) }
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+
+//////////////////////////////////////////////////////////////////////////////////////////////
 
 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
@@ -219,8 +254,10 @@ gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_co
 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier) },
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier) },
+gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") },
+gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") },
+gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)},
+gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)},
 
 //		运算转换，左值可以转化为右值ASTUnary
 

@@ -13,7 +13,6 @@ namespace rs
         {
             variable,
             function,
-
         };
         symbol_type type;
         std::wstring name;
@@ -26,30 +25,28 @@ namespace rs
         };
     };
 
-    class lang
+    struct lang_scope
     {
-    public:
+        bool stop_searching_in_last_scope_flag;
 
-        struct lang_scope
+        enum scope_type
         {
-            bool stop_searching_in_last_scope_flag;
-
-            enum scope_type
-            {
-                namespace_scope,    // namespace xx{}
-                function_scope,     // func xx(){}
-                just_scope,         //{} if{} while{}
-            };
-
-            scope_type type;
-            lang_scope* belong_namespace;
-            std::wstring scope_namespace;
-            std::unordered_map<std::wstring, lang_symbol*> symbols;
-
-            // Only used when this scope is a namespace.
-            std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
+            namespace_scope,    // namespace xx{}
+            function_scope,     // func xx(){}
+            just_scope,         //{} if{} while{}
         };
 
+        scope_type type;
+        lang_scope* belong_namespace;
+        std::wstring scope_namespace;
+        std::unordered_map<std::wstring, lang_symbol*> symbols;
+
+        // Only used when this scope is a namespace.
+        std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
+    };
+
+    class lang
+    {
     private:
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_namespaces; // only used for storing namespaces to release
@@ -74,6 +71,7 @@ namespace rs
             if (ast_namespace* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
             {
                 begin_namespace(a_namespace->scope_name);
+                a_namespace->add_child(a_namespace->in_scope_sentence);
                 grammar::ast_base* child = a_namespace->in_scope_sentence->children;
                 while (child)
                 {
@@ -115,6 +113,10 @@ namespace rs
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
                 }
+                else
+                {
+                    a_value_var->searching_begin_namespace_in_pass2 = now_namespace;
+                }
             }
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
@@ -138,18 +140,7 @@ namespace rs
 
             if (!ast_node)return;
 
-            if (ast_namespace* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
-            {
-                begin_namespace(a_namespace->scope_name);
-                grammar::ast_base* child = a_namespace->in_scope_sentence->children;
-                while (child)
-                {
-                    analyze_pass2(child);
-                    child = child->sibling;
-                }
-                end_namespace();
-            }
-            else if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
+            if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
             {
                 if (a_value->value_type->is_pending())
                 {
@@ -186,17 +177,27 @@ namespace rs
                             a_value_bin->value_type = new ast_type(L"pending");
                         }
                     }
+                    else
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value, L"Unknown type '%s'.", a_value->value_type->get_type_name().c_str());
+                    }
                 }
-            }
-            else
-            {
-                grammar::ast_base* child = ast_node->children;
-                while (child)
+
+                if (ast_value_type_cast * a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
                 {
-                    analyze_pass2(child);
-                    child = child->sibling;
+                    // check: cast is valid?
+                    ast_value * origin_value = a_value_typecast->_be_cast_value_node;
+                    
                 }
             }
+
+            grammar::ast_base* child = ast_node->children;
+            while (child)
+            {
+                analyze_pass2(child);
+                child = child->sibling;
+            }
+
         }
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
@@ -245,6 +246,7 @@ namespace rs
             lang_scopes.push_back(scope);
             return scope;
         }
+
         void end_scope()
         {
             rs_assert(!lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
@@ -252,29 +254,49 @@ namespace rs
             lang_scopes.pop_back();
         }
 
+        lang_scope* begin_function()
+        {
+
+        }
+
         lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val)
         {
             rs_assert(lang_scopes.size());
 
-            lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
-            sym->type = lang_symbol::symbol_type::variable;
-            sym->name = names;
-            sym->variable_value = init_val;
+            if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+            {
+                lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
+                return lang_scopes.back()->symbols[names];
+            }
+            else
+            {
+                lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                sym->type = lang_symbol::symbol_type::variable;
+                sym->name = names;
+                sym->variable_value = init_val;
 
-            /* if (*in_function?) */
-            /*   sym->static_symbol = false; */
-            /* else */
-            sym->static_symbol = true;
+                /* if (*in_function?) */
+                /*   sym->static_symbol = false; */
+                /* else */
+                sym->static_symbol = true;
 
-            lang_symbols.push_back(sym);
-
-            return sym;
+                lang_symbols.push_back(sym);
+                return sym;
+            }
         }
         lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident, lang_symbol::symbol_type need_type, bool ignore_static = false)
         {
             rs_assert(lang_scopes.size());
 
-            auto* searching = var_ident->search_from_global_namespace ? lang_scopes.front() : lang_scopes.back();
+            auto* searching = var_ident->search_from_global_namespace ?
+                lang_scopes.front()
+                :
+                (
+                    var_ident->searching_begin_namespace_in_pass2 ?
+                    var_ident->searching_begin_namespace_in_pass2
+                    :
+                    lang_scopes.back()
+                    );
 
             while (searching)
             {
