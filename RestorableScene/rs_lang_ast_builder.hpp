@@ -66,6 +66,7 @@ namespace rs
         {
             bool is_function_type = false;
             bool is_variadic_function_type = false;
+
             // if this type is function, following type information will describe the return type;
             std::wstring type_name;
             value::valuetype value_type;
@@ -112,14 +113,45 @@ namespace rs
                 return value::valuetype::invalid;
             }
 
-            static bool cast_able(ast_type* to, ast_type* from)
+            static bool check_castable(ast_type* to, ast_type* from)
             {
                 if (from->is_dynamic() || to->is_dynamic())
                     return true;
                 if (from->is_pending() || to->is_pending())
                     return false;
 
-                if(from->is_nil())
+                if (from->is_nil())
+                {
+                    if (to->value_type == value::valuetype::array_type
+                        || to->value_type == value::valuetype::mapping_type
+                        || to->is_func()
+                        || to->is_nil())
+                        return true;
+                    return false;
+                }
+                if (to->is_nil())
+                    return false;
+
+                if (to->value_type == value::valuetype::array_type
+                    || to->value_type == value::valuetype::mapping_type
+                    || to->is_func())
+                {
+                    return to->is_same(from);
+                }
+
+                if (to->value_type == value::valuetype::integer_type
+                    || to->value_type == value::valuetype::real_type
+                    || to->value_type == value::valuetype::handle_type
+                    || to->value_type == value::valuetype::string_type)
+                {
+                    if (from->value_type == value::valuetype::integer_type
+                        || from->value_type == value::valuetype::real_type
+                        || from->value_type == value::valuetype::handle_type
+                        || from->value_type == value::valuetype::string_type)
+                        return true;
+                }
+
+                return false;
             }
 
             static bool is_custom_type(const std::wstring& name)
@@ -182,7 +214,7 @@ namespace rs
             {
                 rs_test(!is_pending() && !another->is_pending());
 
-                return type_name == another->type_name;
+                return get_type_name() == another->get_type_name();
             }
             bool is_func()const
             {
@@ -556,29 +588,43 @@ namespace rs
 
         struct ast_varref_defines : virtual public grammar::ast_base
         {
-            bool is_ref;
             struct varref_define
             {
+                bool is_ref;
                 std::wstring ident_name;
                 ast_value* init_val;
             };
             std::vector<varref_define> var_refs;
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
-                space(os, lay); os << L"< " << ANSI_HIY << (is_ref ? L"ref defines" : L"var defines") << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"< " << ANSI_HIY << L"defines" << ANSI_RST << " >" << std::endl;
                 space(os, lay); os << L"{" << std::endl;
                 for (auto& vr_define : var_refs)
                 {
-                    space(os, lay + 1); os << vr_define.ident_name << L" = " << std::endl;
+                    space(os, lay + 1); os << (vr_define.is_ref ? "ref " : "var ") << vr_define.ident_name << L" = " << std::endl;
                     vr_define.init_val->display(os, lay + 1);
                 }
                 space(os, lay); os << L"}" << std::endl;
             }
         };
 
+        struct ast_arg_define : virtual grammar::ast_base
+        {
+            bool is_ref = false;
+            std::wstring arg_name;
+            ast_type* type;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << (is_ref ? L"ref " : L"var ")
+                    << arg_name << ANSI_HIM << L" (" << type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
+            }
+        };
+
         struct ast_value_function_define : virtual ast_value_symbolable_base
         {
             std::wstring function_name;
+            ast_list* argument_list;
             ast_list* in_function_sentence;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -596,9 +642,9 @@ namespace rs
                     << ANSI_RST
                     << L" : "
                     << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
-                os << "{" << std::endl;
-                in_function_sentence->display(os, lay + 1);
-                os << "}" << std::endl;
+                argument_list->display(os, lay + 1);
+                if (in_function_sentence)
+                    in_function_sentence->display(os, lay + 1);
             }
         };
 
@@ -610,7 +656,14 @@ namespace rs
             {
 
             }
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << tokens << ANSI_RST << L" >" << std::endl;
+            }
+
         };
+
+
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -634,20 +687,47 @@ namespace rs
                 rs_test(input.size() == 7 || input.size() == 6);
 
                 auto* ast_func = new ast_value_function_define;
+                ast_type* return_type = nullptr;
                 if (input.size() == 7)
                 {
                     // function with name..
                     ast_func->function_name = RS_NEED_TOKEN(1).identifier;
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(3));
                     ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
 
                 }
                 else
                 {
                     // anonymous function
                     ast_func->function_name = L"anonymous_"; // just get a fucking name
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(2));
                     ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
                 }
                 // many things to do..
+
+                if (return_type)
+                    ast_func->value_type = return_type;
+                else
+                    ast_func->value_type = new ast_type(L"pending");
+
+                ast_func->value_type->set_as_function_type();
+                auto* argchild = ast_func->argument_list->children;
+                while (argchild)
+                {
+                    if (auto* arg_node = dynamic_cast<ast_arg_define*>(argchild))
+                    {
+                        if (ast_func->value_type->is_variadic_function_type)
+                            return lex.parser_error(0x0000, L"There should be no argument after '...'.");
+
+                        ast_func->value_type->append_function_argument_type(arg_node->type);
+                    }
+                    else if (auto* arg_variadic = dynamic_cast<ast_token*>(argchild))
+                        ast_func->value_type->set_as_variadic_arg_func();
+                    argchild = argchild->sibling;
+                }
+
 
                 // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
                 return (grammar::ast_base*)ast_func;
@@ -693,13 +773,12 @@ namespace rs
             {
                 rs_test(input.size() == 3);
                 ast_varref_defines* result = new ast_varref_defines;
-                result->is_ref = false;
 
                 ast_value* init_val = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 rs_test(init_val);
 
                 result->var_refs.push_back(
-                    { RS_NEED_TOKEN(0).identifier, init_val }
+                    { false,RS_NEED_TOKEN(0).identifier, init_val }
                 );
 
                 return (ast_basic*)result;
@@ -716,7 +795,7 @@ namespace rs
                 rs_test(result && init_val);
 
                 result->var_refs.push_back(
-                    { RS_NEED_TOKEN(2).identifier, init_val }
+                    { false, RS_NEED_TOKEN(2).identifier, init_val }
                 );
 
                 return (ast_basic*)result;
@@ -730,7 +809,10 @@ namespace rs
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(1));
                 rs_test(result);
 
-                result->is_ref = true;
+                for (auto& defines : result->var_refs)
+                {
+                    defines.is_ref = true;
+                }
 
                 return (ast_basic*)result;
             }
@@ -765,7 +847,7 @@ namespace rs
                 if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                     && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-                    if (value_node->is_constant)
+                    if (value_node->is_constant && !type_node->is_pending())
                     {
                         // just cast the value!
                         value last_value = value_node->get_constant_value();
@@ -829,6 +911,9 @@ namespace rs
                             {
                                 lex.parser_error(0x0000, L"Can not cast this value to '%s'.", type_node->get_type_name().c_str());
                                 cast_result->_constant_value.set_nil();
+                                cast_result->value_type = new ast_type(cast_result->_constant_value);
+                                return (ast_basic*)cast_result;
+
                             }
                             break;
                         }
@@ -1079,6 +1164,10 @@ namespace rs
                 {
                     return  new ast_type(L"dynamic");
                 }
+                if (left_v->is_func() || right_v->is_func())
+                {
+                    return nullptr;
+                }
 
                 auto left_t = left_v->value_type;
                 auto right_t = right_v->value_type;
@@ -1180,7 +1269,7 @@ namespace rs
                 else
                 {
                     if (nullptr == (result_type = binary_upper_type(left_v->value_type, right_v->value_type)))
-                        lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
+                        return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
                 }
 
                 if (left_v->is_constant && right_v->is_constant)
@@ -1190,6 +1279,7 @@ namespace rs
 
                     value _left_val = left_v->get_constant_value();
                     value _right_val = right_v->get_constant_value();
+
                     switch (result_type->value_type)
                     {
                     case value::valuetype::integer_type:
@@ -1266,21 +1356,22 @@ namespace rs
 
                     if (left_v->is_constant && right_v->is_constant)
                     {
-                        rs_test(left_v->value_type->value_type == value::valuetype::string_type);
-
-                        if (right_v->value_type->value_type != value::valuetype::integer_type
-                            && right_v->value_type->value_type != value::valuetype::handle_type)
+                        if (left_v->value_type->value_type == value::valuetype::string_type)
                         {
-                            return lex.parser_error(0x0000, L"Can not index string with this type of value.");
+                            if (right_v->value_type->value_type != value::valuetype::integer_type
+                                && right_v->value_type->value_type != value::valuetype::handle_type)
+                            {
+                                return lex.parser_error(0x0000, L"Can not index string with this type of value.");
+                            }
+
+                            ast_value_literal* const_result = new ast_value_literal();
+                            const_result->value_type = new ast_type(L"integer");
+                            const_result->_constant_value.set_integer(
+                                (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
+                            );
+
+                            return (grammar::ast_base*)const_result;
                         }
-
-                        ast_value_literal* const_result = new ast_value_literal();
-                        const_result->value_type = new ast_type(L"integer");
-                        const_result->_constant_value.set_integer(
-                            (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
-                        );
-
-                        return (grammar::ast_base*)const_result;
                     }
 
                     ast_value_binary* vbin = new ast_value_binary();
@@ -1362,10 +1453,33 @@ namespace rs
             }
         };
 
+        struct pass_func_argument :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_arg_define* arg_def = new ast_arg_define;
+                arg_def->is_ref = RS_NEED_TOKEN(0).type == +lex_type::l_ref;
+                arg_def->arg_name = RS_NEED_TOKEN(1).identifier;
+                if (input.size() == 3)
+                    arg_def->type = dynamic_cast<ast_type*>(RS_NEED_AST(2));
+                else
+                    arg_def->type = new ast_type(L"dynamic");
+
+                return (grammar::ast_base*)arg_def;
+            }
+
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_function_define>]
+                = _register_builder<pass_function_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_func_argument>]
+                = _register_builder<pass_func_argument>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_token>]
                 = _register_builder<pass_token>();
 

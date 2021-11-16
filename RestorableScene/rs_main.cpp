@@ -66,47 +66,15 @@ int main()
     gc::gc_start();
 
     std::wstring src_code = LR"(
+// integer(array, integer)  a function return integer..
+// integer(string)(array, integer)          a function return integer(string)
+// dynamic(array, integer)                  * a fucking type
 
-namespace emp
-{
-    func foo(var a:integer, var b:string, ref c:array) : integer
-    {
-        return 25 + a:integer + b:integer;
-    }
-}
-
-var xx = example::c = std::rs::t;
-
-var fxx1 = nil:void();
-var fxx2 = nil:void(integer);
-var fxx3 = nil:integer(integer);
-var fxx4 = nil:void(integer, array);
-var fxx5 = nil:void(integer, array, ...);
-var fxx6 = nil:void(...);
-
-var fxx7 = fxx6;
-
-namespace std
-    namespace rs
-    {
-        var f = 25;
-        var r = f;
-        var t = p;
-        var p = 55:real;
-    }
-
-
-namespace example
-{
-    var a = @"Hello"@;
-    var c = "helloworld"[0];
-}
-var b = "world!~";
-
-a+b;
-a=a+b;
-
-var a= example::a;
+var fxx0 = func(var a:array, var s:string, var d, var f:void(integer), ...) : integer()
+           {
+                return func():integer{return 0;};
+           };
+fxx0 + 0;
 
 
 )";

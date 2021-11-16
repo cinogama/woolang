@@ -183,11 +183,20 @@ namespace rs
                     }
                 }
 
-                if (ast_value_type_cast * a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
+                if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
                 {
                     // check: cast is valid?
-                    ast_value * origin_value = a_value_typecast->_be_cast_value_node;
-                    
+                    ast_value* origin_value = a_value_typecast->_be_cast_value_node;
+                    analyze_pass2(origin_value);
+                    analyze_pass2(a_value_typecast->value_type);
+
+                    if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
+                            origin_value->value_type->get_type_name().c_str(),
+                            a_value_typecast->value_type->get_type_name().c_str()
+                        );
+                    }
                 }
             }
 
