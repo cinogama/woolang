@@ -637,16 +637,15 @@ namespace rs
             }
         };
 
-        struct ast_arg_define : virtual grammar::ast_base
+        struct ast_value_arg_define : virtual ast_value_symbolable_base
         {
             bool is_ref = false;
             std::wstring arg_name;
-            ast_type* type;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << (is_ref ? L"ref " : L"var ")
-                    << arg_name << ANSI_HIM << L" (" << type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
+                    << arg_name << ANSI_HIM << L" (" << value_type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
             }
         };
 
@@ -696,6 +695,7 @@ namespace rs
         struct ast_return : public grammar::ast_base
         {
             ast_value* return_value = nullptr;
+            ast_value_function_define* located_function = nullptr;
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << "return" << ANSI_RST << L" >" << std::endl;
@@ -767,12 +767,12 @@ namespace rs
                 auto* argchild = ast_func->argument_list->children;
                 while (argchild)
                 {
-                    if (auto* arg_node = dynamic_cast<ast_arg_define*>(argchild))
+                    if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
                     {
                         if (ast_func->value_type->is_variadic_function_type)
                             return lex.parser_error(0x0000, L"There should be no argument after '...'.");
 
-                        ast_func->value_type->append_function_argument_type(arg_node->type);
+                        ast_func->value_type->append_function_argument_type(arg_node->value_type);
                     }
                     else if (auto* arg_variadic = dynamic_cast<ast_token*>(argchild))
                         ast_func->value_type->set_as_variadic_arg_func();
@@ -954,7 +954,7 @@ namespace rs
                             break;
                         default:
                         try_cast_nil_to_int_handle_real_str:
-                            if (last_value.is_nil() && type_node->is_func())
+                            if (type_node->is_dynamic() || (last_value.is_nil() && type_node->is_func()))
                             {
 
                             }
@@ -1521,13 +1521,13 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_arg_define* arg_def = new ast_arg_define;
+                ast_value_arg_define* arg_def = new ast_value_arg_define;
                 arg_def->is_ref = RS_NEED_TOKEN(0).type == +lex_type::l_ref;
                 arg_def->arg_name = RS_NEED_TOKEN(1).identifier;
                 if (input.size() == 3)
-                    arg_def->type = dynamic_cast<ast_type*>(RS_NEED_AST(2));
+                    arg_def->value_type = dynamic_cast<ast_type*>(RS_NEED_AST(2));
                 else
-                    arg_def->type = new ast_type(L"dynamic");
+                    arg_def->value_type = new ast_type(L"dynamic");
 
                 return (grammar::ast_base*)arg_def;
             }
@@ -1540,7 +1540,7 @@ namespace rs
         {
             _registed_builder_function_id_list[meta::type_hash<pass_return>]
                 = _register_builder<pass_return>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_function_define>]
                 = _register_builder<pass_function_define>();
 

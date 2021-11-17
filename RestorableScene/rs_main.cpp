@@ -70,15 +70,14 @@ int main()
 // integer(string)(array, integer)          a function return integer(string)
 // dynamic(array, integer)                  * a fucking type
 
-var fxx0 = func(var a:integer, ...) // auto gen return type
-           {
-                return pendingv;        
-           };
+var main = func(var args) : integer
+{
+    return args;
+};
 
-fxx0(ref fxx0);
-
-var pendingv = 25;
-
+var aout = bout;
+var bout = main;
+var dio  = 0:integer:real:string:real:integer;
 
 )";
     std::chrono::system_clock sc;

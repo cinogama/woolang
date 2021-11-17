@@ -4,7 +4,7 @@
 #include "rs_lang_ast_builder.hpp"
 
 #include <unordered_map>
-
+#include <unordered_set>
 namespace rs
 {
     struct lang_symbol
@@ -64,8 +64,31 @@ namespace rs
             begin_namespace(L"");   // global namespace
         }
 
+        std::unordered_set<grammar::ast_base*> traving_node;
+
         void analyze_pass1(grammar::ast_base* ast_node)
         {
+            if (traving_node.find(ast_node) != traving_node.end())
+                return;
+
+            struct traving_guard
+            {
+                lang* _lang;
+                grammar::ast_base* _tving_node;
+                traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
+                    :_tving_node(ast_ndoe)
+                    , _lang(_lg)
+                {
+                    _lang->traving_node.insert(_tving_node);
+                }
+                ~traving_guard()
+                {
+                    _lang->traving_node.erase(_tving_node);
+                }
+            };
+
+            traving_guard g1(this, ast_node);
+
             using namespace ast;
 
             if (!ast_node)return;
@@ -128,8 +151,27 @@ namespace rs
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
                 begin_function(a_value_func);
-                analyze_pass1(a_value_func->in_function_sentence);
-                a_value_func->add_child(a_value_func->in_function_sentence);
+                
+                auto arg_child = a_value_func->argument_list->children;
+                while(arg_child)
+                {
+                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                    {
+                        define_variable_in_this_scope(argdef->arg_name, argdef);
+                    }
+                    else
+                    {
+                        rs_assert(dynamic_cast<ast_token*>(arg_child));
+                    }
+
+                    arg_child = arg_child->sibling;
+                }
+
+                if (a_value_func->in_function_sentence)
+                {
+                    analyze_pass1(a_value_func->in_function_sentence);
+                    a_value_func->add_child(a_value_func->in_function_sentence);
+                }
                 end_function();
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
@@ -137,66 +179,76 @@ namespace rs
                 auto* located_function_scope = in_function();
                 if (!located_function_scope)
                     lang_anylizer->lang_error(0x0000, a_ret, L"Invalid return, cannot do return ouside of function.");
-                else if (a_ret->return_value)
-                {
-                    analyze_pass1(a_ret->return_value);
-
-                    if (a_ret->return_value->value_type->is_pending() == false)
-                    {
-                        auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
-
-                        if (func_return_type->is_pending())
-                        {
-                            if (a_ret->return_value->value_type->is_func())
-                                located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");// do not support function-type
-                            else
-                                located_function_scope->function_node->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
-                        }
-                        else if (located_function_scope->function_node->auto_adjust_return_type)
-                        {
-                            auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
-                            if (mixed_type)
-                            {
-                                located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
-                            }
-                            else
-                            {
-                                located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
-                                lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
-                            }
-                        }
-                        else
-                        {
-                            auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
-                            cast_return_type->col_no = a_ret->col_no;
-                            cast_return_type->row_no = a_ret->row_no;
-
-                            analyze_pass1(cast_return_type);
-
-                            a_ret->return_value = cast_return_type;
-                        }
-                    }
-
-                    a_ret->add_child(a_ret->return_value);
-                }
                 else
                 {
-                    if (located_function_scope->function_node->auto_adjust_return_type)
+                    a_ret->located_function = located_function_scope->function_node;
+                    if (a_ret->return_value)
                     {
-                        if (located_function_scope->function_node->value_type->is_pending())
+                        analyze_pass1(a_ret->return_value);
+
+                        if (a_ret->return_value->value_type->is_pending() == false)
                         {
-                            located_function_scope->function_node->value_type->set_type_with_name(L"void");
-                            located_function_scope->function_node->auto_adjust_return_type = false;
+                            auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
+
+                            if (func_return_type->is_pending())
+                            {
+                                if (a_ret->return_value->value_type->is_func())
+                                    located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");// do not support function-type
+                                else
+                                    located_function_scope->function_node->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
+                            }
+                            else if (located_function_scope->function_node->auto_adjust_return_type)
+                            {
+                                if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                {
+                                    auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                    if (mixed_type)
+                                    {
+                                        located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
+                                    }
+                                    else
+                                    {
+                                        located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
+                                        lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                {
+                                    auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
+                                    cast_return_type->col_no = a_ret->col_no;
+                                    cast_return_type->row_no = a_ret->row_no;
+
+                                    analyze_pass1(cast_return_type);
+
+                                    a_ret->return_value = cast_return_type;
+                                }
+                            }
                         }
-                        else
-                        {
-                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
-                        }
+
+                        a_ret->add_child(a_ret->return_value);
                     }
                     else
                     {
-                        if (!located_function_scope->function_node->value_type->is_void())
-                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                        if (located_function_scope->function_node->auto_adjust_return_type)
+                        {
+                            if (located_function_scope->function_node->value_type->is_pending())
+                            {
+                                located_function_scope->function_node->value_type->set_type_with_name(L"void");
+                                located_function_scope->function_node->auto_adjust_return_type = false;
+                            }
+                            else
+                            {
+                                lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                            }
+                        }
+                        else
+                        {
+                            if (!located_function_scope->function_node->value_type->is_void())
+                                lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                        }
                     }
                 }
 
@@ -214,6 +266,27 @@ namespace rs
 
         void analyze_pass2(grammar::ast_base* ast_node)
         {
+            if (traving_node.find(ast_node) != traving_node.end())
+                return;
+
+            struct traving_guard
+            {
+                lang* _lang;
+                grammar::ast_base* _tving_node;
+                traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
+                    :_tving_node(ast_ndoe)
+                    , _lang(_lg)
+                {
+                    _lang->traving_node.insert(_tving_node);
+                }
+                ~traving_guard()
+                {
+                    _lang->traving_node.erase(_tving_node);
+                }
+            };
+
+            traving_guard g1(this, ast_node);
+
             using namespace ast;
 
             if (!ast_node)return;
@@ -255,6 +328,18 @@ namespace rs
                             a_value_bin->value_type = new ast_type(L"pending");
                         }
                     }
+                    else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
+                    {
+                        if (a_value_funcdef->in_function_sentence)
+                        {
+                            analyze_pass2(a_value_funcdef->in_function_sentence);
+                        }
+                        if (a_value_funcdef->value_type->is_pending())
+                        {
+                            // There is no return in function  return void
+                            a_value_funcdef->value_type->set_type_with_name(L"void");
+                        }
+                    }
                     else
                     {
                         lang_anylizer->lang_error(0x0000, a_value, L"Unknown type '%s'.", a_value->value_type->get_type_name().c_str());
@@ -277,7 +362,80 @@ namespace rs
                     }
                 }
             }
+            else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
+            {
+                if (a_ret->return_value)
+                {
+                    analyze_pass2(a_ret->return_value);
+                    
+                    if (a_ret->return_value->value_type->is_pending())
+                    {
+                        // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
+                    }
+                    else
+                    {
+                        auto* func_return_type = a_ret->located_function->value_type->get_return_type();
 
+                        if (func_return_type->is_pending())
+                        {
+                            if (a_ret->return_value->value_type->is_func())
+                                a_ret->located_function->value_type->set_type_with_name(L"dynamic");// do not support function-type
+                            else
+                                a_ret->located_function->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
+                        }
+                        else if (a_ret->located_function->auto_adjust_return_type)
+                        {
+                            if (!func_return_type->is_same(a_ret->return_value->value_type))
+                            {
+                                auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                if (mixed_type)
+                                {
+                                    a_ret->located_function->value_type->set_type_with_name(mixed_type->type_name);
+                                }
+                                else
+                                {
+                                    a_ret->located_function->value_type->set_type_with_name(L"dynamic");
+                                    lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (!func_return_type->is_same(a_ret->return_value->value_type))
+                            {
+                                auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
+                                cast_return_type->col_no = a_ret->col_no;
+                                cast_return_type->row_no = a_ret->row_no;
+
+                                analyze_pass2(cast_return_type);
+
+                                a_ret->return_value = cast_return_type;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    if (a_ret->located_function->auto_adjust_return_type)
+                    {
+                        if (a_ret->located_function->value_type->is_pending())
+                        {
+                            a_ret->located_function->value_type->set_type_with_name(L"void");
+                            a_ret->located_function->auto_adjust_return_type = false;
+                        }
+                        else
+                        {
+                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", a_ret->located_function->value_type->type_name.c_str());
+                        }
+                    }
+                    else
+                    {
+                        if (!a_ret->located_function->value_type->is_void())
+                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", a_ret->located_function->value_type->type_name.c_str());
+                    }
+                }
+
+            }
             grammar::ast_base* child = ast_node->children;
             while (child)
             {
