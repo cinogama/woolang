@@ -161,10 +161,11 @@ namespace rs
                 return true;
             }
 
-            ast_type(const std::wstring& _type_name)
+            void set_type_with_name(const std::wstring& _type_name)
             {
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
+                is_pending_type = false;// reset state;
                 if (is_pending() || (value_type == value::valuetype::invalid && is_custom_type(_type_name)))
                 {
                     is_pending_type = true;
@@ -174,10 +175,18 @@ namespace rs
                     is_pending_type = false;
                 }
             }
+            ast_type(const std::wstring& _type_name)
+            {
+                set_type_with_name(_type_name);
+            }
 
             void set_as_function_type()
             {
                 is_function_type = true;
+            }
+            ast_type* get_return_type()
+            {
+                return new ast_type(type_name);
             }
             void append_function_argument_type(ast_type* arg_type)
             {
@@ -187,6 +196,7 @@ namespace rs
             {
                 is_variadic_function_type = true;
             }
+
 
             ast_type(const value& _val)
             {
@@ -200,6 +210,14 @@ namespace rs
             }
             bool is_pending() const
             {
+                if (is_func())
+                {
+                    for (auto arg_type : argument_types)
+                    {
+                        if (arg_type->is_pending())
+                            return true;
+                    }
+                }
                 return is_pending_type || type_name == L"pending";
             }
             bool is_void() const
@@ -213,7 +231,16 @@ namespace rs
             bool is_same(const ast_type* another)const
             {
                 rs_test(!is_pending() && !another->is_pending());
-
+                if (is_func())
+                {
+                    if (argument_types.size() != another->argument_types.size())
+                        return false;
+                    for (size_t index = 0; index < argument_types.size(); index++)
+                    {
+                        if (!argument_types[index]->is_same(another->argument_types[index]))
+                            return false;
+                    }
+                }
                 return get_type_name() == another->get_type_name();
             }
             bool is_func()const
@@ -241,6 +268,8 @@ namespace rs
                 }
                 return result;
             }
+
+
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
@@ -626,6 +655,7 @@ namespace rs
             std::wstring function_name;
             ast_list* argument_list;
             ast_list* in_function_sentence;
+            bool auto_adjust_return_type = false;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
@@ -663,7 +693,17 @@ namespace rs
 
         };
 
+        struct ast_return : public grammar::ast_base
+        {
+            ast_value* return_value = nullptr;
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << "return" << ANSI_RST << L" >" << std::endl;
+                if (return_value)
+                    return_value->display(os, lay + 1);
+            }
 
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -700,7 +740,7 @@ namespace rs
                 else
                 {
                     // anonymous function
-                    ast_func->function_name = L"anonymous_"; // just get a fucking name
+                    ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(2));
                     ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(5));
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
@@ -708,9 +748,20 @@ namespace rs
                 // many things to do..
 
                 if (return_type)
+                {
                     ast_func->value_type = return_type;
+                    ast_func->auto_adjust_return_type = false;
+                }
                 else
+                {
                     ast_func->value_type = new ast_type(L"pending");
+                    ast_func->auto_adjust_return_type = true;
+                }
+
+                if (ast_func->value_type->is_func())
+                {
+                    return lex.parser_error(0x0000, L"Function's return type cannot be function-type, please using 'dynamic'.");
+                }
 
                 ast_func->value_type->set_as_function_type();
                 auto* argchild = ast_func->argument_list->children;
@@ -1453,6 +1504,19 @@ namespace rs
             }
         };
 
+        struct pass_return :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_return* result = new ast_return();
+                if (!ast_empty::is_empty(input[1]))
+                {
+                    result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+                }
+                return (grammar::ast_base*)result;
+            }
+        };
+
         struct pass_func_argument :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1474,6 +1538,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_return>]
+                = _register_builder<pass_return>();
+            
             _registed_builder_function_id_list[meta::type_hash<pass_function_define>]
                 = _register_builder<pass_function_define>();
 

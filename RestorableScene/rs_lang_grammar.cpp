@@ -171,10 +171,13 @@ gm::nt(L"REFDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
                             >> RS_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
                                 //变量定义表达式
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"),gm::te(gm::ttype::l_semicolon)},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"),gm::te(gm::ttype::l_semicolon)}
+>> RS_ASTBUILDER_INDEX(ast::pass_return),
 
-gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)},//返回值可以是空产生式
-gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")},//返回值也可以是一个表达式
+gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),//返回值可以是空产生式
+gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),//返回值也可以是一个表达式
 
 //语句与表达式
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon)}
@@ -421,11 +424,17 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"RIGHT") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"MAY_REF_VALUE") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_VALUE") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::nt(L"LEFT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
                 >> RS_ASTBUILDER_INDEX(ast::pass_empty),

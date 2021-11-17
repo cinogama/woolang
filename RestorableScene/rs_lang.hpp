@@ -43,6 +43,8 @@ namespace rs
 
         // Only used when this scope is a namespace.
         std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
+
+        ast::ast_value_function_define* function_node;
     };
 
     class lang
@@ -122,6 +124,82 @@ namespace rs
             {
                 analyze_pass1(a_value_cast->_be_cast_value_node);
                 a_value_cast->add_child(a_value_cast->_be_cast_value_node);
+            }
+            else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
+            {
+                begin_function(a_value_func);
+                analyze_pass1(a_value_func->in_function_sentence);
+                a_value_func->add_child(a_value_func->in_function_sentence);
+                end_function();
+            }
+            else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
+            {
+                auto* located_function_scope = in_function();
+                if (!located_function_scope)
+                    lang_anylizer->lang_error(0x0000, a_ret, L"Invalid return, cannot do return ouside of function.");
+                else if (a_ret->return_value)
+                {
+                    analyze_pass1(a_ret->return_value);
+
+                    if (a_ret->return_value->value_type->is_pending() == false)
+                    {
+                        auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
+
+                        if (func_return_type->is_pending())
+                        {
+                            if (a_ret->return_value->value_type->is_func())
+                                located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");// do not support function-type
+                            else
+                                located_function_scope->function_node->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
+                        }
+                        else if (located_function_scope->function_node->auto_adjust_return_type)
+                        {
+                            auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                            if (mixed_type)
+                            {
+                                located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
+                            }
+                            else
+                            {
+                                located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
+                                lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
+                            }
+                        }
+                        else
+                        {
+                            auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
+                            cast_return_type->col_no = a_ret->col_no;
+                            cast_return_type->row_no = a_ret->row_no;
+
+                            analyze_pass1(cast_return_type);
+
+                            a_ret->return_value = cast_return_type;
+                        }
+                    }
+
+                    a_ret->add_child(a_ret->return_value);
+                }
+                else
+                {
+                    if (located_function_scope->function_node->auto_adjust_return_type)
+                    {
+                        if (located_function_scope->function_node->value_type->is_pending())
+                        {
+                            located_function_scope->function_node->value_type->set_type_with_name(L"void");
+                            located_function_scope->function_node->auto_adjust_return_type = false;
+                        }
+                        else
+                        {
+                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                        }
+                    }
+                    else
+                    {
+                        if (!located_function_scope->function_node->value_type->is_void())
+                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                    }
+                }
+
             }
             else
             {
@@ -258,14 +336,45 @@ namespace rs
 
         void end_scope()
         {
-            rs_assert(!lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
+            rs_assert(lang_scopes.back()->type == lang_scope::scope_type::just_scope);
             delete lang_scopes.back();
             lang_scopes.pop_back();
         }
 
-        lang_scope* begin_function()
+        lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef)
         {
+            lang_scope* scope = new lang_scope;
 
+            scope->stop_searching_in_last_scope_flag = false;
+            scope->type = lang_scope::scope_type::function_scope;
+            scope->belong_namespace = now_namespace;
+            scope->function_node = ast_value_funcdef;
+
+            if (ast_value_funcdef->function_name != L"")
+            {
+                // Not anymous function, define func-symbol..
+                define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef);
+            }
+
+            lang_scopes.push_back(scope);
+            return scope;
+        }
+
+        void end_function()
+        {
+            rs_assert(lang_scopes.back()->type == lang_scope::scope_type::function_scope);
+            delete lang_scopes.back();
+            lang_scopes.pop_back();
+        }
+
+        lang_scope* in_function() const
+        {
+            for (auto rindex = lang_scopes.rbegin(); rindex != lang_scopes.rend(); rindex++)
+            {
+                if ((*rindex)->type == lang_scope::scope_type::function_scope)
+                    return *rindex;
+            }
+            return nullptr;
         }
 
         lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val)
@@ -284,10 +393,10 @@ namespace rs
                 sym->name = names;
                 sym->variable_value = init_val;
 
-                /* if (*in_function?) */
-                /*   sym->static_symbol = false; */
-                /* else */
-                sym->static_symbol = true;
+                if (in_function())
+                    sym->static_symbol = false;
+                else
+                    sym->static_symbol = true;
 
                 lang_symbols.push_back(sym);
                 return sym;

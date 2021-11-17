@@ -70,11 +70,14 @@ int main()
 // integer(string)(array, integer)          a function return integer(string)
 // dynamic(array, integer)                  * a fucking type
 
-var fxx0 = func(var a:array, var s:string, var d, var f:void(integer), ...) : integer()
+var fxx0 = func(var a:integer, ...) // auto gen return type
            {
-                return func():integer{return 0;};
+                return pendingv;        
            };
-fxx0 + 0;
+
+fxx0(ref fxx0);
+
+var pendingv = 25;
 
 
 )";
