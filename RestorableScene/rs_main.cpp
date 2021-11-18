@@ -70,14 +70,26 @@ int main()
 // integer(string)(array, integer)          a function return integer(string)
 // dynamic(array, integer)                  * a fucking type
 
-var main = func(var args) : integer
+func main()
 {
-    return args;
-};
+    return foo();
+}
 
-var aout = bout;
-var bout = main;
-var dio  = 0:integer:real:string:real:integer;
+func foo()
+{
+    return foo2();
+}
+
+func foo2()
+{
+    return foo3(main);
+}
+
+func foo3(var f:integer()) 
+{
+    return nil;
+}
+
 
 )";
     std::chrono::system_clock sc;
@@ -108,7 +120,7 @@ var dio  = 0:integer:real:string:real:integer;
 
         std::wcout << " PASS 1 " << std::endl;
 
-        
+
     }
 
     for (auto exp : lx1.lex_error_list)

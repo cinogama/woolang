@@ -9,7 +9,7 @@
 #define _RS_LSTR(X) L##X
 #define RS_LSTR(X) _RS_LSTR(X)
 
-#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 0
+#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 1
 
 namespace rs
 {
@@ -405,7 +405,7 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier) }
-                >> RS_ASTBUILDER_INDEX(ast::pass_variable_in_namespace),
+                >> RS_ASTBUILDER_INDEX(ast::pass_variable_in_namespace),// TODO HERE SHOULD BE IDENTIF IN NAMESPACE
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier),gm::nt(L"SCOPING_LIST") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_append_serching_namespace),
 
@@ -416,7 +416,8 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
 
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) },
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_function_call),
 
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),

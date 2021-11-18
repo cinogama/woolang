@@ -18,11 +18,8 @@ namespace rs
         std::wstring name;
         bool static_symbol;
 
-        union
-        {
-            ast::ast_value* variable_value;
-            grammar::ast_base* function_define;
-        };
+        ast::ast_value* variable_value;
+        std::vector<ast::ast_value*> function_overload_sets;
     };
 
     struct lang_scope
@@ -151,9 +148,9 @@ namespace rs
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
                 begin_function(a_value_func);
-                
+
                 auto arg_child = a_value_func->argument_list->children;
-                while(arg_child)
+                while (arg_child)
                 {
                     if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
@@ -173,6 +170,21 @@ namespace rs
                     a_value_func->add_child(a_value_func->in_function_sentence);
                 }
                 end_function();
+            }
+            else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
+            {
+                analyze_pass1(a_value_funccall->called_func);
+                analyze_pass1(a_value_funccall->arguments);
+                a_value_funccall->add_child(a_value_funccall->called_func);
+                a_value_funccall->add_child(a_value_funccall->arguments);
+
+                if (a_value_funccall->called_func->value_type->is_func())
+                {
+                    if (!a_value_funccall->called_func->value_type->is_pending())
+                    {
+                        a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
+                    }
+                }
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
@@ -305,6 +317,12 @@ namespace rs
                         {
                             analyze_pass2(sym->variable_value);
                             a_value_var->value_type = sym->variable_value->value_type;
+                            if (a_value_var->value_type->is_pending())
+                            {
+                                if (!a_value_var->value_type->is_pending_function())
+                                    lang_anylizer->lang_error(0x0000, a_value_var, L"Unable to decide value type.");
+                            }
+
                         }
                         else
                         {
@@ -337,7 +355,30 @@ namespace rs
                         if (a_value_funcdef->value_type->is_pending())
                         {
                             // There is no return in function  return void
-                            a_value_funcdef->value_type->set_type_with_name(L"void");
+                            if (a_value_funcdef->auto_adjust_return_type)
+                                a_value_funcdef->value_type->set_type_with_name(L"void");
+                        }
+                    }
+                    else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
+                    {
+                        analyze_pass2(a_value_funccall->called_func);
+                        analyze_pass2(a_value_funccall->arguments);
+                        if (!a_value_funccall->called_func->value_type->is_pending())
+                        {
+                            if (a_value_funccall->called_func->value_type->is_func())
+                            {
+                                a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
+                            }
+                        }
+                        else
+                        {
+                            /*
+                            // for recurrence function callen, this check will cause lang error, just ignore the call type. 
+                            // - if function's type can be judge, it will success outside.
+
+                            if(a_value_funccall->called_func->value_type->is_pending_function())
+                                lang_anylizer->lang_error(0x0000, a_value, L"xxx '%s'.", a_value->value_type->get_type_name().c_str());
+                            */ 
                         }
                     }
                     else
@@ -350,15 +391,53 @@ namespace rs
                 {
                     // check: cast is valid?
                     ast_value* origin_value = a_value_typecast->_be_cast_value_node;
-                    analyze_pass2(origin_value);
                     analyze_pass2(a_value_typecast->value_type);
+                    analyze_pass2(origin_value);
 
-                    if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
+                    if (auto* a_variable_sym = dynamic_cast<ast_value_variable*>(origin_value);
+                        a_variable_sym->value_type->is_pending_function())
                     {
-                        lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
-                            origin_value->value_type->get_type_name().c_str(),
-                            a_value_typecast->value_type->get_type_name().c_str()
-                        );
+                        // this function is in adjust..
+
+                        ast_value* final_adjust_func_overload = nullptr;
+                        if (a_value_typecast->value_type->is_func())
+                        {
+                            auto& func_symbol = a_variable_sym->symbol->function_overload_sets;
+                            if (func_symbol.size())
+                            {
+                                for (auto func_overload : func_symbol)
+                                {
+                                    auto* overload_func = dynamic_cast<ast_value_function_define*>(func_overload);
+                                    if (overload_func->value_type->is_same(a_value_typecast->value_type))
+                                    {
+                                        a_value_typecast->_be_cast_value_node = overload_func;
+                                        break;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // symbol is not a function-symbol, can not do adjust, goto simple-cast;
+                                goto just_do_simple_type_cast;
+                            }
+                        }
+                        if (a_value_typecast->_be_cast_value_node->value_type->is_pending())
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot find overload of '%s' with type '%s' .",
+                                a_variable_sym->var_name.c_str(),
+                                a_value_typecast->value_type->get_type_name().c_str());
+                        }
+                    }
+                    else
+                    {
+                    just_do_simple_type_cast:
+                        if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
+                                origin_value->value_type->get_type_name().c_str(),
+                                a_value_typecast->value_type->get_type_name().c_str()
+                            );
+                        }
                     }
                 }
             }
@@ -367,7 +446,7 @@ namespace rs
                 if (a_ret->return_value)
                 {
                     analyze_pass2(a_ret->return_value);
-                    
+
                     if (a_ret->return_value->value_type->is_pending())
                     {
                         // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
@@ -541,8 +620,37 @@ namespace rs
 
             if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
             {
-                lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
-                return lang_scopes.back()->symbols[names];
+                auto* last_func_symbol = lang_scopes.back()->symbols[names];
+
+                if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val);
+                    func_def
+                    && func_def->function_name != L""
+                    && dynamic_cast<ast::ast_value_function_define*>(last_func_symbol->variable_value)
+                    && dynamic_cast<ast::ast_value_function_define*>(last_func_symbol->variable_value)->function_name != L"")
+                {
+                    if (last_func_symbol->function_overload_sets.empty())
+                    {
+                        last_func_symbol->function_overload_sets.push_back(last_func_symbol->variable_value);
+                    }
+                    last_func_symbol->function_overload_sets.push_back(init_val);
+
+                    auto* pending_function = new ast::ast_value_function_define;
+                    pending_function->value_type = new ast::ast_type(L"pending");
+                    pending_function->value_type->set_as_function_type();
+                    pending_function->value_type->set_as_variadic_arg_func();
+                    pending_function->in_function_sentence = nullptr;
+                    pending_function->auto_adjust_return_type = false;
+                    pending_function->function_name = func_def->function_name;
+                    pending_function->symbol = last_func_symbol;
+                    last_func_symbol->variable_value = pending_function;
+
+                    return last_func_symbol;
+                }
+                else
+                {
+                    lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
+                    return last_func_symbol;
+                }
             }
             else
             {
@@ -608,7 +716,9 @@ namespace rs
                     if (!ignore_static || fnd->second->static_symbol)
                     {
                         if (fnd->second->type == need_type)
-                            return fnd->second;
+                        {
+                            return var_ident->symbol = fnd->second;
+                        }
                     }
                 }
 

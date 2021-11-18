@@ -117,7 +117,14 @@ namespace rs
             {
                 if (from->is_dynamic() || to->is_dynamic())
                     return true;
+
                 if (from->is_pending() || to->is_pending())
+                    return false;
+
+                if (from->is_same(to))
+                    return true;
+
+                if (from->is_func() || to->is_func())
                     return false;
 
                 if (from->is_nil())
@@ -219,6 +226,14 @@ namespace rs
                     }
                 }
                 return is_pending_type || type_name == L"pending";
+            }
+            bool is_pending_function() const
+            {
+                if (is_func())
+                {
+                    return is_pending();
+                }
+                return false;
             }
             bool is_void() const
             {
@@ -705,6 +720,20 @@ namespace rs
 
         };
 
+        struct ast_value_funccall : virtual public ast_value
+        {
+            ast_value* called_func;
+            ast_list* arguments;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << "call" << ANSI_RST << L" >" << std::endl;
+                called_func->display(os, lay+1);
+                space(os, lay); os << L"< " << ANSI_HIY << "args:" << ANSI_RST << L" >" << std::endl;
+                arguments->display(os, lay + 1);
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -782,6 +811,21 @@ namespace rs
 
                 // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
                 return (grammar::ast_base*)ast_func;
+            }
+        };
+
+        struct pass_function_call :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 4);
+
+                auto* result = new ast_value_funccall;
+                result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                result->arguments = dynamic_cast<ast_list*>(RS_NEED_AST(2));
+                result->value_type = result->called_func->value_type->get_return_type(); // just get pending..
+
+                return (ast_basic*)result;
             }
         };
 
@@ -1538,6 +1582,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_function_call>]
+                = _register_builder<pass_function_call>();
+            
             _registed_builder_function_id_list[meta::type_hash<pass_return>]
                 = _register_builder<pass_return>();
 
