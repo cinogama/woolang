@@ -81,7 +81,7 @@ gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(g
  >> RS_ASTBUILDER_INDEX(ast::pass_namespace),
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE_BLOCK")}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
@@ -129,6 +129,7 @@ gm::nt(L"IF") >> gm::symlist{
                         gm::nt(L"SENTENCE"),
                         gm::nt(L"ELSE")
                     },
+
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"SENTENCE")},

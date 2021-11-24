@@ -66,27 +66,15 @@ int main()
     gc::gc_start();
 
     std::wstring src_code = LR"(
-// integer(array, integer)  a function return integer..
-// integer(string)(array, integer)          a function return integer(string)
-// dynamic(array, integer)                  * a fucking type
-
-namespace xx
-    func get_func(var index:int)
-    {
-        return func(var fx){var a=25;return a:real;};
-    }
-
-func main(var args:array)
+func fib(var x:map)
 {
-    var a_func = xx::get_func(0);
-    var v = a_func("str");
-
-    v = 8;
-
-    return (123456:string[2] - 0:string[0]):string;
+   return "ohooo~";
 }
 
-var CONST_VAL = 99;
+var m = nil:map;
+
+var m0 = fib(m);
+var m1 = fib(nil);
 
 )";
     std::chrono::system_clock sc;

@@ -4,7 +4,7 @@
 #include "rs_compiler_parser.hpp"
 
 #define RS_LANG_GRAMMAR_LR1_AUTO_GENED
-#define RS_LANG_GRAMMAR_CRC64 0xa12c386b8b3225c6ull
+#define RS_LANG_GRAMMAR_CRC64 0x7fd977c77570ef35ull
 
 
 namespace rs
@@ -2037,7 +2037,7 @@ const int rslang_origin_p[][7 + 3] = {
    { 6, 0, 3, 5,3,-6,},
    { 4, 23, 1, -7,},
    { 7, 12, 3, 6,3,-4,},
-   { 4, 24, 1, -8,},
+   { 4, 23, 1, -8,},
    { 8, 24, 3, 7,-3,8,},
    { 8, 14, 2, 7,8,},
    { 4, 14, 1, 2,},

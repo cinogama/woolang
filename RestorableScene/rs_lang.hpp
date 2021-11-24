@@ -176,13 +176,7 @@ namespace rs
                 a_value_funccall->add_child(a_value_funccall->called_func);
                 a_value_funccall->add_child(a_value_funccall->arguments);
 
-                if (a_value_funccall->called_func->value_type->is_func())
-                {
-                    if (!a_value_funccall->called_func->value_type->is_pending())
-                    {
-                        a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
-                    }
-                }
+                // function call should be 'pending' type, then do override judgement in pass2
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
@@ -358,6 +352,123 @@ namespace rs
                     {
                         analyze_pass2(a_value_funccall->called_func);
                         analyze_pass2(a_value_funccall->arguments);
+
+                        // judge the function override..
+                        if (a_value_funccall->called_func->value_type->is_pending())
+                        {
+                            // function call for witch overrride not judge. do it.
+                            if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+                            {
+                                rs_test(called_funcsymb->symbol);
+
+                                if (!called_funcsymb->symbol->function_overload_sets.empty())
+                                {
+                                    // have override set, judge with following rule:
+                                    // 1. best match
+                                    // 2. need cast
+                                    // 3. variadic func
+                                    // -  bad match
+
+                                    std::vector<ast_value_function_define*> best_match_sets;
+                                    std::vector<ast_value_function_define*> need_cast_sets;
+                                    std::vector<ast_value_function_define*> best_match_variadic_sets;
+                                    std::vector<ast_value_function_define*> need_cast_variadic_sets;
+
+                                    for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
+                                    {
+                                        auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
+                                        rs_test(override_func);
+
+                                        bool best_match = true;
+
+                                        auto* real_args = a_value_funccall->arguments->children;
+                                        auto* form_args = override_func->argument_list->children;
+                                        while (form_args)
+                                        {
+                                            auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                            auto* real_arg = dynamic_cast<ast_value*>(real_args);
+
+                                            rs_test(real_args == real_arg);
+
+                                            if (!form_arg)
+                                            {
+                                                // variadic..
+                                                if (best_match)
+                                                    best_match_variadic_sets.push_back(override_func);
+                                                else
+                                                    need_cast_variadic_sets.push_back(override_func);
+
+                                                break;
+                                            }
+
+                                            if (!real_arg)
+                                            {
+                                                // real_args count didn't match, break..
+                                                break;
+                                            }
+
+                                            if (real_arg->value_type->is_same(form_arg->value_type))
+                                            {
+                                                // do nothing..
+                                            }
+                                            else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type))
+                                            {
+                                                best_match = false;
+                                            }
+                                            else
+                                            {
+                                                // bad match, break..
+                                                break;
+                                            }
+
+                                            form_args = form_args->sibling;
+                                            real_args = real_args->sibling;
+
+                                            if (form_args == nullptr)
+                                            {
+                                                // finish match check, add it to set
+                                                if (real_args == nullptr)
+                                                {
+                                                    if (best_match)
+                                                        best_match_sets.push_back(override_func);
+                                                    else
+                                                        need_cast_sets.push_back(override_func);
+
+                                                }
+                                                // else: bad match..
+                                            }
+                                        }
+                                    }
+
+                                    std::vector<ast_value_function_define*>* judge_sets = nullptr;
+                                    if (best_match_sets.size())
+                                        judge_sets = &best_match_sets;
+                                    else if (need_cast_sets.size())
+                                        judge_sets = &need_cast_sets;
+                                    else if (best_match_variadic_sets.size())
+                                        judge_sets = &best_match_variadic_sets;
+                                    else if (need_cast_variadic_sets.size())
+                                        judge_sets = &need_cast_variadic_sets;
+
+                                    if (judge_sets)
+                                    {
+                                        if (judge_sets->size() > 1)
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call.");
+                                        else
+                                        {
+                                            a_value_funccall->called_func = judge_sets->front();
+                                            analyze_pass2(a_value_funccall->called_func);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"No matched function override to call.");
+                                    }
+
+                                }
+                            }
+                        }
+
                         if (!a_value_funccall->called_func->value_type->is_pending())
                         {
                             if (a_value_funccall->called_func->value_type->is_func())
@@ -628,39 +739,48 @@ namespace rs
         {
             rs_assert(lang_scopes.size());
 
+            if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
+            {
+                if (func_def->function_name != L"")
+                {
+                    lang_symbol* sym;
+                    if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+                    {
+                        sym = lang_scopes.back()->symbols[names];
+                    }
+                    else
+                    {
+                        sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                        sym->type = lang_symbol::symbol_type::variable;
+                        sym->name = names;
+
+                        auto* pending_function = new ast::ast_value_function_define;
+                        pending_function->value_type = new ast::ast_type(L"pending");
+                        pending_function->value_type->set_as_function_type();
+                        pending_function->value_type->set_as_variadic_arg_func();
+                        pending_function->in_function_sentence = nullptr;
+                        pending_function->auto_adjust_return_type = false;
+                        pending_function->function_name = func_def->function_name;
+                        pending_function->symbol = sym;
+                        sym->variable_value = pending_function;
+                    }
+
+                    if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
+                        && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != L"")
+                    {
+                        sym->function_overload_sets.push_back(func_def);
+                        return sym;
+                    }
+                }
+            }
+
             if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
-                if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val);
-                    func_def
-                    && func_def->function_name != L""
-                    && dynamic_cast<ast::ast_value_function_define*>(last_func_symbol->variable_value)
-                    && dynamic_cast<ast::ast_value_function_define*>(last_func_symbol->variable_value)->function_name != L"")
-                {
-                    if (last_func_symbol->function_overload_sets.empty())
-                    {
-                        last_func_symbol->function_overload_sets.push_back(last_func_symbol->variable_value);
-                    }
-                    last_func_symbol->function_overload_sets.push_back(init_val);
+                lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
+                return last_func_symbol;
 
-                    auto* pending_function = new ast::ast_value_function_define;
-                    pending_function->value_type = new ast::ast_type(L"pending");
-                    pending_function->value_type->set_as_function_type();
-                    pending_function->value_type->set_as_variadic_arg_func();
-                    pending_function->in_function_sentence = nullptr;
-                    pending_function->auto_adjust_return_type = false;
-                    pending_function->function_name = func_def->function_name;
-                    pending_function->symbol = last_func_symbol;
-                    last_func_symbol->variable_value = pending_function;
-
-                    return last_func_symbol;
-                }
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
-                    return last_func_symbol;
-                }
             }
             else
             {

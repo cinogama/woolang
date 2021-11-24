@@ -787,7 +787,12 @@ namespace rs
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << "call" << ANSI_RST << L" >" << std::endl;
-                called_func->display(os, lay + 1);
+                if (auto* fdef = dynamic_cast<ast_value_function_define*>(called_func))
+                {
+                    space(os, lay + 1); os << fdef->function_name << " (" << ANSI_HIM << fdef->value_type->get_type_name() << ANSI_RST << ")" << std::endl;
+                }
+                else
+                    called_func->display(os, lay + 1);
                 space(os, lay); os << L"< " << ANSI_HIY << "args:" << ANSI_RST << L" >" << std::endl;
                 arguments->display(os, lay + 1);
             }
