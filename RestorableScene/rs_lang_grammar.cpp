@@ -9,7 +9,7 @@
 #define _RS_LSTR(X) L##X
 #define RS_LSTR(X) _RS_LSTR(X)
 
-#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 1
+#define RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE 0
 
 namespace rs
 {
@@ -80,14 +80,16 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
 gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(gm::ttype::l_identifier), gm::nt(L"SENTENCE")}
  >> RS_ASTBUILDER_INDEX(ast::pass_namespace),
 
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE_BLOCK")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)}
+gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
                 // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
                 // So, just make a production like this:
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)}
+gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 // NOTE: Why the production can solve the conflict?
 //       A > {}
@@ -104,7 +106,7 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::te(gm::ttype::l_identifier),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
-                        gm::nt(L"SENTENCE")}
+                        gm::nt(L"SENTENCE_BLOCK")}
                         >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
 
@@ -213,7 +215,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
-                        gm::nt(L"SENTENCE") }
+                        gm::nt(L"SENTENCE_BLOCK") }
                         >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
                 // May empty
@@ -228,11 +230,11 @@ gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"T
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier),gm::nt(L"FUNC_ARG_TYPES") }
+gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier)}
 >> RS_ASTBUILDER_INDEX(ast::pass_build_type),
 
-gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_empty)}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPE"),gm::nt(L"FUNC_ARG_TYPES") }
+>> RS_ASTBUILDER_INDEX(ast::pass_build_type),
 
 gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARG_TYPES_WITH_VARIADIC"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
@@ -322,22 +324,21 @@ gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_su
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 // 乘除运算表达式
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR_TYPE_CASTING") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR_TYPE_CASTING") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR_TYPE_CASTING") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-
-//	RIGHT可以作为因子
-gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 // TYPE CASTING..
-gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR"), gm::nt(L"TYPE_DECLEAR") }
+gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
+
+gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -409,14 +410,14 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier),gm::nt(L"SCOPING_LIST") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_append_serching_namespace),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"),gm::te(gm::ttype::l_index_point),gm::te(gm::ttype::l_identifier) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_index_op),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR"),gm::te(gm::ttype::l_index_begin),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_index_end) }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"),gm::te(gm::ttype::l_index_begin),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_index_end) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_index_op),
 
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"FACTOR"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
     >> RS_ASTBUILDER_INDEX(ast::pass_function_call),
 
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }

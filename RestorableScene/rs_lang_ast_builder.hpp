@@ -69,14 +69,18 @@ namespace rs
 
             // if this type is function, following type information will describe the return type;
             std::wstring type_name;
+            ast_type* complex_type = nullptr;
+
             value::valuetype value_type;
             bool is_pending_type = false;
 
             std::vector<ast_type*> argument_types;
 
+
+
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
-                {L"integer", value::valuetype::integer_type },
+                {L"int", value::valuetype::integer_type },
                 {L"handle", value::valuetype::handle_type },
                 {L"real", value::valuetype::real_type },
                 {L"string", value::valuetype::string_type },
@@ -170,10 +174,11 @@ namespace rs
 
             void set_type_with_name(const std::wstring& _type_name)
             {
+                complex_type = nullptr;
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
                 is_pending_type = false;// reset state;
-                if (is_pending() || (value_type == value::valuetype::invalid && is_custom_type(_type_name)))
+                if (is_pending())
                 {
                     is_pending_type = true;
                 }
@@ -182,9 +187,51 @@ namespace rs
                     is_pending_type = false;
                 }
             }
+            void set_type(const ast_type* _type)
+            {
+                *this = *_type;
+            }
+            void set_ret_type(const ast_type* _type)
+            {
+                rs_test(is_func());
+
+                if (_type->is_func())
+                {
+                    type_name = L"complex";
+                    complex_type = new ast_type(*_type);
+                    is_pending_type = false;// reset state;
+                    if (is_pending())
+                    {
+                        is_pending_type = true;
+                    }
+                    else
+                    {
+                        is_pending_type = false;
+                    }
+                }
+                else
+                {
+                    // simplx
+                    set_type_with_name(_type->type_name);
+                }
+            }
+
             ast_type(const std::wstring& _type_name)
             {
                 set_type_with_name(_type_name);
+            }
+            ast_type(const value& _val)
+            {
+                type_name = get_name_from_type(_val.type);
+                value_type = _val.type;
+            }
+            ast_type(ast_type* _val)
+            {
+                // complex_type
+                type_name = L"complex";
+                value_type = value::valuetype::invalid;
+
+                complex_type = _val;
             }
 
             void set_as_function_type()
@@ -193,6 +240,9 @@ namespace rs
             }
             ast_type* get_return_type()
             {
+                if (is_complex())
+                    return new ast_type(*complex_type);
+
                 return new ast_type(type_name);
             }
             void append_function_argument_type(ast_type* arg_type)
@@ -204,16 +254,9 @@ namespace rs
                 is_variadic_function_type = true;
             }
 
-
-            ast_type(const value& _val)
-            {
-                type_name = get_name_from_type(_val.type);
-                value_type = _val.type;
-            }
-
             bool is_dynamic() const
             {
-                return type_name == L"dynamic";
+                return !is_func() && type_name == L"dynamic";
             }
             bool is_pending() const
             {
@@ -225,7 +268,14 @@ namespace rs
                             return true;
                     }
                 }
-                return is_pending_type || type_name == L"pending";
+
+                bool base_type_pending;
+                if (is_complex())
+                    base_type_pending = complex_type->is_pending();
+                else
+                    base_type_pending = type_name == L"pending";
+
+                return is_pending_type || base_type_pending;
             }
             bool is_pending_function() const
             {
@@ -256,15 +306,24 @@ namespace rs
                             return false;
                     }
                 }
-                return get_type_name() == another->get_type_name();
+                if (is_complex() && another->is_complex())
+                    return complex_type->is_same(another->complex_type);
+                else if (!is_complex() && !another->is_complex())
+                    return get_type_name() == another->get_type_name();
+                return false;
             }
             bool is_func()const
             {
                 return is_function_type;
             }
+            bool is_complex()const
+            {
+                return complex_type;
+            }
+
             std::wstring get_type_name()const
             {
-                std::wstring result = type_name + (is_pending() ? L"<pending>" : L"");
+                std::wstring result = (is_complex() ? complex_type->get_type_name() : type_name) + (is_pending() ? L"<pending>" : L"");
                 if (is_function_type)
                 {
                     result += L"(";
@@ -437,7 +496,7 @@ namespace rs
                 switch (_constant_value.type)
                 {
                 case value::valuetype::integer_type:
-                    os << L"integer"; break;
+                    os << L"int"; break;
                 case value::valuetype::real_type:
                     os << L"real"; break;
                 case value::valuetype::handle_type:
@@ -685,7 +744,7 @@ namespace rs
                 os << function_name
                     << ANSI_RST
                     << L" : "
-                    << ANSI_HIM << value_type->type_name << ANSI_RST << L" >" << std::endl;
+                    << ANSI_HIM << value_type->get_return_type()->get_type_name() << ANSI_RST << L" >" << std::endl;
                 argument_list->display(os, lay + 1);
                 if (in_function_sentence)
                     in_function_sentence->display(os, lay + 1);
@@ -728,7 +787,7 @@ namespace rs
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << "call" << ANSI_RST << L" >" << std::endl;
-                called_func->display(os, lay+1);
+                called_func->display(os, lay + 1);
                 space(os, lay); os << L"< " << ANSI_HIY << "args:" << ANSI_RST << L" >" << std::endl;
                 arguments->display(os, lay + 1);
             }
@@ -738,6 +797,9 @@ namespace rs
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
 #define RS_NEED_AST(ID)[&](){ast_basic* nd = nullptr;if(!cast_any_to<ast_basic*>(input[(ID)], nd)) rs_error("Unexcepted ast-node type."); return nd;}()
+
+#define RS_IS_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk))return false; return true;}()
+#define RS_IS_AST(ID)[&](){ast_basic* nd = nullptr;if(!cast_any_to<ast_basic*>(input[(ID)], nd))return false; return true;}()
 
         template<size_t pass_idx>
         struct pass_direct :public astnode_builder
@@ -789,7 +851,7 @@ namespace rs
 
                 if (ast_func->value_type->is_func())
                 {
-                    return lex.parser_error(0x0000, L"Function's return type cannot be function-type, please using 'dynamic'.");
+                    ast_func->value_type = new ast_type(ast_func->value_type); // complex type;;
                 }
 
                 ast_func->value_type->set_as_function_type();
@@ -933,6 +995,88 @@ namespace rs
 
         struct pass_type_cast :public astnode_builder
         {
+            static ast_value* do_cast(lexer& lex, ast_value* value_node, ast_type* type_node)
+            {
+                if (value_node->is_constant && !type_node->is_pending())
+                {
+                    // just cast the value!
+                    value last_value = value_node->get_constant_value();
+                    ast_value_literal* cast_result = new ast_value_literal;
+
+                    value::valuetype aim_real_type = type_node->value_type;
+                    if (type_node->is_dynamic())
+                    {
+                        aim_real_type = last_value.type;
+                    }
+                    else if (value_node->value_type->is_dynamic())
+                    {
+                        lex.lang_warning(0x0000, type_node, L"Overridden 'dynamic' attributes.");
+                    }
+
+                    switch (aim_real_type)
+                    {
+                    case value::valuetype::real_type:
+                        if (last_value.is_nil())
+                            goto try_cast_nil_to_int_handle_real_str;
+                        cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
+                        break;
+                    case value::valuetype::integer_type:
+                        if (last_value.is_nil())
+                            goto try_cast_nil_to_int_handle_real_str;
+                        cast_result->_constant_value.set_integer(rs_cast_integer((rs_value)&last_value));
+                        break;
+                    case value::valuetype::string_type:
+                        if (last_value.is_nil())
+                            goto try_cast_nil_to_int_handle_real_str;
+                        cast_result->_constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
+                        break;
+                    case value::valuetype::handle_type:
+                        if (last_value.is_nil())
+                            goto try_cast_nil_to_int_handle_real_str;
+                        cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
+                        break;
+                    case value::valuetype::mapping_type:
+                        if (last_value.is_nil())
+                        {
+                            cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                            break;
+                        }
+                        goto try_cast_nil_to_int_handle_real_str;
+                        break;
+                    case value::valuetype::array_type:
+                        if (last_value.is_nil())
+                        {
+                            cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
+                            break;
+                        }
+                        goto try_cast_nil_to_int_handle_real_str;
+                        break;
+                    default:
+                    try_cast_nil_to_int_handle_real_str:
+                        if (type_node->is_dynamic() || (last_value.is_nil() && type_node->is_func()))
+                        {
+
+                        }
+                        else
+                        {
+                            lex.lang_error(0x0000, type_node, L"Can not cast this value to '%s'.", type_node->get_type_name().c_str());
+                            cast_result->_constant_value.set_nil();
+                            cast_result->value_type = new ast_type(cast_result->_constant_value);
+                            return cast_result;
+
+                        }
+                        break;
+                    }
+
+                    cast_result->value_type = type_node;
+                    return cast_result;
+                }
+                else
+                {
+                    return new ast_value_type_cast(value_node, type_node);
+                }
+            }
+
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
@@ -942,84 +1086,7 @@ namespace rs
                 if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                     && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-                    if (value_node->is_constant && !type_node->is_pending())
-                    {
-                        // just cast the value!
-                        value last_value = value_node->get_constant_value();
-                        ast_value_literal* cast_result = new ast_value_literal;
-
-                        value::valuetype aim_real_type = type_node->value_type;
-                        if (type_node->is_dynamic())
-                        {
-                            aim_real_type = last_value.type;
-                        }
-                        else if (value_node->value_type->is_dynamic())
-                        {
-                            lex.parser_warning(0x0000, L"Overridden 'dynamic' attributes.");
-                        }
-
-                        switch (aim_real_type)
-                        {
-                        case value::valuetype::real_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
-                            break;
-                        case value::valuetype::integer_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            cast_result->_constant_value.set_integer(rs_cast_integer((rs_value)&last_value));
-                            break;
-                        case value::valuetype::string_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            cast_result->_constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
-                            break;
-                        case value::valuetype::handle_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
-                            break;
-                        case value::valuetype::mapping_type:
-                            if (last_value.is_nil())
-                            {
-                                cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
-                                break;
-                            }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
-                        case value::valuetype::array_type:
-                            if (last_value.is_nil())
-                            {
-                                cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
-                                break;
-                            }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
-                        default:
-                        try_cast_nil_to_int_handle_real_str:
-                            if (type_node->is_dynamic() || (last_value.is_nil() && type_node->is_func()))
-                            {
-
-                            }
-                            else
-                            {
-                                lex.parser_error(0x0000, L"Can not cast this value to '%s'.", type_node->get_type_name().c_str());
-                                cast_result->_constant_value.set_nil();
-                                cast_result->value_type = new ast_type(cast_result->_constant_value);
-                                return (ast_basic*)cast_result;
-
-                            }
-                            break;
-                        }
-
-                        cast_result->value_type = type_node;
-                        return (ast_basic*)cast_result;
-                    }
-                    else
-                    {
-                        return (ast_basic*)new ast_value_type_cast(value_node, type_node);
-                    }
+                    return (ast_basic*)do_cast(lex, value_node, type_node);
                 }
 
                 rs_error("Unexcepted token type.");
@@ -1274,7 +1341,7 @@ namespace rs
                     switch (right_t)
                     {
                     case value::valuetype::integer_type:
-                        return new ast_type(L"integer");
+                        return new ast_type(L"int");
                         break;
                     case value::valuetype::real_type:
                         return new ast_type(L"real");
@@ -1460,7 +1527,7 @@ namespace rs
                             }
 
                             ast_value_literal* const_result = new ast_value_literal();
-                            const_result->value_type = new ast_type(L"integer");
+                            const_result->value_type = new ast_type(L"int");
                             const_result->_constant_value.set_integer(
                                 (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
                             );
@@ -1505,11 +1572,29 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 2);
+                ast_type* result = nullptr;
 
-                token tk = RS_NEED_TOKEN(0);
-                auto* result = new ast_type(tk.identifier);
-                if (ast_empty::is_empty(input[1]))
+                if (RS_IS_TOKEN(0))
+                {
+                    result = new ast_type(RS_NEED_TOKEN(0).identifier);
+                }
+                else
+                {
+                    auto* complex_type = dynamic_cast<ast_type*>(RS_NEED_AST(0));
+                    rs_test(complex_type);
+
+                    if (complex_type->is_func())
+                    {
+                        // complex type;
+                        rs_test(complex_type && input.size() == 2 && !ast_empty::is_empty(input[1]));
+                        result = new ast_type(complex_type);
+                    }
+                    else
+                        result = complex_type;
+
+                }
+
+                if (input.size() == 1 || ast_empty::is_empty(input[1]))
                 {
                     return (ast_basic*)result;
                 }
@@ -1584,7 +1669,7 @@ namespace rs
         {
             _registed_builder_function_id_list[meta::type_hash<pass_function_call>]
                 = _register_builder<pass_function_call>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_return>]
                 = _register_builder<pass_return>();
 

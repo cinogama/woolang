@@ -70,26 +70,23 @@ int main()
 // integer(string)(array, integer)          a function return integer(string)
 // dynamic(array, integer)                  * a fucking type
 
-func main()
+namespace xx
+    func get_func(var index:int)
+    {
+        return func(var fx){var a=25;return a:real;};
+    }
+
+func main(var args:array)
 {
-    return foo();
+    var a_func = xx::get_func(0);
+    var v = a_func("str");
+
+    v = 8;
+
+    return (123456:string[2] - 0:string[0]):string;
 }
 
-func foo()
-{
-    return foo2();
-}
-
-func foo2()
-{
-    return foo3(main);
-}
-
-func foo3(var f:integer()) 
-{
-    return nil;
-}
-
+var CONST_VAL = 99;
 
 )";
     std::chrono::system_clock sc;
@@ -108,19 +105,27 @@ func foo3(var f:integer())
 
     std::cout << src_code.size() << "byte  " << (end - beg).count() / 10000000.0f << std::endl;
 
+    if (result)
+    {
+        std::wcout << "AST_BUILD: " << std::endl;
+        //result->display();
+    }
+
     rs::lang lng(lx1);
     lng.analyze_pass1(result);
+
+    if (result)
+    {
+        std::wcout << "PASS 1: " << std::endl;
+       // result->display();
+    }
+
     lng.analyze_pass2(result);
 
     if (result)
     {
-        std::wcout << " OK!!! " << std::endl;
-
+        std::wcout << "PASS 2: " << std::endl;
         result->display();
-
-        std::wcout << " PASS 1 " << std::endl;
-
-
     }
 
     for (auto exp : lx1.lex_error_list)

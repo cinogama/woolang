@@ -35,6 +35,7 @@ namespace rs
 
         scope_type type;
         lang_scope* belong_namespace;
+        lang_scope* parent_scope;
         std::wstring scope_namespace;
         std::unordered_map<std::wstring, lang_symbol*> symbols;
 
@@ -135,10 +136,7 @@ namespace rs
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
                 }
-                else
-                {
-                    a_value_var->searching_begin_namespace_in_pass2 = now_namespace;
-                }
+                a_value_var->searching_begin_namespace_in_pass2 = now_scope();
             }
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
@@ -204,10 +202,7 @@ namespace rs
 
                             if (func_return_type->is_pending())
                             {
-                                if (a_ret->return_value->value_type->is_func())
-                                    located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");// do not support function-type
-                                else
-                                    located_function_scope->function_node->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
+                                located_function_scope->function_node->value_type->set_ret_type(a_ret->return_value->value_type);
                             }
                             else if (located_function_scope->function_node->auto_adjust_return_type)
                             {
@@ -229,7 +224,8 @@ namespace rs
                             {
                                 if (!func_return_type->is_same(a_ret->return_value->value_type))
                                 {
-                                    auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
+
+                                    auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                     cast_return_type->col_no = a_ret->col_no;
                                     cast_return_type->row_no = a_ret->row_no;
 
@@ -310,8 +306,7 @@ namespace rs
                     if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(a_value))
                     {
                         auto* sym = find_symbol_in_this_scope(a_value_var,
-                            rs::lang_symbol::symbol_type::variable,
-                            true);
+                            rs::lang_symbol::symbol_type::variable);
 
                         if (sym)
                         {
@@ -373,12 +368,12 @@ namespace rs
                         else
                         {
                             /*
-                            // for recurrence function callen, this check will cause lang error, just ignore the call type. 
+                            // for recurrence function callen, this check will cause lang error, just ignore the call type.
                             // - if function's type can be judge, it will success outside.
 
                             if(a_value_funccall->called_func->value_type->is_pending_function())
                                 lang_anylizer->lang_error(0x0000, a_value, L"xxx '%s'.", a_value->value_type->get_type_name().c_str());
-                            */ 
+                            */
                         }
                     }
                     else
@@ -387,7 +382,17 @@ namespace rs
                     }
                 }
 
-                if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
+                //
+                if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
+                {
+                    // return-type adjust complete. do 'return' cast;
+                    a_value_funcdef->auto_adjust_return_type = false;// stop using auto-adjust
+                    if (a_value_funcdef->in_function_sentence)
+                    {
+                        analyze_pass2(a_value_funcdef->in_function_sentence);
+                    }
+                }
+                else if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
                 {
                     // check: cast is valid?
                     ast_value* origin_value = a_value_typecast->_be_cast_value_node;
@@ -395,7 +400,7 @@ namespace rs
                     analyze_pass2(origin_value);
 
                     if (auto* a_variable_sym = dynamic_cast<ast_value_variable*>(origin_value);
-                        a_variable_sym->value_type->is_pending_function())
+                        a_variable_sym && a_variable_sym->value_type->is_pending_function())
                     {
                         // this function is in adjust..
 
@@ -457,10 +462,7 @@ namespace rs
 
                         if (func_return_type->is_pending())
                         {
-                            if (a_ret->return_value->value_type->is_func())
-                                a_ret->located_function->value_type->set_type_with_name(L"dynamic");// do not support function-type
-                            else
-                                a_ret->located_function->value_type->set_type_with_name(a_ret->return_value->value_type->type_name);
+                            a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
                         }
                         else if (a_ret->located_function->auto_adjust_return_type)
                         {
@@ -482,7 +484,7 @@ namespace rs
                         {
                             if (!func_return_type->is_same(a_ret->return_value->value_type))
                             {
-                                auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type);
+                                auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                 cast_return_type->col_no = a_ret->col_no;
                                 cast_return_type->row_no = a_ret->row_no;
 
@@ -542,6 +544,7 @@ namespace rs
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::namespace_scope;
             scope->belong_namespace = now_namespace;
+            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->scope_namespace = scope_namespace;
 
             if (now_namespace)
@@ -566,6 +569,7 @@ namespace rs
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::just_scope;
             scope->belong_namespace = now_namespace;
+            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
 
             lang_scopes.push_back(scope);
             return scope;
@@ -574,7 +578,6 @@ namespace rs
         void end_scope()
         {
             rs_assert(lang_scopes.back()->type == lang_scope::scope_type::just_scope);
-            delete lang_scopes.back();
             lang_scopes.pop_back();
         }
 
@@ -585,6 +588,7 @@ namespace rs
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::function_scope;
             scope->belong_namespace = now_namespace;
+            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->function_node = ast_value_funcdef;
 
             if (ast_value_funcdef->function_name != L"")
@@ -600,8 +604,14 @@ namespace rs
         void end_function()
         {
             rs_assert(lang_scopes.back()->type == lang_scope::scope_type::function_scope);
-            delete lang_scopes.back();
             lang_scopes.pop_back();
+        }
+
+
+        lang_scope* now_scope() const
+        {
+            rs_assert(!lang_scopes.empty());
+            return lang_scopes.back();
         }
 
         lang_scope* in_function() const
@@ -668,7 +678,7 @@ namespace rs
                 return sym;
             }
         }
-        lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident, lang_symbol::symbol_type need_type, bool ignore_static = false)
+        lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident, lang_symbol::symbol_type need_type)
         {
             rs_assert(lang_scopes.size());
 
@@ -713,17 +723,14 @@ namespace rs
                 if (auto fnd = searching->symbols.find(var_ident->var_name);
                     fnd != searching->symbols.end())
                 {
-                    if (!ignore_static || fnd->second->static_symbol)
+                    if (fnd->second->type == need_type)
                     {
-                        if (fnd->second->type == need_type)
-                        {
-                            return var_ident->symbol = fnd->second;
-                        }
+                        return var_ident->symbol = fnd->second;
                     }
                 }
 
             there_is_no_such_namespace:
-                searching = searching->belong_namespace;
+                searching = searching->parent_scope;
             }
 
             return nullptr;

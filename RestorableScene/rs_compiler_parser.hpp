@@ -127,6 +127,9 @@ namespace rs
             }
             void add_child(ast_base* ast_node)
             {
+                if (ast_node->parent == this)
+                    return;
+
                 rs_test(ast_node->parent == nullptr);
                 rs_test(ast_node->sibling == nullptr);
 
