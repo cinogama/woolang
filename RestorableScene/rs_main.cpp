@@ -68,14 +68,31 @@ int main()
     std::wstring src_code = LR"(
 func fib(var x:map)
 {
-   return "ohooo~";
+   return 0;
+}
+func fib(var x:map, ...)
+{
+   return 0:real;
+}
+func fib(...)
+{
+   return nil:array;
+}
+func fib(var x:int)
+{
+    if (x < 2)
+        return 1;
+    else
+        return fib(x-1) + fib(x-2);
 }
 
 var m = nil:map;
+{{"age", 1},{"name", "rscene"},{"uid", 0x1234567890abcdefh}, {"mapping", m}, };
+[1, 2, 3, 4, 5, m];
 
 var m0 = fib(m);
-var m1 = fib(nil);
-
+var m1 = fib(nil, 25);
+var m2 = fib(0);
 )";
     std::chrono::system_clock sc;
 
@@ -105,7 +122,7 @@ var m1 = fib(nil);
     if (result)
     {
         std::wcout << "PASS 1: " << std::endl;
-       // result->display();
+        //result->display();
     }
 
     lng.analyze_pass2(result);

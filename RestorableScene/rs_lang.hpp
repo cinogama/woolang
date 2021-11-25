@@ -371,8 +371,7 @@ namespace rs
 
                                     std::vector<ast_value_function_define*> best_match_sets;
                                     std::vector<ast_value_function_define*> need_cast_sets;
-                                    std::vector<ast_value_function_define*> best_match_variadic_sets;
-                                    std::vector<ast_value_function_define*> need_cast_variadic_sets;
+                                    std::vector<ast_value_function_define*> variadic_sets;
 
                                     for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
                                     {
@@ -393,36 +392,29 @@ namespace rs
                                             if (!form_arg)
                                             {
                                                 // variadic..
-                                                if (best_match)
-                                                    best_match_variadic_sets.push_back(override_func);
+                                                if (nullptr == real_arg) // arg count match, just like best match/ need cast match
+                                                    goto match_check_end_for_variadic_func;
                                                 else
-                                                    need_cast_variadic_sets.push_back(override_func);
+                                                    variadic_sets.push_back(override_func);
 
                                                 break;
                                             }
 
                                             if (!real_arg)
-                                            {
-                                                // real_args count didn't match, break..
-                                                break;
-                                            }
+                                                break;// real_args count didn't match, break..
 
                                             if (real_arg->value_type->is_same(form_arg->value_type))
-                                            {
-                                                // do nothing..
-                                            }
+                                                ;// do nothing..
                                             else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type))
-                                            {
                                                 best_match = false;
-                                            }
                                             else
-                                            {
-                                                // bad match, break..
-                                                break;
-                                            }
+                                                break; // bad match, break..
 
-                                            form_args = form_args->sibling;
+
                                             real_args = real_args->sibling;
+                                        match_check_end_for_variadic_func:
+                                            form_args = form_args->sibling;
+
 
                                             if (form_args == nullptr)
                                             {
@@ -445,15 +437,31 @@ namespace rs
                                         judge_sets = &best_match_sets;
                                     else if (need_cast_sets.size())
                                         judge_sets = &need_cast_sets;
-                                    else if (best_match_variadic_sets.size())
-                                        judge_sets = &best_match_variadic_sets;
-                                    else if (need_cast_variadic_sets.size())
-                                        judge_sets = &need_cast_variadic_sets;
+                                    else if (variadic_sets.size())
+                                        judge_sets = &variadic_sets;
 
                                     if (judge_sets)
                                     {
                                         if (judge_sets->size() > 1)
-                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call.");
+                                        {
+                                            std::wstring acceptable_func;
+                                            for (size_t index = 0; index < judge_sets->size(); index++)
+                                            {
+                                                acceptable_func += L"'" + judge_sets->at(index)->function_name + L"("
+                                                    + judge_sets->at(index)->value_type->get_type_name()
+                                                    + L") at ("
+                                                    + std::to_wstring(judge_sets->at(index)->row_no)
+                                                    + L","
+                                                    + std::to_wstring(judge_sets->at(index)->col_no)
+                                                    + L")";
+
+                                                if (index + 1 != judge_sets->size())
+                                                {
+                                                    acceptable_func += L" or ";
+                                                }
+                                            }
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call. Maybe: %s.", acceptable_func.c_str());
+                                        }
                                         else
                                         {
                                             a_value_funccall->called_func = judge_sets->front();
