@@ -74,6 +74,10 @@ func fib(var x:map, ...)
 {
    return 0:real;
 }
+func fib(var x:array, ...)
+{
+   return x;
+}
 func fib(...)
 {
    return nil:array;

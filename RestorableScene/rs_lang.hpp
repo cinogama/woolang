@@ -447,9 +447,9 @@ namespace rs
                                             std::wstring acceptable_func;
                                             for (size_t index = 0; index < judge_sets->size(); index++)
                                             {
-                                                acceptable_func += L"'" + judge_sets->at(index)->function_name + L"("
+                                                acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
                                                     + judge_sets->at(index)->value_type->get_type_name()
-                                                    + L") at ("
+                                                    + L"' at ("
                                                     + std::to_wstring(judge_sets->at(index)->row_no)
                                                     + L","
                                                     + std::to_wstring(judge_sets->at(index)->col_no)
@@ -460,7 +460,7 @@ namespace rs
                                                     acceptable_func += L" or ";
                                                 }
                                             }
-                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call. Maybe: %s.", acceptable_func.c_str());
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call, maybe: %s.", acceptable_func.c_str());
                                         }
                                         else
                                         {
