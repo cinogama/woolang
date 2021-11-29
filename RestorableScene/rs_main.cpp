@@ -68,20 +68,13 @@ int main()
     std::wstring src_code = LR"(
 func fib(var x:map)
 {
-   return 0;
-}
-func fib(var x:map, ...)
-{
    return 0:real;
 }
-func fib(var x:array, ...)
+func fib(var x:array)
 {
    return x;
 }
-func fib(...)
-{
-   return nil:array;
-}
+
 func fib(var x:int)
 {
     if (x < 2)
@@ -90,12 +83,22 @@ func fib(var x:int)
         return fib(x-1) + fib(x-2);
 }
 
-var m = nil:map;
-{{"age", 1},{"name", "rscene"},{"uid", 0x1234567890abcdefh}, {"mapping", m}, };
-[1, 2, 3, 4, 5, m];
+func fib(var d)
+{
+    return d;
+}
 
-var m0 = fib(m);
-var m1 = fib(nil, 25);
+var m = {
+            {"age", 1},
+            {"name", "rscene"},
+            {"uid", 0x1234567890abcdefh}, 
+            {"mapping", m}, 
+        };
+
+var a1 = [1, 2, 3, 4, 5, m];
+
+var m0 = fib(m:map);
+var m1 = fib(a1);
 var m2 = fib(0);
 )";
     std::chrono::system_clock sc;

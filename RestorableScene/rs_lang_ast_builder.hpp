@@ -798,6 +798,41 @@ namespace rs
             }
         };
 
+        struct ast_value_array : virtual public ast_value
+        {
+            ast_list* array_items;
+            ast_value_array(ast_list* _items)
+                :array_items(_items)
+            {
+                rs_test(array_items);
+                value_type = new ast_type(L"array");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << "array" << ANSI_RST << L" >" << std::endl;
+                array_items->display(os, lay + 1);
+            }
+        };
+
+        struct ast_value_mapping:virtual public ast_value
+        {
+            ast_list* mapping_pairs;
+
+            ast_value_mapping(ast_list* _items)
+                :mapping_pairs(_items)
+            {
+                rs_test(mapping_pairs);
+                value_type = new ast_type(L"map");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << "map" << ANSI_RST << L" >" << std::endl;
+                mapping_pairs->display(os, lay + 1);
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -813,6 +848,24 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_map_builder : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(RS_NEED_AST(1)));         
+            }
+        };
+
+        struct pass_array_builder : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(RS_NEED_AST(1)));
             }
         };
 
@@ -1672,6 +1725,12 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_map_builder>]
+                = _register_builder<pass_map_builder>();
+           
+            _registed_builder_function_id_list[meta::type_hash<pass_array_builder>]
+                = _register_builder<pass_array_builder>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_function_call>]
                 = _register_builder<pass_function_call>();
 

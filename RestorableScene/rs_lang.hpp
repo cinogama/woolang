@@ -178,6 +178,16 @@ namespace rs
 
                 // function call should be 'pending' type, then do override judgement in pass2
             }
+            else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
+            {
+                analyze_pass1(a_value_arr->array_items);
+                a_value_arr->add_child(a_value_arr->array_items);
+            }
+            else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
+            {
+                analyze_pass1(a_value_map->mapping_pairs);
+                a_value_map->add_child(a_value_map->mapping_pairs);
+            }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
                 auto* located_function_scope = in_function();
@@ -563,6 +573,14 @@ namespace rs
                             );
                         }
                     }
+                }
+                else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(a_value))
+                {
+                    analyze_pass2(a_value_arr->array_items);
+                }
+                else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
+                {
+                    analyze_pass2(a_value_map->mapping_pairs);
                 }
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
