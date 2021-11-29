@@ -62,9 +62,12 @@ namespace rs
 gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")},
 gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")},
 
-gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"PARAGRAPH"),gm::nt(L"SENTENCE")}
+gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_LIST")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE_LIST"),gm::nt(L"SENTENCE")}
 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
-gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE")}
+gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE")}
 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)},
@@ -73,18 +76,20 @@ gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
 
-
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(gm::ttype::l_identifier), gm::nt(L"SENTENCE")}
  >> RS_ASTBUILDER_INDEX(ast::pass_namespace),
 
+gm::nt(L"BLOCKED_SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
+
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE_BLOCK")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces)}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+ >> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
 
                 // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
                 // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
@@ -111,28 +116,31 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
 
 
                 //WHILE语句
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"WHILE")},
-                gm::nt(L"WHILE") >> gm::symlist{
-                                        gm::te(gm::ttype::l_while),
-                                        gm::te(gm::ttype::l_left_brackets),
-                                        gm::nt(L"EXPRESSION"),
-                                        gm::te(gm::ttype::l_right_brackets),
-                                        gm::nt(L"SENTENCE")
-                                    },
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"WHILE")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"WHILE") >> gm::symlist{
+                        gm::te(gm::ttype::l_while),
+                        gm::te(gm::ttype::l_left_brackets),
+                        gm::nt(L"EXPRESSION"),
+                        gm::te(gm::ttype::l_right_brackets),
+                        gm::nt(L"BLOCKED_SENTENCE")
+                    },
                 //IF语句
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 gm::nt(L"IF") >> gm::symlist{
                         gm::te(gm::ttype::l_if),
                         gm::te(gm::ttype::l_left_brackets),
                         gm::nt(L"EXPRESSION"),
                         gm::te(gm::ttype::l_right_brackets),
-                        gm::nt(L"SENTENCE"),
+                        gm::nt(L"BLOCKED_SENTENCE"),
                         gm::nt(L"ELSE")
                     },
 
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
-gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"SENTENCE")},
+gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"BLOCKED_SENTENCE")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 //变量定义表达式
 gm::nt(L"SENTENCE") >> gm::symlist{

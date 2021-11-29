@@ -741,19 +741,6 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
-        void movr2i(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not move value to immediate.");
-
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::movr2i, RS_OPNUM(op1), RS_OPNUM(op2));
-        }
-
-        template<typename OP1T, typename OP2T>
         void lds(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -777,9 +764,9 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ldsr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-
+   
         template<typename OP1T, typename OP2T>
-        void movi2r(const OP1T& op1, const OP2T& op2)
+        void movcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -788,11 +775,10 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not move value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::movi2r, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::movcast, RS_OPNUM(op1), RS_OPNUM(op2), (int)vtt);
         }
-
         template<typename OP1T, typename OP2T>
-        void setr2i(const OP1T& op1, const OP2T& op2)
+        void setcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -801,20 +787,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::setr2i, RS_OPNUM(op1), RS_OPNUM(op2));
-        }
-
-        template<typename OP1T, typename OP2T>
-        void seti2r(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set value to immediate.");
-
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::seti2r, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::movcast, RS_OPNUM(op1), RS_OPNUM(op2), (int)vtt);
         }
 
         template<typename OP1T>
@@ -1084,26 +1057,19 @@ namespace rs
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;
 
-                case instruct::opcode::movi2r:
-                    runtime_command_buffer.push_back(RS_OPCODE(movi2r));
+                case instruct::opcode::movcast:
+                    runtime_command_buffer.push_back(RS_OPCODE(movcast));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     break;
-                case instruct::opcode::movr2i:
-                    runtime_command_buffer.push_back(RS_OPCODE(movr2i));
+                case instruct::opcode::setcast:
+                    runtime_command_buffer.push_back(RS_OPCODE(setcast));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     break;
-                case instruct::opcode::seti2r:
-                    runtime_command_buffer.push_back(RS_OPCODE(seti2r));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    break;
-                case instruct::opcode::setr2i:
-                    runtime_command_buffer.push_back(RS_OPCODE(setr2i));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    break;
+               
                 case instruct::opcode::psh:
                     runtime_command_buffer.push_back(RS_OPCODE(psh));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);

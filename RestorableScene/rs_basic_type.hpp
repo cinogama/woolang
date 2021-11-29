@@ -90,7 +90,7 @@ namespace rs
             // std::atomic_uint8_t atomic_type;
         };
 
-        inline value* get()
+        inline value* get() const
         {
             if (type == valuetype::is_ref)
             {
@@ -98,52 +98,62 @@ namespace rs
                     "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
                 return ref;
             }
-            return this;
+            return const_cast<value*>(this);
         }
 
-        inline void set_gcunit_with_barrier(valuetype gcunit_type)
+        inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
             *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
             *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
+
+            return this;
         }
 
-        inline void set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
+        inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
             *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
             *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
             *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = gcunit_ptr;
+
+            return this;
         }
 
-        inline void set_string(const char* str)
+        inline value* set_string(const char* str)
         {
             set_gcunit_with_barrier(valuetype::string_type);
             string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
+            return this;
         }
-        inline void set_string_nogc(const char* str)
+        inline value* set_string_nogc(const char* str)
         {
             // You must 'delete' it manual
             set_gcunit_with_barrier(valuetype::string_type);
             string_t::gc_new<gcbase::gctype::no_gc>(gcunit, str);
+            return this;
         }
-        inline void set_integer(rs_integer_t val)
+        inline value* set_integer(rs_integer_t val)
         {
             type = valuetype::integer_type;
             integer = val;
+            return this;
         }
-        inline void set_real(rs_real_t val)
+        inline value* set_real(rs_real_t val)
         {
             type = valuetype::real_type;
             real = val;
+            return this;
         }
-        inline void set_handle(rs_handle_t val)
+        inline value* set_handle(rs_handle_t val)
         {
             type = valuetype::handle_type;
             handle = val;
+            return this;
         }
-        inline void set_nil()
+        inline value* set_nil()
         {
             type = valuetype::invalid;
             handle = 0;
+            return this;
         }
         inline bool is_nil() const
         {
@@ -195,6 +205,30 @@ namespace rs
             }
 
             return this;
+        }
+
+        inline std::string get_type_name() const
+        {
+            switch (type)
+            {
+            case valuetype::integer_type:
+                return "int";
+            case valuetype::real_type:
+                return "real";
+            case valuetype::handle_type:
+                return "handle";
+            case valuetype::string_type:
+                return "string";
+            case valuetype::array_type:
+                return "array";
+            case valuetype::mapping_type:
+                return "map";
+            case valuetype::is_ref:
+                return get()->get_type_name();
+            default:
+                rs_fail(RS_ERR_TYPE_FAIL, "Unknown type name.");
+                return "unknown";
+            }
         }
     };
     static_assert(sizeof(value) == 16);

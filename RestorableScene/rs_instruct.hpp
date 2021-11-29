@@ -43,7 +43,7 @@ struct instruct
         adds = 15 RS_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
 
         psh = 16 RS_OPCODE_SPACE,    // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
-        pop = 17 RS_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       3-5 byte
+        pop = 17 RS_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       2-5 byte
         pshr = 18 RS_OPCODE_SPACE,  // pshr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
         popr = 19 RS_OPCODE_SPACE,  // popr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
 
@@ -80,10 +80,11 @@ struct instruct
         jf = 43 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
         jmp = 44 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-        movr2i = 45 RS_OPCODE_SPACE,
-        movi2r = 46 RS_OPCODE_SPACE,
-        setr2i = 47 RS_OPCODE_SPACE,
-        seti2r = 48 RS_OPCODE_SPACE,
+        movcast = 45 RS_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+        setcast = 46 RS_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+        movx = 47 RS_OPCODE_SPACE,      // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+        
+        RESERVED_0 = 48 RS_OPCODE_SPACE,      //
 
         // exception handler
         veh = 49 RS_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
@@ -102,7 +103,7 @@ struct instruct
         mkmap = 55 RS_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
         idx = 56 RS_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
-        movx = 57 RS_OPCODE_SPACE,       // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+        RESERVED_1 = 57 RS_OPCODE_SPACE,       // 
         
         addx = 58 RS_OPCODE_SPACE,      // addx(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
         subx = 59 RS_OPCODE_SPACE,      // subx

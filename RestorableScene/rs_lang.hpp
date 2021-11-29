@@ -265,6 +265,12 @@ namespace rs
                 }
 
             }
+            else if (ast_sentence_block* a_sentence_blk = dynamic_cast<ast_sentence_block*>(ast_node))
+            {
+                this->begin_scope();
+                analyze_pass1(a_sentence_blk->sentence_list);
+                this->end_scope();
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -653,6 +659,10 @@ namespace rs
                     }
                 }
 
+            }
+            else if (ast_sentence_block* a_sentence_blk = dynamic_cast<ast_sentence_block*>(ast_node))
+            {
+                analyze_pass2(a_sentence_blk->sentence_list);
             }
             grammar::ast_base* child = ast_node->children;
             while (child)

@@ -66,6 +66,14 @@ int main()
     gc::gc_start();
 
     std::wstring src_code = LR"(
+
+func fib(var x:int)
+{
+    if (x < 2)
+        return 1;
+    return fib(x-1) + fib(x-2);
+}
+
 func fib(var x:map)
 {
    return 0:real;
@@ -73,14 +81,6 @@ func fib(var x:map)
 func fib(var x:array)
 {
    return x;
-}
-
-func fib(var x:int)
-{
-    if (x < 2)
-        return 1;
-    else
-        return fib(x-1) + fib(x-2);
 }
 
 func fib(var d)
@@ -100,6 +100,18 @@ var a1 = [1, 2, 3, 4, 5, m];
 var m0 = fib(m:map);
 var m1 = fib(a1);
 var m2 = fib(0);
+
+var main = func(var arg:int){
+
+    var a = 0, b = 0, c = 0;
+
+    (a = b = c = "15":int):real;
+    {
+        var a = "Helloworld";
+        return a;
+    }
+};
+
 )";
     std::chrono::system_clock sc;
 
@@ -120,7 +132,7 @@ var m2 = fib(0);
     if (result)
     {
         std::wcout << "AST_BUILD: " << std::endl;
-        //result->display();
+        result->display();
     }
 
     rs::lang lng(lx1);
@@ -474,7 +486,8 @@ var m2 = fib(0);
 
     ir_compiler c0;                                      // fast stack addressing:    
     c0.pshr(imm(2333.0456));                             //      pshr   2333.0456;
-    c0.movr2i(reg(reg::cr), reg(reg::bp_offset(0)));     //      movr2i cr,   [bp+0]
+    c0.movcast(reg(reg::cr), reg(reg::bp_offset(0)), rs::value::valuetype::integer_type);     
+                                                         //      movcast cr,   [bp+0]:int
     c0.end();                                            //      end
 
     vmm.set_runtime(c0);

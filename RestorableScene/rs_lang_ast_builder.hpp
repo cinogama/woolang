@@ -815,7 +815,7 @@ namespace rs
             }
         };
 
-        struct ast_value_mapping:virtual public ast_value
+        struct ast_value_mapping :virtual public ast_value
         {
             ast_list* mapping_pairs;
 
@@ -830,6 +830,51 @@ namespace rs
             {
                 space(os, lay); os << L"< " << ANSI_HIY << "map" << ANSI_RST << L" >" << std::endl;
                 mapping_pairs->display(os, lay + 1);
+            }
+        };
+
+        struct ast_sentence_block :virtual public grammar::ast_base
+        {
+            ast_list* sentence_list;
+
+            ast_sentence_block(ast_list* sentences)
+                :sentence_list(sentences)
+            {
+                rs_test(sentence_list);
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << "<block>" << std::endl;
+                sentence_list->display(os, lay);
+            }
+
+            static ast_sentence_block* fast_parse_sentenceblock(grammar::ast_base* ast)
+            {
+                if (auto r = dynamic_cast<ast_sentence_block*>(ast))
+                    return r;
+
+                ast_list* list = nullptr;
+                if (nullptr == dynamic_cast<ast_empty*>(ast))
+                {
+                    if (auto* lst = dynamic_cast<ast_list*>(ast))
+                    {
+                        list = lst;
+                    }
+                    else
+                    {
+                        list = new ast_list;
+                        list->append_at_end(ast);
+                    }
+                }
+                else
+                {
+                    list = new ast_list;
+                    // emplace nothing..
+                }
+                ast_sentence_block* result = new ast_sentence_block(list);
+
+                return result;
             }
         };
 
@@ -851,12 +896,22 @@ namespace rs
             }
         };
 
+        template<size_t pass_idx>
+        struct pass_sentence_block :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() > pass_idx);
+                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(RS_NEED_AST(pass_idx));
+            }
+        };
+
         struct pass_map_builder : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
-                return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(RS_NEED_AST(1)));         
+                return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(RS_NEED_AST(1)));
             }
         };
 
@@ -882,7 +937,7 @@ namespace rs
                     // function with name..
                     ast_func->function_name = RS_NEED_TOKEN(1).identifier;
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(3));
-                    ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(6))->sentence_list;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
 
                 }
@@ -891,7 +946,7 @@ namespace rs
                     // anonymous function
                     ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(2));
-                    ast_func->in_function_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(5))->sentence_list;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
                 }
                 // many things to do..
@@ -1727,7 +1782,13 @@ namespace rs
         {
             _registed_builder_function_id_list[meta::type_hash<pass_map_builder>]
                 = _register_builder<pass_map_builder>();
-           
+
+            _registed_builder_function_id_list[meta::type_hash<pass_sentence_block<0>>]
+                = _register_builder<pass_sentence_block<0>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_sentence_block<1>>]
+                = _register_builder<pass_sentence_block<1>>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_array_builder>]
                 = _register_builder<pass_array_builder>();
 
