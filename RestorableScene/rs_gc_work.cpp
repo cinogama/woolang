@@ -78,17 +78,33 @@ namespace rs
                         // Walk thorw CONST & GLOBAL, REG, STACK_BEGIN TO SP;
 
                         // if vm has env:
-                        
+
                         if (auto env = vmimpl->env)
                         {
                             // walk thorgh global.
                             for (int cgr_index = 0;
-                                cgr_index < env->cgr_global_value_count;
+                                cgr_index < env->constant_value_count + env->global_value_count;
                                 cgr_index++)
                             {
                                 auto global_val = env->constant_global_reg_rtstack + cgr_index;
 
                                 gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
+                                if (gcunit_address)
+                                {
+                                    // mark it
+
+                                    // TODO: HERE USING STOPPED-GC, USING 3-COLOR IN FUTURE.
+                                    deep_in_to_mark_unit(gcunit_address);
+                                }
+                            }
+
+                            for (int reg_index = 0;
+                                reg_index < env->cgr_global_value_count - (env->constant_value_count + env->global_value_count);
+                                reg_index++)
+                            {
+                                auto self_reg_walker = vmimpl->register_mem_begin + reg_index;
+
+                                gcbase* gcunit_address = self_reg_walker->get_gcunit_with_barrier();
                                 if (gcunit_address)
                                 {
                                     // mark it
@@ -311,7 +327,7 @@ namespace rs
                 if (gcbase::gc_new_count < _gc_immediately_edge)
                 {
                     std::unique_lock ug1(_gc_mx);
-
+                    
                     for (int i = 0; i < 100; i++)
                     {
                         _gc_cv.wait_for(ug1, 0.1s);

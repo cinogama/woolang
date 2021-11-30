@@ -69,7 +69,10 @@ void unit_test_vm()
     c18.end();                                          //  end
 
     vmm.set_runtime(c18);
+    vmm.dump_program_bin();
     vmm.run();
+
+   
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 50);
 
@@ -100,7 +103,7 @@ void unit_test_vm()
     c17.set(reg(reg::cr), reg(reg::t1));            //  set     cr,     t1
     c17.end();
     vmm.set_runtime(c17);
-
+    vmm.dump_program_bin();
     auto* v = (vm*)vmm.make_machine();
     v->run();
 
@@ -121,6 +124,47 @@ void unit_test_vm()
 
     ///////////////////////////////////////////////////////////////////////////////////////
 
+     ///////////////////////////////////////////////////////////////////////////////////////
+
+    ir_compiler c16;
+    c16.mov(global(0), imm(0));
+    c16.tag("loop_begin");
+    c16.lti(global(0), imm(2500000));
+    c16.jf(tag("loop_end"));
+    c16.addi(global(0), imm(1));
+    c16.psh(imm("name"));                   //  psh     "name"
+    c16.psh(imm("joy"));                    //  psh     "joy"
+    c16.psh(imm("age"));                    //  psh     "age"
+    c16.psh(imm("19"));                     //  psh     "19"
+    c16.mkmap(reg(reg::t0), imm(2));        //  mkmap   t0,     2
+    c16.idx(reg(reg::t0), imm("name"));     //  idx     t0,     "name"
+    c16.mov(reg(reg::t1), reg(reg::cr));    //  mov     t1,     cr
+    c16.idx(reg(reg::t0), imm("age"));      //  idx     t0,     "age"
+    c16.addx(reg(reg::t1), reg(reg::cr));   //  addx    t1,     cr
+    c16.idx(reg(reg::t0), imm("my_self"));  //  idx     t0,     "my_self"
+    c16.mov(reg(reg::cr), reg(reg::t0));    //  mov     cr,     t0
+    c16.psh(imm(1));
+    c16.psh(imm(2));
+    c16.psh(imm(3));
+    c16.psh(imm(4));
+    c16.psh(imm(5));
+    c16.psh(imm(6));
+    c16.mkarr(reg(reg::t2), imm(6));                //  mkarr   t2,     6
+    c16.idx(reg(reg::t0), imm("my_array"));         //  idx     t0,     "my_array"
+    c16.mov(reg(reg::cr), reg(reg::t2));            //  mov     cr,     t0
+    c16.ext_setref(reg(reg::t3), reg(reg::t0));     //  ext setref     t3,     t0
+    c16.set(reg(reg::cr), reg(reg::t1));            //  set     cr,     t1
+    c16.jmp(tag("loop_begin"));
+    c16.tag("loop_end");
+    c16.end();
+    vmm.set_runtime(c16);
+    vmm.dump_program_bin();
+    v = (vm*)vmm.make_machine();
+    v->run();
+    delete v;
+    vmm.run();
+    ///////////////////////////////////////////////////////////////////////////////////////
+
     ir_compiler c15;
     c15.psh(imm("friend"));
     c15.psh(imm("my"));
@@ -139,6 +183,7 @@ void unit_test_vm()
     c15.end();
 
     vmm.set_runtime(c15);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.bp == vmm.env->stack_begin);
@@ -161,6 +206,7 @@ void unit_test_vm()
     for (int i = 0; i < 5; i++)
     {
         vmm.set_runtime(c14);
+        vmm.dump_program_bin();
         //auto beg = clock();
         auto beg = sc.now();
         vmm.run();
@@ -187,6 +233,7 @@ void unit_test_vm()
     c11.end();                                      //      end
 
     vmm.set_runtime(c11);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.bp == vmm.env->stack_begin);
@@ -212,6 +259,7 @@ void unit_test_vm()
     c10.end();                                      //      end
 
     vmm.set_runtime(c10);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.bp == vmm.env->stack_begin);
@@ -232,6 +280,7 @@ void unit_test_vm()
     c9.end();                               //      end
 
     vmm.set_runtime(c9);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.bp == vmm.env->stack_begin);
@@ -245,6 +294,7 @@ void unit_test_vm()
     c8.end();                                          //      end
 
     vmm.set_runtime(c8);
+    vmm.dump_program_bin();
     vmm.run();
 
     ///////////////////////////////////////////////////////////////////////////////////////
@@ -254,6 +304,7 @@ void unit_test_vm()
     c7.end();                                          //      end
 
     vmm.set_runtime(c7);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 9926);
@@ -266,6 +317,7 @@ void unit_test_vm()
     c6.end();                                          //      end
 
     vmm.set_runtime(c6);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 0);
@@ -280,6 +332,7 @@ void unit_test_vm()
     c5.end();                                           //      end
 
     vmm.set_runtime(c5);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "Helloworld");
@@ -296,6 +349,7 @@ void unit_test_vm()
     c4.end();                                           //      end
 
     vmm.set_runtime(c4);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2);
@@ -308,6 +362,7 @@ void unit_test_vm()
     c3.end();                                           //      end
 
     vmm.set_runtime(c3);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::string_type && *vmm.cr->string == "hello,world!");
@@ -319,6 +374,7 @@ void unit_test_vm()
     c2.end();                                           //      end
 
     vmm.set_runtime(c2);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2333);
@@ -331,6 +387,7 @@ void unit_test_vm()
     c0.end();                                            //      end
 
     vmm.set_runtime(c0);
+    vmm.dump_program_bin();
     vmm.run();
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2333);
@@ -345,7 +402,7 @@ void unit_test_vm()
     c12.end();                                      //      end
 
     vmm.set_runtime(c12);
-
+    vmm.dump_program_bin();
     auto begin_gc_count = gc::gc_work_round_count();
     vmm.run();
     auto end_gc_count = gc::gc_work_round_count();
@@ -368,11 +425,11 @@ int main()
 
     gc::gc_start();
 
-    // unit_test_vm();
+    unit_test_vm();
 
     rs::lexer lx1(
 LR"(
-var a = "Helloworld";
+var a = "Helloworld", b = "16":int;
 )"
     );
     auto result = get_rs_grammar()->gen(lx1);
@@ -386,7 +443,22 @@ var a = "Helloworld";
 
         ir_compiler compiler;
         lng.analyze_finalize(result, &compiler);
+        compiler.mov(global(1), global(0));
+        compiler.mov(global(0), imm(",ge~"));
+        compiler.set(reg(reg::cr), global(1));
         compiler.end();
+
+        vm vmm;
+        vmm.set_runtime(compiler);
+        vmm.run();
+        
+        vmm.dump_program_bin();
+
+        std::cout << vmm.cr->string->c_str() << std::endl;
+
+        rs_test(vmm.cr->type==value::valuetype::string_type
+            && *vmm.cr->string == "Helloworld");
+
     }
     for (auto exp : lx1.lex_error_list)
         std::wcout << exp.to_wstring() << std::endl;

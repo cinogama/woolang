@@ -732,24 +732,51 @@ namespace rs
 
         }
 
-        opnum::opnumbase analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_ref = true)
-        {
-            using namespace ast;
-            if (get_ref)
-            {
-                if (auto* a_liter = dynamic_cast<ast::ast_value_literal*>(value))
-                {
+        std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
 
+        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
+        {
+#define RS_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
+
+            using namespace ast;
+            using namespace opnum;
+            if (!get_pure_value)
+            {
+                if (value->is_constant)
+                {
+                    auto const_value = value->get_constant_value(); 
+                    switch (const_value.type)
+                    {
+                    case value::valuetype::integer_type:
+                        return RS_NEW_OPNUM(imm(const_value.integer));
+                    case value::valuetype::real_type:
+                        return RS_NEW_OPNUM(imm(const_value.real));
+                    case value::valuetype::handle_type:
+                        return RS_NEW_OPNUM(imm(const_value.handle));
+                    case value::valuetype::string_type:
+                        return RS_NEW_OPNUM(imm(const_value.string->c_str()));
+                    default:
+                        rs_error("error constant type..");
+                        break;
+                    }
+                }
+                else if (auto* a_value_literal = dynamic_cast<ast::ast_value_literal*>(value))
+                {
+                    rs_error("ast_value_literal should be 'constant'..");
                 }
                 else
                 {
-
+                    rs_error("unknown value type..");
                 }
             }
             else
             {
-
+                rs_error("not impl reg xx..");
             }
+
+            static opnum::opnumbase err;
+            return err;
+#undef RS_NEW_OPNUM
         }
 
         void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
@@ -787,29 +814,20 @@ namespace rs
                 {
                     if (varref_define.is_ref)
                     {
-                        if (varref_define.symbol->static_symbol)
-                        {
-                            rs_assert(varref_define.symbol->global_index_in_funcs < INT32_MAX);
-                            compiler->ext_setref(global((int32_t)varref_define.symbol->global_index_in_funcs)
-                                , analyze_value(varref_define.init_val, ));
-                            // set global[global_index_in_funcs], init_val
-                        }
-                        else
-                        {
-
-                        }
+                        rs_error("not impl");
                     }
                     else
                     {
                         if (varref_define.symbol->static_symbol)
                         {
                             rs_assert(varref_define.symbol->global_index_in_funcs < INT32_MAX);
-                            compiler->set(global((int32_t)varref_define.symbol->global_index_in_funcs), xxx);
+                            compiler->set(global((int32_t)varref_define.symbol->global_index_in_funcs), 
+                                analyze_value(varref_define.init_val,compiler));
                             // set global[global_index_in_funcs], init_val
                         }
                         else
                         {
-
+                            rs_error("not impl");
                         }
                     }
                 }

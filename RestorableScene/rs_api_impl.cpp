@@ -349,6 +349,29 @@ rs_string_t rs_cast_string(const rs_value value)
     return _buf.c_str();
 }
 
+rs_string_t rs_type_name(const rs_value value)
+{
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    switch (_rsvalue->type)
+    {
+    case rs::value::valuetype::integer_type:
+        return "int";
+    case rs::value::valuetype::handle_type:
+        return "handle";
+    case rs::value::valuetype::real_type:
+        return "real";
+    case rs::value::valuetype::string_type:
+        return "string";
+    case rs::value::valuetype::array_type:
+        return "array";
+    case rs::value::valuetype::mapping_type:
+        return "map";
+    case rs::value::valuetype::invalid:
+        return "nil";
+    }
+    return "unknown";
+}
+
 rs_value* rs_args(rs_vm vm)
 {
     return (rs_value*)(reinterpret_cast<rs::vmbase*>(vm)->sp);

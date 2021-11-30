@@ -86,7 +86,7 @@ RS_API rs_integer_t rs_cast_integer(const rs_value value);
 RS_API rs_real_t    rs_cast_real(const rs_value value);
 RS_API rs_handle_t  rs_cast_handle(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
-
+RS_API rs_string_t  rs_type_name(const rs_value value);
 RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 

@@ -268,7 +268,12 @@ namespace rs
     public:
 
 #define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
-#define RS_OPNUM(OPNUM) (_check_and_add_const(new meta::origin_type<decltype(OPNUM)>(OPNUM)))
+#define RS_OPNUM(OPNUM) (_check_and_add_const(\
+        (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
+        ?\
+        const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\
+        :\
+        new meta::origin_type<decltype(OPNUM)>(OPNUM)))
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)
@@ -990,6 +995,7 @@ namespace rs
 
             size_t runtime_stack_count = 0;
 
+            size_t rt_code_len = 0;
             byte_t* rt_codes = nullptr;
 
             ~runtime_env()
@@ -1566,10 +1572,12 @@ namespace rs
 
             env->runtime_stack_count = runtime_stack_count;
 
-            env->rt_codes = (byte_t*)malloc(runtime_command_buffer.size() * sizeof(byte_t));
+            env->rt_code_len = runtime_command_buffer.size();
+
+            env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
             rs_assert(env->rt_codes, "Alloc memory fail.");
 
-            memcpy(env->rt_codes, runtime_command_buffer.data(), runtime_command_buffer.size() * sizeof(byte_t));
+            memcpy(env->rt_codes, runtime_command_buffer.data(), env->rt_code_len * sizeof(byte_t));
 
             return env;
         }
