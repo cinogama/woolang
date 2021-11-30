@@ -78,10 +78,9 @@ namespace rs
                         // Walk thorw CONST & GLOBAL, REG, STACK_BEGIN TO SP;
 
                         // if vm has env:
-                        if (vmimpl->cr)
+                        
+                        if (auto env = vmimpl->env)
                         {
-                            auto& env = vmimpl->env;
-
                             // walk thorgh global.
                             for (int cgr_index = 0;
                                 cgr_index < env->cgr_global_value_count;
@@ -100,7 +99,7 @@ namespace rs
                             }
 
                             // walk thorgh stack.
-                            for (auto* stack_walker = env->stack_begin;
+                            for (auto* stack_walker = vmimpl->stack_mem_begin/*env->stack_begin*/;
                                 vmimpl->sp < stack_walker;
                                 stack_walker--)
                             {

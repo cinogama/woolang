@@ -16,7 +16,14 @@ namespace rs
         };
         symbol_type type;
         std::wstring name;
+
         bool static_symbol;
+
+        union
+        {
+            size_t stackvalue_index_in_funcs = size_t(-1);
+            size_t global_index_in_funcs;
+        };
 
         ast::ast_value* variable_value;
         std::vector<ast::ast_value*> function_overload_sets;
@@ -43,6 +50,10 @@ namespace rs
         std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
 
         ast::ast_value_function_define* function_node;
+
+        size_t used_stackvalue_index = 0; // only used in function_scope
+        size_t this_block_used_stackvalue_count = 0;
+
     };
 
     class lang
@@ -108,7 +119,7 @@ namespace rs
                 for (auto& varref : a_varref_defs->var_refs)
                 {
                     analyze_pass1(varref.init_val);
-                    define_variable_in_this_scope(varref.ident_name, varref.init_val);
+                    varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val);
 
                     a_varref_defs->add_child(varref.init_val);
                 }
@@ -128,6 +139,17 @@ namespace rs
 
                 if (nullptr == a_value_bin->value_type)
                     a_value_bin->value_type = new ast_type(L"pending");
+            }
+            else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
+            {
+                analyze_pass1(a_value_assi->left);
+                analyze_pass1(a_value_assi->right);
+
+                a_value_assi->add_child(a_value_assi->left);
+                a_value_assi->add_child(a_value_assi->right);
+
+                a_value_assi->value_type = new ast_type(L"pending");
+                a_value_assi->value_type->set_type(a_value_assi->left->value_type);
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
@@ -271,6 +293,18 @@ namespace rs
                 analyze_pass1(a_sentence_blk->sentence_list);
                 this->end_scope();
             }
+            else if (ast_if* ast_if_sentence = dynamic_cast<ast_if*>(ast_node))
+            {
+                analyze_pass1(ast_if_sentence->judgement_value);
+                analyze_pass1(ast_if_sentence->execute_if_true);
+                if (ast_if_sentence->execute_else)
+                    analyze_pass1(ast_if_sentence->execute_else);
+            }
+            else if (ast_while* ast_while_sentence = dynamic_cast<ast_while*>(ast_node))
+            {
+                analyze_pass1(ast_while_sentence->judgement_value);
+                analyze_pass1(ast_while_sentence->execute_sentence);
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -349,6 +383,19 @@ namespace rs
                         {
                             lang_anylizer->lang_error(0x0000, a_value_bin, L"Failed to analyze the type.");
                             a_value_bin->value_type = new ast_type(L"pending");
+                        }
+                    }
+                    else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
+                    {
+                        analyze_pass2(a_value_assi->left);
+                        analyze_pass2(a_value_assi->right);
+
+                        a_value_assi->value_type = new ast_type(L"pending");
+                        a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+
+                        if (a_value_assi->value_type->is_pending())
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value_assi, L"Failed to analyze the type.");
                         }
                     }
                     else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
@@ -664,6 +711,18 @@ namespace rs
             {
                 analyze_pass2(a_sentence_blk->sentence_list);
             }
+            else if (ast_if* ast_if_sentence = dynamic_cast<ast_if*>(ast_node))
+            {
+                analyze_pass2(ast_if_sentence->judgement_value);
+                analyze_pass2(ast_if_sentence->execute_if_true);
+                if (ast_if_sentence->execute_else)
+                    analyze_pass2(ast_if_sentence->execute_else);
+            }
+            else if (ast_while* ast_while_sentence = dynamic_cast<ast_while*>(ast_node))
+            {
+                analyze_pass2(ast_while_sentence->judgement_value);
+                analyze_pass2(ast_while_sentence->execute_sentence);
+            }
             grammar::ast_base* child = ast_node->children;
             while (child)
             {
@@ -671,6 +730,101 @@ namespace rs
                 child = child->sibling;
             }
 
+        }
+
+        opnum::opnumbase analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_ref = true)
+        {
+            using namespace ast;
+            if (get_ref)
+            {
+                if (auto* a_liter = dynamic_cast<ast::ast_value_literal*>(value))
+                {
+
+                }
+                else
+                {
+
+                }
+            }
+            else
+            {
+
+            }
+        }
+
+        void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
+        {
+            if (traving_node.find(ast_node) != traving_node.end())
+            {
+                lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
+                return;
+            }
+
+            struct traving_guard
+            {
+                lang* _lang;
+                grammar::ast_base* _tving_node;
+                traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
+                    :_tving_node(ast_ndoe)
+                    , _lang(_lg)
+                {
+                    _lang->traving_node.insert(_tving_node);
+                }
+                ~traving_guard()
+                {
+                    _lang->traving_node.erase(_tving_node);
+                }
+            };
+
+            traving_guard g1(this, ast_node);
+
+            using namespace ast;
+            using namespace opnum;
+
+            if (auto* a_varref_defines = dynamic_cast<ast_varref_defines*>(ast_node))
+            {
+                for (auto& varref_define : a_varref_defines->var_refs)
+                {
+                    if (varref_define.is_ref)
+                    {
+                        if (varref_define.symbol->static_symbol)
+                        {
+                            rs_assert(varref_define.symbol->global_index_in_funcs < INT32_MAX);
+                            compiler->ext_setref(global((int32_t)varref_define.symbol->global_index_in_funcs)
+                                , analyze_value(varref_define.init_val, ));
+                            // set global[global_index_in_funcs], init_val
+                        }
+                        else
+                        {
+
+                        }
+                    }
+                    else
+                    {
+                        if (varref_define.symbol->static_symbol)
+                        {
+                            rs_assert(varref_define.symbol->global_index_in_funcs < INT32_MAX);
+                            compiler->set(global((int32_t)varref_define.symbol->global_index_in_funcs), xxx);
+                            // set global[global_index_in_funcs], init_val
+                        }
+                        else
+                        {
+
+                        }
+                    }
+                }
+            }
+            else if (auto* a_list = dynamic_cast<ast_list*>(ast_node))
+            {
+                auto* child = a_list->children;
+                while (child)
+                {
+                    analyze_finalize(child, compiler);
+                    child = child->sibling;
+                }
+            }
+            else
+                lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
@@ -725,6 +879,12 @@ namespace rs
         void end_scope()
         {
             rs_assert(lang_scopes.back()->type == lang_scope::scope_type::just_scope);
+
+            auto scope = now_scope();
+            if (auto* func = in_function())
+            {
+                func->used_stackvalue_index -= scope->this_block_used_stackvalue_count;
+            }
             lang_scopes.pop_back();
         }
 
@@ -771,6 +931,8 @@ namespace rs
             return nullptr;
         }
 
+        size_t global_symbol_index = 0;
+
         lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val)
         {
             rs_assert(lang_scopes.size());
@@ -804,6 +966,7 @@ namespace rs
                     if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
                         && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != L"")
                     {
+                        func_def->symbol = sym;
                         sym->function_overload_sets.push_back(func_def);
                         return sym;
                     }
@@ -825,10 +988,17 @@ namespace rs
                 sym->name = names;
                 sym->variable_value = init_val;
 
-                if (in_function())
+                if (auto* func = in_function())
+                {
                     sym->static_symbol = false;
+                    sym->stackvalue_index_in_funcs = func->used_stackvalue_index++;
+                    lang_scopes.back()->this_block_used_stackvalue_count++;
+                }
                 else
+                {
                     sym->static_symbol = true;
+                    sym->global_index_in_funcs = global_symbol_index++;
+                }
 
                 lang_symbols.push_back(sym);
                 return sym;

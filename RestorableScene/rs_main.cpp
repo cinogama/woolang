@@ -40,7 +40,6 @@ void cost_time_test_gc(rs::vmbase* vm)
     printf("^^^^^^ IN THIS RANGE ^^^^^^^\n");
 }
 
-
 #define RS_IMPL
 #include "rs.h"
 
@@ -52,121 +51,28 @@ void cost_time_test_gc(rs::vmbase* vm)
 #include "rs_lang.hpp"
 #include "rs_env_locale.hpp"
 
-int main()
+void unit_test_vm()
 {
     using namespace rs;
     using namespace rs::opnum;
 
-    rs::rs_init_locale();
-
-    std::cout << ANSI_RST;
-    std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
-    std::cout << rs_compile_date() << std::endl;
-
-    gc::gc_start();
-
-    std::wstring src_code = LR"(
-
-func fib(var x:int)
-{
-    if (x < 2)
-        return 1;
-    return fib(x-1) + fib(x-2);
-}
-
-func fib(var x:map)
-{
-   return 0:real;
-}
-func fib(var x:array)
-{
-   return x;
-}
-
-func fib(var d)
-{
-    return d;
-}
-
-var m = {
-            {"age", 1},
-            {"name", "rscene"},
-            {"uid", 0x1234567890abcdefh}, 
-            {"mapping", m}, 
-        };
-
-var a1 = [1, 2, 3, 4, 5, m];
-
-var m0 = fib(m:map);
-var m1 = fib(a1);
-var m2 = fib(0);
-
-var main = func(var arg:int){
-
-    var a = 0, b = 0, c = 0;
-
-    (a = b = c = "15":int):real;
-    {
-        var a = "Helloworld";
-        return a;
-    }
-};
-
-)";
+    vm vmm;
     std::chrono::system_clock sc;
 
-    rs::lexer lx1(
-        src_code
-    );
+    ///////////////////////////////////////////////////////////////////////////////////////
 
-    auto* rs_grammar = get_rs_grammar();
+    ir_compiler c18;                                     // 
+    c18.mov(global(0), imm(25));                         // mov global[0], 25
+    c18.mov(reg(reg::r6), global(0));                   //  mov r6,        global[0]
+    c18.addi(reg(reg::r6), global(0));                  //  addi r6,       global[0]
+    c18.set(reg(reg::cr), reg(reg::r6));                //  mov cr,       r6
+    c18.end();                                          //  end
 
-    //rs_grammar->check(lx1);
-    //lx1.reset();
-    auto beg = sc.now();
-    auto result = rs_grammar->gen(lx1);
-    auto end = sc.now();
+    vmm.set_runtime(c18);
+    vmm.run();
 
-    std::cout << src_code.size() << "byte  " << (end - beg).count() / 10000000.0f << std::endl;
+    rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 50);
 
-    if (result)
-    {
-        std::wcout << "AST_BUILD: " << std::endl;
-        result->display();
-    }
-
-    rs::lang lng(lx1);
-    lng.analyze_pass1(result);
-
-    if (result)
-    {
-        std::wcout << "PASS 1: " << std::endl;
-        //result->display();
-    }
-
-    lng.analyze_pass2(result);
-
-    if (result)
-    {
-        std::wcout << "PASS 2: " << std::endl;
-        result->display();
-    }
-
-    for (auto exp : lx1.lex_error_list)
-    {
-        std::wcout << exp.to_wstring() << std::endl;
-    }
-
-    for (auto exp : lx1.lex_warn_list)
-    {
-        std::wcout << exp.to_wstring() << std::endl;
-    }
-
-    grammar::ast_base::clean_this_thread_ast();
-
-    return 0;
-
-    vm vmm;
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c17;
@@ -215,28 +121,6 @@ var main = func(var arg:int){
 
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    ir_compiler c16;
-    c16.psh(imm("friend"));
-    c16.psh(imm("my"));
-    c16.psh(imm("world"));
-    c16.psh(imm("hello"));
-    c16.mkarr(reg(reg::t0), imm(4));
-    c16.idx(reg(reg::t0), imm(0));
-    c16.mov(reg(reg::t1), reg(reg::cr));
-    c16.idx(reg(reg::t0), imm(1));
-    c16.addx(reg(reg::t1), reg(reg::cr));
-    c16.idx(reg(reg::t0), imm(2));
-    c16.addx(reg(reg::t1), reg(reg::cr));
-    c16.idx(reg(reg::t0), imm(3));
-    c16.addx(reg(reg::t1), reg(reg::cr));
-    c16.set(reg(reg::cr), reg(reg::cr));
-    c16.end();
-
-    vmm.set_runtime(c16);
-    vmm.run();
-
-    ///////////////////////////////////////////////////////////////////////////////////////
-
     ir_compiler c15;
     c15.psh(imm("friend"));
     c15.psh(imm("my"));
@@ -276,55 +160,14 @@ var main = func(var arg:int){
 
     for (int i = 0; i < 5; i++)
     {
-
         vmm.set_runtime(c14);
-
         //auto beg = clock();
         auto beg = sc.now();
-
         vmm.run();
-
         auto end = sc.now();
         //auto end = clock();
-
         std::cout << (end - beg).count() / 10000000.0f << std::endl;
     }
-
-    ///////////////////////////////////////////////////////////////////////////////////////
-
-    ir_compiler c13;                                // 
-    c13.tag("program_begin");                       //  program_begin:
-    c13.call(&example);                             //      call    example
-    c13.mov(reg(reg::t0), imm("hello"));            //      mov     t0, "hello"
-    c13.adds(reg(reg::t0), imm(",world"));          //      adds    t0, ",world"
-    c13.set(reg(reg::t1), reg(reg::t0));
-    c13.set(reg(reg::t0), imm(0xCCCCCCCC));
-    c13.set(reg(reg::t0), reg(reg::t1));
-    c13.set(reg(reg::t1), imm(0xCCCCCCCC));
-    c13.set(reg(reg::t0), imm(0xCCCCCCCC));
-    // c13.jmp(tag("program_begin"));                  //      jmp     program_begin
-    c13.end();                                      //      end
-
-    vmm.set_runtime(c13);
-
-    vmm.run();
-    ///////////////////////////////////////////////////////////////////////////////////////
-
-
-    ir_compiler c12;                                // 
-    c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
-    c12.end();                                      //      end
-
-    vmm.set_runtime(c12);
-
-    auto begin_gc_count = gc::gc_work_round_count();
-    vmm.run();
-    auto end_gc_count = gc::gc_work_round_count();
-
-    rs_test(vmm.bp == vmm.env->stack_begin);
-    rs_test(vmm.sp == vmm.env->stack_begin);
-    rs_test(end_gc_count - begin_gc_count >= 2);
-
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c11;                                // 
@@ -350,9 +193,7 @@ var main = func(var arg:int){
     rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 233);
-
     ///////////////////////////////////////////////////////////////////////////////////////
-
     ir_compiler c10;                                // 
     c10.jmp(tag("demo_main"));                      //      jmp     demo_main;
     c10.tag("demo_func_01");                        //  :demo_func_01
@@ -377,7 +218,7 @@ var main = func(var arg:int){
     rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.veh->last == nullptr);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 666 + 1024);
-    ///////////////////////////////////////////////////////////////////////////////////////
+
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c9;                         // 
@@ -397,7 +238,6 @@ var main = func(var arg:int){
     rs_test(vmm.sp == vmm.env->stack_begin);
     rs_test(vmm.cr->type == value::valuetype::is_ref && vmm.cr->get()->integer == 233 + 666);
     ///////////////////////////////////////////////////////////////////////////////////////
-
     ///////////////////////////////////////////////////////////////////////////////////////
 
     ir_compiler c8;                                     // 
@@ -486,8 +326,8 @@ var main = func(var arg:int){
 
     ir_compiler c0;                                      // fast stack addressing:    
     c0.pshr(imm(2333.0456));                             //      pshr   2333.0456;
-    c0.movcast(reg(reg::cr), reg(reg::bp_offset(0)), rs::value::valuetype::integer_type);     
-                                                         //      movcast cr,   [bp+0]:int
+    c0.movcast(reg(reg::cr), reg(reg::bp_offset(0)), rs::value::valuetype::integer_type);
+    //      movcast cr,   [bp+0]:int
     c0.end();                                            //      end
 
     vmm.set_runtime(c0);
@@ -496,34 +336,66 @@ var main = func(var arg:int){
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 2333);
     ///////////////////////////////////////////////////////////////////////////////////////
 
-    ir_compiler c1;
-    c1.tag("all_program_begin");
-    c1.psh(imm(0));                                     //      psh     0
-    c1.set(reg(reg::bp_offset(0)), imm(0));             //      set     [bp+0],  0              int  i=0
-    c1.tag("loop_begin");                               //  :loop_begin
-    c1.lti(reg(reg::bp_offset(0)), imm(10));     //      lti     [bp+0],   100000000     while i < 100000000
-    c1.jf(tag("loop_end"));                             //      jf      loop_end                {
-    c1.addi(reg(reg::bp_offset(0)), imm(1));            //      addi    [bp+0],  1                  i+=1;
-    c1.jmp(tag("loop_begin"));                          //      jmp     loop_begin              }
-    c1.tag("loop_end");                                 //  :loop_end
-    c1.pop(1);                                          //      pop     1
-    c1.set(reg(reg::t0), imm("Hello"));
-    c1.adds(reg(reg::t0), imm("world"));
-    c1.jmp(tag("all_program_begin"));
-    c1.end();                                           //      end;
-
-
-    while (true)
-    {
-        vmm.set_runtime(c1);
-
-        auto beg = clock();
-        vmm.run();
-        auto end = clock();
-
-        std::cout << (end - beg) << std::endl;
-    }
 
     ///////////////////////////////////////////////////////////////////////////////////////
 
+
+    ir_compiler c12;                                // 
+    c12.call(&cost_time_test_gc);                   //      call    cost_time_test_gc
+    c12.end();                                      //      end
+
+    vmm.set_runtime(c12);
+
+    auto begin_gc_count = gc::gc_work_round_count();
+    vmm.run();
+    auto end_gc_count = gc::gc_work_round_count();
+
+    rs_test(vmm.bp == vmm.env->stack_begin);
+    rs_test(vmm.sp == vmm.env->stack_begin);
+    rs_test(end_gc_count - begin_gc_count >= 2);
+}
+
+int main()
+{
+    using namespace rs;
+    using namespace rs::opnum;
+
+    rs::rs_init_locale();
+
+    std::cout << ANSI_RST;
+    std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
+    std::cout << rs_compile_date() << std::endl;
+
+    gc::gc_start();
+
+    // unit_test_vm();
+
+    rs::lexer lx1(
+LR"(
+var a = "Helloworld";
+)"
+    );
+    auto result = get_rs_grammar()->gen(lx1);
+    if (result)
+    {
+        std::wcout << "AST_BUILD: " << std::endl;
+        rs::lang lng(lx1);
+        lng.analyze_pass1(result);
+        lng.analyze_pass2(result);
+        result->display();
+
+        ir_compiler compiler;
+        lng.analyze_finalize(result, &compiler);
+        compiler.end();
+    }
+    for (auto exp : lx1.lex_error_list)
+        std::wcout << exp.to_wstring() << std::endl;
+
+    for (auto exp : lx1.lex_warn_list)
+        std::wcout << exp.to_wstring() << std::endl;
+
+    grammar::ast_base::clean_this_thread_ast();
+
+    return 0;
+  
 }

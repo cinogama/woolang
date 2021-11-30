@@ -24,27 +24,28 @@ namespace rs
         {
             NOTHING = 0,                // There is no interrupt
 
-            GC_INTERRUPT = 1 << 8,           // GC work will cause this interrupt, if vm received this interrupt,
+            GC_INTERRUPT = 1 << 8,      // GC work will cause this interrupt, if vm received this interrupt,
                                         // should clean this interrupt flag, if clean-operate is successful,
                                         // vm should call 'hangup' to wait for GC work. 
                                         // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
                                         // failed, it means vm already hangned(or trying hangs now), GC work
                                         // will call 'wakeup' to resume vm.
 
-                                        LEAVE_INTERRUPT = 1 << 9,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                                                    // a limitted time.
-                                                                    // VM will set LEAVE_INTERRUPT when:
-                                                                    // 1) calling native function
-                                                                    // 2) leaving vm run()
-                                                                    // 3) vm was created.
-                                                                    // VM will clean LEAVE_INTERRUPT when:
-                                                                    // 1) the native function calling was end.
-                                                                    // 2) enter vm run()
-                                                                    // 3) vm destructed.
-                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                    //            successful. (We use 'rs_asure' here)
+            LEAVE_INTERRUPT = 1 << 9,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+                                        // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+                                        // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+                                        // a limitted time.
+                                        // VM will set LEAVE_INTERRUPT when:
+                                        // 1) calling native function
+                                        // 2) leaving vm run()
+                                        // 3) vm was created.
+                                        // VM will clean LEAVE_INTERRUPT when:
+                                        // 1) the native function calling was end.
+                                        // 2) enter vm run()
+                                        // 3) vm destructed.
+                                        // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+                                        //            successful. (We use 'rs_asure' here)
+
         };
 
         vmbase(const vmbase&) = delete;
@@ -99,6 +100,11 @@ namespace rs
             } while (vm_interrupt_mask & type);
 
             return true;
+        }
+        inline void block_interrupt(vm_interrupt_type type)
+        {
+            while(vm_interrupt.fetch_and(type))
+                std::this_thread::yield();
         }
 
         inline void hangup()
@@ -176,6 +182,9 @@ namespace rs
         {
             // using LEAVE_INTERRUPT to stop GC
             rs_asure(clear_interrupt(LEAVE_INTERRUPT));
+            block_interrupt(GC_INTERRUPT);  // must not working when gc
+
+            rs_assert(nullptr == _self_stack_reg_mem_buf);
 
             env = _compiler.finalize();
 
@@ -201,8 +210,7 @@ namespace rs
 
             // using LEAVE_INTERRUPT to stop GC
             rs_asure(new_vm->clear_interrupt(LEAVE_INTERRUPT));
-
-            new_vm->env = env;
+            new_vm->block_interrupt(GC_INTERRUPT);  // must not working when gc'
 
             new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
                 (env->real_register_count + env->runtime_stack_count));
@@ -216,6 +224,8 @@ namespace rs
             new_vm->tc = new_vm->register_mem_begin + opnum::reg::spreg::tc;
             new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
+
+            new_vm->env = env;  // env setted, gc will scan this vm..
 
             rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
@@ -1201,7 +1211,7 @@ namespace rs
                                 case value::valuetype::string_type:
                                     cr->set_ref(opnum1->set_integer((rs_integer_t)std::stoll(*opnum2->string))); break;
                                 default:
-                                    rs_fail(RS_ERR_TYPE_FAIL, ("Cannot cast '"+ opnum2->get_type_name() +"' to 'integer'.").c_str());
+                                    rs_fail(RS_ERR_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
                                     break;
                                 }
                                 break;
@@ -1979,7 +1989,6 @@ namespace rs
                             else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
                             {
                                 // That should not be happend...
-
                                 rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
                             }
                         }

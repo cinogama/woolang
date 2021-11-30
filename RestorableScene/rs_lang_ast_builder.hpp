@@ -696,6 +696,7 @@ namespace rs
                 bool is_ref;
                 std::wstring ident_name;
                 ast_value* init_val;
+                lang_symbol* symbol = nullptr;
             };
             std::vector<varref_define> var_refs;
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -878,6 +879,79 @@ namespace rs
             }
         };
 
+        struct ast_if : virtual public grammar::ast_base
+        {
+            ast_value* judgement_value;
+            ast_base* execute_if_true;
+            ast_base* execute_else;
+
+            ast_if(ast_value* jdg, ast_base* exe_true, ast_base* exe_else)
+                :judgement_value(jdg)
+                , execute_if_true(exe_true)
+                , execute_else(exe_else)
+            {
+                rs_test(judgement_value && execute_if_true);
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << "<if>" << std::endl;
+                judgement_value->display(os, lay + 1);
+                space(os, lay); os << "<then>" << std::endl;
+                execute_if_true->display(os, lay + 1);
+                if (execute_else)
+                {
+                    space(os, lay); os << "<else>" << std::endl;
+                    execute_else->display(os, lay + 1);
+                }
+                space(os, lay); os << "<endif>" << std::endl;
+            }
+        };
+
+        struct ast_while : virtual public grammar::ast_base
+        {
+            ast_value* judgement_value;
+            ast_base* execute_sentence;
+
+            ast_while(ast_value* jdg, ast_base* exec)
+                :judgement_value(jdg)
+                , execute_sentence(exec)
+            {
+                rs_test(judgement_value && execute_sentence);
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << "<while>" << std::endl;
+                judgement_value->display(os, lay + 1);
+                space(os, lay); os << "<do>" << std::endl;
+                execute_sentence->display(os, lay + 1);
+                space(os, lay); os << "<end while>" << std::endl;
+            }
+        };
+
+        struct ast_value_assign : virtual public ast_value
+        {
+            // used for storing binary-operate;
+            ast_value* left = nullptr;
+            lex_type operate = +lex_type::l_error;
+            ast_value* right = nullptr;
+
+            ast_value_assign()
+            {
+                value_type = new ast_type(L"pending");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"assign: " << lexer::lex_is_operate_type(operate) << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                space(os, lay); os << L"left:" << std::endl;
+                left->display(os, lay + 1);
+                space(os, lay); os << L"right:" << std::endl;
+                right->display(os, lay + 1);
+                space(os, lay); os << L"}" << std::endl;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -896,6 +970,26 @@ namespace rs
             }
         };
 
+        struct pass_while :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 5);
+                return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4));
+            }
+        };
+        struct pass_if :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 6);
+                if (ast_empty::is_empty(input[5]))
+                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4), nullptr);
+                else
+                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4), RS_NEED_AST(5));
+            }
+        };
+
         template<size_t pass_idx>
         struct pass_sentence_block :public astnode_builder
         {
@@ -903,6 +997,14 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(RS_NEED_AST(pass_idx));
+            }
+        };
+
+        struct pass_empty_sentence_block :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
             }
         };
 
@@ -1611,6 +1713,42 @@ namespace rs
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
+                // In ast build pass, all left value's type cannot judge, so it was useless..
+                //vbin->value_type = result_type;
+
+                return (grammar::ast_base*)vbin;
+            }
+        };
+
+        struct pass_assign_op :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() >= 3);
+
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                rs_test(left_v && right_v);
+
+                token _token = RS_NEED_TOKEN(1);
+                rs_test(lexer::lex_is_operate_type(_token.type));
+
+                if (left_v->is_constant)
+                    return lex.parser_error(0x0000, L"Cannot assign value to constant.");
+
+                ast_value_assign* vbin = new ast_value_assign();
+                vbin->left = left_v;
+                vbin->operate = _token.type;
+                vbin->right = right_v;
+
+                /*
+                 // In ast build pass, all left value's type cannot judge, so it was useless..
+
+                ast_type* result_type = new ast_type(L"pending");
+                result_type->set_type(left_v->value_type);
+
+                vbin->value_type = result_type;
+                */
                 return (grammar::ast_base*)vbin;
             }
         };
@@ -1776,12 +1914,26 @@ namespace rs
 
         };
 
+
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_assign_op>]
+                = _register_builder<pass_assign_op>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_while>]
+                = _register_builder<pass_while>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_if>]
+                = _register_builder<pass_if>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_map_builder>]
                 = _register_builder<pass_map_builder>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_empty_sentence_block>]
+                = _register_builder<pass_empty_sentence_block>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_sentence_block<0>>]
                 = _register_builder<pass_sentence_block<0>>();

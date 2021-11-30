@@ -34,11 +34,23 @@ namespace rs
         struct global : opnumbase
         {
             int32_t offset;
+            int32_t real_offset_const_glb;
 
             global(int32_t _offset) noexcept
                 :offset(_offset)
+                , real_offset_const_glb(0xFFFFFFFF)
             {
 
+            }
+
+            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            {
+                byte_t* buf = (byte_t*)&real_offset_const_glb;
+
+                buffer.push_back(buf[0]);
+                buffer.push_back(buf[1]);
+                buffer.push_back(buf[2]);
+                buffer.push_back(buf[3]);
             }
         };
 
@@ -225,7 +237,9 @@ namespace rs
                 return (*lhs) < (*rhs);
             }
         };
-        cxx_set_t<opnum::immbase*, immless>constant_record_list;
+
+        cxx_set_t<opnum::immbase*, immless> constant_record_list;
+        cxx_vec_t<opnum::global*> global_record_list;
 
         opnum::opnumbase* _check_and_add_const(opnum::opnumbase* _opnum)
         {
@@ -241,6 +255,11 @@ namespace rs
                     // already have record.
                     _immbase->constant_index = (*fnd)->constant_index;
                 }
+            }
+            else if (auto* _global = dynamic_cast<opnum::global*>(_opnum))
+            {
+                rs_assert(_global->offset >= 0);
+                global_record_list.push_back(_global);
             }
 
             return _opnum;
@@ -764,7 +783,7 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ldsr, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-   
+
         template<typename OP1T, typename OP2T>
         void movcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
@@ -986,9 +1005,20 @@ namespace rs
     private:
         std::unique_ptr<runtime_env> finalize()
         {
+            // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
+
             size_t global_value_count = 0;
+
+            for (auto* global_opnum : global_record_list)
+            {
+                rs_assert(global_opnum->offset + constant_value_count < INT32_MAX && global_opnum->offset >= 0);
+                global_opnum->real_offset_const_glb = (int32_t)(global_opnum->offset + constant_value_count);
+                if (((size_t)global_opnum->offset + 1) > global_value_count)
+                    global_value_count = (size_t)global_opnum->offset + 1;
+            }
+
             size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
             size_t runtime_stack_count = 65536;  // by default
 
@@ -1069,7 +1099,7 @@ namespace rs
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     break;
-               
+
                 case instruct::opcode::psh:
                     runtime_command_buffer.push_back(RS_OPCODE(psh));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);

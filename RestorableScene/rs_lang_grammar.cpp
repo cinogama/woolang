@@ -59,8 +59,11 @@ namespace rs
                 {
                     //文法定义形如
                     // nt >> list{nt/te ... } [>> ast_create_function]
-gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")},
-gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")},
+gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_LIST")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -95,7 +98,7 @@ gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
                 // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
                 // So, just make a production like this:
 gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces)}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_empty_sentence_block),
 // NOTE: Why the production can solve the conflict?
 //       A > {}
 //       B > {l_empty}
@@ -105,7 +108,9 @@ gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")},
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
@@ -113,7 +118,6 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
                         gm::nt(L"SENTENCE_BLOCK")}
                         >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
-
 
                 //WHILE语句
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"WHILE")}
@@ -124,7 +128,8 @@ gm::nt(L"WHILE") >> gm::symlist{
                         gm::nt(L"EXPRESSION"),
                         gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"BLOCKED_SENTENCE")
-                    },
+                    } >> RS_ASTBUILDER_INDEX(ast::pass_while),
+
                 //IF语句
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -135,7 +140,7 @@ gm::nt(L"IF") >> gm::symlist{
                         gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"BLOCKED_SENTENCE"),
                         gm::nt(L"ELSE")
-                    },
+                    } >> RS_ASTBUILDER_INDEX(ast::pass_if),
 
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
@@ -200,17 +205,17 @@ gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"RIGHT")}
                 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+>> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 
 //右值是仅取值的表达式 ，赋值语句当然也是一个右值		
 
