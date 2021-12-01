@@ -43,6 +43,7 @@ namespace rs
         inline static atomic_list<gcbase> young_age_gcunit_list;
         inline static atomic_list<gcbase> old_age_gcunit_list;
 
+        // TODO : _shared_spin need to remake.
         struct _shared_spin
         {
             std::atomic_flag _sspin_write_flag = {};
@@ -50,8 +51,8 @@ namespace rs
 
             inline void lock() noexcept
             {
-                while (_sspin_write_flag.test_and_set());
                 while (_sspin_read_flag);
+                while (_sspin_write_flag.test_and_set());
             }
             inline void unlock() noexcept
             {
@@ -60,12 +61,12 @@ namespace rs
             inline void lock_shared() noexcept
             {
                 while (_sspin_write_flag.test_and_set());
-                _sspin_read_flag++;
+                _sspin_read_flag.fetch_add(1);
                 _sspin_write_flag.clear();
             }
             inline void unlock_shared() noexcept
             {
-                _sspin_read_flag--;
+                _sspin_read_flag.fetch_sub(1);
             }
         };
 

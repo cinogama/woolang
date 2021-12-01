@@ -109,7 +109,7 @@ namespace rs
             do
             {
                 std::lock_guard g1(_vm_hang_mx);
-                --_vm_hang_flag;
+                _vm_hang_flag.fetch_sub(1);
             } while (0);
 
             std::unique_lock ug1(_vm_hang_mx);
@@ -120,7 +120,7 @@ namespace rs
             do
             {
                 std::lock_guard g1(_vm_hang_mx);
-                ++_vm_hang_flag;
+                _vm_hang_flag.fetch_add(1);
             } while (0);
 
             _vm_hang_cv.notify_one();
@@ -140,8 +140,6 @@ namespace rs
         }
         virtual ~vmbase()
         {
-            rs_test(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-
             std::lock_guard g1(_alive_vm_list_mx);
 
             if (_self_stack_reg_mem_buf)
