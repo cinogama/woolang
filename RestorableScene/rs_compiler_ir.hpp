@@ -6,6 +6,7 @@
 #include "rs_meta.hpp"
 
 #include <cstring>
+#include <string>
 
 namespace rs
 {
@@ -62,6 +63,10 @@ namespace rs
 
             uint8_t id;
 
+            static constexpr uint32_t T_REGISTER_COUNT = 16;
+            static constexpr uint32_t R_REGISTER_COUNT = 16;
+            static constexpr uint32_t ALL_REGISTER_COUNT = 64;
+
             enum spreg : uint8_t
             {
                 // normal regist
@@ -86,6 +91,24 @@ namespace rs
                 rs_assert(offset >= -64 && offset <= 63);
 
                 return 0b10000000 | offset;
+            }
+
+            bool is_tmp_regist() const
+            {
+                return id >= opnum::reg::t0 && id <= opnum::reg::r15;
+            }
+
+            bool is_bp_offset() const
+            {
+                return id & (uint8_t)0b10000000;
+            }
+
+            int8_t get_bp_offset() const
+            {
+                rs_assert(is_bp_offset());
+#define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+                return RS_SIGNED_SHIFT(id);
+#undef RS_SIGNED_SHIFT
             }
 
             void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
@@ -113,6 +136,7 @@ namespace rs
             }
 
             virtual int64_t try_int()const = 0;
+            virtual int64_t try_set_int(int64_t _val) = 0;
         };
 
         template<typename T>
@@ -176,6 +200,14 @@ namespace rs
                 rs_error("Immediate is not integer.");
                 return 0;
             }
+            virtual int64_t try_set_int(int64_t _val) override
+            {
+                if constexpr (std::is_integral<T>::value)
+                    return val = (T)_val;
+
+                rs_error("Immediate is not integer.");
+                return 0;
+            }
         };
 
         struct tag : opnumbase
@@ -203,10 +235,10 @@ namespace rs
 
         struct ir_command
         {
-            instruct::opcode opcode;
+            instruct::opcode opcode = instruct::nop;
 
-            opnum::opnumbase* op1;
-            opnum::opnumbase* op2;
+            opnum::opnumbase* op1 = nullptr;
+            opnum::opnumbase* op2 = nullptr;
 
             int32_t opinteger;
 
@@ -267,13 +299,141 @@ namespace rs
 
     public:
 
-#define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
+        size_t get_now_ip() const
+        {
+            return ir_command_buffer.size();
+        }
+
+        std::string get_unique_tag_based_command_ip()const
+        {
+            return "ip_" + std::to_string(get_now_ip());
+        }
+
 #define RS_OPNUM(OPNUM) (_check_and_add_const(\
         (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
         ?\
         const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\
         :\
         new meta::origin_type<decltype(OPNUM)>(OPNUM)))
+
+        int32_t update_all_temp_regist_to_stack(size_t begin)
+        {
+            std::map<uint8_t, int8_t> tr_regist_mapping;
+
+            for (size_t i = begin; i < get_now_ip(); i++)
+            {
+                // ir_command_buffer problem..
+                auto& ircmbuf = ir_command_buffer[i];
+                if (ircmbuf.opcode != instruct::calln) // calln will not use opnum but do reptr_cast, dynamic_cast is dangerous
+                {
+                    if (auto* op1 = dynamic_cast<opnum::reg*>(ircmbuf.op1))
+                    {
+                        if (op1->is_tmp_regist() && tr_regist_mapping.find(op1->id) == tr_regist_mapping.end())
+                        {
+                            // is temp reg 
+                            size_t stack_idx = tr_regist_mapping.size();
+                            tr_regist_mapping[op1->id] = (int8_t)stack_idx;
+                        }
+                    }
+                    if (auto* op2 = dynamic_cast<opnum::reg*>(ircmbuf.op2))
+                    {
+                        if (op2->is_tmp_regist() && tr_regist_mapping.find(op2->id) == tr_regist_mapping.end())
+                        {
+                            // is temp reg 
+                            size_t stack_idx = tr_regist_mapping.size();
+                            tr_regist_mapping[op2->id] = (int8_t)stack_idx;
+                        }
+                    }
+                }
+            }
+
+            rs_test(tr_regist_mapping.size() <= 64); // fast bt_offset maxim offset
+            // TODO: IF FAIL, FALL BACK
+            //          OR REMOVE [BP-XXX]
+            int8_t maxim_offset = (int8_t)tr_regist_mapping.size();
+
+            // ATTENTION: DO NOT USE ircmbuf AFTER THIS LINE!!!
+            //            WILL INSERT SOME COMMAND BEFORE ir_command_buffer[i],
+            //            ircmbuf WILL POINT TO AN INVALID PLACE.
+
+            // analyze_finalize will product same ptr opnum, do not update the same opnum
+            // TODO : Very ugly, fix it in future.
+            std::set<opnum::opnumbase*> updated_opnum;
+
+            for (size_t i = begin; i < get_now_ip(); i++)
+            {
+                auto* opnum1 = ir_command_buffer[i].op1;
+                auto* opnum2 = ir_command_buffer[i].op2;
+
+                if (ir_command_buffer[i].opcode != instruct::calln)
+                {
+                    if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::ldsr)
+                    {
+                        auto* imm_opnum_stx_offset = dynamic_cast<opnum::immbase*>(opnum2);
+                        if (imm_opnum_stx_offset->try_int() <= 0)
+                            imm_opnum_stx_offset->try_set_int(imm_opnum_stx_offset->try_int() - maxim_offset);
+                    }
+                    if (auto* op1 = dynamic_cast<opnum::reg*>(opnum1); op1 && updated_opnum.find(opnum1) == updated_opnum.end())
+                    {
+                        if (op1->is_tmp_regist())
+                            op1->id = opnum::reg::bp_offset(-tr_regist_mapping[op1->id]);
+                        else if (op1->is_bp_offset() && op1->get_bp_offset() <= 0)
+                        {
+                            auto offseted_bp_offset = op1->get_bp_offset() - maxim_offset;
+                            if (offseted_bp_offset <= 64)
+                            {
+                                op1->id = opnum::reg::bp_offset(offseted_bp_offset);
+                            }
+                            else
+                            {
+                                opnum::reg reg_r0(opnum::reg::r0);
+                                opnum::imm imm_offset(offseted_bp_offset);
+
+                                // out of bt_offset range, make lds ldsr
+                                ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                    ir_command{ instruct::ldsr, RS_OPNUM(reg_r0), RS_OPNUM(imm_offset) });         // ldsr r0, imm(real_offset)
+                                op1->id = opnum::reg::r0;
+                                i++;
+                            }
+                        }
+
+                        updated_opnum.insert(opnum1);
+                    }
+                    if (auto* op2 = dynamic_cast<opnum::reg*>(opnum2); op2 && updated_opnum.find(opnum2) == updated_opnum.end())
+                    {
+                        if (op2->is_tmp_regist())
+                            op2->id = opnum::reg::bp_offset(-tr_regist_mapping[op2->id]);
+                        else if (op2->is_bp_offset() && op2->get_bp_offset() <= 0)
+                        {
+                            auto offseted_bp_offset = op2->get_bp_offset() - maxim_offset;
+                            if (offseted_bp_offset <= 64)
+                            {
+                                op2->id = opnum::reg::bp_offset(offseted_bp_offset);
+                            }
+                            else
+                            {
+                                opnum::reg reg_r1(opnum::reg::r1);
+                                opnum::imm imm_offset(offseted_bp_offset);
+
+                                // out of bt_offset range, make lds ldsr
+                                ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                    ir_command{ instruct::ldsr, RS_OPNUM(reg_r1), RS_OPNUM(imm_offset) });         // ldsr r0, imm(real_offset)
+                                op2->id = opnum::reg::r1;
+                                i++;
+                            }
+                        }
+
+                        updated_opnum.insert(opnum2);
+                    }
+                }
+            }
+
+            return (int32_t)tr_regist_mapping.size();
+        }
+
+
+#define RS_PUT_IR_TO_BUFFER(OPCODE, ...) ir_command_buffer.emplace_back(ir_command{OPCODE, __VA_ARGS__});
+
 
         template<typename OP1T, typename OP2T>
         void mov(const OP1T& op1, const OP2T& op2)
@@ -308,6 +468,23 @@ namespace rs
                 , "Argument(s) should be opnum.");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, RS_OPNUM(op1));
+        }
+
+        void pshn(uint16_t op1)
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, nullptr, nullptr, (uint16_t)op1);
+        }
+
+        size_t reserved_stackvalue()
+        {
+             RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, nullptr, nullptr, (uint16_t)0);
+             return get_now_ip();
+        }
+
+        void reserved_stackvalue(size_t ip, uint16_t sz)
+        {
+            rs_assert(ip);
+            ir_command_buffer[ip - 1].opinteger = sz;
         }
 
         template<typename OP1T>
@@ -811,19 +988,22 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::movcast, RS_OPNUM(op1), RS_OPNUM(op2), (int)vtt);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::setcast, RS_OPNUM(op1), RS_OPNUM(op2), (int)vtt);
         }
 
         template<typename OP1T>
         void call(const OP1T& op1)
         {
-            if constexpr (std::is_base_of<opnum::tag, OP1T>::value)
+            if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
             {
-                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, RS_OPNUM(op1));
-            }
-            else if constexpr (std::is_base_of<opnum::opnumbase, OP1T>::value)
-            {
-                RS_PUT_IR_TO_BUFFER(instruct::opcode::call, RS_OPNUM(op1));
+                if (dynamic_cast<opnum::tag*>(const_cast<OP1T*>(&op1)))
+                {
+                    RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, RS_OPNUM(op1));
+                }
+                else
+                {
+                    RS_PUT_IR_TO_BUFFER(instruct::opcode::call, RS_OPNUM(op1));
+                }
             }
             else if constexpr (std::is_pointer<OP1T>::value)
             {
@@ -834,7 +1014,7 @@ namespace rs
                 rs_assert(0 <= op1 && op1 <= UINT32_MAX, "Immediate instruct address is to large to call.");
 
                 uint32_t address = (uint32_t)op1;
-                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, reinterpret_cast<int32_t>(op1));
+                RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, nullptr, static_cast<int32_t>(op1));
             }
             else
             {
@@ -1019,7 +1199,7 @@ namespace rs
 
             for (auto* global_opnum : global_record_list)
             {
-                rs_assert(global_opnum->offset + constant_value_count < INT32_MAX && global_opnum->offset >= 0);
+                rs_assert(global_opnum->offset + constant_value_count < INT32_MAX&& global_opnum->offset >= 0);
                 global_opnum->real_offset_const_glb = (int32_t)(global_opnum->offset + constant_value_count);
                 if (((size_t)global_opnum->offset + 1) > global_value_count)
                     global_value_count = (size_t)global_opnum->offset + 1;
@@ -1107,8 +1287,27 @@ namespace rs
                     break;
 
                 case instruct::opcode::psh:
-                    runtime_command_buffer.push_back(RS_OPCODE(psh));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    if (nullptr == RS_IR.op1)
+                    {
+                        if (RS_IR.opinteger == 0)
+                            break;
+
+                        runtime_command_buffer.push_back(RS_OPCODE(psh, 00));
+
+                        rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
+                            , "Invalid count to reserve in stack.");
+
+                        uint16_t opushort = (uint16_t)RS_IR.opinteger;
+                        byte_t* readptr = (byte_t*)&opushort;
+
+                        runtime_command_buffer.push_back(readptr[0]);
+                        runtime_command_buffer.push_back(readptr[1]);
+                    }
+                    else
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(psh) | 0b01);
+                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    }
                     break;
                 case instruct::opcode::pshr:
                     runtime_command_buffer.push_back(RS_OPCODE(pshr));
@@ -1117,11 +1316,14 @@ namespace rs
                 case instruct::opcode::pop:
                     if (nullptr == RS_IR.op1)
                     {
+                        if (RS_IR.opinteger == 0)
+                            break;
+
                         runtime_command_buffer.push_back(RS_OPCODE(pop, 00));
 
                         rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
                             , "Invalid count to pop from stack.");
-
+                       
                         uint16_t opushort = (uint16_t)RS_IR.opinteger;
                         byte_t* readptr = (byte_t*)&opushort;
 

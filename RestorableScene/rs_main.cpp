@@ -425,11 +425,28 @@ int main()
 
     gc::gc_start();
 
-    unit_test_vm();
+    // unit_test_vm();
 
     rs::lexer lx1(
 LR"(
-var a = "Helloworld", b = "16":int;
+
+func main()
+{
+    var a = 25;
+    var b = " = 5 * 5";
+    return a:string + b;
+}
+
+
+func dio(var a:string, var b:int)
+{
+    a = "oh i'm in dio";
+    var c = "emm...";
+    
+    return a + b:string + c;
+}
+
+
 )"
     );
     auto result = get_rs_grammar()->gen(lx1);
@@ -441,23 +458,20 @@ var a = "Helloworld", b = "16":int;
         lng.analyze_pass2(result);
         result->display();
 
-        ir_compiler compiler;
-        lng.analyze_finalize(result, &compiler);
-        compiler.mov(global(1), global(0));
-        compiler.mov(global(0), imm(",ge~"));
-        compiler.set(reg(reg::cr), global(1));
-        compiler.end();
+        if(!lng.has_compile_error())
+        {
+            ir_compiler compiler;
+            lng.analyze_finalize(result, &compiler);
+            compiler.call(5);
+            compiler.end();
 
-        vm vmm;
-        vmm.set_runtime(compiler);
-        vmm.run();
-        
-        vmm.dump_program_bin();
+            vm vmm;
+            vmm.set_runtime(compiler);
+            vmm.dump_program_bin();
+            vmm.run();
 
-        std::cout << vmm.cr->string->c_str() << std::endl;
-
-        rs_test(vmm.cr->type==value::valuetype::string_type
-            && *vmm.cr->string == "Helloworld");
+            std::cout << vmm.cr->get()->string->c_str() << std::endl;
+        }
 
     }
     for (auto exp : lx1.lex_error_list)

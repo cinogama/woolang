@@ -555,6 +555,7 @@ namespace rs
 
             lang_symbol* symbol = nullptr;
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
+
         };
 
         struct ast_value_variable : virtual ast_value_symbolable_base
@@ -731,6 +732,22 @@ namespace rs
             ast_list* in_function_sentence;
             bool auto_adjust_return_type = false;
 
+            bool ir_func_has_been_generated = false;
+            std::string ir_func_signature_tag = "";
+
+            lang_scope* this_func_scope = nullptr;
+
+            std::string& get_ir_func_signature_tag()
+            {
+                if (ir_func_signature_tag == "")
+                {
+                    //TODO : Change new function to generate signature.
+                    ir_func_signature_tag =
+                        "func_" + std::to_string((uint64_t)in_function_sentence) + "_"
+                        + wstr_to_str(function_name + L"_" + value_type->get_type_name());
+                }
+                return ir_func_signature_tag;
+            }
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIY << L"func "

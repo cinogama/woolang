@@ -22,7 +22,7 @@ namespace rs
         union
         {
             size_t stackvalue_index_in_funcs = size_t(-1);
-            size_t global_index_in_funcs;
+            size_t global_index_in_lang;
         };
 
         ast::ast_value* variable_value;
@@ -51,9 +51,20 @@ namespace rs
 
         ast::ast_value_function_define* function_node;
 
+        size_t max_used_stack_size_in_func = 0; // only used in function_scope
         size_t used_stackvalue_index = 0; // only used in function_scope
+
         size_t this_block_used_stackvalue_count = 0;
 
+
+        size_t assgin_stack_index()
+        {
+            rs_assert(type == scope_type::function_scope);
+
+            if (used_stackvalue_index + 1 > max_used_stack_size_in_func)
+                max_used_stack_size_in_func = used_stackvalue_index + 1;
+            return used_stackvalue_index++;
+        }
     };
 
     class lang
@@ -150,6 +161,17 @@ namespace rs
 
                 a_value_assi->value_type = new ast_type(L"pending");
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+
+                if (!a_value_assi->value_type->is_pending())
+                {
+                    if (nullptr == pass_binary_op::binary_upper_type(
+                        a_value_assi->left->value_type,
+                        a_value_assi->right->value_type
+                    ))
+                        lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                            a_value_assi->right->value_type->get_type_name().c_str(),
+                            a_value_assi->left->value_type->get_type_name().c_str());
+                }
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
@@ -167,7 +189,7 @@ namespace rs
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
-                begin_function(a_value_func);
+                a_value_func->this_func_scope = begin_function(a_value_func);
 
                 auto arg_child = a_value_func->argument_list->children;
                 while (arg_child)
@@ -392,6 +414,16 @@ namespace rs
 
                         a_value_assi->value_type = new ast_type(L"pending");
                         a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+
+                        if (nullptr == pass_binary_op::binary_upper_type(
+                            a_value_assi->left->value_type,
+                            a_value_assi->right->value_type
+                        ))
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                                a_value_assi->right->value_type->get_type_name().c_str(),
+                                a_value_assi->left->value_type->get_type_name().c_str());
+                        }
 
                         if (a_value_assi->value_type->is_pending())
                         {
@@ -734,52 +766,501 @@ namespace rs
 
         std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
 
-        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
-        {
-#define RS_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
+        // register mapping.... fxxk
+        std::vector<bool> assigned_t_register_list = std::vector<bool>(opnum::reg::T_REGISTER_COUNT);   // will assign t register
+        std::vector<bool> assigned_r_register_list = std::vector<bool>(opnum::reg::R_REGISTER_COUNT);   // will assign r register
 
+        opnum::opnumbase& get_useable_register_for_pure_value()
+        {
             using namespace ast;
             using namespace opnum;
-            if (!get_pure_value)
+#define RS_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
+            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
             {
-                if (value->is_constant)
+                if (!assigned_t_register_list[i])
                 {
-                    auto const_value = value->get_constant_value(); 
-                    switch (const_value.type)
-                    {
-                    case value::valuetype::integer_type:
-                        return RS_NEW_OPNUM(imm(const_value.integer));
-                    case value::valuetype::real_type:
-                        return RS_NEW_OPNUM(imm(const_value.real));
-                    case value::valuetype::handle_type:
-                        return RS_NEW_OPNUM(imm(const_value.handle));
-                    case value::valuetype::string_type:
-                        return RS_NEW_OPNUM(imm(const_value.string->c_str()));
-                    default:
-                        rs_error("error constant type..");
-                        break;
-                    }
+                    assigned_t_register_list[i] = true;
+                    return RS_NEW_OPNUM(reg(reg::t0 + i));
                 }
-                else if (auto* a_value_literal = dynamic_cast<ast::ast_value_literal*>(value))
+            }
+            rs_error("cannot get a useable register..");
+            return RS_NEW_OPNUM(reg(reg::cr));
+        }
+        void _complete_using_register_for_pure_value(opnum::opnumbase& completed_reg)
+        {
+            using namespace ast;
+            using namespace opnum;
+            if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
+                reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT)
+            {
+                rs_test(assigned_t_register_list[reg_ptr->id]);
+                assigned_t_register_list[reg_ptr->id] = false;
+            }
+        }
+        void _complete_using_all_register_for_pure_value()
+        {
+            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
+            {
+                assigned_t_register_list[i] = 0;
+            }
+        }
+
+        opnum::opnumbase& get_useable_register_for_ref_value()
+        {
+            using namespace ast;
+            using namespace opnum;
+#define RS_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
+            for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
+            {
+                if (!assigned_r_register_list[i])
                 {
-                    rs_error("ast_value_literal should be 'constant'..");
+                    assigned_r_register_list[i] = true;
+                    return RS_NEW_OPNUM(reg(reg::r0 + i));
+                }
+            }
+            rs_error("cannot get a useable register..");
+            return RS_NEW_OPNUM(reg(reg::cr));
+        }
+        void _complete_using_register_for_ref_value(opnum::opnumbase& completed_reg)
+        {
+            using namespace ast;
+            using namespace opnum;
+            if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
+                reg_ptr && reg_ptr->id >= opnum::reg::T_REGISTER_COUNT
+                && reg_ptr->id < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT)
+            {
+                rs_test(assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT]);
+                assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT] = false;
+            }
+        }
+        void _complete_using_all_register_for_ref_value()
+        {
+            for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
+            {
+                assigned_r_register_list[i] = 0;
+            }
+        }
+
+        void complete_using_register(opnum::opnumbase& completed_reg)
+        {
+            _complete_using_register_for_pure_value(completed_reg);
+            _complete_using_register_for_ref_value(completed_reg);
+        }
+
+        void complete_using_all_register()
+        {
+            _complete_using_all_register_for_pure_value();
+            _complete_using_all_register_for_ref_value();
+        }
+
+        opnum::opnumbase& mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
+        {
+            using namespace ast;
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                if (regist->id == reg::cr)
+                    return op_num;
+            }
+            compiler->set(reg(reg::cr), op_num);
+            return RS_NEW_OPNUM(reg(reg::cr));
+        }
+
+        std::vector<ast::ast_value_function_define* > in_used_functions;
+
+        opnum::opnumbase& get_opnum_by_symbol(lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
+        {
+            using namespace opnum;
+            if (symb->type == lang_symbol::symbol_type::variable)
+            {
+                if (symb->static_symbol)
+                {
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(global(symb->global_index_in_lang));
+                    else
+                    {
+                        auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
+                        compiler->set(loaded_pure_glb_opnum, global(symb->global_index_in_lang));
+                        return loaded_pure_glb_opnum;
+                    }
                 }
                 else
                 {
-                    rs_error("unknown value type..");
+                    if (!get_pure_value)
+                    {
+                        if (symb->stackvalue_index_in_funcs <= 64)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                        else
+                        {
+                            auto& ldr_aim = get_useable_register_for_ref_value();
+                            compiler->ldsr(ldr_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            return ldr_aim;
+                        }
+                    }
+                    else
+                    {
+                        if (symb->stackvalue_index_in_funcs <= 64)
+                        {
+                            auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
+                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                            return loaded_pure_glb_opnum;
+                        }
+                        else
+                        {
+                            auto& lds_aim = get_useable_register_for_ref_value();
+                            compiler->lds(lds_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            return lds_aim;
+                        }
+                    }
                 }
             }
             else
+                rs_error("emm.");
+        }
+
+        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
+        {
+            using namespace ast;
+            using namespace opnum;
+            if (value->is_constant)
             {
-                rs_error("not impl reg xx..");
+                auto const_value = value->get_constant_value();
+                switch (const_value.type)
+                {
+                case value::valuetype::integer_type:
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(imm(const_value.integer));
+                    else
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, imm(const_value.integer));
+                        return treg;
+                    }
+                case value::valuetype::real_type:
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(imm(const_value.real));
+                    else
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, imm(const_value.real));
+                        return treg;
+                    }
+                case value::valuetype::handle_type:
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(imm(const_value.handle));
+                    else
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, imm(const_value.handle));
+                        return treg;
+                    }
+                case value::valuetype::string_type:
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(imm(const_value.string->c_str()));
+                    else
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, imm(const_value.string->c_str()));
+                        return treg;
+                    }
+                default:
+                    rs_error("error constant type..");
+                    break;
+                }
+            }
+            else if (auto* a_value_literal = dynamic_cast<ast_value_literal*>(value))
+            {
+                rs_error("ast_value_literal should be 'constant'..");
+            }
+            else if (auto* a_value_binary = dynamic_cast<ast_value_binary*>(value))
+            {
+                // if mixed type, do opx
+                value::valuetype optype = value::valuetype::invalid;
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type)
+                    && !a_value_binary->left->value_type->is_dynamic())
+                    optype = a_value_binary->left->value_type->value_type;
+
+                auto& beoped_left_opnum = analyze_value(a_value_binary->left, compiler, true);
+                auto& op_right_opnum = analyze_value(a_value_binary->right, compiler);
+
+                switch (a_value_binary->operate)
+                {
+                case lex_type::l_add:
+                    if (optype == value::valuetype::invalid)
+                        compiler->addx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::handle_type:
+                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::string_type:
+                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_sub:
+                    if (optype == value::valuetype::invalid)
+                        compiler->subx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::handle_type:
+                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_mul:
+                    if (optype == value::valuetype::invalid)
+                        compiler->mulx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_div:
+                    if (optype == value::valuetype::invalid)
+                        compiler->divx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_mod:
+                    if (optype == value::valuetype::invalid)
+                        compiler->modx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                default:
+                    rs_error("Do not support this operator..");
+                    break;
+                }
+                complete_using_register(op_right_opnum);
+                return beoped_left_opnum;
+            }
+            else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
+            {
+                // if mixed type, do opx
+                value::valuetype optype = value::valuetype::invalid;
+                if (a_value_assign->left->value_type->is_same(a_value_assign->right->value_type)
+                    && !a_value_assign->left->value_type->is_dynamic())
+                    optype = a_value_assign->left->value_type->value_type;
+
+                auto& beoped_left_opnum = analyze_value(a_value_assign->left, compiler);
+                auto& op_right_opnum = analyze_value(a_value_assign->right, compiler);
+
+                switch (a_value_assign->operate)
+                {
+                case lex_type::l_assign:
+                    if (optype == value::valuetype::invalid && !a_value_assign->left->value_type->is_dynamic())
+                        // TODO : NEED WARNING..
+                        compiler->movx(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->mov(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_add_assign:
+                    if (optype == value::valuetype::invalid)
+                        // TODO : NEED WARNING..
+                        compiler->addx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::handle_type:
+                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::string_type:
+                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_sub_assign:
+                    if (optype == value::valuetype::invalid)
+                        // TODO : NEED WARNING..
+                        compiler->subx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::handle_type:
+                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_mul_assign:
+                    if (optype == value::valuetype::invalid)
+                        // TODO : NEED WARNING..
+                        compiler->mulx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_div_assign:
+                    if (optype == value::valuetype::invalid)
+                        // TODO : NEED WARNING..
+                        compiler->divx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                case lex_type::l_mod_assign:
+                    if (optype == value::valuetype::invalid)
+                        // TODO : NEED WARNING..
+                        compiler->modx(beoped_left_opnum, op_right_opnum);
+                    else
+                    {
+                        switch (optype)
+                        {
+                        case rs::value::valuetype::integer_type:
+                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::real_type:
+                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            rs_error("Do not support this type..");
+                            break;
+                        }
+                    }
+                    break;
+                default:
+                    rs_error("Do not support this operator..");
+                    break;
+                }
+                complete_using_register(op_right_opnum);
+                return beoped_left_opnum;
+            }
+            else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
+            {
+                // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
+                auto symb = a_value_variable->symbol;
+                rs_test(symb->type == lang_symbol::symbol_type::variable);
+
+                return get_opnum_by_symbol(symb, compiler, get_pure_value);
+            }
+            else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
+            {
+                if (a_value_type_cast->value_type->is_dynamic()
+                    || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type))
+                    // no cast, just as origin value
+                    return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
+
+                auto& treg = get_useable_register_for_pure_value();
+                compiler->setcast(treg, 
+                    analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
+                    a_value_type_cast->value_type->value_type);
+                return treg;
+
+            }
+            else if (auto* a_value_function_define = dynamic_cast<ast_value_function_define*>(value))
+            {
+                // function defination
+                if (a_value_function_define->ir_func_has_been_generated == false)
+                {
+                    in_used_functions.push_back(a_value_function_define);
+                    a_value_function_define->ir_func_has_been_generated = true;
+                }
+                return RS_NEW_OPNUM(tag(a_value_function_define->get_ir_func_signature_tag()));
+            }
+            else
+            {
+                rs_error("unknown value type..");
             }
 
+
+            rs_error("run to err place..");
             static opnum::opnumbase err;
             return err;
 #undef RS_NEW_OPNUM
         }
 
-        void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
+        opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
+        {
+            auto& result = analyze_value(value, compiler, get_pure_value);
+            complete_using_all_register();
+
+            return result;
+        }
+
+
+
+        void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
             if (traving_node.find(ast_node) != traving_node.end())
             {
@@ -818,17 +1299,8 @@ namespace rs
                     }
                     else
                     {
-                        if (varref_define.symbol->static_symbol)
-                        {
-                            rs_assert(varref_define.symbol->global_index_in_funcs < INT32_MAX);
-                            compiler->set(global((int32_t)varref_define.symbol->global_index_in_funcs), 
-                                analyze_value(varref_define.init_val,compiler));
-                            // set global[global_index_in_funcs], init_val
-                        }
-                        else
-                        {
-                            rs_error("not impl");
-                        }
+                        compiler->set(get_opnum_by_symbol(varref_define.symbol, compiler),
+                            auto_analyze_value(varref_define.init_val, compiler));
                     }
                 }
             }
@@ -837,13 +1309,85 @@ namespace rs
                 auto* child = a_list->children;
                 while (child)
                 {
-                    analyze_finalize(child, compiler);
+                    real_analyze_finalize(child, compiler);
                     child = child->sibling;
                 }
+            }
+            else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
+            {
+                mov_value_to_cr(auto_analyze_value(a_if->judgement_value, compiler), compiler);
+
+                auto ifelse_tag = "if_else_" + compiler->get_unique_tag_based_command_ip();
+                auto ifend_tag = "if_end_" + compiler->get_unique_tag_based_command_ip();
+
+                compiler->jf(tag(ifelse_tag));
+
+                real_analyze_finalize(a_if->execute_if_true, compiler);
+                if (a_if->execute_else)
+                    compiler->jmp(tag(ifend_tag));
+                compiler->tag(ifelse_tag);
+                if (a_if->execute_else)
+                {
+                    real_analyze_finalize(a_if->execute_else, compiler);
+                    compiler->tag(ifend_tag);
+                }
+
+            }
+            else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
+            {
+                auto_analyze_value(a_value, compiler);
+            }
+            else if (auto* a_sentence_block = dynamic_cast<ast_sentence_block*>(ast_node))
+            {
+                real_analyze_finalize(a_sentence_block->sentence_list, compiler);
+            }
+            else if (auto* a_return = dynamic_cast<ast_return*>(ast_node))
+            {
+                if (a_return->return_value)
+                {
+                    mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
+                }
+                compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
             }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
+
+        void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
+        {
+            size_t public_block_begin = compiler->get_now_ip();
+            real_analyze_finalize(ast_node, compiler);
+            compiler->update_all_temp_regist_to_stack(public_block_begin);
+
+            compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
+            while (!in_used_functions.empty())
+            {
+                auto tmp_build_func_list = in_used_functions;
+                in_used_functions.clear();
+                for (auto* funcdef : tmp_build_func_list)
+                {
+                    size_t funcbegin_ip = compiler->get_now_ip();
+
+                    compiler->tag(funcdef->get_ir_func_signature_tag());
+                    auto res_ip = compiler->reserved_stackvalue();                      // reserved..
+                    real_analyze_finalize(funcdef->in_function_sentence, compiler);
+
+                    auto reserved_stack_size = funcdef->this_func_scope->max_used_stack_size_in_func +
+                        compiler->update_all_temp_regist_to_stack(funcbegin_ip);
+
+                    compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
+
+                    compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
+
+                    compiler->pop(reserved_stack_size);
+                    compiler->ret();                                            // do return
+
+
+                }
+            }
+            compiler->tag("__rsir_rtcode_seg_function_define_end");
+        }
+
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
         {
@@ -932,7 +1476,6 @@ namespace rs
             lang_scopes.pop_back();
         }
 
-
         lang_scope* now_scope() const
         {
             rs_assert(!lang_scopes.empty());
@@ -1009,13 +1552,13 @@ namespace rs
                 if (auto* func = in_function())
                 {
                     sym->static_symbol = false;
-                    sym->stackvalue_index_in_funcs = func->used_stackvalue_index++;
+                    sym->stackvalue_index_in_funcs = func->assgin_stack_index();
                     lang_scopes.back()->this_block_used_stackvalue_count++;
                 }
                 else
                 {
                     sym->static_symbol = true;
-                    sym->global_index_in_funcs = global_symbol_index++;
+                    sym->global_index_in_lang = global_symbol_index++;
                 }
 
                 lang_symbols.push_back(sym);
@@ -1078,6 +1621,11 @@ namespace rs
             }
 
             return nullptr;
+        }
+
+        bool has_compile_error()const
+        {
+            return !lang_anylizer->lex_error_list.empty();
         }
     };
 }

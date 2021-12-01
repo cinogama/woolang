@@ -421,13 +421,19 @@ namespace rs
                     switch (fast_ro_vm_interrupt | opcode)
                     {
                     case instruct::opcode::psh:
-                    {
-                        RS_ADDRESSING_N1_REF;
-
-                        (rt_sp--)->set_val(opnum1);
-
+                    {  
+                        if (dr & 0b01)
+                        {
+                            RS_ADDRESSING_N1_REF;
+                            (rt_sp--)->set_val(opnum1);
+                        }
+                        else
+                        { 
+                            uint16_t psh_repeat = RS_IPVAL_MOVE_2;
+                            for (uint32_t i = 0; i < psh_repeat; i++)
+                                (rt_sp--)->set_nil();                
+                        }
                         rs_assert(rt_sp <= rt_bp);
-
                         break;
                     }
                     case instruct::opcode::pshr:
@@ -621,7 +627,6 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            opnum1->type = max_type;
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -661,7 +666,7 @@ namespace rs
                                 rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
+                        opnum1->type = max_type;
                         ///////////////////////////////////////////////
 
                         if (opnum2->type == max_type)
@@ -741,7 +746,6 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            opnum1->type = max_type;
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -781,7 +785,7 @@ namespace rs
                                 rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
+                        opnum1->type = max_type;
                         ///////////////////////////////////////////////
 
                         if (opnum2->type == max_type)
@@ -859,7 +863,6 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            opnum1->type = max_type;
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -884,7 +887,7 @@ namespace rs
                                 rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
+                        opnum1->type = max_type;
                         ///////////////////////////////////////////////
 
                         if (opnum2->type == max_type)
@@ -943,7 +946,7 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            opnum1->type = max_type;
+                            
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -968,7 +971,7 @@ namespace rs
                                 rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
+                        opnum1->type = max_type;
                         ///////////////////////////////////////////////
 
                         if (opnum2->type == max_type)
@@ -1027,7 +1030,7 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            opnum1->type = max_type;
+                            
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -1052,7 +1055,7 @@ namespace rs
                                 rs_fail(RS_ERR_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
+                        opnum1->type = max_type;
                         ///////////////////////////////////////////////
 
                         if (opnum2->type == max_type)
@@ -2052,6 +2055,8 @@ namespace rs
                             tmpos << "[bp";
                             if (offset < 0)
                                 tmpos << offset << "]";
+                            else if (offset == 0)
+                                tmpos << "-" << offset << "]";
                             else
                                 tmpos << "+" << offset << "]";
                         }
@@ -2096,6 +2101,8 @@ namespace rs
                             tmpos << "[bp";
                             if (offset < 0)
                                 tmpos << offset << "]";
+                            else if (offset == 0)
+                                tmpos << "-" << offset << "]";
                             else
                                 tmpos << "+" << offset << "]";
                         }
@@ -2170,7 +2177,14 @@ namespace rs
                     tmpos << "adds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
                 case instruct::psh:
-                    tmpos << "psh\t"; print_opnum1(); break;
+                    if (main_command & 0b01)
+                    {
+                        tmpos << "psh\t"; print_opnum1(); break;
+                    }
+                    else
+                    {
+                        tmpos << "pshn repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                    }
                 case instruct::pop:
                     if (main_command & 0b01)
                     {
