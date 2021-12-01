@@ -380,7 +380,7 @@ namespace rs
                         else if (op1->is_bp_offset() && op1->get_bp_offset() <= 0)
                         {
                             auto offseted_bp_offset = op1->get_bp_offset() - maxim_offset;
-                            if (offseted_bp_offset <= 64)
+                            if (offseted_bp_offset >= -64)
                             {
                                 op1->id = opnum::reg::bp_offset(offseted_bp_offset);
                             }
@@ -406,7 +406,7 @@ namespace rs
                         else if (op2->is_bp_offset() && op2->get_bp_offset() <= 0)
                         {
                             auto offseted_bp_offset = op2->get_bp_offset() - maxim_offset;
-                            if (offseted_bp_offset <= 64)
+                            if (offseted_bp_offset >= -64)
                             {
                                 op2->id = opnum::reg::bp_offset(offseted_bp_offset);
                             }
@@ -500,7 +500,7 @@ namespace rs
         {
             if constexpr (std::is_integral<OP1T>::value)
             {
-                rs_assert(0 < op1 && op1 <= UINT16_MAX);
+                rs_assert(0 <= op1 && op1 <= UINT16_MAX);
                 RS_PUT_IR_TO_BUFFER(instruct::opcode::pop, nullptr, nullptr, (uint16_t)op1);
             }
             else

@@ -462,7 +462,7 @@ namespace rs
                     }
                     case instruct::opcode::popr:
                     {
-                        RS_ADDRESSING_N1_REF;
+                        RS_ADDRESSING_N1;
                         opnum1->set_ref((++rt_sp)->get());
 
                         rs_assert(rt_sp <= rt_bp);
@@ -1350,7 +1350,7 @@ namespace rs
                     }
                     case instruct::opcode::ldsr:
                     {
-                        RS_ADDRESSING_N1_REF;
+                        RS_ADDRESSING_N1;
                         RS_ADDRESSING_N2_REF;
 
                         rs_assert(opnum2->type == value::valuetype::integer_type);
@@ -1708,7 +1708,7 @@ namespace rs
                     }
                     case instruct::opcode::ret:
                     {
-                        value* stored_bp = stack_mem_begin + (++rt_bp)->bp;
+                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                         rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;

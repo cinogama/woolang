@@ -14,8 +14,8 @@ namespace rs
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
         std::condition_variable     _gc_cv;
 
-        uint32_t                    _gc_immediately_edge = 500000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 1000;
+        uint32_t                    _gc_immediately_edge = 5000000;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 100;
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
 

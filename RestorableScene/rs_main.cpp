@@ -430,22 +430,9 @@ int main()
     rs::lexer lx1(
 LR"(
 
-func main()
-{
-    var a = 25;
-    var b = " = 5 * 5";
-    return a:string + b;
-}
+func main():string{return "Helloworld~";}
 
-
-func dio(var a:string, var b:int)
-{
-    a = "oh i'm in dio";
-    var c = "emm...";
-    
-    return a + b:string + c;
-}
-
+main();
 
 )"
     );
@@ -462,14 +449,22 @@ func dio(var a:string, var b:int)
         {
             ir_compiler compiler;
             lng.analyze_finalize(result, &compiler);
-            compiler.call(5);
             compiler.end();
 
             vm vmm;
             vmm.set_runtime(compiler);
             vmm.dump_program_bin();
-            vmm.run();
 
+            std::chrono::system_clock sc;
+
+           //  while (true)
+            {
+                vmm.set_runtime(compiler);
+                auto beg = sc.now();
+                vmm.run();
+                auto end = sc.now();
+                std::cout << (end - beg).count() / 10000000.0f << std::endl;
+            }
             std::cout << vmm.cr->get()->string->c_str() << std::endl;
         }
 

@@ -196,7 +196,7 @@ namespace rs
                 {
                     if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
-                        define_variable_in_this_scope(argdef->arg_name, argdef);
+                        argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef);
                     }
                     else
                     {
@@ -454,9 +454,11 @@ namespace rs
                             // function call for witch overrride not judge. do it.
                             if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
                             {
-                                rs_test(called_funcsymb->symbol);
-
-                                if (!called_funcsymb->symbol->function_overload_sets.empty())
+                                if (nullptr == called_funcsymb->symbol)
+                                {
+                                    // do nothing..
+                                }
+                                else if (!called_funcsymb->symbol->function_overload_sets.empty())
                                 {
                                     // have override set, judge with following rule:
                                     // 1. best match
@@ -477,7 +479,7 @@ namespace rs
 
                                         auto* real_args = a_value_funccall->arguments->children;
                                         auto* form_args = override_func->argument_list->children;
-                                        while (form_args)
+                                        do
                                         {
                                             auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
                                             auto* real_arg = dynamic_cast<ast_value*>(real_args);
@@ -508,7 +510,8 @@ namespace rs
 
                                             real_args = real_args->sibling;
                                         match_check_end_for_variadic_func:
-                                            form_args = form_args->sibling;
+                                            if (form_args)
+                                                form_args = form_args->sibling;
 
 
                                             if (form_args == nullptr)
@@ -524,7 +527,7 @@ namespace rs
                                                 }
                                                 // else: bad match..
                                             }
-                                        }
+                                        } while (form_args);
                                     }
 
                                     std::vector<ast_value_function_define*>* judge_sets = nullptr;
@@ -588,6 +591,48 @@ namespace rs
                             if(a_value_funccall->called_func->value_type->is_pending_function())
                                 lang_anylizer->lang_error(0x0000, a_value, L"xxx '%s'.", a_value->value_type->get_type_name().c_str());
                             */
+                        }
+
+                        if (a_value_funccall->called_func
+                            && a_value_funccall->called_func->value_type->is_func()
+                            && !a_value_funccall->called_func->value_type->is_pending())
+                        {
+                            auto* real_args = a_value_funccall->arguments->children;
+                            a_value_funccall->arguments->remove_allnode();
+ 
+                            for (auto a_types : a_value_funccall->called_func->value_type->argument_types)
+                            {
+                                if (!real_args)
+                                {
+                                    // default arg mgr here, now just kill
+                                    rs_error("not support vaargs now");
+                                }
+
+                                auto tmp_sib  = real_args->sibling;
+
+                                real_args->parent = nullptr;
+                                real_args->sibling = nullptr;
+
+                                auto* arg_val = dynamic_cast<ast_value*>(real_args);
+                                if (!arg_val->value_type->is_same(a_types))
+                                {
+                                    auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, a_types);
+                                    cast_arg_type->col_no = arg_val->col_no;
+                                    cast_arg_type->row_no = arg_val->row_no;
+
+                                    analyze_pass2(cast_arg_type);
+
+                                    a_value_funccall->arguments->add_child(cast_arg_type);
+                                }
+                                else
+                                {
+                                    a_value_funccall->arguments->add_child(real_args);
+                                }
+
+                                real_args = tmp_sib;
+                            }
+                            
+
                         }
                     }
                     else
@@ -857,6 +902,9 @@ namespace rs
         {
             using namespace ast;
             using namespace opnum;
+            if (last_value_stored_to_cr)
+                return op_num;
+
             if (auto* regist = dynamic_cast<reg*>(&op_num))
             {
                 if (regist->id == reg::cr)
@@ -918,8 +966,11 @@ namespace rs
                 rs_error("emm.");
         }
 
+        bool last_value_stored_to_cr = false;
+
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
         {
+            last_value_stored_to_cr = false;
             using namespace ast;
             using namespace opnum;
             if (value->is_constant)
@@ -1081,6 +1132,7 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
+                last_value_stored_to_cr = true;
                 return beoped_left_opnum;
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
@@ -1204,6 +1256,7 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
+                last_value_stored_to_cr = true;
                 return beoped_left_opnum;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
@@ -1222,9 +1275,10 @@ namespace rs
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->setcast(treg, 
+                compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->value_type->value_type);
+                last_value_stored_to_cr = true;
                 return treg;
 
             }
@@ -1237,6 +1291,34 @@ namespace rs
                     a_value_function_define->ir_func_has_been_generated = true;
                 }
                 return RS_NEW_OPNUM(tag(a_value_function_define->get_ir_func_signature_tag()));
+            }
+            else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
+            {
+                std::vector<ast_value* >arg_list;
+                auto arg = a_value_funccall->arguments->children;
+                while (arg)
+                {
+                    ast_value* arg_val = dynamic_cast<ast_value*>(arg);
+                    rs_assert(arg_val);
+                    arg_list.insert(arg_list.begin(), arg_val);
+                    arg = arg->sibling;
+                }
+                for (auto* argv : arg_list)
+                    compiler->psh(analyze_value(argv, compiler));
+
+                compiler->call(analyze_value(a_value_funccall->called_func, compiler));
+                compiler->pop(arg_list.size());
+                last_value_stored_to_cr = true;
+                if (!get_pure_value)
+                {
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+                else
+                {
+                    auto& funcresult = get_useable_register_for_pure_value();
+                    compiler->set(funcresult, reg(reg::cr));
+                    return funcresult;
+                }
             }
             else
             {
@@ -1299,7 +1381,7 @@ namespace rs
                     }
                     else
                     {
-                        compiler->set(get_opnum_by_symbol(varref_define.symbol, compiler),
+                        compiler->mov(get_opnum_by_symbol(varref_define.symbol, compiler),
                             auto_analyze_value(varref_define.init_val, compiler));
                     }
                 }
@@ -1331,6 +1413,22 @@ namespace rs
                     real_analyze_finalize(a_if->execute_else, compiler);
                     compiler->tag(ifend_tag);
                 }
+
+            }
+            else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
+            {
+                auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
+                auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
+
+                compiler->tag(while_begin_tag);
+                mov_value_to_cr(auto_analyze_value(a_while->judgement_value, compiler), compiler);
+                compiler->jf(tag(while_end_tag));
+
+                real_analyze_finalize(a_while->execute_sentence, compiler);
+
+                compiler->jmp(tag(while_begin_tag));
+                compiler->tag(while_end_tag);
+
 
             }
             else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
@@ -1370,6 +1468,28 @@ namespace rs
 
                     compiler->tag(funcdef->get_ir_func_signature_tag());
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
+
+                    // apply args.
+                    int arg_count = 0;
+                    auto arg_index = funcdef->argument_list->children;
+                    while (arg_index)
+                    {
+                        if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
+                        {
+                            if (a_value_arg_define->is_ref)
+                            {
+                                rs_error("Not impl");
+                            }
+                            else
+                                compiler->set(get_opnum_by_symbol(a_value_arg_define->symbol, compiler),
+                                    opnum::reg(opnum::reg::bp_offset(+2 + arg_count)));
+                        }
+                        else//variadic
+                            break;
+                        arg_count++;
+                        arg_index = arg_index->sibling;
+                    }
+
                     real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
                     auto reserved_stack_size = funcdef->this_func_scope->max_used_stack_size_in_func +
@@ -1378,8 +1498,7 @@ namespace rs
                     compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
 
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
-
-                    compiler->pop(reserved_stack_size);
+                    // compiler->pop(reserved_stack_size);
                     compiler->ret();                                            // do return
 
 

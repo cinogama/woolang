@@ -125,6 +125,15 @@ namespace rs
             {
                 list.push_back(this);
             }
+            void remove_allnode()
+            {
+                while (children)
+                {
+                    last = nullptr;
+                    children->parent = nullptr;
+                    children = children->sibling;
+                }
+            }
             void add_child(ast_base* ast_node)
             {
                 if (ast_node->parent == this)
