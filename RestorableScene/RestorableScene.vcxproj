@@ -146,6 +146,7 @@
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
     <ClCompile Include="rs_basic_type_support.cpp" />
+    <ClCompile Include="rs_compiler_env_impl.cpp" />
     <ClCompile Include="rs_gc_work.cpp" />
     <ClCompile Include="rs_lang_grammar.cpp" />
     <ClCompile Include="rs_lang_grammar_cache_holder.cpp" />
@@ -163,7 +164,7 @@
     <ClInclude Include="rs_lang_ast_builder.hpp" />
     <ClInclude Include="rs_lang_grammar_loader.hpp" />
     <ClInclude Include="rs_lang_grammar_lr1_autogen.hpp" />
-    <ClInclude Include="rs_runtime_debugee.hpp" />
+    <ClInclude Include="rs_runtime_debuggee.hpp" />
     <ClInclude Include="rs_vm.hpp" />
     <ClInclude Include="rs_assert.hpp" />
     <ClInclude Include="rs_basic_type.hpp" />

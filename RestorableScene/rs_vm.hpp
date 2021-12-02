@@ -13,10 +13,41 @@ namespace rs
 {
     struct vmbase;
     class exception_recovery;
-    class debugee_base
+    class debuggee_base
     {
+        inline static gcbase::rw_lock _global_vm_debug_block_spin;
     public:
-        virtual void debug_interrupt(vmbase *) = 0;
+        void _vm_invoke_debuggee(vmbase* _vm)
+        {
+            _global_vm_debug_block_spin.lock();
+            _global_vm_debug_block_spin.unlock();
+            // Just make a block
+
+            debug_interrupt(_vm);
+        }
+        virtual void debug_interrupt(vmbase*) = 0;
+
+    protected:
+
+        void block_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.lock(); }
+        void unblock_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.unlock(); }
+
+
+    };
+
+    class exception_recovery
+    {
+        exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp);
+        vmbase* vm;
+    public:
+        byte_t* ip;
+        value* sp;
+        value* bp;
+        exception_recovery* last;
+        std::jmp_buf native_env;
+        inline static void rollback(vmbase* _vm);
+        inline static void ok(vmbase* _vm);
+        inline static void _ready(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp);
     };
 
     struct vmbase
@@ -69,20 +100,22 @@ namespace rs
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
+    private:
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
+    protected:
+        debuggee_base* attaching_debuggee = nullptr;
 
-        debugee_base* attaching_debugee = nullptr;
-
-        inline void attach_debugee(debugee_base* dbg)
+    public:
+        inline void attach_debuggee(debuggee_base* dbg)
         {
             if (dbg)
                 interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
-            else if (attaching_debugee)
+            else if (attaching_debuggee)
                 clear_interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
 
-            attaching_debugee = dbg;
+            attaching_debuggee = dbg;
         }
 
         inline bool interrupt(vm_interrupt_type type)
@@ -169,6 +202,9 @@ namespace rs
                 "This vm not exists in _alive_vm_list, that is illegal.");
 
             _alive_vm_list.erase(this);
+
+            if (veh)
+                exception_recovery::ok(this);
         }
 
         // vm exception handler
@@ -191,7 +227,7 @@ namespace rs
 
         value* _self_stack_reg_mem_buf = nullptr;
 
-        std::shared_ptr<ir_compiler::runtime_env> env;
+        std::shared_ptr<runtime_env> env;
 
         void set_runtime(ir_compiler& _compiler)
         {
@@ -245,55 +281,466 @@ namespace rs
 
             new_vm->env = env;  // env setted, gc will scan this vm..
 
-            new_vm->attach_debugee(this->attaching_debugee);
+            new_vm->attach_debuggee(this->attaching_debuggee);
 
             rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
         }
-    };
 
-    class exception_recovery
-    {
-        exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
-            : vm(_vm)
-            , ip(_ip)
-            , sp(_sp)
-            , bp(_bp)
-            , last(_vm->veh)
+        inline void dump_program_bin(std::ostream& os = std::cout)
         {
-            _vm->veh = this;
-        }
+            auto* program = env->rt_codes;
 
-        vmbase* vm;
-
-    public:
-        byte_t* ip;
-        value* sp;
-        value* bp;
-
-        exception_recovery* last;
-        std::jmp_buf native_env;
-        inline static void rollback(vmbase* _vm)
-        {
-            _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
-            if (_vm->veh)
-                longjmp(_vm->veh->native_env, 1);
-            else
+            auto* program_ptr = program;
+            while (program_ptr < program + env->rt_code_len)
             {
-                rs_error("No 'veh' in this vm.");
+                auto* this_command_ptr = program_ptr;
+                auto main_command = *(this_command_ptr++);
+                std::stringstream tmpos;
+
+                auto print_byte = [&]() {
+
+                    const int MAX_BYTE_COUNT = 10;
+                    printf("+%04d : ", (uint32_t)(program_ptr - program));
+                    int displayed_count = 0;
+                    for (auto idx = program_ptr; idx < this_command_ptr; idx++)
+                    {
+                        printf("%02X ", (uint32_t)*idx);
+                        displayed_count++;
+                    }
+                    for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
+                        printf("   ");
+                };
+#define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+                auto print_opnum1 = [&]() {
+                    if (main_command & (byte_t)0b00000010)
+                    {
+                        //is dr 1byte 
+                        byte_t data_1b = *(this_command_ptr++);
+                        if (data_1b & 1 << 7)
+                        {
+                            // bp offset
+                            auto offset = RS_SIGNED_SHIFT(data_1b);
+                            tmpos << "[bp";
+                            if (offset < 0)
+                                tmpos << offset << "]";
+                            else if (offset == 0)
+                                tmpos << "-" << offset << "]";
+                            else
+                                tmpos << "+" << offset << "]";
+                        }
+                        else
+                        {
+                            // is reg
+                            if (data_1b >= 0 && data_1b <= 15)
+                                tmpos << "t" << (uint32_t)data_1b;
+                            else if (data_1b >= 16 && data_1b <= 31)
+                                tmpos << "r" << (uint32_t)data_1b - 16;
+                            else if (data_1b == 32)
+                                tmpos << "cr";
+                            else if (data_1b == 33)
+                                tmpos << "tc";
+                            else if (data_1b == 34)
+                                tmpos << "er";
+                            else if (data_1b == 35)
+                                tmpos << "nil";
+                            else
+                                tmpos << "reg(" << (uint32_t)data_1b << ")";
+
+                        }
+                    }
+                    else
+                    {
+                        //const global 4byte
+                        uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
+                        if (data_4b < env->constant_value_count)
+                            tmpos << rs_cast_string((rs_value)&env->constant_global_reg_rtstack[data_4b])
+                            << " : " << rs_type_name((rs_value)&env->constant_global_reg_rtstack[data_4b]);
+                        else
+                            tmpos << "g[" << data_4b - env->constant_value_count << "]";
+                    }
+                };
+                auto print_opnum2 = [&]() {
+                    if (main_command & (byte_t)0b00000001)
+                    {
+                        //is dr 1byte 
+                        byte_t data_1b = *(this_command_ptr++);
+                        if (data_1b & 1 << 7)
+                        {
+                            // bp offset
+                            auto offset = RS_SIGNED_SHIFT(data_1b);
+                            tmpos << "[bp";
+                            if (offset < 0)
+                                tmpos << offset << "]";
+                            else if (offset == 0)
+                                tmpos << "-" << offset << "]";
+                            else
+                                tmpos << "+" << offset << "]";
+                        }
+                        else
+                        {
+                            // is reg
+                            if (data_1b >= 0 && data_1b <= 15)
+                                tmpos << "t" << (uint32_t)data_1b;
+                            else if (data_1b >= 16 && data_1b <= 31)
+                                tmpos << "r" << (uint32_t)data_1b - 16;
+                            else if (data_1b == 32)
+                                tmpos << "cr";
+                            else if (data_1b == 33)
+                                tmpos << "tc";
+                            else if (data_1b == 34)
+                                tmpos << "er";
+                            else if (data_1b == 35)
+                                tmpos << "nil";
+                            else
+                                tmpos << "reg(" << (uint32_t)data_1b << ")";
+
+                        }
+                    }
+                    else
+                    {
+                        //const global 4byte
+                        uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
+                        if (data_4b < env->constant_value_count)
+                            tmpos << rs_cast_string((rs_value)&env->constant_global_reg_rtstack[data_4b])
+                            << " : " << rs_type_name((rs_value)&env->constant_global_reg_rtstack[data_4b]);
+                        else
+                            tmpos << "g[" << data_4b - env->constant_value_count << "]";
+                    }
+                };
+
+#undef RS_SIGNED_SHIFT
+                switch (main_command & (byte_t)0b11111100)
+                {
+                case instruct::nop:
+                    tmpos << "nop\t"; break;
+                case instruct::set:
+                    tmpos << "set\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::mov:
+                    tmpos << "mov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::addi:
+                    tmpos << "addi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::subi:
+                    tmpos << "subi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::muli:
+                    tmpos << "muli\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::divi:
+                    tmpos << "divi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::modi:
+                    tmpos << "modi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::addr:
+                    tmpos << "addr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::subr:
+                    tmpos << "subr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::mulr:
+                    tmpos << "mulr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::divr:
+                    tmpos << "divr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::modr:
+                    tmpos << "modr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::addh:
+                    tmpos << "addh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::subh:
+                    tmpos << "subh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::adds:
+                    tmpos << "adds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::psh:
+                    if (main_command & 0b01)
+                    {
+                        tmpos << "psh\t"; print_opnum1(); break;
+                    }
+                    else
+                    {
+                        tmpos << "pshn repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                    }
+                case instruct::pop:
+                    if (main_command & 0b01)
+                    {
+                        tmpos << "pop\t"; print_opnum1(); break;
+                    }
+                    else
+                    {
+                        tmpos << "pop repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                    }
+                case instruct::pshr:
+                    tmpos << "pshr\t"; print_opnum1(); break;
+                case instruct::popr:
+                    tmpos << "popr\t"; print_opnum1(); break;
+
+                case instruct::lds:
+                    tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::ldsr:
+                    tmpos << "ldsr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::lti:
+                    tmpos << "lti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::gti:
+                    tmpos << "gti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::elti:
+                    tmpos << "elti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::egti:
+                    tmpos << "egti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::land:
+                    tmpos << "land\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::lor:
+                    tmpos << "lor\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::lnot:
+                    tmpos << "lnot\t"; print_opnum1(); break;
+
+                case instruct::ltx:
+                    tmpos << "ltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::gtx:
+                    tmpos << "gtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::eltx:
+                    tmpos << "eltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::egtx:
+                    tmpos << "egtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::ltr:
+                    tmpos << "ltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::gtr:
+                    tmpos << "gtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::eltr:
+                    tmpos << "eltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::egtr:
+                    tmpos << "egtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::call:
+                    tmpos << "call\t"; print_opnum1(); break;
+
+                case instruct::calln:
+                    tmpos << "calln\t";
+                    if (main_command & 0b01)
+                        //neg
+                        tmpos << *(void**)((this_command_ptr += 8) - 8);
+                    else
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+
+                case instruct::ret:
+                    tmpos << "ret\t"; break;
+
+                case instruct::jt:
+                    tmpos << "jt\t";
+                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+                case instruct::jf:
+                    tmpos << "jf\t";
+                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+                case instruct::jmp:
+                    tmpos << "jmp\t";
+                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+
+                case instruct::movcast:
+                    tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                    tmpos << " : ";
+                    switch ((value::valuetype) * (this_command_ptr++))
+                    {
+                    case value::valuetype::integer_type:
+                        tmpos << "int"; break;
+                    case value::valuetype::real_type:
+                        tmpos << "real"; break;
+                    case value::valuetype::handle_type:
+                        tmpos << "handle"; break;
+                    case value::valuetype::string_type:
+                        tmpos << "string"; break;
+                    case value::valuetype::array_type:
+                        tmpos << "array"; break;
+                    case value::valuetype::mapping_type:
+                        tmpos << "map"; break;
+                    default:
+                        tmpos << "unknown"; break;
+                    }
+
+                    break;
+
+                case instruct::setcast:
+                    tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                    tmpos << " : ";
+                    switch ((value::valuetype) * (this_command_ptr++))
+                    {
+                    case value::valuetype::integer_type:
+                        tmpos << "int"; break;
+                    case value::valuetype::real_type:
+                        tmpos << "real"; break;
+                    case value::valuetype::handle_type:
+                        tmpos << "handle"; break;
+                    case value::valuetype::string_type:
+                        tmpos << "string"; break;
+                    case value::valuetype::array_type:
+                        tmpos << "array"; break;
+                    case value::valuetype::mapping_type:
+                        tmpos << "map"; break;
+                    default:
+                        tmpos << "unknown"; break;
+                    }
+
+                    break;
+
+                case instruct::movx:
+                    tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::veh:
+                    tmpos << "veh ";
+                    if (main_command & 0b10)
+                    {
+                        tmpos << "begin except jmp ";
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        break;
+                    }
+                    else if (main_command & 0b01)
+                    {
+                        tmpos << "throw";
+                        break;
+                    }
+                    else
+                    {
+                        tmpos << "ok jmp ";
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        break;
+                    }
+                case instruct::abrt:
+                    tmpos << "abrt\t"; break;
+
+                case instruct::equx:
+                    tmpos << "equx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::nequx:
+                    tmpos << "nequx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::equb:
+                    tmpos << "equb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::nequb:
+                    tmpos << "nequb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::mkarr:
+                    tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
+                case instruct::mkmap:
+                    tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
+                case instruct::idx:
+                    tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::addx:
+                    tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::subx:
+                    tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::mulx:
+                    tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::divx:
+                    tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::modx:
+                    tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+
+                case instruct::ext:
+                {
+                    tmpos << "ext ";
+                    int pagecode = main_command & 0b00000011;
+                    main_command = *(this_command_ptr++);
+                    switch (pagecode)
+                    {
+                    case 0:
+                        switch (main_command & 0b11111100)
+                        {
+                        case instruct::extern_opcode_page_0::setref:
+                            tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                        case instruct::extern_opcode_page_0::mknilarr:
+                            tmpos << "mknilarr\t"; print_opnum1(); break;
+                        case instruct::extern_opcode_page_0::mknilmap:
+                            tmpos << "mknilmap\t"; print_opnum1();  break;
+                        default:
+                            tmpos << "??\t";
+                            break;
+                        }
+                        break;
+                    case 1:
+                        switch (main_command & 0b11111100)
+                        {
+                        case instruct::extern_opcode_page_1::prnt:
+                            tmpos << "prnt\t"; print_opnum1(); break;
+                        case instruct::extern_opcode_page_1::detail:
+                            tmpos << "detail\t"; print_opnum1(); break;
+                        default:
+                            tmpos << "??\t";
+                            break;
+                        }
+                        break;
+                    case 2:
+                        switch (main_command & 0b11111100)
+                        {
+                        default:
+                            tmpos << "??\t";
+                            break;
+                        }
+                        break;
+                    case 3:
+                        switch (main_command & 0b11111100)
+                        {
+                        default:
+                            tmpos << "??\t";
+                            break;
+                        }
+                        break;
+                    default:
+                        tmpos << "??\t";
+                        break;
+                    }
+                    break;
+                }
+                case instruct::end:
+                    tmpos << "end\t"; break;
+                default:
+                    tmpos << "??\t"; break;
+                }
+
+                print_byte(); os << "| " << tmpos.str() << std::endl;
+
+                program_ptr = this_command_ptr;
             }
-        }
-        inline static void ok(vmbase* _vm)
-        {
-            auto veh = _vm->veh;
-            _vm->veh = veh->last;
-            delete veh;
-        }
-        inline static void _ready(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
-        {
-            exception_recovery* _er = new exception_recovery(_vm, _ip, _sp, _bp);
+
+            os << std::endl;
         }
     };
+
+    inline exception_recovery::exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
+        : vm(_vm)
+        , ip(_ip)
+        , sp(_sp)
+        , bp(_bp)
+        , last(_vm->veh)
+    {
+        _vm->veh = this;
+    }
+
+    inline void  exception_recovery::rollback(vmbase* _vm)
+    {
+        _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
+        if (_vm->veh)
+            longjmp(_vm->veh->native_env, 1);
+        else
+        {
+            rs_error("No 'veh' in this vm.");
+        }
+    }
+    inline void  exception_recovery::ok(vmbase* _vm)
+    {
+        auto veh = _vm->veh;
+        _vm->veh = veh->last;
+        delete veh;
+    }
+    inline void exception_recovery::_ready(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
+    {
+        exception_recovery* _er = new exception_recovery(_vm, _ip, _sp, _bp);
+    }
+
 
 #define RS_READY_EXCEPTION_HANDLE(VM,IP,ROLLBACKIP,SP,BP)\
     bool _rs_restore_from_exception = false;\
@@ -351,7 +798,7 @@ namespace rs
                 }
             };
 
-            ir_compiler::runtime_env* rt_env = env.get();
+            runtime_env* rt_env = env.get();
             byte_t* rt_ip;
             value* rt_bp, * rt_sp;
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
@@ -2083,15 +2530,15 @@ namespace rs
                             else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
                             {
                                 rtopcode = opcode;
-                                
+
                                 ip = rt_ip;
                                 sp = rt_sp;
                                 bp = rt_bp;
-                                if (attaching_debugee)
+                                if (attaching_debuggee)
                                 {
-                                    // check debugee here
+                                    // check debuggee here
                                     rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                                    attaching_debugee->debug_interrupt(this);
+                                    attaching_debuggee->_vm_invoke_debuggee(this);
                                     rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                                 }
                                 ++rt_ip;
@@ -2121,423 +2568,7 @@ namespace rs
                 rs::exception_recovery::rollback(this);
             }
         }
-
-
-        inline void dump_program_bin(std::ostream& os = std::cout)
-        {
-            auto* program = env->rt_codes;
-
-            auto* program_ptr = program;
-            while (program_ptr < program + env->rt_code_len)
-            {
-                auto* this_command_ptr = program_ptr;
-                auto main_command = *(this_command_ptr++);
-                std::stringstream tmpos;
-
-                auto print_byte = [&]() {
-
-                    const int MAX_BYTE_COUNT = 10;
-                    printf("+%04d : ", (uint32_t)(program_ptr - program));
-                    int displayed_count = 0;
-                    for (auto idx = program_ptr; idx < this_command_ptr; idx++)
-                    {
-                        printf("%02X ", (uint32_t)*idx);
-                        displayed_count++;
-                    }
-                    for (int i = 0; i < MAX_BYTE_COUNT - displayed_count; i++)
-                        printf("   ");
-                };
-#define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
-                auto print_opnum1 = [&]() {
-                    if (main_command & (byte_t)0b00000010)
-                    {
-                        //is dr 1byte 
-                        byte_t data_1b = *(this_command_ptr++);
-                        if (data_1b & 1 << 7)
-                        {
-                            // bp offset
-                            auto offset = RS_SIGNED_SHIFT(data_1b);
-                            tmpos << "[bp";
-                            if (offset < 0)
-                                tmpos << offset << "]";
-                            else if (offset == 0)
-                                tmpos << "-" << offset << "]";
-                            else
-                                tmpos << "+" << offset << "]";
-                        }
-                        else
-                        {
-                            // is reg
-                            if (data_1b >= 0 && data_1b <= 15)
-                                tmpos << "t" << (uint32_t)data_1b;
-                            else if (data_1b >= 16 && data_1b <= 31)
-                                tmpos << "r" << (uint32_t)data_1b - 16;
-                            else if (data_1b == 32)
-                                tmpos << "cr";
-                            else if (data_1b == 33)
-                                tmpos << "tc";
-                            else if (data_1b == 34)
-                                tmpos << "er";
-                            else if (data_1b == 35)
-                                tmpos << "nil";
-                            else
-                                tmpos << "reg(" << (uint32_t)data_1b << ")";
-
-                        }
-                    }
-                    else
-                    {
-                        //const global 4byte
-                        uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
-                        if (data_4b < env->constant_value_count)
-                            tmpos << rs_cast_string((rs_value)&env->constant_global_reg_rtstack[data_4b])
-                            << " : " << rs_type_name((rs_value)&env->constant_global_reg_rtstack[data_4b]);
-                        else
-                            tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                    }
-                };
-                auto print_opnum2 = [&]() {
-                    if (main_command & (byte_t)0b00000001)
-                    {
-                        //is dr 1byte 
-                        byte_t data_1b = *(this_command_ptr++);
-                        if (data_1b & 1 << 7)
-                        {
-                            // bp offset
-                            auto offset = RS_SIGNED_SHIFT(data_1b);
-                            tmpos << "[bp";
-                            if (offset < 0)
-                                tmpos << offset << "]";
-                            else if (offset == 0)
-                                tmpos << "-" << offset << "]";
-                            else
-                                tmpos << "+" << offset << "]";
-                        }
-                        else
-                        {
-                            // is reg
-                            if (data_1b >= 0 && data_1b <= 15)
-                                tmpos << "t" << (uint32_t)data_1b;
-                            else if (data_1b >= 16 && data_1b <= 31)
-                                tmpos << "r" << (uint32_t)data_1b - 16;
-                            else if (data_1b == 32)
-                                tmpos << "cr";
-                            else if (data_1b == 33)
-                                tmpos << "tc";
-                            else if (data_1b == 34)
-                                tmpos << "er";
-                            else if (data_1b == 35)
-                                tmpos << "nil";
-                            else
-                                tmpos << "reg(" << (uint32_t)data_1b << ")";
-
-                        }
-                    }
-                    else
-                    {
-                        //const global 4byte
-                        uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
-                        if (data_4b < env->constant_value_count)
-                            tmpos << rs_cast_string((rs_value)&env->constant_global_reg_rtstack[data_4b])
-                            << " : " << rs_type_name((rs_value)&env->constant_global_reg_rtstack[data_4b]);
-                        else
-                            tmpos << "g[" << data_4b - env->constant_value_count << "]";
-                    }
-                };
-
-#undef RS_SIGNED_SHIFT
-                switch (main_command & (byte_t)0b11111100)
-                {
-                case instruct::nop:
-                    tmpos << "nop\t"; break;
-                case instruct::set:
-                    tmpos << "set\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::mov:
-                    tmpos << "mov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::addi:
-                    tmpos << "addi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::subi:
-                    tmpos << "subi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::muli:
-                    tmpos << "muli\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::divi:
-                    tmpos << "divi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::modi:
-                    tmpos << "modi\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::addr:
-                    tmpos << "addr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::subr:
-                    tmpos << "subr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::mulr:
-                    tmpos << "mulr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::divr:
-                    tmpos << "divr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::modr:
-                    tmpos << "modr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::addh:
-                    tmpos << "addh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::subh:
-                    tmpos << "subh\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::adds:
-                    tmpos << "adds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::psh:
-                    if (main_command & 0b01)
-                    {
-                        tmpos << "psh\t"; print_opnum1(); break;
-                    }
-                    else
-                    {
-                        tmpos << "pshn repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-                    }
-                case instruct::pop:
-                    if (main_command & 0b01)
-                    {
-                        tmpos << "pop\t"; print_opnum1(); break;
-                    }
-                    else
-                    {
-                        tmpos << "pop repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
-                    }
-                case instruct::pshr:
-                    tmpos << "pshr\t"; print_opnum1(); break;
-                case instruct::popr:
-                    tmpos << "popr\t"; print_opnum1(); break;
-
-                case instruct::lds:
-                    tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::ldsr:
-                    tmpos << "ldsr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::lti:
-                    tmpos << "lti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::gti:
-                    tmpos << "gti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::elti:
-                    tmpos << "elti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::egti:
-                    tmpos << "egti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::land:
-                    tmpos << "land\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::lor:
-                    tmpos << "lor\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::lnot:
-                    tmpos << "lnot\t"; print_opnum1(); break;
-
-                case instruct::ltx:
-                    tmpos << "ltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::gtx:
-                    tmpos << "gtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::eltx:
-                    tmpos << "eltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::egtx:
-                    tmpos << "egtx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::ltr:
-                    tmpos << "ltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::gtr:
-                    tmpos << "gtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::eltr:
-                    tmpos << "eltr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::egtr:
-                    tmpos << "egtr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::call:
-                    tmpos << "call\t"; print_opnum1(); break;
-
-                case instruct::calln:
-                    tmpos << "calln\t";
-                    if (main_command & 0b01)
-                        //neg
-                        tmpos << *(void**)((this_command_ptr += 8) - 8);
-                    else
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    break;
-
-                case instruct::ret:
-                    tmpos << "ret\t"; break;
-
-                case instruct::jt:
-                    tmpos << "jt\t";
-                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    break;
-                case instruct::jf:
-                    tmpos << "jf\t";
-                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    break;
-                case instruct::jmp:
-                    tmpos << "jmp\t";
-                    tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                    break;
-
-                case instruct::movcast:
-                    tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                    tmpos << " : ";
-                    switch ((value::valuetype) * (this_command_ptr++))
-                    {
-                    case value::valuetype::integer_type:
-                        tmpos << "int"; break;
-                    case value::valuetype::real_type:
-                        tmpos << "real"; break;
-                    case value::valuetype::handle_type:
-                        tmpos << "handle"; break;
-                    case value::valuetype::string_type:
-                        tmpos << "string"; break;
-                    case value::valuetype::array_type:
-                        tmpos << "array"; break;
-                    case value::valuetype::mapping_type:
-                        tmpos << "map"; break;
-                    default:
-                        tmpos << "unknown"; break;
-                    }
-
-                    break;
-
-                case instruct::setcast:
-                    tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                    tmpos << " : ";
-                    switch ((value::valuetype) * (this_command_ptr++))
-                    {
-                    case value::valuetype::integer_type:
-                        tmpos << "int"; break;
-                    case value::valuetype::real_type:
-                        tmpos << "real"; break;
-                    case value::valuetype::handle_type:
-                        tmpos << "handle"; break;
-                    case value::valuetype::string_type:
-                        tmpos << "string"; break;
-                    case value::valuetype::array_type:
-                        tmpos << "array"; break;
-                    case value::valuetype::mapping_type:
-                        tmpos << "map"; break;
-                    default:
-                        tmpos << "unknown"; break;
-                    }
-
-                    break;
-
-                case instruct::movx:
-                    tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::veh:
-                    tmpos << "veh ";
-                    if (main_command & 0b10)
-                    {
-                        tmpos << "begin except jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
-                    else if (main_command & 0b01)
-                    {
-                        tmpos << "throw";
-                        break;
-                    }
-                    else
-                    {
-                        tmpos << "ok jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
-                case instruct::abrt:
-                    tmpos << "abrt\t"; break;
-
-                case instruct::equx:
-                    tmpos << "equx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::nequx:
-                    tmpos << "nequx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::mkarr:
-                    tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
-                case instruct::mkmap:
-                    tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
-                case instruct::idx:
-                    tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::addx:
-                    tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::subx:
-                    tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::mulx:
-                    tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::divx:
-                    tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::modx:
-                    tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::ext:
-                {
-                    tmpos << "ext ";
-                    int pagecode = main_command & 0b00000011;
-                    main_command = *(this_command_ptr++);
-                    switch (pagecode)
-                    {
-                    case 0:
-                        switch (main_command & 0b11111100)
-                        {
-                        case instruct::extern_opcode_page_0::setref:
-                            tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::mknilarr:
-                            tmpos << "mknilarr\t"; print_opnum1(); break;
-                        case instruct::extern_opcode_page_0::mknilmap:
-                            tmpos << "mknilmap\t"; print_opnum1();  break;
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 1:
-                        switch (main_command & 0b11111100)
-                        {
-                        case instruct::extern_opcode_page_1::prnt:
-                            tmpos << "prnt\t"; print_opnum1(); break;
-                        case instruct::extern_opcode_page_1::detail:
-                            tmpos << "detail\t"; print_opnum1(); break;
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 2:
-                        switch (main_command & 0b11111100)
-                        {
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 3:
-                        switch (main_command & 0b11111100)
-                        {
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    default:
-                        tmpos << "??\t";
-                        break;
-                    }
-                    break;
-                }
-                case instruct::end:
-                    tmpos << "end\t"; break;
-                default:
-                    tmpos << "??\t"; break;
-                }
-
-                print_byte(); os << "| " << tmpos.str() << std::endl;
-
-                program_ptr = this_command_ptr;
-            }
-
-            os << std::endl;
-        }
+        
     };
 
 

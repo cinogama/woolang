@@ -9,6 +9,7 @@
 #   define RS_FORCE_CAPI_END }
 #else
 #include <stdint.h>
+#include <stdbool.h>
 #   define RS_FORCE_CAPI /* nothing */
 #   define RS_FORCE_CAPI_END /* nothing */
 #endif
@@ -33,14 +34,16 @@ typedef void*       rs_pointer_t;
 typedef const char* rs_string_t;
 typedef double      rs_real_t;
 
+#define RS_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
+
 typedef struct _rs_vm
 { /* reserved, and prevent from type casting. */
-    uint8_t _take_palce_[1];
+    RS_STRUCT_TAKE_PLACE(1);
 }
 *rs_vm;
 typedef struct _rs_value
 { /* reserved, and prevent from type casting. */
-    uint8_t _take_palce_[16];
+    RS_STRUCT_TAKE_PLACE(16);
 }
 *rs_value;
 typedef enum _rs_value_type
@@ -91,6 +94,16 @@ RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
 // Here to define RSRuntime code accroding to the type.
+
+// Here to define RSRuntime debug tools API
+typedef struct _rs_debuggee_handle
+{ /* reserved, and prevent from type casting. */
+    RS_STRUCT_TAKE_PLACE(1);
+}
+*rs_debuggee;
+typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
+
+
 
 #if defined(RS_IMPL)
 #define RS_NEED_RTERROR_CODES 1

@@ -289,7 +289,7 @@ namespace rs
         }
 
     public:
-        lexer(const std::wstring& wstr, const std::string _source_file="temp_source_code")
+        lexer(const std::wstring& wstr, const std::string _source_file="__runtime_script__")
             : reading_buffer(wstr)
             , next_reading_index(0)
             , now_file_rowno(1)

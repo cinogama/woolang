@@ -15,6 +15,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <stack>
 #include <sstream>
 #include <any>
+#include <forward_list>
 
 namespace rs
 {
@@ -94,7 +95,7 @@ namespace rs
         class ast_base
         {
         private:
-            inline thread_local static std::vector<ast_base*> list;
+            inline thread_local static std::forward_list<ast_base*> list;
         private:
             ast_base* last;
         public:
@@ -108,6 +109,12 @@ namespace rs
                     delete astnode;
                 }
                 list.clear();
+            }
+            static void pickout_this_thread_ast(std::forward_list<ast_base*> & out_list)
+            {
+                rs_assert(out_list.empty());
+
+                out_list.swap(list);
             }
 
             ast_base* parent;
@@ -127,7 +134,7 @@ namespace rs
                 , row_no(0)
                 , col_no(0)
             {
-                list.push_back(this);
+                list.push_front(this);
             }
             void remove_allnode()
             {

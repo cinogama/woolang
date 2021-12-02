@@ -51,6 +51,9 @@
     <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_compiler_env_impl.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs.h">
@@ -110,7 +113,7 @@
     <ClInclude Include="rs_lang.hpp">
       <Filter>头文件\lang</Filter>
     </ClInclude>
-    <ClInclude Include="rs_runtime_debugee.hpp">
+    <ClInclude Include="rs_runtime_debuggee.hpp">
       <Filter>头文件\runtime</Filter>
     </ClInclude>
   </ItemGroup>

@@ -71,20 +71,23 @@ namespace rs
     {
     private:
         lexer* lang_anylizer;
-        std::vector<lang_scope*> lang_namespaces; // only used for storing namespaces to release
+        std::vector<lang_scope*> lang_scopes_buffers;
         std::vector<lang_symbol*> lang_symbols; // only used for storing symbols to release
-
+        std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
+        std::forward_list<grammar::ast_base*> generated_ast_nodes_buffers;
+        std::unordered_set<grammar::ast_base*> traving_node;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
-        lang_scope* now_namespace;
-
+        lang_scope* now_namespace = nullptr;
     public:
         lang(lexer& lex) :
             lang_anylizer(&lex)
         {
             begin_namespace(L"");   // global namespace
         }
-
-        std::unordered_set<grammar::ast_base*> traving_node;
+        ~lang()
+        {
+            clean_and_close_lang();
+        }
 
         void analyze_pass1(grammar::ast_base* ast_node)
         {
@@ -351,7 +354,6 @@ namespace rs
                 }
             }
         }
-
         bool analyze_pass2(grammar::ast_base* ast_node)
         {
             rs_assert(ast_node);
@@ -853,7 +855,23 @@ namespace rs
             return ast_node->completed_in_pass2 = true;
         }
 
-        std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
+        void clean_and_close_lang()
+        {
+            for (auto* created_scopes : lang_scopes_buffers)
+            {
+                for (auto& [symbool_name, created_symbols] : created_scopes->symbols)
+                    delete created_symbols;
+                delete created_scopes;
+            }
+            for (auto* created_temp_opnum : generated_opnum_list_for_clean)
+                delete created_temp_opnum;
+            for (auto generated_ast_node : generated_ast_nodes_buffers)
+                delete generated_ast_node;
+
+            lang_scopes_buffers.clear();
+            generated_opnum_list_for_clean.clear();
+            generated_ast_nodes_buffers.clear();
+        }
 
         // register mapping.... fxxk
         std::vector<bool> assigned_t_register_list = std::vector<bool>(opnum::reg::T_REGISTER_COUNT);   // will assign t register
@@ -1023,113 +1041,9 @@ namespace rs
 
         bool last_value_stored_to_cr = false;
 
-        struct program_debug_data_info
-        {
-            struct location
-            {
-                size_t      row_no;
-                size_t      col_no;
-                std::string source_file = "not_found";
-            };
-            std::map<std::string, std::map<size_t, std::map<size_t, size_t>> > _general_src_data_buf_a;
-            std::map<size_t, location> _general_src_data_buf_b;
-
-            void generate(grammar::ast_base* ast_node, ir_compiler* compiler)
-            {
-                // funcdef should not genrate val..
-                if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
-                    || dynamic_cast<ast::ast_list*>(ast_node)
-                    || dynamic_cast<ast::ast_namespace*>(ast_node)
-                    || dynamic_cast<ast::ast_sentence_block*>(ast_node)
-                    || dynamic_cast<ast::ast_if*>(ast_node)
-                    || dynamic_cast<ast::ast_while*>(ast_node))
-                    return;
-
-                auto& row_buff = _general_src_data_buf_a[ast_node->source_file][ast_node->row_no];
-                if (row_buff.find(ast_node->col_no) == row_buff.end())
-                    row_buff[ast_node->col_no] = SIZE_MAX;
-
-                auto& old_ip = row_buff[ast_node->col_no];
-                if (compiler->get_now_ip() < old_ip)
-                    old_ip = compiler->get_now_ip();
-
-
-            }
-
-            void finalize_pdd()
-            {
-                for (auto& [filename, rowbuf] : _general_src_data_buf_a)
-                {
-                    for (auto& [rowno, colbuf] : rowbuf)
-                    {
-                        for (auto& [colno, ipxx] : colbuf)
-                        {
-                            // if (_general_src_data_buf_b.find(ipxx) == _general_src_data_buf_b.end())
-                            _general_src_data_buf_b[ipxx] = location{ rowno , colno ,filename };
-                        }
-                    }
-                }
-            }
-
-            const location& get_src_location(byte_t* rt_pos, rs::ir_compiler::runtime_env* env)
-            {
-                const size_t FAIL_INDEX = SIZE_MAX;
-                static location     FAIL_LOC;
-
-                size_t result = FAIL_INDEX;
-                auto byte_offset = (rt_pos - env->rt_codes) + 1;
-                do
-                {
-                    --byte_offset;
-                    if (auto fnd = env->pdd_rt_code_byte_offset_to_ir.find(byte_offset);
-                        fnd != env->pdd_rt_code_byte_offset_to_ir.end())
-                    {
-                        result = fnd->second;
-                        break;
-                    }
-                } while (byte_offset > 0);
-
-                if (result == FAIL_INDEX)
-                    return FAIL_LOC;
-
-                while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
-                {
-                    result--;
-                }
-
-                return _general_src_data_buf_b[result];
-            }
-        };
-
-        program_debug_data_info pdd_info;
-        struct pdd_info_guard
-        {
-            program_debug_data_info* pddob;
-            ir_compiler* ircomp;
-            grammar::ast_base* astnode;
-            pdd_info_guard(program_debug_data_info* pddf, ir_compiler* comp, grammar::ast_base* astn)
-                :pddob(pddf)
-                , ircomp(comp)
-                , astnode(astn)
-            {
-            }
-
-            ~pdd_info_guard()
-            {
-                genit();
-            }
-            void genit()
-            {
-                if (pddob)
-                    pddob->generate(astnode, ircomp);
-                pddob = nullptr;
-            }
-        };
-
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
         {
-            pdd_info_guard pig(&pdd_info, compiler, value);
-            pig.genit();
+            compiler->pdb_info->generate(value, compiler);
 
             last_value_stored_to_cr = false;
             using namespace ast;
@@ -1677,8 +1591,7 @@ namespace rs
 
         void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
-            pdd_info_guard pig(&pdd_info, compiler, ast_node);
-            pig.genit();
+            compiler->pdb_info->generate(ast_node, compiler);
 
             if (traving_node.find(ast_node) != traving_node.end())
             {
@@ -1846,7 +1759,9 @@ namespace rs
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
 
-            pdd_info.finalize_pdd();
+            compiler->pdb_info->finalize_pdd();
+
+            rs::grammar::ast_base::pickout_this_thread_ast(generated_ast_nodes_buffers);
         }
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
@@ -1862,7 +1777,7 @@ namespace rs
             }
 
             lang_scope* scope = new lang_scope;
-            lang_namespaces.push_back(scope);
+            lang_scopes_buffers.push_back(scope);
 
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::namespace_scope;
@@ -1888,6 +1803,7 @@ namespace rs
         lang_scope* begin_scope()
         {
             lang_scope* scope = new lang_scope;
+            lang_scopes_buffers.push_back(scope);
 
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::just_scope;
@@ -1913,6 +1829,7 @@ namespace rs
         lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef)
         {
             lang_scope* scope = new lang_scope;
+            lang_scopes_buffers.push_back(scope);
 
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::function_scope;

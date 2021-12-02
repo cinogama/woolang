@@ -4,6 +4,7 @@
 #include "rs_basic_type.hpp"
 #include "rs_instruct.hpp"
 #include "rs_meta.hpp"
+#include "rs_compiler_parser.hpp"
 
 #include <cstring>
 #include <string>
@@ -77,7 +78,7 @@ namespace rs
                 op_trace_result = 0b00100000, cr = op_trace_result,
                 argument_count, tc = argument_count,
                 exception_result, er = exception_result,
-                nil_constant,   ni = nil_constant,
+                nil_constant, ni = nil_constant,
 
                 last_special_register = 0b00111111,
             };
@@ -248,6 +249,56 @@ namespace rs
     } // namespace opnum;
 
     struct vmbase;
+    class ir_compiler;
+    struct runtime_env;
+
+    struct program_debug_data_info
+    {
+        struct location
+        {
+            size_t      row_no;
+            size_t      col_no;
+            std::string source_file = "not_found";
+        };
+        std::map<std::string, std::map<size_t, std::map<size_t, size_t>> > _general_src_data_buf_a;
+        std::map<size_t, location> _general_src_data_buf_b;
+        std::map<size_t, size_t> pdd_rt_code_byte_offset_to_ir;
+        byte_t* runtime_codes_base;
+
+        void generate(grammar::ast_base* ast_node, ir_compiler* compiler);
+        void finalize_pdd();
+        const location& get_src_location(byte_t* rt_pos) const;
+        size_t get_ip_by_src_location(const std::string& src_name, size_t rowno)const;
+        size_t get_ip_index(byte_t* rt_pos) const;
+    };
+
+    struct runtime_env
+    {
+        value* constant_global_reg_rtstack = nullptr;
+        value* reg_begin = nullptr;
+        value* stack_begin = nullptr;
+
+        size_t constant_value_count = 0;
+        size_t global_value_count = 0;
+        size_t real_register_count = 0;
+        size_t cgr_global_value_count = 0;
+
+        size_t runtime_stack_count = 0;
+
+        size_t rt_code_len = 0;
+        byte_t* rt_codes = nullptr;
+
+        std::shared_ptr<program_debug_data_info> program_debug_info;
+
+        ~runtime_env()
+        {
+            if (constant_global_reg_rtstack)
+                free(constant_global_reg_rtstack);
+
+            if (rt_codes)
+                free(rt_codes);
+        }
+    };
 
     class ir_compiler
     {
@@ -322,7 +373,25 @@ namespace rs
             return _opnum;
         }
 
+        cxx_vec_t<opnum::opnumbase*> _created_opnum_buffer;
+
+        template<typename T>
+        T* _created_opnum_item(const T& _opn)
+        {
+            auto result = new T(_opn);
+            _created_opnum_buffer.push_back(result);
+            return result;
+        }
+
     public:
+
+        std::shared_ptr<program_debug_data_info> pdb_info = std::make_shared< program_debug_data_info>();
+
+        ~ir_compiler()
+        {
+            for (auto* created_opnum : _created_opnum_buffer)
+                delete created_opnum;
+        }
 
         size_t get_now_ip() const
         {
@@ -339,7 +408,7 @@ namespace rs
         ?\
         const_cast<meta::origin_type<decltype(OPNUM)>*>(&OPNUM)\
         :\
-        new meta::origin_type<decltype(OPNUM)>(OPNUM)))
+        _created_opnum_item<meta::origin_type<decltype(OPNUM)>>(OPNUM)))
 
         int32_t update_all_temp_regist_to_stack(size_t begin)
         {
@@ -1187,36 +1256,8 @@ namespace rs
 #undef RS_OPNUM
 #undef RS_PUT_IR_TO_BUFFER
 
-        struct runtime_env
-        {
-            value* constant_global_reg_rtstack = nullptr;
-            value* reg_begin = nullptr;
-            value* stack_begin = nullptr;
-
-            size_t constant_value_count = 0;
-            size_t global_value_count = 0;
-            size_t real_register_count = 0;
-            size_t cgr_global_value_count = 0;
-
-            size_t runtime_stack_count = 0;
-
-            size_t rt_code_len = 0;
-            byte_t* rt_codes = nullptr;
-
-            std::map<size_t, size_t> pdd_rt_code_byte_offset_to_ir;
-
-            ~runtime_env()
-            {
-                if (constant_global_reg_rtstack)
-                    free(constant_global_reg_rtstack);
-
-                if (rt_codes)
-                    free(rt_codes);
-            }
-        };
-
     private:
-        std::unique_ptr<runtime_env> finalize()
+        std::shared_ptr<runtime_env> finalize()
         {
             // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
@@ -1268,11 +1309,11 @@ namespace rs
             }
 
             // 2. Generate code
-            std::unique_ptr<runtime_env> env = std::make_unique<runtime_env>();
+            std::shared_ptr<runtime_env> env = std::make_shared<runtime_env>();
 
             for (size_t ip = 0; ip < ir_command_buffer.size(); ip++)
             {
-                env->pdd_rt_code_byte_offset_to_ir[runtime_command_buffer.size()] = ip;
+                pdb_info->pdd_rt_code_byte_offset_to_ir[runtime_command_buffer.size()] = ip;
 
                 if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
                 {
@@ -1822,12 +1863,17 @@ namespace rs
 
             env->rt_code_len = runtime_command_buffer.size();
 
-            env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+            pdb_info->runtime_codes_base =
+                env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+
             rs_assert(env->rt_codes, "Alloc memory fail.");
 
             memcpy(env->rt_codes, runtime_command_buffer.data(), env->rt_code_len * sizeof(byte_t));
 
+            env->program_debug_info = pdb_info;
+
             return env;
         }
     };
+
 }
