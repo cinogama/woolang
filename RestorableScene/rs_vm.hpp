@@ -11,8 +11,13 @@
 #include <sstream>
 namespace rs
 {
-
+    struct vmbase;
     class exception_recovery;
+    class debugee_base
+    {
+    public:
+        virtual void debug_interrupt(vmbase *) = 0;
+    };
 
     struct vmbase
     {
@@ -44,8 +49,11 @@ namespace rs
                                                                     // 2) enter vm run()
                                                                     // 3) vm destructed.
                                                                     // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                    //            successful. (We use 'rs_asure' here)
+                                                                    //            successful. (We use 'rs_asure' here)'
 
+                                                                    DEBUG_INTERRUPT = 1 << 10,  // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
+                                                                                                // to check about breakpoint.
+                                                                                                // * DEBUG_INTERRUPT will cause huge performance loss
         };
 
         vmbase(const vmbase&) = delete;
@@ -64,6 +72,18 @@ namespace rs
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
+
+        debugee_base* attaching_debugee = nullptr;
+
+        inline void attach_debugee(debugee_base* dbg)
+        {
+            if (dbg)
+                interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+            else if (attaching_debugee)
+                clear_interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+
+            attaching_debugee = dbg;
+        }
 
         inline bool interrupt(vm_interrupt_type type)
         {
@@ -224,6 +244,8 @@ namespace rs
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
 
             new_vm->env = env;  // env setted, gc will scan this vm..
+
+            new_vm->attach_debugee(this->attaching_debugee);
 
             rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
@@ -418,20 +440,24 @@ namespace rs
                     opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
                     dr = opcode_dr & 0b00000011u;
 
-                    switch (fast_ro_vm_interrupt | opcode)
+                    auto rtopcode = fast_ro_vm_interrupt | opcode;
+
+                re_entry_for_interrupt:
+
+                    switch (rtopcode)
                     {
                     case instruct::opcode::psh:
-                    {  
+                    {
                         if (dr & 0b01)
                         {
                             RS_ADDRESSING_N1_REF;
                             (rt_sp--)->set_val(opnum1);
                         }
                         else
-                        { 
+                        {
                             uint16_t psh_repeat = RS_IPVAL_MOVE_2;
                             for (uint32_t i = 0; i < psh_repeat; i++)
-                                (rt_sp--)->set_nil();                
+                                (rt_sp--)->set_nil();
                         }
                         rs_assert(rt_sp <= rt_bp);
                         break;
@@ -946,7 +972,7 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            
+
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -1030,7 +1056,7 @@ namespace rs
 
                         if (opnum1->type != max_type)
                         {
-                            
+
                             switch (max_type)
                             {
                             case rs::value::valuetype::integer_type:
@@ -1404,12 +1430,18 @@ namespace rs
                                 break;
                             }
                         }
-                        else if (opnum1->is_nil() && opnum2->is_nil())
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
                         {
-                            cr->integer = 1;
+                            cr->integer = (rs_real_t)opnum1->integer == opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real == (rs_real_t)opnum2->integer;
                         }
                         else
-                            cr->integer = 0;
+                            cr->integer = opnum1->is_nil() && opnum2->is_nil();
                         break;
 
                     }
@@ -1441,10 +1473,18 @@ namespace rs
                                 break;
                             }
                         }
-                        else if (opnum1->is_nil() && opnum2->is_nil())
-                            cr->integer = 0;
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
+                        {
+                            cr->integer = (rs_real_t)opnum1->integer != opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real != (rs_real_t)opnum2->integer;
+                        }
                         else
-                            cr->integer = 1;
+                            cr->integer = !(opnum1->is_nil() && opnum2->is_nil());
                         break;
                     }
 
@@ -1616,6 +1656,16 @@ namespace rs
                                 break;
                             }
                         }
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
+                        {
+                            cr->integer = (rs_real_t)opnum1->integer < opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real < (rs_real_t)opnum2->integer;
+                        }
                         else
                             cr->integer = opnum1->type < opnum2->type;
 
@@ -1645,6 +1695,16 @@ namespace rs
                                 break;
                             }
                         }
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
+                        {
+                            cr->integer = (rs_real_t)opnum1->integer > opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real > (rs_real_t)opnum2->integer;
+                        }
                         else
                             cr->integer = opnum1->type > opnum2->type;
                         break;
@@ -1672,6 +1732,16 @@ namespace rs
                                 cr->integer = 0;
                                 break;
                             }
+                        }
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
+                        {
+                            cr->integer = (rs_real_t)opnum1->integer <= opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real <= (rs_real_t)opnum2->integer;
                         }
                         else
                             cr->integer = opnum1->type <= opnum2->type;
@@ -1701,6 +1771,16 @@ namespace rs
                                 cr->integer = 0;
                                 break;
                             }
+                        }
+                        else if (opnum1->type == value::valuetype::integer_type
+                            && opnum2->type == value::valuetype::real_type)
+                        {
+                            cr->integer = (rs_real_t)opnum1->integer >= opnum2->real;
+                        }
+                        else if (opnum1->type == value::valuetype::real_type
+                            && opnum2->type == value::valuetype::integer_type)
+                        {
+                            cr->integer = opnum1->real >= (rs_real_t)opnum2->integer;
                         }
                         else
                             cr->integer = opnum1->type >= opnum2->type;
@@ -1867,13 +1947,19 @@ namespace rs
                             {
                                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
                                 cr->type = value::valuetype::integer_type;
-                                cr->integer = (unsigned char)(*opnum1->string)[(size_t)opnum2->integer];
+                                if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
+                                    cr->integer = (unsigned char)(*opnum1->string)[(size_t)opnum2->integer];
+                                else
+                                    rs_fail(RS_ERR_ACCESS_NIL, "cannot index string without integer & handle.");
                                 break;
                             }
                             case value::valuetype::array_type:
                             {
                                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                                cr->set_ref(&(*opnum1->array)[(size_t)opnum2->integer]);
+                                if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
+                                    cr->set_ref(&(*opnum1->array)[(size_t)opnum2->integer]);
+                                else
+                                    rs_fail(RS_ERR_ACCESS_NIL, "cannot index array without integer & handle.");
                                 break;
                             }
                             case value::valuetype::mapping_type:
@@ -1992,6 +2078,25 @@ namespace rs
                                 // That should not be happend...
                                 rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
                             }
+
+                            // it should be last interrupt..
+                            else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
+                            {
+                                rtopcode = opcode;
+                                
+                                ip = rt_ip;
+                                sp = rt_sp;
+                                bp = rt_bp;
+                                if (attaching_debugee)
+                                {
+                                    // check debugee here
+                                    rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                    attaching_debugee->debug_interrupt(this);
+                                    rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                }
+                                ++rt_ip;
+                                goto re_entry_for_interrupt;
+                            }
                         }
                         else
                             rs_error("Unknown instruct.");
@@ -2073,6 +2178,8 @@ namespace rs
                                 tmpos << "tc";
                             else if (data_1b == 34)
                                 tmpos << "er";
+                            else if (data_1b == 35)
+                                tmpos << "nil";
                             else
                                 tmpos << "reg(" << (uint32_t)data_1b << ")";
 
@@ -2119,6 +2226,8 @@ namespace rs
                                 tmpos << "tc";
                             else if (data_1b == 34)
                                 tmpos << "er";
+                            else if (data_1b == 35)
+                                tmpos << "nil";
                             else
                                 tmpos << "reg(" << (uint32_t)data_1b << ")";
 

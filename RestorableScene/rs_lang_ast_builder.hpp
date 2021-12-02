@@ -117,7 +117,7 @@ namespace rs
                 return value::valuetype::invalid;
             }
 
-            static bool check_castable(ast_type* to, ast_type* from)
+            static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
                 if (from->is_dynamic() || to->is_dynamic())
                     return true;
@@ -143,23 +143,36 @@ namespace rs
                 if (to->is_nil())
                     return false;
 
-                if (to->value_type == value::valuetype::array_type
-                    || to->value_type == value::valuetype::mapping_type
-                    || to->is_func())
-                {
-                    return to->is_same(from);
-                }
+                //if (to->value_type == value::valuetype::array_type
+                //    || to->value_type == value::valuetype::mapping_type
+                //    || to->is_func())
+                //{
+                //    return to->is_same(from);
+                //}
 
-                if (to->value_type == value::valuetype::integer_type
-                    || to->value_type == value::valuetype::real_type
-                    || to->value_type == value::valuetype::handle_type
-                    || to->value_type == value::valuetype::string_type)
+                if (force)
                 {
-                    if (from->value_type == value::valuetype::integer_type
-                        || from->value_type == value::valuetype::real_type
-                        || from->value_type == value::valuetype::handle_type
-                        || from->value_type == value::valuetype::string_type)
+                    if (to->value_type == value::valuetype::integer_type
+                        || to->value_type == value::valuetype::real_type
+                        || to->value_type == value::valuetype::handle_type
+                        || to->value_type == value::valuetype::string_type)
+                    {
+                        if (from->value_type == value::valuetype::integer_type
+                            || from->value_type == value::valuetype::real_type
+                            || from->value_type == value::valuetype::handle_type
+                            || from->value_type == value::valuetype::string_type)
+                            return true;
+                    }
+                }
+                else
+                {
+                    if ((to->value_type == value::valuetype::integer_type
+                        || to->value_type == value::valuetype::real_type)
+                        && (from->value_type == value::valuetype::integer_type
+                            || from->value_type == value::valuetype::real_type))
+                    {
                         return true;
+                    }
                 }
 
                 return false;
@@ -292,6 +305,10 @@ namespace rs
             bool is_nil() const
             {
                 return type_name == L"nil";
+            }
+            bool is_gc_type() const
+            {
+                return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
             bool is_same(const ast_type* another)const
             {
@@ -529,11 +546,13 @@ namespace rs
         struct ast_value_type_cast : public ast_value
         {
             ast_value* _be_cast_value_node;
-            ast_value_type_cast(ast_value* value, ast_type* type)
+            bool implicit;
+            ast_value_type_cast(ast_value* value, ast_type* type, bool _implicit)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
                 value_type = type;
+                implicit = _implicit;
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -969,6 +988,52 @@ namespace rs
             }
         };
 
+        struct ast_value_logical_binary : virtual public ast_value
+        {
+            // used for storing binary-operate;
+            ast_value* left = nullptr;
+            lex_type operate = +lex_type::l_error;
+            ast_value* right = nullptr;
+
+            ast_value_logical_binary()
+            {
+                value_type = new ast_type(L"int");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"logical: " << lexer::lex_is_operate_type(operate) << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                space(os, lay); os << L"left:" << std::endl;
+                left->display(os, lay + 1);
+                space(os, lay); os << L"right:" << std::endl;
+                right->display(os, lay + 1);
+                space(os, lay); os << L"}" << std::endl;
+            }
+        };
+
+        struct ast_value_index : virtual public ast_value
+        {
+            ast_value* from = nullptr;
+            ast_value* index = nullptr;
+
+            ast_value_index()
+            {
+                value_type = new ast_type(L"dynamic");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"index" << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"{" << std::endl;
+                space(os, lay); os << L"from:" << std::endl;
+                from->display(os, lay + 1);
+                space(os, lay); os << L"at:" << std::endl;
+                index->display(os, lay + 1);
+                space(os, lay); os << L"}" << std::endl;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1143,15 +1208,10 @@ namespace rs
                 ast_namespace* result = new ast_namespace();
                 result->scope_name = RS_NEED_TOKEN(1).identifier;
 
-                if (auto* list = dynamic_cast<ast_list*>(RS_NEED_AST(2)))
-                {
-                    result->in_scope_sentence = list;
-                }
-                else
-                {
-                    result->in_scope_sentence = new ast_list();
-                    result->in_scope_sentence->append_at_end(RS_NEED_AST(2));
-                }
+                auto* list = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(2));
+                rs_test(list);
+                result->in_scope_sentence = list->sentence_list;
+
                 return (ast_basic*)result;
             }
         };
@@ -1227,7 +1287,7 @@ namespace rs
 
         struct pass_type_cast :public astnode_builder
         {
-            static ast_value* do_cast(lexer& lex, ast_value* value_node, ast_type* type_node)
+            static ast_value* do_cast(lexer& lex, ast_value* value_node, ast_type* type_node, bool force = false)
             {
                 if (value_node->is_constant && !type_node->is_pending())
                 {
@@ -1248,22 +1308,22 @@ namespace rs
                     switch (aim_real_type)
                     {
                     case value::valuetype::real_type:
-                        if (last_value.is_nil())
+                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
                             goto try_cast_nil_to_int_handle_real_str;
                         cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
                         break;
                     case value::valuetype::integer_type:
-                        if (last_value.is_nil())
+                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
                             goto try_cast_nil_to_int_handle_real_str;
                         cast_result->_constant_value.set_integer(rs_cast_integer((rs_value)&last_value));
                         break;
                     case value::valuetype::string_type:
-                        if (last_value.is_nil())
+                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type))
                             goto try_cast_nil_to_int_handle_real_str;
                         cast_result->_constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
                         break;
                     case value::valuetype::handle_type:
-                        if (last_value.is_nil())
+                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type))
                             goto try_cast_nil_to_int_handle_real_str;
                         cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
                         break;
@@ -1291,7 +1351,15 @@ namespace rs
                         }
                         else
                         {
-                            lex.lang_error(0x0000, type_node, L"Can not cast this value to '%s'.", type_node->get_type_name().c_str());
+                            if (!force)
+                                lex.lang_error(0x0000, type_node, L"Can not implicit-cast '%s' to '%s'.",
+                                    value_node->value_type->get_type_name().c_str(),
+                                    type_node->get_type_name().c_str());
+                            else
+                                lex.lang_error(0x0000, type_node, L"Can not cast '%s' to '%s'.",
+                                    value_node->value_type->get_type_name().c_str(),
+                                    type_node->get_type_name().c_str());
+
                             cast_result->_constant_value.set_nil();
                             cast_result->value_type = new ast_type(cast_result->_constant_value);
                             return cast_result;
@@ -1305,7 +1373,7 @@ namespace rs
                 }
                 else
                 {
-                    return new ast_value_type_cast(value_node, type_node);
+                    return new ast_value_type_cast(value_node, type_node, !force);
                 }
             }
 
@@ -1318,7 +1386,7 @@ namespace rs
                 if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                     && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-                    return (ast_basic*)do_cast(lex, value_node, type_node);
+                    return (ast_basic*)do_cast(lex, value_node, type_node, true);
                 }
 
                 rs_error("Unexcepted token type.");
@@ -1770,6 +1838,38 @@ namespace rs
             }
         };
 
+        struct pass_binary_logical_op :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // TODO Do optmize, like pass_binary_op
+
+                rs_test(input.size() >= 3);
+
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                rs_test(left_v && right_v);
+
+                token _token = RS_NEED_TOKEN(1);
+                rs_test(lexer::lex_is_operate_type(_token.type));
+
+                ast_value_logical_binary* vbin = new ast_value_logical_binary();
+                vbin->left = left_v;
+                vbin->operate = _token.type;
+                vbin->right = right_v;
+
+                /*
+                 // In ast build pass, all left value's type cannot judge, so it was useless..
+
+                ast_type* result_type = new ast_type(L"pending");
+                result_type->set_type(left_v->value_type);
+
+                vbin->value_type = result_type;
+                */
+                return (grammar::ast_base*)vbin;
+            }
+        };
+
         struct pass_index_op :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1804,10 +1904,9 @@ namespace rs
                         }
                     }
 
-                    ast_value_binary* vbin = new ast_value_binary();
-                    vbin->left = left_v;
-                    vbin->operate = lex_type::l_index_begin;
-                    vbin->right = right_v;
+                    ast_value_index* vbin = new ast_value_index();
+                    vbin->from = left_v;
+                    vbin->index = right_v;
                     return (grammar::ast_base*)vbin;
                 }
                 else if (_token.type == +lex_type::l_index_point)
@@ -1937,6 +2036,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_binary_logical_op>]
+                = _register_builder<pass_binary_logical_op>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_assign_op>]
                 = _register_builder<pass_assign_op>();
 

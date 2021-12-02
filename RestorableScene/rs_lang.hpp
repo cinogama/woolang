@@ -151,6 +151,11 @@ namespace rs
                 if (nullptr == a_value_bin->value_type)
                     a_value_bin->value_type = new ast_type(L"pending");
             }
+            else if (ast_value_index* a_value_idx = dynamic_cast<ast_value_index*>(ast_node))
+            {
+                analyze_pass1(a_value_idx->from);
+                analyze_pass1(a_value_idx->index);
+            }
             else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
             {
                 analyze_pass1(a_value_assi->left);
@@ -172,6 +177,14 @@ namespace rs
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
                 }
+            }
+            else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
+            {
+                analyze_pass1(a_value_logic_bin->left);
+                analyze_pass1(a_value_logic_bin->right);
+
+                a_value_logic_bin->add_child(a_value_logic_bin->left);
+                a_value_logic_bin->add_child(a_value_logic_bin->right);
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
@@ -276,6 +289,7 @@ namespace rs
                                     auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                     cast_return_type->col_no = a_ret->col_no;
                                     cast_return_type->row_no = a_ret->row_no;
+                                    cast_return_type->source_file = a_ret->source_file;
 
                                     analyze_pass1(cast_return_type);
 
@@ -338,10 +352,15 @@ namespace rs
             }
         }
 
-        void analyze_pass2(grammar::ast_base* ast_node)
+        bool analyze_pass2(grammar::ast_base* ast_node)
         {
+            rs_assert(ast_node);
+
+            if (ast_node->completed_in_pass2)
+                return true;
+
             if (traving_node.find(ast_node) != traving_node.end())
-                return;
+                return true;
 
             struct traving_guard
             {
@@ -362,8 +381,6 @@ namespace rs
             traving_guard g1(this, ast_node);
 
             using namespace ast;
-
-            if (!ast_node)return;
 
             if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
             {
@@ -406,6 +423,11 @@ namespace rs
                             lang_anylizer->lang_error(0x0000, a_value_bin, L"Failed to analyze the type.");
                             a_value_bin->value_type = new ast_type(L"pending");
                         }
+                    }
+                    else if (ast_value_index* a_value_idx = dynamic_cast<ast_value_index*>(ast_node))
+                    {
+                        analyze_pass2(a_value_idx->from);
+                        analyze_pass2(a_value_idx->index);
                     }
                     else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
                     {
@@ -502,7 +524,7 @@ namespace rs
 
                                             if (real_arg->value_type->is_same(form_arg->value_type))
                                                 ;// do nothing..
-                                            else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type))
+                                            else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type, false))
                                                 best_match = false;
                                             else
                                                 break; // bad match, break..
@@ -599,39 +621,44 @@ namespace rs
                         {
                             auto* real_args = a_value_funccall->arguments->children;
                             a_value_funccall->arguments->remove_allnode();
- 
+
                             for (auto a_types : a_value_funccall->called_func->value_type->argument_types)
                             {
                                 if (!real_args)
                                 {
                                     // default arg mgr here, now just kill
-                                    rs_error("not support vaargs now");
-                                }
-
-                                auto tmp_sib  = real_args->sibling;
-
-                                real_args->parent = nullptr;
-                                real_args->sibling = nullptr;
-
-                                auto* arg_val = dynamic_cast<ast_value*>(real_args);
-                                if (!arg_val->value_type->is_same(a_types))
-                                {
-                                    auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, a_types);
-                                    cast_arg_type->col_no = arg_val->col_no;
-                                    cast_arg_type->row_no = arg_val->row_no;
-
-                                    analyze_pass2(cast_arg_type);
-
-                                    a_value_funccall->arguments->add_child(cast_arg_type);
+                                    lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too few to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
                                 }
                                 else
                                 {
-                                    a_value_funccall->arguments->add_child(real_args);
-                                }
+                                    auto tmp_sib = real_args->sibling;
 
-                                real_args = tmp_sib;
+                                    real_args->parent = nullptr;
+                                    real_args->sibling = nullptr;
+
+                                    auto* arg_val = dynamic_cast<ast_value*>(real_args);
+                                    if (!arg_val->value_type->is_same(a_types))
+                                    {
+                                        auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, a_types);
+                                        cast_arg_type->col_no = arg_val->col_no;
+                                        cast_arg_type->row_no = arg_val->row_no;
+                                        cast_arg_type->source_file = arg_val->source_file;
+                                        analyze_pass2(cast_arg_type);
+
+                                        a_value_funccall->arguments->add_child(cast_arg_type);
+                                    }
+                                    else
+                                    {
+                                        a_value_funccall->arguments->add_child(real_args);
+                                    }
+
+                                    real_args = tmp_sib;
+                                }
                             }
-                            
+                            if (!a_value_funccall->called_func->value_type->is_variadic_function_type && real_args)
+                            {
+                                lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
+                            }
 
                         }
                     }
@@ -639,6 +666,7 @@ namespace rs
                     {
                         lang_anylizer->lang_error(0x0000, a_value, L"Unknown type '%s'.", a_value->value_type->get_type_name().c_str());
                     }
+
                 }
 
                 //
@@ -695,12 +723,18 @@ namespace rs
                     else
                     {
                     just_do_simple_type_cast:
-                        if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
+                        if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
                         {
-                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
-                                origin_value->value_type->get_type_name().c_str(),
-                                a_value_typecast->value_type->get_type_name().c_str()
-                            );
+                            if (a_value_typecast->implicit)
+                                lang_anylizer->lang_error(0x0000, a_value, L"Cannot implicit-cast '%s' to '%s'.",
+                                    origin_value->value_type->get_type_name().c_str(),
+                                    a_value_typecast->value_type->get_type_name().c_str()
+                                );
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
+                                    origin_value->value_type->get_type_name().c_str(),
+                                    a_value_typecast->value_type->get_type_name().c_str()
+                                );
                         }
                     }
                 }
@@ -712,6 +746,14 @@ namespace rs
                 {
                     analyze_pass2(a_value_map->mapping_pairs);
                 }
+            }
+            else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
+            {
+                analyze_pass2(a_value_logic_bin->left);
+                analyze_pass2(a_value_logic_bin->right);
+
+                a_value_logic_bin->add_child(a_value_logic_bin->left);
+                a_value_logic_bin->add_child(a_value_logic_bin->right);
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
@@ -754,6 +796,7 @@ namespace rs
                                 auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                 cast_return_type->col_no = a_ret->col_no;
                                 cast_return_type->row_no = a_ret->row_no;
+                                cast_return_type->source_file = a_ret->source_file;
 
                                 analyze_pass2(cast_return_type);
 
@@ -807,6 +850,7 @@ namespace rs
                 child = child->sibling;
             }
 
+            return ast_node->completed_in_pass2 = true;
         }
 
         std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
@@ -898,6 +942,17 @@ namespace rs
             _complete_using_all_register_for_ref_value();
         }
 
+        bool is_cr_reg(opnum::opnumbase& op_num)
+        {
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                if (regist->id == reg::cr)
+                    return true;
+            }
+            return false;
+        }
+
         opnum::opnumbase& mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
         {
             using namespace ast;
@@ -968,8 +1023,114 @@ namespace rs
 
         bool last_value_stored_to_cr = false;
 
+        struct program_debug_data_info
+        {
+            struct location
+            {
+                size_t      row_no;
+                size_t      col_no;
+                std::string source_file = "not_found";
+            };
+            std::map<std::string, std::map<size_t, std::map<size_t, size_t>> > _general_src_data_buf_a;
+            std::map<size_t, location> _general_src_data_buf_b;
+
+            void generate(grammar::ast_base* ast_node, ir_compiler* compiler)
+            {
+                // funcdef should not genrate val..
+                if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
+                    || dynamic_cast<ast::ast_list*>(ast_node)
+                    || dynamic_cast<ast::ast_namespace*>(ast_node)
+                    || dynamic_cast<ast::ast_sentence_block*>(ast_node)
+                    || dynamic_cast<ast::ast_if*>(ast_node)
+                    || dynamic_cast<ast::ast_while*>(ast_node))
+                    return;
+
+                auto& row_buff = _general_src_data_buf_a[ast_node->source_file][ast_node->row_no];
+                if (row_buff.find(ast_node->col_no) == row_buff.end())
+                    row_buff[ast_node->col_no] = SIZE_MAX;
+
+                auto& old_ip = row_buff[ast_node->col_no];
+                if (compiler->get_now_ip() < old_ip)
+                    old_ip = compiler->get_now_ip();
+
+
+            }
+
+            void finalize_pdd()
+            {
+                for (auto& [filename, rowbuf] : _general_src_data_buf_a)
+                {
+                    for (auto& [rowno, colbuf] : rowbuf)
+                    {
+                        for (auto& [colno, ipxx] : colbuf)
+                        {
+                            // if (_general_src_data_buf_b.find(ipxx) == _general_src_data_buf_b.end())
+                            _general_src_data_buf_b[ipxx] = location{ rowno , colno ,filename };
+                        }
+                    }
+                }
+            }
+
+            const location& get_src_location(byte_t* rt_pos, rs::ir_compiler::runtime_env* env)
+            {
+                const size_t FAIL_INDEX = SIZE_MAX;
+                static location     FAIL_LOC;
+
+                size_t result = FAIL_INDEX;
+                auto byte_offset = (rt_pos - env->rt_codes) + 1;
+                do
+                {
+                    --byte_offset;
+                    if (auto fnd = env->pdd_rt_code_byte_offset_to_ir.find(byte_offset);
+                        fnd != env->pdd_rt_code_byte_offset_to_ir.end())
+                    {
+                        result = fnd->second;
+                        break;
+                    }
+                } while (byte_offset > 0);
+
+                if (result == FAIL_INDEX)
+                    return FAIL_LOC;
+
+                while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
+                {
+                    result--;
+                }
+
+                return _general_src_data_buf_b[result];
+            }
+        };
+
+        program_debug_data_info pdd_info;
+        struct pdd_info_guard
+        {
+            program_debug_data_info* pddob;
+            ir_compiler* ircomp;
+            grammar::ast_base* astnode;
+            pdd_info_guard(program_debug_data_info* pddf, ir_compiler* comp, grammar::ast_base* astn)
+                :pddob(pddf)
+                , ircomp(comp)
+                , astnode(astn)
+            {
+            }
+
+            ~pdd_info_guard()
+            {
+                genit();
+            }
+            void genit()
+            {
+                if (pddob)
+                    pddob->generate(astnode, ircomp);
+                pddob = nullptr;
+            }
+        };
+
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
         {
+            pdd_info_guard pig(&pdd_info, compiler, value);
+            pig.genit();
+
             last_value_stored_to_cr = false;
             using namespace ast;
             using namespace opnum;
@@ -1012,6 +1173,15 @@ namespace rs
                     {
                         auto& treg = get_useable_register_for_pure_value();
                         compiler->set(treg, imm(const_value.string->c_str()));
+                        return treg;
+                    }
+                case value::valuetype::invalid:  // for nil
+                    if (!get_pure_value)
+                        return RS_NEW_OPNUM(reg(reg::ni));
+                    else
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, reg(reg::ni));
                         return treg;
                     }
                 default:
@@ -1290,7 +1460,7 @@ namespace rs
                     in_used_functions.push_back(a_value_function_define);
                     a_value_function_define->ir_func_has_been_generated = true;
                 }
-                return RS_NEW_OPNUM(tag(a_value_function_define->get_ir_func_signature_tag()));
+                return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
@@ -1320,6 +1490,171 @@ namespace rs
                     return funcresult;
                 }
             }
+            else if (auto* a_value_logical_binary = dynamic_cast<ast_value_logical_binary*>(value))
+            {
+                value::valuetype optype = value::valuetype::invalid;
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type)
+                    && !a_value_logical_binary->left->value_type->is_dynamic())
+                    optype = a_value_logical_binary->left->value_type->value_type;
+                bool left_in_cr = false;
+                auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
+                if (is_cr_reg(*_beoped_left_opnum))
+                {
+                    auto* _tmp_beoped_left_opnum = &get_useable_register_for_pure_value();
+                    compiler->set(*_tmp_beoped_left_opnum, *_beoped_left_opnum);
+                    _beoped_left_opnum = _tmp_beoped_left_opnum;
+                    left_in_cr = true;
+                }
+                auto& beoped_left_opnum = *_beoped_left_opnum;
+                auto& op_right_opnum = analyze_value(a_value_logical_binary->right, compiler);
+
+                switch (a_value_logical_binary->operate)
+                {
+                case lex_type::l_equal:
+                    if (a_value_logical_binary->left->value_type->is_nil()
+                        || a_value_logical_binary->right->value_type->is_nil()
+                        || a_value_logical_binary->left->value_type->is_func()
+                        || a_value_logical_binary->right->value_type->is_func()
+                        || a_value_logical_binary->left->value_type->is_gc_type()
+                        || a_value_logical_binary->right->value_type->is_gc_type()
+                        || optype == value::valuetype::integer_type
+                        || optype == value::valuetype::handle_type)
+                        compiler->equb(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->equx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_not_equal:
+                    if (a_value_logical_binary->left->value_type->is_nil()
+                        || a_value_logical_binary->right->value_type->is_nil()
+                        || a_value_logical_binary->left->value_type->is_func()
+                        || a_value_logical_binary->right->value_type->is_func()
+                        || a_value_logical_binary->left->value_type->is_gc_type()
+                        || a_value_logical_binary->right->value_type->is_gc_type()
+                        || optype == value::valuetype::integer_type
+                        || optype == value::valuetype::handle_type)
+                        compiler->nequb(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->nequx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_less:
+                    if (optype == value::valuetype::integer_type)
+                        compiler->lti(beoped_left_opnum, op_right_opnum);
+                    else if (optype == value::valuetype::real_type)
+                        compiler->ltr(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->ltx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_less_or_equal:
+                    if (optype == value::valuetype::integer_type)
+                        compiler->elti(beoped_left_opnum, op_right_opnum);
+                    else if (optype == value::valuetype::real_type)
+                        compiler->eltr(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->eltx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_larg:
+                    if (optype == value::valuetype::integer_type)
+                        compiler->gti(beoped_left_opnum, op_right_opnum);
+                    else if (optype == value::valuetype::real_type)
+                        compiler->gtr(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->gtx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_larg_or_equal:
+                    if (optype == value::valuetype::integer_type)
+                        compiler->egti(beoped_left_opnum, op_right_opnum);
+                    else if (optype == value::valuetype::real_type)
+                        compiler->egtr(beoped_left_opnum, op_right_opnum);
+                    else
+                        compiler->egtx(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_land:
+                    compiler->land(beoped_left_opnum, op_right_opnum);
+                    break;
+                case lex_type::l_lor:
+                    compiler->lor(beoped_left_opnum, op_right_opnum);
+                    break;
+                default:
+                    rs_error("Do not support this operator..");
+                    break;
+                }
+
+                complete_using_register(op_right_opnum);
+                last_value_stored_to_cr = true;
+
+                if (!get_pure_value)
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                else
+                {
+                    if (left_in_cr)
+                    {
+                        compiler->set(beoped_left_opnum, reg(reg::cr));
+                        return beoped_left_opnum;
+                    }
+                    else
+                    {
+                        auto& result = get_useable_register_for_pure_value();
+                        compiler->set(result, reg(reg::cr));
+                        return result;
+                    }
+                }
+            }
+            else if (auto* a_value_array = dynamic_cast<ast_value_array*>(value))
+            {
+                auto* _arr_item = a_value_array->array_items->children;
+                std::vector<ast_value*> arr_list;
+                while (_arr_item)
+                {
+                    auto* arr_val = dynamic_cast<ast_value*>(_arr_item);
+                    rs_test(arr_val);
+
+                    arr_list.insert(arr_list.begin(), arr_val);
+
+                    _arr_item = _arr_item->sibling;
+                }
+
+                for (auto* in_arr_val : arr_list)
+                {
+                    compiler->psh(analyze_value(in_arr_val, compiler));
+                }
+
+                auto& treg = get_useable_register_for_pure_value();
+                compiler->mkarr(treg, imm(arr_list.size()));
+                return treg;
+            }
+            else if (auto* a_value_index = dynamic_cast<ast_value_index*>(value))
+            {
+                bool left_in_cr = false;
+                auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+                if (is_cr_reg(*_beoped_left_opnum))
+                {
+                    auto* _tmp_beoped_left_opnum = &get_useable_register_for_pure_value();
+                    compiler->set(*_tmp_beoped_left_opnum, *_beoped_left_opnum);
+                    _beoped_left_opnum = _tmp_beoped_left_opnum;
+                    left_in_cr = true;
+                }
+                auto& beoped_left_opnum = *_beoped_left_opnum;
+                auto& op_right_opnum = analyze_value(a_value_index->index, compiler);
+
+                compiler->idx(beoped_left_opnum, op_right_opnum);
+
+                if (!get_pure_value)
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                else
+                {
+                    if (left_in_cr)
+                    {
+                        compiler->set(beoped_left_opnum, reg(reg::cr));
+                        return beoped_left_opnum;
+                    }
+                    else
+                    {
+                        auto& result = get_useable_register_for_pure_value();
+                        compiler->set(result, reg(reg::cr));
+                        return result;
+                    }
+                }
+            }
             else
             {
                 rs_error("unknown value type..");
@@ -1340,10 +1675,11 @@ namespace rs
             return result;
         }
 
-
-
         void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
+            pdd_info_guard pig(&pdd_info, compiler, ast_node);
+            pig.genit();
+
             if (traving_node.find(ast_node) != traving_node.end())
             {
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
@@ -1447,6 +1783,10 @@ namespace rs
                 }
                 compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
             }
+            else if (auto* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
+            {
+                real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -1505,8 +1845,9 @@ namespace rs
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
-        }
 
+            pdd_info.finalize_pdd();
+        }
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
         {

@@ -21,7 +21,7 @@ namespace rs
             }
         };
 
-        struct stack : opnumbase
+        struct stack :virtual opnumbase
         {
             int16_t offset;
 
@@ -32,7 +32,7 @@ namespace rs
             }
         };
 
-        struct global : opnumbase
+        struct global :virtual opnumbase
         {
             int32_t offset;
             int32_t real_offset_const_glb;
@@ -55,7 +55,7 @@ namespace rs
             }
         };
 
-        struct reg :opnumbase
+        struct reg :virtual opnumbase
         {
             // REGID
             // 0B 1 1 000000
@@ -77,6 +77,7 @@ namespace rs
                 op_trace_result = 0b00100000, cr = op_trace_result,
                 argument_count, tc = argument_count,
                 exception_result, er = exception_result,
+                nil_constant,   ni = nil_constant,
 
                 last_special_register = 0b00111111,
             };
@@ -117,7 +118,7 @@ namespace rs
             }
         };
 
-        struct immbase : opnumbase
+        struct immbase :virtual opnumbase
         {
             int32_t constant_index = 0;
 
@@ -140,7 +141,7 @@ namespace rs
         };
 
         template<typename T>
-        struct imm : immbase
+        struct imm :virtual immbase
         {
             T val;
 
@@ -172,7 +173,10 @@ namespace rs
                 auto t2 = _another.type();
                 if (t == t2)
                 {
-                    return val < ((const imm&)_another).val;
+                    if (t == value::valuetype::integer_type)
+                        return try_int() < _another.try_int();
+                    else
+                        return val < (dynamic_cast<const imm&>(_another)).val;
                 }
                 return t < t2;
             }
@@ -210,7 +214,7 @@ namespace rs
             }
         };
 
-        struct tag : opnumbase
+        struct tag :virtual opnumbase
         {
             string_t name;
 
@@ -218,6 +222,27 @@ namespace rs
                 : name(_name)
             {
 
+            }
+        };
+
+        struct tagimm_rsfunc :virtual tag, virtual imm<int>
+        {
+            tagimm_rsfunc(const string_t& name)
+                : tag(name)
+                , imm<int>(0xFFFFFFFF)
+            {
+
+            }
+            bool operator < (const immbase& _another) const override
+            {
+                if (auto* another_tag = dynamic_cast<const tagimm_rsfunc*>(&_another))
+                    return name < another_tag->name;
+                return true;
+            }
+
+            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            {
+                imm<int>::generate_opnum_to_buffer(buffer);
             }
         };
     } // namespace opnum;
@@ -477,8 +502,8 @@ namespace rs
 
         size_t reserved_stackvalue()
         {
-             RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, nullptr, nullptr, (uint16_t)0);
-             return get_now_ip();
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::psh, nullptr, nullptr, (uint16_t)0);
+            return get_now_ip();
         }
 
         void reserved_stackvalue(size_t ip, uint16_t sz)
@@ -1178,6 +1203,8 @@ namespace rs
             size_t rt_code_len = 0;
             byte_t* rt_codes = nullptr;
 
+            std::map<size_t, size_t> pdd_rt_code_byte_offset_to_ir;
+
             ~runtime_env()
             {
                 if (constant_global_reg_rtstack)
@@ -1218,25 +1245,35 @@ namespace rs
 
             value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
 
+            cxx_vec_t<byte_t> runtime_command_buffer;
+            std::map<string_t, cxx_vec_t<size_t>> jmp_record_table;
+            std::map<string_t, cxx_vec_t<value*>> jmp_record_table_for_immtag;
+            std::map<string_t, uint32_t> tag_offset_vector_table;
+
             rs_assert(preserved_memory, "Alloc memory fail.");
 
             memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
-
             //  // Fill constant
-            for (auto& constant_record : constant_record_list)
+            for (auto constant_record : constant_record_list)
             {
                 rs_assert(constant_record->constant_index < constant_value_count,
                     "Constant index out of range.");
 
                 constant_record->apply(&preserved_memory[constant_record->constant_index]);
+
+                if (auto* addr_tagimm_rsfunc = dynamic_cast<opnum::tagimm_rsfunc*>(constant_record))
+                {
+                    jmp_record_table_for_immtag[addr_tagimm_rsfunc->name].push_back(&preserved_memory[constant_record->constant_index]);
+                }
             }
+
             // 2. Generate code
-            cxx_vec_t<byte_t> runtime_command_buffer;
-            std::map<string_t, cxx_vec_t<size_t>> jmp_record_table;
-            std::map<string_t, uint32_t> tag_offset_vector_table;
+            std::unique_ptr<runtime_env> env = std::make_unique<runtime_env>();
 
             for (size_t ip = 0; ip < ir_command_buffer.size(); ip++)
             {
+                env->pdd_rt_code_byte_offset_to_ir[runtime_command_buffer.size()] = ip;
+
                 if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
                 {
                     for (auto& tag_name : fnd->second)
@@ -1323,7 +1360,7 @@ namespace rs
 
                         rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
                             , "Invalid count to pop from stack.");
-                       
+
                         uint16_t opushort = (uint16_t)RS_IR.opinteger;
                         byte_t* readptr = (byte_t*)&opushort;
 
@@ -1759,7 +1796,16 @@ namespace rs
                 }
             }
 
-            std::unique_ptr<runtime_env> env = std::make_unique<runtime_env>();
+            for (auto& [tag, imm_values] : jmp_record_table_for_immtag)
+            {
+                uint32_t offset_val = tag_offset_vector_table[tag];
+
+                for (auto imm_value : imm_values)
+                {
+                    rs_assert(imm_value->type == value::valuetype::integer_type);
+                    imm_value->integer = (rs_integer_t)offset_val;
+                }
+            }
 
             env->constant_global_reg_rtstack = preserved_memory;
             env->reg_begin = env->constant_global_reg_rtstack + constant_value_count + global_value_count;

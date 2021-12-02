@@ -50,7 +50,7 @@ void cost_time_test_gc(rs::vmbase* vm)
 #include "rs_lang_grammar_loader.hpp"
 #include "rs_lang.hpp"
 #include "rs_env_locale.hpp"
-
+#include "rs_runtime_debugee.hpp"
 void unit_test_vm()
 {
     using namespace rs;
@@ -72,7 +72,7 @@ void unit_test_vm()
     vmm.dump_program_bin();
     vmm.run();
 
-   
+
 
     rs_test(vmm.cr->type == value::valuetype::integer_type && vmm.cr->integer == 50);
 
@@ -428,14 +428,40 @@ int main()
     // unit_test_vm();
 
     rs::lexer lx1(
-LR"(
+        LR"(
+namespace std
+{
+    func main0()
+    {
+        var a = ["Hello", "world", nil];
+        a[2] = 5;
 
-func main():string{return "Helloworld~";}
+        var result = "";
+        var i = 0;
+        while (i < 3)
+        {
+            result += a[i]:string;
+            i+=1;
+        }
 
-main();
+        return result;
+    }
 
+    func main()
+    {
+        var i = 0;
+        while (i < 100000000)
+        {
+            i+=1;
+        }
+    }
+}
+
+std::main0();
 )"
-    );
+
+,"shabi.rsn"
+);
     auto result = get_rs_grammar()->gen(lx1);
     if (result)
     {
@@ -445,7 +471,7 @@ main();
         lng.analyze_pass2(result);
         result->display();
 
-        if(!lng.has_compile_error())
+        if (!lng.has_compile_error())
         {
             ir_compiler compiler;
             lng.analyze_finalize(result, &compiler);
@@ -455,9 +481,14 @@ main();
             vmm.set_runtime(compiler);
             vmm.dump_program_bin();
 
+            rs::default_debugee debugee(&lng);
+            vmm.attach_debugee(&debugee);
+
+            debugee.set_breakpoint("shabi.rsn", 11);
+
             std::chrono::system_clock sc;
 
-           //  while (true)
+            // while (true)
             {
                 vmm.set_runtime(compiler);
                 auto beg = sc.now();
@@ -465,7 +496,7 @@ main();
                 auto end = sc.now();
                 std::cout << (end - beg).count() / 10000000.0f << std::endl;
             }
-            std::cout << vmm.cr->get()->string->c_str() << std::endl;
+            std::cout << rs_cast_string((rs_value)vmm.cr) << std::endl;
         }
 
     }
@@ -478,5 +509,5 @@ main();
     grammar::ast_base::clean_this_thread_ast();
 
     return 0;
-  
+
 }

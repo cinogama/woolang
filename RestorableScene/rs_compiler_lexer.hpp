@@ -85,8 +85,6 @@ namespace rs
     class lexer
     {
     public:
-
-
         struct lex_operator_info
         {
             lex_type in_lexer_type;
@@ -107,6 +105,7 @@ namespace rs
         size_t        next_file_rowno;
         size_t        next_file_colno;
 
+        std::string   source_file;
     private:
 
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
@@ -290,13 +289,14 @@ namespace rs
         }
 
     public:
-        lexer(const std::wstring& wstr)
+        lexer(const std::wstring& wstr, const std::string _source_file="temp_source_code")
             : reading_buffer(wstr)
             , next_reading_index(0)
             , now_file_rowno(1)
             , now_file_colno(0)
             , next_file_rowno(1)
             , next_file_colno(1)
+            , source_file(_source_file)
         {
             // read_stream.peek
         }

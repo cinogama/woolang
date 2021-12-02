@@ -110,5 +110,8 @@
     <ClInclude Include="rs_lang.hpp">
       <Filter>头文件\lang</Filter>
     </ClInclude>
+    <ClInclude Include="rs_runtime_debugee.hpp">
+      <Filter>头文件\runtime</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

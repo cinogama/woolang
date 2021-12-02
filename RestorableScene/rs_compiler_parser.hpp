@@ -99,6 +99,8 @@ namespace rs
             ast_base* last;
         public:
 
+            bool completed_in_pass2 = false;
+
             static void clean_this_thread_ast()
             {
                 for (auto astnode : list)
@@ -114,6 +116,8 @@ namespace rs
 
             size_t row_no;
             size_t col_no;
+            std::string source_file;
+
             virtual ~ast_base() = default;
             ast_base()
                 : parent(nullptr)
@@ -1299,7 +1303,7 @@ namespace rs
                         {
                             state_stack.pop();
                             sym_stack.pop();
-                            bnodes[i-1] = std::move(node_stack.top());
+                            bnodes[i - 1] = std::move(node_stack.top());
                             node_stack.pop();
                         }
                         sym_stack.push(red_rule.production_aim);
@@ -1334,6 +1338,7 @@ namespace rs
                             {
                                 ast_node_->row_no = tkr.next_file_rowno;
                                 ast_node_->col_no = tkr.next_file_colno;
+                                ast_node_->source_file = tkr.source_file;
                             }
                             node_stack.push(astnode);
                         }
