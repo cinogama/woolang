@@ -36,6 +36,14 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     std::cerr << "\tAt line: \t" << lineno << std::endl;
     std::cerr << "\tAt function: \t" << functionname << std::endl;
     std::cerr << std::endl;
+
+    std::cerr << ANSI_HIR "callstack: " ANSI_RST << std::endl;
+
+    if (rs::vmbase::_this_thread_vm)
+        rs::vmbase::_this_thread_vm->dump_call_stack(std::cerr);
+
+    std::cerr << std::endl;
+
     std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
     std::cerr << "1) Abort program.(You can attatch debuggee.)" << std::endl;
     std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;

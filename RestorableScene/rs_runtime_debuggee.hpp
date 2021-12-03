@@ -19,7 +19,6 @@ namespace rs
         {
 
         }
-
         void set_breakpoint(const std::string& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
@@ -59,9 +58,9 @@ namespace rs
 
             byte_t* next_execute_ip = vmm->ip;
             auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
-            volatile value* current_bp = vmm->bp;
+            value* current_bp = vmm->bp;
 
-            auto command_ip = vmm->env->program_debug_info->get_ip_index(next_execute_ip);
+            auto command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
 
             // check breakpoint..
             std::lock_guard g1(_mx);
@@ -69,9 +68,12 @@ namespace rs
             {
                 block_other_vm_in_this_debuggee();
 
-                auto& loc = vmm->env->program_debug_info->get_src_location(next_execute_ip);
-                printf("Breakdown: +%04d: at %s(%zu, %zu)\n", (int)next_execute_ip_diff,
-                    loc.source_file.c_str(), loc.row_no, loc.col_no);
+                auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
+
+                printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
+                    loc.source_file.c_str(), loc.row_no, loc.col_no,
+                    vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
+                    );
 
                 printf("===========================================\n");
                 scanf("ok");

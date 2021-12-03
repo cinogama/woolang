@@ -247,6 +247,10 @@ namespace rs
             }
         };
     } // namespace opnum;
+    namespace ast
+    {
+        struct ast_value_function_define;
+    }
 
     struct vmbase;
     class ir_compiler;
@@ -260,16 +264,30 @@ namespace rs
             size_t      col_no;
             std::string source_file = "not_found";
         };
-        std::map<std::string, std::map<size_t, std::map<size_t, size_t>> > _general_src_data_buf_a;
-        std::map<size_t, location> _general_src_data_buf_b;
-        std::map<size_t, size_t> pdd_rt_code_byte_offset_to_ir;
-        byte_t* runtime_codes_base;
 
-        void generate(grammar::ast_base* ast_node, ir_compiler* compiler);
-        void finalize_pdd();
-        const location& get_src_location(byte_t* rt_pos) const;
+        using filename_rowno_colno_ip_info_t = std::map<std::string, std::map<size_t, std::map<size_t, size_t>>>;
+        using ip_src_location_info_t = std::map<size_t, location>;
+        using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
+        using function_signature_ip_info_t = std::map<std::string, std::pair<size_t, size_t>>;
+
+        filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
+        ip_src_location_info_t          _general_src_data_buf_b;
+        function_signature_ip_info_t    _function_ip_data_buf;
+        runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
+        byte_t* runtime_codes_base;
+        size_t runtime_codes_length;
+
+        // for lang
+        void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
+        void finalize_generate_debug_info();
+
+        void generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
+        void generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
+
+        const location& get_src_location_by_runtime_ip(byte_t* rt_pos) const;
         size_t get_ip_by_src_location(const std::string& src_name, size_t rowno)const;
-        size_t get_ip_index(byte_t* rt_pos) const;
+        size_t get_ip_by_runtime_ip(byte_t* rt_pos) const;
+        std::string get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const;
     };
 
     struct runtime_env
@@ -1865,6 +1883,7 @@ namespace rs
 
             pdb_info->runtime_codes_base =
                 env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+            pdb_info->runtime_codes_length = env->rt_code_len;
 
             rs_assert(env->rt_codes, "Alloc memory fail.");
 

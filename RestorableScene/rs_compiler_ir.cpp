@@ -3,7 +3,7 @@
 
 namespace rs
 {
-    void program_debug_data_info::generate(grammar::ast_base* ast_node, ir_compiler* compiler)
+    void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
         if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
@@ -24,7 +24,7 @@ namespace rs
 
 
     }
-    void program_debug_data_info::finalize_pdd()
+    void program_debug_data_info::finalize_generate_debug_info()
     {
         for (auto& [filename, rowbuf] : _general_src_data_buf_a)
         {
@@ -38,13 +38,16 @@ namespace rs
             }
         }
     }
-    const program_debug_data_info::location& program_debug_data_info::get_src_location(byte_t* rt_pos) const
+    const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
         static program_debug_data_info::location     FAIL_LOC;
 
         size_t result = FAIL_INDEX;
         auto byte_offset = (rt_pos - runtime_codes_base) + 1;
+        if (rt_pos < runtime_codes_base || rt_pos >= runtime_codes_base + runtime_codes_length)
+            return FAIL_LOC;
+
         do
         {
             --byte_offset;
@@ -54,13 +57,16 @@ namespace rs
                 result = fnd->second;
                 break;
             }
+
         } while (byte_offset > 0);
 
         if (result == FAIL_INDEX)
             return FAIL_LOC;
 
+
         while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
         {
+            if (!result) return FAIL_LOC;
             result--;
         }
 
@@ -87,13 +93,15 @@ namespace rs
         }
         return FAIL_INDEX;
     }
-    size_t program_debug_data_info::get_ip_index(byte_t* rt_pos) const
+    size_t program_debug_data_info::get_ip_by_runtime_ip(byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
         static location     FAIL_LOC;
 
         size_t result = FAIL_INDEX;
         auto byte_offset = (rt_pos - runtime_codes_base) + 1;
+        if (rt_pos < runtime_codes_base || rt_pos >= runtime_codes_base + runtime_codes_length)
+            return FAIL_INDEX;
         do
         {
             --byte_offset;
@@ -106,5 +114,29 @@ namespace rs
         } while (byte_offset > 0);
 
         return result;
+    }
+
+    void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].first = compiler->get_now_ip();
+    }
+    void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
+    {
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].second = compiler->get_now_ip();
+    }
+    std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const
+    {
+        auto compile_ip = get_ip_by_runtime_ip(rt_pos);
+        for (auto& [func_signature, iplocs] : _function_ip_data_buf)
+        {
+            if (iplocs.first < compile_ip && compile_ip <= iplocs.second)
+                return func_signature;
+        }
+        return "__unknown_func__at_" +
+            [rt_pos]()->std::string {
+            char ptrr[20] = {};
+            sprintf(ptrr, "0x%p", rt_pos);
+            return ptrr; 
+        }();
     }
 }

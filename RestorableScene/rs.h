@@ -65,7 +65,7 @@ typedef enum _rs_value_type
 }
 rs_type;
 
-typedef void(*rs_native_func)(rs_vm);
+typedef void(*rs_native_func)(rs_vm, rs_value*);
 
 typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
@@ -144,6 +144,7 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 //#define RS_ERR_HEAVY 0xB000
 #define RS_ERR_ACCESS_NIL 0xB001
 #define RS_ERR_INDEX_FAIL 0xB002
+#define RS_ERR_CALL_FAIL 0xB003
 
 // Deadly error:
 // This type of error is caused by complex reasons, any default solutions are useless,

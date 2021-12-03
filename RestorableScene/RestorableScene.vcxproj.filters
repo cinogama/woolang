@@ -13,23 +13,23 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="头文件\runtime">
-      <UniqueIdentifier>{55da0602-8c9d-405e-8ac4-ade6d6ce16fb}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\compiler">
+    <Filter Include="compiler">
       <UniqueIdentifier>{927f8eae-bf6a-432d-b164-e52452671274}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\basic">
-      <UniqueIdentifier>{7d9a7b23-d5b2-48f1-99a5-5bab126fda79}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\lang">
-      <UniqueIdentifier>{14547a97-153f-4356-99b0-37f4e77918b5}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="头文件\3rd">
+    <Filter Include="3rd">
       <UniqueIdentifier>{95417a9b-5055-4861-8d62-52e14ac3a47a}</UniqueIdentifier>
     </Filter>
-    <Filter Include="头文件\environment">
+    <Filter Include="basic">
+      <UniqueIdentifier>{7d9a7b23-d5b2-48f1-99a5-5bab126fda79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="environment">
       <UniqueIdentifier>{0310393a-6084-4248-a807-ad07e7d0f719}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="lang">
+      <UniqueIdentifier>{14547a97-153f-4356-99b0-37f4e77918b5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="runtime">
+      <UniqueIdentifier>{55da0602-8c9d-405e-8ac4-ade6d6ce16fb}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -42,17 +42,20 @@
     <ClCompile Include="rs_gc_work.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="rs_basic_type_support.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="rs_lang_grammar.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="rs_compiler_env_impl.cpp">
-      <Filter>源文件</Filter>
+    <ClCompile Include="rs_compiler_ir.cpp">
+      <Filter>compiler</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_lang_functions_for_ast.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_os_api.cpp">
+      <Filter>environment</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -60,61 +63,67 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="rs_vm.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_compiler_lexer.hpp">
-      <Filter>头文件\compiler</Filter>
+      <Filter>compiler</Filter>
     </ClInclude>
     <ClInclude Include="rs_compiler_ir.hpp">
-      <Filter>头文件\compiler</Filter>
+      <Filter>compiler</Filter>
     </ClInclude>
     <ClInclude Include="rs_exceptions.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_basic_type.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_instruct.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_gc.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
     </ClInclude>
     <ClInclude Include="rs_meta.hpp">
-      <Filter>头文件\basic</Filter>
+      <Filter>basic</Filter>
     </ClInclude>
     <ClInclude Include="rs_macro.hpp">
-      <Filter>头文件\basic</Filter>
+      <Filter>basic</Filter>
     </ClInclude>
     <ClInclude Include="rs_assert.hpp">
-      <Filter>头文件\basic</Filter>
+      <Filter>basic</Filter>
     </ClInclude>
     <ClInclude Include="rs_compiler_parser.hpp">
-      <Filter>头文件\compiler</Filter>
+      <Filter>compiler</Filter>
     </ClInclude>
     <ClInclude Include="enum.h">
-      <Filter>头文件\3rd</Filter>
+      <Filter>3rd</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang_grammar_loader.hpp">
-      <Filter>头文件\lang</Filter>
+      <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang_grammar_lr1_autogen.hpp">
-      <Filter>头文件\lang</Filter>
+      <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="rs_crc_64.hpp">
-      <Filter>头文件\basic</Filter>
+      <Filter>basic</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang_ast_builder.hpp">
-      <Filter>头文件\lang</Filter>
+      <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="rs_env_locale.hpp">
-      <Filter>头文件\environment</Filter>
+      <Filter>environment</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang.hpp">
-      <Filter>头文件\lang</Filter>
+      <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="rs_runtime_debuggee.hpp">
-      <Filter>头文件\runtime</Filter>
+      <Filter>runtime</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_lang_functions_for_ast.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_os_api.hpp">
+      <Filter>environment</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

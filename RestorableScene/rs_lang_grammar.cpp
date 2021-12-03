@@ -221,8 +221,9 @@ gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_as
 
 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
 //		func¶¨ÒåÊ½
-gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
+gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FUNC_DEFINE") >> gm::symlist{

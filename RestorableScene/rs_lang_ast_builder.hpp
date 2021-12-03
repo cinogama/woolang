@@ -3,6 +3,7 @@
 #include "rs_meta.hpp"
 #include "rs_basic_type.hpp"
 #include "rs_env_locale.hpp"
+#include "rs_lang_functions_for_ast.hpp"
 
 #include <any>
 #include <type_traits>
@@ -10,9 +11,6 @@
 
 namespace rs
 {
-    struct lang_symbol;
-    struct lang_scope;
-
     namespace ast
     {
 #if 1
@@ -128,9 +126,6 @@ namespace rs
                 if (from->is_same(to))
                     return true;
 
-                if (from->is_func() || to->is_func())
-                    return false;
-
                 if (from->is_nil())
                 {
                     if (to->value_type == value::valuetype::array_type
@@ -140,7 +135,11 @@ namespace rs
                         return true;
                     return false;
                 }
+
                 if (to->is_nil())
+                    return false;
+
+                if (from->is_func() || to->is_func())
                     return false;
 
                 //if (to->value_type == value::valuetype::array_type
@@ -312,6 +311,9 @@ namespace rs
             }
             bool is_same(const ast_type* another)const
             {
+                if (is_pending_function()||another->is_pending_function())
+                    return false;
+               
                 rs_test(!is_pending() && !another->is_pending());
                 if (is_func())
                 {
@@ -575,6 +577,11 @@ namespace rs
             lang_symbol* symbol = nullptr;
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
 
+            std::string get_namespace_chain()const
+            {
+                return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
+            }
+
         };
 
         struct ast_value_variable : virtual ast_value_symbolable_base
@@ -756,14 +763,22 @@ namespace rs
 
             lang_scope* this_func_scope = nullptr;
 
-            std::string& get_ir_func_signature_tag()
+            const std::string& get_ir_func_signature_tag()
             {
                 if (ir_func_signature_tag == "")
                 {
                     //TODO : Change new function to generate signature.
+                    auto spacename = get_namespace_chain();
+
                     ir_func_signature_tag =
-                        "func_" + std::to_string((uint64_t)in_function_sentence) + "_"
-                        + wstr_to_str(function_name + L"_" + value_type->get_type_name());
+                        spacename.empty() ? "func " : ("func " + spacename + "::");
+
+                    if (function_name != L"")
+                        ir_func_signature_tag += wstr_to_str(function_name) + "(...) : ";
+                    else
+                        ir_func_signature_tag += std::to_string((uint64_t)this) + "(...) : ";
+
+                    ir_func_signature_tag += wstr_to_str(value_type->get_type_name());
                 }
                 return ir_func_signature_tag;
             }

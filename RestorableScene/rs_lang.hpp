@@ -2,6 +2,7 @@
 
 #include "rs_basic_type.hpp"
 #include "rs_lang_ast_builder.hpp"
+#include "rs_compiler_ir.hpp"
 
 #include <unordered_map>
 #include <unordered_set>
@@ -26,7 +27,7 @@ namespace rs
         };
 
         ast::ast_value* variable_value;
-        std::vector<ast::ast_value*> function_overload_sets;
+        std::vector<ast::ast_value_function_define*> function_overload_sets;
     };
 
     struct lang_scope
@@ -116,6 +117,13 @@ namespace rs
 
             if (!ast_node)return;
 
+            if (ast_value_symbolable_base* a_symbol_ob = dynamic_cast<ast_value_symbolable_base*>(ast_node))
+            {
+                a_symbol_ob->searching_begin_namespace_in_pass2 = now_scope();
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
             if (ast_namespace* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
             {
                 begin_namespace(a_namespace->scope_name);
@@ -170,15 +178,14 @@ namespace rs
                 a_value_assi->value_type = new ast_type(L"pending");
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
-                if (!a_value_assi->value_type->is_pending())
+                if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
                 {
-                    if (nullptr == pass_binary_op::binary_upper_type(
-                        a_value_assi->left->value_type,
-                        a_value_assi->right->value_type
-                    ))
+                    if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
+                    {
                         lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
+                    }
                 }
             }
             else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
@@ -191,12 +198,11 @@ namespace rs
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
-                auto* sym = find_symbol_in_this_scope(a_value_var, rs::lang_symbol::symbol_type::variable);
+                auto* sym = find_symbol_in_this_scope(a_value_var);
                 if (sym)
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
                 }
-                a_value_var->searching_begin_namespace_in_pass2 = now_scope();
             }
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
@@ -390,17 +396,23 @@ namespace rs
                 {
                     if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(a_value))
                     {
-                        auto* sym = find_symbol_in_this_scope(a_value_var,
-                            rs::lang_symbol::symbol_type::variable);
+                        auto* sym = find_symbol_in_this_scope(a_value_var);
 
                         if (sym)
                         {
                             analyze_pass2(sym->variable_value);
                             a_value_var->value_type = sym->variable_value->value_type;
+                            a_value_var->symbol = sym;
+
                             if (a_value_var->value_type->is_pending())
                             {
-                                if (!a_value_var->value_type->is_pending_function())
+                                if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
                                     lang_anylizer->lang_error(0x0000, a_value_var, L"Unable to decide value type.");
+                                else if (a_value_var->symbol->function_overload_sets.size() == 1)
+                                {
+                                    // only you~
+                                    a_value_var->value_type = sym->function_overload_sets.front()->value_type;
+                                }
                             }
 
                         }
@@ -439,14 +451,14 @@ namespace rs
                         a_value_assi->value_type = new ast_type(L"pending");
                         a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
-                        if (nullptr == pass_binary_op::binary_upper_type(
-                            a_value_assi->left->value_type,
-                            a_value_assi->right->value_type
-                        ))
+                        if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
-                                a_value_assi->right->value_type->get_type_name().c_str(),
-                                a_value_assi->left->value_type->get_type_name().c_str());
+                            if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
+                            {
+                                lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                                    a_value_assi->right->value_type->get_type_name().c_str(),
+                                    a_value_assi->left->value_type->get_type_name().c_str());
+                            }
                         }
 
                         if (a_value_assi->value_type->is_pending())
@@ -484,6 +496,7 @@ namespace rs
                                 }
                                 else if (!called_funcsymb->symbol->function_overload_sets.empty())
                                 {
+
                                     // have override set, judge with following rule:
                                     // 1. best match
                                     // 2. need cast
@@ -594,7 +607,6 @@ namespace rs
                                     {
                                         this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"No matched function override to call.");
                                     }
-
                                 }
                             }
                         }
@@ -662,6 +674,11 @@ namespace rs
                                 lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
                             }
 
+                        }
+                        else
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot call '%s'.",
+                                a_value_funccall->called_func->value_type->get_type_name().c_str());
                         }
                     }
                     else
@@ -989,7 +1006,7 @@ namespace rs
 
         std::vector<ast::ast_value_function_define* > in_used_functions;
 
-        opnum::opnumbase& get_opnum_by_symbol(lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
+        opnum::opnumbase& get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
         {
             using namespace opnum;
             if (symb->type == lang_symbol::symbol_type::variable)
@@ -1036,14 +1053,22 @@ namespace rs
                 }
             }
             else
-                rs_error("emm.");
+            {
+                if (symb->function_overload_sets.size() == 1)
+                    return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value);
+                else
+                {
+                    lang_anylizer->lang_error(0x0000, error_prud, L"Cannot decided which function to use.");
+                    return RS_NEW_OPNUM(imm(0));
+                }
+            }
         }
 
         bool last_value_stored_to_cr = false;
 
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
         {
-            compiler->pdb_info->generate(value, compiler);
+            compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
 
             last_value_stored_to_cr = false;
             using namespace ast;
@@ -1073,11 +1098,11 @@ namespace rs
                     }
                 case value::valuetype::handle_type:
                     if (!get_pure_value)
-                        return RS_NEW_OPNUM(imm(const_value.handle));
+                        return RS_NEW_OPNUM(imm((void*)const_value.handle));
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.handle));
+                        compiler->set(treg, imm((void*)const_value.handle));
                         return treg;
                     }
                 case value::valuetype::string_type:
@@ -1347,18 +1372,18 @@ namespace rs
             {
                 // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
                 auto symb = a_value_variable->symbol;
-                rs_test(symb->type == lang_symbol::symbol_type::variable);
-
-                return get_opnum_by_symbol(symb, compiler, get_pure_value);
+                return get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
                 if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type))
+                    || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type)
+                    || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
+
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->value_type->value_type);
@@ -1591,7 +1616,7 @@ namespace rs
 
         void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
-            compiler->pdb_info->generate(ast_node, compiler);
+            compiler->pdb_info->generate_debug_info_at_astnode(ast_node, compiler);
 
             if (traving_node.find(ast_node) != traving_node.end())
             {
@@ -1630,7 +1655,7 @@ namespace rs
                     }
                     else
                     {
-                        compiler->mov(get_opnum_by_symbol(varref_define.symbol, compiler),
+                        compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
                             auto_analyze_value(varref_define.init_val, compiler));
                     }
                 }
@@ -1677,8 +1702,6 @@ namespace rs
 
                 compiler->jmp(tag(while_begin_tag));
                 compiler->tag(while_end_tag);
-
-
             }
             else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
             {
@@ -1720,6 +1743,7 @@ namespace rs
                     size_t funcbegin_ip = compiler->get_now_ip();
 
                     compiler->tag(funcdef->get_ir_func_signature_tag());
+                    compiler->pdb_info->generate_func_begin(funcdef, compiler);
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 
                     // apply args.
@@ -1734,7 +1758,7 @@ namespace rs
                                 rs_error("Not impl");
                             }
                             else
-                                compiler->set(get_opnum_by_symbol(a_value_arg_define->symbol, compiler),
+                                compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
                                     opnum::reg(opnum::reg::bp_offset(+2 + arg_count)));
                         }
                         else//variadic
@@ -1753,13 +1777,12 @@ namespace rs
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     // compiler->pop(reserved_stack_size);
                     compiler->ret();                                            // do return
-
+                    compiler->pdb_info->generate_func_end(funcdef, compiler);
 
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
-
-            compiler->pdb_info->finalize_pdd();
+            compiler->pdb_info->finalize_generate_debug_info();
 
             rs::grammar::ast_base::pickout_this_thread_ast(generated_ast_nodes_buffers);
         }
@@ -1887,7 +1910,7 @@ namespace rs
                     else
                     {
                         sym = lang_scopes.back()->symbols[names] = new lang_symbol;
-                        sym->type = lang_symbol::symbol_type::variable;
+                        sym->type = lang_symbol::symbol_type::function;
                         sym->name = names;
 
                         auto* pending_function = new ast::ast_value_function_define;
@@ -1942,7 +1965,7 @@ namespace rs
                 return sym;
             }
         }
-        lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident, lang_symbol::symbol_type need_type)
+        lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident)
         {
             rs_assert(lang_scopes.size());
 
@@ -1987,10 +2010,7 @@ namespace rs
                 if (auto fnd = searching->symbols.find(var_ident->var_name);
                     fnd != searching->symbols.end())
                 {
-                    if (fnd->second->type == need_type)
-                    {
-                        return var_ident->symbol = fnd->second;
-                    }
+                    return var_ident->symbol = fnd->second;
                 }
 
             there_is_no_such_namespace:
