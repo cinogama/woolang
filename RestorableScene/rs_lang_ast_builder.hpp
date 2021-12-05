@@ -2170,5 +2170,5 @@ namespace rs
         return ost;
     }
 #endif
-#define RS_ASTBUILDER_INDEX(...) ast::index<##__VA_ARGS__##>()
+#define RS_ASTBUILDER_INDEX(...) ast::index< __VA_ARGS__ >()
 }
