@@ -76,6 +76,8 @@ namespace rs
         l_else,
         l_namespace,
 
+        l_extern,
+
         l_var,
         l_ref,
         l_func,
@@ -153,6 +155,7 @@ namespace rs
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},
             {L"namespace", {lex_type::l_namespace}},
+            {L"extern", {lex_type::l_extern}}
         };
 
 

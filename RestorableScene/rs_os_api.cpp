@@ -1,0 +1,8 @@
+
+namespace rs
+{
+    namespace osapi
+    {
+
+    }
+}

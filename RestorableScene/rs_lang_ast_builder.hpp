@@ -324,6 +324,8 @@ namespace rs
                         if (!argument_types[index]->is_same(another->argument_types[index]))
                             return false;
                     }
+
+                    return is_variadic_function_type == another->is_variadic_function_type;
                 }
                 if (is_complex() && another->is_complex())
                     return complex_type->is_same(another->complex_type);

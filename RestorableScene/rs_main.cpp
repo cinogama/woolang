@@ -516,39 +516,17 @@ int main()
     std::cout << rs_compile_date() << std::endl;
 
     gc::gc_start();
-
+    
     // unit_test_vm();
     auto src = (R"(
-namespace rs
-{
-    func invoke(var invoking : dynamic()):dynamic
-    {
-        invoking();
-    }
-}
+// extern("this_module", "rs_std_println") 
+//     func println(...):int;
 
-func crash()
+func main()
 {
-    var a = 1:dynamic;
-    var b = "":dynamic;
-    return a+b;
-}
-
-func crash(var x)
-{
-}
-
-func main() : int
-{
-    rs::invoke(crash);
     return 0;
 }
-
-var dio = nil:dynamic();
-dio = crash;
-
 main();
-
 )");
     std::cout << src << std::endl;
 

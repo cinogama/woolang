@@ -1455,7 +1455,7 @@ namespace rs
                     }
                     else
                     {
-                        err_info = L"Unexcepted symbol: " +
+                        err_info = L"Unexcepted token: " +
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
 
@@ -1658,7 +1658,7 @@ namespace rs
             else if (ter.t_type == +lex_type::l_comma)
                 ost << L",";
             else
-                ost << std::string(ter.t_type._to_string()).substr(0, 4).c_str() << L"..";
+                ost << ter.t_type._to_string();
         }
         else
             ost << (ter.t_name);

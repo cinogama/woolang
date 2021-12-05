@@ -698,6 +698,29 @@ namespace rs
                         analyze_pass2(a_value_funcdef->in_function_sentence);
                     }
                 }
+                else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
+                {
+                    analyze_pass2(a_value_assi->right);
+
+                    if (a_value_assi->right->value_type->is_pending_function())
+                    {
+                        auto* try_finding_override = pass_type_cast::do_cast(*lang_anylizer, a_value_assi->right, a_value_assi->value_type);
+                        try_finding_override->col_no = a_value_assi->right->col_no;
+                        try_finding_override->row_no = a_value_assi->right->row_no;
+                        try_finding_override->source_file = a_value_assi->right->source_file;
+
+                        analyze_pass2(try_finding_override);
+
+                        a_value_assi->right = try_finding_override;
+                    }
+
+                    if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                            a_value_assi->right->value_type->get_type_name().c_str(),
+                            a_value_assi->left->value_type->get_type_name().c_str());
+                    }
+                }
                 else if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
                 {
                     // check: cast is valid?
@@ -1247,9 +1270,9 @@ namespace rs
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
                 // if mixed type, do opx
+                bool same_type = a_value_assign->left->value_type->is_same(a_value_assign->right->value_type);
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_assign->left->value_type->is_same(a_value_assign->right->value_type)
-                    && !a_value_assign->left->value_type->is_dynamic())
+                if (same_type && !a_value_assign->left->value_type->is_dynamic())
                     optype = a_value_assign->left->value_type->value_type;
 
                 auto& beoped_left_opnum = analyze_value(a_value_assign->left, compiler);
@@ -1258,7 +1281,9 @@ namespace rs
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
-                    if (optype == value::valuetype::invalid && !a_value_assign->left->value_type->is_dynamic())
+                    if (!a_value_assign->left->value_type->is_func()
+                        && optype == value::valuetype::invalid
+                        && !a_value_assign->left->value_type->is_dynamic())
                         // TODO : NEED WARNING..
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     else
