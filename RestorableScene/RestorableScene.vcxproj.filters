@@ -31,6 +31,9 @@
     <Filter Include="runtime">
       <UniqueIdentifier>{55da0602-8c9d-405e-8ac4-ade6d6ce16fb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="stdlib">
+      <UniqueIdentifier>{117ab175-6ff0-4183-a15a-3eb3498061b0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -56,6 +59,9 @@
     </ClCompile>
     <ClCompile Include="rs_os_api.cpp">
       <Filter>environment</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_extern_functions.cpp">
+      <Filter>stdlib</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -124,6 +130,9 @@
     </ClInclude>
     <ClInclude Include="rs_os_api.hpp">
       <Filter>environment</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_extern_functions.hpp">
+      <Filter>stdlib</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

@@ -669,7 +669,20 @@ namespace rs
                                     real_args = tmp_sib;
                                 }
                             }
-                            if (!a_value_funccall->called_func->value_type->is_variadic_function_type && real_args)
+                            if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                            {
+                                while (real_args)
+                                {
+                                    auto tmp_sib = real_args->sibling;
+
+                                    real_args->parent = nullptr;
+                                    real_args->sibling = nullptr;
+
+                                    a_value_funccall->arguments->add_child(real_args);
+                                    real_args = tmp_sib;
+                                }
+                            }
+                            if (real_args)
                             {
                                 lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
                             }
@@ -1440,7 +1453,14 @@ namespace rs
                 for (auto* argv : arg_list)
                     compiler->psh(analyze_value(argv, compiler));
 
-                compiler->call(analyze_value(a_value_funccall->called_func, compiler));
+                auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
+
+                if (!dynamic_cast<opnum::immbase*>(called_func_aim)
+                    || a_value_funccall->called_func->value_type->is_variadic_function_type)
+                    compiler->set(reg(reg::tc), imm(arg_list.size()));
+
+                compiler->call(*called_func_aim);
+
                 compiler->pop(arg_list.size());
                 last_value_stored_to_cr = true;
                 if (!get_pure_value)

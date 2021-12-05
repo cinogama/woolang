@@ -284,7 +284,7 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     case rs::value::valuetype::array_type:
     {
         if (rs::array_t* arr = _rsvalue->array)
-        { 
+        {
             rs::gcbase::gc_read_guard rg1(_rsvalue->array);
             if ((*traveled_gcunit)[arr] >= 1)
             {
@@ -380,11 +380,11 @@ rs_string_t rs_type_name(const rs_value value)
     return "unknown";
 }
 
-rs_value* rs_args(rs_vm vm)
+//rs_value* rs_args(const rs_vm vm)
+//{
+//    return (rs_value)(reinterpret_cast<rs::vmbase*>(vm)->sp + 2);
+//}
+rs_integer_t rs_argc(const rs_vm vm)
 {
-    return (rs_value*)(reinterpret_cast<rs::vmbase*>(vm)->sp);
-}
-rs_integer_t rs_argc(rs_vm vm)
-{
-    return reinterpret_cast<rs::vmbase*>(vm)->tc->integer;
+    return reinterpret_cast<const rs::vmbase*>(vm)->tc->integer;
 }

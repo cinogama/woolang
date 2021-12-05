@@ -434,7 +434,7 @@ bool rs_loadsource(rs_vm vm, const char* src)
         // Clean all ast created by this thread..
         rs::grammar::ast_base::clean_this_thread_ast();
 
-        for (auto &err_info : lex.lex_error_list)
+        for (auto& err_info : lex.lex_error_list)
         {
             std::wcerr << err_info.to_wstring() << std::endl;
         }
@@ -516,15 +516,24 @@ int main()
     std::cout << rs_compile_date() << std::endl;
 
     gc::gc_start();
-    
+
     // unit_test_vm();
     auto src = (R"(
-// extern("this_module", "rs_std_println") 
-//     func println(...):int;
+namespace std
+{
+    extern("rslib_std_fail") func fail(var msg:string):void;
+    extern("rslib_std_print") func print(...):int;
+}
 
 func main()
 {
-    return 0;
+    var a = 5;
+    var b = "Helloworld";
+    var c = [1, 2, 3, 4, 5];
+
+    std::print(a, b, c);
+    
+    std::fail("Abort");
 }
 main();
 )");
@@ -538,7 +547,7 @@ main();
 
         default_debuggee dgb;
         ((rs::vm*)vmm)->attach_debuggee(&dgb);
-        dgb.set_breakpoint("__runtime_script__", 7);
+        dgb.set_breakpoint("__runtime_script__", 9);
         // ((rs::vm*)vmm)->attach_debuggee(nullptr);
 
         rs_run(vmm);

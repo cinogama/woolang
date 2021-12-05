@@ -4,6 +4,7 @@
 #include "rs_basic_type.hpp"
 #include "rs_env_locale.hpp"
 #include "rs_lang_functions_for_ast.hpp"
+#include "rs_extern_functions.hpp"
 
 #include <any>
 #include <type_traits>
@@ -311,9 +312,9 @@ namespace rs
             }
             bool is_same(const ast_type* another)const
             {
-                if (is_pending_function()||another->is_pending_function())
+                if (is_pending_function() || another->is_pending_function())
                     return false;
-               
+
                 rs_test(!is_pending() && !another->is_pending());
                 if (is_func())
                 {
@@ -765,6 +766,8 @@ namespace rs
 
             lang_scope* this_func_scope = nullptr;
 
+            rs_extern_native_func_t externed_func;
+
             const std::string& get_ir_func_signature_tag()
             {
                 if (ir_func_signature_tag == "")
@@ -803,6 +806,16 @@ namespace rs
                 if (in_function_sentence)
                     in_function_sentence->display(os, lay + 1);
             }
+
+            virtual rs::value get_constant_value() const override
+            {
+                if (!this->is_constant)
+                    rs_error("Not externed_func.");
+
+                value _v;
+                _v.set_handle((rs_handle_t)externed_func);
+                return _v;
+            };
         };
 
         struct ast_token : grammar::ast_base
@@ -1051,6 +1064,21 @@ namespace rs
             }
         };
 
+        struct ast_extern_info : virtual public grammar::ast_base
+        {
+            rs_extern_native_func_t externed_func;
+
+            std::wstring load_from_lib;
+            std::wstring symbol_name;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIY << L"extern" << ANSI_RST << " >" << std::endl;
+                space(os, lay); os << L"symbol: '" << symbol_name << "'" << std::endl;
+                space(os, lay); os << L"from: '" << load_from_lib << "'" << std::endl;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1068,7 +1096,36 @@ namespace rs
                 return input[pass_idx];
             }
         };
+        struct pass_extern :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_extern_info* extern_symb = new ast_extern_info;
+                if (input.size() == 4)
+                {
+                    extern_symb->symbol_name = RS_NEED_TOKEN(2).identifier;
+                    extern_symb->externed_func =
+                        rslib_extern_symbols::get_global_symbol(
+                            wstr_to_str(extern_symb->symbol_name).c_str()
+                        );
 
+                    if (!extern_symb->externed_func)
+                        lex.parser_error(0x0000, L"Cannot find extern symbol: '%s'."
+                            , extern_symb->symbol_name.c_str());
+                }
+                else if (input.size() == 6)
+                {
+                    rs_error("not support now..");
+                }
+                else
+                {
+                    rs_error("error grammar..");
+                }
+
+                return (ast_basic*)extern_symb;
+
+            }
+        };
         struct pass_while :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1129,7 +1186,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 7 || input.size() == 6);
+                rs_test(input.size() == 8 || input.size() == 7 || input.size() == 6);
 
                 auto* ast_func = new ast_value_function_define;
                 ast_type* return_type = nullptr;
@@ -1142,13 +1199,24 @@ namespace rs
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
 
                 }
-                else
+                else if (input.size() == 6)
                 {
                     // anonymous function
                     ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(2));
                     ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(5))->sentence_list;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
+                }
+                else
+                {
+                    // function with name..
+                    ast_func->function_name = RS_NEED_TOKEN(2).identifier;
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    ast_func->in_function_sentence = nullptr;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
+
+                    ast_func->is_constant = true;
+                    ast_func->externed_func = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0))->externed_func;
                 }
                 // many things to do..
 
@@ -2053,6 +2121,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_extern>]
+                = _register_builder<pass_extern>();
+            
             _registed_builder_function_id_list[meta::type_hash<pass_binary_logical_op>]
                 = _register_builder<pass_binary_logical_op>();
 

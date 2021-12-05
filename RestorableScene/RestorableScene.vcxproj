@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
+    <ClCompile Include="rs_extern_functions.cpp" />
     <ClCompile Include="rs_lang_functions_for_ast.cpp" />
     <ClCompile Include="rs_compiler_ir.cpp" />
     <ClCompile Include="rs_gc_work.cpp" />
@@ -161,6 +162,7 @@
     <ClInclude Include="rs_crc_64.hpp" />
     <ClInclude Include="rs_env_locale.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
+    <ClInclude Include="rs_extern_functions.hpp" />
     <ClInclude Include="rs_lang.hpp" />
     <ClInclude Include="rs_lang_ast_builder.hpp" />
     <ClInclude Include="rs_lang_functions_for_ast.hpp" />

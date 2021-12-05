@@ -65,7 +65,7 @@ typedef enum _rs_value_type
 }
 rs_type;
 
-typedef void(*rs_native_func)(rs_vm, rs_value*);
+typedef void(*rs_native_func)(rs_vm, rs_value);
 
 typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
@@ -222,8 +222,10 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 #endif
 
 RS_FORCE_CAPI_END
+#undef RS_API
 
 #ifdef __cplusplus
-
-
+#   define RS_API extern "C" RS_IMPORT_OR_EXPORT
+#else
+#   define RS_API RS_IMPORT_OR_EXPORT
 #endif

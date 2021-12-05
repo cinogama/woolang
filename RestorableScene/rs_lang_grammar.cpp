@@ -119,32 +119,40 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::nt(L"SENTENCE_BLOCK")}
                         >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
-                        gm::te(gm::ttype::l_extern),
+gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
                         gm::te(gm::ttype::l_left_brackets),
                             gm::te(gm::ttype::l_literal_string),
                           gm::te(gm::ttype::l_comma),
                            gm::te(gm::ttype::l_literal_string),
-                        gm::te(gm::ttype::l_right_brackets),
+                        gm::te(gm::ttype::l_right_brackets)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_extern),
+gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
+                        gm::te(gm::ttype::l_left_brackets),
+                            gm::te(gm::ttype::l_literal_string),
+                        gm::te(gm::ttype::l_right_brackets)}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_extern),
+
+gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                         gm::nt(L"EXTERN_FROM"),
 
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"TYPE_DECLEAR"),
                          gm::te(gm::ttype::l_semicolon)
-                },
-                //>> RS_ASTBUILDER_INDEX(ast::pass_function_define),
+                }
+                >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-        //WHILEÓï¾ä
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"WHILE")}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"WHILE") >> gm::symlist{
-                        gm::te(gm::ttype::l_while),
-                        gm::te(gm::ttype::l_left_brackets),
-                        gm::nt(L"EXPRESSION"),
-                        gm::te(gm::ttype::l_right_brackets),
-                        gm::nt(L"BLOCKED_SENTENCE")
-                    } >> RS_ASTBUILDER_INDEX(ast::pass_while),
+                //WHILEÓï¾ä
+        gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"WHILE")}
+         >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+        gm::nt(L"WHILE") >> gm::symlist{
+                                gm::te(gm::ttype::l_while),
+                                gm::te(gm::ttype::l_left_brackets),
+                                gm::nt(L"EXPRESSION"),
+                                gm::te(gm::ttype::l_right_brackets),
+                                gm::nt(L"BLOCKED_SENTENCE")
+                            } >> RS_ASTBUILDER_INDEX(ast::pass_while),
 
                 //IFÓï¾ä
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}

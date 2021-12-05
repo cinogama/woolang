@@ -2303,7 +2303,7 @@ namespace rs
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value*>(rt_sp + 2));
+                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2));
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
@@ -2337,7 +2337,7 @@ namespace rs
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value*>(rt_sp + 2));
+                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2));
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
