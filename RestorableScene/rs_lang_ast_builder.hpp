@@ -143,15 +143,13 @@ namespace rs
                 if (from->is_func() || to->is_func())
                     return false;
 
-                //if (to->value_type == value::valuetype::array_type
-                //    || to->value_type == value::valuetype::mapping_type
-                //    || to->is_func())
-                //{
-                //    return to->is_same(from);
-                //}
+
 
                 if (force)
                 {
+                    if (to->value_type == value::valuetype::string_type)
+                        return true;
+
                     if (to->value_type == value::valuetype::integer_type
                         || to->value_type == value::valuetype::real_type
                         || to->value_type == value::valuetype::handle_type
@@ -1079,6 +1077,39 @@ namespace rs
             }
         };
 
+        struct ast_value_packed_variadic_args : virtual public ast_value
+        {
+            ast_value_packed_variadic_args()
+            {
+                value_type = new ast_type(L"array");
+            }
+        };
+
+        struct ast_value_indexed_variadic_args : virtual public ast_value
+        {
+            ast_value* argindex;
+            ast_value_indexed_variadic_args(ast_value* arg_index)
+                :argindex(arg_index)
+            {
+                rs_assert(argindex);
+                value_type = new ast_type(L"dynamic");
+            }
+        };
+
+        struct ast_fakevalue_unpacked_args : virtual public ast_value
+        {
+            ast_value* unpacked_pack;
+            rs_integer_t expand_count = 0;
+
+            ast_fakevalue_unpacked_args(ast_value* pak, rs_integer_t _expand_count)
+                :unpacked_pack(pak),
+                expand_count(_expand_count)
+            {
+                rs_assert(unpacked_pack && _expand_count >= 0);
+                value_type = new ast_type(L"dynamic");
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1094,6 +1125,42 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_unpack_args : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2 || input.size() == 3);
+
+                if (input.size() == 2)
+                {
+                    return (ast_basic*)new ast_fakevalue_unpacked_args(
+                        dynamic_cast<ast_value*>(RS_NEED_AST(0)),
+                        0
+                    );
+                }
+                else
+                {
+                    auto expand_count = std::stoll(RS_NEED_TOKEN(2).identifier);
+
+                    if (!expand_count)
+                        lex.parser_error(0x0000, L"Unpacking operate should unpack at least 1 arguments.");
+
+                    return (ast_basic*)new ast_fakevalue_unpacked_args(
+                        dynamic_cast<ast_value*>(RS_NEED_AST(0)),
+                        expand_count
+                    );
+                }
+            }
+        };
+
+        struct pass_pack_variadic_args :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                return (ast_basic*)new ast_value_packed_variadic_args;
             }
         };
         struct pass_extern :public astnode_builder
@@ -1400,7 +1467,7 @@ namespace rs
                     case value::valuetype::integer_type:
                         if (last_value.is_nil() || (!force && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
                             goto try_cast_nil_to_int_handle_real_str;
-                        cast_result->_constant_value.set_integer(rs_cast_integer((rs_value)&last_value));
+                        cast_result->_constant_value.set_integer(rs_cast_int((rs_value)&last_value));
                         break;
                     case value::valuetype::string_type:
                         if (last_value.is_nil() || (!force && last_value.type != aim_real_type))
@@ -1437,11 +1504,11 @@ namespace rs
                         else
                         {
                             if (!force)
-                                lex.lang_error(0x0000, type_node, L"Can not implicit-cast '%s' to '%s'.",
+                                lex.lang_error(0x0000, type_node, L"Cannot implicit-cast '%s' to '%s'.",
                                     value_node->value_type->get_type_name().c_str(),
                                     type_node->get_type_name().c_str());
                             else
-                                lex.lang_error(0x0000, type_node, L"Can not cast '%s' to '%s'.",
+                                lex.lang_error(0x0000, type_node, L"Cannot cast '%s' to '%s'.",
                                     value_node->value_type->get_type_name().c_str(),
                                     type_node->get_type_name().c_str());
 
@@ -1832,8 +1899,8 @@ namespace rs
                     case value::valuetype::integer_type:
                         const_result->_constant_value.set_integer(
                             binary_operate(lex,
-                                rs_cast_integer((rs_value)&_left_val),
-                                rs_cast_integer((rs_value)&_right_val),
+                                rs_cast_int((rs_value)&_left_val),
+                                rs_cast_int((rs_value)&_right_val),
                                 _token.type
                             )
                         );
@@ -1969,30 +2036,37 @@ namespace rs
                     ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                     rs_test(left_v && right_v);
 
-                    if (left_v->is_constant && right_v->is_constant)
+                    if (auto* apcked_varg = dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
-                        if (left_v->value_type->value_type == value::valuetype::string_type)
-                        {
-                            if (right_v->value_type->value_type != value::valuetype::integer_type
-                                && right_v->value_type->value_type != value::valuetype::handle_type)
-                            {
-                                return lex.parser_error(0x0000, L"Can not index string with this type of value.");
-                            }
-
-                            ast_value_literal* const_result = new ast_value_literal();
-                            const_result->value_type = new ast_type(L"int");
-                            const_result->_constant_value.set_integer(
-                                (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
-                            );
-
-                            return (grammar::ast_base*)const_result;
-                        }
+                        return (grammar::ast_base*)new  ast_value_indexed_variadic_args(right_v);
                     }
+                    else
+                    {
+                        if (left_v->is_constant && right_v->is_constant)
+                        {
+                            if (left_v->value_type->value_type == value::valuetype::string_type)
+                            {
+                                if (right_v->value_type->value_type != value::valuetype::integer_type
+                                    && right_v->value_type->value_type != value::valuetype::handle_type)
+                                {
+                                    return lex.parser_error(0x0000, L"Can not index string with this type of value.");
+                                }
 
-                    ast_value_index* vbin = new ast_value_index();
-                    vbin->from = left_v;
-                    vbin->index = right_v;
-                    return (grammar::ast_base*)vbin;
+                                ast_value_literal* const_result = new ast_value_literal();
+                                const_result->value_type = new ast_type(L"int");
+                                const_result->_constant_value.set_integer(
+                                    (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
+                                );
+
+                                return (grammar::ast_base*)const_result;
+                            }
+                        }
+
+                        ast_value_index* vbin = new ast_value_index();
+                        vbin->from = left_v;
+                        vbin->index = right_v;
+                        return (grammar::ast_base*)vbin;
+                    }
                 }
                 else if (_token.type == +lex_type::l_index_point)
                 {
@@ -2121,9 +2195,15 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_unpack_args>]
+                = _register_builder<pass_unpack_args>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_pack_variadic_args>]
+                = _register_builder<pass_pack_variadic_args>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_extern>]
                 = _register_builder<pass_extern>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_binary_logical_op>]
                 = _register_builder<pass_binary_logical_op>();
 

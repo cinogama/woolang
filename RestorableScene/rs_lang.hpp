@@ -57,7 +57,6 @@ namespace rs
 
         size_t this_block_used_stackvalue_count = 0;
 
-
         size_t assgin_stack_index()
         {
             rs_assert(type == scope_type::function_scope);
@@ -79,6 +78,8 @@ namespace rs
         std::unordered_set<grammar::ast_base*> traving_node;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
+
+        ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
     public:
         lang(lexer& lex) :
             lang_anylizer(&lex)
@@ -235,6 +236,10 @@ namespace rs
                 }
                 end_function();
             }
+            else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
+            {
+                analyze_pass1(a_fakevalue_unpacked_args->unpacked_pack);
+            }
             else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
             {
                 analyze_pass1(a_value_funccall->called_func);
@@ -253,6 +258,10 @@ namespace rs
             {
                 analyze_pass1(a_value_map->mapping_pairs);
                 a_value_map->add_child(a_value_map->mapping_pairs);
+            }
+            else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
+            {
+                analyze_pass1(a_value_variadic_args_idx->argindex);
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
@@ -531,11 +540,45 @@ namespace rs
                                                 else
                                                     variadic_sets.push_back(override_func);
 
-                                                break;
+                                                goto this_function_override_checking_over;
                                             }
 
                                             if (!real_arg)
-                                                break;// real_args count didn't match, break..
+                                                goto this_function_override_checking_over;// real_args count didn't match, break..
+
+                                            if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
+                                            {
+                                                best_match = false;
+                                                auto ecount = a_fakevalue_unpack_args->expand_count;
+                                                if (0 == ecount)
+                                                {
+                                                    // all in!!!
+                                                    variadic_sets.push_back(override_func);
+                                                    goto this_function_override_checking_over;
+                                                }
+
+                                                while (ecount)
+                                                {
+                                                    if (form_arg)
+                                                    {
+                                                        form_args = form_arg->sibling;
+                                                        form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                                    }
+                                                    else if (form_args)
+                                                    {
+                                                        // is variadic
+                                                        variadic_sets.push_back(override_func);
+                                                        goto this_function_override_checking_over;
+                                                    }
+                                                    else
+                                                    {
+                                                        // not match , over..
+                                                        goto this_function_override_checking_over;
+                                                    }
+                                                    ecount--;
+                                                }
+
+                                            }
 
                                             if (real_arg->value_type->is_same(form_arg->value_type))
                                                 ;// do nothing..
@@ -565,6 +608,9 @@ namespace rs
                                                 // else: bad match..
                                             }
                                         } while (form_args);
+
+                                    this_function_override_checking_over:;
+
                                     }
 
                                     std::vector<ast_value_function_define*>* judge_sets = nullptr;
@@ -636,7 +682,9 @@ namespace rs
                             auto* real_args = a_value_funccall->arguments->children;
                             a_value_funccall->arguments->remove_allnode();
 
-                            for (auto a_types : a_value_funccall->called_func->value_type->argument_types)
+                            for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
+                                a_type_index != a_value_funccall->called_func->value_type->argument_types.end();
+                                a_type_index++)
                             {
                                 if (!real_args)
                                 {
@@ -651,22 +699,59 @@ namespace rs
                                     real_args->sibling = nullptr;
 
                                     auto* arg_val = dynamic_cast<ast_value*>(real_args);
-                                    if (!arg_val->value_type->is_same(a_types))
-                                    {
-                                        auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, a_types);
-                                        cast_arg_type->col_no = arg_val->col_no;
-                                        cast_arg_type->row_no = arg_val->row_no;
-                                        cast_arg_type->source_file = arg_val->source_file;
-                                        analyze_pass2(cast_arg_type);
 
-                                        a_value_funccall->arguments->add_child(cast_arg_type);
+                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
+                                    {
+                                        a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
+
+                                        auto ecount = a_fakevalue_unpack_args->expand_count;
+                                        if (0 == ecount)
+                                        {
+                                            // all in!!!
+                                            a_fakevalue_unpack_args->expand_count =
+                                                -(rs_integer_t)(a_type_index
+                                                    - a_value_funccall->called_func->value_type->argument_types.begin());
+                                        }
+
+                                        while (ecount)
+                                        {
+                                            if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
+                                            {
+                                                a_type_index++;
+                                            }
+                                            else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                            {
+                                                // is variadic
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                                break;
+                                            }
+                                            ecount--;
+                                        }
+
                                     }
                                     else
                                     {
-                                        a_value_funccall->arguments->add_child(real_args);
-                                    }
+                                        if (!arg_val->value_type->is_same(*a_type_index))
+                                        {
+                                            auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, *a_type_index);
+                                            cast_arg_type->col_no = arg_val->col_no;
+                                            cast_arg_type->row_no = arg_val->row_no;
+                                            cast_arg_type->source_file = arg_val->source_file;
+                                            analyze_pass2(cast_arg_type);
 
+                                            a_value_funccall->arguments->add_child(cast_arg_type);
+                                        }
+                                        else
+                                        {
+                                            a_value_funccall->arguments->add_child(real_args);
+                                        }
+                                    }
                                     real_args = tmp_sib;
+
                                 }
                             }
                             if (a_value_funccall->called_func->value_type->is_variadic_function_type)
@@ -800,6 +885,25 @@ namespace rs
                 else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
                 {
                     analyze_pass2(a_value_map->mapping_pairs);
+                }
+                else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
+                {
+                    analyze_pass2(a_value_variadic_args_idx->argindex);
+
+                    if (a_value_variadic_args_idx->argindex->value_type->is_func()
+                        || a_value_variadic_args_idx->argindex->value_type->value_type != value::valuetype::integer_type)
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, L"Unexcepted type: here should be integer.");
+                    }
+                }
+                else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
+                {
+                    analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
+                    if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_func()
+                        || a_fakevalue_unpacked_args->unpacked_pack->value_type->value_type != value::valuetype::array_type)
+                    {
+                        lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unexcepted type: here should be array.");
+                    }
                 }
             }
             else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
@@ -1441,27 +1545,67 @@ namespace rs
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
+                if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
+                    compiler->psh(reg(reg::tc));
+
+
                 std::vector<ast_value* >arg_list;
                 auto arg = a_value_funccall->arguments->children;
+
+                bool full_unpack_arguments = false;
+                rs_integer_t extern_unpack_arg_count = 0;
+
                 while (arg)
                 {
                     ast_value* arg_val = dynamic_cast<ast_value*>(arg);
                     rs_assert(arg_val);
+
+                    if (full_unpack_arguments)
+                    {
+                        lang_anylizer->lang_error(0x0000, arg_val, L"Argument should not be expected after '...'.");
+                        break;
+                    }
+
+                    if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
+                    {
+                        if (a_fakevalue_unpacked_args->expand_count <= 0)
+                            full_unpack_arguments = true;
+                    }
+
                     arg_list.insert(arg_list.begin(), arg_val);
                     arg = arg->sibling;
                 }
                 for (auto* argv : arg_list)
-                    compiler->psh(analyze_value(argv, compiler));
+                {
+                    if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(argv))
+                    {
+                        auto& packing = analyze_value(a_fakevalue_unpacked_args->unpacked_pack, compiler,
+                            a_fakevalue_unpacked_args->expand_count <= 0);
+
+                        if (a_fakevalue_unpacked_args->expand_count <= 0)
+                            compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
+                        else
+                            extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
+
+                        compiler->ext_unpackargs(packing,
+                            a_fakevalue_unpacked_args->expand_count);
+                    }
+                    else
+                        compiler->psh(analyze_value(argv, compiler));
+                }
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
 
-                if (!dynamic_cast<opnum::immbase*>(called_func_aim)
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type)
-                    compiler->set(reg(reg::tc), imm(arg_list.size()));
+                if (!full_unpack_arguments && (!dynamic_cast<opnum::immbase*>(called_func_aim)
+                    || a_value_funccall->called_func->value_type->is_variadic_function_type))
+                    compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
                 compiler->call(*called_func_aim);
 
                 compiler->pop(arg_list.size());
+                if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
+                    compiler->pop(reg(reg::tc));
+
                 last_value_stored_to_cr = true;
                 if (!get_pure_value)
                 {
@@ -1620,6 +1764,8 @@ namespace rs
                 auto& beoped_left_opnum = *_beoped_left_opnum;
                 auto& op_right_opnum = analyze_value(a_value_index->index, compiler);
 
+                last_value_stored_to_cr = true;
+
                 compiler->idx(beoped_left_opnum, op_right_opnum);
 
                 if (!get_pure_value)
@@ -1639,11 +1785,107 @@ namespace rs
                     }
                 }
             }
+            else if (auto* a_value_packed_variadic_args = dynamic_cast<ast_value_packed_variadic_args*>(value))
+            {
+                if (!now_function_in_final_anylize
+                    || !now_function_in_final_anylize->value_type->is_variadic_function_type)
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, L"Only in function having variadic arguments can use '...' to pack variadic arguments.");
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+                else if (!get_pure_value)
+                {
+                    compiler->ext_packargs(reg(reg::cr), imm(
+                        now_function_in_final_anylize->value_type->argument_types.size()
+                    ));
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+                else
+                {
+                    auto& packed = get_useable_register_for_pure_value();
+
+                    compiler->ext_packargs(packed, imm(
+                        now_function_in_final_anylize->value_type->argument_types.size()
+                    ));
+                    return packed;
+                }
+            }
+            else if (auto* a_value_indexed_variadic_args = dynamic_cast<ast_value_indexed_variadic_args*>(value))
+            {
+                if (!now_function_in_final_anylize
+                    || !now_function_in_final_anylize->value_type->is_variadic_function_type)
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, L"Only in function having variadic arguments can use '...' to pack variadic arguments.");
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+
+                if (!get_pure_value)
+                {
+                    if (a_value_indexed_variadic_args->argindex->is_constant)
+                    {
+                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
+                        if (_cv.integer <= 63 - 2)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size())));
+                        else
+                        {
+                            auto& result = get_useable_register_for_ref_value();
+                            compiler->ldsr(result, imm(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                            return result;
+                        }
+                    }
+                    else
+                    {
+                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
+                        compiler->addi(index, imm(2
+                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                        complete_using_register(index);
+                        auto& result = get_useable_register_for_ref_value();
+                        compiler->ldsr(result, index);
+                        return result;
+                    }
+                }
+                else
+                {
+                    auto& result = get_useable_register_for_pure_value();
+
+                    if (a_value_indexed_variadic_args->argindex->is_constant)
+                    {
+                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
+                        if (_cv.integer <= 63 - 2)
+                        {
+                            last_value_stored_to_cr = true;
+                            compiler->set(result, reg(reg::bp_offset(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size())));
+                        }
+                        else
+                        {
+                            compiler->lds(result, imm(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                        }
+                    }
+                    else
+                    {
+                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
+                        compiler->addi(index, imm(2
+                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                        complete_using_register(index);
+                        compiler->lds(result, index);
+
+                    }
+                    return result;
+                }
+            }
+            else if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(value))
+            {
+                lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unpack is only allowed for arguments in function calls.");
+                return RS_NEW_OPNUM(reg(reg::cr));
+            }
             else
             {
                 rs_error("unknown value type..");
             }
-
 
             rs_error("run to err place..");
             static opnum::opnumbase err;
@@ -1786,6 +2028,7 @@ namespace rs
                 for (auto* funcdef : tmp_build_func_list)
                 {
                     size_t funcbegin_ip = compiler->get_now_ip();
+                    now_function_in_final_anylize = funcdef;
 
                     compiler->tag(funcdef->get_ir_func_signature_tag());
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);

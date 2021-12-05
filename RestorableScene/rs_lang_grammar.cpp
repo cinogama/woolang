@@ -394,6 +394,16 @@ gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RI
 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ARGUMENT_EXPAND") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign) }
+>> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
+gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign),gm::te(gm::ttype::l_literal_integer) }
+>> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
+
+gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
+>> RS_ASTBUILDER_INDEX(ast::pass_pack_variadic_args),
+
 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
 >> RS_ASTBUILDER_INDEX(ast::pass_literal),
 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_real) }

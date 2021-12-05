@@ -125,33 +125,49 @@ rs_type rs_valuetype(rs_value value)
 
     return (rs_type)_rsvalue->type;
 }
-rs_integer_t rs_integer(rs_value value)
+rs_integer_t rs_int(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
-
+    if (_rsvalue->type != rs::value::valuetype::integer_type)
+    {
+        rs_fail(RS_ERR_TYPE_FAIL, "This value is not an integer.");
+        return rs_cast_int(value);
+    }
     return _rsvalue->integer;
 }
 rs_real_t rs_real(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
-
+    if (_rsvalue->type != rs::value::valuetype::real_type)
+    {
+        rs_fail(RS_ERR_TYPE_FAIL, "This value is not an real.");
+        return rs_cast_real(value);
+    }
     return _rsvalue->real;
 }
 rs_handle_t rs_handle(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
-
+    if (_rsvalue->type != rs::value::valuetype::handle_type)
+    {
+        rs_fail(RS_ERR_TYPE_FAIL, "This value is not a handle.");
+        return rs_cast_handle(value);
+    }
     return _rsvalue->handle;
 }
 rs_string_t rs_string(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
-
+    if (_rsvalue->type != rs::value::valuetype::string_type)
+    {
+        rs_fail(RS_ERR_TYPE_FAIL, "This value is not a string.");
+        return rs_cast_string(value);
+    }
     rs::gcbase::gc_read_guard rg1(_rsvalue->string);
     return _rsvalue->string->c_str();
 }
 
-rs_integer_t rs_cast_integer(rs_value value)
+rs_integer_t rs_cast_int(rs_value value)
 {
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
 
@@ -380,11 +396,28 @@ rs_string_t rs_type_name(const rs_value value)
     return "unknown";
 }
 
-//rs_value* rs_args(const rs_vm vm)
-//{
-//    return (rs_value)(reinterpret_cast<rs::vmbase*>(vm)->sp + 2);
-//}
 rs_integer_t rs_argc(const rs_vm vm)
 {
     return reinterpret_cast<const rs::vmbase*>(vm)->tc->integer;
+}
+
+void rs_ret_int(rs_vm vm, rs_integer_t result)
+{
+    reinterpret_cast<rs::vmbase*>(vm)->cr->set_integer(result);
+}
+void rs_ret_real(rs_vm vm, rs_real_t result)
+{
+    reinterpret_cast<rs::vmbase*>(vm)->cr->set_real(result);
+}
+void rs_ret_handle(rs_vm vm, rs_handle_t result)
+{
+    reinterpret_cast<rs::vmbase*>(vm)->cr->set_handle(result);
+}
+void rs_set_string(rs_vm vm, rs_string_t result)
+{
+    reinterpret_cast<rs::vmbase*>(vm)->cr->set_string(result);
+}
+void rs_set_nil(rs_vm vm)
+{
+    reinterpret_cast<rs::vmbase*>(vm)->cr->set_nil();
 }

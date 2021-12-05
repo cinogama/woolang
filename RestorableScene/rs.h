@@ -80,18 +80,24 @@ RS_API rs_integer_t rs_version_int  (void);
 
 RS_API rs_type      rs_valuetype    (const rs_value value);
 
-RS_API rs_integer_t rs_integer(const rs_value value);
+RS_API rs_integer_t rs_int(const rs_value value);
 RS_API rs_real_t    rs_real(const rs_value value);
 RS_API rs_handle_t  rs_handle(const rs_value value);
 RS_API rs_string_t  rs_string(const rs_value value);
 
-RS_API rs_integer_t rs_cast_integer(const rs_value value);
+RS_API rs_integer_t rs_cast_int(const rs_value value);
 RS_API rs_real_t    rs_cast_real(const rs_value value);
 RS_API rs_handle_t  rs_cast_handle(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
 RS_API rs_string_t  rs_type_name(const rs_value value);
 RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
+
+RS_API void         rs_ret_int(rs_vm vm, rs_integer_t result);
+RS_API void         rs_ret_real(rs_vm vm, rs_real_t result);
+RS_API void         rs_ret_handle(rs_vm vm, rs_handle_t result);
+RS_API void         rs_set_string(rs_vm vm, rs_string_t result);
+RS_API void         rs_set_nil(rs_vm vm);
 
 // Here to define RSRuntime code accroding to the type.
 

@@ -2,10 +2,15 @@
 
 RS_API void rslib_std_print(rs_vm vm, rs_value args)
 {
-    for (rs_integer_t i = 0; i < rs_argc(vm); i++)
+    auto argcount = rs_argc(vm);
+    for (rs_integer_t i = 0; i < argcount; i++)
     {
         std::cout << rs_cast_string(args + i);
+
+        if (i + 1 < argcount) 
+            std::cout << " ";
     }
+    return rs_ret_int(vm, argcount);
 }
 
 RS_API void rslib_std_fail(rs_vm vm, rs_value args)

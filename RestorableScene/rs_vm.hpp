@@ -656,34 +656,10 @@ namespace rs
                             tmpos << "mknilarr\t"; print_opnum1(); break;
                         case instruct::extern_opcode_page_0::mknilmap:
                             tmpos << "mknilmap\t"; print_opnum1();  break;
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 1:
-                        switch (main_command & 0b11111100)
-                        {
-                        case instruct::extern_opcode_page_1::prnt:
-                            tmpos << "prnt\t"; print_opnum1(); break;
-                        case instruct::extern_opcode_page_1::detail:
-                            tmpos << "detail\t"; print_opnum1(); break;
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 2:
-                        switch (main_command & 0b11111100)
-                        {
-                        default:
-                            tmpos << "??\t";
-                            break;
-                        }
-                        break;
-                    case 3:
-                        switch (main_command & 0b11111100)
-                        {
+                        case instruct::extern_opcode_page_0::packargs:
+                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                        case instruct::extern_opcode_page_0::unpackargs:
+                            tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         default:
                             tmpos << "??\t";
                             break;
@@ -2468,7 +2444,7 @@ namespace rs
                             {
                                 gcbase::gc_read_guard gwg1(opnum1->gcunit);
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                    cr->set_ref(&(*opnum1->array)[(size_t)opnum2->integer]);
+                                    cr->set_ref((*opnum1->array)[(size_t)opnum2->integer].get());
                                 else
                                     RS_VM_FAIL(RS_ERR_ACCESS_NIL, "cannot index array without integer & handle.");
                                 break;
@@ -2480,7 +2456,7 @@ namespace rs
                                     auto fnd = opnum1->mapping->find(*opnum2);
                                     if (fnd != opnum1->mapping->end())
                                     {
-                                        cr->set_ref(&fnd->second);
+                                        cr->set_ref(fnd->second.get());
                                         break;
                                     }
                                 }
@@ -2531,24 +2507,56 @@ namespace rs
                                 cr->set_ref(opnum1);
                                 break;
                             }
-                            default:
-                                rs_error("Unknown instruct.");
-                                break;
-                            }
-                            break;
-                        case 1:     // extern-opcode-page-1
-                            switch ((instruct::extern_opcode_page_1)(opcode))
-                            {
-                            case instruct::extern_opcode_page_1::prnt:
-                            {
-                                RS_ADDRESSING_N1_REF;
-                                rs_error("This command not impl now");
-                                break;
-                            }
-                            case instruct::extern_opcode_page_1::detail:
+                            case instruct::extern_opcode_page_0::packargs:
                             {
                                 RS_ADDRESSING_N1;
-                                rs_error("This command not impl now");
+                                RS_ADDRESSING_N2_REF;
+
+                                opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
+                                auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+                                packed_array->resize(tc->integer - opnum2->integer);
+                                for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
+                                {
+                                    (*packed_array)[argindex - opnum2->integer].set_ref((rt_bp + 2 + argindex)->get());
+                                }
+
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::unpackargs:
+                            {
+                                RS_ADDRESSING_N1_REF;
+                                RS_ADDRESSING_N2_REF;
+
+                                if (opnum1->type != value::valuetype::array_type || opnum1->is_nil())
+                                {
+                                    RS_VM_FAIL(RS_ERR_INDEX_FAIL, "Only valid array can used in unpack.");
+                                }
+                                else if (opnum2->integer > 0)
+                                {
+                                    auto* arg_array = opnum1->array;
+                                    if (opnum2->integer > arg_array->size())
+                                    {
+                                        RS_VM_FAIL(RS_ERR_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                    }
+                                    else
+                                    {
+                                        for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
+                                            arg_idx != arg_array->rend();
+                                            arg_idx++)
+                                            (rt_sp--)->set_ref(arg_idx->get());
+                                    }
+                                }
+                                else
+                                {
+                                    auto* arg_array = opnum1->array;
+                                    if (arg_array->size() < (-opnum2->integer))
+                                        RS_VM_FAIL(RS_ERR_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+
+                                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                                        (rt_sp--)->set_ref(arg_idx->get());
+
+                                    tc->integer += arg_array->size();
+                                }
                                 break;
                             }
                             default:

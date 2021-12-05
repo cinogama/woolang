@@ -1112,6 +1112,10 @@ namespace rs
                 {
                     RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, nullptr, RS_OPNUM(op1));
                 }
+                else if (auto* handle_exp = dynamic_cast<opnum::imm<void*>*>(const_cast<OP1T*>(&op1)))
+                {
+                    RS_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(handle_exp->val));
+                }
                 else
                 {
                     RS_PUT_IR_TO_BUFFER(instruct::opcode::call, RS_OPNUM(op1));
@@ -1269,6 +1273,31 @@ namespace rs
             auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1));
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mknilarr;
+        }
+
+        template<typename OP1T, typename OP2T>
+        void ext_packargs(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value&&
+                std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::packargs;
+        }
+
+        template<typename OP1T>
+        void ext_unpackargs(const OP1T& op1, rs_integer_t unpack_count)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            opnum::imm<rs_integer_t> unpacked_count(unpack_count);
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(unpacked_count));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::unpackargs;
         }
 
 #undef RS_OPNUM
@@ -1799,6 +1828,16 @@ namespace rs
                         case instruct::extern_opcode_page_0::mknilmap:
                             runtime_command_buffer.push_back(RS_OPCODE_EXT0(mknilmap));
                             RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            break;
+                        case instruct::extern_opcode_page_0::packargs:
+                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(packargs));
+                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            break;
+                        case instruct::extern_opcode_page_0::unpackargs:
+                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(unpackargs));
+                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                             break;
                         default:
                             rs_error("Unknown instruct.");

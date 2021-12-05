@@ -446,6 +446,9 @@ bool rs_loadsource(rs_vm vm, const char* src)
         return false;
     }
 
+
+    result->display();
+
     // 3. Create lang, most anything store here..
     rs::lang lang(lex);
     lang.analyze_pass1(result);
@@ -471,7 +474,6 @@ bool rs_loadsource(rs_vm vm, const char* src)
 
     rs::ir_compiler compiler;
     lang.analyze_finalize(result, &compiler);
-
     if (lang.has_compile_error())
     {
         // Clean all ast & lang's template things.
@@ -491,9 +493,6 @@ bool rs_loadsource(rs_vm vm, const char* src)
     }
 
     compiler.end();
-
-    result->display();
-
     ((rs::vm*)vm)->set_runtime(compiler);
 
     return true;
@@ -523,16 +522,17 @@ namespace std
 {
     extern("rslib_std_fail") func fail(var msg:string):void;
     extern("rslib_std_print") func print(...):int;
-}
 
+    func println(...)
+    {
+        var c = print((...)...);
+        print("\n");
+        return c;
+    }
+}
 func main()
 {
-    var a = 5;
-    var b = "Helloworld";
-    var c = [1, 2, 3, 4, 5];
-
-    std::print(a, b, c);
-    
+    std::println(0, 1, 2, 3, 4, 5, 6,);
     std::fail("Abort");
 }
 main();
