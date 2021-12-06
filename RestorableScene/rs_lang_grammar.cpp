@@ -75,6 +75,9 @@ gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE")}
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)},
 
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_using), gm::nt(L"LEFTVARIABLE"), gm::te(gm::ttype::l_semicolon)}
+>> RS_ASTBUILDER_INDEX(ast::pass_using_namespace),
+
 gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)},
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier), gm::nt(L"INDEX_IMPORT_NAME")},
@@ -371,14 +374,17 @@ gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_su
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
 // 乘除运算表达式
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"FACTOR_TYPE_CASTING") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"FACTOR_TYPE_CASTING") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"FACTOR_TYPE_CASTING") }
+gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+
+gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 // TYPE CASTING..
 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
@@ -449,17 +455,23 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
                                                 gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT"),
-                                                gm::te(gm::ttype::l_right_curly_braces) },
+                                                gm::te(gm::ttype::l_right_curly_braces) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 //单目运算符
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNIT") },
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNIT") },
+                gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_unary_op),
+                gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNARIED_FACTOR") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_unary_op),
+
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
-                gm::nt(L"LEFT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"LEFTVARIABLE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_variable),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"SCOPING_IDENTIFIER") }
+                gm::nt(L"LEFTVARIABLE") >> gm::symlist{ gm::nt(L"SCOPING_IDENTIFIER") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SCOPING_IDENTIFIER") >> gm::symlist{ gm::nt(L"SCOPING_BEGIN_IDENT"),gm::nt(L"SCOPING_LIST") }

@@ -6,7 +6,7 @@
 namespace rs
 {
     // A very simply GC system, just stop the vm, then collect inform
-
+// #define RS_GC_DEBUG
     namespace gc
     {
         uint16_t                    _gc_round_count = 0;
@@ -69,9 +69,6 @@ namespace rs
 
                     for (auto* vmimpl : gmt->_gc_working_vm)
                     {
-                        if (!_gc_fullgc_stopping_the_world)
-                            vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
-
                         // do mark
 
                         // ...
@@ -129,11 +126,6 @@ namespace rs
                                 }
                             }
                         }
-                        // over, if vm still not manage vmbase::GC_INTERRUPT clean it
-                        // or wake up vm.
-                        if (!_gc_fullgc_stopping_the_world)
-                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                                vmimpl->wakeup();
 
                     }
 
@@ -249,6 +241,15 @@ namespace rs
                     if (vmbase::_alive_vm_list.empty())
                         break;
 
+                    if (!_gc_fullgc_stopping_the_world)
+                    {
+                        for (auto* vmimpl : vmbase::_alive_vm_list)
+                            vmimpl->interrupt(vmbase::GC_INTERRUPT);
+
+                        for (auto* vmimpl : vmbase::_alive_vm_list)
+                            vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                    }
+
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                         _gc_work_threads[(vm_distribute_index++) % _gc_work_thread_count].append(vmimpl);
 
@@ -262,6 +263,13 @@ namespace rs
 
                     for (auto& gc_work_thread : _gc_work_threads)
                         gc_work_thread.wait();
+
+                    if (!_gc_fullgc_stopping_the_world)
+                    {
+                        for (auto* vmimpl : vmbase::_alive_vm_list)
+                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                vmimpl->wakeup();
+                    }
 
 #ifdef RS_GC_DEBUG   
                     auto _gcdebug_end_time = _gc_debug_system_clock.now();
@@ -301,8 +309,14 @@ namespace rs
                 if (gcbase::gc_new_count > _gc_stop_the_world_edge)
                 {
                     // Stop world immediately, then reboot gc...
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
-                        vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                    if (!_gc_fullgc_stopping_the_world)
+                    {
+                        for (auto* vmimpl : vmbase::_alive_vm_list)
+                            vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+
+                        for (auto* vmimpl : vmbase::_alive_vm_list)
+                            vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                    }
 
                     gcbase::gc_new_count -= _gc_stop_the_world_edge;
 
@@ -315,19 +329,15 @@ namespace rs
                 {
                     _gc_fullgc_stopping_the_world = false;
                     for (auto* vmimpl : vmbase::_alive_vm_list)
-                    {
                         if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
-                        {
                             vmimpl->wakeup();
-                        }
-                    }
                     continue;
                 }
 
                 if (gcbase::gc_new_count < _gc_immediately_edge)
                 {
                     std::unique_lock ug1(_gc_mx);
-                    
+
                     for (int i = 0; i < 100; i++)
                     {
                         _gc_cv.wait_for(ug1, 0.1s);

@@ -340,6 +340,26 @@ namespace rs
             {
                 return complex_type;
             }
+            bool is_string()const
+            {
+                return value_type == value::valuetype::string_type && !is_func();
+            }
+            bool is_array()const
+            {
+                return value_type == value::valuetype::array_type && !is_func();
+            }
+            bool is_integer()const
+            {
+                return value_type == value::valuetype::integer_type && !is_func();
+            }
+            bool is_real()const
+            {
+                return value_type == value::valuetype::real_type && !is_func();
+            }
+            bool is_handle()const
+            {
+                return value_type == value::valuetype::handle_type && !is_func();
+            }
 
             std::wstring get_type_name()const
             {
@@ -1110,6 +1130,30 @@ namespace rs
             }
         };
 
+        struct ast_value_unary : virtual public ast_value
+        {
+            lex_type operate = +lex_type::l_error;
+            ast_value* val;
+        };
+
+        struct ast_mapping_pair : virtual public grammar::ast_base
+        {
+            ast_value* key;
+            ast_value* val;
+            ast_mapping_pair(ast_value* _k, ast_value* _v)
+                : key(_k)
+                , val(_v)
+            {
+                rs_assert(key && val);
+            }
+        };
+
+        struct ast_using_namespace : virtual public grammar::ast_base
+        {
+            bool from_global_namespace;
+            std::vector<std::wstring> used_namespace_chain;
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1125,6 +1169,77 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_unary_op :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                token _token = RS_NEED_TOKEN(0);
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+
+                rs_test(right_v);
+                rs_test(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
+
+                if (right_v->is_constant)
+                {
+                    ast_value_literal* const_result = new ast_value_literal();
+
+                    if (_token.type == +lex_type::l_sub)
+                    {
+                        const_result->value_type = right_v->value_type;
+                        auto _rval = right_v->get_constant_value();
+                        if (_rval.type == value::valuetype::integer_type)
+                        {
+                            const_result->_constant_value.set_integer(-_rval.integer);
+                        }
+                        else if (_rval.type == value::valuetype::real_type)
+                        {
+                            const_result->_constant_value.set_real(-_rval.real);
+                        }
+                        else
+                        {
+                            return lex.parser_error(0x0000, L"'%s' cannot be negative.", right_v->value_type->get_type_name());
+                        }
+                    }
+                    else /*if(_token.type == +lex_type::l_lnot)*/
+                    {
+                        const_result->value_type = new ast_type(L"int");
+                        const_result->_constant_value.set_integer(!right_v->get_constant_value().handle);
+                    }
+                    return (ast_basic*)const_result;
+                }
+
+                ast_value_unary* vbin = new ast_value_unary();
+                vbin->operate = _token.type;
+                vbin->val = right_v;
+
+                /*
+                 // In ast build pass, all left value's type cannot judge, so it was useless..
+
+                ast_type* result_type = new ast_type(L"pending");
+                result_type->set_type(left_v->value_type);
+
+                vbin->value_type = result_type;
+                */
+                return (grammar::ast_base*)vbin;
+            }
+        };
+
+        struct pass_mapping_pair :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 5);
+                // { x , x }
+
+                return (grammar::ast_base*)new ast_mapping_pair(
+                    dynamic_cast<ast_value*>(RS_NEED_AST(1)),
+                    dynamic_cast<ast_value*>(RS_NEED_AST(3))
+                );
             }
         };
 
@@ -1573,6 +1688,24 @@ namespace rs
                 result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
 
                 return (grammar::ast_base*)result;
+            }
+        };
+
+        struct pass_using_namespace :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_using_namespace* aunames = new ast_using_namespace();
+                auto vs = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
+                rs_assert(vs);
+                
+                aunames->from_global_namespace = vs->search_from_global_namespace;
+
+                for (auto& space : vs->scope_namespaces)
+                    aunames->used_namespace_chain.push_back(space);
+                aunames->used_namespace_chain.push_back(vs->var_name);
+
+                return (grammar::ast_base*)aunames;
             }
         };
 
@@ -2079,12 +2212,9 @@ namespace rs
                         wstr_to_str(right_tk.identifier).c_str()
                     );
 
-                    ast_value_binary* vbin = new ast_value_binary();
-                    vbin->left = left_v;
-                    vbin->operate = lex_type::l_index_begin;
-                    vbin->right = const_result;
-
-                    rs_error("boomed! pls use ast_value_index but not binary");
+                    ast_value_index* vbin = new ast_value_index();
+                    vbin->from = left_v;
+                    vbin->index = const_result;
 
                     return (grammar::ast_base*)vbin;
                 }
@@ -2195,6 +2325,15 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_using_namespace>]
+                = _register_builder<pass_using_namespace>();
+            
+            _registed_builder_function_id_list[meta::type_hash<pass_mapping_pair>]
+                = _register_builder<pass_mapping_pair>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_unary_op>]
+                = _register_builder<pass_unary_op>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_unpack_args>]
                 = _register_builder<pass_unpack_args>();
 

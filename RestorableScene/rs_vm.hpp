@@ -128,8 +128,6 @@ namespace rs
         }
         inline bool wait_interrupt(vm_interrupt_type type)
         {
-            interrupt(type);
-
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
 
@@ -2277,6 +2275,7 @@ namespace rs
                             bp = sp = rt_sp;
                             rs_extern_native_func_t call_aim_native_func = (rs_extern_native_func_t)(opnum1->handle);
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+                            cr->set_nil();
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2));
@@ -2309,6 +2308,7 @@ namespace rs
                             rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
                             rt_bp = --rt_sp;
                             bp = sp = rt_sp;
+                            cr->set_nil();
 
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
@@ -2509,7 +2509,7 @@ namespace rs
                             }
                             case instruct::extern_opcode_page_0::packargs:
                             {
-                                RS_ADDRESSING_N1;
+                                RS_ADDRESSING_N1_REF;
                                 RS_ADDRESSING_N2_REF;
 
                                 opnum1->set_gcunit_with_barrier(value::valuetype::array_type);

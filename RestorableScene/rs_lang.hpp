@@ -18,7 +18,10 @@ namespace rs
         symbol_type type;
         std::wstring name;
 
-        bool static_symbol;
+        lang_scope* defined_in_scope;
+        bool define_in_function = false;
+        bool static_symbol = false;
+        bool has_been_defined_in_pass2 = false;
 
         union
         {
@@ -49,6 +52,8 @@ namespace rs
 
         // Only used when this scope is a namespace.
         std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
+
+        std::vector<ast::ast_using_namespace*> used_namespace;
 
         ast::ast_value_function_define* function_node;
 
@@ -359,6 +364,43 @@ namespace rs
                 analyze_pass1(ast_while_sentence->judgement_value);
                 analyze_pass1(ast_while_sentence->execute_sentence);
             }
+            else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
+            {
+                analyze_pass1(a_value_unary->val);
+                a_value_unary->add_child(a_value_unary->val);
+
+                if (a_value_unary->operate == +lex_type::l_lnot)
+                    a_value_unary->value_type = new ast_type(L"int");
+                else if (!a_value_unary->val->value_type->is_pending())
+                    a_value_unary->value_type = a_value_unary->val->value_type;
+            }
+            else if (ast_mapping_pair* a_mapping_pair = dynamic_cast<ast_mapping_pair*>(ast_node))
+            {
+                analyze_pass1(a_mapping_pair->key);
+                analyze_pass1(a_mapping_pair->val);
+            }
+            else if (ast_using_namespace* a_using_namespace = dynamic_cast<ast_using_namespace*>(ast_node))
+            {
+                // do using namespace op..
+                // do check..
+                auto* parent_child = a_using_namespace->parent->children;
+                while (parent_child)
+                {
+                    if (auto* using_namespace_ch = dynamic_cast<ast_using_namespace*>(parent_child))
+                    {
+                        if (using_namespace_ch == a_using_namespace)
+                            break;
+                    }
+                    else
+                    {
+                        lang_anylizer->lang_error(0x0000, a_using_namespace, L"The declaration of using-namespace should be placed at the beginning of the statement block.");
+                        break;
+                    }
+
+                    parent_child = parent_child->sibling;
+                }
+                now_scope()->used_namespace.push_back(a_using_namespace);
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -409,6 +451,9 @@ namespace rs
 
                         if (sym)
                         {
+                            if (sym->define_in_function && !sym->has_been_defined_in_pass2)
+                                lang_anylizer->lang_error(0x0000, a_value_var, L"Unknown identifier '%s'.", a_value_var->var_name.c_str());
+
                             analyze_pass2(sym->variable_value);
                             a_value_var->value_type = sym->variable_value->value_type;
                             a_value_var->symbol = sym;
@@ -779,6 +824,17 @@ namespace rs
                                 a_value_funccall->called_func->value_type->get_type_name().c_str());
                         }
                     }
+                    else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
+                    {
+                        analyze_pass2(a_value_unary->val);
+
+                        if (a_value_unary->operate == +lex_type::l_lnot)
+                            a_value_unary->value_type = new ast_type(L"int");
+                        else if (!a_value_unary->val->value_type->is_pending())
+                            a_value_unary->value_type = a_value_unary->val->value_type;
+                        // else
+                            // not need to manage, if val is pending, other place will give error.
+                    }
                     else
                     {
                         lang_anylizer->lang_error(0x0000, a_value, L"Unknown type '%s'.", a_value->value_type->get_type_name().c_str());
@@ -886,33 +942,48 @@ namespace rs
                 {
                     analyze_pass2(a_value_map->mapping_pairs);
                 }
+                else if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(ast_node))
+                {
+                    analyze_pass2(a_value_index->from);
+                    analyze_pass2(a_value_index->index);
+                }
                 else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
                 {
                     analyze_pass2(a_value_variadic_args_idx->argindex);
 
-                    if (a_value_variadic_args_idx->argindex->value_type->is_func()
-                        || a_value_variadic_args_idx->argindex->value_type->value_type != value::valuetype::integer_type)
+                    if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, L"Unexcepted type: here should be integer.");
+                        auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, new ast_type(L"int"));
+                        cast_return_type->col_no = a_value_variadic_args_idx->col_no;
+                        cast_return_type->row_no = a_value_variadic_args_idx->row_no;
+                        cast_return_type->source_file = a_value_variadic_args_idx->source_file;
+
+                        analyze_pass2(cast_return_type);
+                        a_value_variadic_args_idx->argindex = cast_return_type;
                     }
                 }
                 else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
                 {
                     analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
-                    if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_func()
-                        || a_fakevalue_unpacked_args->unpacked_pack->value_type->value_type != value::valuetype::array_type)
+                    if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array() && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
                     {
                         lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unexcepted type: here should be array.");
                     }
                 }
             }
-            else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
+
+            if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
             {
                 analyze_pass2(a_value_logic_bin->left);
                 analyze_pass2(a_value_logic_bin->right);
 
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
+            }
+            else if (ast_mapping_pair* a_mapping_pair = dynamic_cast<ast_mapping_pair*>(ast_node))
+            {
+                analyze_pass2(a_mapping_pair->key);
+                analyze_pass2(a_mapping_pair->val);
             }
             else if (ast_return* a_ret = dynamic_cast<ast_return*>(ast_node))
             {
@@ -1002,6 +1073,14 @@ namespace rs
                 analyze_pass2(ast_while_sentence->judgement_value);
                 analyze_pass2(ast_while_sentence->execute_sentence);
             }
+            else if (ast_varref_defines* a_varref_defs = dynamic_cast<ast_varref_defines*>(ast_node))
+            {
+                for (auto& varref : a_varref_defs->var_refs)
+                {
+                    varref.symbol->has_been_defined_in_pass2 = true;
+                }
+            }
+
             grammar::ast_base* child = ast_node->children;
             while (child)
             {
@@ -1595,6 +1674,13 @@ namespace rs
                 }
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
+                if (is_cr_reg(*called_func_aim))
+                {
+                    auto& callaimreg = get_useable_register_for_pure_value();
+                    compiler->set(callaimreg, *called_func_aim);
+                    called_func_aim = &callaimreg;
+                    complete_using_register(callaimreg);
+                }
 
                 if (!full_unpack_arguments && (!dynamic_cast<opnum::immbase*>(called_func_aim)
                     || a_value_funccall->called_func->value_type->is_variadic_function_type))
@@ -1749,12 +1835,36 @@ namespace rs
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->mkarr(treg, imm(arr_list.size()));
                 return treg;
+
+            }
+            else if (auto* a_value_mapping = dynamic_cast<ast_value_mapping*>(value))
+            {
+                auto* _map_item = a_value_mapping->mapping_pairs->children;
+                size_t map_pair_count = 0;
+                while (_map_item)
+                {
+                    auto* _map_pair = dynamic_cast<ast_mapping_pair*>(_map_item);
+                    rs_test(_map_pair);
+
+                    compiler->psh(analyze_value(_map_pair->key, compiler));
+                    compiler->psh(analyze_value(_map_pair->val, compiler));
+
+                    _map_item = _map_item->sibling;
+                    map_pair_count++;
+                }
+
+                auto& treg = get_useable_register_for_pure_value();
+                compiler->mkmap(treg, imm(map_pair_count));
+                return treg;
+
             }
             else if (auto* a_value_index = dynamic_cast<ast_value_index*>(value))
             {
                 bool left_in_cr = false;
                 auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-                if (is_cr_reg(*_beoped_left_opnum))
+
+                // TODO: IF a_value_index->index IS A SINGLE AST, DO NOT MOVE LEFT TO CR
+                if (is_cr_reg(*_beoped_left_opnum) && !a_value_index->index->is_constant)
                 {
                     auto* _tmp_beoped_left_opnum = &get_useable_register_for_pure_value();
                     compiler->set(*_tmp_beoped_left_opnum, *_beoped_left_opnum);
@@ -1791,13 +1901,6 @@ namespace rs
                     || !now_function_in_final_anylize->value_type->is_variadic_function_type)
                 {
                     lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, L"Only in function having variadic arguments can use '...' to pack variadic arguments.");
-                    return RS_NEW_OPNUM(reg(reg::cr));
-                }
-                else if (!get_pure_value)
-                {
-                    compiler->ext_packargs(reg(reg::cr), imm(
-                        now_function_in_final_anylize->value_type->argument_types.size()
-                    ));
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
                 else
@@ -1881,6 +1984,52 @@ namespace rs
             {
                 lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unpack is only allowed for arguments in function calls.");
                 return RS_NEW_OPNUM(reg(reg::cr));
+            }
+            else if (auto* a_value_unary = dynamic_cast<ast_value_unary*>(value))
+            {
+                switch (a_value_unary->operate)
+                {
+                case lex_type::l_lnot:
+                    compiler->lnot(analyze_value(a_value_unary->val, compiler));
+                    break;
+                case lex_type::l_sub:
+                    if (a_value_unary->val->value_type->is_dynamic())
+                    {
+                        auto& result = analyze_value(a_value_unary->val, compiler, true);
+                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->subx(reg(reg::cr), result);
+                        complete_using_register(result);
+                    }
+                    else if (a_value_unary->val->value_type->is_integer())
+                    {
+                        auto& result = analyze_value(a_value_unary->val, compiler, true);
+                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->subi(reg(reg::cr), result);
+                        complete_using_register(result);
+                    }
+                    else if (a_value_unary->val->value_type->is_real())
+                    {
+                        auto& result = analyze_value(a_value_unary->val, compiler, true);
+                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->subi(reg(reg::cr), result);
+                        complete_using_register(result);
+                    }
+                    else
+                        lang_anylizer->lang_error(0x0000, a_value_unary, L"'%s' cannot be negative.", a_value_unary->val->value_type->get_type_name());
+                    break;
+                default:
+                    rs_error("Do not support this operator..");
+                    break;
+                }
+                last_value_stored_to_cr = true;
+                if (!get_pure_value)
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                else
+                {
+                    auto& result = get_useable_register_for_pure_value();
+                    compiler->set(result, reg(reg::cr));
+                    return result;
+                }
             }
             else
             {
@@ -2010,6 +2159,10 @@ namespace rs
             {
                 real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
             }
+            else if (ast_using_namespace* a_using_namespace = dynamic_cast<ast_using_namespace*>(ast_node))
+            {
+                // do nothing
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -2061,6 +2214,8 @@ namespace rs
                         compiler->update_all_temp_regist_to_stack(funcbegin_ip);
 
                     compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
+
+                    compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
 
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     // compiler->pop(reserved_stack_size);
@@ -2200,6 +2355,7 @@ namespace rs
                         sym = lang_scopes.back()->symbols[names] = new lang_symbol;
                         sym->type = lang_symbol::symbol_type::function;
                         sym->name = names;
+                        sym->defined_in_scope = lang_scopes.back();
 
                         auto* pending_function = new ast::ast_value_function_define;
                         pending_function->value_type = new ast::ast_type(L"pending");
@@ -2236,15 +2392,18 @@ namespace rs
                 sym->type = lang_symbol::symbol_type::variable;
                 sym->name = names;
                 sym->variable_value = init_val;
+                sym->defined_in_scope = lang_scopes.back();
 
                 if (auto* func = in_function())
                 {
+                    sym->define_in_function = true;
                     sym->static_symbol = false;
                     sym->stackvalue_index_in_funcs = func->assgin_stack_index();
                     lang_scopes.back()->this_block_used_stackvalue_count++;
                 }
                 else
                 {
+                    sym->define_in_function = false;
                     sym->static_symbol = true;
                     sym->global_index_in_lang = global_symbol_index++;
                 }
@@ -2267,45 +2426,129 @@ namespace rs
                     lang_scopes.back()
                     );
 
-            while (searching)
+            std::vector<lang_scope*> searching_namespace;
+            searching_namespace.push_back(searching);
+
+            auto* _searching_in_all = searching;
+            while (_searching_in_all)
             {
-                // search_in 
-                if (var_ident->scope_namespaces.size())
+                for (auto* a_using_namespace : _searching_in_all->used_namespace)
                 {
-                    size_t namespace_index = 0;
-                    lang_scope* begin_namespace = nullptr;
-                    if (searching->type != lang_scope::scope_type::namespace_scope)
-                        searching = searching->belong_namespace;
-
-                    auto* stored_scope_for_next_try = searching;
-
-                    while (namespace_index < var_ident->scope_namespaces.size())
+                    if (!a_using_namespace->from_global_namespace)
                     {
-                        if (auto fnd = searching->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
-                            fnd != searching->sub_namespaces.end())
+                        auto* finding_namespace = _searching_in_all;
+                        while (finding_namespace)
                         {
-                            namespace_index++;
-                            searching = fnd->second;
-                        }
-                        else
-                        {
-                            searching = stored_scope_for_next_try;
-                            goto there_is_no_such_namespace;
+                            auto* _deep_in_namespace = finding_namespace;
+                            for (auto& nspace : a_using_namespace->used_namespace_chain)
+                            {
+                                if (auto fnd = _deep_in_namespace->sub_namespaces.find(nspace);
+                                    fnd != _deep_in_namespace->sub_namespaces.end())
+                                    _deep_in_namespace = fnd->second;
+                                else
+                                {
+                                    // fail
+                                    goto failed_in_this_namespace;
+                                }
+                            }
+                            // ok!
+                            searching_namespace.push_back(_deep_in_namespace);
+                        failed_in_this_namespace:;
+                            finding_namespace = finding_namespace->belong_namespace;
                         }
                     }
+                    else
+                    {
+                        auto* _deep_in_namespace = lang_scopes.front();
+                        for (auto& nspace : a_using_namespace->used_namespace_chain)
+                        {
+                            if (auto fnd = _deep_in_namespace->sub_namespaces.find(nspace);
+                                fnd != _deep_in_namespace->sub_namespaces.end())
+                                _deep_in_namespace = fnd->second;
+                            else
+                            {
+                                // fail
+                                goto failed_in_this_namespace_from_global;
+                            }
+                        }
+                        // ok!
+                        searching_namespace.push_back(_deep_in_namespace);
+                    failed_in_this_namespace_from_global:;
+                    }
                 }
+                _searching_in_all = _searching_in_all->parent_scope;
+            }
+            std::set<lang_symbol*> searching_result;
 
-                if (auto fnd = searching->symbols.find(var_ident->var_name);
-                    fnd != searching->symbols.end())
+            for (auto _searching : searching_namespace)
+            {
+                while (_searching)
                 {
-                    return var_ident->symbol = fnd->second;
+                    // search_in 
+                    if (var_ident->scope_namespaces.size())
+                    {
+                        size_t namespace_index = 0;
+                        lang_scope* begin_namespace = nullptr;
+                        if (_searching->type != lang_scope::scope_type::namespace_scope)
+                            _searching = _searching->belong_namespace;
+
+                        auto* stored_scope_for_next_try = _searching;
+
+                        while (namespace_index < var_ident->scope_namespaces.size())
+                        {
+                            if (auto fnd = _searching->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
+                                fnd != _searching->sub_namespaces.end())
+                            {
+                                namespace_index++;
+                                _searching = fnd->second;
+                            }
+                            else
+                            {
+                                _searching = stored_scope_for_next_try;
+                                goto there_is_no_such_namespace;
+                            }
+                        }
+                    }
+
+                    if (auto fnd = _searching->symbols.find(var_ident->var_name);
+                        fnd != _searching->symbols.end())
+                    {
+                        searching_result.insert(var_ident->symbol = fnd->second);
+                        goto next_searching_point;
+                    }
+
+                there_is_no_such_namespace:
+                    _searching = _searching->parent_scope;
                 }
 
-            there_is_no_such_namespace:
-                searching = searching->parent_scope;
+            next_searching_point:;
             }
 
-            return nullptr;
+            if (searching_result.empty())
+                return nullptr;
+
+            if (searching_result.size() > 1)
+            {
+                std::wstring err_info = L"'%s' is ambiguous, it was found in namespace: ";
+                size_t fnd_count = 0;
+                for (auto fnd_result : searching_result)
+                {
+                    auto _full_namespace_ = rs::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
+                    if (_full_namespace_ == L"")
+                        err_info += L"global namespace";
+                    else
+                        err_info += L"'" + _full_namespace_ + L"'";
+                    fnd_count++;
+                    if (fnd_count + 1 == searching_result.size())
+                        err_info += L" and ";
+                    else
+                        err_info += L", ";
+                }
+
+                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), var_ident->var_name.c_str());
+            }
+
+            return *searching_result.begin();
         }
 
         bool has_compile_error()const

@@ -1,4 +1,6 @@
 #include "rs_os_api.hpp"
+#include "rs_assert.hpp"
+#include <string>
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -15,7 +17,7 @@ namespace rs
         {
             if (!dllpath)
                 return GetModuleHandleA(NULL);
-            return LoadLibraryExA(dllpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
+            return LoadLibraryExA((std::string(dllpath)+".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
         }
         rs_native_func loadfunc(void* libhandle, const char* funcname)
         {
@@ -28,7 +30,12 @@ namespace rs
 #else
         void* loadlib(const char* dllpath)
         {
-            return dlopen(dllpath, RTLD_LAZY);
+#ifdef __linux__
+            return dlopen((std::string(dllpath) + ".so").c_str(), RTLD_LAZY);
+#else
+            rs_error("Unknown operating-system..") :
+            return nullptr;
+#endif
         }
         rs_native_func loadfunc(void* libhandle, const char* funcname)
         {

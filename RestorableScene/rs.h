@@ -33,6 +33,7 @@ typedef uint64_t    rs_handle_t;
 typedef void*       rs_pointer_t;
 typedef const char* rs_string_t;
 typedef double      rs_real_t;
+typedef size_t      rs_result_t, rs_api;
 
 #define RS_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
@@ -46,6 +47,7 @@ typedef struct _rs_value
     RS_STRUCT_TAKE_PLACE(16);
 }
 *rs_value;
+
 typedef enum _rs_value_type
 { 
     RS_INVALID_TYPE = 0,
@@ -55,17 +57,17 @@ typedef enum _rs_value_type
     RS_HANDLE_TYPE,
 
     RS_IS_REF,
-
     RS_CALLSTACK_TYPE,
 
     RS_NEED_GC_FLAG = 0xF0,
 
     RS_STRING_TYPE,
+    RS_ARRAY_TYPE,
     RS_MAPPING_TYPE,
 }
 rs_type;
 
-typedef void(*rs_native_func)(rs_vm, rs_value);
+typedef rs_result_t(*rs_native_func)(rs_vm, rs_value);
 
 typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
@@ -93,11 +95,13 @@ RS_API rs_string_t  rs_type_name(const rs_value value);
 RS_API rs_value*    rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
-RS_API void         rs_ret_int(rs_vm vm, rs_integer_t result);
-RS_API void         rs_ret_real(rs_vm vm, rs_real_t result);
-RS_API void         rs_ret_handle(rs_vm vm, rs_handle_t result);
-RS_API void         rs_set_string(rs_vm vm, rs_string_t result);
-RS_API void         rs_set_nil(rs_vm vm);
+RS_API rs_result_t  rs_ret_int(rs_vm vm, rs_integer_t result);
+RS_API rs_result_t  rs_ret_real(rs_vm vm, rs_real_t result);
+RS_API rs_result_t  rs_ret_handle(rs_vm vm, rs_handle_t result);
+RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
+RS_API rs_result_t  rs_ret_nil(rs_vm vm);
+
+RS_API rs_integer_t rs_lengthof(rs_value value);
 
 // Here to define RSRuntime code accroding to the type.
 

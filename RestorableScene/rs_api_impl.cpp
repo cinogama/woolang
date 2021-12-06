@@ -3,6 +3,9 @@
 #include "rs_vm.hpp"
 
 
+// TODO LIST
+// 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
+
 #define RS_VERSION(DEV,MAIN,SUB,CORRECT) ((0x##DEV##ull)<<(3*16))|((0x##MAIN##ull)<<(2*16))|((0x##SUB##ull)<<(1*16))|((0x##CORRECT##ull)<<(0*16))
 #define RS_VERSION_STR(DEV,MAIN,SUB,CORRECT) #DEV "." #MAIN "." #SUB "." #CORRECT "."
 
@@ -236,7 +239,6 @@ rs_handle_t rs_cast_handle(rs_value value)
         break;
     }
 }
-
 void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
 {
     auto _rsvalue = value->get();
@@ -340,7 +342,6 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         break;
     }
 }
-
 rs_string_t rs_cast_string(const rs_value value)
 {
     thread_local std::string _buf;
@@ -401,23 +402,50 @@ rs_integer_t rs_argc(const rs_vm vm)
     return reinterpret_cast<const rs::vmbase*>(vm)->tc->integer;
 }
 
-void rs_ret_int(rs_vm vm, rs_integer_t result)
+rs_result_t rs_ret_int(rs_vm vm, rs_integer_t result)
 {
-    reinterpret_cast<rs::vmbase*>(vm)->cr->set_integer(result);
+    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_integer(result));
 }
-void rs_ret_real(rs_vm vm, rs_real_t result)
+rs_result_t rs_ret_real(rs_vm vm, rs_real_t result)
 {
-    reinterpret_cast<rs::vmbase*>(vm)->cr->set_real(result);
+    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_real(result));
 }
-void rs_ret_handle(rs_vm vm, rs_handle_t result)
+rs_result_t rs_ret_handle(rs_vm vm, rs_handle_t result)
 {
-    reinterpret_cast<rs::vmbase*>(vm)->cr->set_handle(result);
+    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_handle(result));
 }
-void rs_set_string(rs_vm vm, rs_string_t result)
+rs_result_t rs_ret_string(rs_vm vm, rs_string_t result)
 {
-    reinterpret_cast<rs::vmbase*>(vm)->cr->set_string(result);
+    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_string(result));
 }
-void rs_set_nil(rs_vm vm)
+rs_result_t rs_ret_nil(rs_vm vm)
 {
-    reinterpret_cast<rs::vmbase*>(vm)->cr->set_nil();
+    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_nil());
+}
+
+rs_integer_t rs_lengthof(rs_value value)
+{
+    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    if (_rsvalue->is_nil())
+        return 0;
+    if (_rsvalue->type == rs::value::valuetype::array_type)
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->array);
+        return _rsvalue->array->size();
+    }
+    else if (_rsvalue->type == rs::value::valuetype::mapping_type)
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->mapping);
+        return _rsvalue->mapping->size();
+    }
+    else if (_rsvalue->type == rs::value::valuetype::string_type)
+    {
+        rs::gcbase::gc_read_guard rg1(_rsvalue->string);
+        return _rsvalue->string->size();
+    }
+    else
+    {
+        rs_fail(RS_ERR_TYPE_FAIL, "Only 'string','array' or 'map' can get length.");
+        return 0;
+    }
 }

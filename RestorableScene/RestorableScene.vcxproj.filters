@@ -45,12 +45,6 @@
     <ClCompile Include="rs_gc_work.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="rs_lang_grammar.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="rs_compiler_ir.cpp">
       <Filter>compiler</Filter>
     </ClCompile>
@@ -62,6 +56,12 @@
     </ClCompile>
     <ClCompile Include="rs_extern_functions.cpp">
       <Filter>stdlib</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_lang_grammar.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
+      <Filter>lang</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

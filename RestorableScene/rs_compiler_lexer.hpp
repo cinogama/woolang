@@ -81,7 +81,8 @@ namespace rs
         l_var,
         l_ref,
         l_func,
-        l_return
+        l_return,
+        l_using
     );
 
     class lexer
@@ -154,6 +155,7 @@ namespace rs
             {L"ref", {lex_type::l_ref}},
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},
+            {L"using", {lex_type::l_using} },
             {L"namespace", {lex_type::l_namespace}},
             {L"extern", {lex_type::l_extern}}
         };
@@ -292,7 +294,7 @@ namespace rs
         }
 
     public:
-        lexer(const std::wstring& wstr, const std::string _source_file="__runtime_script__")
+        lexer(const std::wstring& wstr, const std::string _source_file)
             : reading_buffer(wstr)
             , next_reading_index(0)
             , now_file_rowno(1)

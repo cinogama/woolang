@@ -12,12 +12,16 @@ namespace rs
 {
     class rslib_extern_symbols
     {
+        inline static void * _current_rs_lib_handle = osapi::loadlib("librscene");
     public:
         static rs_native_func get_global_symbol(const char* symbol)
         {
-            void* this_exe_handle = osapi::loadlib(nullptr);
+            static void* this_exe_handle = osapi::loadlib(nullptr);
             rs_assert(this_exe_handle);
-            return osapi::loadfunc(this_exe_handle, symbol);
+            auto* loaded_symb = osapi::loadfunc(this_exe_handle, symbol);
+            if (!loaded_symb && _current_rs_lib_handle)
+                loaded_symb = osapi::loadfunc(_current_rs_lib_handle, symbol);
+            return loaded_symb;
         }
     };
 }

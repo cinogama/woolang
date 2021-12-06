@@ -422,10 +422,13 @@ void rs_close_vm(rs_vm vm)
     delete (rs::vmbase*)vm;
 }
 
-bool rs_loadsource(rs_vm vm, const char* src)
+bool rs_loadsource(rs_vm vm, const char* src, const char* virtual_src_path)
 {
+    if (!virtual_src_path)
+        virtual_src_path = "__runtime_script__";
+
     // 1. Prepare lexer..
-    rs::lexer lex(rs::str_to_wstr(src));
+    rs::lexer lex(rs::str_to_wstr(src), virtual_src_path);
 
     // 2. Lexer will create ast_tree;
     auto result = rs::get_rs_grammar()->gen(lex);
@@ -445,9 +448,6 @@ bool rs_loadsource(rs_vm vm, const char* src)
 
         return false;
     }
-
-
-    result->display();
 
     // 3. Create lang, most anything store here..
     rs::lang lang(lex);
@@ -513,7 +513,8 @@ int main()
     std::cout << ANSI_RST;
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
-
+    std::cout << rs::exe_path() << std::endl;
+    std::cout << rs::work_path() << std::endl;
     gc::gc_start();
 
     // unit_test_vm();
@@ -522,6 +523,8 @@ namespace std
 {
     extern("rslib_std_fail") func fail(var msg:string):void;
     extern("rslib_std_print") func print(...):int;
+    extern("rslib_std_lengthof") func len(var val):int;
+    extern("rslib_std_time_sec") func time():real;
 
     func println(...)
     {
@@ -529,33 +532,56 @@ namespace std
         print("\n");
         return c;
     }
+    func assert(var judgement, var failed_info)
+    {
+        if (!judgement)
+            fail(failed_info);
+    }
 }
+
+func performance()
+{
+    var i = 0;
+    var m = {};
+    while (i <= 5000000)
+    {
+        m[0] = (i+=1);
+    }
+
+    return m;
+}
+
 func main()
 {
-    std::println(0, 1, 2, 3, 4, 5, 6,);
-    std::fail("Abort");
+    using std;
+
+    var begin_tm = time();
+    var result = performance();
+    var end_tm = time();
+
+    assert(result[0] == 5000000, "wtf?" + result[0]:string);    
+
+    println("cost time:", end_tm - begin_tm);
 }
 main();
 )");
     std::cout << src << std::endl;
 
-    while (true)
-    {
-        rs_vm vmm = rs_create_vm();
-        rs_loadsource(vmm, src);
-        ((rs::vm*)vmm)->dump_program_bin();
+    rs_vm vmm = rs_create_vm();
+    rs_loadsource(vmm, src, "rs_test.rsn");
+    ((rs::vm*)vmm)->dump_program_bin();
 
-        default_debuggee dgb;
-        ((rs::vm*)vmm)->attach_debuggee(&dgb);
-        dgb.set_breakpoint("__runtime_script__", 9);
-        // ((rs::vm*)vmm)->attach_debuggee(nullptr);
+    default_debuggee dgb;
+    // ((rs::vm*)vmm)->attach_debuggee(&dgb);
+    // dgb.set_breakpoint("rs_test.rsn", 36);
+    // ((rs::vm*)vmm)->attach_debuggee(nullptr);
 
-        rs_run(vmm);
-        rs_close_vm(vmm);
+    rs_run(vmm);
+    rs_close_vm(vmm);
 
-        std::cout << "=================" << std::endl;
+    // std::cout << "=================" << std::endl;
 
-    }
+
 
     return 0;
 }
