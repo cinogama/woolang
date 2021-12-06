@@ -134,5 +134,8 @@
     <ClInclude Include="rs_extern_functions.hpp">
       <Filter>stdlib</Filter>
     </ClInclude>
+    <ClInclude Include="rs_file_manager.hpp">
+      <Filter>environment</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

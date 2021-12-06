@@ -163,6 +163,7 @@
     <ClInclude Include="rs_env_locale.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
     <ClInclude Include="rs_extern_functions.hpp" />
+    <ClInclude Include="rs_file_manager.hpp" />
     <ClInclude Include="rs_lang.hpp" />
     <ClInclude Include="rs_lang_ast_builder.hpp" />
     <ClInclude Include="rs_lang_functions_for_ast.hpp" />

@@ -15,6 +15,7 @@
 #include "rs_basic_type.hpp"
 #include "rs_compiler_ir.hpp"
 #include "rs_vm.hpp"
+#include "rs_file_manager.hpp"
 
 void example(rs::vmbase* vm, rs::value** args)
 {
@@ -437,15 +438,20 @@ bool rs_loadsource(rs_vm vm, const char* src, const char* virtual_src_path)
         // Clean all ast created by this thread..
         rs::grammar::ast_base::clean_this_thread_ast();
 
+        std::string src_file_path = "";
         for (auto& err_info : lex.lex_error_list)
         {
+            if (src_file_path != err_info.filename)
+                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
             std::wcerr << err_info.to_wstring() << std::endl;
         }
+        src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)
         {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
             std::wcerr << war_info.to_wstring() << std::endl;
         }
-
         return false;
     }
 
@@ -459,12 +465,18 @@ bool rs_loadsource(rs_vm vm, const char* src, const char* virtual_src_path)
         // Clean all ast & lang's template things.
         rs::grammar::ast_base::clean_this_thread_ast();
 
+        std::string src_file_path = "";
         for (auto& err_info : lex.lex_error_list)
         {
+            if (src_file_path != err_info.filename)
+                std::cerr <<ANSI_HIR "In file: '" ANSI_RST<< (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
             std::wcerr << err_info.to_wstring() << std::endl;
         }
+        src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)
         {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
             std::wcerr << war_info.to_wstring() << std::endl;
         }
 
@@ -479,15 +491,20 @@ bool rs_loadsource(rs_vm vm, const char* src, const char* virtual_src_path)
         // Clean all ast & lang's template things.
         rs::grammar::ast_base::clean_this_thread_ast();
 
+        std::string src_file_path = "";
         for (auto& err_info : lex.lex_error_list)
         {
+            if (src_file_path != err_info.filename)
+                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
             std::wcerr << err_info.to_wstring() << std::endl;
         }
+        src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)
         {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
             std::wcerr << war_info.to_wstring() << std::endl;
         }
-
 
         return false;
     }
@@ -513,8 +530,7 @@ int main()
     std::cout << ANSI_RST;
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
-    std::cout << rs::exe_path() << std::endl;
-    std::cout << rs::work_path() << std::endl;
+
     gc::gc_start();
 
     // unit_test_vm();
@@ -539,37 +555,26 @@ namespace std
     }
 }
 
-func performance()
-{
-    var i = 0;
-    var m = {};
-    while (i <= 5000000)
-    {
-        m[0] = (i+=1);
-    }
-
-    return m;
-}
-
 func main()
 {
     using std;
 
-    var begin_tm = time();
-    var result = performance();
-    var end_tm = time();
+    println("I'm Restorable Scene~");
+    println(
+@"This is a multi-line string
+and we can write string like this....
+and we can using println("...") to display."@
+    );
 
-    assert(result[0] == 5000000, "wtf?" + result[0]:string);    
-
-    println("cost time:", end_tm - begin_tm);
+    return 0;
 }
 main();
+
 )");
-    std::cout << src << std::endl;
 
     rs_vm vmm = rs_create_vm();
     rs_loadsource(vmm, src, "rs_test.rsn");
-    ((rs::vm*)vmm)->dump_program_bin();
+    // ((rs::vm*)vmm)->dump_program_bin();
 
     default_debuggee dgb;
     // ((rs::vm*)vmm)->attach_debuggee(&dgb);

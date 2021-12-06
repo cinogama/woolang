@@ -5,6 +5,7 @@
 #include "rs_env_locale.hpp"
 #include "rs_lang_functions_for_ast.hpp"
 #include "rs_extern_functions.hpp"
+#include "rs_file_manager.hpp"
 
 #include <any>
 #include <type_traits>
@@ -12,6 +13,7 @@
 
 namespace rs
 {
+    grammar* get_rs_grammar(void);
     namespace ast
     {
 #if 1
@@ -1229,6 +1231,49 @@ namespace rs
             }
         };
 
+        struct pass_import_files :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+                std::wstring path;
+
+                auto* fx = RS_NEED_AST(1);
+
+                ast_token* importfilepaths = dynamic_cast<ast_token*>(
+                        dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
+                do
+                {
+                    path += importfilepaths->tokens.identifier;
+                    importfilepaths = dynamic_cast<ast_token*>(importfilepaths->sibling);
+                    if (importfilepaths)
+                        path += L"/";
+                } while (importfilepaths);
+
+                path += L".rsn";
+                std::wstring srcfile;
+                if (!rs::read_vfile(&srcfile, path, &lex))
+                    return lex.parser_error(0x0000, L"Cannot open file: '%s'.", path.c_str());
+
+                lexer new_lex(srcfile, wstr_to_str(path));
+                auto* imported_ast = rs::get_rs_grammar()->gen(new_lex);
+
+                lex.lex_error_list.insert(lex.lex_error_list.end(),
+                    new_lex.lex_error_list.begin(),
+                    new_lex.lex_error_list.end());
+
+                lex.lex_warn_list.insert(lex.lex_warn_list.end(),
+                    new_lex.lex_warn_list.begin(),
+                    new_lex.lex_warn_list.end());
+
+                if (imported_ast)
+                {
+                    return (ast_basic*)imported_ast;
+                }
+                return +lex_type::l_error;
+            }
+        };
+
         struct pass_mapping_pair :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1698,7 +1743,7 @@ namespace rs
                 ast_using_namespace* aunames = new ast_using_namespace();
                 auto vs = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
                 rs_assert(vs);
-                
+
                 aunames->from_global_namespace = vs->search_from_global_namespace;
 
                 for (auto& space : vs->scope_namespaces)
@@ -2327,7 +2372,7 @@ namespace rs
         {
             _registed_builder_function_id_list[meta::type_hash<pass_using_namespace>]
                 = _register_builder<pass_using_namespace>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_mapping_pair>]
                 = _register_builder<pass_mapping_pair>();
 
@@ -2421,9 +2466,17 @@ namespace rs
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 0>>]
                 = _register_builder<pass_append_list<1, 0>>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 1>>]
+                = _register_builder<pass_append_list<0, 1>>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<2, 0>>]
                 = _register_builder<pass_append_list<2, 0>>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 2>>]
+                = _register_builder<pass_append_list<1, 2>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_import_files>]
+                = _register_builder<pass_import_files>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_variable>]
                 = _register_builder<pass_variable>();

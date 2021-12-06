@@ -73,12 +73,12 @@ namespace rs
         struct gc_read_guard
         {
             gcbase* _mx;
-            gc_read_guard(gcbase* sp)
+            inline gc_read_guard(gcbase* sp)
                 :_mx(sp)
             {
                 _mx->read();
             }
-            ~gc_read_guard()
+            inline ~gc_read_guard()
             {
                 _mx->read_end();
             }
@@ -87,12 +87,12 @@ namespace rs
         struct gc_write_guard
         {
             gcbase* _mx;
-            gc_write_guard(gcbase* sp)
+            inline gc_write_guard(gcbase* sp)
                 :_mx(sp)
             {
                 _mx->write();
             }
-            ~gc_write_guard()
+            inline ~gc_write_guard()
             {
                 _mx->write_end();
             }
@@ -154,22 +154,22 @@ namespace rs
         }
 
         using rw_lock = _shared_spin;
-        std::shared_ptr<rw_lock> gc_read_write_mx = std::make_shared<rw_lock>();
+        rw_lock gc_read_write_mx ;
         inline void write()
         {
-            gc_read_write_mx->lock();
+            gc_read_write_mx.lock();
         }
         inline void write_end()
         {
-            gc_read_write_mx->unlock();
+            gc_read_write_mx.unlock();
         }
         inline void read()
         {
-            gc_read_write_mx->lock_shared();
+            gc_read_write_mx.lock_shared();
         }
         inline void read_end()
         {
-            gc_read_write_mx->unlock_shared();
+            gc_read_write_mx.unlock_shared();
         }
 
         // used in linklist;

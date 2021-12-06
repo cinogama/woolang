@@ -1,5 +1,5 @@
 // rs_api_impl.cpp
-
+#define _CRT_SECURE_NO_WARNINGS
 #include "rs_vm.hpp"
 
 

@@ -212,7 +212,7 @@ namespace rs
             if (ch == EOF)
                 return false;
 
-            return iswspace(ch);
+            return ch == 0 || iswspace(ch);
         }
         static bool lex_isalpha(int ch)
         {
@@ -314,6 +314,7 @@ namespace rs
             size_t   row;
             size_t   col;
             std::wstring describe;
+            std::string filename;
 
             std::wstring to_wstring(bool need_ansi_describe = true)
             {
@@ -356,7 +357,8 @@ namespace rs
                     0x1000 + errorno,
                     now_file_rowno,
                     now_file_colno,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
             skip_error_line();
@@ -380,7 +382,8 @@ namespace rs
                     errorno,
                     now_file_rowno,
                     now_file_colno,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
         }
@@ -404,7 +407,8 @@ namespace rs
                     0x1000 + errorno,
                     next_file_rowno,
                     next_file_colno,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
             return lex_type::l_error;
@@ -426,7 +430,8 @@ namespace rs
                     errorno,
                     next_file_rowno,
                     next_file_colno,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
         }
@@ -453,7 +458,8 @@ namespace rs
                     0x1000 + errorno,
                     row_no,
                     col_no,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
             return lex_type::l_error;
@@ -479,7 +485,8 @@ namespace rs
                     errorno,
                     row_no,
                     col_no,
-                    describe.data()
+                    describe.data(),
+                    source_file
                 }
             );
         }

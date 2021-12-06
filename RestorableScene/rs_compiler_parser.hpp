@@ -154,7 +154,7 @@ namespace rs
                 rs_test(ast_node->sibling == nullptr);
 
                 ast_node->parent = this;
-
+                if (!children)last = nullptr;
                 if (!last)
                 {
                     children = last = ast_node;

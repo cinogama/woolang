@@ -217,9 +217,9 @@ namespace rs
 
         struct tag :virtual opnumbase
         {
-            string_t name;
+            std::string name;
 
-            tag(const string_t& _name)
+            tag(const std::string& _name)
                 : name(_name)
             {
 
@@ -228,7 +228,7 @@ namespace rs
 
         struct tagimm_rsfunc :virtual tag, virtual imm<int>
         {
-            tagimm_rsfunc(const string_t& name)
+            tagimm_rsfunc(const std::string& name)
                 : tag(name)
                 , imm<int>(0xFFFFFFFF)
             {
@@ -354,7 +354,7 @@ namespace rs
         };
 
         cxx_vec_t<ir_command> ir_command_buffer;
-        std::map<size_t, cxx_vec_t<string_t>> tag_irbuffer_offset;
+        std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
 
         struct immless
         {
@@ -1334,9 +1334,9 @@ namespace rs
             value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
 
             cxx_vec_t<byte_t> runtime_command_buffer;
-            std::map<string_t, cxx_vec_t<size_t>> jmp_record_table;
-            std::map<string_t, cxx_vec_t<value*>> jmp_record_table_for_immtag;
-            std::map<string_t, uint32_t> tag_offset_vector_table;
+            std::map<std::string, cxx_vec_t<size_t>> jmp_record_table;
+            std::map<std::string, cxx_vec_t<value*>> jmp_record_table_for_immtag;
+            std::map<std::string, uint32_t> tag_offset_vector_table;
 
             rs_assert(preserved_memory, "Alloc memory fail.");
 
