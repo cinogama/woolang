@@ -5,7 +5,7 @@
 #endif
 #include "rs_assert.hpp"
 #include "rs_os_api.hpp"
-
+#include "rs_compiler_ir.hpp"
 #include <shared_mutex>
 
 namespace rs
@@ -18,6 +18,7 @@ namespace rs
         {
             static void* this_exe_handle = osapi::loadlib(nullptr);
             rs_assert(this_exe_handle);
+
             auto* loaded_symb = osapi::loadfunc(this_exe_handle, symbol);
             if (!loaded_symb && _current_rs_lib_handle)
                 loaded_symb = osapi::loadfunc(_current_rs_lib_handle, symbol);

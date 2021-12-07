@@ -30,10 +30,11 @@ RS_FORCE_CAPI
 
 typedef int64_t     rs_integer_t;
 typedef uint64_t    rs_handle_t;
-typedef void*       rs_pointer_t;
+typedef void* rs_pointer_t;
 typedef const char* rs_string_t;
 typedef double      rs_real_t;
-typedef size_t      rs_result_t, rs_api;
+typedef size_t      rs_result_t, rs_api, rs_size_t;
+typedef bool        rs_bool_t;
 
 #define RS_STRUCT_TAKE_PLACE(BYTECOUNT) uint8_t _take_palce_[BYTECOUNT]
 
@@ -49,7 +50,7 @@ typedef struct _rs_value
 *rs_value;
 
 typedef enum _rs_value_type
-{ 
+{
     RS_INVALID_TYPE = 0,
 
     RS_INTEGER_TYPE,
@@ -76,11 +77,13 @@ RS_API void         rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_stri
 
 #define rs_fail(ERRID, REASON) ((void)rs_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
 
-RS_API rs_string_t  rs_compile_date (void);
-RS_API rs_string_t  rs_version      (void);
-RS_API rs_integer_t rs_version_int  (void);
+RS_API rs_string_t  rs_compile_date(void);
+RS_API rs_string_t  rs_version(void);
+RS_API rs_integer_t rs_version_int(void);
 
-RS_API rs_type      rs_valuetype    (const rs_value value);
+RS_API void         rs_init(int argc, char** argv);
+
+RS_API rs_type      rs_valuetype(const rs_value value);
 
 RS_API rs_integer_t rs_int(const rs_value value);
 RS_API rs_real_t    rs_real(const rs_value value);
@@ -92,7 +95,7 @@ RS_API rs_real_t    rs_cast_real(const rs_value value);
 RS_API rs_handle_t  rs_cast_handle(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
 RS_API rs_string_t  rs_type_name(const rs_value value);
-RS_API rs_value*    rs_args(rs_vm vm);
+RS_API rs_value* rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
 RS_API rs_result_t  rs_ret_int(rs_vm vm, rs_integer_t result);
@@ -102,6 +105,14 @@ RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
 
 RS_API rs_integer_t rs_lengthof(rs_value value);
+RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data);
+
+RS_API rs_vm        rs_create_vm();
+RS_API void         rs_close_vm(rs_vm vm);
+RS_API bool         rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
+RS_API bool         rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
+RS_API rs_value     rs_run(rs_vm vm);
+
 
 // Here to define RSRuntime code accroding to the type.
 

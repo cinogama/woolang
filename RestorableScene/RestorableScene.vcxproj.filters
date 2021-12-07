@@ -54,7 +54,7 @@
     <ClCompile Include="rs_os_api.cpp">
       <Filter>environment</Filter>
     </ClCompile>
-    <ClCompile Include="rs_extern_functions.cpp">
+    <ClCompile Include="rs_stdlib_extern_functions.cpp">
       <Filter>stdlib</Filter>
     </ClCompile>
     <ClCompile Include="rs_lang_grammar.cpp">
@@ -131,11 +131,14 @@
     <ClInclude Include="rs_os_api.hpp">
       <Filter>environment</Filter>
     </ClInclude>
-    <ClInclude Include="rs_extern_functions.hpp">
-      <Filter>stdlib</Filter>
-    </ClInclude>
-    <ClInclude Include="rs_file_manager.hpp">
+    <ClInclude Include="rs_source_file_manager.hpp">
       <Filter>environment</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_lang_extern_symbol_loader.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_stdlib.hpp">
+      <Filter>stdlib</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

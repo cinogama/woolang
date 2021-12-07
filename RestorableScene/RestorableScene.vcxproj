@@ -145,7 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
-    <ClCompile Include="rs_extern_functions.cpp" />
+    <ClCompile Include="rs_stdlib_extern_functions.cpp" />
     <ClCompile Include="rs_lang_functions_for_ast.cpp" />
     <ClCompile Include="rs_compiler_ir.cpp" />
     <ClCompile Include="rs_gc_work.cpp" />
@@ -162,8 +162,8 @@
     <ClInclude Include="rs_crc_64.hpp" />
     <ClInclude Include="rs_env_locale.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
-    <ClInclude Include="rs_extern_functions.hpp" />
-    <ClInclude Include="rs_file_manager.hpp" />
+    <ClInclude Include="rs_lang_extern_symbol_loader.hpp" />
+    <ClInclude Include="rs_source_file_manager.hpp" />
     <ClInclude Include="rs_lang.hpp" />
     <ClInclude Include="rs_lang_ast_builder.hpp" />
     <ClInclude Include="rs_lang_functions_for_ast.hpp" />
@@ -171,6 +171,7 @@
     <ClInclude Include="rs_lang_grammar_lr1_autogen.hpp" />
     <ClInclude Include="rs_os_api.hpp" />
     <ClInclude Include="rs_runtime_debuggee.hpp" />
+    <ClInclude Include="rs_stdlib.hpp" />
     <ClInclude Include="rs_vm.hpp" />
     <ClInclude Include="rs_assert.hpp" />
     <ClInclude Include="rs_basic_type.hpp" />

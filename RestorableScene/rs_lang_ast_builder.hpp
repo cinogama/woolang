@@ -4,8 +4,8 @@
 #include "rs_basic_type.hpp"
 #include "rs_env_locale.hpp"
 #include "rs_lang_functions_for_ast.hpp"
-#include "rs_extern_functions.hpp"
-#include "rs_file_manager.hpp"
+#include "rs_lang_extern_symbol_loader.hpp"
+#include "rs_source_file_manager.hpp"
 
 #include <any>
 #include <type_traits>
@@ -1251,26 +1251,33 @@ namespace rs
                 } while (importfilepaths);
 
                 path += L".rsn";
-                std::wstring srcfile;
-                if (!rs::read_vfile(&srcfile, path, &lex))
+                std::wstring srcfile, src_full_path;
+                if (!rs::read_virtual_source(&srcfile,&src_full_path, path, &lex))
                     return lex.parser_error(0x0000, L"Cannot open file: '%s'.", path.c_str());
 
-                lexer new_lex(srcfile, wstr_to_str(path));
-                auto* imported_ast = rs::get_rs_grammar()->gen(new_lex);
-
-                lex.lex_error_list.insert(lex.lex_error_list.end(),
-                    new_lex.lex_error_list.begin(),
-                    new_lex.lex_error_list.end());
-
-                lex.lex_warn_list.insert(lex.lex_warn_list.end(),
-                    new_lex.lex_warn_list.begin(),
-                    new_lex.lex_warn_list.end());
-
-                if (imported_ast)
+                if (!lex.has_been_imported(src_full_path))
                 {
-                    return (ast_basic*)imported_ast;
+                    lexer new_lex(srcfile, wstr_to_str(src_full_path));
+                    new_lex.imported_file_list = lex.imported_file_list;
+
+                    auto* imported_ast = rs::get_rs_grammar()->gen(new_lex);
+
+                    lex.lex_error_list.insert(lex.lex_error_list.end(),
+                        new_lex.lex_error_list.begin(),
+                        new_lex.lex_error_list.end());
+
+                    lex.lex_warn_list.insert(lex.lex_warn_list.end(),
+                        new_lex.lex_warn_list.begin(),
+                        new_lex.lex_warn_list.end());
+
+                    lex.imported_file_list = new_lex.imported_file_list;
+
+
+                    if (imported_ast)
+                        return (ast_basic*)imported_ast;
+                    return +lex_type::l_error;
                 }
-                return +lex_type::l_error;
+                return (ast_basic*)new ast_empty();
             }
         };
 

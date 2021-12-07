@@ -1,7 +1,12 @@
 // rs_api_impl.cpp
 #define _CRT_SECURE_NO_WARNINGS
 #include "rs_vm.hpp"
-
+#include "rs_source_file_manager.hpp"
+#include "rs_compiler_parser.hpp"
+#include "rs_exceptions.hpp"
+#include "rs_stdlib.hpp"
+#include "rs_lang_grammar_loader.hpp"
+#include "rs_lang.hpp"
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -29,7 +34,6 @@ constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 0) RS_DEBUG_SFX;
 #include <cstdlib>
 #include <string>
 
-#include "rs_exceptions.hpp"
 
 void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
@@ -107,6 +111,13 @@ RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler)
 RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
     _rs_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
+}
+
+void rs_init(int argc, char** argv)
+{
+    rs::rs_init_locale();
+    rs::gc::gc_start();
+    rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data);
 }
 
 rs_string_t  rs_compile_date(void)
@@ -448,4 +459,121 @@ rs_integer_t rs_lengthof(rs_value value)
         rs_fail(RS_ERR_TYPE_FAIL, "Only 'string','array' or 'map' can get length.");
         return 0;
     }
+}
+
+rs_bool_t rs_virtual_source(rs_string_t filepath, rs_string_t data)
+{
+    return rs::create_virtual_source(rs::str_to_wstr(data), rs::str_to_wstr(filepath));
+}
+
+rs_vm rs_create_vm()
+{
+    return (rs_vm)new rs::vm;
+}
+
+void rs_close_vm(rs_vm vm)
+{
+    delete (rs::vmbase*)vm;
+}
+
+bool rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
+{
+    if (!virtual_src_path)
+        virtual_src_path = "__runtime_script__";
+
+    // 1. Prepare lexer..
+    rs::lexer lex(rs::str_to_wstr(src), virtual_src_path);
+
+    // 2. Lexer will create ast_tree;
+    auto result = rs::get_rs_grammar()->gen(lex);
+    if (!result)
+    {
+        // Clean all ast created by this thread..
+        rs::grammar::ast_base::clean_this_thread_ast();
+
+        std::string src_file_path = "";
+        for (auto& err_info : lex.lex_error_list)
+        {
+            if (src_file_path != err_info.filename)
+                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
+            std::wcerr << err_info.to_wstring() << std::endl;
+        }
+        src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
+            std::wcerr << war_info.to_wstring() << std::endl;
+        }
+        return false;
+    }
+
+    // 3. Create lang, most anything store here..
+    rs::lang lang(lex);
+    lang.analyze_pass1(result);
+    lang.analyze_pass2(result);
+
+    if (lang.has_compile_error())
+    {
+        // Clean all ast & lang's template things.
+        rs::grammar::ast_base::clean_this_thread_ast();
+
+        std::string src_file_path = "";
+        for (auto& err_info : lex.lex_error_list)
+        {
+            if (src_file_path != err_info.filename)
+                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
+            std::wcerr << err_info.to_wstring() << std::endl;
+        }
+        src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
+            std::wcerr << war_info.to_wstring() << std::endl;
+        }
+
+
+        return false;
+    }
+
+    rs::ir_compiler compiler;
+    lang.analyze_finalize(result, &compiler);
+    if (lang.has_compile_error())
+    {
+        // Clean all ast & lang's template things.
+        rs::grammar::ast_base::clean_this_thread_ast();
+
+        std::string src_file_path = "";
+        for (auto& err_info : lex.lex_error_list)
+        {
+            if (src_file_path != err_info.filename)
+                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
+            std::wcerr << err_info.to_wstring() << std::endl;
+        }
+        src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
+            std::wcerr << war_info.to_wstring() << std::endl;
+        }
+
+        return false;
+    }
+
+    compiler.end();
+    ((rs::vm*)vm)->set_runtime(compiler);
+
+    return true;
+}
+
+rs_value rs_run(rs_vm vm)
+{
+    if (reinterpret_cast<rs::vm*>(vm)->env)
+    {
+        reinterpret_cast<rs::vm*>(vm)->run();
+        return reinterpret_cast<rs_value>(reinterpret_cast<rs::vm*>(vm)->cr);
+    }
+    return nullptr;
 }

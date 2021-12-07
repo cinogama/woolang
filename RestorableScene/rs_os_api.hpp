@@ -8,8 +8,8 @@ namespace rs
 {
     namespace osapi
     {
-        void*           loadlib (const char* dllpath);
+        void* loadlib   (const char* dllpath, const char* scriptpath = nullptr);
         rs_native_func  loadfunc(void* libhandle, const char* funcname);
-        void            freelib (void* libhandle);
+        void            freelib(void* libhandle);
     }
 }

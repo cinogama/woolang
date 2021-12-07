@@ -177,6 +177,27 @@ namespace rs
             } while (true);
         }
 
+        inline value* get_val_atomically(value* out_put_val) const
+        {
+            do
+            {
+                rs_handle_t data = *reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle);
+                valuetype type = *reinterpret_cast<const std::atomic<valuetype>*>(&type);
+                if (data == *reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle))
+                {
+                    out_put_val->handle = data;
+                    out_put_val->type = type;
+                    return out_put_val;
+                }
+
+            } while (true);
+        }
+        inline value get_val_atomically() const
+        {
+            value tmp;
+            return *get_val_atomically(&tmp);
+        }
+
         inline value* set_ref(value* _ref)
         {
             if (_ref != this)

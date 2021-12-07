@@ -108,6 +108,16 @@ namespace rs
         size_t        next_file_rowno;
         size_t        next_file_colno;
 
+        std::set<std::wstring> imported_file_list;
+        bool has_been_imported(const std::wstring& full_path)
+        {
+            if (imported_file_list.find(full_path) == imported_file_list.end())
+                imported_file_list.insert(full_path);
+            else
+                return true;
+            return false;
+        }
+
         std::string   source_file;
     private:
 
@@ -459,7 +469,7 @@ namespace rs
                     row_no,
                     col_no,
                     describe.data(),
-                    source_file
+                    tree_node->source_file
                 }
             );
             return lex_type::l_error;
@@ -486,7 +496,7 @@ namespace rs
                     row_no,
                     col_no,
                     describe.data(),
-                    source_file
+                    tree_node->source_file
                 }
             );
         }
