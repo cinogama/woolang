@@ -455,6 +455,8 @@ namespace rs
 
                 while (*wstr)
                 {
+                    if (*wstr == L'H' || *wstr == L'h')
+                        break;
                     sum = base * sum + lexer::lex_hextonum(*wstr);
                     ++wstr;
                 }
@@ -1200,6 +1202,19 @@ namespace rs
             std::vector<std::wstring> used_namespace_chain;
         };
 
+        struct ast_enum_item : virtual public grammar::ast_base
+        {
+            std::wstring enum_ident;
+            rs_integer_t enum_val;
+            bool need_assign_val = true;
+        };
+
+        struct ast_enum_items_list : virtual public grammar::ast_base
+        {
+            rs_integer_t next_enum_val = 0;
+            std::vector<ast_enum_item*> enum_items;
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1228,6 +1243,91 @@ namespace rs
             }
 
         };
+
+        struct pass_enum_item_create :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_enum_item* item = new ast_enum_item;
+                item->enum_ident = RS_NEED_TOKEN(0).identifier;
+                if (input.size() == 3)
+                {
+                    item->need_assign_val = false;
+                    auto fxxk = RS_NEED_TOKEN(2);
+                    item->enum_val = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(2).identifier);
+                }
+                return (ast_basic*)item;
+            }
+        };
+
+        struct pass_enum_declear_begin :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_enum_items_list* items = new ast_enum_items_list;
+                auto* enum_item = dynamic_cast<ast_enum_item*>(RS_NEED_AST(0));
+                items->enum_items.push_back(enum_item);
+                if (enum_item->need_assign_val)
+                {
+                    enum_item->enum_val = items->next_enum_val;
+                    enum_item->need_assign_val = false;
+                }
+                items->next_enum_val = enum_item->enum_val + 1;
+                return (ast_basic*)items;
+            }
+        };
+
+        struct pass_enum_declear_append :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_enum_items_list* items = dynamic_cast<ast_enum_items_list*>(RS_NEED_AST(0));
+                auto* enum_item = dynamic_cast<ast_enum_item*>(RS_NEED_AST(2));
+                items->enum_items.push_back(enum_item);
+                if (enum_item->need_assign_val)
+                {
+                    enum_item->enum_val = items->next_enum_val;
+                    enum_item->need_assign_val = false;
+                }
+                items->next_enum_val = enum_item->enum_val + 1;
+                return (ast_basic*)items;
+            }
+        };
+
+        struct pass_enum_finalize :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_assert(input.size() == 5);
+
+                ast_namespace* enum_scope = new ast_namespace;
+                ast_list* decl_list = new ast_list;
+
+                enum_scope->scope_name = RS_NEED_TOKEN(1).identifier;
+                enum_scope->in_scope_sentence = decl_list;
+                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(RS_NEED_AST(3));
+
+                ast_varref_defines* vardefs = new ast_varref_defines;
+                vardefs->declear_attribute = new ast_decl_attribute;
+                vardefs->declear_attribute->add_attribute(&lex, +lex_type::l_const);
+                for (auto& enumitem : enum_items->enum_items)
+                {
+                    ast_value_literal* const_val = new ast_value_literal(
+                        token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
+
+                    vardefs->var_refs.push_back(
+                        { false,enumitem->enum_ident,  const_val }
+                    );
+
+                    // TODO: DATA TYPE SYSTEM..
+                    const_val->value_type = new ast_type(enum_scope->scope_name);
+                }
+
+                decl_list->append_at_end(vardefs);
+                return (ast_basic*)enum_scope;
+            }
+        };
+
         struct pass_append_attrib :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1375,7 +1475,7 @@ namespace rs
                 }
                 else
                 {
-                    auto expand_count = std::stoll(RS_NEED_TOKEN(2).identifier);
+                    auto expand_count = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(2).identifier);
 
                     if (!expand_count)
                         lex.parser_error(0x0000, L"Unpacking operate should unpack at least 1 arguments.");
@@ -2373,13 +2473,17 @@ namespace rs
             {
                 ast_type* result = nullptr;
 
-                if (RS_IS_TOKEN(0))
+                ast_basic* main_type = RS_NEED_AST(0);
+                if (auto* scoping_type = dynamic_cast<ast_value_variable*>(main_type))
                 {
-                    result = new ast_type(RS_NEED_TOKEN(0).identifier);
+                    if (scoping_type->scope_namespaces.size() || scoping_type->search_from_global_namespace)
+                        rs_error("not support now~");
+
+                    result = new ast_type(scoping_type->var_name);
                 }
                 else
                 {
-                    auto* complex_type = dynamic_cast<ast_type*>(RS_NEED_AST(0));
+                    auto* complex_type = dynamic_cast<ast_type*>(main_type);
                     rs_test(complex_type);
 
                     if (complex_type->is_func())
@@ -2471,6 +2575,18 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_item_create>]
+                = _register_builder<pass_enum_item_create>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_begin>]
+                = _register_builder<pass_enum_declear_begin>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_append>]
+                = _register_builder<pass_enum_declear_append>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_finalize>]
+                = _register_builder<pass_enum_finalize>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_begin>]
                 = _register_builder<pass_decl_attrib_begin>();
 

@@ -12,54 +12,35 @@ int main(int argc, char** argv)
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
 
-    auto src = (R"(
+    auto src = (u8R"(
 import rscene.std;
 
-namespace rs
-    namespace std
-    {
-        func boom()
-        {
-            std::println("emm... just , boom?");
-        }
-    }
-
-func fib(var n:int)
+namespace test_enum
 {
-    if (n<=2)
-        return 1;
-    return fib(n-1) + fib(n-2);
+    enum Example
+    {
+        ERROR_VAL = 0,
+        OK        = 0x0000_FFFF,
+        FATAL     = 0x100_0000,
+        WARNING   = 0b1111_1111,
+    }
 }
 
 func main()
 {
-    using rs;
     using std;
-    using rs::std;
+    using test_enum;
 
-    boom();
+    using my_int_t = int;
 
-    println("I'm Restorable Scene~");
-    println(
-@"This is a multi-line string
-and we can write string like this....
-and we can using println("...") to display."@
-    );
+    // Example::OK = 77; // error
 
-    const var const_val_test = println("const", "test");
-    println("const_val_test", const_val_test);
+    println(Example::ERROR_VAL);
+    println(Example::OK);
+    println(Example::FATAL);
+    println(Example::WARNING);
 
-    var begin_tm = time();
-    var i = 0;
-    while (i < 40)
-    {
-        print(i, ":", fib(i), "\n");
-        i += 1;
-    }
-    var finish_tm = time();
-
-    println("cost time:", finish_tm-begin_tm);
-    return 0;
+    var xx = Example::OK:int;
 }
 main();
 
@@ -68,7 +49,7 @@ main();
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    ((rs::vm*)vmm)->dump_program_bin();
+    // ((rs::vm*)vmm)->dump_program_bin();
 
     /* default_debuggee dgb; */
     // ((rs::vm*)vmm)->attach_debuggee(&dgb);

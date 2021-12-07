@@ -79,6 +79,13 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_using), gm::nt(L"LEFTVARIABLE"), gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_using_namespace),
 
+gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_using),
+                                    gm::te(gm::ttype::l_identifier),
+                                    gm::te(gm::ttype::l_assign), 
+                                    gm::nt(L"LEFTVARIABLE"), 
+                                    gm::te(gm::ttype::l_semicolon)}
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
 >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
@@ -91,6 +98,25 @@ gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,2>),
 
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"DECL_ENUM") >> gm::symlist{gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
+                                    gm::te(gm::ttype::l_left_curly_braces),
+                                    gm::nt(L"ENUM_ITEMS"),
+                                    gm::te(gm::ttype::l_right_curly_braces)}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_finalize),
+
+gm::nt(L"ENUM_ITEMS") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_begin),
+gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"),gm::te(gm::ttype::l_comma) ,gm::nt(L"ENUM_ITEM")}
+ >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_append),
+gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
+ >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
+gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_literal_integer)}
+ >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -305,8 +331,10 @@ gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"T
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier)}
+gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_build_type),
 
 gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPE"),gm::nt(L"FUNC_ARG_TYPES") }

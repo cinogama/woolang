@@ -83,6 +83,7 @@ namespace rs
         l_func,
         l_return,
         l_using,
+        l_enum,
 
         l_private,
         l_public,
@@ -177,6 +178,7 @@ namespace rs
             {L"private", {lex_type::l_private}},
             {L"protected", {lex_type::l_protected}},
             {L"const", {lex_type::l_const}},
+            {L"enum", {lex_type::l_enum}},
         };
 
 

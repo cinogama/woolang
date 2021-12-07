@@ -37,7 +37,11 @@ RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args)
 
 const char* rs_stdlib_src_path = u8"rscene/std.rsn";
 const char* rs_stdlib_src_data = 
-u8R"(namespace std
+u8R"(
+const var true = 1;
+const var false = 0;
+
+namespace std
 {
     extern("rslib_std_fail") func fail(var msg:string):void;
     extern("rslib_std_print") func print(...):int;
@@ -56,4 +60,5 @@ u8R"(namespace std
             fail(failed_info);
     }
 }
+
 )";
