@@ -82,7 +82,12 @@ namespace rs
         l_ref,
         l_func,
         l_return,
-        l_using
+        l_using,
+
+        l_private,
+        l_public,
+        l_protected,
+        l_const
     );
 
     class lexer
@@ -167,7 +172,11 @@ namespace rs
             {L"return", {lex_type::l_return}},
             {L"using", {lex_type::l_using} },
             {L"namespace", {lex_type::l_namespace}},
-            {L"extern", {lex_type::l_extern}}
+            {L"extern", {lex_type::l_extern}},
+            {L"public", {lex_type::l_public}},
+            {L"private", {lex_type::l_private}},
+            {L"protected", {lex_type::l_protected}},
+            {L"const", {lex_type::l_const}},
         };
 
 

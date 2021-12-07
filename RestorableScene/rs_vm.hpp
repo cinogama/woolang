@@ -277,8 +277,9 @@ namespace rs
             new_vm->cr = new_vm->register_mem_begin + opnum::reg::spreg::cr;
             new_vm->tc = new_vm->register_mem_begin + opnum::reg::spreg::tc;
             new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
+            new_vm->ths = new_vm->register_mem_begin + opnum::reg::spreg::ths;
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
-
+            
             new_vm->env = env;  // env setted, gc will scan this vm..
 
             new_vm->attach_debuggee(this->attaching_debuggee);
@@ -812,6 +813,7 @@ namespace rs
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
             value* reg_begin = register_mem_begin;
             value* const rt_cr = cr;
+            value* const rt_ths = ths;
 
             auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
@@ -2424,32 +2426,32 @@ namespace rs
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        ths->set_val(opnum1);
+                        rt_ths->set_val(opnum1);
 
-                        if (nullptr == opnum1->gcunit && opnum1->is_gcunit())
+                        if (nullptr == rt_ths->gcunit && rt_ths->is_gcunit())
                         {
                             RS_VM_FAIL(RS_ERR_ACCESS_NIL, "the unit trying to access is 'nil'.");
                             rt_cr->set_nil();
                         }
                         else
                         {
-                            switch (opnum1->type)
+                            switch (rt_ths->type)
                             {
                             case value::valuetype::string_type:
                             {
-                                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                                gcbase::gc_read_guard gwg1(rt_ths->gcunit);
                                 rt_cr->type = value::valuetype::integer_type;
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                    rt_cr->integer = (unsigned char)(*opnum1->string)[(size_t)opnum2->integer];
+                                    rt_cr->integer = (unsigned char)(*rt_ths->string)[(size_t)opnum2->integer];
                                 else
                                     RS_VM_FAIL(RS_ERR_ACCESS_NIL, "cannot index string without integer & handle.");
                                 break;
                             }
                             case value::valuetype::array_type:
                             {
-                                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                                gcbase::gc_read_guard gwg1(rt_ths->gcunit);
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                    rt_cr->set_ref((*opnum1->array)[(size_t)opnum2->integer].get());
+                                    rt_cr->set_ref((*rt_ths->array)[(size_t)opnum2->integer].get());
                                 else
                                     RS_VM_FAIL(RS_ERR_ACCESS_NIL, "cannot index array without integer & handle.");
                                 break;
@@ -2457,16 +2459,16 @@ namespace rs
                             case value::valuetype::mapping_type:
                             {
                                 {
-                                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                                    auto fnd = opnum1->mapping->find(*opnum2);
-                                    if (fnd != opnum1->mapping->end())
+                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+                                    auto fnd = rt_ths->mapping->find(*opnum2);
+                                    if (fnd != rt_ths->mapping->end())
                                     {
                                         rt_cr->set_ref(fnd->second.get());
                                         break;
                                     }
                                 }
-                                gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                                rt_cr->set_ref(&(*opnum1->mapping)[*opnum2]);
+                                gcbase::gc_write_guard gwg1(rt_ths->gcunit);
+                                rt_cr->set_ref(&(*rt_ths->mapping)[*opnum2]);
                                 break;
                             }
                             default:

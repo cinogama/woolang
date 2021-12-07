@@ -2,6 +2,8 @@
 #include "rs.h"
 #include <iostream>
 
+#include "rs_vm.hpp"
+
 int main(int argc, char** argv)
 {
     rs_init(argc, argv);
@@ -13,13 +15,14 @@ int main(int argc, char** argv)
     auto src = (R"(
 import rscene.std;
 
-namespace std
-{
-    func boom()
+namespace rs
+    namespace std
     {
-        println("emm... just , boom?");
+        func boom()
+        {
+            std::println("emm... just , boom?");
+        }
     }
-}
 
 func fib(var n:int)
 {
@@ -30,7 +33,9 @@ func fib(var n:int)
 
 func main()
 {
+    using rs;
     using std;
+    using rs::std;
 
     boom();
 
@@ -41,8 +46,8 @@ and we can write string like this....
 and we can using println("...") to display."@
     );
 
-    var arr = nil:dynamic(...);
-    arr();
+    const var const_val_test = println("const", "test");
+    println("const_val_test", const_val_test);
 
     var begin_tm = time();
     var i = 0;
@@ -63,7 +68,7 @@ main();
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    // ((rs::vm*)vmm)->dump_program_bin();
+    ((rs::vm*)vmm)->dump_program_bin();
 
     /* default_debuggee dgb; */
     // ((rs::vm*)vmm)->attach_debuggee(&dgb);

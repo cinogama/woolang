@@ -18,11 +18,12 @@ namespace rs
         symbol_type type;
         std::wstring name;
 
+        ast::ast_decl_attribute* attribute;
         lang_scope* defined_in_scope;
         bool define_in_function = false;
         bool static_symbol = false;
         bool has_been_defined_in_pass2 = false;
-
+        bool is_constexpr = false;
         union
         {
             size_t stackvalue_index_in_funcs = size_t(-1);
@@ -147,7 +148,7 @@ namespace rs
                 for (auto& varref : a_varref_defs->var_refs)
                 {
                     analyze_pass1(varref.init_val);
-                    varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val);
+                    varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
 
                     a_varref_defs->add_child(varref.init_val);
                 }
@@ -224,7 +225,7 @@ namespace rs
                 {
                     if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
-                        argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef);
+                        argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
                     }
                     else
                     {
@@ -1228,6 +1229,10 @@ namespace rs
         opnum::opnumbase& get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
         {
             using namespace opnum;
+
+            if (symb->is_constexpr)
+                return analyze_value(symb->variable_value, compiler, get_pure_value);
+
             if (symb->type == lang_symbol::symbol_type::variable)
             {
                 if (symb->static_symbol)
@@ -1470,6 +1475,12 @@ namespace rs
                 value::valuetype optype = value::valuetype::invalid;
                 if (same_type && !a_value_assign->left->value_type->is_dynamic())
                     optype = a_value_assign->left->value_type->value_type;
+
+                if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
+                    symb_left && symb_left->symbol->attribute->is_constant_attr())
+                {
+                    lang_anylizer->lang_error(0x0000, value, L"Cannot assign a value to a constant.");
+                }
 
                 auto& beoped_left_opnum = analyze_value(a_value_assign->left, compiler);
                 auto& op_right_opnum = analyze_value(a_value_assign->right, compiler);
@@ -2091,8 +2102,9 @@ namespace rs
                     }
                     else
                     {
-                        compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
-                            auto_analyze_value(varref_define.init_val, compiler));
+                        if (!varref_define.symbol->is_constexpr)
+                            compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
+                                auto_analyze_value(varref_define.init_val, compiler));
                     }
                 }
             }
@@ -2306,7 +2318,7 @@ namespace rs
             if (ast_value_funcdef->function_name != L"")
             {
                 // Not anymous function, define func-symbol..
-                define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef);
+                define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
             }
 
             lang_scopes.push_back(scope);
@@ -2337,7 +2349,7 @@ namespace rs
 
         size_t global_symbol_index = 0;
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val)
+        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr)
         {
             rs_assert(lang_scopes.size());
 
@@ -2356,6 +2368,8 @@ namespace rs
                         sym->type = lang_symbol::symbol_type::function;
                         sym->name = names;
                         sym->defined_in_scope = lang_scopes.back();
+                        sym->attribute = new ast::ast_decl_attribute();
+                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
 
                         auto* pending_function = new ast::ast_value_function_define;
                         pending_function->value_type = new ast::ast_type(L"pending");
@@ -2384,11 +2398,11 @@ namespace rs
 
                 lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
                 return last_func_symbol;
-
             }
             else
             {
                 lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::variable;
                 sym->name = names;
                 sym->variable_value = init_val;
@@ -2398,14 +2412,24 @@ namespace rs
                 {
                     sym->define_in_function = true;
                     sym->static_symbol = false;
-                    sym->stackvalue_index_in_funcs = func->assgin_stack_index();
-                    lang_scopes.back()->this_block_used_stackvalue_count++;
+
+                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                    {
+                        sym->stackvalue_index_in_funcs = func->assgin_stack_index();
+                        lang_scopes.back()->this_block_used_stackvalue_count++;
+                    }
+                    else
+                        sym->is_constexpr = true;
                 }
                 else
                 {
                     sym->define_in_function = false;
                     sym->static_symbol = true;
-                    sym->global_index_in_lang = global_symbol_index++;
+                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                        sym->global_index_in_lang = global_symbol_index++;
+                    else
+                        sym->is_constexpr = true;
+
                 }
 
                 lang_symbols.push_back(sym);
@@ -2479,7 +2503,7 @@ namespace rs
                 _searching_in_all = _searching_in_all->parent_scope;
             }
             std::set<lang_symbol*> searching_result;
-
+            std::set<lang_scope*> searched_scopes;
             for (auto _searching : searching_namespace)
             {
                 while (_searching)
@@ -2497,7 +2521,7 @@ namespace rs
                         while (namespace_index < var_ident->scope_namespaces.size())
                         {
                             if (auto fnd = _searching->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
-                                fnd != _searching->sub_namespaces.end())
+                                fnd != _searching->sub_namespaces.end() && searched_scopes.find(fnd->second) == searched_scopes.end())
                             {
                                 namespace_index++;
                                 _searching = fnd->second;
@@ -2510,6 +2534,7 @@ namespace rs
                         }
                     }
 
+                    searched_scopes.insert(_searching);
                     if (auto fnd = _searching->symbols.find(var_ident->var_name);
                         fnd != _searching->symbols.end())
                     {

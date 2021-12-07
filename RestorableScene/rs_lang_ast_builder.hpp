@@ -592,6 +592,50 @@ namespace rs
             }
         };
 
+        struct ast_decl_attribute : virtual public grammar::ast_base
+        {
+            std::set<lex_type> attributes;
+            void varify_attributes(lexer* lex) const
+            {
+                // 1) Check if public, protected or private at same time
+                lex_type has_describe = +lex_type::l_error;
+                for (auto att : attributes)
+                {
+                    if (att == +lex_type::l_public || att == +lex_type::l_private || att == +lex_type::l_protected)
+                    {
+                        if (has_describe != +lex_type::l_error)
+                        {
+                            lex->parser_error(0x0000, L"Can not be declared as 'public', 'protected' or 'private' at the same time.");
+                            break;
+                        }
+                        has_describe = att;
+                    }
+                }
+            }
+            void add_attribute(lexer* lex, lex_type attr)
+            {
+                if (attributes.find(attr) == attributes.end())
+                {
+                    attributes.insert(attr);
+
+                }
+                else
+                    lex->parser_warning(0x0000, L"Duplicate attribute description.");
+
+            }
+
+            bool is_constant_attr() const
+            {
+                return attributes.find(+lex_type::l_const) != attributes.end();
+            }
+        };
+
+
+        struct ast_defines : virtual public grammar::ast_base
+        {
+            ast_decl_attribute* declear_attribute = nullptr;
+        };
+
         struct ast_value_symbolable_base : virtual ast_value
         {
             std::vector<std::wstring> scope_namespaces;
@@ -739,7 +783,7 @@ namespace rs
             }
         };
 
-        struct ast_varref_defines : virtual public grammar::ast_base
+        struct ast_varref_defines : virtual public ast_defines
         {
             struct varref_define
             {
@@ -762,7 +806,7 @@ namespace rs
             }
         };
 
-        struct ast_value_arg_define : virtual ast_value_symbolable_base
+        struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             bool is_ref = false;
             std::wstring arg_name;
@@ -774,7 +818,7 @@ namespace rs
             }
         };
 
-        struct ast_value_function_define : virtual ast_value_symbolable_base
+        struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             std::wstring function_name;
             ast_list* argument_list;
@@ -1174,6 +1218,27 @@ namespace rs
             }
         };
 
+        struct pass_decl_attrib_begin :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto att = new ast_decl_attribute;
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(RS_NEED_AST(0))->tokens.type);
+                return (ast_basic*)att;
+            }
+
+        };
+        struct pass_append_attrib :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto att = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(RS_NEED_AST(1))->tokens.type);
+                return (ast_basic*)att;
+            }
+
+        };
+
         struct pass_unary_op :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1241,7 +1306,7 @@ namespace rs
                 auto* fx = RS_NEED_AST(1);
 
                 ast_token* importfilepaths = dynamic_cast<ast_token*>(
-                        dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
+                    dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
                 do
                 {
                     path += importfilepaths->tokens.identifier;
@@ -1252,7 +1317,7 @@ namespace rs
 
                 path += L".rsn";
                 std::wstring srcfile, src_full_path;
-                if (!rs::read_virtual_source(&srcfile,&src_full_path, path, &lex))
+                if (!rs::read_virtual_source(&srcfile, &src_full_path, path, &lex))
                     return lex.parser_error(0x0000, L"Cannot open file: '%s'.", path.c_str());
 
                 if (!lex.has_been_imported(src_full_path))
@@ -1420,34 +1485,43 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 8 || input.size() == 7 || input.size() == 6);
+                rs_test(input.size() == 7 || input.size() == 8 || input.size() == 9);
 
                 auto* ast_func = new ast_value_function_define;
                 ast_type* return_type = nullptr;
-                if (input.size() == 7)
+                if (input.size() == 8)
                 {
                     // function with name..
-                    ast_func->function_name = RS_NEED_TOKEN(1).identifier;
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                    rs_assert(ast_func->declear_attribute);
+
+                    ast_func->function_name = RS_NEED_TOKEN(2).identifier;
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(7))->sentence_list;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
+
+                }
+                else if (input.size() == 7)
+                {
+                    // anonymous function
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                    rs_assert(ast_func->declear_attribute);
+
+                    ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(3));
                     ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(6))->sentence_list;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
-
-                }
-                else if (input.size() == 6)
-                {
-                    // anonymous function
-                    ast_func->function_name = L""; // just get a fucking name
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(2));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(5))->sentence_list;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
                 }
                 else
                 {
                     // function with name..
-                    ast_func->function_name = RS_NEED_TOKEN(2).identifier;
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(1));
+                    rs_assert(ast_func->declear_attribute);
+
+                    ast_func->function_name = RS_NEED_TOKEN(3).identifier;
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(5));
                     ast_func->in_function_sentence = nullptr;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(7));
 
                     ast_func->is_constant = true;
                     ast_func->externed_func = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0))->externed_func;
@@ -1573,14 +1647,31 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 3);
-                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(1));
+                rs_test(input.size() == 4);
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
                 rs_test(result);
+
+                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                rs_assert(result->declear_attribute);
 
                 for (auto& defines : result->var_refs)
                 {
                     defines.is_ref = true;
                 }
+
+                return (ast_basic*)result;
+            }
+        };
+        struct pass_mark_as_var_define :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 4);
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
+                rs_test(result);
+
+                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                rs_assert(result->declear_attribute);
 
                 return (ast_basic*)result;
             }
@@ -2359,10 +2450,13 @@ namespace rs
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_value_arg_define* arg_def = new ast_value_arg_define;
-                arg_def->is_ref = RS_NEED_TOKEN(0).type == +lex_type::l_ref;
-                arg_def->arg_name = RS_NEED_TOKEN(1).identifier;
-                if (input.size() == 3)
-                    arg_def->value_type = dynamic_cast<ast_type*>(RS_NEED_AST(2));
+                arg_def->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                rs_assert(arg_def->declear_attribute);
+
+                arg_def->is_ref = RS_NEED_TOKEN(1).type == +lex_type::l_ref;
+                arg_def->arg_name = RS_NEED_TOKEN(2).identifier;
+                if (input.size() == 4)
+                    arg_def->value_type = dynamic_cast<ast_type*>(RS_NEED_AST(3));
                 else
                     arg_def->value_type = new ast_type(L"dynamic");
 
@@ -2377,6 +2471,12 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_begin>]
+                = _register_builder<pass_decl_attrib_begin>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_append_attrib>]
+                = _register_builder<pass_append_attrib>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_using_namespace>]
                 = _register_builder<pass_using_namespace>();
 
@@ -2451,6 +2551,9 @@ namespace rs
 
             _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>]
                 = _register_builder<pass_add_varref_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_as_var_define>]
+                = _register_builder<pass_mark_as_var_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_as_ref_define>]
                 = _register_builder<pass_mark_as_ref_define>();

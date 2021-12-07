@@ -118,6 +118,26 @@ gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
 //       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
 //       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
 
+gm::nt(L"DECL_ATTRIBUTE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE_ITEMS")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE_ITEM")}
+>> RS_ASTBUILDER_INDEX(ast::pass_decl_attrib_begin),
+
+gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE_ITEMS"),gm::nt(L"DECL_ATTRIBUTE_ITEM")}
+>> RS_ASTBUILDER_INDEX(ast::pass_append_attrib),
+
+gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_empty)}
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_const)}
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_public)}
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_private)}
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_private)}
+>> RS_ASTBUILDER_INDEX(ast::pass_token),
+
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
@@ -125,6 +145,7 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                        gm::nt(L"DECL_ATTRIBUTE"),
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
@@ -147,7 +168,7 @@ gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
 
 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                          gm::nt(L"EXTERN_FROM"),
-
+                         gm::nt(L"DECL_ATTRIBUTE"),
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
@@ -186,12 +207,14 @@ gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"BLOCKED_SENTEN
 
                 //变量定义表达式
                 gm::nt(L"SENTENCE") >> gm::symlist{
+                                        gm::nt(L"DECL_ATTRIBUTE"),
                                         gm::te(gm::ttype::l_var),
                                         gm::nt(L"VARDEFINE"),
                                         gm::te(gm::ttype::l_semicolon)}
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),//ASTVariableDefination
+                >> RS_ASTBUILDER_INDEX(ast::pass_mark_as_var_define),//ASTVariableDefination
 
                 gm::nt(L"SENTENCE") >> gm::symlist{
+                                        gm::nt(L"DECL_ATTRIBUTE"),
                                         gm::te(gm::ttype::l_ref),
                                         gm::nt(L"REFDEFINE"),
                                         gm::te(gm::ttype::l_semicolon)}
@@ -264,6 +287,7 @@ gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FUNC_DEFINE") >> gm::symlist{
+                        gm::nt(L"DECL_ATTRIBUTE"), // In fact, it was useless, just for avoiding lr1-short-cut
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
@@ -329,13 +353,13 @@ gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_co
 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)}
+gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)}
 >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)}
+gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)}
 >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
 
 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
