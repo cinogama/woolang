@@ -2306,13 +2306,13 @@ namespace rs
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)
         {
-            if (now_namespace)
+            if (lang_scopes.size())
             {
-                auto fnd = now_namespace->sub_namespaces.find(scope_namespace);
-                if (fnd != now_namespace->sub_namespaces.end())
+                auto fnd = lang_scopes.back()->sub_namespaces.find(scope_namespace);
+                if (fnd != lang_scopes.back()->sub_namespaces.end())
                 {
                     lang_scopes.push_back(fnd->second);
-                    return now_namespace = fnd->second;
+                    return now_namespace = lang_scopes.back();
                 }
             }
 
@@ -2325,19 +2325,19 @@ namespace rs
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->scope_namespace = scope_namespace;
 
-            if (now_namespace)
-                now_namespace->sub_namespaces[scope_namespace] = scope;
+            if (lang_scopes.size())
+                lang_scopes.back()->sub_namespaces[scope_namespace] = scope;
 
             lang_scopes.push_back(scope);
-            return now_namespace = scope;
+            return now_namespace = lang_scopes.back();
         }
 
         void end_namespace()
         {
             rs_assert(lang_scopes.back()->type == lang_scope::scope_type::namespace_scope);
-            lang_scopes.pop_back();
 
-            now_namespace = now_namespace->belong_namespace;
+            now_namespace = lang_scopes.back()->belong_namespace;
+            lang_scopes.pop_back();
         }
 
         lang_scope* begin_scope()
@@ -2475,7 +2475,11 @@ namespace rs
                     sym->define_in_function = true;
                     sym->static_symbol = false;
 
-                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                    // TODO:
+                    // const var xxx = 0;
+                    // const var ddd = xxx;
+
+                    if (!attr->is_constant_attr() || !init_val->is_constant )
                     {
                         sym->stackvalue_index_in_funcs = func->assgin_stack_index();
                         lang_scopes.back()->this_block_used_stackvalue_count++;

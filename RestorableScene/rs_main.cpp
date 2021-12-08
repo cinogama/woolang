@@ -13,20 +13,21 @@ int main(int argc, char** argv)
     std::cout << rs_compile_date() << std::endl;
 
     auto src = (u8R"(
-import rscene.std;
-
-func main()
+enum Enum
 {
-    var a = 0:dynamic:real;
-    var x = ...;
+    XXX
 }
+
+const var fxxl = Enum::XXX;
+var o0 = fxxl;
+
 
 )");
 
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-     ((rs::vm*)vmm)->dump_program_bin();
+    ((rs::vm*)vmm)->dump_program_bin();
 
     /* default_debuggee dgb; */
     // ((rs::vm*)vmm)->attach_debuggee(&dgb);
