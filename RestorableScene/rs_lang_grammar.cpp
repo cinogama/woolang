@@ -76,15 +76,19 @@ gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE")}
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_import_files),
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_using), gm::nt(L"LEFTVARIABLE"), gm::te(gm::ttype::l_semicolon)}
+gm::nt(L"SENTENCE") >> gm::symlist{ 
+                                    gm::nt(L"DECL_ATTRIBUTE"), // useless
+                                    gm::te(gm::ttype::l_using),
+                                    gm::nt(L"LEFTVARIABLE"), gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_using_namespace),
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_using),
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                                    gm::te(gm::ttype::l_using),
                                     gm::te(gm::ttype::l_identifier),
                                     gm::te(gm::ttype::l_assign), 
-                                    gm::nt(L"LEFTVARIABLE"), 
+                                    gm::nt(L"TYPE"), 
                                     gm::te(gm::ttype::l_semicolon)}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_using_type_as),
 
 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
 >> RS_ASTBUILDER_INDEX(ast::pass_token),

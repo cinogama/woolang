@@ -12,6 +12,7 @@ namespace rs
     {
         enum class symbol_type
         {
+            typing,
             variable,
             function,
         };
@@ -30,7 +31,12 @@ namespace rs
             size_t global_index_in_lang;
         };
 
-        ast::ast_value* variable_value;
+        union
+        {
+            ast::ast_value* variable_value;
+            ast::ast_type* type_informatiom;
+        };
+
         std::vector<ast::ast_value_function_define*> function_overload_sets;
     };
 
@@ -97,6 +103,35 @@ namespace rs
             clean_and_close_lang();
         }
 
+        void fully_update_type(ast::ast_type* type)
+        {
+            if (type->is_custom())
+            {
+                if (type->is_complex())
+                    fully_update_type(type->complex_type);
+                if (type->is_func())
+                    for (auto& a_t : type->argument_types)
+                        fully_update_type(a_t);
+
+                // ready for update..
+                if (ast::ast_type::is_custom_type(type->type_name))
+                {
+                    auto* type_sym = find_type_in_this_scope(type);
+                    if (type_sym)
+                    {
+                        fully_update_type(type_sym->type_informatiom);
+
+
+
+                        if (type->is_func())
+                            type->set_ret_type(type_sym->type_informatiom);
+                        else
+                            type->set_type(type_sym->type_informatiom);
+                    }
+                }
+            }
+        }
+
         void analyze_pass1(grammar::ast_base* ast_node)
         {
             if (traving_node.find(ast_node) != traving_node.end())
@@ -124,7 +159,7 @@ namespace rs
 
             if (!ast_node)return;
 
-            if (ast_value_symbolable_base* a_symbol_ob = dynamic_cast<ast_value_symbolable_base*>(ast_node))
+            if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
             {
                 a_symbol_ob->searching_begin_namespace_in_pass2 = now_scope();
             }
@@ -189,7 +224,7 @@ namespace rs
                 {
                     if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                        lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
                     }
@@ -205,7 +240,7 @@ namespace rs
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
-                auto* sym = find_symbol_in_this_scope(a_value_var);
+                auto* sym = find_value_in_this_scope(a_value_var);
                 if (sym)
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
@@ -273,7 +308,7 @@ namespace rs
             {
                 auto* located_function_scope = in_function();
                 if (!located_function_scope)
-                    lang_anylizer->lang_error(0x0000, a_ret, L"Invalid return, cannot do return ouside of function.");
+                    lang_anylizer->lang_error(0x0000, a_ret, RS_ERR_CANNOT_DO_RET_OUSIDE_FUNC);
                 else
                 {
                     a_ret->located_function = located_function_scope->function_node;
@@ -301,7 +336,7 @@ namespace rs
                                     else
                                     {
                                         located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
-                                        lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
+                                        lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
                                     }
                                 }
                             }
@@ -335,13 +370,13 @@ namespace rs
                             }
                             else
                             {
-                                lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                                lang_anylizer->lang_error(0x0000, a_ret, RS_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name.c_str());
                             }
                         }
                         else
                         {
                             if (!located_function_scope->function_node->value_type->is_void())
-                                lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", located_function_scope->function_node->value_type->type_name.c_str());
+                                lang_anylizer->lang_error(0x0000, a_ret, RS_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name.c_str());
                         }
                     }
                 }
@@ -394,13 +429,18 @@ namespace rs
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_using_namespace, L"The declaration of using-namespace should be placed at the beginning of the statement block.");
+                        lang_anylizer->lang_error(0x0000, a_using_namespace, RS_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
                         break;
                     }
 
                     parent_child = parent_child->sibling;
                 }
                 now_scope()->used_namespace.push_back(a_using_namespace);
+            }
+            else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
+            {
+                // now_scope()->used_namespace.push_back(a_using_namespace);
+                define_type_in_this_scope(a_using_type_as->new_type_identifier, a_using_type_as->old_type, a_using_type_as->declear_attribute);
             }
             else
             {
@@ -410,6 +450,16 @@ namespace rs
                     analyze_pass1(child);
                     child = child->sibling;
                 }
+            }
+            if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
+            {
+                if (a_val->value_type->is_custom())
+                {
+                    // ready for update..
+                    fully_update_type(a_val->value_type);
+                }
+                a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
+                // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
             }
         }
         bool analyze_pass2(grammar::ast_base* ast_node)
@@ -444,16 +494,23 @@ namespace rs
 
             if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
             {
+                if (a_value->value_type->is_custom())
+                {
+                    // ready for update..
+                    fully_update_type(a_value->value_type);
+                }
+
+
                 if (a_value->value_type->is_pending())
                 {
                     if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(a_value))
                     {
-                        auto* sym = find_symbol_in_this_scope(a_value_var);
+                        auto* sym = find_value_in_this_scope(a_value_var);
 
                         if (sym)
                         {
                             if (sym->define_in_function && !sym->has_been_defined_in_pass2)
-                                lang_anylizer->lang_error(0x0000, a_value_var, L"Unknown identifier '%s'.", a_value_var->var_name.c_str());
+                                lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
                             analyze_pass2(sym->variable_value);
                             a_value_var->value_type = sym->variable_value->value_type;
@@ -462,7 +519,7 @@ namespace rs
                             if (a_value_var->value_type->is_pending())
                             {
                                 if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
-                                    lang_anylizer->lang_error(0x0000, a_value_var, L"Unable to decide value type.");
+                                    lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNABLE_DECIDE_VAR_TYPE);
                                 else if (a_value_var->symbol->function_overload_sets.size() == 1)
                                 {
                                     // only you~
@@ -473,7 +530,7 @@ namespace rs
                         }
                         else
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_var, L"Unknown identifier '%s'.", a_value_var->var_name.c_str());
+                            lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
                             a_value_var->value_type = new ast_type(L"pending");
                         }
                     }
@@ -489,7 +546,7 @@ namespace rs
 
                         if (nullptr == a_value_bin->value_type)
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_bin, L"Failed to analyze the type.");
+                            lang_anylizer->lang_error(0x0000, a_value_bin, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             a_value_bin->value_type = new ast_type(L"pending");
                         }
                     }
@@ -510,16 +567,17 @@ namespace rs
                         {
                             if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
                             {
-                                lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                                lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                                     a_value_assi->right->value_type->get_type_name().c_str(),
                                     a_value_assi->left->value_type->get_type_name().c_str());
                             }
                         }
 
-                        if (a_value_assi->value_type->is_pending())
-                        {
-                            lang_anylizer->lang_error(0x0000, a_value_assi, L"Failed to analyze the type.");
-                        }
+                        //if (a_value_assi->value_type->is_pending())
+                        //{
+                            /*lang_anylizer->lang_error(0x0000, a_value_assi, L"Failed to analyze the type.");*/
+                            // do nothing
+                        //}
                     }
                     else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
                     {
@@ -676,7 +734,7 @@ namespace rs
                                             {
                                                 acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
                                                     + judge_sets->at(index)->value_type->get_type_name()
-                                                    + L"' at ("
+                                                    + L"' " RS_TERM_AT L" ("
                                                     + std::to_wstring(judge_sets->at(index)->row_no)
                                                     + L","
                                                     + std::to_wstring(judge_sets->at(index)->col_no)
@@ -684,10 +742,10 @@ namespace rs
 
                                                 if (index + 1 != judge_sets->size())
                                                 {
-                                                    acceptable_func += L" or ";
+                                                    acceptable_func += L" " RS_TERM_OR L" ";
                                                 }
                                             }
-                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"Cannot judge which function override to call, maybe: %s.", acceptable_func.c_str());
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_UNABLE_DECIDE_FUNC_OVERRIDE, acceptable_func.c_str());
                                         }
                                         else
                                         {
@@ -697,7 +755,7 @@ namespace rs
                                     }
                                     else
                                     {
-                                        this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"No matched function override to call.");
+                                        this->lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_NO_MATCH_FUNC_OVERRIDE);
                                     }
                                 }
                             }
@@ -735,7 +793,7 @@ namespace rs
                                 if (!real_args)
                                 {
                                     // default arg mgr here, now just kill
-                                    lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too few to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                    lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name().c_str());
                                 }
                                 else
                                 {
@@ -772,7 +830,7 @@ namespace rs
                                             }
                                             else
                                             {
-                                                lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
                                                 break;
                                             }
                                             ecount--;
@@ -815,13 +873,13 @@ namespace rs
                             }
                             if (real_args)
                             {
-                                lang_anylizer->lang_error(0x0000, a_value_funccall, L"Argument count too many to call '%s'.", a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
                             }
 
                         }
                         else
                         {
-                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot call '%s'.",
+                            lang_anylizer->lang_error(0x0000, a_value, RS_ERR_TYPE_CANNOT_BE_CALL,
                                 a_value_funccall->called_func->value_type->get_type_name().c_str());
                         }
                     }
@@ -838,7 +896,7 @@ namespace rs
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_value, L"Unknown type '%s'.", a_value->value_type->get_type_name().c_str());
+                        lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE, a_value->value_type->get_type_name().c_str());
                     }
 
                 }
@@ -871,7 +929,7 @@ namespace rs
 
                     if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_assi, L"Cannot assign '%s' to '%s'.",
+                        lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
                     }
@@ -912,7 +970,7 @@ namespace rs
                         }
                         if (a_value_typecast->_be_cast_value_node->value_type->is_pending())
                         {
-                            lang_anylizer->lang_error(0x0000, a_value, L"Cannot find overload of '%s' with type '%s' .",
+                            lang_anylizer->lang_error(0x0000, a_value, RS_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE,
                                 a_variable_sym->var_name.c_str(),
                                 a_value_typecast->value_type->get_type_name().c_str());
                         }
@@ -923,12 +981,12 @@ namespace rs
                         if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
                         {
                             if (a_value_typecast->implicit)
-                                lang_anylizer->lang_error(0x0000, a_value, L"Cannot implicit-cast '%s' to '%s'.",
+                                lang_anylizer->lang_error(0x0000, a_value, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                     origin_value->value_type->get_type_name().c_str(),
                                     a_value_typecast->value_type->get_type_name().c_str()
                                 );
                             else
-                                lang_anylizer->lang_error(0x0000, a_value, L"Cannot cast '%s' to '%s'.",
+                                lang_anylizer->lang_error(0x0000, a_value, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                                     origin_value->value_type->get_type_name().c_str(),
                                     a_value_typecast->value_type->get_type_name().c_str()
                                 );
@@ -968,7 +1026,7 @@ namespace rs
                     analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
                     if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array() && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
                     {
-                        lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unexcepted type: here should be array.");
+                        lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, RS_ERR_NEED_TYPES, L"array");
                     }
                 }
             }
@@ -1016,7 +1074,7 @@ namespace rs
                                 else
                                 {
                                     a_ret->located_function->value_type->set_type_with_name(L"dynamic");
-                                    lang_anylizer->lang_warning(0x0000, a_ret, L"Incompatible with the return type, the return value will be determined to be 'dynamic'.");
+                                    lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
                                 }
                             }
                         }
@@ -1047,13 +1105,13 @@ namespace rs
                         }
                         else
                         {
-                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", a_ret->located_function->value_type->type_name.c_str());
+                            lang_anylizer->lang_error(0x0000, a_ret, RS_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name.c_str());
                         }
                     }
                     else
                     {
                         if (!a_ret->located_function->value_type->is_void())
-                            lang_anylizer->lang_error(0x0000, a_ret, L"Cannot return 'void' and '%s' at same time.", a_ret->located_function->value_type->type_name.c_str());
+                            lang_anylizer->lang_error(0x0000, a_ret, RS_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name.c_str());
                     }
                 }
 
@@ -1282,7 +1340,7 @@ namespace rs
                     return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value);
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, error_prud, L"Cannot decided which function to use.");
+                    lang_anylizer->lang_error(0x0000, error_prud, RS_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
                     return RS_NEW_OPNUM(imm(0));
                 }
             }
@@ -1479,7 +1537,7 @@ namespace rs
                 if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
                     symb_left && symb_left->symbol->attribute->is_constant_attr())
                 {
-                    lang_anylizer->lang_error(0x0000, value, L"Cannot assign a value to a constant.");
+                    lang_anylizer->lang_error(0x0000, value, RS_ERR_CANNOT_ASSIGN_TO_CONSTANT);
                 }
 
                 auto& beoped_left_opnum = analyze_value(a_value_assign->left, compiler);
@@ -1652,7 +1710,7 @@ namespace rs
 
                     if (full_unpack_arguments)
                     {
-                        lang_anylizer->lang_error(0x0000, arg_val, L"Argument should not be expected after '...'.");
+                        lang_anylizer->lang_error(0x0000, arg_val, RS_ERR_ARG_DEFINE_AFTER_VARIADIC);
                         break;
                     }
 
@@ -1911,7 +1969,7 @@ namespace rs
                 if (!now_function_in_final_anylize
                     || !now_function_in_final_anylize->value_type->is_variadic_function_type)
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, L"Only in function having variadic arguments can use '...' to pack variadic arguments.");
+                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, RS_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
                 else
@@ -1929,7 +1987,7 @@ namespace rs
                 if (!now_function_in_final_anylize
                     || !now_function_in_final_anylize->value_type->is_variadic_function_type)
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, L"Only in function having variadic arguments can use '...' to pack variadic arguments.");
+                    lang_anylizer->lang_error(0x0000, a_value_packed_variadic_args, RS_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
 
@@ -1993,7 +2051,7 @@ namespace rs
             }
             else if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(value))
             {
-                lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, L"Unpack is only allowed for arguments in function calls.");
+                lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, RS_ERR_UNPACK_ARGS_OUT_OF_FUNC_CALL);
                 return RS_NEW_OPNUM(reg(reg::cr));
             }
             else if (auto* a_value_unary = dynamic_cast<ast_value_unary*>(value))
@@ -2026,7 +2084,7 @@ namespace rs
                         complete_using_register(result);
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, a_value_unary, L"'%s' cannot be negative.", a_value_unary->val->value_type->get_type_name());
+                        lang_anylizer->lang_error(0x0000, a_value_unary, RS_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name());
                     break;
                 default:
                     rs_error("Do not support this operator..");
@@ -2172,6 +2230,10 @@ namespace rs
                 real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
             }
             else if (ast_using_namespace* a_using_namespace = dynamic_cast<ast_using_namespace*>(ast_node))
+            {
+                // do nothing
+            }
+            else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // do nothing
             }
@@ -2396,7 +2458,7 @@ namespace rs
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
-                lang_anylizer->lang_error(0x0000, init_val, L"Redefined '%s' in this scope.", names.c_str());
+                lang_anylizer->lang_error(0x0000, init_val, RS_ERR_REDEFINED, names.c_str());
                 return last_func_symbol;
             }
             else
@@ -2436,7 +2498,31 @@ namespace rs
                 return sym;
             }
         }
-        lang_symbol* find_symbol_in_this_scope(ast::ast_value_variable* var_ident)
+        lang_symbol* define_type_in_this_scope(const std::wstring& names, ast::ast_type* as_type, ast::ast_decl_attribute* attr)
+        {
+            rs_assert(lang_scopes.size());
+
+            if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+            {
+                auto* last_func_symbol = lang_scopes.back()->symbols[names];
+
+                lang_anylizer->lang_error(0x0000, as_type, RS_ERR_REDEFINED, names.c_str());
+                return last_func_symbol;
+            }
+            else
+            {
+                lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                sym->attribute = attr;
+                sym->type = lang_symbol::symbol_type::typing;
+                sym->name = names;
+                sym->type_informatiom = as_type;
+                sym->defined_in_scope = lang_scopes.back();
+
+                lang_symbols.push_back(sym);
+                return sym;
+            }
+        }
+        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, const std::wstring& ident_str)
         {
             rs_assert(lang_scopes.size());
 
@@ -2535,7 +2621,7 @@ namespace rs
                     }
 
                     searched_scopes.insert(_searching);
-                    if (auto fnd = _searching->symbols.find(var_ident->var_name);
+                    if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
                         searching_result.insert(var_ident->symbol = fnd->second);
@@ -2554,28 +2640,47 @@ namespace rs
 
             if (searching_result.size() > 1)
             {
-                std::wstring err_info = L"'%s' is ambiguous, it was found in namespace: ";
+                std::wstring err_info = RS_ERR_SYMBOL_IS_AMBIGUOUS;
                 size_t fnd_count = 0;
                 for (auto fnd_result : searching_result)
                 {
                     auto _full_namespace_ = rs::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
                     if (_full_namespace_ == L"")
-                        err_info += L"global namespace";
+                        err_info += RS_TERM_GLOBAL_NAMESPACE;
                     else
                         err_info += L"'" + _full_namespace_ + L"'";
                     fnd_count++;
                     if (fnd_count + 1 == searching_result.size())
-                        err_info += L" and ";
+                        err_info += L" " RS_TERM_AND L" ";
                     else
                         err_info += L", ";
                 }
 
-                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), var_ident->var_name.c_str());
+                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str.c_str());
             }
 
             return *searching_result.begin();
         }
-
+        lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
+        {
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
+            if (result && result->type != lang_symbol::symbol_type::typing)
+            {
+                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_NOT_A_TYPE, var_ident->type_name.c_str());
+                return nullptr;
+            }
+            return result;
+        }
+        lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
+        {
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
+            if (result && result->type == lang_symbol::symbol_type::typing)
+            {
+                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE, var_ident->var_name.c_str());
+                return nullptr;
+            }
+            return result;
+        }
         bool has_compile_error()const
         {
             return !lang_anylizer->lex_error_list.empty();

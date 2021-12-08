@@ -8,6 +8,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 */
 
 #include "rs_compiler_lexer.hpp"
+#include "rs_lang_compiler_information.hpp"
 
 #include <variant>
 #include <functional>
@@ -265,7 +266,7 @@ namespace rs
                     }
                     else
                     {
-                        return lex.parser_error(0x0000, L"Unexcepted node type: should be ast node or token.");
+                        return lex.parser_error(0x0000, RS_ERR_UNEXCEPT_AST_NODE_TYPE);
                     }
                 }
                 return (ast_base*)defaultAST;
@@ -1365,7 +1366,7 @@ namespace rs
                         }
                         else
                         {
-                            tkr.parser_error(0x0000, L"Unknown error when parsing: unexcepted node type.");
+                            tkr.parser_error(0x0000, RS_ERR_SHOULD_BE_AST_BASE);
                             return nullptr;
                         }
                     }
@@ -1400,7 +1401,7 @@ namespace rs
 
                     if (should_be.size())
                     {
-                        advise = L", excepted ";
+                        advise = L", " RS_TERM_EXCEPTED L" ";
                         for (auto& excepted_te : should_be)
                         {
                             if (excepted_te.t_name != L"")
@@ -1451,11 +1452,11 @@ namespace rs
 
                     if (type == +lex_type::l_eof)
                     {
-                        err_info = L"Unexcepted end of file" + advise;
+                        err_info = RS_ERR_UNEXCEPT_EOF + advise;
                     }
                     else
                     {
-                        err_info = L"Unexcepted token: " +
+                        err_info = RS_ERR_UNEXCEPT_TOKEN +
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
 
@@ -1596,7 +1597,7 @@ namespace rs
 
                     //此处进行错误例程，恢复错误状态，检测可能的错误可能，然后继续
                 error_handle_fail:
-                    tkr.parser_error(0x0000, L"Unable to recover from now error state, abort.");
+                    tkr.parser_error(0x0000, RS_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
@@ -1604,7 +1605,7 @@ namespace rs
 
             } while (true);
 
-            tkr.parser_error(0x0000, L"Unexcepted end of file.");
+            tkr.parser_error(0x0000, RS_ERR_UNEXCEPT_EOF);
 
             return nullptr;
         }

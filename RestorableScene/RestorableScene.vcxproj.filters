@@ -140,5 +140,8 @@
     <ClInclude Include="rs_stdlib.hpp">
       <Filter>stdlib</Filter>
     </ClInclude>
+    <ClInclude Include="rs_lang_compiler_information.hpp">
+      <Filter>lang</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

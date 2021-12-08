@@ -142,6 +142,17 @@ namespace rs
             virtual int64_t try_set_int(int64_t _val) = 0;
         };
 
+        struct tag :virtual opnumbase
+        {
+            std::string name;
+
+            tag(const std::string& _name)
+                : name(_name)
+            {
+
+            }
+        };
+
         template<typename T>
         struct imm :virtual immbase
         {
@@ -171,6 +182,9 @@ namespace rs
 
             bool operator < (const immbase& _another) const override
             {
+                if (dynamic_cast<const tag*>(&_another))
+                    return false;
+
                 auto t = type();
                 auto t2 = _another.type();
                 if (t == t2)
@@ -213,17 +227,6 @@ namespace rs
 
                 rs_error("Immediate is not integer.");
                 return 0;
-            }
-        };
-
-        struct tag :virtual opnumbase
-        {
-            std::string name;
-
-            tag(const std::string& _name)
-                : name(_name)
-            {
-
             }
         };
 

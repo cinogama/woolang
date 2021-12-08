@@ -513,6 +513,8 @@ bool rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
     lang.analyze_pass1(result);
     lang.analyze_pass2(result);
 
+    // result->display();
+
     if (lang.has_compile_error())
     {
         // Clean all ast & lang's template things.

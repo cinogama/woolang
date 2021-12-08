@@ -63,7 +63,22 @@ namespace rs
 #endif
         /////////////////////////////////////////////////////////////////////////////////
 
-        struct ast_type : virtual public grammar::ast_base
+        struct ast_symbolable_base : virtual grammar::ast_base
+        {
+            std::vector<std::wstring> scope_namespaces;
+            bool search_from_global_namespace = false;
+
+            lang_symbol* symbol = nullptr;
+            lang_scope* searching_begin_namespace_in_pass2 = nullptr;
+
+            std::string get_namespace_chain()const
+            {
+                return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
+            }
+
+        };
+
+        struct ast_type : virtual public ast_symbolable_base
         {
             bool is_function_type = false;
             bool is_variadic_function_type = false;
@@ -76,8 +91,6 @@ namespace rs
             bool is_pending_type = false;
 
             std::vector<ast_type*> argument_types;
-
-
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
@@ -232,6 +245,8 @@ namespace rs
             ast_type(const std::wstring& _type_name)
             {
                 set_type_with_name(_type_name);
+                if (is_custom_type(_type_name))
+                    is_pending_type = true;
             }
             ast_type(const value& _val)
             {
@@ -270,6 +285,22 @@ namespace rs
             bool is_dynamic() const
             {
                 return !is_func() && type_name == L"dynamic";
+            }
+            bool is_custom() const
+            {
+                if (is_func())
+                {
+                    for (auto arg_type : argument_types)
+                    {
+                        if (arg_type->is_custom())
+                            return true;
+                    }
+                }
+
+                if (is_complex())
+                    return complex_type->is_custom();
+                else
+                    return is_custom_type(type_name);
             }
             bool is_pending() const
             {
@@ -325,8 +356,8 @@ namespace rs
                         if (!argument_types[index]->is_same(another->argument_types[index]))
                             return false;
                     }
-
-                    return is_variadic_function_type == another->is_variadic_function_type;
+                    if (is_variadic_function_type != another->is_variadic_function_type)
+                        return false;
                 }
                 if (is_complex() && another->is_complex())
                     return complex_type->is_same(another->complex_type);
@@ -607,7 +638,7 @@ namespace rs
                     {
                         if (has_describe != +lex_type::l_error)
                         {
-                            lex->parser_error(0x0000, L"Can not be declared as 'public', 'protected' or 'private' at the same time.");
+                            lex->parser_error(0x0000, RS_ERR_CANNOT_DECL_PUB_PRI_PRO_SAME_TIME);
                             break;
                         }
                         has_describe = att;
@@ -622,7 +653,7 @@ namespace rs
 
                 }
                 else
-                    lex->parser_warning(0x0000, L"Duplicate attribute description.");
+                    lex->parser_warning(0x0000, RS_WARN_REPEAT_ATTRIBUTE);
 
             }
 
@@ -638,18 +669,8 @@ namespace rs
             ast_decl_attribute* declear_attribute = nullptr;
         };
 
-        struct ast_value_symbolable_base : virtual ast_value
+        struct ast_value_symbolable_base : virtual ast_value, virtual ast_symbolable_base
         {
-            std::vector<std::wstring> scope_namespaces;
-            bool search_from_global_namespace = false;
-
-            lang_symbol* symbol = nullptr;
-            lang_scope* searching_begin_namespace_in_pass2 = nullptr;
-
-            std::string get_namespace_chain()const
-            {
-                return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
-            }
 
         };
 
@@ -1215,6 +1236,12 @@ namespace rs
             std::vector<ast_enum_item*> enum_items;
         };
 
+        struct ast_using_type_as : virtual public ast_defines
+        {
+            std::wstring new_type_identifier;
+            ast_type* old_type;
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1300,10 +1327,18 @@ namespace rs
             {
                 rs_assert(input.size() == 5);
 
+                ast_list* bind_type_and_decl_list = new ast_list;
+
                 ast_namespace* enum_scope = new ast_namespace;
                 ast_list* decl_list = new ast_list;
 
                 enum_scope->scope_name = RS_NEED_TOKEN(1).identifier;
+
+                auto* using_enum_as_int = new ast_using_type_as;
+                using_enum_as_int->new_type_identifier = enum_scope->scope_name;
+                using_enum_as_int->old_type = new ast_type(L"int");
+                bind_type_and_decl_list->append_at_end(using_enum_as_int);
+
                 enum_scope->in_scope_sentence = decl_list;
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(RS_NEED_AST(3));
 
@@ -1324,7 +1359,8 @@ namespace rs
                 }
 
                 decl_list->append_at_end(vardefs);
-                return (ast_basic*)enum_scope;
+                bind_type_and_decl_list->append_at_end(enum_scope);
+                return (ast_basic*)bind_type_and_decl_list;
             }
         };
 
@@ -1369,7 +1405,7 @@ namespace rs
                         }
                         else
                         {
-                            return lex.parser_error(0x0000, L"'%s' cannot be negative.", right_v->value_type->get_type_name());
+                            return lex.parser_error(0x0000, RS_ERR_TYPE_CANNOT_NEGATIVE, right_v->value_type->get_type_name());
                         }
                     }
                     else /*if(_token.type == +lex_type::l_lnot)*/
@@ -1418,7 +1454,7 @@ namespace rs
                 path += L".rsn";
                 std::wstring srcfile, src_full_path;
                 if (!rs::read_virtual_source(&srcfile, &src_full_path, path, &lex))
-                    return lex.parser_error(0x0000, L"Cannot open file: '%s'.", path.c_str());
+                    return lex.parser_error(0x0000, RS_ERR_CANNOT_OPEN_FILE, path.c_str());
 
                 if (!lex.has_been_imported(src_full_path))
                 {
@@ -1478,7 +1514,7 @@ namespace rs
                     auto expand_count = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(2).identifier);
 
                     if (!expand_count)
-                        lex.parser_error(0x0000, L"Unpacking operate should unpack at least 1 arguments.");
+                        lex.parser_error(0x0000, RS_ERR_UNPACK_ARG_LESS_THEN_ONE);
 
                     return (ast_basic*)new ast_fakevalue_unpacked_args(
                         dynamic_cast<ast_value*>(RS_NEED_AST(0)),
@@ -1509,7 +1545,7 @@ namespace rs
                         );
 
                     if (!extern_symb->externed_func)
-                        lex.parser_error(0x0000, L"Cannot find extern symbol: '%s'."
+                        lex.parser_error(0x0000, RS_ERR_CANNOT_FIND_EXT_SYM
                             , extern_symb->symbol_name.c_str());
                 }
                 else if (input.size() == 6)
@@ -1651,7 +1687,7 @@ namespace rs
                     if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
                     {
                         if (ast_func->value_type->is_variadic_function_type)
-                            return lex.parser_error(0x0000, L"There should be no argument after '...'.");
+                            return lex.parser_error(0x0000, RS_ERR_ARG_DEFINE_AFTER_VARIADIC);
 
                         ast_func->value_type->append_function_argument_type(arg_node->value_type);
                     }
@@ -1812,7 +1848,7 @@ namespace rs
                     }
                     else if (value_node->value_type->is_dynamic())
                     {
-                        lex.lang_warning(0x0000, type_node, L"Overridden 'dynamic' attributes.");
+                        lex.lang_warning(0x0000, type_node, RS_WARN_OVERRIDDEN_DYNAMIC_TYPE);
                     }
 
                     switch (aim_real_type)
@@ -1862,12 +1898,12 @@ namespace rs
                         else
                         {
                             if (!force)
-                                lex.lang_error(0x0000, type_node, L"Cannot implicit-cast '%s' to '%s'.",
-                                    value_node->value_type->get_type_name().c_str(),
+                                lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
                                     type_node->get_type_name().c_str());
                             else
-                                lex.lang_error(0x0000, type_node, L"Cannot cast '%s' to '%s'.",
-                                    value_node->value_type->get_type_name().c_str(),
+                                lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
                                     type_node->get_type_name().c_str());
 
                             cast_result->_constant_value.set_nil();
@@ -1939,7 +1975,7 @@ namespace rs
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_using_namespace* aunames = new ast_using_namespace();
-                auto vs = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
+                auto vs = dynamic_cast<ast_value_variable*>(RS_NEED_AST(2));
                 rs_assert(vs);
 
                 aunames->from_global_namespace = vs->search_from_global_namespace;
@@ -2058,7 +2094,7 @@ namespace rs
             {
                 if constexpr (std::is_same<T, rs_string_t>::value)
                     if (op_type != +lex_type::l_add)
-                        lex.parser_error(0x0000, L"Unsupported string operations.");
+                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP);
                 if constexpr (std::is_same<T, rs_handle_t>::value)
                     if (op_type == +lex_type::l_mul
                         || op_type == +lex_type::l_div
@@ -2066,7 +2102,7 @@ namespace rs
                         || op_type == +lex_type::l_mul_assign
                         || op_type == +lex_type::l_div_assign
                         || op_type == +lex_type::l_mod_assign)
-                        lex.parser_error(0x0000, L"Unsupported handle operations.");
+                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP);
 
                 switch (op_type)
                 {
@@ -2099,50 +2135,8 @@ namespace rs
                         else
                             return left % right;
                     }
-                case lex_type::l_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_add_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_sub_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_mul_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_div_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_mod_assign:
-                    lex.parser_error(0x0000, L"Can not assign to a constant.");
-                    break;
-                case lex_type::l_equal:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_not_equal:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_larg_or_equal:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_less_or_equal:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_less:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_larg:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_land:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
-                case lex_type::l_lor:
-                    rs_error("Cannot calculate by this funcion");
-                    break;
                 default:
-                    rs_error("Cannot calculate by this funcion");
+                    rs_error("Grammar error: cannot calculate by this funcion");
                     break;
                 }
                 return T{};
@@ -2259,7 +2253,7 @@ namespace rs
                 else
                 {
                     if (nullptr == (result_type = binary_upper_type(left_v->value_type, right_v->value_type)))
-                        return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
+                        return lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                 }
 
                 if (left_v->is_constant && right_v->is_constant)
@@ -2313,7 +2307,7 @@ namespace rs
                     }
                     break;
                     default:
-                        return lex.parser_error(0x0000, L"The value types on the left and right are incompatible.");
+                        return lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                         break;
                     }
 
@@ -2347,7 +2341,7 @@ namespace rs
                 rs_test(lexer::lex_is_operate_type(_token.type));
 
                 if (left_v->is_constant)
-                    return lex.parser_error(0x0000, L"Cannot assign value to constant.");
+                    return lex.parser_error(0x0000, RS_ERR_CANNOT_ASSIGN_TO_CONSTANT);
 
                 ast_value_assign* vbin = new ast_value_assign();
                 vbin->left = left_v;
@@ -2425,7 +2419,7 @@ namespace rs
                                 if (right_v->value_type->value_type != value::valuetype::integer_type
                                     && right_v->value_type->value_type != value::valuetype::handle_type)
                                 {
-                                    return lex.parser_error(0x0000, L"Can not index string with this type of value.");
+                                    return lex.parser_error(0x0000, RS_ERR_CANNOT_INDEX_STR_WITH_TYPE, right_v->value_type->get_type_name().c_str());
                                 }
 
                                 ast_value_literal* const_result = new ast_value_literal();
@@ -2476,10 +2470,12 @@ namespace rs
                 ast_basic* main_type = RS_NEED_AST(0);
                 if (auto* scoping_type = dynamic_cast<ast_value_variable*>(main_type))
                 {
-                    if (scoping_type->scope_namespaces.size() || scoping_type->search_from_global_namespace)
-                        rs_error("not support now~");
-
                     result = new ast_type(scoping_type->var_name);
+                    result->search_from_global_namespace = scoping_type->search_from_global_namespace;
+                    result->scope_namespaces = scoping_type->scope_namespaces;
+                    if (result->search_from_global_namespace || !result->scope_namespaces.empty())
+                        result->is_pending_type = true;
+                    
                 }
                 else
                 {
@@ -2528,6 +2524,21 @@ namespace rs
             }
         };
 
+        struct pass_using_type_as : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // using xxx  = xxx
+
+                ast_using_type_as* using_type = new ast_using_type_as;
+                using_type->new_type_identifier = RS_NEED_TOKEN(2).identifier;
+                using_type->old_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
+                using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                return(ast_basic*)using_type;
+            }
+        };
+
+
         struct pass_token :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -2575,6 +2586,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>]
+                = _register_builder<pass_using_type_as>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_enum_item_create>]
                 = _register_builder<pass_enum_item_create>();
 

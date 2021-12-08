@@ -162,6 +162,7 @@
     <ClInclude Include="rs_crc_64.hpp" />
     <ClInclude Include="rs_env_locale.hpp" />
     <ClInclude Include="rs_exceptions.hpp" />
+    <ClInclude Include="rs_lang_compiler_information.hpp" />
     <ClInclude Include="rs_lang_extern_symbol_loader.hpp" />
     <ClInclude Include="rs_source_file_manager.hpp" />
     <ClInclude Include="rs_lang.hpp" />

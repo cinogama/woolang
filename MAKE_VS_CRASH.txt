@@ -1,0 +1,52 @@
+#pragma once
+// This file using to store compiler/lexer's error informations.
+// Here will be 
+
+#define RS_LANG_EN 0
+#define RS_LANG_ZH_CN 1
+
+#define RS_USED_LANGUAGE RS_LANG_EN
+
+#if RS_USED_LANGUAGE == RS_LANG_EN
+
+#define RS_ERR_IN_LEXER_MISMATCHED_ANNOTATION_SYM \
+L"Mismatched annotation symbols."
+
+#define RS_ERR_IN_LEXER_UNEXCEPTED_CH_AFTER_CH \
+L"Unexcepted character '%c' after '%c'."
+
+#define RS_ERR_IN_LEXER_UNEXCEPTED_CH_AFTER_CH_EXCEPT_CH \
+L"Unexcepted character '%c' after '%c', except '%c'."
+
+#define RS_ERR_IN_LEXER_UNEXCEPTED_EOF \
+L"Unexcepted EOF when parsing string."
+
+#define RS_ERR_IN_LEXER_ILLEGAL_LITERAL \
+L"Illegal literal."
+
+#define RS_ERR_IN_LEXER_UNKNOWN_OPERATOR_STR \
+L"Unknown operator: '%s'."
+
+#define RS_ERR_IN_LEXER_UNEXCEPTED_END_OF_LINE_IN_STRING \
+L"Unexcepted end of line when parsing string."
+
+#define RS_ERR_IN_LEXER_LEXER_ERR_UNKNOWN_NUMBER_BASE \
+L"Lexer error, unknown number base."
+
+#define RS_ERR_IN_LEXER_LEXER_ERR_UNKNOWN_BEGIN_CHARACHER_CH \
+L"Lexer error, unknown begin character: '%c'."
+
+//////////////////////////////////////////////////////////////////
+
+#define RS_WARN_IN_LEXER_UNKNOWN_ESCAPE_SEQUENCES_BEGIN_WITH_CH \
+L"Unknown escape sequences begin with '%c'."
+
+//////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+
+#define RS_ERR_IN_PARSER_UNEXCEPTED_AST_NODE_TYPE\
+L"Unexcepted node type: should be ast node or token."
+
+
+
+#endif

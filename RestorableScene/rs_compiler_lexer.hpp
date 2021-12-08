@@ -13,6 +13,8 @@
 
 #include "enum.h"
 
+#include "rs_lang_compiler_information.hpp"
+
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN
 #define ANSI_WIDE_CHAR_SIGN L
@@ -732,7 +734,7 @@ namespace rs
                             lex_enable_error_warn = true;
                             now_file_colno = fcol_begin;
                             now_file_rowno = frow_begin;
-                            lex_error(0x0005, L"Mismatched annotation symbols.");
+                            lex_error(0x0005, RS_ERR_MISMATCH_ANNO_SYM);
                             fcol_begin = now_file_colno;
                             frow_begin = now_file_rowno;
                             lex_enable_error_warn = false;// This error only caused once in peek, force error.
@@ -765,7 +767,7 @@ namespace rs
                     else if (!lex_isdigit(sec_ch))
                         base = 10;                      // is dec"0"
                     else
-                        return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", sec_ch, readed_ch);
+                        return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, sec_ch, readed_ch);
                 }
 
                 int following_chs;
@@ -789,19 +791,19 @@ namespace rs
                         {
                             write_result(next_one());
                             if (is_real)
-                                return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                                return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                             is_real = true;
                         }
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             if (is_real)
-                                return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                                return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                             next_one();
                             is_handle = true;
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, L"Illegal decimal literal.", following_chs, readed_ch);
+                            return lex_error(0x0004, RS_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -810,7 +812,7 @@ namespace rs
                         if (lex_isxdigit(following_chs) || lex_toupper(following_chs) == L'X')
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                            return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
@@ -818,7 +820,7 @@ namespace rs
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, L"Illegal hexadecimal literal.", following_chs, readed_ch);
+                            return lex_error(0x0004, RS_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -827,7 +829,7 @@ namespace rs
                         if (lex_isodigit(following_chs))
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                            return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
@@ -835,7 +837,7 @@ namespace rs
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, L"Illegal octal literal.", following_chs, readed_ch);
+                            return lex_error(0x0004, RS_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -844,19 +846,19 @@ namespace rs
                         if (following_chs == L'1' || following_chs == L'0' || lex_toupper(following_chs) == L'B')
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, L"Unexcepted character '%c' after '%c'.", following_chs, readed_ch);
+                            return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
                             is_handle = true;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, L"Illegal binary literal.", following_chs, readed_ch);
+                            return lex_error(0x0004, RS_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
                     else
-                        return lex_error(0x000, L"Lexer error, unknown number base.");
+                        return lex_error(0x0000, RS_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
 
                 } while (true);
 
@@ -895,11 +897,11 @@ namespace rs
                         if (following_ch != EOF)
                             write_result(following_ch);
                         else
-                            return lex_error(0x0002, L"Unexcepted EOF when parsing string.");
+                            return lex_error(0x0002, RS_ERR_UNEXCEPT_EOF);
                     }
                 }
                 else
-                    return lex_error(0x0001, L"Unexcepted character '%c' after '%c', except '\"'.", tmp_ch, readed_ch);
+                    return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');
             }
             else if (readed_ch == L'"')
             {
@@ -974,7 +976,7 @@ namespace rs
                             }
                             default:
                             str_escape_sequences_fail:
-                                lex_warning(0x0001, L"Unknown escape sequences begin with '%c'.", escape_ch);
+                                lex_warning(0x0001, RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                                 write_result(escape_ch);
                                 break;
                             }
@@ -983,7 +985,7 @@ namespace rs
                             write_result(following_ch);
                     }
                     else
-                        return lex_error(0x0002, L"Unexcepted end of line when parsing string.");
+                        return lex_error(0x0002, RS_ERR_UNEXCEPTED_EOL_IN_STRING);
                 }
             }
             else if (lex_isidentbeg(readed_ch))
@@ -1037,7 +1039,7 @@ namespace rs
                 } while (true);
 
                 if (operator_type == +lex_type::l_error)
-                    return lex_error(0x0003, L"Unknown operator: '%s'.", read_result().c_str());
+                    return lex_error(0x0003, RS_ERR_UNKNOW_OPERATOR_STR, read_result().c_str());
 
                 return operator_type;
             }
@@ -1070,7 +1072,7 @@ namespace rs
                 return lex_type::l_eof;
             }
             ///////////////////////////////////////////////////////////////////////////////////////
-            return lex_error(0x000, L"Lexer error, unknown begin character: '%c'.", readed_ch);
+            return lex_error(0x000, RS_ERR_LEXER_ERR_UNKNOW_BEGIN_CH, readed_ch);
         }
 
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal)
