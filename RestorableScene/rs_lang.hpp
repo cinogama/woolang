@@ -876,7 +876,7 @@ namespace rs
                                     }
                                     else
                                     {
-                                        if (!arg_val->value_type->is_same(*a_type_index))
+                                        if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index))
                                         {
                                             auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, *a_type_index);
                                             cast_arg_type->col_no = arg_val->col_no;

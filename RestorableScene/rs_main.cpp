@@ -18,19 +18,24 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
-func out_string(ref str:string)
+func fib(var n:int)
 {
-    str = "Helloworld";
+    if (n <= 2)
+        return 1;
+    return fib(n-1) + fib(n-2);
 }
 
 func main()
 {
-    var a = "";
-    ref r = a;
-
-    out_string(ref r);
-    
-    std::println(a);
+    var begin_tm = std::time();
+    var i = 0;
+    while (i < 40)
+    {
+        std::println(i, ":", fib(i));
+        i += 1;
+    }
+    var end_tm = std::time();
+    std::println("cost time:", end_tm - begin_tm);
 }
 
 main();
@@ -40,7 +45,7 @@ main();
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    //((rs::vm*)vmm)->dump_program_bin();
+    ((rs::vm*)vmm)->dump_program_bin();
 
     //rs::default_debuggee dgb;
     //((rs::vm*)vmm)->attach_debuggee(&dgb);
