@@ -21,7 +21,6 @@ enum Enum
 const var fxxl = Enum::XXX;
 var o0 = fxxl;
 
-
 )");
 
     rs_vm vmm = rs_create_vm();
