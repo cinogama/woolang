@@ -58,33 +58,37 @@ namespace rs
 
         enum vm_interrupt_type
         {
-            NOTHING = 0,                // There is no interrupt
+            NOTHING = 0,
+            // There is no interrupt
 
-            GC_INTERRUPT = 1 << 8,      // GC work will cause this interrupt, if vm received this interrupt,
-                                        // should clean this interrupt flag, if clean-operate is successful,
-                                        // vm should call 'hangup' to wait for GC work. 
-                                        // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
-                                        // failed, it means vm already hangned(or trying hangs now), GC work
-                                        // will call 'wakeup' to resume vm.
+            GC_INTERRUPT = 1 << 8,
+            // GC work will cause this interrupt, if vm received this interrupt,
+            // should clean this interrupt flag, if clean-operate is successful,
+            // vm should call 'hangup' to wait for GC work. 
+            // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
+            // failed, it means vm already hangned(or trying hangs now), GC work
+            // will call 'wakeup' to resume vm.
 
-                                        LEAVE_INTERRUPT = 1 << 9,   // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
-                                                                    // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
-                                                                    // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
-                                                                    // a limitted time.
-                                                                    // VM will set LEAVE_INTERRUPT when:
-                                                                    // 1) calling native function
-                                                                    // 2) leaving vm run()
-                                                                    // 3) vm was created.
-                                                                    // VM will clean LEAVE_INTERRUPT when:
-                                                                    // 1) the native function calling was end.
-                                                                    // 2) enter vm run()
-                                                                    // 3) vm destructed.
-                                                                    // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-                                                                    //            successful. (We use 'rs_asure' here)'
+            LEAVE_INTERRUPT = 1 << 9,
+            // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
+            // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
+            // If LEAVE_INTERRUPT was setted, 'wait_interrupt' will try to wait in
+            // a limitted time.
+            // VM will set LEAVE_INTERRUPT when:
+            // 1) calling native function
+            // 2) leaving vm run()
+            // 3) vm was created.
+            // VM will clean LEAVE_INTERRUPT when:
+            // 1) the native function calling was end.
+            // 2) enter vm run()
+            // 3) vm destructed.
+            // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
+            //            successful. (We use 'rs_asure' here)'
 
-                                                                    DEBUG_INTERRUPT = 1 << 10,  // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
-                                                                                                // to check about breakpoint.
-                                                                                                // * DEBUG_INTERRUPT will cause huge performance loss
+            DEBUG_INTERRUPT = 1 << 10,
+            // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
+            // to check about breakpoint.
+            // * DEBUG_INTERRUPT will cause huge performance loss
         };
 
         vmbase(const vmbase&) = delete;
@@ -223,11 +227,8 @@ namespace rs
 
         value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
-
         value* _self_stack_reg_mem_buf = nullptr;
-
         std::shared_ptr<runtime_env> env;
-
         void set_runtime(ir_compiler& _compiler)
         {
             // using LEAVE_INTERRUPT to stop GC
@@ -250,9 +251,7 @@ namespace rs
 
             rs_asure(interrupt(LEAVE_INTERRUPT));
         }
-
         virtual vmbase* create_machine() const = 0;
-
         vmbase* make_machine() const
         {
             rs_assert(env != nullptr);
@@ -279,7 +278,7 @@ namespace rs
             new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
             new_vm->ths = new_vm->register_mem_begin + opnum::reg::spreg::ths;
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
-            
+
             new_vm->env = env;  // env setted, gc will scan this vm..
 
             new_vm->attach_debuggee(this->attaching_debuggee);
@@ -287,7 +286,6 @@ namespace rs
             rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
         }
-
         inline void dump_program_bin(std::ostream& os = std::cout) const
         {
             auto* program = env->rt_codes;
@@ -585,7 +583,29 @@ namespace rs
                     }
 
                     break;
+                case instruct::typeas:
+                    tmpos << "typeas\t"; print_opnum1();
+                    tmpos << " : ";
+                    switch ((value::valuetype) * (this_command_ptr++))
+                    {
+                    case value::valuetype::integer_type:
+                        tmpos << "int"; break;
+                    case value::valuetype::real_type:
+                        tmpos << "real"; break;
+                    case value::valuetype::handle_type:
+                        tmpos << "handle"; break;
+                    case value::valuetype::string_type:
+                        tmpos << "string"; break;
+                    case value::valuetype::array_type:
+                        tmpos << "array"; break;
+                    case value::valuetype::mapping_type:
+                        tmpos << "map"; break;
+                    default:
+                        tmpos << "unknown"; break;
+                    }
 
+                    break;
+                    
                 case instruct::movx:
                     tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
@@ -685,7 +705,6 @@ namespace rs
 
             os << std::endl;
         }
-
         inline void dump_call_stack(std::ostream& os = std::cout)
         {
             auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip);
@@ -887,7 +906,7 @@ namespace rs
 #define RS_ADDRESSING_N1_REF RS_ADDRESSING_N1 -> get()
 #define RS_ADDRESSING_N2_REF RS_ADDRESSING_N2 -> get()
 
-#define RS_VM_FAIL(ERRNO,ERRINFO) do{ip = rt_ip;sp = rt_sp;bp = rt_bp;rs_fail(ERRNO,ERRINFO);}while(0)
+#define RS_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;rs_fail(ERRNO,ERRINFO);continue;}
 
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -1825,6 +1844,13 @@ namespace rs
 
                         break;
                     }
+                    case instruct::opcode::typeas:
+                    {
+                        RS_ADDRESSING_N1_REF;
+                        if (opnum1->type != (value::valuetype)(RS_IPVAL_MOVE_1))
+                            RS_VM_FAIL(RS_ERR_TYPE_FAIL, "The given value is not the same as the requested type.");
+                        break;
+                    }
                     case instruct::opcode::lds:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2248,9 +2274,13 @@ namespace rs
                     }
                     case instruct::opcode::ret:
                     {
-                        rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                        rs_assert((rt_bp + 1)->type == value::valuetype::callstack
+                            || (rt_bp + 1)->type == value::valuetype::nativecallstack);
 
-                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                        if ((++rt_bp)->type == value::valuetype::nativecallstack)
+                            return; // last stack is native_func, just do return;
+
+                        value* stored_bp = stack_mem_begin - rt_bp->bp;
                         rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
@@ -2396,7 +2426,11 @@ namespace rs
                         created_array->resize((size_t)opnum2->integer);
                         for (size_t i = 0; i < (size_t)opnum2->integer; i++)
                         {
-                            (*created_array)[i].set_val((++rt_sp)->get());
+                            auto* arr_val = ++rt_sp;
+                            if (arr_val->is_ref())
+                                (*created_array)[i].set_ref(arr_val->get());
+                            else
+                                (*created_array)[i].set_val(arr_val->get());
                         }
                         break;
                     }
@@ -2417,7 +2451,10 @@ namespace rs
                         {
                             value* val = ++rt_sp;
                             value* key = ++rt_sp;
-                            (*created_map)[*(key->get())].set_val(val->get());
+                            if (val->is_ref())
+                                (*created_map)[*(key->get())].set_ref(val->get());
+                            else
+                                (*created_map)[*(key->get())].set_val(val->get());
                         }
                         break;
                     }

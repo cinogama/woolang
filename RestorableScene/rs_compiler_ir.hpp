@@ -75,11 +75,11 @@ namespace rs
                 r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
 
                 // special regist
-                op_trace_result = 0b00100000,   cr = op_trace_result,
-                argument_count,                 tc = argument_count,
-                exception_inform,               er = exception_inform,
-                nil_constant,                   ni = nil_constant,
-                index_from,                     ths = index_from,
+                op_trace_result = 0b00100000, cr = op_trace_result,
+                argument_count, tc = argument_count,
+                exception_inform, er = exception_inform,
+                nil_constant, ni = nil_constant,
+                index_from, ths = index_from,
 
                 last_special_register = 0b00111111,
             };
@@ -1106,6 +1106,14 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::setcast, RS_OPNUM(op1), RS_OPNUM(op2), (int)vtt);
         }
+        template<typename OP1T>
+        void typeas(const OP1T& op1, value::valuetype vtt)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::typeas, RS_OPNUM(op1), nullptr, (int)vtt);
+        }
 
         template<typename OP1T>
         void call(const OP1T& op1)
@@ -1282,7 +1290,7 @@ namespace rs
         template<typename OP1T, typename OP2T>
         void ext_packargs(const OP1T& op1, const OP2T& op2)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value&&
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
                 std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
@@ -1414,7 +1422,11 @@ namespace rs
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     break;
-
+                case instruct::opcode::typeas:
+                    runtime_command_buffer.push_back(RS_OPCODE(typeas));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                    break;
                 case instruct::opcode::psh:
                     if (nullptr == RS_IR.op1)
                     {

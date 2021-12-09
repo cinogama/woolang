@@ -54,7 +54,7 @@ namespace std
         print("\n");
         return c;
     }
-    func assert(var judgement, var failed_info)
+    func assert(var judgement, var failed_info:string)
     {
         if (!judgement)
             fail(failed_info);

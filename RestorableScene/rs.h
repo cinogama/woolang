@@ -109,8 +109,8 @@ RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data);
 
 RS_API rs_vm        rs_create_vm();
 RS_API void         rs_close_vm(rs_vm vm);
-RS_API bool         rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
-RS_API bool         rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
+RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
+RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_value     rs_run(rs_vm vm);
 
 

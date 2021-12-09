@@ -25,9 +25,12 @@ namespace rs
         bool static_symbol = false;
         bool has_been_defined_in_pass2 = false;
         bool is_constexpr = false;
+        bool has_been_assigned = false;
+        bool is_ref = false;
+
         union
         {
-            size_t stackvalue_index_in_funcs = size_t(-1);
+            rs_integer_t stackvalue_index_in_funcs = 0;
             size_t global_index_in_lang;
         };
 
@@ -61,6 +64,7 @@ namespace rs
         std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
 
         std::vector<ast::ast_using_namespace*> used_namespace;
+        std::vector<lang_symbol*> in_function_symbols;
 
         ast::ast_value_function_define* function_node;
 
@@ -69,15 +73,36 @@ namespace rs
 
         size_t this_block_used_stackvalue_count = 0;
 
-        size_t assgin_stack_index()
+        size_t assgin_stack_index(lang_symbol* in_func_variable)
         {
             rs_assert(type == scope_type::function_scope);
+            in_function_symbols.push_back(in_func_variable);
 
             if (used_stackvalue_index + 1 > max_used_stack_size_in_func)
                 max_used_stack_size_in_func = used_stackvalue_index + 1;
             return used_stackvalue_index++;
         }
+
+        void reduce_function_used_stack_size_at(rs_integer_t canceled_stack_pos)
+        {
+            max_used_stack_size_in_func--;
+            for (auto* infuncvars : in_function_symbols)
+            {
+                rs_assert(infuncvars->type == lang_symbol::symbol_type::variable);
+
+                if (!infuncvars->static_symbol)
+                {
+                    if (infuncvars->stackvalue_index_in_funcs == canceled_stack_pos)
+                        infuncvars->stackvalue_index_in_funcs = 0;
+                    else if (infuncvars->stackvalue_index_in_funcs > canceled_stack_pos)
+                        infuncvars->stackvalue_index_in_funcs--;
+                }
+
+            }
+        }
+
     };
+
 
     class lang
     {
@@ -184,7 +209,7 @@ namespace rs
                 {
                     analyze_pass1(varref.init_val);
                     varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
-
+                    varref.symbol->is_ref = varref.is_ref;
                     a_varref_defs->add_child(varref.init_val);
                 }
             }
@@ -216,6 +241,10 @@ namespace rs
 
                 a_value_assi->add_child(a_value_assi->left);
                 a_value_assi->add_child(a_value_assi->right);
+
+                if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
+                    ; lsymb && lsymb->symbol)
+                    lsymb->symbol->has_been_assigned = true;
 
                 a_value_assi->value_type = new ast_type(L"pending");
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
@@ -251,6 +280,10 @@ namespace rs
                 analyze_pass1(a_value_cast->_be_cast_value_node);
                 a_value_cast->add_child(a_value_cast->_be_cast_value_node);
             }
+            else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(ast_node))
+            {
+                analyze_pass1(ast_value_judge->_be_cast_value_node);
+            }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
                 a_value_func->this_func_scope = begin_function(a_value_func);
@@ -261,6 +294,7 @@ namespace rs
                     if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
                         argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
+                        argdef->symbol->is_ref = argdef->is_ref;
                     }
                     else
                     {
@@ -344,7 +378,6 @@ namespace rs
                             {
                                 if (!func_return_type->is_same(a_ret->return_value->value_type))
                                 {
-
                                     auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                     cast_return_type->col_no = a_ret->col_no;
                                     cast_return_type->row_no = a_ret->row_no;
@@ -803,6 +836,7 @@ namespace rs
                                     real_args->sibling = nullptr;
 
                                     auto* arg_val = dynamic_cast<ast_value*>(real_args);
+                                    real_args = tmp_sib;
 
                                     if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
                                     {
@@ -812,9 +846,11 @@ namespace rs
                                         if (0 == ecount)
                                         {
                                             // all in!!!
-                                            a_fakevalue_unpack_args->expand_count =
-                                                -(rs_integer_t)(a_type_index
-                                                    - a_value_funccall->called_func->value_type->argument_types.begin());
+                                            ecount =
+                                                (rs_integer_t)(
+                                                    a_value_funccall->called_func->value_type->argument_types.end()
+                                                    - a_type_index);
+                                            a_fakevalue_unpack_args->expand_count = -ecount;
                                         }
 
                                         while (ecount)
@@ -836,6 +872,7 @@ namespace rs
                                             ecount--;
                                         }
 
+                                        a_type_index--;
                                     }
                                     else
                                     {
@@ -851,11 +888,9 @@ namespace rs
                                         }
                                         else
                                         {
-                                            a_value_funccall->arguments->add_child(real_args);
+                                            a_value_funccall->arguments->add_child(arg_val);
                                         }
                                     }
-                                    real_args = tmp_sib;
-
                                 }
                             }
                             if (a_value_funccall->called_func->value_type->is_variadic_function_type)
@@ -914,6 +949,10 @@ namespace rs
                 else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
                 {
                     analyze_pass2(a_value_assi->right);
+
+                    if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
+                        ; lsymb && lsymb->symbol)
+                        lsymb->symbol->has_been_assigned = true;
 
                     if (a_value_assi->right->value_type->is_pending_function())
                     {
@@ -993,6 +1032,27 @@ namespace rs
                         }
                     }
                 }
+                else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(ast_node))
+                {
+                    analyze_pass2(ast_value_judge->_be_cast_value_node);
+
+                    if (ast_value_judge->_be_cast_value_node->value_type->is_pending()
+                        || ast_value_judge->_be_cast_value_node->value_type->is_dynamic())
+                    {
+                        if (ast_value_judge->value_type->is_func())
+                            lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_COMPLEX_TYPE);
+                    }
+                    else if (!ast_value_judge->value_type->is_same(ast_value_judge->_be_cast_value_node->value_type))
+                    {
+                        lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_TYPE,
+                            ast_value_judge->_be_cast_value_node->value_type->get_type_name().c_str(),
+                            ast_value_judge->value_type->get_type_name().c_str());
+                    }
+                    if (ast_value_judge->value_type->is_dynamic())
+                    {
+                        lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_DYNAMIC);
+                    }
+                }
                 else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(a_value))
                 {
                     analyze_pass2(a_value_arr->array_items);
@@ -1005,6 +1065,15 @@ namespace rs
                 {
                     analyze_pass2(a_value_index->from);
                     analyze_pass2(a_value_index->index);
+
+                    if (!a_value_index->from->value_type->is_array()
+                        && !a_value_index->from->value_type->is_map()
+                        && !a_value_index->from->value_type->is_string()
+                        && !a_value_index->from->value_type->is_dynamic())
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_index->from, RS_ERR_UNINDEXABLE_TYPE
+                            , a_value_index->from->value_type->get_type_name().c_str());
+                    }
                 }
                 else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
                 {
@@ -1140,6 +1209,32 @@ namespace rs
                 }
             }
 
+            ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
+            ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
+            if (ast_value_symbolable_base* a_value_base = a_value_base_for_attrb;
+                a_value_base ||
+                (a_value_type_judge_for_attrb &&
+                    (a_value_base = dynamic_cast<ast_value_symbolable_base*>(a_value_type_judge_for_attrb->_be_cast_value_node))
+                    )
+                )
+            {
+                if (a_value_base->is_mark_as_using_ref)
+                    if (a_value_base->symbol)
+                        a_value_base->symbol->has_been_assigned = true;
+
+                // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
+                // DECIDED BY a_value_base->symbol->is_ref
+
+                if (a_value_base->symbol && a_value_base->symbol->is_ref)
+                    a_value_base->is_ref_ob_in_finalize = true;
+
+                if (!a_value_base_for_attrb)
+                {
+                    a_value_type_judge_for_attrb->is_mark_as_using_ref = a_value_base->is_mark_as_using_ref;
+                    a_value_type_judge_for_attrb->is_ref_ob_in_finalize = a_value_base->is_ref_ob_in_finalize;
+                }
+            }
+
             grammar::ast_base* child = ast_node->children;
             while (child)
             {
@@ -1266,6 +1361,17 @@ namespace rs
             return false;
         }
 
+        bool is_non_ref_tem_reg(opnum::opnumbase& op_num)
+        {
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                if (regist->id >= reg::t0 && regist->id <= reg::t15)
+                    return true;
+            }
+            return false;
+        }
+
         opnum::opnumbase& mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
         {
             using namespace ast;
@@ -1308,7 +1414,7 @@ namespace rs
                 {
                     if (!get_pure_value)
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64)
+                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
                             return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
                         else
                         {
@@ -1319,7 +1425,7 @@ namespace rs
                     }
                     else
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64)
+                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
                             compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
@@ -1681,6 +1787,16 @@ namespace rs
                 return treg;
 
             }
+            else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
+            {
+                auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
+                if (!a_value_type_judge->value_type->is_same(a_value_type_judge->_be_cast_value_node->value_type))
+                {
+                    rs_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
+                    compiler->typeas(result, a_value_type_judge->value_type->value_type);
+                }
+                return result;
+            }
             else if (auto* a_value_function_define = dynamic_cast<ast_value_function_define*>(value))
             {
                 // function defination
@@ -1739,7 +1855,12 @@ namespace rs
                             a_fakevalue_unpacked_args->expand_count);
                     }
                     else
-                        compiler->psh(analyze_value(argv, compiler));
+                    {
+                        if (argv->is_mark_as_using_ref)
+                            compiler->pshr(analyze_value(argv, compiler));
+                        else
+                            compiler->psh(analyze_value(argv, compiler));
+                    }
                 }
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
@@ -1898,7 +2019,10 @@ namespace rs
 
                 for (auto* in_arr_val : arr_list)
                 {
-                    compiler->psh(analyze_value(in_arr_val, compiler));
+                    if (in_arr_val->is_mark_as_using_ref)
+                        compiler->pshr(analyze_value(in_arr_val, compiler));
+                    else
+                        compiler->psh(analyze_value(in_arr_val, compiler));
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
@@ -1916,7 +2040,11 @@ namespace rs
                     rs_test(_map_pair);
 
                     compiler->psh(analyze_value(_map_pair->key, compiler));
-                    compiler->psh(analyze_value(_map_pair->val, compiler));
+
+                    if (_map_pair->val->is_mark_as_using_ref)
+                        compiler->pshr(analyze_value(_map_pair->val, compiler));
+                    else
+                        compiler->psh(analyze_value(_map_pair->val, compiler));
 
                     _map_item = _map_item->sibling;
                     map_pair_count++;
@@ -2156,7 +2284,13 @@ namespace rs
                 {
                     if (varref_define.is_ref)
                     {
-                        rs_error("not impl");
+                        auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
+                        auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
+
+                        if (is_non_ref_tem_reg(aim_ob))
+                            lang_anylizer->lang_error(0x0000, varref_define.init_val, RS_ERR_NOT_REFABLE_INIT_ITEM);
+
+                        compiler->ext_setref(ref_ob, aim_ob);
                     }
                     else
                     {
@@ -2268,9 +2402,14 @@ namespace rs
                     {
                         if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
                         {
-                            if (a_value_arg_define->is_ref)
+                            if (a_value_arg_define->is_ref || !a_value_arg_define->symbol->has_been_assigned)
                             {
-                                rs_error("Not impl");
+                                funcdef->this_func_scope->
+                                    reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
+
+                                rs_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
+                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count;
+
                             }
                             else
                                 compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
@@ -2284,8 +2423,9 @@ namespace rs
 
                     real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
-                    auto reserved_stack_size = funcdef->this_func_scope->max_used_stack_size_in_func +
-                        compiler->update_all_temp_regist_to_stack(funcbegin_ip);
+                    auto reserved_stack_size =
+                        funcdef->this_func_scope->max_used_stack_size_in_func
+                        + compiler->update_all_temp_regist_to_stack(funcbegin_ip);
 
                     compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
 
@@ -2479,13 +2619,14 @@ namespace rs
                     // const var xxx = 0;
                     // const var ddd = xxx;
 
-                    if (!attr->is_constant_attr() || !init_val->is_constant )
+                    if (!attr->is_constant_attr() || !init_val->is_constant)
                     {
-                        sym->stackvalue_index_in_funcs = func->assgin_stack_index();
+                        sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
                         lang_scopes.back()->this_block_used_stackvalue_count++;
                     }
                     else
                         sym->is_constexpr = true;
+
                 }
                 else
                 {

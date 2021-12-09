@@ -449,8 +449,17 @@ gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::t
 gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
+gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"AS_TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_type_judgement),
+
+gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_as), gm::nt(L"TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
 // TYPE CASTING..
 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
@@ -520,7 +529,7 @@ gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
-                                                gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"RIGHT"),
+                                                gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_VALUE"),
                                                 gm::te(gm::ttype::l_right_curly_braces) }
     >> RS_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
@@ -578,8 +587,14 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::nt(L"LEFT") }
-                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"REAL_REF_VALUE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"REAL_REF_VALUE"), gm::nt(L"AS_TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_type_judgement),
+
+                gm::nt(L"REAL_REF_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::nt(L"LEFT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_mark_value_as_ref),
 
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
                 >> RS_ASTBUILDER_INDEX(ast::pass_empty),

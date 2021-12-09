@@ -381,6 +381,10 @@ namespace rs
             {
                 return value_type == value::valuetype::array_type && !is_func();
             }
+            bool is_map()const
+            {
+                return value_type == value::valuetype::mapping_type && !is_func();
+            }
             bool is_integer()const
             {
                 return value_type == value::valuetype::integer_type && !is_func();
@@ -435,6 +439,9 @@ namespace rs
             // liter functioncall variable and so on will belong this type of node.
             ast_type* value_type = nullptr;
             bool is_constant = false;
+            bool is_mark_as_using_ref = false;
+            bool is_ref_ob_in_finalize = false;
+
             virtual rs::value get_constant_value() const
             {
                 rs_error("Cannot get constant value from 'ast_value'.");
@@ -616,6 +623,27 @@ namespace rs
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
                 space(os, lay); os << L"< " << ANSI_HIR << L"cast" << ANSI_RST << L" : >" << std::endl;
+                _be_cast_value_node->display(os, lay + 1);
+
+                space(os, lay); os << L"< " << ANSI_HIR << L"to "
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+
+                os << L" >" << std::endl;
+            }
+        };
+
+        struct ast_value_type_judge : public ast_value
+        {
+            ast_value* _be_cast_value_node;
+            ast_value_type_judge(ast_value* value, ast_type* type)
+            {
+                _be_cast_value_node = value;
+                value_type = type;
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIR << L"as" << ANSI_RST << L" : >" << std::endl;
                 _be_cast_value_node->display(os, lay + 1);
 
                 space(os, lay); os << L"< " << ANSI_HIR << L"to "
@@ -1321,6 +1349,16 @@ namespace rs
             }
         };
 
+        struct pass_mark_value_as_ref :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_value* val = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+                val->is_mark_as_using_ref = true;
+                return (ast_basic*)val;
+            }
+        };
+
         struct pass_enum_finalize :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -1919,6 +1957,18 @@ namespace rs
                 }
                 else
                 {
+                    if (value_node->is_mark_as_using_ref)
+                    {
+                        if (force)
+                            lex.lang_warning(0x0000, value_node, RS_WARN_CAST_REF);
+                        else
+                            lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_IMPLCAST_REF);
+                    }
+
+                    if (!value_node->value_type->is_pending() && !type_node->is_pending()
+                        && (value_node->value_type->is_same(type_node)))
+                        return value_node;
+
                     return new ast_value_type_cast(value_node, type_node, !force);
                 }
             }
@@ -1938,6 +1988,41 @@ namespace rs
                 rs_error("Unexcepted token type.");
                 return 0;
             }
+        };
+
+        struct pass_type_judgement :public astnode_builder
+        {
+            static ast_value* do_judge(lexer& lex, ast_value* value_node, ast_type* type_node)
+            {
+                if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
+                {
+                    return new ast_value_type_judge(value_node, type_node);
+                }
+                else if (!value_node->value_type->is_same(type_node))
+                {
+                    lex.parser_error(0x0000, RS_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
+                    return value_node;
+                }
+                return value_node;
+            }
+
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                ast_value* value_node;
+                ast_type* type_node;
+                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
+                {
+                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                        return (ast_basic*)do_judge(lex, value_node, type_node);
+                    return (ast_basic*)value_node;
+                }
+
+                rs_error("Unexcepted token type.");
+                return 0;
+            }
+
         };
 
         struct pass_variable :public astnode_builder
@@ -2475,7 +2560,7 @@ namespace rs
                     result->scope_namespaces = scoping_type->scope_namespaces;
                     if (result->search_from_global_namespace || !result->scope_namespaces.empty())
                         result->is_pending_type = true;
-                    
+
                 }
                 else
                 {
@@ -2586,6 +2671,12 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>]
+                = _register_builder<pass_type_judgement>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_ref>]
+                = _register_builder<pass_mark_value_as_ref>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>]
                 = _register_builder<pass_using_type_as>();
 

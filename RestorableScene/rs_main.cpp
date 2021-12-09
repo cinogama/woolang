@@ -1,8 +1,11 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #define RS_IMPL
 #include "rs.h"
 #include <iostream>
 
 #include "rs_vm.hpp"
+#include "rs_runtime_debuggee.hpp"
 
 int main(int argc, char** argv)
 {
@@ -13,24 +16,35 @@ int main(int argc, char** argv)
     std::cout << rs_compile_date() << std::endl;
 
     auto src = (u8R"(
-enum Enum
+import rscene.std;
+
+func out_string(ref str:string)
 {
-    XXX
+    str = "Helloworld";
 }
 
-const var fxxl = Enum::XXX;
-var o0 = fxxl;
+func main()
+{
+    var a = "";
+    ref r = a;
+
+    out_string(ref r);
+    
+    std::println(a);
+}
+
+main();
 
 )");
 
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    ((rs::vm*)vmm)->dump_program_bin();
+    //((rs::vm*)vmm)->dump_program_bin();
 
-    /* default_debuggee dgb; */
-    // ((rs::vm*)vmm)->attach_debuggee(&dgb);
-    // dgb.set_breakpoint("rs_test.rsn", 36);
+    //rs::default_debuggee dgb;
+    //((rs::vm*)vmm)->attach_debuggee(&dgb);
+    //dgb.set_breakpoint("rs_test.rsn", 16);
     // ((rs::vm*)vmm)->attach_debuggee(nullptr);
 
     rs_run(vmm);

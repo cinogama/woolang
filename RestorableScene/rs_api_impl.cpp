@@ -476,7 +476,7 @@ void rs_close_vm(rs_vm vm)
     delete (rs::vmbase*)vm;
 }
 
-bool rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
+rs_bool_t rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
 {
     if (!virtual_src_path)
         virtual_src_path = "__runtime_script__";
@@ -513,7 +513,7 @@ bool rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
     lang.analyze_pass1(result);
     lang.analyze_pass2(result);
 
-    // result->display();
+    //result->display();
 
     if (lang.has_compile_error())
     {

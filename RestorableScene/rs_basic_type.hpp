@@ -52,6 +52,7 @@ namespace rs
 
             is_ref,
             callstack,
+            nativecallstack,
 
             need_gc = 0xF0,
 
@@ -77,6 +78,7 @@ namespace rs
                 uint32_t bp;
                 uint32_t ret_ip;
             };
+            void* native_function_addr;
 
             value* ref;
 
@@ -159,6 +161,11 @@ namespace rs
         {
             return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
         }
+        inline bool is_ref() const
+        {
+            return type == valuetype::is_ref;
+        }
+
         inline gcbase* get_gcunit_with_barrier() const
         {
             do

@@ -114,6 +114,17 @@
 
 #define RS_ERR_SYMBOL_IS_AMBIGUOUS L"标识符 '%s' 不明确, 它在以下命名空间中被找到: "
 
+#define RS_ERR_CANNOT_IMPLCAST_REF L"不能隐式转换引用传递对象的类型"
+
+#define RS_ERR_NOT_REFABLE_INIT_ITEM L"不可引用的对象不能作为 'ref' 的初始项"
+
+#define RS_ERR_UNINDEXABLE_TYPE L"不可索引的类型 '%s'"
+
+#define RS_ERR_CANNOT_AS_TYPE L"类型 '%s' 与要求的类型 '%s' 不相同"
+
+#define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"'as' 不允许在运行时测试复杂类型"
+
+#define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' 是无效的"
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%c' 开头的未知转义序列."
@@ -124,6 +135,7 @@
 
 #define RS_WARN_OVERRIDDEN_DYNAMIC_TYPE L"类型 'dynamic' 被覆盖"
 
+#define RS_WARN_CAST_REF L"正在尝试转换引用传递对象的类型，'ref' 将失效"
 
 #else
 
@@ -231,6 +243,19 @@
 
 #define RS_ERR_SYMBOL_IS_AMBIGUOUS L"'%s' is ambiguous, it was found in namespace: "
 
+#define RS_ERR_CANNOT_IMPLCAST_REF L"Cannot implicit-cast the type of reference passing object."
+
+#define RS_ERR_NOT_REFABLE_INIT_ITEM L"Non-referenceable objects cannot be used as the initial item of 'ref'."
+
+#define RS_ERR_UNINDEXABLE_TYPE L"Unindexable type '%s'."
+
+#define RS_ERR_CANNOT_AS_TYPE L"The type '%s' is not the same as the requested type '%s'."
+
+#define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"The 'as' operation does not allow testing complex types at runtime."
+
+#define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' is useless."
+
+
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%c'."
 
@@ -239,5 +264,7 @@
 #define RS_WARN_FUNC_WILL_RETURN_DYNAMIC L"Incompatible with the return type, the return value will be determined to be 'dynamic'."
 
 #define RS_WARN_OVERRIDDEN_DYNAMIC_TYPE L"Overridden 'dynamic' attributes."
+
+#define RS_WARN_CAST_REF L"Trying cast the type of reference passing object, 'ref' will be useless."
 
 #endif
