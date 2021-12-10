@@ -18,24 +18,11 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
-func fib(var n:int)
-{
-    if (n <= 2)
-        return 1;
-    return fib(n-1) + fib(n-2);
-}
-
 func main()
 {
-    var begin_tm = std::time();
-    var i = 0;
-    while (i < 40)
-    {
-        std::println(i, ":", fib(i));
-        i += 1;
-    }
-    var end_tm = std::time();
-    std::println("cost time:", end_tm - begin_tm);
+    var x = [1,2,3,]:dynamic;
+   
+    std::println([1,2,3,4]+x);
 }
 
 main();

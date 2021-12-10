@@ -1676,6 +1676,10 @@ namespace rs
                             compiler->addh(beoped_left_opnum, op_right_opnum); break;
                         case rs::value::valuetype::string_type:
                             compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::array_type:
+                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::mapping_type:
+                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
                             rs_error("Do not support this type..");
                             break;
