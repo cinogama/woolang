@@ -51,56 +51,74 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
 
     std::cerr << std::endl;
 
-    std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
-    std::cerr << "1) Abort program.(You can attatch debuggee.)" << std::endl;
-    std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
-    std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << std::endl;
-    std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
-
-    do
+    if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MINOR)
     {
-        int choice;
+        // Just ignore it..
+    }
+    else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MEDIUM)
+    {
+        // Just throw it..
+        throw rs::rsruntime_exception(rterrcode, reason);
+    }
+    else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_HEAVY)
+    {
+        // Just throw it..
+        throw rs::rsruntime_exception(rterrcode, reason);
+    }
+    else
+    {
 
-        std::cerr << "Please input your choice: " ANSI_HIY;
+        std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
+        std::cerr << "1) Abort program.(You can attatch debuggee.)" << std::endl;
+        std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
+        std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << std::endl;
+        std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
 
-        std::cin >> choice;
-
-        std::cerr << ANSI_RST;
-
-        switch (choice)
+        do
         {
-        case 1:
-            rs_error(reason);
-        case 2:
-            return;
-        case 3:
-            if (rs::vmbase::_this_thread_vm)
+            int choice;
+
+            std::cerr << "Please input your choice: " ANSI_HIY;
+
+            std::cin >> choice;
+
+            std::cerr << ANSI_RST;
+
+            switch (choice)
             {
-                rs::vmbase::_this_thread_vm->er->set_gcunit_with_barrier(rs::value::valuetype::string_type);
-                rs::string_t::gc_new<rs::gcbase::gctype::eden>(rs::vmbase::_this_thread_vm->er->gcunit, reason);
-                rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
+            case 1:
+                rs_error(reason);
+            case 2:
+                return;
+            case 3:
+                if (rs::vmbase::_this_thread_vm)
+                {
+                    rs::vmbase::_this_thread_vm->er->set_gcunit_with_barrier(rs::value::valuetype::string_type);
+                    rs::string_t::gc_new<rs::gcbase::gctype::eden>(rs::vmbase::_this_thread_vm->er->gcunit, reason);
+                    rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
+                }
+                else
+                    std::cerr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << std::endl;
+
+                break;
+            case 4:
+                throw rs::rsruntime_exception(rterrcode, reason);
+
+                // in debug, if there is no catcher for rs_runtime_error, 
+                // the program may continue working.
+                // Abort here.
+                rs_error(reason);
+
+            default:
+                std::cerr << ANSI_HIR "Invalid choice" ANSI_RST << std::endl;
             }
-            else
-                std::cerr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << std::endl;
 
-            break;
-        case 4:
-            throw rs::rsruntime_exception(rterrcode, reason);
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
 
-            // in debug, if there is no catcher for rs_runtime_error, 
-            // the program may continue working.
-            // Abort here.
-            rs_error(reason);
-
-        default:
-            std::cerr << ANSI_HIR "Invalid choice" ANSI_RST << std::endl;
-        }
-
-        char _useless_for_clear = 0;
-        std::cin.clear();
-        while (std::cin.readsome(&_useless_for_clear, 1));
-
-    } while (true);
+        } while (true);
+    }
 }
 static std::atomic<rs_fail_handler> _rs_fail_handler_function = &_default_fail_handler;
 
@@ -144,7 +162,7 @@ rs_integer_t rs_int(rs_value value)
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
     if (_rsvalue->type != rs::value::valuetype::integer_type)
     {
-        rs_fail(RS_ERR_TYPE_FAIL, "This value is not an integer.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not an integer.");
         return rs_cast_int(value);
     }
     return _rsvalue->integer;
@@ -154,7 +172,7 @@ rs_real_t rs_real(rs_value value)
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
     if (_rsvalue->type != rs::value::valuetype::real_type)
     {
-        rs_fail(RS_ERR_TYPE_FAIL, "This value is not an real.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not an real.");
         return rs_cast_real(value);
     }
     return _rsvalue->real;
@@ -164,7 +182,7 @@ rs_handle_t rs_handle(rs_value value)
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
     if (_rsvalue->type != rs::value::valuetype::handle_type)
     {
-        rs_fail(RS_ERR_TYPE_FAIL, "This value is not a handle.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
         return rs_cast_handle(value);
     }
     return _rsvalue->handle;
@@ -174,7 +192,7 @@ rs_string_t rs_string(rs_value value)
     auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
     if (_rsvalue->type != rs::value::valuetype::string_type)
     {
-        rs_fail(RS_ERR_TYPE_FAIL, "This value is not a string.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a string.");
         return rs_cast_string(value);
     }
     rs::gcbase::gc_read_guard rg1(_rsvalue->string);
@@ -199,7 +217,7 @@ rs_integer_t rs_cast_int(rs_value value)
         return (rs_integer_t)atoll(_rsvalue->string->c_str());
     }
     default:
-        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to integer.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
         break;
     }
@@ -222,7 +240,7 @@ rs_real_t rs_cast_real(rs_value value)
         return atof(_rsvalue->string->c_str());
     }
     default:
-        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to real.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value can not cast to real.");
         return 0;
         break;
     }
@@ -245,7 +263,7 @@ rs_handle_t rs_cast_handle(rs_value value)
         return (rs_handle_t)atoll(_rsvalue->string->c_str());
     }
     default:
-        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to handle.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value can not cast to handle.");
         return 0;
         break;
     }
@@ -348,7 +366,7 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         *out_str += "nil";
         return;
     default:
-        rs_fail(RS_ERR_TYPE_FAIL, "This value can not cast to string.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value can not cast to string.");
         *out_str += "";
         break;
     }
@@ -456,7 +474,7 @@ rs_integer_t rs_lengthof(rs_value value)
     }
     else
     {
-        rs_fail(RS_ERR_TYPE_FAIL, "Only 'string','array' or 'map' can get length.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Only 'string','array' or 'map' can get length.");
         return 0;
     }
 }
@@ -513,7 +531,7 @@ rs_bool_t rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src
     lang.analyze_pass1(result);
     lang.analyze_pass2(result);
 
-    //result->display();
+    // result->display();
 
     if (lang.has_compile_error())
     {

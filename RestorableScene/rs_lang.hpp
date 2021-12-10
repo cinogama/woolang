@@ -282,7 +282,11 @@ namespace rs
             }
             else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(ast_node))
             {
+                if (ast_value_judge->is_mark_as_using_ref)
+                    ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
+
                 analyze_pass1(ast_value_judge->_be_cast_value_node);
+               
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
@@ -1034,6 +1038,9 @@ namespace rs
                 }
                 else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(ast_node))
                 {
+                    if (ast_value_judge->is_mark_as_using_ref)
+                        ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
+
                     analyze_pass2(ast_value_judge->_be_cast_value_node);
 
                     if (ast_value_judge->_be_cast_value_node->value_type->is_pending()
@@ -2382,8 +2389,10 @@ namespace rs
         void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
             size_t public_block_begin = compiler->get_now_ip();
+            auto res_ip = compiler->reserved_stackvalue();                      // reserved..
             real_analyze_finalize(ast_node, compiler);
-            compiler->update_all_temp_regist_to_stack(public_block_begin);
+            auto used_tmp_regs = compiler->update_all_temp_regist_to_stack(public_block_begin);
+            compiler->reserved_stackvalue(res_ip, used_tmp_regs); // set reserved size
 
             compiler->jmp(opnum::tag("__rsir_rtcode_seg_function_define_end"));
             while (!in_used_functions.empty())

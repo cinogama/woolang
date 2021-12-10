@@ -17,7 +17,7 @@ RS_API rs_api rslib_std_print(rs_vm vm, rs_value args)
 }
 RS_API rs_api rslib_std_fail(rs_vm vm, rs_value args)
 {
-    rs_fail(RS_ERR_CALL_FAIL, rs_string(args + 0));
+    rs_fail(RS_FAIL_CALL_FAIL, rs_string(args + 0));
 
     return rs_ret_nil(vm);
 }

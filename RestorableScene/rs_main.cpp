@@ -18,21 +18,28 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
-func main()
+namespace mytest
 {
-    var x = [1,2,3,]:dynamic;
-   
-    std::println([1,2,3,4]+x);
+    using std;
+
+    func clear(ref arr)
+    {
+        arr = [];
+    }
+
+    var x = "Helloworld";
+    
+    (ref x as dynamic)->clear();
+    println(x);
 }
 
-main();
-
 )");
+
 
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    ((rs::vm*)vmm)->dump_program_bin();
+    // ((rs::vm*)vmm)->dump_program_bin();
 
     //rs::default_debuggee dgb;
     //((rs::vm*)vmm)->attach_debuggee(&dgb);
@@ -41,6 +48,7 @@ main();
 
     rs_run(vmm);
     rs_close_vm(vmm);
+
 
     // std::cout << "=================" << std::endl;
 

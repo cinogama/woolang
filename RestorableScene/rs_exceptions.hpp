@@ -10,10 +10,10 @@ namespace rs
     {
         std::string reason;
     public:
-        uint32_t exception_code;
-        rsruntime_exception(int _exception_code, const char* exception_info = "rs runtime error.")
+        uint32_t rsexception_code;
+        rsruntime_exception(int _rsexception_code, const char* exception_info = "rs runtime error.")
             : reason(exception_info)
-            , exception_code(_exception_code)
+            , rsexception_code(_rsexception_code)
         {
 
         }

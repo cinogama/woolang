@@ -134,6 +134,7 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 #if defined(RS_NEED_RTERROR_CODES) 
 
 // Not allowed to using UNKNOWN as a error type.
+#define RS_FAIL_TYPE_MASK 0xF000
 
 // Minor error:
 // Following error will not cause deadly problem, and in most cases, there 
@@ -144,7 +145,7 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 // * If you are re-write fail-handler-function, you can ignore this error.
 // * (But dont forget display it.)
 //
-//#define RS_ERR_MINOR 0x9000
+#define RS_FAIL_MINOR 0xA000
 
 // Medium error:
 // These errors are caused by incorrect coding, some of which may have default
@@ -152,8 +153,8 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 //
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
-//#define RS_ERR_MEDIUM 0xA000
-#define RS_ERR_TYPE_FAIL 0xA001
+#define RS_FAIL_MEDIUM 0xB000
+#define RS_FAIL_TYPE_FAIL 0xB001
 
 // Heavy error:
 // Such errors will make it difficult for the program to continue running.
@@ -162,17 +163,17 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 //
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
-//#define RS_ERR_HEAVY 0xB000
-#define RS_ERR_ACCESS_NIL 0xB001
-#define RS_ERR_INDEX_FAIL 0xB002
-#define RS_ERR_CALL_FAIL 0xB003
+#define RS_FAIL_HEAVY 0xC000
+#define RS_FAIL_ACCESS_NIL 0xC001
+#define RS_FAIL_INDEX_FAIL 0xC002
+#define RS_FAIL_CALL_FAIL 0xC003
 
 // Deadly error:
 // This type of error is caused by complex reasons, any default solutions are useless,
-// if continue working, the program may crash / 
+// if continue working, the program may crash
 //
-// * If you are re-write fail-handler-function, you may need abort program.\
-//#define RS_ERR_DEADLY 0xC000
+// * If you are re-write fail-handler-function, you may need abort program.
+#define RS_FAIL_DEADLY 0xD000
 
 // dEADLY 
 

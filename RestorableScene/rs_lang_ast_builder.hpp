@@ -1270,6 +1270,12 @@ namespace rs
             ast_type* old_type;
         };
 
+        struct ast_directed_values : virtual public grammar::ast_base
+        {
+            ast_value* from;
+            ast_value* direct_val;
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1353,7 +1359,8 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_value* val = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+                // MAY_REF_FACTOR_TYPE_CASTING -> 4
+                ast_value* val = input.size() == 4 ? dynamic_cast<ast_value*>(RS_NEED_AST(2)) : dynamic_cast<ast_value*>(RS_NEED_AST(1));
                 val->is_mark_as_using_ref = true;
                 return (ast_basic*)val;
             }
@@ -1747,9 +1754,35 @@ namespace rs
                 rs_test(input.size() == 4);
 
                 auto* result = new ast_value_funccall;
-                result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+
                 result->arguments = dynamic_cast<ast_list*>(RS_NEED_AST(2));
+
+                auto* callee = RS_NEED_AST(0);
+                if (ast_directed_values* adv = dynamic_cast<ast_directed_values*>(RS_NEED_AST(0)))
+                {
+                    result->called_func = adv->direct_val;
+                    result->arguments->append_at_head(adv->from);
+                }
+                else
+                    result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+
                 result->value_type = result->called_func->value_type->get_return_type(); // just get pending..
+
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_directed_value_for_call :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 3);
+
+                auto* result = new ast_directed_values();
+                auto* from = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                auto* to = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                result->from = from;
+                result->direct_val = to;
 
                 return (ast_basic*)result;
             }
@@ -2662,15 +2695,15 @@ namespace rs
 
                 return (grammar::ast_base*)arg_def;
             }
-
         };
-
-
 
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_directed_value_for_call>]
+                = _register_builder<pass_directed_value_for_call>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>]
                 = _register_builder<pass_type_judgement>();
 

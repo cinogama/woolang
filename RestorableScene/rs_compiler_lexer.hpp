@@ -63,6 +63,7 @@ namespace rs
         l_variadic_sign,          // ...
         l_index_begin,          // '['
         l_index_end,            // ']'
+        l_direct,               // '->'
 
         l_left_brackets,        // (
         l_right_brackets,       // )
@@ -160,6 +161,7 @@ namespace rs
             {L"...",      {lex_type::l_variadic_sign}},
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
+            {L"->",      {lex_type::l_direct }},
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =

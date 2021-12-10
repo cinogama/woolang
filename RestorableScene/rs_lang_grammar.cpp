@@ -76,7 +76,7 @@ gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE")}
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_import_files),
 
-gm::nt(L"SENTENCE") >> gm::symlist{ 
+gm::nt(L"SENTENCE") >> gm::symlist{
                                     gm::nt(L"DECL_ATTRIBUTE"), // useless
                                     gm::te(gm::ttype::l_using),
                                     gm::nt(L"LEFTVARIABLE"), gm::te(gm::ttype::l_semicolon)}
@@ -85,8 +85,8 @@ gm::nt(L"SENTENCE") >> gm::symlist{
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                                     gm::te(gm::ttype::l_using),
                                     gm::te(gm::ttype::l_identifier),
-                                    gm::te(gm::ttype::l_assign), 
-                                    gm::nt(L"TYPE"), 
+                                    gm::te(gm::ttype::l_assign),
+                                    gm::nt(L"TYPE"),
                                     gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_using_type_as),
 
@@ -449,7 +449,10 @@ gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::t
 gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"UNARIED_FACTOR") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
+gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"SINGLE_VALUE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"AS_TYPE") }
@@ -569,7 +572,23 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
 
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"FACTOR"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
+
+                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"LEFTVARIABLE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
+
+                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
+
+                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::te(gm::ttype::l_ref), gm::nt(L"FACTOR_TYPE_JUDGEMENT"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_mark_value_as_ref),
+
+                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"FUNCTION_CALL") >> gm::symlist{ gm::nt(L"CALLABLE_VALUE"),gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_EXPR"),gm::te(gm::ttype::l_right_brackets) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_function_call),
 
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
@@ -601,6 +620,8 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
 
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+
                 }
             );
 
