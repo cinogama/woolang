@@ -1239,6 +1239,10 @@ namespace rs
 
         ast_base* gen(lexer& tkr) const
         {
+            size_t last_error_rowno = 0;
+            size_t last_error_colno = 0;
+            size_t try_recover_count = 0;
+
             std::stack<size_t> state_stack;
             std::stack<te_nt_index_t> sym_stack;
             std::stack<std::any> node_stack;
@@ -1459,10 +1463,6 @@ namespace rs
                         err_info = RS_ERR_UNEXCEPT_TOKEN +
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
-
-                    static size_t last_error_rowno = 0;
-                    static size_t last_error_colno = 0;
-                    static size_t try_recover_count = 0;
 
                     // 如果刚刚发生了相同的错误， 结束处理
                     if (tkr.just_have_err ||

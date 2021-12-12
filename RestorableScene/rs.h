@@ -28,7 +28,7 @@
 
 RS_FORCE_CAPI
 
-typedef int64_t     rs_integer_t;
+typedef int64_t     rs_integer_t, rs_int_t;
 typedef uint64_t    rs_handle_t;
 typedef void* rs_pointer_t;
 typedef const char* rs_string_t;
@@ -68,7 +68,7 @@ typedef enum _rs_value_type
 }
 rs_type;
 
-typedef rs_result_t(*rs_native_func)(rs_vm, rs_value);
+typedef rs_result_t(*rs_native_func)(rs_vm, rs_value, size_t);
 
 typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
 
@@ -90,12 +90,18 @@ RS_API rs_real_t    rs_real(const rs_value value);
 RS_API rs_handle_t  rs_handle(const rs_value value);
 RS_API rs_string_t  rs_string(const rs_value value);
 
+RS_API void rs_set_int(rs_value value, rs_integer_t val);
+RS_API void rs_set_real(rs_value value, rs_real_t val);
+RS_API void rs_set_handle(rs_value value, rs_handle_t val);
+RS_API void rs_set_string(rs_value value, rs_string_t val);
+RS_API void rs_set_val(rs_value value, rs_value val);
+RS_API void rs_set_ref(rs_value value, rs_value val);
+
 RS_API rs_integer_t rs_cast_int(const rs_value value);
 RS_API rs_real_t    rs_cast_real(const rs_value value);
 RS_API rs_handle_t  rs_cast_handle(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
 RS_API rs_string_t  rs_type_name(const rs_value value);
-RS_API rs_value* rs_args(rs_vm vm);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
 RS_API rs_result_t  rs_ret_int(rs_vm vm, rs_integer_t result);
@@ -103,6 +109,8 @@ RS_API rs_result_t  rs_ret_real(rs_vm vm, rs_real_t result);
 RS_API rs_result_t  rs_ret_handle(rs_vm vm, rs_handle_t result);
 RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
+RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
+RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
 
 RS_API rs_integer_t rs_lengthof(rs_value value);
 RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data);
@@ -113,6 +121,10 @@ RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_st
 RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_value     rs_run(rs_vm vm);
 
+RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
+
+RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
+RS_API rs_value     rs_map_get(rs_value arr, rs_value index);
 
 // Here to define RSRuntime code accroding to the type.
 

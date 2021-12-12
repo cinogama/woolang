@@ -651,15 +651,50 @@ namespace rs
                     tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
                 case instruct::addx:
-                    tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    if (*this_command_ptr++)
+                    {
+                        tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
+                    else
+                    {
+                        tmpos << "addmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
                 case instruct::subx:
-                    tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    if (*this_command_ptr++)
+                    {
+                        tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
+                    else
+                    {
+                        tmpos << "submovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
                 case instruct::mulx:
-                    tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    if (*this_command_ptr++)
+                    {
+                        tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
+                    else
+                    {
+                        tmpos << "mulmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
                 case instruct::divx:
-                    tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    if (*this_command_ptr++)
+                    {
+                        tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
+                    else
+                    {
+                        tmpos << "divmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
                 case instruct::modx:
-                    tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    if (*this_command_ptr++)
+                    {
+                        tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
+                    else
+                    {
+                        tmpos << "modmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    }
 
                 case instruct::ext:
                 {
@@ -1125,10 +1160,13 @@ namespace rs
 
                     case instruct::opcode::addx:
                     {
+                        auto change_type_sign = RS_IPVAL_MOVE_1;
+
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+                        value::valuetype max_type = change_type_sign ?
+                            std::max(opnum1->type, opnum2->type) : opnum1->type;
 
                         if (opnum1->type != max_type)
                         {
@@ -1200,7 +1238,11 @@ namespace rs
                                             opnum2->array->begin(),
                                             opnum2->array->end());
                                     }
+                                    else
+                                        RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "Trying to access is 'nil'."); break;
                                 }
+                                else
+                                    RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "Trying to access is 'nil'."); break;
                                 break;
                             }
                             case value::valuetype::mapping_type:
@@ -1277,10 +1319,13 @@ namespace rs
 
                     case instruct::opcode::subx:
                     {
+                        auto change_type_sign = RS_IPVAL_MOVE_1;
+
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+                        value::valuetype max_type = change_type_sign ?
+                            std::max(opnum1->type, opnum2->type) : opnum1->type;
 
                         if (opnum1->type != max_type)
                         {
@@ -1394,10 +1439,13 @@ namespace rs
 
                     case instruct::opcode::mulx:
                     {
+                        auto change_type_sign = RS_IPVAL_MOVE_1;
+
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+                        value::valuetype max_type = change_type_sign ?
+                            std::max(opnum1->type, opnum2->type) : opnum1->type;
 
                         if (opnum1->type != max_type)
                         {
@@ -1477,10 +1525,13 @@ namespace rs
 
                     case instruct::opcode::divx:
                     {
+                        auto change_type_sign = RS_IPVAL_MOVE_1;
+
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+                        value::valuetype max_type = change_type_sign ?
+                            std::max(opnum1->type, opnum2->type) : opnum1->type;
 
                         if (opnum1->type != max_type)
                         {
@@ -1561,10 +1612,13 @@ namespace rs
 
                     case instruct::opcode::modx:
                     {
+                        auto change_type_sign = RS_IPVAL_MOVE_1;
+
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
+                        value::valuetype max_type = change_type_sign ?
+                            std::max(opnum1->type, opnum2->type) : opnum1->type;
 
                         if (opnum1->type != max_type)
                         {
@@ -1669,63 +1723,64 @@ namespace rs
 
                         if (opnum1->type == opnum2->type)
                             opnum1->handle = opnum2->handle;  // Has same type, just move all data.
-
-                        switch (opnum1->type)
+                        else
                         {
-                        case value::valuetype::integer_type:
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::real_type:
-                                opnum1->integer = (rs_integer_t)opnum2->real; break;
-                            case value::valuetype::handle_type:
-                                opnum1->integer = (rs_integer_t)opnum2->handle; break;
-                            default:
-                                RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                break;
-                            }break;
-                        }
-                        case value::valuetype::real_type:
-                        {
-                            switch (opnum2->type)
+                            switch (opnum1->type)
                             {
                             case value::valuetype::integer_type:
-                                opnum1->real = (rs_real_t)opnum2->integer; break;
-                            case value::valuetype::handle_type:
-                                opnum1->real = (rs_real_t)opnum2->handle; break;
-                            default:
-                                RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                break;
-                            }break;
-                        }
-                        case value::valuetype::handle_type:
-                        {
-                            switch (opnum2->type)
                             {
-                            case value::valuetype::integer_type:
-                                opnum1->handle = (rs_handle_t)opnum2->integer; break;
+                                switch (opnum2->type)
+                                {
+                                case value::valuetype::real_type:
+                                    opnum1->integer = (rs_integer_t)opnum2->real; break;
+                                case value::valuetype::handle_type:
+                                    opnum1->integer = (rs_integer_t)opnum2->handle; break;
+                                default:
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
+                                    break;
+                                }break;
+                            }
                             case value::valuetype::real_type:
-                                opnum1->handle = (rs_handle_t)opnum2->real; break;
+                            {
+                                switch (opnum2->type)
+                                {
+                                case value::valuetype::integer_type:
+                                    opnum1->real = (rs_real_t)opnum2->integer; break;
+                                case value::valuetype::handle_type:
+                                    opnum1->real = (rs_real_t)opnum2->handle; break;
+                                default:
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
+                                    break;
+                                }break;
+                            }
+                            case value::valuetype::handle_type:
+                            {
+                                switch (opnum2->type)
+                                {
+                                case value::valuetype::integer_type:
+                                    opnum1->handle = (rs_handle_t)opnum2->integer; break;
+                                case value::valuetype::real_type:
+                                    opnum1->handle = (rs_handle_t)opnum2->real; break;
+                                default:
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
+                                    break;
+                                }break;
+                            }
+                            case value::valuetype::array_type:
+                            case value::valuetype::mapping_type:
+                                if (opnum2->type == value::valuetype::invalid)
+                                {
+                                    rs_assert(opnum2->handle == 0);
+
+                                    opnum1->set_nil();
+                                    break;
+                                }
+                                /* fall through~~~ */
                             default:
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                break;
-                            }break;
-                        }
-                        case value::valuetype::array_type:
-                        case value::valuetype::mapping_type:
-                            if (opnum2->type == value::valuetype::invalid)
-                            {
-                                rs_assert(opnum2->handle == 0);
-
-                                opnum1->gcunit = nullptr;
                                 break;
                             }
-                            /* fall through~~~ */
-                        default:
-                            RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                            break;
                         }
-
                         rt_cr->set_ref(opnum1);
                         break;
                     }
@@ -1787,13 +1842,13 @@ namespace rs
 
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_gcunit_with_barrier(value::valuetype::array_type));
+                                    rt_cr->set_ref(opnum1->set_nil());
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type));
+                                    rt_cr->set_ref(opnum1->set_nil());
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
@@ -1861,13 +1916,13 @@ namespace rs
 
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_gcunit_with_barrier(value::valuetype::array_type));
+                                    rt_cr->set_ref(opnum1->set_nil());
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type));
+                                    rt_cr->set_ref(opnum1->set_nil());
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
@@ -2346,7 +2401,7 @@ namespace rs
                             rt_cr->set_nil();
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2));
+                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
@@ -2381,7 +2436,7 @@ namespace rs
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2));
+                            call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
@@ -2500,7 +2555,7 @@ namespace rs
 
                         if (nullptr == rt_ths->gcunit && rt_ths->is_gcunit())
                         {
-                            RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "the unit trying to access is 'nil'.");
+                            RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "Trying to access is 'nil'.");
                             rt_cr->set_nil();
                         }
                         else
@@ -2514,7 +2569,7 @@ namespace rs
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
                                     rt_cr->integer = (unsigned char)(*rt_ths->string)[(size_t)opnum2->integer];
                                 else
-                                    RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "cannot index string without integer & handle.");
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index string without integer & handle.");
                                 break;
                             }
                             case value::valuetype::array_type:
@@ -2523,7 +2578,7 @@ namespace rs
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
                                     rt_cr->set_ref((*rt_ths->array)[(size_t)opnum2->integer].get());
                                 else
-                                    RS_VM_FAIL(RS_FAIL_ACCESS_NIL, "cannot index array without integer & handle.");
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index array without integer & handle.");
                                 break;
                             }
                             case value::valuetype::mapping_type:

@@ -92,6 +92,8 @@ namespace rs
 
             std::vector<ast_type*> argument_types;
 
+            ast_type* using_type_name = nullptr;
+
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
                 {L"int", value::valuetype::integer_type },
@@ -203,15 +205,7 @@ namespace rs
                 complex_type = nullptr;
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
-                is_pending_type = false;// reset state;
-                if (is_pending())
-                {
-                    is_pending_type = true;
-                }
-                else
-                {
-                    is_pending_type = false;
-                }
+                is_pending_type = _type_name == L"pending";// reset state;
             }
             void set_type(const ast_type* _type)
             {
@@ -226,14 +220,6 @@ namespace rs
                     type_name = L"complex";
                     complex_type = new ast_type(*_type);
                     is_pending_type = false;// reset state;
-                    if (is_pending())
-                    {
-                        is_pending_type = true;
-                    }
-                    else
-                    {
-                        is_pending_type = false;
-                    }
                 }
                 else
                 {
@@ -883,6 +869,8 @@ namespace rs
 
             rs_extern_native_func_t externed_func;
 
+            bool is_different_arg_count_in_same_extern_symbol = false;
+
             const std::string& get_ir_func_signature_tag()
             {
                 if (ir_func_signature_tag == "")
@@ -965,6 +953,9 @@ namespace rs
         {
             ast_value* called_func;
             ast_list* arguments;
+
+            ast_value* directed_value_from = nullptr;
+            ast_value_variable* callee_symbol_in_type_namespace = nullptr;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
@@ -1762,6 +1753,7 @@ namespace rs
                 {
                     result->called_func = adv->direct_val;
                     result->arguments->append_at_head(adv->from);
+                    result->directed_value_from = adv->from;
                 }
                 else
                     result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
@@ -2333,6 +2325,32 @@ namespace rs
                     {
                     case value::valuetype::string_type:
                         return new ast_type(L"string");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::array_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::array_type:
+                        return new ast_type(L"array");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::mapping_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::array_type:
+                        return new ast_type(L"map");
                         break;
                     default:
                         return nullptr;

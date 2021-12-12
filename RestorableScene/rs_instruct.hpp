@@ -108,7 +108,7 @@ namespace rs
 
             RESERVED_1 = 57 RS_OPCODE_SPACE,       // 
 
-            addx = 58 RS_OPCODE_SPACE,      // addx(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            addx = 58 RS_OPCODE_SPACE,      // addx(dr)         CHANGE_TYPE(1B) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             subx = 59 RS_OPCODE_SPACE,      // subx
             mulx = 60 RS_OPCODE_SPACE,      // mulx
             divx = 61 RS_OPCODE_SPACE,      // divx

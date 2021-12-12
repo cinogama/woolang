@@ -425,6 +425,11 @@ namespace rs
             return "ip_" + std::to_string(get_now_ip());
         }
 
+        void revert_code_to(size_t ip)
+        {
+            ir_command_buffer.resize(ip);
+        }
+
 #define RS_OPNUM(OPNUM) (_check_and_add_const(\
         (std::is_same<meta::origin_type<decltype(OPNUM)>, opnum::opnumbase>::value)\
         ?\
@@ -727,9 +732,8 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not add value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::addx, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::addx, RS_OPNUM(op1), RS_OPNUM(op2), 1);
         }
-
         template<typename OP1T, typename OP2T>
         void subx(const OP1T& op1, const OP2T& op2)
         {
@@ -740,7 +744,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not sub value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2),1);
         }
         template<typename OP1T, typename OP2T>
         void mulx(const OP1T& op1, const OP2T& op2)
@@ -752,7 +756,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not mul value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2),1);
         }
         template<typename OP1T, typename OP2T>
         void divx(const OP1T& op1, const OP2T& op2)
@@ -764,7 +768,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not div value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2),1);
         }
         template<typename OP1T, typename OP2T>
         void modx(const OP1T& op1, const OP2T& op2)
@@ -776,7 +780,68 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not mod value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2));
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2),1);
+        }
+
+        template<typename OP1T, typename OP2T>
+        void addmovx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not add value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::addx, RS_OPNUM(op1), RS_OPNUM(op2), 0);
+        }
+        template<typename OP1T, typename OP2T>
+        void submovx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not sub value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2), 0);
+        }
+        template<typename OP1T, typename OP2T>
+        void mulmovx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mul value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2), 0);
+        }
+        template<typename OP1T, typename OP2T>
+        void divmovx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not div value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2), 0);
+        }
+        template<typename OP1T, typename OP2T>
+        void modmovx(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mod value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2), 0);
         }
 
         template<typename OP1T, typename OP2T>
@@ -1523,28 +1588,38 @@ namespace rs
                     break;
                 case instruct::opcode::addx:
                     runtime_command_buffer.push_back(RS_OPCODE(addx));
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    
                     break;
                 case instruct::opcode::subx:
                     runtime_command_buffer.push_back(RS_OPCODE(subx));
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    
                     break;
                 case instruct::opcode::mulx:
                     runtime_command_buffer.push_back(RS_OPCODE(mulx));
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    
                     break;
                 case instruct::opcode::divx:
                     runtime_command_buffer.push_back(RS_OPCODE(divx));
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    
                     break;
                 case instruct::opcode::modx:
                     runtime_command_buffer.push_back(RS_OPCODE(modx));
+                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    
                     break;
                 case instruct::opcode::addr:
                     runtime_command_buffer.push_back(RS_OPCODE(addr));

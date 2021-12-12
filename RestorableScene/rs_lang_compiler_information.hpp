@@ -56,7 +56,7 @@
 
 #define RS_ERR_CANNOT_FIND_EXT_SYM L"无法找到外部符号: '%s'"
 
-#define RS_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不能定义参数"
+#define RS_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不应该有其他参数"
 
 #define RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP L"不支持对字符串进行该运算"
 

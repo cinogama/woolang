@@ -116,6 +116,8 @@ namespace rs
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
 
+        std::map<rs_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
+
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
     public:
         lang(lexer& lex) :
@@ -146,13 +148,27 @@ namespace rs
                     {
                         fully_update_type(type_sym->type_informatiom);
 
-
-
                         if (type->is_func())
                             type->set_ret_type(type_sym->type_informatiom);
                         else
                             type->set_type(type_sym->type_informatiom);
+
+                        type->using_type_name = new ast::ast_type(type_sym->name);
+
+                        // Gen namespace chain
+                        auto* inscopes = type_sym->defined_in_scope;
+                        while (inscopes && inscopes->belong_namespace)
+                        {
+                            if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                            {
+                                type->using_type_name->scope_namespaces.insert(
+                                    type->using_type_name->scope_namespaces.begin(),
+                                    inscopes->scope_namespace);
+                            }
+                            inscopes = inscopes->belong_namespace;
+                        }
                     }
+
                 }
             }
         }
@@ -286,7 +302,7 @@ namespace rs
                     ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
 
                 analyze_pass1(ast_value_judge->_be_cast_value_node);
-               
+
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
@@ -313,6 +329,10 @@ namespace rs
                     analyze_pass1(a_value_func->in_function_sentence);
                     a_value_func->add_child(a_value_func->in_function_sentence);
                 }
+                if (a_value_func->externed_func)
+                    extern_symb_func_definee[a_value_func->externed_func]
+                    .push_back(a_value_func);
+
                 end_function();
             }
             else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
@@ -321,10 +341,27 @@ namespace rs
             }
             else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
             {
+                if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func)
+                    ; symb_callee && a_value_funccall->directed_value_from)
+                {
+                    if (!symb_callee->search_from_global_namespace
+                        && symb_callee->scope_namespaces.empty())
+                    {
+                        analyze_pass1(a_value_funccall->directed_value_from);
+
+                        a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
+                        a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
+                        a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
+                        // a_value_funccall->callee_symbol_in_type_namespace wiil search in pass2..
+                    }
+                }
+
                 analyze_pass1(a_value_funccall->called_func);
                 analyze_pass1(a_value_funccall->arguments);
-                a_value_funccall->add_child(a_value_funccall->called_func);
-                a_value_funccall->add_child(a_value_funccall->arguments);
+
+                // NOTE There is no need for adding arguments and celled_func to child, pass2 must read them..
+                //a_value_funccall->add_child(a_value_funccall->called_func);
+                //a_value_funccall->add_child(a_value_funccall->arguments);
 
                 // function call should be 'pending' type, then do override judgement in pass2
             }
@@ -622,7 +659,7 @@ namespace rs
                         {
                             analyze_pass2(a_value_funcdef->in_function_sentence);
                         }
-                        if (a_value_funcdef->value_type->is_pending())
+                        if (a_value_funcdef->value_type->type_name == L"pending")
                         {
                             // There is no return in function  return void
                             if (a_value_funcdef->auto_adjust_return_type)
@@ -631,6 +668,55 @@ namespace rs
                     }
                     else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
                     {
+                        if (a_value_funccall->callee_symbol_in_type_namespace)
+                        {
+                            analyze_pass2(a_value_funccall->directed_value_from);
+                            if (!a_value_funccall->directed_value_from->value_type->is_pending() &&
+                                !a_value_funccall->directed_value_from->value_type->is_func())
+                            {
+                                // trying finding type_function
+                                rs_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
+
+                                // TODO : CUSTOM TYPE INFORM..
+                                if (a_value_funccall->directed_value_from->value_type->using_type_name)
+                                {
+                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
+                                        a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
+
+                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                    (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+
+                                    lang_anylizer->lex_enable_error_warn = false;
+                                    analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
+                                    lang_anylizer->lex_enable_error_warn = true;
+
+                                    if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
+                                        || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
+                                    {
+                                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                        goto start_ast_op_calling;
+                                    }
+
+                                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
+                                }
+
+                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
+                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                (a_value_funccall->directed_value_from->value_type->type_name);
+
+                                lang_anylizer->lex_enable_error_warn = false;
+                                analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
+                                lang_anylizer->lex_enable_error_warn = true;
+
+                                if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
+                                    || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
+                                {
+                                    a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                }
+                            }
+                        }
+                    start_ast_op_calling:
+
                         analyze_pass2(a_value_funccall->called_func);
                         analyze_pass2(a_value_funccall->arguments);
 
@@ -1378,6 +1464,16 @@ namespace rs
             }
             return false;
         }
+        bool is_temp_reg(opnum::opnumbase& op_num)
+        {
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                if (regist->id >= reg::t0 && regist->id <= reg::r15)
+                    return true;
+            }
+            return false;
+        }
 
         opnum::opnumbase& mov_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
         {
@@ -1510,6 +1606,8 @@ namespace rs
                         return treg;
                     }
                 case value::valuetype::invalid:  // for nil
+                case value::valuetype::array_type:  // for nil
+                case value::valuetype::mapping_type:  // for nil
                     if (!get_pure_value)
                         return RS_NEW_OPNUM(reg(reg::ni));
                     else
@@ -1555,6 +1653,10 @@ namespace rs
                             compiler->addh(beoped_left_opnum, op_right_opnum); break;
                         case rs::value::valuetype::string_type:
                             compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::array_type:
+                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
+                        case rs::value::valuetype::mapping_type:
+                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
                             rs_error("Do not support this type..");
                             break;
@@ -1652,17 +1754,27 @@ namespace rs
                 {
                     lang_anylizer->lang_error(0x0000, value, RS_ERR_CANNOT_ASSIGN_TO_CONSTANT);
                 }
+                size_t revert_pos = compiler->get_now_ip();
 
-                auto& beoped_left_opnum = analyze_value(a_value_assign->left, compiler);
-                auto& op_right_opnum = analyze_value(a_value_assign->right, compiler);
+                auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+                auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
+
+                if (is_cr_reg(*beoped_left_opnum_ptr)
+                    && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || last_value_stored_to_cr))
+                {
+                    compiler->revert_code_to(revert_pos);
+                    op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
+                    beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+                }
+
+                auto& beoped_left_opnum = *beoped_left_opnum_ptr;
+                auto& op_right_opnum = *op_right_opnum_ptr;
 
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
-                    if (!a_value_assign->left->value_type->is_func()
-                        && optype == value::valuetype::invalid
-                        && !a_value_assign->left->value_type->is_dynamic())
-                        // TODO : NEED WARNING..
+                    if (optype == value::valuetype::invalid &&
+                        !a_value_assign->left->value_type->is_dynamic())
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     else
                         compiler->mov(beoped_left_opnum, op_right_opnum);
@@ -1670,7 +1782,7 @@ namespace rs
                 case lex_type::l_add_assign:
                     if (optype == value::valuetype::invalid)
                         // TODO : NEED WARNING..
-                        compiler->addx(beoped_left_opnum, op_right_opnum);
+                        compiler->addmovx(beoped_left_opnum, op_right_opnum);
                     else
                     {
                         switch (optype)
@@ -1696,7 +1808,7 @@ namespace rs
                 case lex_type::l_sub_assign:
                     if (optype == value::valuetype::invalid)
                         // TODO : NEED WARNING..
-                        compiler->subx(beoped_left_opnum, op_right_opnum);
+                        compiler->submovx(beoped_left_opnum, op_right_opnum);
                     else
                     {
                         switch (optype)
@@ -1716,7 +1828,7 @@ namespace rs
                 case lex_type::l_mul_assign:
                     if (optype == value::valuetype::invalid)
                         // TODO : NEED WARNING..
-                        compiler->mulx(beoped_left_opnum, op_right_opnum);
+                        compiler->mulmovx(beoped_left_opnum, op_right_opnum);
                     else
                     {
                         switch (optype)
@@ -1734,7 +1846,7 @@ namespace rs
                 case lex_type::l_div_assign:
                     if (optype == value::valuetype::invalid)
                         // TODO : NEED WARNING..
-                        compiler->divx(beoped_left_opnum, op_right_opnum);
+                        compiler->divmovx(beoped_left_opnum, op_right_opnum);
                     else
                     {
                         switch (optype)
@@ -1752,7 +1864,7 @@ namespace rs
                 case lex_type::l_mod_assign:
                     if (optype == value::valuetype::invalid)
                         // TODO : NEED WARNING..
-                        compiler->modx(beoped_left_opnum, op_right_opnum);
+                        compiler->modmovx(beoped_left_opnum, op_right_opnum);
                     else
                     {
                         switch (optype)
@@ -1823,7 +1935,6 @@ namespace rs
                 if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
                     compiler->psh(reg(reg::tc));
 
-
                 std::vector<ast_value* >arg_list;
                 auto arg = a_value_funccall->arguments->children;
 
@@ -1850,6 +1961,15 @@ namespace rs
                     arg_list.insert(arg_list.begin(), arg_val);
                     arg = arg->sibling;
                 }
+
+                auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
+
+                ast_value_function_define* fdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
+                    || a_value_funccall->called_func->value_type->is_variadic_function_type
+                    || (fdef && fdef->is_different_arg_count_in_same_extern_symbol);
+
+
                 for (auto* argv : arg_list)
                 {
                     if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(argv))
@@ -1874,7 +1994,7 @@ namespace rs
                     }
                 }
 
-                auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
+
                 if (is_cr_reg(*called_func_aim))
                 {
                     auto& callaimreg = get_useable_register_for_pure_value();
@@ -1883,13 +2003,41 @@ namespace rs
                     complete_using_register(callaimreg);
                 }
 
-                if (!full_unpack_arguments && (!dynamic_cast<opnum::immbase*>(called_func_aim)
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type))
+                if (!full_unpack_arguments && need_using_tc)
                     compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
+
+                opnumbase* reg_for_current_funccall_argc = nullptr;
+                if (full_unpack_arguments)
+                {
+                    reg_for_current_funccall_argc = &get_useable_register_for_pure_value();
+                    compiler->set(*reg_for_current_funccall_argc, reg(reg::tc));
+                }
 
                 compiler->call(*called_func_aim);
 
-                compiler->pop(arg_list.size());
+                if (full_unpack_arguments)
+                {
+                    rs_assert(reg_for_current_funccall_argc);
+                    auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
+                    auto pop_head = compiler->get_unique_tag_based_command_ip() + "_pop_head";
+
+                    // TODO: using duff's device to optmise
+                    if (arg_list.size() + extern_unpack_arg_count - 1)
+                    {
+                        compiler->pop(arg_list.size() + extern_unpack_arg_count - 1);
+                        compiler->subi(*reg_for_current_funccall_argc, imm(arg_list.size() + extern_unpack_arg_count - 1));
+                    }
+                    compiler->tag(pop_head);
+                    compiler->gti(*reg_for_current_funccall_argc, imm(0));
+                    compiler->jf(tag(pop_end));
+                    compiler->pop(1);
+                    compiler->subi(*reg_for_current_funccall_argc, imm(1));
+                    compiler->jmp(tag(pop_head));
+                    compiler->tag(pop_end);
+                }
+                else
+                    compiler->pop(arg_list.size() + extern_unpack_arg_count);
+
                 if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
                     compiler->pop(reg(reg::tc));
 
@@ -2068,39 +2216,36 @@ namespace rs
             }
             else if (auto* a_value_index = dynamic_cast<ast_value_index*>(value))
             {
-                bool left_in_cr = false;
+                size_t revert_pos = compiler->get_now_ip();
+
                 auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+                auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
 
                 // TODO: IF a_value_index->index IS A SINGLE AST, DO NOT MOVE LEFT TO CR
-                if (is_cr_reg(*_beoped_left_opnum) && !a_value_index->index->is_constant)
+                if (is_cr_reg(*_beoped_left_opnum)
+                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || last_value_stored_to_cr))
                 {
-                    auto* _tmp_beoped_left_opnum = &get_useable_register_for_pure_value();
-                    compiler->set(*_tmp_beoped_left_opnum, *_beoped_left_opnum);
-                    _beoped_left_opnum = _tmp_beoped_left_opnum;
-                    left_in_cr = true;
+                    compiler->revert_code_to(revert_pos);
+                    _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
+                    _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
                 }
                 auto& beoped_left_opnum = *_beoped_left_opnum;
-                auto& op_right_opnum = analyze_value(a_value_index->index, compiler);
+                auto& op_right_opnum = *_op_right_opnum;
 
                 last_value_stored_to_cr = true;
 
                 compiler->idx(beoped_left_opnum, op_right_opnum);
 
+                complete_using_register(beoped_left_opnum);
+                complete_using_register(op_right_opnum);
+
                 if (!get_pure_value)
                     return RS_NEW_OPNUM(reg(reg::cr));
                 else
                 {
-                    if (left_in_cr)
-                    {
-                        compiler->set(beoped_left_opnum, reg(reg::cr));
-                        return beoped_left_opnum;
-                    }
-                    else
-                    {
-                        auto& result = get_useable_register_for_pure_value();
-                        compiler->set(result, reg(reg::cr));
-                        return result;
-                    }
+                    auto& result = get_useable_register_for_pure_value();
+                    compiler->set(result, reg(reg::cr));
+                    return result;
                 }
             }
             else if (auto* a_value_packed_variadic_args = dynamic_cast<ast_value_packed_variadic_args*>(value))
@@ -2388,6 +2533,31 @@ namespace rs
 
         void analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
+            // first, check each extern func
+            for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
+            {
+                ast::ast_value_function_define* last_fundef = nullptr;
+                for (auto funcdef : funcdef_list)
+                {
+                    if (last_fundef)
+                    {
+                        rs_assert(last_fundef->value_type->is_func());
+                        if (last_fundef->value_type->is_variadic_function_type
+                            != funcdef->value_type->is_variadic_function_type
+                            || (last_fundef->value_type->argument_types.size() !=
+                                funcdef->value_type->argument_types.size()))
+                        {
+                            goto _update_all_func_using_tc;
+                        }
+                    }
+                    last_fundef = funcdef;
+                }
+                continue;
+            _update_all_func_using_tc:;
+                for (auto funcdef : funcdef_list)
+                    funcdef->is_different_arg_count_in_same_extern_symbol = true;
+            }
+
             size_t public_block_begin = compiler->get_now_ip();
             auto res_ip = compiler->reserved_stackvalue();                      // reserved..
             real_analyze_finalize(ast_node, compiler);

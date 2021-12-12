@@ -7,6 +7,7 @@
 #include "rs_stdlib.hpp"
 #include "rs_lang_grammar_loader.hpp"
 #include "rs_lang.hpp"
+#include "rs_utf8.hpp"
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -151,15 +152,18 @@ rs_integer_t rs_version_int(void)
     return version;
 }
 
+#define RS_VAL(v) (reinterpret_cast<rs::value*>(v)->get())
+#define RS_VM(v) (reinterpret_cast<rs::vmbase*>(v))
+
 rs_type rs_valuetype(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
 
     return (rs_type)_rsvalue->type;
 }
 rs_integer_t rs_int(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     if (_rsvalue->type != rs::value::valuetype::integer_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not an integer.");
@@ -169,7 +173,7 @@ rs_integer_t rs_int(rs_value value)
 }
 rs_real_t rs_real(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     if (_rsvalue->type != rs::value::valuetype::real_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not an real.");
@@ -179,7 +183,7 @@ rs_real_t rs_real(rs_value value)
 }
 rs_handle_t rs_handle(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     if (_rsvalue->type != rs::value::valuetype::handle_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
@@ -189,7 +193,7 @@ rs_handle_t rs_handle(rs_value value)
 }
 rs_string_t rs_string(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     if (_rsvalue->type != rs::value::valuetype::string_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a string.");
@@ -199,11 +203,42 @@ rs_string_t rs_string(rs_value value)
     return _rsvalue->string->c_str();
 }
 
+void rs_set_int(rs_value value, rs_integer_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_integer(val);
+}
+void rs_set_real(rs_value value, rs_real_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_real(val);
+}
+void rs_set_handle(rs_value value, rs_handle_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_handle(val);
+}
+void rs_set_string(rs_value value, rs_string_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_string(val);
+}
+void rs_set_val(rs_value value, rs_value val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_val(RS_VAL(val));
+}
+void rs_set_ref(rs_value value, rs_value val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_ref(RS_VAL(val));
+}
+
 rs_integer_t rs_cast_int(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
 
-    switch (reinterpret_cast<rs::value*>(value)->type)
+    switch (_rsvalue->type)
     {
     case rs::value::valuetype::integer_type:
         return _rsvalue->integer;
@@ -224,7 +259,7 @@ rs_integer_t rs_cast_int(rs_value value)
 }
 rs_real_t rs_cast_real(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
 
     switch (reinterpret_cast<rs::value*>(value)->type)
     {
@@ -247,7 +282,7 @@ rs_real_t rs_cast_real(rs_value value)
 }
 rs_handle_t rs_cast_handle(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
 
     switch (reinterpret_cast<rs::value*>(value)->type)
     {
@@ -376,7 +411,7 @@ rs_string_t rs_cast_string(const rs_value value)
     thread_local std::string _buf;
     _buf = "";
 
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     switch (_rsvalue->type)
     {
     case rs::value::valuetype::integer_type:
@@ -405,7 +440,7 @@ rs_string_t rs_cast_string(const rs_value value)
 
 rs_string_t rs_type_name(const rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     switch (_rsvalue->type)
     {
     case rs::value::valuetype::integer_type:
@@ -433,28 +468,42 @@ rs_integer_t rs_argc(const rs_vm vm)
 
 rs_result_t rs_ret_int(rs_vm vm, rs_integer_t result)
 {
-    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_integer(result));
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_integer(result));
 }
 rs_result_t rs_ret_real(rs_vm vm, rs_real_t result)
 {
-    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_real(result));
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_real(result));
 }
 rs_result_t rs_ret_handle(rs_vm vm, rs_handle_t result)
 {
-    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_handle(result));
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_handle(result));
 }
 rs_result_t rs_ret_string(rs_vm vm, rs_string_t result)
 {
-    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_string(result));
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_string(result));
 }
 rs_result_t rs_ret_nil(rs_vm vm)
 {
-    return reinterpret_cast<rs_result_t>(reinterpret_cast<rs::vmbase*>(vm)->cr->set_nil());
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_nil());
+}
+rs_result_t  rs_ret_val(rs_vm vm, rs_value result)
+{
+    return reinterpret_cast<rs_result_t>(
+        RS_VM(vm)->cr->set_val(
+            reinterpret_cast<rs::value*>(result)->get()
+        ));
+}
+rs_result_t  rs_ret_ref(rs_vm vm, rs_value result)
+{
+    return reinterpret_cast<rs_result_t>(
+        RS_VM(vm)->cr->set_ref(
+            reinterpret_cast<rs::value*>(result)->get()
+        ));
 }
 
 rs_integer_t rs_lengthof(rs_value value)
 {
-    auto _rsvalue = reinterpret_cast<rs::value*>(value)->get();
+    auto _rsvalue = RS_VAL(value);
     if (_rsvalue->is_nil())
         return 0;
     if (_rsvalue->type == rs::value::valuetype::array_type)
@@ -470,7 +519,7 @@ rs_integer_t rs_lengthof(rs_value value)
     else if (_rsvalue->type == rs::value::valuetype::string_type)
     {
         rs::gcbase::gc_read_guard rg1(_rsvalue->string);
-        return _rsvalue->string->size();
+        return rs::u8strlen(_rsvalue->string->c_str());
     }
     else
     {
@@ -590,10 +639,56 @@ rs_bool_t rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src
 
 rs_value rs_run(rs_vm vm)
 {
-    if (reinterpret_cast<rs::vm*>(vm)->env)
+    if (RS_VM(vm)->env)
     {
         reinterpret_cast<rs::vm*>(vm)->run();
-        return reinterpret_cast<rs_value>(reinterpret_cast<rs::vm*>(vm)->cr);
+        return reinterpret_cast<rs_value>(RS_VM(vm)->cr);
     }
+    return nullptr;
+}
+
+
+void rs_arr_resize(rs_value arr, rs_int_t newsz)
+{
+    auto _arr = RS_VAL(arr);
+    if (_arr->type == rs::value::valuetype::array_type)
+    {
+        if (_arr->is_nil())
+            rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        else
+            _arr->array->resize((size_t)newsz);
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+}
+
+rs_bool_t rs_map_find(rs_value map, rs_value index)
+{
+    auto _map = RS_VAL(map);
+    if (_map->type == rs::value::valuetype::mapping_type)
+    {
+        if (_map->is_nil())
+            rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        else
+            return _map->mapping->find(*RS_VAL(index)) != _map->mapping->end();
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return false;
+}
+rs_value rs_map_get(rs_value map, rs_value index)
+{
+    auto _map = RS_VAL(map);
+    if (_map->type == rs::value::valuetype::mapping_type)
+    {
+        if (_map->is_nil())
+            rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        else
+            return reinterpret_cast<rs_value>(&((*_map->mapping)[*RS_VAL(index)]));
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
+
     return nullptr;
 }

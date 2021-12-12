@@ -63,6 +63,9 @@
     <ClCompile Include="rs_lang_grammar_cache_holder.cpp">
       <Filter>lang</Filter>
     </ClCompile>
+    <ClCompile Include="rs_utf8.cpp">
+      <Filter>basic</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs.h">
@@ -142,6 +145,9 @@
     </ClInclude>
     <ClInclude Include="rs_lang_compiler_information.hpp">
       <Filter>lang</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_utf8.hpp">
+      <Filter>basic</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
