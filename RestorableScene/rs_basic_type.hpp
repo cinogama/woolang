@@ -153,7 +153,8 @@ namespace rs
         }
         inline value* set_nil()
         {
-            set_gcunit_with_barrier(valuetype::invalid);
+            type = valuetype::invalid;
+            handle = 0;
             return this;
         }
         inline bool is_nil() const

@@ -64,7 +64,7 @@ func xxx(var n):int
 
 func main()
 {
-    invoke_repeat_n(5, branch_mark_loop100000000);
+    invoke_repeat_n(10, branch_mark_loop100000000);
     invoke_repeat_n(5, branch_mark_fib40);
 }
 

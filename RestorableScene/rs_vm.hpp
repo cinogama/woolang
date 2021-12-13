@@ -1786,14 +1786,6 @@ namespace rs
                         rt_cr->set_ref(opnum1);
                         break;
                     }
-                    case instruct::opcode::movdup:
-                    {
-                        RS_ADDRESSING_N1_REF;
-                        RS_ADDRESSING_N2_REF;
-
-                        rt_cr->set_ref(opnum1->set_dup(opnum2));
-                        break;
-                    }
                     case instruct::opcode::movcast:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2071,7 +2063,6 @@ namespace rs
                             rt_cr->integer = !(opnum1->is_nil() && opnum2->is_nil());
                         break;
                     }
-
                     case instruct::opcode::land:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2101,7 +2092,6 @@ namespace rs
 
                         break;
                     }
-
                     case instruct::opcode::lti:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2158,7 +2148,6 @@ namespace rs
 
                         break;
                     }
-
                     case instruct::opcode::ltr:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2215,7 +2204,6 @@ namespace rs
 
                         break;
                     }
-
                     case instruct::opcode::ltx:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2628,6 +2616,14 @@ namespace rs
                                 break;
                             }
                         }
+                        break;
+                    }
+                    case instruct::opcode::movdup:
+                    {
+                        RS_ADDRESSING_N1_REF;
+                        RS_ADDRESSING_N2_REF;
+
+                        rt_cr->set_ref(opnum1->set_dup(opnum2));
                         break;
                     }
                     case instruct::opcode::ext:
