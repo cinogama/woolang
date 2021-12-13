@@ -2713,6 +2713,7 @@ namespace rs
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     // compiler->pop(reserved_stack_size);
                     compiler->ret();                                            // do return
+
                     compiler->pdb_info->generate_func_end(funcdef, compiler);
 
                 }

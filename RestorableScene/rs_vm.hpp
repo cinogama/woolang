@@ -2372,11 +2372,15 @@ namespace rs
                     }
                     case instruct::opcode::ret:
                     {
+                        // NOTE : RET_VAL?
+                        /*if (dr)
+                            rt_cr->set_val(rt_cr->get());*/
+
                         rs_assert((rt_bp + 1)->type == value::valuetype::callstack
                             || (rt_bp + 1)->type == value::valuetype::nativecallstack);
 
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
-                            return; // last stack is native_func, just do return;
+                            return; // last stack is native_func, just do return; stack balance should be keeped by invoker
 
                         value* stored_bp = stack_mem_begin - rt_bp->bp;
                         rt_ip = rt_env->rt_codes + rt_bp->ret_ip;

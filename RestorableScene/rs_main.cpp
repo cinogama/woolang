@@ -57,10 +57,15 @@ func invoke_repeat_n(var times, var fn, ...)
     }
 }
 
+func xxx(var n):int
+{
+    return "123":int;
+}
+
 func main()
 {
     invoke_repeat_n(5, branch_mark_loop100000000);
-    invoke_repeat_n(5, branch_mark_fib40());
+    invoke_repeat_n(5, branch_mark_fib40);
 }
 
 main();
@@ -70,7 +75,7 @@ main();
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    //((rs::vm*)vmm)->dump_program_bin();
+    // ((rs::vm*)vmm)->dump_program_bin();
 
     //rs::default_debuggee dgb;
     //((rs::vm*)vmm)->attach_debuggee(&dgb);

@@ -756,7 +756,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not sub value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2),1);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::subx, RS_OPNUM(op1), RS_OPNUM(op2), 1);
         }
         template<typename OP1T, typename OP2T>
         void mulx(const OP1T& op1, const OP2T& op2)
@@ -768,7 +768,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not mul value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2),1);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::mulx, RS_OPNUM(op1), RS_OPNUM(op2), 1);
         }
         template<typename OP1T, typename OP2T>
         void divx(const OP1T& op1, const OP2T& op2)
@@ -780,7 +780,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not div value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2),1);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::divx, RS_OPNUM(op1), RS_OPNUM(op2), 1);
         }
         template<typename OP1T, typename OP2T>
         void modx(const OP1T& op1, const OP2T& op2)
@@ -792,7 +792,7 @@ namespace rs
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not mod value to immediate.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2),1);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::modx, RS_OPNUM(op1), RS_OPNUM(op2), 1);
         }
 
         template<typename OP1T, typename OP2T>
@@ -1251,6 +1251,12 @@ namespace rs
         {
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret);
         }
+        void retval()
+        {
+            rs_error("'retval' is not able now...");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
+        }
 
         void nop()
         {
@@ -1608,35 +1614,35 @@ namespace rs
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    
+
                     break;
                 case instruct::opcode::subx:
                     runtime_command_buffer.push_back(RS_OPCODE(subx));
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    
+
                     break;
                 case instruct::opcode::mulx:
                     runtime_command_buffer.push_back(RS_OPCODE(mulx));
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    
+
                     break;
                 case instruct::opcode::divx:
                     runtime_command_buffer.push_back(RS_OPCODE(divx));
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    
+
                     break;
                 case instruct::opcode::modx:
                     runtime_command_buffer.push_back(RS_OPCODE(modx));
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    
+
                     break;
                 case instruct::opcode::addr:
                     runtime_command_buffer.push_back(RS_OPCODE(addr));
@@ -1880,7 +1886,10 @@ namespace rs
                     }
                     break;
                 case instruct::opcode::ret:
-                    runtime_command_buffer.push_back(RS_OPCODE(ret, 00));
+                    if (RS_IR.opinteger)
+                        runtime_command_buffer.push_back(RS_OPCODE(ret, 01));
+                    else
+                        runtime_command_buffer.push_back(RS_OPCODE(ret, 00));
                     break;
                 case instruct::opcode::veh:
                     if (RS_IR.op1)
