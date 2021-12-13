@@ -106,7 +106,7 @@ namespace rs
             mkmap = 55 RS_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             idx = 56 RS_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
-            RESERVED_1 = 57 RS_OPCODE_SPACE,       // 
+            movdup = 57 RS_OPCODE_SPACE,    //  
 
             addx = 58 RS_OPCODE_SPACE,      // addx(dr)         CHANGE_TYPE(1B) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             subx = 59 RS_OPCODE_SPACE,      // subx

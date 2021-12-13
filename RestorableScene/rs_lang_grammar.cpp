@@ -280,6 +280,9 @@ gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"BLOCKED_SENTEN
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"),gm::te(gm::ttype::l_semicolon)}
                 >> RS_ASTBUILDER_INDEX(ast::pass_return),
 
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_ref), gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_return),
+
                 gm::nt(L"RETNVALUE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
                 >> RS_ASTBUILDER_INDEX(ast::pass_empty),//返回值可以是空产生式
                 gm::nt(L"RETNVALUE") >> gm::symlist{gm::nt(L"EXPRESSION")}

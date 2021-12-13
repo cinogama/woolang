@@ -2,6 +2,7 @@
 
 #include "rs_basic_type.hpp"
 #include "rs_compiler_ir.hpp"
+#include "rs_utf8.hpp"
 
 #include <csetjmp>
 #include <shared_mutex>
@@ -608,7 +609,8 @@ namespace rs
 
                 case instruct::movx:
                     tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
+                case instruct::movdup:
+                    tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::veh:
                     tmpos << "veh ";
                     if (main_command & 0b10)
@@ -1784,6 +1786,14 @@ namespace rs
                         rt_cr->set_ref(opnum1);
                         break;
                     }
+                    case instruct::opcode::movdup:
+                    {
+                        RS_ADDRESSING_N1_REF;
+                        RS_ADDRESSING_N2_REF;
+
+                        rt_cr->set_ref(opnum1->set_dup(opnum2));
+                        break;
+                    }
                     case instruct::opcode::movcast:
                     {
                         RS_ADDRESSING_N1_REF;
@@ -2565,9 +2575,13 @@ namespace rs
                             case value::valuetype::string_type:
                             {
                                 gcbase::gc_read_guard gwg1(rt_ths->gcunit);
-                                rt_cr->type = value::valuetype::integer_type;
+
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                    rt_cr->integer = (unsigned char)(*rt_ths->string)[(size_t)opnum2->integer];
+                                {
+                                    size_t strlength = 0;
+                                    rs_string_t out_str = u8substr(rt_ths->string->c_str(), opnum2->integer, 1, &strlength);
+                                    rt_cr->set_string(std::string(out_str, strlength).c_str());
+                                }
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index string without integer & handle.");
                                 break;
@@ -2576,7 +2590,15 @@ namespace rs
                             {
                                 gcbase::gc_read_guard gwg1(rt_ths->gcunit);
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                    rt_cr->set_ref((*rt_ths->array)[(size_t)opnum2->integer].get());
+                                {
+                                    if ((size_t)opnum2->integer >= rt_ths->array->size())
+                                    {
+                                        RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "Index out of range.");
+                                        rt_cr->set_nil();
+                                    }
+                                    else
+                                        rt_cr->set_ref((*rt_ths->array)[(size_t)opnum2->integer].get());
+                                }
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index array without integer & handle.");
                                 break;

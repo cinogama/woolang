@@ -249,6 +249,17 @@ namespace rs
             {
                 analyze_pass1(a_value_idx->from);
                 analyze_pass1(a_value_idx->index);
+
+                if (a_value_idx->from->value_type->is_string())
+                {
+                    a_value_idx->value_type = new ast_type(L"string");
+                }
+                else if (!a_value_idx->from->value_type->is_pending())
+                {
+                    a_value_idx->value_type = new ast_type(L"dynamic");
+                    a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
+                }
+
             }
             else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
             {
@@ -482,7 +493,9 @@ namespace rs
                 if (a_value_unary->operate == +lex_type::l_lnot)
                     a_value_unary->value_type = new ast_type(L"int");
                 else if (!a_value_unary->val->value_type->is_pending())
+                {
                     a_value_unary->value_type = a_value_unary->val->value_type;
+                }
             }
             else if (ast_mapping_pair* a_mapping_pair = dynamic_cast<ast_mapping_pair*>(ast_node))
             {
@@ -628,6 +641,16 @@ namespace rs
                     {
                         analyze_pass2(a_value_idx->from);
                         analyze_pass2(a_value_idx->index);
+
+                        if (a_value_idx->from->value_type->is_string())
+                        {
+                            a_value_idx->value_type = new ast_type(L"string");
+                        }
+                        else if (!a_value_idx->from->value_type->is_pending())
+                        {
+                            a_value_idx->value_type = new ast_type(L"dynamic");
+                            a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
+                        }
                     }
                     else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
                     {
@@ -646,12 +669,6 @@ namespace rs
                                     a_value_assi->left->value_type->get_type_name().c_str());
                             }
                         }
-
-                        //if (a_value_assi->value_type->is_pending())
-                        //{
-                            /*lang_anylizer->lang_error(0x0000, a_value_assi, L"Failed to analyze the type.");*/
-                            // do nothing
-                        //}
                     }
                     else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
                     {
@@ -1038,6 +1055,7 @@ namespace rs
                 }
                 else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
                 {
+                    analyze_pass2(a_value_assi->left);
                     analyze_pass2(a_value_assi->right);
 
                     if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
@@ -1061,6 +1079,11 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
+                    }
+
+                    if (!a_value_assi->left->can_be_assign)
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
                     }
                 }
                 else if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
@@ -1158,7 +1181,6 @@ namespace rs
                 {
                     analyze_pass2(a_value_index->from);
                     analyze_pass2(a_value_index->index);
-
                     if (!a_value_index->from->value_type->is_array()
                         && !a_value_index->from->value_type->is_map()
                         && !a_value_index->from->value_type->is_string()
@@ -1167,6 +1189,8 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, a_value_index->from, RS_ERR_UNINDEXABLE_TYPE
                             , a_value_index->from->value_type->get_type_name().c_str());
                     }
+                    if (!a_value_index->from->value_type->is_string())
+                        a_value_index->can_be_assign = a_value_index->from->can_be_assign;
                 }
                 else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
                 {
@@ -1192,6 +1216,9 @@ namespace rs
                     }
                 }
             }
+
+
+            /////////////////////////////////////////////////////////////////////////////////////////////////
 
             if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
             {
@@ -1299,6 +1326,15 @@ namespace rs
                 for (auto& varref : a_varref_defs->var_refs)
                 {
                     varref.symbol->has_been_defined_in_pass2 = true;
+                    if (varref.is_ref)
+                    {
+                        if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
+                            (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                            || !varref.init_val->can_be_assign)
+                        {
+                            lang_anylizer->lang_error(0x0000, varref.init_val, RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                        }
+                    }
                 }
             }
 
@@ -1311,9 +1347,16 @@ namespace rs
                     )
                 )
             {
+                if (a_value_base->symbol && a_value_base->symbol->attribute->is_constant_attr())
+                    a_value_base->can_be_assign = false;
+
                 if (a_value_base->is_mark_as_using_ref)
-                    if (a_value_base->symbol)
+                {
+                    if (a_value_base->can_be_assign)
                         a_value_base->symbol->has_been_assigned = true;
+                    else
+                        lang_anylizer->lang_error(0x0000, a_value_base, RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                }
 
                 // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
                 // DECIDED BY a_value_base->symbol->is_ref
@@ -1395,6 +1438,19 @@ namespace rs
             }
         }
 
+        bool is_need_dup_when_mov(ast::ast_value* val)
+        {
+            if (dynamic_cast<ast::ast_value_symbolable_base*>(val))
+            {
+                if (!val->can_be_assign && (
+                    val->value_type->is_dynamic()
+                    || val->value_type->is_map()
+                    || val->value_type->is_array()))
+                    return true;
+            }
+            return false;
+        }
+
         opnum::opnumbase& get_useable_register_for_ref_value()
         {
             using namespace ast;
@@ -1431,10 +1487,12 @@ namespace rs
             }
         }
 
-        void complete_using_register(opnum::opnumbase& completed_reg)
+        opnum::opnumbase& complete_using_register(opnum::opnumbase& completed_reg)
         {
             _complete_using_register_for_pure_value(completed_reg);
             _complete_using_register_for_ref_value(completed_reg);
+
+            return completed_reg;
         }
 
         void complete_using_all_register()
@@ -1488,6 +1546,22 @@ namespace rs
                     return op_num;
             }
             compiler->set(reg(reg::cr), op_num);
+            return RS_NEW_OPNUM(reg(reg::cr));
+        }
+
+        opnum::opnumbase& set_ref_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
+        {
+            using namespace ast;
+            using namespace opnum;
+            if (last_value_stored_to_cr)
+                return op_num;
+
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                if (regist->id == reg::cr)
+                    return op_num;
+            }
+            compiler->ext_setref(reg(reg::cr), op_num);
             return RS_NEW_OPNUM(reg(reg::cr));
         }
 
@@ -1762,6 +1836,8 @@ namespace rs
                 if (is_cr_reg(*beoped_left_opnum_ptr)
                     && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || last_value_stored_to_cr))
                 {
+                    complete_using_register(*beoped_left_opnum_ptr);
+                    complete_using_register(*op_right_opnum_ptr);
                     compiler->revert_code_to(revert_pos);
                     op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
                     beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
@@ -1773,7 +1849,10 @@ namespace rs
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
-                    if (optype == value::valuetype::invalid &&
+                    if (is_need_dup_when_mov(a_value_assign->right))
+                        // TODO Right may be 'nil', do not dup nil..
+                        compiler->movdup(beoped_left_opnum, op_right_opnum);
+                    else if (optype == value::valuetype::invalid &&
                         !a_value_assign->left->value_type->is_dynamic())
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     else
@@ -1988,9 +2067,15 @@ namespace rs
                     else
                     {
                         if (argv->is_mark_as_using_ref)
-                            compiler->pshr(analyze_value(argv, compiler));
+                            compiler->pshr(complete_using_register(analyze_value(argv, compiler)));
+                        else if (is_need_dup_when_mov(argv))
+                        {
+                            auto& tmpreg = analyze_value(argv, compiler, true);
+                            compiler->movdup(tmpreg, tmpreg);
+                            compiler->psh(complete_using_register(tmpreg));
+                        }
                         else
-                            compiler->psh(analyze_value(argv, compiler));
+                            compiler->psh(complete_using_register(analyze_value(argv, compiler)));
                     }
                 }
 
@@ -2013,7 +2098,7 @@ namespace rs
                     compiler->set(*reg_for_current_funccall_argc, reg(reg::tc));
                 }
 
-                compiler->call(*called_func_aim);
+                compiler->call(complete_using_register(*called_func_aim));
 
                 if (full_unpack_arguments)
                 {
@@ -2055,21 +2140,28 @@ namespace rs
             }
             else if (auto* a_value_logical_binary = dynamic_cast<ast_value_logical_binary*>(value))
             {
+                // TODO: SHORTCUT..
+
                 value::valuetype optype = value::valuetype::invalid;
                 if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type)
                     && !a_value_logical_binary->left->value_type->is_dynamic())
                     optype = a_value_logical_binary->left->value_type->value_type;
-                bool left_in_cr = false;
+
+                size_t revert_pos = compiler->get_now_ip();
                 auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
-                if (is_cr_reg(*_beoped_left_opnum))
+                auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
+
+                if (is_cr_reg(*_beoped_left_opnum)
+                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || last_value_stored_to_cr))
                 {
-                    auto* _tmp_beoped_left_opnum = &get_useable_register_for_pure_value();
-                    compiler->set(*_tmp_beoped_left_opnum, *_beoped_left_opnum);
-                    _beoped_left_opnum = _tmp_beoped_left_opnum;
-                    left_in_cr = true;
+                    complete_using_register(*_beoped_left_opnum);
+                    complete_using_register(*_beoped_left_opnum);
+                    compiler->revert_code_to(revert_pos);
+                    _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler, true);
+                    _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
                 }
                 auto& beoped_left_opnum = *_beoped_left_opnum;
-                auto& op_right_opnum = analyze_value(a_value_logical_binary->right, compiler);
+                auto& op_right_opnum = *_op_right_opnum;
 
                 switch (a_value_logical_binary->operate)
                 {
@@ -2149,17 +2241,9 @@ namespace rs
                     return RS_NEW_OPNUM(reg(reg::cr));
                 else
                 {
-                    if (left_in_cr)
-                    {
-                        compiler->set(beoped_left_opnum, reg(reg::cr));
-                        return beoped_left_opnum;
-                    }
-                    else
-                    {
-                        auto& result = get_useable_register_for_pure_value();
-                        compiler->set(result, reg(reg::cr));
-                        return result;
-                    }
+                    auto& result = get_useable_register_for_pure_value();
+                    compiler->set(result, reg(reg::cr));
+                    return result;
                 }
             }
             else if (auto* a_value_array = dynamic_cast<ast_value_array*>(value))
@@ -2179,9 +2263,9 @@ namespace rs
                 for (auto* in_arr_val : arr_list)
                 {
                     if (in_arr_val->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(in_arr_val, compiler));
+                        compiler->pshr(complete_using_register(analyze_value(in_arr_val, compiler)));
                     else
-                        compiler->psh(analyze_value(in_arr_val, compiler));
+                        compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
@@ -2198,12 +2282,12 @@ namespace rs
                     auto* _map_pair = dynamic_cast<ast_mapping_pair*>(_map_item);
                     rs_test(_map_pair);
 
-                    compiler->psh(analyze_value(_map_pair->key, compiler));
+                    compiler->psh(complete_using_register(analyze_value(_map_pair->key, compiler)));
 
                     if (_map_pair->val->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(_map_pair->val, compiler));
+                        compiler->pshr(complete_using_register(analyze_value(_map_pair->val, compiler)));
                     else
-                        compiler->psh(analyze_value(_map_pair->val, compiler));
+                        compiler->psh(complete_using_register(analyze_value(_map_pair->val, compiler)));
 
                     _map_item = _map_item->sibling;
                     map_pair_count++;
@@ -2221,10 +2305,11 @@ namespace rs
                 auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
                 auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
 
-                // TODO: IF a_value_index->index IS A SINGLE AST, DO NOT MOVE LEFT TO CR
                 if (is_cr_reg(*_beoped_left_opnum)
                     && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || last_value_stored_to_cr))
                 {
+                    complete_using_register(*_beoped_left_opnum);
+                    complete_using_register(*_beoped_left_opnum);
                     compiler->revert_code_to(revert_pos);
                     _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
                     _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
@@ -2451,8 +2536,14 @@ namespace rs
                     else
                     {
                         if (!varref_define.symbol->is_constexpr)
-                            compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
-                                auto_analyze_value(varref_define.init_val, compiler));
+                        {
+                            if (is_need_dup_when_mov(varref_define.init_val))
+                                compiler->movdup(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
+                                    auto_analyze_value(varref_define.init_val, compiler));
+                            else
+                                compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
+                                    auto_analyze_value(varref_define.init_val, compiler));
+                        }
                     }
                 }
             }
@@ -2511,7 +2602,12 @@ namespace rs
             {
                 if (a_return->return_value)
                 {
-                    mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
+                    if (is_need_dup_when_mov(a_return->return_value))
+                        compiler->movdup(reg(reg::cr), auto_analyze_value(a_return->return_value, compiler));
+                    else if(a_return->return_value->is_mark_as_using_ref)
+                        mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
+                    else
+                        mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                 }
                 compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
             }

@@ -721,6 +721,18 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::movx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
+        template<typename OP1T, typename OP2T>
+        void movdup(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not mov value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::movdup, RS_OPNUM(op1), RS_OPNUM(op2));
+        }
 
         template<typename OP1T, typename OP2T>
         void addx(const OP1T& op1, const OP2T& op2)
@@ -1583,6 +1595,11 @@ namespace rs
                     break;
                 case instruct::opcode::movx:
                     runtime_command_buffer.push_back(RS_OPCODE(movx));
+                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    break;
+                case instruct::opcode::movdup:
+                    runtime_command_buffer.push_back(RS_OPCODE(movdup));
                     RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
                     RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
                     break;

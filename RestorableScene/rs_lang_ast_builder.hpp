@@ -6,6 +6,7 @@
 #include "rs_lang_functions_for_ast.hpp"
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_source_file_manager.hpp"
+#include "rs_utf8.hpp"
 
 #include <any>
 #include <type_traits>
@@ -89,7 +90,6 @@ namespace rs
 
             value::valuetype value_type;
             bool is_pending_type = false;
-
             std::vector<ast_type*> argument_types;
 
             ast_type* using_type_name = nullptr;
@@ -427,6 +427,7 @@ namespace rs
             bool is_constant = false;
             bool is_mark_as_using_ref = false;
             bool is_ref_ob_in_finalize = false;
+            bool can_be_assign = false;
 
             virtual rs::value get_constant_value() const
             {
@@ -696,6 +697,7 @@ namespace rs
             {
                 var_name = _var_name;
                 value_type = new ast_type(L"pending");
+                can_be_assign = true;
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -1155,7 +1157,7 @@ namespace rs
 
             ast_value_index()
             {
-                value_type = new ast_type(L"dynamic");
+                value_type = new ast_type(L"pending");
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
@@ -1201,6 +1203,7 @@ namespace rs
             {
                 rs_assert(argindex);
                 value_type = new ast_type(L"dynamic");
+                can_be_assign = true;
             }
         };
 
@@ -1352,6 +1355,12 @@ namespace rs
             {
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
                 ast_value* val = input.size() == 4 ? dynamic_cast<ast_value*>(RS_NEED_AST(2)) : dynamic_cast<ast_value*>(RS_NEED_AST(1));
+
+                if (!val->can_be_assign)
+                {
+                    lex.parser_error(0x0000, RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                }
+
                 val->is_mark_as_using_ref = true;
                 return (ast_basic*)val;
             }
@@ -1759,7 +1768,7 @@ namespace rs
                     result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
 
                 result->value_type = result->called_func->value_type->get_return_type(); // just get pending..
-
+                result->can_be_assign = true;
                 return (ast_basic*)result;
             }
         };
@@ -2559,9 +2568,13 @@ namespace rs
                                 }
 
                                 ast_value_literal* const_result = new ast_value_literal();
-                                const_result->value_type = new ast_type(L"int");
-                                const_result->_constant_value.set_integer(
-                                    (*left_v->get_constant_value().string)[right_v->get_constant_value().integer]
+                                const_result->value_type = new ast_type(L"string");
+
+                                size_t strlength = 0;
+                                rs_string_t out_str = u8substr(left_v->get_constant_value().string->c_str(), right_v->get_constant_value().integer, 1, &strlength);
+
+                                const_result->_constant_value.set_string_nogc(
+                                    std::string(out_str, strlength).c_str()
                                 );
 
                                 return (grammar::ast_base*)const_result;
@@ -2588,7 +2601,6 @@ namespace rs
                     ast_value_index* vbin = new ast_value_index();
                     vbin->from = left_v;
                     vbin->index = const_result;
-
                     return (grammar::ast_base*)vbin;
                 }
 
@@ -2688,9 +2700,17 @@ namespace rs
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_return* result = new ast_return();
-                if (!ast_empty::is_empty(input[1]))
+                if (input.size() == 3)
                 {
-                    result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+                    if (!ast_empty::is_empty(input[1]))
+                    {
+                        result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+                    }
+                }
+                else // ==4
+                {
+                    result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+                    result->return_value->is_mark_as_using_ref = true;
                 }
                 return (grammar::ast_base*)result;
             }

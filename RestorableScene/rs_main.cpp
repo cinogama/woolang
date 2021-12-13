@@ -18,22 +18,49 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
-using myclass = map;
+func branch_mark_fib40()
+{
+    func fib(var n:int)
+    {
+        if (n<=2)
+            return 1;
+        return fib(n-1) + fib(n-2);
+    }
 
+    var beg_tm = std::time();
+    var i = 0;
+    while (i<40)
+    {
+        std::println(i, ":", fib(i));
+        i+=1;
+    }
+    var end_tm = std::time();
+    std::println("branch_mark_fib40: cost time:", end_tm-beg_tm,);
+}
 
-var damm = 0;
+func branch_mark_loop100000000()
+{
+    var beg_tm = std::time();
+    var i = 0;
+    while (i<1_0000_0000)
+        i += 1;
+    var end_tm = std::time();
+    std::println("branch_mark_loop100000000: cost time:", end_tm-beg_tm,);
+}
+
+func invoke_repeat_n(var times, var fn, ...)
+{
+    while(times)
+    {
+        times-=1;
+        (fn:dynamic(...))(......);
+    }
+}
 
 func main()
 {
-    using std;
-    var m = {};
-    m.name = {};
-    m.name.joy = true;
-
-    var x = "joy";
-    m["namespace"->sub(0, 4)][x->sub(0)] = "Ohhhhh";
-
-    m->println();
+    invoke_repeat_n(5, branch_mark_loop100000000);
+    invoke_repeat_n(5, branch_mark_fib40());
 }
 
 main();
@@ -43,7 +70,7 @@ main();
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
-    ((rs::vm*)vmm)->dump_program_bin();
+    //((rs::vm*)vmm)->dump_program_bin();
 
     //rs::default_debuggee dgb;
     //((rs::vm*)vmm)->attach_debuggee(&dgb);

@@ -126,6 +126,10 @@
 
 #define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' 是无效的"
 
+#define RS_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"不可赋值的对象"
+
+#define RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF L"不可赋值的对象不能被标注为引用传递"
+
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%c' 开头的未知转义序列."
 
@@ -255,6 +259,9 @@
 
 #define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' is useless."
 
+#define RS_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"Cannot assign to a non-assignable item."
+
+#define RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF L"Cannot mark a a non-assignable item as 'ref'."
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%c'."

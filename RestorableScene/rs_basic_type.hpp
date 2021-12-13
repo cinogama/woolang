@@ -257,6 +257,53 @@ namespace rs
                 return "unknown";
             }
         }
+
+        inline value* set_dup(value* from)
+        {
+            // TODO: IF A VAL HAS IT REF; IN CONST VAL, WILL STILL HAS POSSIBLE TO MODIFY THE VAL;
+            if (from->type == valuetype::array_type)
+            {
+                auto* dup_arrray = from->array;
+                if (dup_arrray)
+                {
+                    gcbase::gc_read_guard g1(dup_arrray);
+                    set_gcunit_with_barrier(valuetype::array_type);
+
+                    auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
+                    for (auto src_iter = dup_arrray->begin(), dst_iter = created_arr->begin();
+                        dst_iter != created_arr->end();
+                        src_iter++, dst_iter++
+                        )
+                    {
+                        dst_iter->set_dup(&*src_iter);
+                    }
+                }
+                else
+                    set_nil();
+             
+            }
+            else if (from->type == valuetype::mapping_type)
+            {
+                auto* dup_mapping = from->mapping;
+                if (dup_mapping)
+                {
+                    gcbase::gc_read_guard g1(dup_mapping);
+                    set_gcunit_with_barrier(valuetype::mapping_type);
+
+                    auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(gcunit);
+                    for (auto& [key, val] : *dup_mapping)
+                        (*created_map)[key].set_dup(&val);
+                }
+                else
+                    set_nil();
+            }
+            else
+            {
+                set_val(from);
+            }
+
+            return this;
+        }
     };
     static_assert(sizeof(value) == 16);
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
