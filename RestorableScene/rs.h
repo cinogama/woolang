@@ -122,6 +122,7 @@ RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_value     rs_run(rs_vm vm);
 
 RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
+RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
 
 RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get(rs_value arr, rs_value index);

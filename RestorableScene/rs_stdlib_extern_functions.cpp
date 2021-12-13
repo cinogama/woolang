@@ -70,6 +70,11 @@ RS_API rs_api rslib_std_array_resize(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_array_add(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_ref(vm, rs_arr_add(args + 0, args + 1));
+}
+
 RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 {
     rs_map_find(args + 0, args + 1);
@@ -172,6 +177,8 @@ namespace array
     {
         return a[index];
     }
+    extern("rslib_std_array_add") 
+        func add(var val:array, var elem):dynamic;
 }
 
 namespace map

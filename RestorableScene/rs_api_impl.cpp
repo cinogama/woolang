@@ -653,6 +653,8 @@ void rs_arr_resize(rs_value arr, rs_int_t newsz)
     auto _arr = RS_VAL(arr);
     if (_arr->type == rs::value::valuetype::array_type)
     {
+        rs::gcbase::gc_write_guard g1(_arr->array);
+
         if (_arr->is_nil())
             rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
         else
@@ -660,6 +662,27 @@ void rs_arr_resize(rs_value arr, rs_int_t newsz)
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+}
+
+rs_value rs_arr_add(rs_value arr, rs_value elem)
+{
+    auto _arr = RS_VAL(arr);
+    if (_arr->type == rs::value::valuetype::array_type)
+    {
+        if (_arr->is_nil())
+            rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        else
+        {
+            rs::gcbase::gc_write_guard g1(_arr->array);
+
+            _arr->array->push_back(*RS_VAL(elem));
+            return reinterpret_cast<rs_value>(&_arr->array->back());
+        }
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+
+    return nullptr;
 }
 
 rs_bool_t rs_map_find(rs_value map, rs_value index)
@@ -670,13 +693,17 @@ rs_bool_t rs_map_find(rs_value map, rs_value index)
         if (_map->is_nil())
             rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
         else
+        {
+            rs::gcbase::gc_write_guard g1(_map->mapping);
             return _map->mapping->find(*RS_VAL(index)) != _map->mapping->end();
+        }
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
 
     return false;
 }
+
 rs_value rs_map_get(rs_value map, rs_value index)
 {
     auto _map = RS_VAL(map);
@@ -685,7 +712,10 @@ rs_value rs_map_get(rs_value map, rs_value index)
         if (_map->is_nil())
             rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
         else
+        {
+            rs::gcbase::gc_write_guard g1(_map->mapping);
             return reinterpret_cast<rs_value>(&((*_map->mapping)[*RS_VAL(index)]));
+        }
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
