@@ -88,7 +88,7 @@ namespace rs
             movx = 47 RS_OPCODE_SPACE,      // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
 
             typeas = 48 RS_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
-
+                                            //  typeis(dr_1)
             // exception handler
             veh = 49 RS_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
                                         //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)

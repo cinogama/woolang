@@ -287,12 +287,12 @@ namespace rs
             rs_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
         }
-        inline void dump_program_bin(std::ostream& os = std::cout) const
+        inline void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const
         {
             auto* program = env->rt_codes;
 
-            auto* program_ptr = program;
-            while (program_ptr < program + env->rt_code_len)
+            auto* program_ptr = program + begin;
+            while (program_ptr < program + std::min(env->rt_code_len, end))
             {
                 auto* this_command_ptr = program_ptr;
                 auto main_command = *(this_command_ptr++);
@@ -585,7 +585,11 @@ namespace rs
 
                     break;
                 case instruct::typeas:
-                    tmpos << "typeas\t"; print_opnum1();
+                    if (main_command & 0b01)
+                        tmpos << "typeis\t";
+                    else
+                        tmpos << "typeas\t";
+                    print_opnum1();
                     tmpos << " : ";
                     switch ((value::valuetype) * (this_command_ptr++))
                     {
@@ -742,9 +746,14 @@ namespace rs
 
             os << std::endl;
         }
-        inline void dump_call_stack(std::ostream& os = std::cout)
+        inline void dump_call_stack(size_t max_count = 32, std::ostream& os = std::cout)
         {
-            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip);
+            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - 1);
+            // NOTE: When vm running, rt_ip may point to:
+            // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
+            //                                     ^1                     ^2                     ^3
+            // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
+            // So we do a move of 1BYTE here, for getting correct debuginfo.
 
             int call_trace_count = 0;
 
@@ -755,6 +764,11 @@ namespace rs
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
             {
                 ++call_trace_count;
+                if (call_trace_count > max_count)
+                {
+                    os << call_trace_count << ": ..." << std::endl;
+                    break;
+                }
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
                     src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip);
@@ -902,7 +916,7 @@ namespace rs
                 {
                     // unhandled exception happend.
                     std::cerr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << std::endl;
-                    dump_call_stack(std::cerr);
+                    dump_call_stack(32, std::cerr);
                     return;
 
                 }
@@ -1937,8 +1951,17 @@ namespace rs
                     case instruct::opcode::typeas:
                     {
                         RS_ADDRESSING_N1_REF;
-                        if (opnum1->type != (value::valuetype)(RS_IPVAL_MOVE_1))
-                            RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
+                        if (dr & 0b01)
+                        {
+                            rt_cr->type = value::valuetype::integer_type;
+                            if (opnum1->type != (value::valuetype)(RS_IPVAL_MOVE_1))
+                                rt_cr->integer = 0;
+                            else
+                                rt_cr->integer = 1;
+                        }
+                        else
+                            if (opnum1->type != (value::valuetype)(RS_IPVAL_MOVE_1))
+                                RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
                         break;
                     }
                     case instruct::opcode::lds:
@@ -2583,13 +2606,16 @@ namespace rs
                                 gcbase::gc_read_guard gwg1(rt_ths->gcunit);
                                 if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
                                 {
-                                    if ((size_t)opnum2->integer >= rt_ths->array->size())
+                                    auto real_idx = opnum2->integer;
+                                    if (real_idx < 0)
+                                        real_idx = rt_ths->array->size() - (-real_idx);
+                                    if ((size_t)real_idx >= rt_ths->array->size())
                                     {
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "Index out of range.");
                                         rt_cr->set_nil();
                                     }
                                     else
-                                        rt_cr->set_ref((*rt_ths->array)[(size_t)opnum2->integer].get());
+                                        rt_cr->set_ref((*rt_ths->array)[(size_t)real_idx].get());
                                 }
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index array without integer & handle.");

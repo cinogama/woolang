@@ -18,30 +18,30 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
+func deepin(var n)
+{
+    if (n) 
+        deepin(n-1);
+    else
+        std::println("hello,world");
+}
+
 func main()
 {
-    var a = [];
-
-    var i = 0;
-    while (i < 10)
-    {
-        a->add(i+=1);
-        std::println(a);
-    }
+    deepin(64);
 }
 
 main();
 )");
-
 
     rs_vm vmm = rs_create_vm();
     rs_load_source(vmm, "rs_test.rsn", src);
 
     // ((rs::vm*)vmm)->dump_program_bin();
 
-    //rs::default_debuggee dgb;
-    //((rs::vm*)vmm)->attach_debuggee(&dgb);
-    //dgb.set_breakpoint("rs_test.rsn", 16);
+    rs::default_debuggee dgb;
+    ((rs::vm*)vmm)->attach_debuggee(&dgb);
+    dgb.set_breakpoint("rs_test.rsn", 7);
     // ((rs::vm*)vmm)->attach_debuggee(nullptr);
 
     rs_run(vmm);

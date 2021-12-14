@@ -37,6 +37,203 @@ namespace rs
         }
 
     private:
+        void command_help()
+        {
+            std::cout <<
+                R"(RestorableScene debuggee tool command list:
+
+COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
+------------------------------------------------------------------------------
+break                           <file:line>  Set a breakpoint at the specified
+                                <funcname>  location.
+
+callstack       cs              [max=32]     Get current VM's callstacks.
+
+continue        c                            Continue to run.
+
+deletebreak     delbreak        <break num>  Delete a breakpoint.
+
+disassemble     dis             [funcname]   Get current VM's running ir-codes.
+
+list            l               <list item>  List something, such as:
+                                             break, 
+
+help            ?                            Get help informations.   
+
+)"
+<< std::endl;
+        }
+        template<typename T>
+        static bool need_possiable_input(T& out, bool need_wait = false)
+        {
+            char _useless_for_clear = 0;
+
+            std::string input_item = "";
+
+            if (need_wait)
+            {
+                _useless_for_clear = getchar();
+                input_item += _useless_for_clear;
+            }
+
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1))
+            {
+                if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
+                {
+                    input_item += _useless_for_clear;
+                    while (std::cin.readsome(&_useless_for_clear, 1))
+                    {
+                        if (_useless_for_clear == ' ' || _useless_for_clear == '\t' || _useless_for_clear == '\n')
+                            break;
+                        input_item += _useless_for_clear;
+                    }
+
+                    std::stringstream ss;
+                    ss << input_item;
+                    ss >> out;
+                    return true;
+                }
+                else if (need_wait && input_item.size())
+                {
+                    _useless_for_clear = input_item[0];
+                    if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
+                    {
+                        std::stringstream ss;
+                        ss << input_item;
+                        ss >> out;
+                        return true;
+                    }
+                }
+            }
+
+            if (need_wait && input_item.size())
+            {
+                _useless_for_clear = input_item[0];
+                if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
+                {
+                    std::stringstream ss;
+                    ss << input_item;
+                    ss >> out;
+                    return true;
+                }
+
+            }
+            return false;
+        }
+
+        struct function_code_info
+        {
+            std::string func_sig;
+            size_t command_ip_begin;
+            size_t command_ip_end;
+            size_t rt_ip_begin;
+            size_t rt_ip_end;
+
+        };
+        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(const std::string& funcname)
+        {
+            if (_env)
+            {
+                std::vector<function_code_info> result;
+                for (auto& [funcsign_name, pos] : _env->program_debug_info->_function_ip_data_buf)
+                {
+                    if (funcsign_name.rfind(funcname) != std::string::npos)
+                    {
+                        auto begin_rt_ip = _env->program_debug_info->get_runtime_ip_by_ip(pos.first);
+                        auto end_rt_ip = _env->program_debug_info->get_runtime_ip_by_ip(pos.second);
+                        result.push_back({ funcsign_name,pos.first,pos.second, begin_rt_ip , end_rt_ip });
+                    }
+                }
+                return result;
+            }
+            return {};
+        }
+
+        bool debug_command(vmbase* vmm)
+        {
+            printf("> "); fflush(stdout);
+            std::string main_command;
+
+            if (need_possiable_input(main_command, true))
+            {
+                if (main_command == "?" || main_command == "help")
+                    command_help();
+                else if (main_command == "c" || main_command == "continue")
+                    return false;
+                else if (main_command == "dis" || main_command == "disassemble")
+                {
+                    std::string function_name;
+                    if (need_possiable_input(function_name))
+                    {
+                        auto&& fndresult = search_function_begin_rtip_scope_with_name(function_name);
+                        std::cout << "Find " << fndresult.size() << " symbol(s):" << std::endl;
+                        for (auto& funcinfo : fndresult)
+                        {
+                            std::cout << "In function: " << funcinfo.func_sig << std::endl;
+                            vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                        }
+                    }
+                    else
+                        vmm->dump_program_bin();
+                }
+                else if (main_command == "cs" || main_command == "callstack")
+                {
+                    size_t max_layer;
+                    if (!need_possiable_input(max_layer))
+                        max_layer = SIZE_MAX;
+                    vmm->dump_call_stack(max_layer);
+                }
+                else if (main_command == "break")
+                {
+                    std::string filename_or_funcname;
+                    std::cin >> filename_or_funcname;
+
+                    size_t lineno;
+                    if (scanf("%zu", &lineno))
+                        set_breakpoint(filename_or_funcname, lineno);
+                    else
+                    {
+                        std::lock_guard g1(_mx);
+
+                        auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
+                        std::cout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << std::endl;
+                        for (auto& funcinfo : fndresult)
+                        {
+                            std::cout << "In function: " << funcinfo.func_sig << std::endl;
+                            break_point_traps.insert(funcinfo.command_ip_begin);
+                        }
+                    }
+                    std::cout << "OK!" << std::endl;
+                }
+                else if (main_command == "l" || main_command == "list")
+                {
+                    std::string list_what;
+                    std::cin >> list_what;
+                    if (list_what == "break")
+                    {
+                        size_t id = 0;
+                        for (auto break_stip : break_point_traps)
+                        {
+                            auto& file_loc =
+                                _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
+                                    _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
+                            std::cout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << std::endl;;
+                        }
+                    }
+                    else
+                        printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);
+                }
+                else
+                    printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
+            }
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+
+            return true;
+        }
+
         virtual void debug_interrupt(vmbase* vmm) override
         {
             do
@@ -73,10 +270,14 @@ namespace rs
                 printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
                     loc.source_file.c_str(), loc.row_no, loc.col_no,
                     vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
-                    );
+                );
 
                 printf("===========================================\n");
-                scanf("ok");
+
+                while (debug_command(vmm))
+                {
+
+                }
 
                 unblock_other_vm_in_this_debuggee();
             }

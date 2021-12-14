@@ -124,7 +124,7 @@
 
 #define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"'as' 不允许在运行时测试复杂类型"
 
-#define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' 是无效的"
+#define RS_ERR_CANNOT_AS_DYNAMIC L"此处出现的 'dynamic' 是无效的"
 
 #define RS_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"不可赋值的对象"
 
@@ -257,7 +257,7 @@
 
 #define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"The 'as' operation does not allow testing complex types at runtime."
 
-#define RS_ERR_CANNOT_AS_DYNAMIC L"'as dynamic' is useless."
+#define RS_ERR_CANNOT_AS_DYNAMIC L"'dynamic' here is useless."
 
 #define RS_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"Cannot assign to a non-assignable item."
 

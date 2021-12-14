@@ -178,7 +178,12 @@ namespace array
         return a[index];
     }
     extern("rslib_std_array_add") 
-        func add(var val:array, var elem):dynamic;
+        func add(var val:array, var elem):dynamic;  
+    func dup(var val:array)
+    {
+        const var _dupval = val;
+        return _dupval;
+    }
 }
 
 namespace map
@@ -191,5 +196,10 @@ namespace map
         func get(var m:map, var index:dynamic):dynamic;
     extern("rslib_std_map_get_by_default") 
         func get(var m:map, var index:dynamic, var default_val:dynamic):dynamic;
+    func dup(var val:map)
+    {
+        const var _dupval = val;
+        return _dupval;
+    }
 }
 )";

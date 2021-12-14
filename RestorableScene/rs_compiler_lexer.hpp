@@ -88,6 +88,7 @@ namespace rs
         l_using,
         l_enum,
         l_as,
+        l_is,
 
         l_private,
         l_public,
@@ -185,6 +186,7 @@ namespace rs
             {L"const", {lex_type::l_const}},
             {L"enum", {lex_type::l_enum}},
             {L"as", {lex_type::l_as}},
+            {L"is", {lex_type::l_is}},
         };
 
 

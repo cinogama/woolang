@@ -458,13 +458,22 @@ gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"SINGLE_VALUE") }
 gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"AS_TYPE") }
+gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CHECK"), gm::nt(L"AS_TYPE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_type_judgement),
+
+gm::nt(L"FACTOR_TYPE_CHECK") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_type_check),
 
 gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_as), gm::nt(L"TYPE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_is), gm::nt(L"TYPE") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
 // TYPE CASTING..

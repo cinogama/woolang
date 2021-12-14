@@ -276,7 +276,7 @@ namespace rs
                 a_value_assi->value_type = new ast_type(L"pending");
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
-                if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
+                /*if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
                 {
                     if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
                     {
@@ -284,7 +284,7 @@ namespace rs
                             a_value_assi->right->value_type->get_type_name().c_str(),
                             a_value_assi->left->value_type->get_type_name().c_str());
                     }
-                }
+                }*/
             }
             else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
             {
@@ -314,6 +314,10 @@ namespace rs
 
                 analyze_pass1(ast_value_judge->_be_cast_value_node);
 
+            }
+            else if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(ast_node))
+            {
+                analyze_pass1(ast_value_check->_be_check_value_node);
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
@@ -559,6 +563,8 @@ namespace rs
             if (traving_node.find(ast_node) != traving_node.end())
                 return true;
 
+            ast_node->completed_in_pass2 = true;
+
             struct traving_guard
             {
                 lang* _lang;
@@ -729,6 +735,25 @@ namespace rs
                                     || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
                                 {
                                     a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                    goto start_ast_op_calling;
+                                }
+                                a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
+
+                                // not find func in custom type and basic type, try dynamic 
+                                if (!a_value_funccall->directed_value_from->value_type->is_dynamic())
+                                {
+                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
+                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back(L"dynamic");
+
+                                    lang_anylizer->lex_enable_error_warn = false;
+                                    analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
+                                    lang_anylizer->lex_enable_error_warn = true;
+
+                                    if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
+                                        || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
+                                    {
+                                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                    }
                                 }
                             }
                         }
@@ -1167,6 +1192,23 @@ namespace rs
                     if (ast_value_judge->value_type->is_dynamic())
                     {
                         lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_DYNAMIC);
+                    }
+                }
+                else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(ast_node))
+                {
+                    analyze_pass2(a_value_type_check->_be_check_value_node);
+
+                    if (a_value_type_check->_be_check_value_node->value_type->is_pending()
+                        || a_value_type_check->_be_check_value_node->value_type->is_dynamic())
+                    {
+                        if (a_value_type_check->aim_type->is_func())
+                            lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_COMPLEX_TYPE);
+                    }
+                    // check type and get result in finalize
+
+                    if (a_value_type_check->value_type->is_dynamic())
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_DYNAMIC);
                     }
                 }
                 else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(a_value))
@@ -1999,6 +2041,25 @@ namespace rs
                 }
                 return result;
             }
+            else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
+            {
+                if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
+                {
+                    // is dynamic do check..
+                    auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
+
+                    rs_test(a_value_type_check->aim_type->value_type != value::valuetype::invalid);
+                    compiler->typeis(result, a_value_type_check->aim_type->value_type);
+
+                    last_value_stored_to_cr = true;
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+                else if (!a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type))
+                {
+                    return RS_NEW_OPNUM(imm(0));
+                }
+                return RS_NEW_OPNUM(imm(1));
+            }
             else if (auto* a_value_function_define = dynamic_cast<ast_value_function_define*>(value))
             {
                 // function defination
@@ -2604,7 +2665,7 @@ namespace rs
                 {
                     if (is_need_dup_when_mov(a_return->return_value))
                         compiler->movdup(reg(reg::cr), auto_analyze_value(a_return->return_value, compiler));
-                    else if(a_return->return_value->is_mark_as_using_ref)
+                    else if (a_return->return_value->is_mark_as_using_ref)
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);

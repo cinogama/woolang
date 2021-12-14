@@ -640,6 +640,30 @@ namespace rs
             }
         };
 
+        struct ast_value_type_check : public ast_value
+        {
+            ast_value* _be_check_value_node;
+            ast_type* aim_type;
+            ast_value_type_check(ast_value* value, ast_type* type)
+            {
+                _be_check_value_node = value;
+                aim_type = type;
+
+                value_type = new ast_type(L"int");
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
+            {
+                space(os, lay); os << L"< " << ANSI_HIR << L"is" << ANSI_RST << L" : >" << std::endl;
+                _be_check_value_node->display(os, lay + 1);
+
+                space(os, lay); os << L"< " << ANSI_HIR << L"to "
+                    << ANSI_HIM << aim_type->get_type_name() << ANSI_RST;
+
+                os << L" >" << std::endl;
+            }
+        };
+
         struct ast_decl_attribute : virtual public grammar::ast_base
         {
             std::set<lex_type> attributes;
@@ -2059,6 +2083,47 @@ namespace rs
 
         };
 
+        struct pass_type_check :public astnode_builder
+        {
+            static ast_value* do_check(lexer& lex, ast_value* value_node, ast_type* type_node)
+            {
+                if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
+                {
+                    return new ast_value_type_check(value_node, type_node);
+                }
+                else if (!value_node->value_type->is_same(type_node))
+                {
+                    ast_value_literal* result_false= new ast_value_literal();
+                    result_false->value_type = new ast_type(L"int");
+                    result_false->_constant_value.set_integer(0);
+                    return result_false;
+                }
+
+                ast_value_literal* result_true = new ast_value_literal();
+                result_true->value_type = new ast_type(L"int");
+                result_true->_constant_value.set_integer(1);
+                return result_true;
+            }
+
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_test(input.size() == 2);
+
+                ast_value* value_node;
+                ast_type* type_node;
+                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
+                {
+                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                        return (ast_basic*)do_check(lex, value_node, type_node);
+                    return (ast_basic*)value_node;
+                }
+
+                rs_error("Unexcepted token type.");
+                return 0;
+            }
+
+        };
+
         struct pass_variable :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -2739,6 +2804,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_type_check>]
+                = _register_builder<pass_type_check>();
+            
             _registed_builder_function_id_list[meta::type_hash<pass_directed_value_for_call>]
                 = _register_builder<pass_directed_value_for_call>();
 

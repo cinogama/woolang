@@ -291,6 +291,7 @@ namespace rs
         const location& get_src_location_by_runtime_ip(byte_t* rt_pos) const;
         size_t get_ip_by_src_location(const std::string& src_name, size_t rowno)const;
         size_t get_ip_by_runtime_ip(byte_t* rt_pos) const;
+        size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const;
     };
 
@@ -1191,6 +1192,14 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::typeas, RS_OPNUM(op1), nullptr, (int)vtt);
         }
+        template<typename OP1T>
+        void typeis(const OP1T& op1, value::valuetype vtt)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::typeas, RS_OPNUM(op1), nullptr, (int)vtt, 1);
+        }
 
         template<typename OP1T>
         void call(const OP1T& op1)
@@ -1506,9 +1515,21 @@ namespace rs
                     runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
                     break;
                 case instruct::opcode::typeas:
-                    runtime_command_buffer.push_back(RS_OPCODE(typeas));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+
+                    if (RS_IR.ext_page_id)
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(typeas) | 0b01);
+                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                        runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                    }
+                    else
+                    {
+                        runtime_command_buffer.push_back(RS_OPCODE(typeas));
+                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                        runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                    }
+
+
                     break;
                 case instruct::opcode::psh:
                     if (nullptr == RS_IR.op1)

@@ -63,11 +63,15 @@ namespace rs
         if (result == FAIL_INDEX)
             return FAIL_LOC;
 
+        auto maxvidx = _general_src_data_buf_b.end();
+        maxvidx--;
+
+        auto maxval = maxvidx->first;
 
         while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
         {
-            if (!result) return FAIL_LOC;
-            result--;
+            if (result > maxval) return FAIL_LOC;
+            result++;
         }
 
         return _general_src_data_buf_b.at(result);
@@ -115,6 +119,16 @@ namespace rs
 
         return result;
     }
+    size_t program_debug_data_info::get_runtime_ip_by_ip(size_t ip) const
+    {
+        for (auto& [rtip, cpip] : pdd_rt_code_byte_offset_to_ir)
+        {
+            if (cpip >= ip)
+                return rtip;
+        }
+
+        return SIZE_MAX;
+    }
 
     void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
@@ -129,14 +143,14 @@ namespace rs
         auto compile_ip = get_ip_by_runtime_ip(rt_pos);
         for (auto& [func_signature, iplocs] : _function_ip_data_buf)
         {
-            if (iplocs.first < compile_ip && compile_ip <= iplocs.second)
+            if (iplocs.first <= compile_ip && compile_ip <= iplocs.second)
                 return func_signature;
         }
         return "__unknown_func__at_" +
             [rt_pos]()->std::string {
             char ptrr[20] = {};
             sprintf(ptrr, "0x%p", rt_pos);
-            return ptrr; 
+            return ptrr;
         }();
     }
 }
