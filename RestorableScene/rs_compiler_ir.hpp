@@ -282,6 +282,7 @@ namespace rs
         size_t runtime_codes_length;
 
         // for lang
+        void generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
         void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 

@@ -48,7 +48,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     std::cerr << ANSI_HIR "callstack: " ANSI_RST << std::endl;
 
     if (rs::vmbase::_this_thread_vm)
-        rs::vmbase::_this_thread_vm->dump_call_stack(32, std::cerr);
+        rs::vmbase::_this_thread_vm->dump_call_stack(32, true, std::cerr);
 
     std::cerr << std::endl;
 

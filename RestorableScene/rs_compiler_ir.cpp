@@ -3,6 +3,18 @@
 
 namespace rs
 {
+    void program_debug_data_info::generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
+    {
+        auto& row_buff = _general_src_data_buf_a[ast_func->argument_list->source_file][ast_func->argument_list->row_no];
+        if (row_buff.find(ast_func->argument_list->col_no) == row_buff.end())
+            row_buff[ast_func->argument_list->col_no] = SIZE_MAX;
+
+        auto& old_ip = row_buff[ast_func->argument_list->col_no];
+        if (compiler->get_now_ip() < old_ip)
+            old_ip = compiler->get_now_ip();
+
+
+    }
     void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
@@ -70,8 +82,11 @@ namespace rs
 
         while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
         {
-            if (result > maxval) return FAIL_LOC;
-            result++;
+            if (!result)
+            {
+                return FAIL_LOC;
+            }
+            result--;
         }
 
         return _general_src_data_buf_b.at(result);
@@ -133,6 +148,7 @@ namespace rs
     void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
         _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].first = compiler->get_now_ip();
+        generate_debug_info_at_funcbegin(funcdef, compiler);
     }
     void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {

@@ -946,6 +946,20 @@ namespace rs
 
                         if (a_value_funccall->called_func
                             && a_value_funccall->called_func->value_type->is_func()
+                            && a_value_funccall->called_func->value_type->is_pending())
+                        {
+                            auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+
+                            if (funcsymb && funcsymb->auto_adjust_return_type)
+                            {
+                                funcsymb->value_type->set_ret_type(new ast_type(L"void"));
+                                funcsymb->auto_adjust_return_type = false;
+                            }
+
+                        }
+
+                        if (a_value_funccall->called_func
+                            && a_value_funccall->called_func->value_type->is_func()
                             && !a_value_funccall->called_func->value_type->is_pending())
                         {
                             auto* real_args = a_value_funccall->arguments->children;
@@ -2733,6 +2747,7 @@ namespace rs
 
                     compiler->tag(funcdef->get_ir_func_signature_tag());
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
+
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 
                     // apply args.

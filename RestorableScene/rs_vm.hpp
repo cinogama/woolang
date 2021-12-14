@@ -739,16 +739,26 @@ namespace rs
                     tmpos << "??\t"; break;
                 }
 
-                print_byte(); os << "| " << tmpos.str() << std::endl;
+                if (ip >= program_ptr && ip < this_command_ptr)
+                    os << ANSI_INV;
+
+                print_byte();
+
+                if (ip >= program_ptr && ip < this_command_ptr)
+                    os << ANSI_RST;
+
+                os << "| " << tmpos.str() << std::endl;
+
+
 
                 program_ptr = this_command_ptr;
             }
 
             os << std::endl;
         }
-        inline void dump_call_stack(size_t max_count = 32, std::ostream& os = std::cout)
+        inline void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const
         {
-            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - 1);
+            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
             // NOTE: When vm running, rt_ip may point to:
             // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
             //                                     ^1                     ^2                     ^3
@@ -757,7 +767,7 @@ namespace rs
 
             int call_trace_count = 0;
 
-            os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip) << std::endl;
+            os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
             os << "\t--at " << src_location_info->source_file << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
 
             value* base_callstackinfo_ptr = (bp + 1);
@@ -771,10 +781,10 @@ namespace rs
                 }
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
-                    src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip);
+                    src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
 
                     os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                        env->rt_codes + base_callstackinfo_ptr->ret_ip) << std::endl;
+                        env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
                     os << "\t--at " << src_location_info->source_file << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
@@ -786,6 +796,36 @@ namespace rs
                     return;
                 }
             }
+        }
+        inline size_t callstack_layer() const
+        {
+            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - 1);
+            // NOTE: When vm running, rt_ip may point to:
+            // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
+            //                                     ^1                     ^2                     ^3
+            // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
+            // So we do a move of 1BYTE here, for getting correct debuginfo.
+
+            size_t call_trace_count = 0;
+
+
+            value* base_callstackinfo_ptr = (bp + 1);
+            while (base_callstackinfo_ptr <= this->stack_mem_begin)
+            {
+                ++call_trace_count;
+                if (base_callstackinfo_ptr->type == value::valuetype::callstack)
+                {
+
+                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
+                    base_callstackinfo_ptr++;
+                }
+                else
+                {
+                    break;
+                }
+            }
+
+            return call_trace_count;
         }
     };
 
@@ -916,7 +956,7 @@ namespace rs
                 {
                     // unhandled exception happend.
                     std::cerr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << std::endl;
-                    dump_call_stack(32, std::cerr);
+                    dump_call_stack(32, true, std::cerr);
                     return;
 
                 }

@@ -47,7 +47,7 @@ COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
 break                           <file:line>  Set a breakpoint at the specified
                                 <funcname>  location.
 
-callstack       cs              [max=32]     Get current VM's callstacks.
+callstack       cs              [max=8]      Get current VM's callstacks.
 
 continue        c                            Continue to run.
 
@@ -55,10 +55,19 @@ deletebreak     delbreak        <break num>  Delete a breakpoint.
 
 disassemble     dis             [funcname]   Get current VM's running ir-codes.
 
+
+help            ?                            Get help informations.   
+
 list            l               <list item>  List something, such as:
                                              break, 
 
-help            ?                            Get help informations.   
+next            n                            Execute next line of src.
+
+step            s                            Execute next line of src, will step
+                                            in functions.
+
+stepir          si                           Execute next command.
+
 
 )"
 << std::endl;
@@ -150,13 +159,24 @@ help            ?                            Get help informations.
             return {};
         }
 
+        bool breakdown_temp_for_stepir = false;
+
+        bool breakdown_temp_for_step = false;
+
+        bool breakdown_temp_for_next = false;
+        size_t breakdown_temp_for_next_callstackdepth = 0;
+
+        size_t breakdown_temp_for_step_lineno = 0;
+        std::string breakdown_temp_for_step_srcfile = "";
+
         bool debug_command(vmbase* vmm)
         {
-            printf("> "); fflush(stdout);
+            printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
             std::string main_command;
 
             if (need_possiable_input(main_command, true))
             {
+                printf(ANSI_RST);
                 if (main_command == "?" || main_command == "help")
                     command_help();
                 else if (main_command == "c" || main_command == "continue")
@@ -181,8 +201,8 @@ help            ?                            Get help informations.
                 {
                     size_t max_layer;
                     if (!need_possiable_input(max_layer))
-                        max_layer = SIZE_MAX;
-                    vmm->dump_call_stack(max_layer);
+                        max_layer = 8;
+                    vmm->dump_call_stack(max_layer, false);
                 }
                 else if (main_command == "break")
                 {
@@ -190,7 +210,7 @@ help            ?                            Get help informations.
                     std::cin >> filename_or_funcname;
 
                     size_t lineno;
-                    if (scanf("%zu", &lineno))
+                    if (need_possiable_input<size_t>(lineno))
                         set_breakpoint(filename_or_funcname, lineno);
                     else
                     {
@@ -205,6 +225,55 @@ help            ?                            Get help informations.
                         }
                     }
                     std::cout << "OK!" << std::endl;
+                }
+                else if (main_command == "delbreak" || main_command == "deletebreak")
+                {
+                    size_t breakno;
+                    std::cin >> breakno;
+
+                    if (breakno < break_point_traps.size())
+                    {
+                        auto fnd = break_point_traps.begin();
+
+                        for (size_t i = 0; i < breakno; i++)
+                            fnd++;
+                        break_point_traps.erase(fnd);
+                        std::cout << "OK!" << std::endl;
+                    }
+                    else
+                        printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
+                }
+                else if (main_command == "si" || main_command == "stepir")
+                {
+                    breakdown_temp_for_stepir = true;
+                    return false;
+                }
+                else if (main_command == "s" || main_command == "step")
+                {
+                    // Get current lineno
+
+                    auto& loc = vmm->env->program_debug_info
+                        ->get_src_location_by_runtime_ip(vmm->ip);
+
+                    breakdown_temp_for_step = true;
+                    breakdown_temp_for_step_lineno = loc.row_no;
+                    breakdown_temp_for_step_srcfile = loc.source_file;
+
+                    return false;
+                }
+                else if (main_command == "n" || main_command == "next")
+                {
+                    // Get current lineno
+
+                    auto& loc = vmm->env->program_debug_info
+                        ->get_src_location_by_runtime_ip(vmm->ip);
+
+                    breakdown_temp_for_next = true;
+                    breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
+                    breakdown_temp_for_step_lineno = loc.row_no;
+                    breakdown_temp_for_step_srcfile = loc.source_file;
+
+                    return false;
                 }
                 else if (main_command == "l" || main_command == "list")
                 {
@@ -227,6 +296,9 @@ help            ?                            Get help informations.
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
             }
+
+            printf(ANSI_RST);
+
             char _useless_for_clear = 0;
             std::cin.clear();
             while (std::cin.readsome(&_useless_for_clear, 1));
@@ -258,14 +330,23 @@ help            ?                            Get help informations.
             value* current_bp = vmm->bp;
 
             auto command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
+            auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
 
             // check breakpoint..
             std::lock_guard g1(_mx);
-            if (break_point_traps.find(command_ip) != break_point_traps.end())
+            if (breakdown_temp_for_stepir
+                || (breakdown_temp_for_step
+                    && (loc.row_no != breakdown_temp_for_step_lineno
+                        || loc.source_file != breakdown_temp_for_step_srcfile))
+                || (breakdown_temp_for_next
+                    && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
+                    && (loc.row_no != breakdown_temp_for_step_lineno
+                        || loc.source_file != breakdown_temp_for_step_srcfile))
+                || break_point_traps.find(command_ip) != break_point_traps.end())
             {
+                breakdown_temp_for_stepir = false;
+                breakdown_temp_for_step = false;
                 block_other_vm_in_this_debuggee();
-
-                auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
 
                 printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
                     loc.source_file.c_str(), loc.row_no, loc.col_no,

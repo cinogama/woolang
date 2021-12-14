@@ -28,7 +28,7 @@ func deepin(var n)
 
 func main()
 {
-    deepin(64);
+    deepin(1);
 }
 
 main();
@@ -41,7 +41,7 @@ main();
 
     rs::default_debuggee dgb;
     ((rs::vm*)vmm)->attach_debuggee(&dgb);
-    dgb.set_breakpoint("rs_test.rsn", 7);
+    dgb.set_breakpoint("rs_test.rsn", 14);
     // ((rs::vm*)vmm)->attach_debuggee(nullptr);
 
     rs_run(vmm);
