@@ -290,7 +290,7 @@ namespace rs
                     {
                         wstr_to_str(varname),
                         rowno,
-                        (locat >= 0 ? locat + in_stack_reg_count : locat)
+                        (rs_integer_t)(locat >= 0 ? locat + in_stack_reg_count : locat)
                     }
                 );
             }

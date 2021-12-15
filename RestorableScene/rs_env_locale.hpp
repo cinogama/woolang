@@ -3,6 +3,7 @@
 #include <string>
 #include <clocale>
 #include <memory>
+#include <cstring>
 
 #ifdef _WIN32
 #       include <Windows.h>

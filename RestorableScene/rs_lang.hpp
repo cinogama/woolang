@@ -2528,7 +2528,7 @@ namespace rs
                         complete_using_register(result);
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, a_value_unary, RS_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name());
+                        lang_anylizer->lang_error(0x0000, a_value_unary, RS_ERR_TYPE_CANNOT_NEGATIVE, a_value_unary->val->value_type->get_type_name().c_str());
                     break;
                 default:
                     rs_error("Do not support this operator..");

@@ -27,7 +27,7 @@ namespace rs
             vfile_list[filepath] = { enable_modify, file_data };
             return true;
         }
-        else if(vffnd->second.enable_modify)
+        else if (vffnd->second.enable_modify)
         {
             vfile_list[filepath] = { enable_modify, file_data };
             return true;
@@ -43,7 +43,7 @@ namespace rs
         {
             auto src_file_loc = rs::get_file_loc(lex->source_file);
             *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
-            std::wifstream src_1(*out_real_read_path);
+            std::wifstream src_1(wstr_to_str(*out_real_read_path));
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);
@@ -59,7 +59,7 @@ namespace rs
         do
         {
             *out_real_read_path = str_to_wstr(rs::exe_path()) + filepath;
-            std::wifstream src_1(*out_real_read_path);
+            std::wifstream src_1(wstr_to_str(*out_real_read_path));
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);
@@ -88,7 +88,7 @@ namespace rs
         do
         {
             *out_real_read_path = str_to_wstr(rs::work_path()) + filepath;
-            std::wifstream src_1(*out_real_read_path);
+            std::wifstream src_1(wstr_to_str(*out_real_read_path));
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);

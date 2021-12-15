@@ -375,10 +375,9 @@ namespace rs
 
             just_have_err = true;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
             lex_error_msg& msg = lex_error_list.emplace_back(
                 lex_error_msg
                 {
@@ -386,7 +385,7 @@ namespace rs
                     0x1000 + errorno,
                     now_file_rowno,
                     now_file_colno,
-                    describe.data(),
+                    describe,
                     source_file
                 }
             );
@@ -400,10 +399,9 @@ namespace rs
             if (!lex_enable_error_warn)
                 return;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
             lex_error_msg& msg = lex_warn_list.emplace_back(
                 lex_error_msg
                 {
@@ -411,7 +409,7 @@ namespace rs
                     errorno,
                     now_file_rowno,
                     now_file_colno,
-                    describe.data(),
+                    describe,
                     source_file
                 }
             );
@@ -425,10 +423,9 @@ namespace rs
 
             just_have_err = true;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
             lex_error_msg& msg = lex_error_list.emplace_back(
                 lex_error_msg
                 {
@@ -436,7 +433,7 @@ namespace rs
                     0x1000 + errorno,
                     next_file_rowno,
                     next_file_colno,
-                    describe.data(),
+                    describe,
                     source_file
                 }
             );
@@ -448,10 +445,9 @@ namespace rs
             if (!lex_enable_error_warn)
                 return;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
             lex_error_msg& msg = lex_warn_list.emplace_back(
                 lex_error_msg
                 {
@@ -459,7 +455,7 @@ namespace rs
                     errorno,
                     next_file_rowno,
                     next_file_colno,
-                    describe.data(),
+                    describe,
                     source_file
                 }
             );
@@ -476,10 +472,9 @@ namespace rs
             size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
             size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
             lex_error_msg& msg = lex_error_list.emplace_back(
                 lex_error_msg
                 {
@@ -487,7 +482,7 @@ namespace rs
                     0x1000 + errorno,
                     row_no,
                     col_no,
-                    describe.data(),
+                    describe,
                     tree_node->source_file
                 }
             );
@@ -499,10 +494,8 @@ namespace rs
             if (!lex_enable_error_warn)
                 return;
 
-            size_t needed_sz = swprintf(nullptr, 0, fmt, args...);
-            std::vector<wchar_t> describe;
-            describe.resize(needed_sz + 1);
-            swprintf(describe.data(), needed_sz + 1, fmt, args...);
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
 
             size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
             size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
@@ -514,7 +507,7 @@ namespace rs
                     errorno,
                     row_no,
                     col_no,
-                    describe.data(),
+                    describe,
                     tree_node->source_file
                 }
             );

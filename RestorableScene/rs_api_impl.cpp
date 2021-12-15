@@ -123,11 +123,11 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
 }
 static std::atomic<rs_fail_handler> _rs_fail_handler_function = &_default_fail_handler;
 
-RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler)
+rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler)
 {
     return _rs_fail_handler_function.exchange(new_handler);
 }
-RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
+void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
     _rs_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }

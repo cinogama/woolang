@@ -1478,7 +1478,7 @@ namespace rs
                         }
                         else
                         {
-                            return lex.parser_error(0x0000, RS_ERR_TYPE_CANNOT_NEGATIVE, right_v->value_type->get_type_name());
+                            return lex.parser_error(0x0000, RS_ERR_TYPE_CANNOT_NEGATIVE, right_v->value_type->get_type_name().c_str());
                         }
                     }
                     else /*if(_token.type == +lex_type::l_lnot)*/
