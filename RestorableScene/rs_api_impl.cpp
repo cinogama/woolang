@@ -8,6 +8,9 @@
 #include "rs_lang_grammar_loader.hpp"
 #include "rs_lang.hpp"
 #include "rs_utf8.hpp"
+#include "rs_runtime_debuggee.hpp"
+
+#include <csignal>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -54,37 +57,34 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
 
     if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MINOR)
     {
+        std::cerr << ANSI_HIY "This is a minor failure, ignore it." ANSI_RST << std::endl;
         // Just ignore it..
     }
     else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MEDIUM)
     {
         // Just throw it..
+        std::cerr << ANSI_HIY "This is a medium failure, it will be throw." ANSI_RST << std::endl;
         throw rs::rsruntime_exception(rterrcode, reason);
     }
     else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_HEAVY)
     {
         // Just throw it..
+        std::cerr << ANSI_HIY "This is a heavy failure, it will be throw." ANSI_RST << std::endl;
         throw rs::rsruntime_exception(rterrcode, reason);
     }
     else
     {
-
         std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
         std::cerr << "1) Abort program.(You can attatch debuggee.)" << std::endl;
         std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
         std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << std::endl;
         std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
-
         do
         {
             int choice;
-
             std::cerr << "Please input your choice: " ANSI_HIY;
-
             std::cin >> choice;
-
             std::cerr << ANSI_RST;
-
             switch (choice)
             {
             case 1:
@@ -132,11 +132,28 @@ RS_API void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t fun
     _rs_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
+void _rs_ctrl_c_signal_handler(int sig)
+{
+    // CTRL + C, 
+    std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all vm immediately." << std::endl;
+    signal(sig, SIG_IGN);
+
+    std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
+    for (auto vm : rs::vmbase::_alive_vm_list)
+    {
+        if (!rs_has_attached_debuggee((rs_vm)vm))
+            rs_attach_default_debuggee((rs_vm)vm);
+        rs_break_immediately((rs_vm)vm);
+    }
+
+}
 void rs_init(int argc, char** argv)
 {
     rs::rs_init_locale();
     rs::gc::gc_start();
-    rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data);
+    rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
+
+    signal(SIGINT, _rs_ctrl_c_signal_handler);
 }
 
 rs_string_t  rs_compile_date(void)
@@ -528,9 +545,9 @@ rs_integer_t rs_lengthof(rs_value value)
     }
 }
 
-rs_bool_t rs_virtual_source(rs_string_t filepath, rs_string_t data)
+rs_bool_t rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify)
 {
-    return rs::create_virtual_source(rs::str_to_wstr(data), rs::str_to_wstr(filepath));
+    return rs::create_virtual_source(rs::str_to_wstr(data), rs::str_to_wstr(filepath), enable_modify);
 }
 
 rs_vm rs_create_vm()
@@ -547,6 +564,8 @@ rs_bool_t rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src
 {
     if (!virtual_src_path)
         virtual_src_path = "__runtime_script__";
+
+    rs_virtual_source(virtual_src_path, src, true);
 
     // 1. Prepare lexer..
     rs::lexer lex(rs::str_to_wstr(src), virtual_src_path);
@@ -647,6 +666,7 @@ rs_value rs_run(rs_vm vm)
     return nullptr;
 }
 
+// CONTAINER OPERATE
 
 void rs_arr_resize(rs_value arr, rs_int_t newsz)
 {
@@ -721,4 +741,40 @@ rs_value rs_map_get(rs_value map, rs_value index)
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
 
     return nullptr;
+}
+
+// DEBUGGEE TOOLS
+
+void rs_attach_default_debuggee(rs_vm vm)
+{
+    rs::default_debuggee* dgb = new rs::default_debuggee;
+    if (auto* old_debuggee = RS_VM(vm)->attach_debuggee(dgb))
+        delete old_debuggee;
+}
+
+rs_bool_t rs_has_attached_debuggee(rs_vm vm)
+{
+    if (RS_VM(vm)->current_debuggee())
+        return true;
+    return false;
+}
+
+void rs_disattach_debuggee(rs_vm vm)
+{
+    RS_VM(vm)->attach_debuggee(nullptr);
+}
+
+void rs_disattach_and_free_debuggee(rs_vm vm)
+{
+    if (auto* dbg = RS_VM(vm)->attach_debuggee(nullptr))
+        delete dbg;
+}
+
+void rs_break_immediately(rs_vm vm)
+{
+    if (auto* debuggee = dynamic_cast<rs::default_debuggee*>(RS_VM(vm)->current_debuggee()))
+        debuggee->breakdown_immediately();
+    else
+        rs_fail(RS_FAIL_DEBUGGEE_FAIL, "'rs_break_immediately' can only break the vm attached default debuggee.");
+
 }

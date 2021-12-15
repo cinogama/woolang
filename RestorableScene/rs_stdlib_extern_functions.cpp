@@ -123,6 +123,24 @@ RS_API rs_api rslib_std_sub(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_debug_attach_default_debuggee(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_attach_default_debuggee(vm);
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_debug_disattach_default_debuggee(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_disattach_and_free_debuggee(vm);
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_debug_breakpoint(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_break_immediately(vm);
+    return rs_ret_nil(vm);
+}
+
 
 const char* rs_stdlib_src_path = u8"rscene/std.rsn";
 const char* rs_stdlib_src_data =
@@ -154,6 +172,25 @@ namespace std
             func randint(var from:int, var to:int):int;
         extern("rslib_std_randomreal") 
             func randreal(var from:real, var to:real):real;
+    }
+
+    namespace debug
+    {
+        extern("rslib_std_debug_breakpoint")
+            func breakpoint():void;
+        extern("rslib_std_debug_attach_default_debuggee")
+            func attach_debuggee():void;
+        extern("rslib_std_debug_disattach_default_debuggee")
+            func disattach_debuggee():void;
+
+        func run(var foo, ...)
+        {
+            attach_debuggee();
+            var result = (foo:dynamic(...))(......);
+            disattach_debuggee();
+    
+            return result;
+        }
     }
 }
 

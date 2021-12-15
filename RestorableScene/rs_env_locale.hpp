@@ -7,6 +7,7 @@
 #ifdef _WIN32
 #       include <Windows.h>
 #       undef max      // fucking windows.
+#       undef min      // fucking windows.
 #else
 #       include <unistd.h>
 #endif
@@ -116,4 +117,5 @@ namespace rs
 
         return _work_path;
     }
+
 }

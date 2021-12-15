@@ -1294,6 +1294,10 @@ namespace rs
             ast_value* direct_val;
         };
 
+        struct ast_nop : virtual public grammar::ast_base
+        {
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID)[&](){token tk = { lex_type::l_error };if(!cast_any_to<token>(input[(ID)], tk)) rs_error("Unexcepted token type."); return tk;}()
@@ -1544,7 +1548,11 @@ namespace rs
 
 
                     if (imported_ast)
+                    {
+                        imported_ast->add_child(new ast_nop); // nop for debug info gen, avoid ip/cr confl..
                         return (ast_basic*)imported_ast;
+                    }
+
                     return +lex_type::l_error;
                 }
                 return (ast_basic*)new ast_empty();

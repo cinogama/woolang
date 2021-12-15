@@ -12,8 +12,16 @@ namespace rs
         auto& old_ip = row_buff[ast_func->argument_list->col_no];
         if (compiler->get_now_ip() < old_ip)
             old_ip = compiler->get_now_ip();
+    }
+    void program_debug_data_info::generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
+    {
+        auto& row_buff = _general_src_data_buf_a[ast_func->source_file][ast_func->row_no];
+        if (row_buff.find(ast_func->col_no) == row_buff.end())
+            row_buff[ast_func->col_no] = SIZE_MAX;
 
-
+        auto& old_ip = row_buff[ast_func->col_no];
+        if (compiler->get_now_ip() < old_ip)
+            old_ip = compiler->get_now_ip();
     }
     void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
     {
@@ -91,7 +99,7 @@ namespace rs
 
         return _general_src_data_buf_b.at(result);
     }
-    size_t program_debug_data_info::get_ip_by_src_location(const std::string& src_name, size_t rowno)const
+    size_t program_debug_data_info::get_ip_by_src_location(const std::string& src_name, size_t rowno, bool strict)const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
 
@@ -102,7 +110,17 @@ namespace rs
         size_t result = FAIL_INDEX;
         for (auto& [rowid, linebuf] : fnd->second)
         {
-            if (rowid >= rowno)
+            if (strict)
+            {
+                if (rowid == rowno)
+                {
+                    for (auto [colno, ip] : linebuf)
+                        if (ip < result)
+                            result = ip;
+                    return result;
+                }
+            }
+            else if (rowid >= rowno)
             {
                 for (auto [colno, ip] : linebuf)
                     if (ip < result)
@@ -150,9 +168,10 @@ namespace rs
         _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
         generate_debug_info_at_funcbegin(funcdef, compiler);
     }
-    void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
+    void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
     {
         _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;
     }
     void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, rs_integer_t loc)
     {

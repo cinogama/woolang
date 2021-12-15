@@ -10,13 +10,26 @@
 namespace rs
 {
     inline std::shared_mutex vfile_list_guard;
-    inline std::map<std::wstring, std::wstring> vfile_list;
-    inline bool create_virtual_source(const std::wstring& file_data, const std::wstring& filepath)
+
+    struct vfile_information
+    {
+        bool enable_modify;
+        std::wstring data;
+    };
+
+    inline std::map<std::wstring, vfile_information> vfile_list;
+    inline bool create_virtual_source(const std::wstring& file_data, const std::wstring& filepath, bool enable_modify)
     {
         std::lock_guard g1(vfile_list_guard);
-        if (vfile_list.find(filepath) == vfile_list.end())
+        if (auto vffnd = vfile_list.find(filepath);
+            vffnd == vfile_list.end())
         {
-            vfile_list[filepath] = file_data;
+            vfile_list[filepath] = { enable_modify, file_data };
+            return true;
+        }
+        else if(vffnd->second.enable_modify)
+        {
+            vfile_list[filepath] = { enable_modify, file_data };
             return true;
         }
 
@@ -62,11 +75,11 @@ namespace rs
         // 3) Read file from virtual file
         do
         {
-            *out_real_read_path = L"/virtual_files/" + filepath;
+            *out_real_read_path = filepath;
             std::shared_lock g1(vfile_list_guard);
             if (vfile_list.find(filepath) != vfile_list.end())
             {
-                *out_result = vfile_list[filepath];
+                *out_result = vfile_list[filepath].data;
                 return true;
             }
         } while (0);

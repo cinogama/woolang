@@ -5,11 +5,13 @@
 
 #ifdef __cplusplus
 #include <cstdint>
+#include <cstddef>
 #   define RS_FORCE_CAPI extern "C"{
 #   define RS_FORCE_CAPI_END }
 #else
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #   define RS_FORCE_CAPI /* nothing */
 #   define RS_FORCE_CAPI_END /* nothing */
 #endif
@@ -113,7 +115,7 @@ RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
 RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
 
 RS_API rs_integer_t rs_lengthof(rs_value value);
-RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data);
+RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 
 RS_API rs_vm        rs_create_vm();
 RS_API void         rs_close_vm(rs_vm vm);
@@ -126,6 +128,12 @@ RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
 
 RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get(rs_value arr, rs_value index);
+
+RS_API void         rs_attach_default_debuggee(rs_vm vm);
+RS_API rs_bool_t    rs_has_attached_debuggee(rs_vm vm);
+RS_API void         rs_disattach_debuggee(rs_vm vm);
+RS_API void         rs_disattach_and_free_debuggee(rs_vm vm);
+RS_API void         rs_break_immediately(rs_vm vm);
 
 // Here to define RSRuntime code accroding to the type.
 
@@ -159,6 +167,8 @@ typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 // * (But dont forget display it.)
 //
 #define RS_FAIL_MINOR 0xA000
+
+#define RS_FAIL_DEBUGGEE_FAIL 0xA001
 
 // Medium error:
 // These errors are caused by incorrect coding, some of which may have default

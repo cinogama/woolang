@@ -10,6 +10,7 @@
 #include <string>
 #include <cmath>
 #include <sstream>
+
 namespace rs
 {
     struct vmbase;
@@ -27,7 +28,7 @@ namespace rs
             debug_interrupt(_vm);
         }
         virtual void debug_interrupt(vmbase*) = 0;
-
+        virtual~debuggee_base() = default;
     protected:
 
         void block_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.lock(); }
@@ -113,14 +114,19 @@ namespace rs
         debuggee_base* attaching_debuggee = nullptr;
 
     public:
-        inline void attach_debuggee(debuggee_base* dbg)
+        inline debuggee_base* attach_debuggee(debuggee_base* dbg)
         {
             if (dbg)
                 interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
             else if (attaching_debuggee)
                 clear_interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
-
+            auto* old_debuggee = attaching_debuggee;
             attaching_debuggee = dbg;
+            return old_debuggee;
+        }
+        inline debuggee_base* current_debuggee()
+        {
+            return attaching_debuggee;
         }
 
         inline bool interrupt(vm_interrupt_type type)

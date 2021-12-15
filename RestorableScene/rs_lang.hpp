@@ -2683,8 +2683,10 @@ namespace rs
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
+                    compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
                 }
-                compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
+                else
+                    compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret_void"));
             }
             else if (auto* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
             {
@@ -2697,6 +2699,10 @@ namespace rs
             else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // do nothing
+            }
+            else if (ast_nop* a_nop = dynamic_cast<ast_nop*>(ast_node))
+            {
+                compiler->nop();
             }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
@@ -2778,22 +2784,28 @@ namespace rs
 
                     real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
+                    auto temp_reg_to_stack_count = compiler->update_all_temp_regist_to_stack(funcbegin_ip);
                     auto reserved_stack_size =
                         funcdef->this_func_scope->max_used_stack_size_in_func
-                        + compiler->update_all_temp_regist_to_stack(funcbegin_ip);
+                        + temp_reg_to_stack_count;
 
                     compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
 
+                    compiler->pdb_info->generate_debug_info_at_funcend(funcdef, compiler);
+
+                    compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret_void");
                     compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
 
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     // compiler->pop(reserved_stack_size);
                     compiler->ret();                                            // do return
 
-                    compiler->pdb_info->generate_func_end(funcdef, compiler);
+                    compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
+
+                    compiler->nop();
 
                     for (auto funcvar : funcdef->this_func_scope->symbols)
-                        compiler->pdb_info->add_func_variable(funcvar->first, funcvar->se);
+                        compiler->pdb_info->add_func_variable(funcdef, funcvar.first, funcvar.second->variable_value->row_no, funcvar.second->stackvalue_index_in_funcs);
 
                 }
             }
