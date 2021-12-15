@@ -268,11 +268,35 @@ namespace rs
             size_t      col_no;
             std::string source_file = "not_found";
         };
+        struct function_symbol_infor
+        {
+            struct variable_symbol_infor
+            {
+                size_t define_place;
+                rs_integer_t bp_offset;
+            };
+            size_t ir_begin;
+            size_t ir_end;
+
+            std::map<std::string, std::vector<variable_symbol_infor>> variables;
+
+            void add_variable_define(const std::wstring varname, size_t rowno, rs_integer_t locat)
+            {
+                rs_assert(varsymb->type == rs::lang_symbol::symbol_type::variable);
+                variables[wstr_to_str(varname)].push_back(
+                    variable_symbol_infor
+                    {
+                       rowno,
+                        locat
+                    }
+                );
+            }
+        };
 
         using filename_rowno_colno_ip_info_t = std::map<std::string, std::map<size_t, std::map<size_t, size_t>>>;
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
-        using function_signature_ip_info_t = std::map<std::string, std::pair<size_t, size_t>>;
+        using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
 
         filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
         ip_src_location_info_t          _general_src_data_buf_b;
@@ -288,6 +312,7 @@ namespace rs
 
         void generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
         void generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler);
+        void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, rs_integer_t loc);
 
         const location& get_src_location_by_runtime_ip(byte_t* rt_pos) const;
         size_t get_ip_by_src_location(const std::string& src_name, size_t rowno)const;

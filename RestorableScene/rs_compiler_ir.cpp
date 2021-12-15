@@ -147,19 +147,24 @@ namespace rs
 
     void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].first = compiler->get_now_ip();
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
         generate_debug_info_at_funcbegin(funcdef, compiler);
     }
     void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].second = compiler->get_now_ip();
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
     }
+    void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, rs_integer_t loc)
+    {
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
+    }
+
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const
     {
         auto compile_ip = get_ip_by_runtime_ip(rt_pos);
         for (auto& [func_signature, iplocs] : _function_ip_data_buf)
         {
-            if (iplocs.first <= compile_ip && compile_ip <= iplocs.second)
+            if (iplocs.ir_begin <= compile_ip && compile_ip <= iplocs.ir_end)
                 return func_signature;
         }
         return "__unknown_func__at_" +

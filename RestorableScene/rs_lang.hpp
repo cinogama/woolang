@@ -2792,6 +2792,9 @@ namespace rs
 
                     compiler->pdb_info->generate_func_end(funcdef, compiler);
 
+                    for (auto funcvar : funcdef->this_func_scope->symbols)
+                        compiler->pdb_info->add_func_variable(funcvar->first, funcvar->se);
+
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
