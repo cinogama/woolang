@@ -134,6 +134,7 @@ RS_API rs_bool_t    rs_has_attached_debuggee(rs_vm vm);
 RS_API void         rs_disattach_debuggee(rs_vm vm);
 RS_API void         rs_disattach_and_free_debuggee(rs_vm vm);
 RS_API void         rs_break_immediately(rs_vm vm);
+RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 
 // Here to define RSRuntime code accroding to the type.
 

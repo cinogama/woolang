@@ -43,6 +43,8 @@ namespace rs
         {
             std::cerr << ANSI_HIR "RS: " ANSI_RST "Unable to initialize locale character set environment." << std::endl;
         }
+
+        printf(ANSI_RST);
     }
 
     inline std::string wstr_to_str(const std::wstring& wstr)

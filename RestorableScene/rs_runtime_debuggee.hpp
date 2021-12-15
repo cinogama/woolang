@@ -201,7 +201,7 @@ stepir          si                            Execute next command.
                 printf(ANSI_RST);
                 if (main_command == "?" || main_command == "help")
                     command_help();
-                else if (main_command == "c" || main_command == "continue")
+                else if (main_command == "c" || main_command == "continue") 
                     return false;
                 else if (main_command == "r" || main_command == "return")
                 {

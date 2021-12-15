@@ -136,8 +136,7 @@ void _rs_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
     std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all vm immediately." << std::endl;
-    signal(sig, SIG_IGN);
-
+    
     std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
     for (auto vm : rs::vmbase::_alive_vm_list)
     {
@@ -146,14 +145,22 @@ void _rs_ctrl_c_signal_handler(int sig)
         rs_break_immediately((rs_vm)vm);
     }
 
+    rs_handle_ctrl_c(_rs_ctrl_c_signal_handler);
+
 }
+
+void rs_handle_ctrl_c(void(*handler)(int))
+{
+    signal(SIGINT, handler ? handler : _rs_ctrl_c_signal_handler);
+}
+
 void rs_init(int argc, char** argv)
 {
     rs::rs_init_locale();
     rs::gc::gc_start();
     rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
 
-    signal(SIGINT, _rs_ctrl_c_signal_handler);
+    rs_handle_ctrl_c(nullptr);
 }
 
 rs_string_t  rs_compile_date(void)
