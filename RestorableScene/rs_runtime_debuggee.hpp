@@ -71,63 +71,60 @@ stepir          si                            Execute next command.
 )"
 << std::endl;
         }
+
         template<typename T>
         static bool need_possiable_input(T& out, bool need_wait = false)
         {
-            char _useless_for_clear = 0;
+            using namespace std;
 
-            std::string input_item = "";
+            std::string _linebuf;
 
             if (need_wait)
             {
-                _useless_for_clear = getchar();
-                input_item += _useless_for_clear;
+                std::getline(std::cin, _linebuf);
+                std::cin.putback(' ');
+                for (auto ri = _linebuf.rbegin(); ri != _linebuf.rend(); ri++)
+                    std::cin.putback(*ri);
             }
+            std::stringstream ssin;
+            ssin << _linebuf;
 
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1))
+            string result;
+            bool has_val = false;
+            do
             {
-                if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
-                {
-                    input_item += _useless_for_clear;
-                    while (std::cin.readsome(&_useless_for_clear, 1))
-                    {
-                        if (_useless_for_clear == ' ' || _useless_for_clear == '\t' || _useless_for_clear == '\n')
-                            break;
-                        input_item += _useless_for_clear;
-                    }
+                char chbuf[2] = {};
+                auto gettedch = need_wait ? ssin.get() : (ssin.peek(), ssin.readsome(chbuf, 1), chbuf[0]);
+                std::cin.get();
 
-                    std::stringstream ss;
-                    ss << input_item;
-                    ss >> out;
-                    return true;
-                }
-                else if (need_wait && input_item.size())
-                {
-                    _useless_for_clear = input_item[0];
-                    if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
-                    {
-                        std::stringstream ss;
-                        ss << input_item;
-                        ss >> out;
-                        return true;
-                    }
-                }
-            }
+                if (gettedch == 0 || gettedch == EOF)
+                    break;
+                else
+                    need_wait = false;
 
-            if (need_wait && input_item.size())
-            {
-                _useless_for_clear = input_item[0];
-                if (_useless_for_clear != ' ' && _useless_for_clear != '\t' && _useless_for_clear != '\n')
+                if (isspace(gettedch & 0x7f))
                 {
-                    std::stringstream ss;
-                    ss << input_item;
-                    ss >> out;
-                    return true;
+                    if (has_val)
+                        break;
+                    else
+                        continue;
                 }
 
-            }
-            return false;
+                has_val = true;
+                result += gettedch;
+
+            } while (true);
+
+            if (!has_val)
+                return false;
+
+            std::stringstream ss;
+            ss << result;
+            ss >> out;
+
+            std::cout << "readed: " << out << std::endl;
+
+            return true;
         }
 
         struct function_code_info
@@ -201,7 +198,7 @@ stepir          si                            Execute next command.
                 printf(ANSI_RST);
                 if (main_command == "?" || main_command == "help")
                     command_help();
-                else if (main_command == "c" || main_command == "continue") 
+                else if (main_command == "c" || main_command == "continue")
                     return false;
                 else if (main_command == "r" || main_command == "return")
                 {
