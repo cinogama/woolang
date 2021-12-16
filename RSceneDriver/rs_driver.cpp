@@ -38,6 +38,8 @@ func foo(var n:int)
 { 
     if (n)
         invoke(foo, n-1);
+    else
+        std::debug::disattach_debuggee();
 }
 
 func main()
