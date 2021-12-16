@@ -29,22 +29,21 @@ int main(int argc, char** argv)
     auto src = (u8R"(
 import rscene.std;
 
-func deepin()
+func invoke(var f, ...)
 {
-    var n = [];
-    var i = 0;
-    while (i<10)
-    {
-        n->add(std::rand::randreal(0,1));
-        i+=1;
-    }
-    return n;
+    return (f:dynamic(...))(......);
+}
+
+func foo(var n:int)
+{ 
+    if (n)
+        invoke(foo, n-1);
 }
 
 func main()
 {
     while (true)
-        var result = deepin();
+        foo(6);
 }
 
 main();

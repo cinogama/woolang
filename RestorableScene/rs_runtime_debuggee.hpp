@@ -196,12 +196,44 @@ stepir          si                            Execute next command.
                 if (main_command == "?" || main_command == "help")
                     command_help();
                 else if (main_command == "c" || main_command == "continue")
+                {
+                    printf(ANSI_HIG "Continue running...\n" ANSI_RST);
                     return false;
+                }
                 else if (main_command == "r" || main_command == "return")
                 {
                     breakdown_temp_for_return = true;
                     breakdown_temp_for_return_callstackdepth = vmm->callstack_layer();
                     goto continue_run_command;
+                }
+                else if (main_command == "f" || main_command == "frame")
+                {
+                    size_t framelayer = 0;
+                    if (need_possiable_input(inputbuf, framelayer))
+                    {
+                        current_runtime_ip = vmm->ip;
+                        current_frame_sp = vmm->sp;
+                        current_frame_bp = vmm->bp;
+
+                        size_t current_frame = 0;
+                        while (framelayer--)
+                        {
+                            auto tmp_sp = current_frame_bp + 1;
+                            if (tmp_sp->type == value::valuetype::callstack)
+                            {
+                                current_frame++;
+                                current_frame_sp = tmp_sp;
+                                current_frame_bp = vmm->stack_mem_begin - tmp_sp->bp;
+                                current_runtime_ip = _env->rt_codes + tmp_sp->ret_ip;
+                            }
+                            else
+                                break;
+                        }
+                        printf("Now at: frame " ANSI_HIY "%zu\n" ANSI_RST, current_frame);
+
+                    }
+                    else
+                        printf(ANSI_HIR "You must input frame number.\n" ANSI_RST);
                 }
                 else if (main_command == "dis" || main_command == "disassemble")
                 {
@@ -248,27 +280,42 @@ stepir          si                            Execute next command.
                 else if (main_command == "break")
                 {
                     std::string filename_or_funcname;
-                    std::cin >> filename_or_funcname;
-
-                    size_t lineno;
-                    if (need_possiable_input(inputbuf, lineno))
-                        set_breakpoint(filename_or_funcname, lineno);
-                    else
+                    if (need_possiable_input(inputbuf, filename_or_funcname))
                     {
-                        std::lock_guard g1(_mx);
-
-                        auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
-                        std::cout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << std::endl;
-                        for (auto& funcinfo : fndresult)
+                        size_t lineno;
+                        if (need_possiable_input(inputbuf, lineno))
+                            set_breakpoint(filename_or_funcname, lineno);
+                        else
                         {
-                            std::cout << "In function: " << funcinfo.func_sig << std::endl;
-                            break_point_traps.insert(
-                                _env->program_debug_info->get_ip_by_runtime_ip(
-                                    _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
-                            //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
+                            for (auto ch : filename_or_funcname)
+                            {
+                                if (!lexer::lex_isdigit(ch))
+                                {
+                                    std::lock_guard g1(_mx);
+
+                                    auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
+                                    std::cout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << std::endl;
+                                    for (auto& funcinfo : fndresult)
+                                    {
+                                        std::cout << "In function: " << funcinfo.func_sig << std::endl;
+                                        break_point_traps.insert(
+                                            _env->program_debug_info->get_ip_by_runtime_ip(
+                                                _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
+                                        //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
+                                    }
+                                    goto need_next_command;
+                                }
+                            }
+                            ;
+                            set_breakpoint(
+                                vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
+                                , std::stoull(filename_or_funcname));
+
                         }
+                        std::cout << "OK!" << std::endl;
                     }
-                    std::cout << "OK!" << std::endl;
+                    else
+                        printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
                 }
                 else if (main_command == "quit")
                 {
@@ -277,19 +324,22 @@ stepir          si                            Execute next command.
                 else if (main_command == "delbreak" || main_command == "deletebreak")
                 {
                     size_t breakno;
-                    std::cin >> breakno;
-
-                    if (breakno < break_point_traps.size())
+                    if (need_possiable_input(inputbuf, breakno))
                     {
-                        auto fnd = break_point_traps.begin();
+                        if (breakno < break_point_traps.size())
+                        {
+                            auto fnd = break_point_traps.begin();
 
-                        for (size_t i = 0; i < breakno; i++)
-                            fnd++;
-                        break_point_traps.erase(fnd);
-                        std::cout << "OK!" << std::endl;
+                            for (size_t i = 0; i < breakno; i++)
+                                fnd++;
+                            break_point_traps.erase(fnd);
+                            std::cout << "OK!" << std::endl;
+                        }
+                        else
+                            printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
                     }
                     else
-                        printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
+                        printf(ANSI_HIR "You must input the breakpoint id.\n" ANSI_RST);
                 }
                 else if (main_command == "si" || main_command == "stepir")
                 {
@@ -335,29 +385,32 @@ stepir          si                            Execute next command.
                 else if (main_command == "p" || main_command == "print")
                 {
                     std::string varname;
-                    std::cin >> varname;
-
-                    if (_env)
+                    if (need_possiable_input(inputbuf, varname))
                     {
-                        auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                        auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                        if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                        if (_env)
                         {
-                            if (auto vfnd = fnd->second.variables.find(varname);
-                                vfnd != fnd->second.variables.end())
+                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
+                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
                             {
-                                for (auto& varinfo : vfnd->second)
+                                if (auto vfnd = fnd->second.variables.find(varname);
+                                    vfnd != fnd->second.variables.end())
                                 {
-                                    display_variable(vmm, varinfo);
+                                    for (auto& varinfo : vfnd->second)
+                                    {
+                                        display_variable(vmm, varinfo);
+                                    }
                                 }
+                                else
+                                    printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
+                                        varname.c_str(), funcname.c_str());
                             }
                             else
-                                printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
-                                    varname.c_str(), funcname.c_str());
+                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                         }
-                        else
-                            printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                     }
+                    else
+                        printf(ANSI_HIR "You must input the variable name.\n" ANSI_RST);
                 }
                 else if (main_command == "src" || main_command == "source")
                 {
@@ -375,7 +428,7 @@ stepir          si                            Execute next command.
                                 goto need_next_command;
                             }
                         }
-                        display_range = std::stoll(filename);
+                        display_range = std::stoull(filename);
                     }
 
                     print_src_file(loc.source_file, display_rowno,
@@ -386,37 +439,41 @@ stepir          si                            Execute next command.
                 else if (main_command == "l" || main_command == "list")
                 {
                     std::string list_what;
-                    std::cin >> list_what;
-                    if (list_what == "break")
+                    if (need_possiable_input(inputbuf, list_what))
                     {
-                        size_t id = 0;
-                        for (auto break_stip : break_point_traps)
+                        if (list_what == "break")
                         {
-                            auto& file_loc =
-                                _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
-                                    _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                            std::cout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << std::endl;;
-                        }
-                    }
-                    else if (list_what == "var")
-                    {
-                        auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                        auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                        if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
-                        {
-                            for (auto& [varname, varinfos] : fnd->second.variables)
+                            size_t id = 0;
+                            for (auto break_stip : break_point_traps)
                             {
-                                for (auto& varinfo : varinfos)
-                                {
-                                    display_variable(vmm, varinfo);
-                                }
+                                auto& file_loc =
+                                    _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
+                                        _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
+                                std::cout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << std::endl;;
                             }
                         }
+                        else if (list_what == "var")
+                        {
+                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
+                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                            {
+                                for (auto& [varname, varinfos] : fnd->second.variables)
+                                {
+                                    for (auto& varinfo : varinfos)
+                                    {
+                                        display_variable(vmm, varinfo);
+                                    }
+                                }
+                            }
+                            else
+                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                        }
                         else
-                            printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                            printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);
                     }
                     else
-                        printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);
+                        printf(ANSI_HIR "You must input something to list.\n" ANSI_RST);
                 }
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
@@ -439,15 +496,30 @@ stepir          si                            Execute next command.
 
             return false;
         }
-        void print_src_file_print_lineno(const std::string& filepath, size_t current_row_no)
+        size_t print_src_file_print_lineno(const std::string& filepath, size_t current_row_no)
         {
             auto ip = _env->program_debug_info->get_ip_by_src_location(filepath, current_row_no, true);
             std::lock_guard g1(_mx);
 
-            if (break_point_traps.find(ip) == break_point_traps.end())
+            if (auto fnd = break_point_traps.find(ip); fnd == break_point_traps.end())
+            {
                 printf("%-5zu: ", current_row_no);
+                return SIZE_MAX;
+            }
             else
+            {
                 printf(ANSI_BHIR ANSI_WHI "%-5zu: " ANSI_RST, current_row_no);
+
+                size_t bid = 0;
+
+                while (true)
+                {
+                    if (fnd == break_point_traps.begin())
+                        return bid;
+                    fnd--;
+                    bid++;
+                }
+            }
         }
         void print_src_file(const std::string& filepath, size_t highlight = 0, size_t from = 0, size_t to = SIZE_MAX)
         {
@@ -472,10 +544,10 @@ stepir          si                            Execute next command.
                 // here is a easy lexer..
                 size_t current_row_no = 1;
 
-
+                size_t last_line_is_breakline = SIZE_MAX;
 
                 if (from <= current_row_no && current_row_no <= to)
-                    print_src_file_print_lineno(filepath, current_row_no);
+                    last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
                     if (srcfile[index] == L'\n')
@@ -483,7 +555,10 @@ stepir          si                            Execute next command.
                         current_row_no++;
                         if (from <= current_row_no && current_row_no <= to)
                         {
-                            std::cout << std::endl; print_src_file_print_lineno(filepath, current_row_no);
+                            if (last_line_is_breakline != SIZE_MAX)
+                                printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
+
+                            std::cout << std::endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
                         }
                         continue;
                     }
@@ -492,7 +567,10 @@ stepir          si                            Execute next command.
                         current_row_no++;
                         if (from <= current_row_no && current_row_no <= to)
                         {
-                            std::cout << std::endl; print_src_file_print_lineno(filepath, current_row_no);
+                            if (last_line_is_breakline != SIZE_MAX)
+                                printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
+
+                            std::cout << std::endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                             index++;
@@ -555,11 +633,13 @@ stepir          si                            Execute next command.
                     && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
                 || break_point_traps.find(command_ip) != break_point_traps.end())
             {
+                block_other_vm_in_this_debuggee();
+
                 breakdown_temp_for_stepir = false;
                 breakdown_temp_for_step = false;
                 breakdown_temp_for_next = false;
                 breakdown_temp_for_return = false;
-                block_other_vm_in_this_debuggee();
+
 
                 printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
                     loc.source_file.c_str(), loc.row_no, loc.col_no,

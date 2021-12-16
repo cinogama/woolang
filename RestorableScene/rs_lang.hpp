@@ -1628,7 +1628,7 @@ namespace rs
             using namespace opnum;
 
             if (symb->is_constexpr)
-                return analyze_value(symb->variable_value, compiler, get_pure_value);
+                return analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
             {
@@ -1676,7 +1676,7 @@ namespace rs
             else
             {
                 if (symb->function_overload_sets.size() == 1)
-                    return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value);
+                    return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value, false);
                 else
                 {
                     lang_anylizer->lang_error(0x0000, error_prud, RS_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
@@ -1687,9 +1687,10 @@ namespace rs
 
         bool last_value_stored_to_cr = false;
 
-        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
+        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true)
         {
-            compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
+            if (need_symbol)
+                compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
 
             last_value_stored_to_cr = false;
             using namespace ast;
@@ -2804,8 +2805,8 @@ namespace rs
 
                     compiler->nop();
 
-                    for (auto funcvar : funcdef->this_func_scope->symbols)
-                        compiler->pdb_info->add_func_variable(funcdef, funcvar.first, funcvar.second->variable_value->row_no, funcvar.second->stackvalue_index_in_funcs);
+                    for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
+                        compiler->pdb_info->add_func_variable(funcdef, funcvar->name, funcvar->variable_value->row_no, funcvar->stackvalue_index_in_funcs);
 
                 }
             }

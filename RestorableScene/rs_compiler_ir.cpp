@@ -31,10 +31,9 @@ namespace rs
             || dynamic_cast<ast::ast_namespace*>(ast_node)
             || dynamic_cast<ast::ast_sentence_block*>(ast_node)
             || dynamic_cast<ast::ast_if*>(ast_node)
-            || dynamic_cast<ast::ast_while*>(ast_node)
-            || dynamic_cast<ast::ast_value_literal*>(ast_node)
-            || dynamic_cast<ast::ast_value_variable*>(ast_node))
+            || dynamic_cast<ast::ast_while*>(ast_node))
             return;
+
 
         auto& row_buff = _general_src_data_buf_a[ast_node->source_file][ast_node->row_no];
         if (row_buff.find(ast_node->col_no) == row_buff.end())

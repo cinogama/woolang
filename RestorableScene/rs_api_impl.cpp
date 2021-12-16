@@ -135,7 +135,7 @@ void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionna
 void _rs_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
-    std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all vm immediately." << std::endl;
+    std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all virtual-machine by default debuggee immediately." << std::endl;
     
     std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
     for (auto vm : rs::vmbase::_alive_vm_list)
