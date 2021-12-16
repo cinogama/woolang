@@ -50,11 +50,11 @@ COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
 break                           <file line>   Set a breakpoint at the specified
                                 <funcname>  location.
 callstack       cs              [max = 8]     Get current VM's callstacks.
-frame           f               <frameid>     Switch to a call frame.
 continue        c                             Continue to run.
 deletebreak     delbreak        <breakid>     Delete a breakpoint.
 disassemble     dis             [funcname]    Get current VM's running ir-codes.
                                 --all
+frame           f               <frameid>     Switch to a call frame.
 return          r                             Execute to the return of this fun
                                             -ction.
 help            ?                             Get help informations.   
@@ -62,6 +62,7 @@ list            l               <listitem>    List something, such as:
                                             break, var, 
 next            n                             Execute next line of src.
 print           p               <varname>     Print the value.
+quit                                          Exit(0)
 source          src             [file name]   Get current source
                                 [range = 5]   
 stackframe      sf                            Get current function's stack frame.
@@ -72,59 +73,55 @@ stepir          si                            Execute next command.
 << std::endl;
         }
 
+        static std::vector<std::string> get_and_split_line()
+        {
+            std::vector<std::string> result;
+
+            std::string inputstr;
+            std::getline(std::cin, inputstr);
+
+            for (auto fnd = inputstr.begin(); fnd != inputstr.end(); fnd++)
+            {
+                auto readed_ch = *fnd;
+                if (!(readed_ch & 0x80 || isspace(readed_ch & 0x7f)))
+                {
+                    std::string read_word;
+
+                    while (fnd != inputstr.end())
+                    {
+                        if (!(readed_ch & 0x80 || isspace(readed_ch & 0x7f)))
+                        {
+                            readed_ch = *fnd;
+                            read_word += readed_ch;
+                            fnd++;
+                        }
+                        else
+                            break;
+                    }
+                    fnd--;
+
+                    result.push_back(read_word);
+                }
+            }
+
+            return result;
+        }
+
         template<typename T>
-        static bool need_possiable_input(T& out, bool need_wait = false)
+        static bool need_possiable_input(std::vector<std::string>& inputbuf, T& out)
         {
             using namespace std;
 
-            std::string _linebuf;
-
-            if (need_wait)
+            if (inputbuf.size())
             {
-                std::getline(std::cin, _linebuf);
-                std::cin.putback(' ');
-                for (auto ri = _linebuf.rbegin(); ri != _linebuf.rend(); ri++)
-                    std::cin.putback(*ri);
+                std::stringstream ss;
+                ss << inputbuf.front();
+                ss >> out;
+                inputbuf.erase(inputbuf.begin());
+                return true;
             }
-            std::stringstream ssin;
-            ssin << _linebuf;
 
-            string result;
-            bool has_val = false;
-            do
-            {
-                char chbuf[2] = {};
-                auto gettedch = need_wait ? ssin.get() : (ssin.peek(), ssin.readsome(chbuf, 1), chbuf[0]);
-                std::cin.get();
-
-                if (gettedch == 0 || gettedch == EOF)
-                    break;
-                else
-                    need_wait = false;
-
-                if (isspace(gettedch & 0x7f))
-                {
-                    if (has_val)
-                        break;
-                    else
-                        continue;
-                }
-
-                has_val = true;
-                result += gettedch;
-
-            } while (true);
-
-            if (!has_val)
-                return false;
-
-            std::stringstream ss;
-            ss << result;
-            ss >> out;
-
-            std::cout << "readed: " << out << std::endl;
-
-            return true;
+            return false;
         }
 
         struct function_code_info
@@ -192,8 +189,8 @@ stepir          si                            Execute next command.
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
             std::string main_command;
             char _useless_for_clear = 0;
-
-            if (need_possiable_input(main_command, true))
+            auto&& inputbuf = get_and_split_line();
+            if (need_possiable_input(inputbuf, main_command))
             {
                 printf(ANSI_RST);
                 if (main_command == "?" || main_command == "help")
@@ -209,7 +206,7 @@ stepir          si                            Execute next command.
                 else if (main_command == "dis" || main_command == "disassemble")
                 {
                     std::string function_name;
-                    if (need_possiable_input(function_name))
+                    if (need_possiable_input(inputbuf, function_name))
                     {
                         if (function_name == "--all")
                         {
@@ -244,7 +241,7 @@ stepir          si                            Execute next command.
                 else if (main_command == "cs" || main_command == "callstack")
                 {
                     size_t max_layer;
-                    if (!need_possiable_input(max_layer))
+                    if (!need_possiable_input(inputbuf, max_layer))
                         max_layer = 8;
                     vmm->dump_call_stack(max_layer, false);
                 }
@@ -254,7 +251,7 @@ stepir          si                            Execute next command.
                     std::cin >> filename_or_funcname;
 
                     size_t lineno;
-                    if (need_possiable_input<size_t>(lineno))
+                    if (need_possiable_input(inputbuf, lineno))
                         set_breakpoint(filename_or_funcname, lineno);
                     else
                     {
@@ -272,6 +269,10 @@ stepir          si                            Execute next command.
                         }
                     }
                     std::cout << "OK!" << std::endl;
+                }
+                else if (main_command == "quit")
+                {
+                    exit(0);
                 }
                 else if (main_command == "delbreak" || main_command == "deletebreak")
                 {
@@ -364,7 +365,7 @@ stepir          si                            Execute next command.
                     size_t display_range = 5;
                     auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
                     size_t display_rowno = loc.row_no;
-                    if (need_possiable_input(filename))
+                    if (need_possiable_input(inputbuf, filename))
                     {
                         for (auto ch : filename)
                         {
