@@ -1,0 +1,9 @@
+import rscene.std;
+
+func main()
+{
+    const var n = "Helloworld~";
+    std::println(n);
+}
+
+main();

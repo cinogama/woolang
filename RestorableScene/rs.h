@@ -114,27 +114,36 @@ RS_API rs_result_t  rs_ret_nil(rs_vm vm);
 RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
 RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
 
-RS_API rs_integer_t rs_lengthof(rs_value value);
-RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
+enum _rs_inform_style
+{
+    RS_NOTHING = 0,
+    RS_NEED_COLOR = 1,
+};
 
+RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 RS_API rs_vm        rs_create_vm();
 RS_API void         rs_close_vm(rs_vm vm);
 RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
 RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_value     rs_run(rs_vm vm);
+RS_API rs_bool_t    rs_has_compile_error(rs_vm vm);
+RS_API rs_bool_t    rs_has_compile_warning(rs_vm vm);
+RS_API rs_string_t  rs_get_compile_error(rs_vm vm, _rs_inform_style style);
+RS_API rs_string_t  rs_get_compile_warning(rs_vm vm, _rs_inform_style style);
 
+
+RS_API rs_int_t     rs_lengthof(rs_value value);
 RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
 RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
+RS_API rs_value     rs_arr_get(rs_value arr, rs_int_t index);
+RS_API rs_int_t     rs_arr_find(rs_value arr, rs_value elem);
+RS_API void         rs_arr_erase_at(rs_value arr, rs_int_t index);
 
 RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get(rs_value arr, rs_value index);
-
-RS_API void         rs_attach_default_debuggee(rs_vm vm);
-RS_API rs_bool_t    rs_has_attached_debuggee(rs_vm vm);
-RS_API void         rs_disattach_debuggee(rs_vm vm);
-RS_API void         rs_disattach_and_free_debuggee(rs_vm vm);
-RS_API void         rs_break_immediately(rs_vm vm);
-RS_API void         rs_handle_ctrl_c(void(*handler)(int));
+RS_API rs_value     rs_map_read(rs_value arr, rs_value index);
+RS_API rs_value     rs_map_get_default(rs_value arr, rs_value index, rs_value default_value);
+RS_API rs_bool_t    rs_map_erase(rs_value arr, rs_value index);
 
 // Here to define RSRuntime code accroding to the type.
 
@@ -146,7 +155,15 @@ typedef struct _rs_debuggee_handle
 *rs_debuggee;
 typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 
+RS_API void         rs_gc_pause();
+RS_API void         rs_gc_resume();
 
+RS_API void         rs_attach_default_debuggee(rs_vm vm);
+RS_API rs_bool_t    rs_has_attached_debuggee(rs_vm vm);
+RS_API void         rs_disattach_debuggee(rs_vm vm);
+RS_API void         rs_disattach_and_free_debuggee(rs_vm vm);
+RS_API void         rs_break_immediately(rs_vm vm);
+RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 
 #if defined(RS_IMPL)
 #define RS_NEED_RTERROR_CODES 1

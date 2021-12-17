@@ -3200,7 +3200,7 @@ namespace rs
         }
         bool has_compile_error()const
         {
-            return !lang_anylizer->lex_error_list.empty();
+            return lang_anylizer->has_error();
         }
     };
 }

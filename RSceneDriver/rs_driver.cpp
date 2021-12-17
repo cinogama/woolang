@@ -26,35 +26,17 @@ int main(int argc, char** argv)
     std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
     std::cout << rs_compile_date() << std::endl;
 
-    auto src = (u8R"(
-import rscene.std;
-
-func invoke(var f, ...)
-{
-    return (f:dynamic(...))(......);
-}
-
-func foo(var n:int)
-{ 
-    if (n)
-        invoke(foo, n-1);
-    else
-        std::debug::disattach_debuggee();
-}
-
-func main()
-{
-    while (true)
-        foo(6);
-}
-
-main();
-
-)");
 
     rs_vm vmm = rs_create_vm();
-    rs_load_source(vmm, "rs_test.rsn", src);
-    rs_run(vmm);
+    bool compile_successful_flag = rs_load_file(vmm, "test_scripts/test_helloworld.rsn");
+
+    if (rs_has_compile_error(vmm))
+        std::cerr << rs_get_compile_error(vmm, RS_NEED_COLOR)<<std::endl;
+    if (rs_has_compile_warning(vmm))
+        std::cerr << rs_get_compile_warning(vmm, RS_NEED_COLOR) << std::endl;
+
+    if (compile_successful_flag)
+        rs_run(vmm);
     rs_close_vm(vmm);
 
     return 0;

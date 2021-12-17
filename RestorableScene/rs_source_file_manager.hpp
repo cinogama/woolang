@@ -35,23 +35,28 @@ namespace rs
 
         return false;
     }
-    inline bool read_virtual_source(std::wstring* out_result, std::wstring* out_real_read_path, const std::wstring& filepath, rs::lexer* lex = nullptr)
+
+    template<typename LEXER = void>
+    inline bool read_virtual_source(std::wstring* out_result, std::wstring* out_real_read_path, const std::wstring& filepath, LEXER* lex = nullptr)
     {
         // 1. Try exists file
         // 1) Read file from script loc
-        if (lex)
+        if constexpr (!std::is_same<LEXER, void>::value)
         {
-            auto src_file_loc = rs::get_file_loc(lex->source_file);
-            *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
-            std::wifstream src_1(wstr_to_str(*out_real_read_path));
-            if (src_1.is_open())
+            if (lex)
             {
-                src_1.seekg(0, std::ios::end);
-                auto len = src_1.tellg();
-                src_1.seekg(0, std::ios::beg);
-                out_result->resize(len, 0);
-                src_1.read(out_result->data(), len);
-                return true;
+                auto src_file_loc = rs::get_file_loc(lex->source_file);
+                *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
+                std::wifstream src_1(wstr_to_str(*out_real_read_path));
+                if (src_1.is_open())
+                {
+                    src_1.seekg(0, std::ios::end);
+                    auto len = src_1.tellg();
+                    src_1.seekg(0, std::ios::beg);
+                    out_result->resize(len, 0);
+                    src_1.read(out_result->data(), len);
+                    return true;
+                }
             }
         }
 
@@ -89,6 +94,22 @@ namespace rs
         {
             *out_real_read_path = str_to_wstr(rs::work_path()) + filepath;
             std::wifstream src_1(wstr_to_str(*out_real_read_path));
+            if (src_1.is_open())
+            {
+                src_1.seekg(0, std::ios::end);
+                auto len = src_1.tellg();
+                src_1.seekg(0, std::ios::beg);
+                out_result->resize(len, 0);
+                src_1.read(out_result->data(), len);
+                return true;
+            }
+
+        } while (0);
+
+        // 5) Read file from default path
+        do
+        {
+            std::wifstream src_1(filepath);
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);

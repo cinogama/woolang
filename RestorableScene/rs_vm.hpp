@@ -214,7 +214,12 @@ namespace rs
 
             if (veh)
                 exception_recovery::ok(this);
+
+            if (compile_info)
+                delete compile_info;
         }
+
+        lexer* compile_info =nullptr;
 
         // vm exception handler
         exception_recovery* veh = nullptr;

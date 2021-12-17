@@ -136,7 +136,7 @@ void _rs_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
     std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all virtual-machine by default debuggee immediately." << std::endl;
-    
+
     std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
     for (auto vm : rs::vmbase::_alive_vm_list)
     {
@@ -159,7 +159,7 @@ void rs_init(int argc, char** argv)
     rs::rs_init_locale();
     rs::gc::gc_start();
     rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
-
+    rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
     rs_handle_ctrl_c(nullptr);
 }
 
@@ -567,100 +567,142 @@ void rs_close_vm(rs_vm vm)
     delete (rs::vmbase*)vm;
 }
 
-rs_bool_t rs_load_source(rs_vm vm, const char* virtual_src_path, const char* src)
+rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
+{
+    // 1. Prepare lexer..
+    rs::lexer* lex = nullptr;
+    if (src)
+        lex = new rs::lexer(rs::str_to_wstr(src), virtual_src_path);
+    else
+        lex = new rs::lexer(virtual_src_path);
+
+    if (!lex->has_error())
+    {
+        // 2. Lexer will create ast_tree;
+        auto result = rs::get_rs_grammar()->gen(*lex);
+        if (result)
+        {
+            // 3. Create lang, most anything store here..
+            rs::lang lang(*lex);
+            lang.analyze_pass1(result);
+            lang.analyze_pass2(result);
+
+            if (!lang.has_compile_error())
+            {
+                rs::ir_compiler compiler;
+                lang.analyze_finalize(result, &compiler);
+
+                if (!lang.has_compile_error())
+                {
+                    compiler.end();
+                    ((rs::vm*)vm)->set_runtime(compiler);
+
+                    // OK
+                }
+            }
+        }
+    }
+
+    rs::grammar::ast_base::clean_this_thread_ast();
+
+    if (lex->has_error() || lex->has_warning())
+        RS_VM(vm)->compile_info = lex;
+    else
+        delete lex;
+
+    return !lex->has_error();
+}
+
+rs_bool_t rs_has_compile_error(rs_vm vm)
+{
+    if (vm && RS_VM(vm)->compile_info && RS_VM(vm)->compile_info->has_error())
+        return true;
+    return false;
+}
+
+rs_bool_t rs_has_compile_warning(rs_vm vm)
+{
+    if (vm && RS_VM(vm)->compile_info && RS_VM(vm)->compile_info->has_warning())
+        return true;
+    return false;
+}
+
+rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
+{
+    thread_local std::string _vm_compile_errors;
+    _vm_compile_errors = "";
+    if (vm && RS_VM(vm)->compile_info)
+    {
+        auto& lex = *RS_VM(vm)->compile_info;
+
+
+        std::string src_file_path = "";
+        for (auto& err_info : lex.lex_error_list)
+        {
+            if (src_file_path != err_info.filename)
+            {
+                if (style & RS_NEED_COLOR)
+                    _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + (src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
+                else
+                    _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
+            }
+            _vm_compile_errors += rs::wstr_to_str(err_info.to_wstring(style & RS_NEED_COLOR)) + "'\n";
+        }
+        /*src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
+            std::wcerr << war_info.to_wstring() << std::endl;
+        }*/
+    }
+    return _vm_compile_errors.c_str();
+}
+
+rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
+{
+    thread_local std::string _vm_compile_errors;
+    _vm_compile_errors = "";
+    if (vm && RS_VM(vm)->compile_info)
+    {
+        auto& lex = *RS_VM(vm)->compile_info;
+
+        std::string src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+            {
+                if (style & RS_NEED_COLOR)
+                    _vm_compile_errors += ANSI_HIY "In file: '" ANSI_RST + (src_file_path = war_info.filename) + ANSI_HIY "'" ANSI_RST "\n";
+                else
+                    _vm_compile_errors += "In file: '" + (src_file_path = war_info.filename) + "'\n";
+            }
+            _vm_compile_errors += rs::wstr_to_str(war_info.to_wstring(style & RS_NEED_COLOR)) + "'\n";
+        }
+        /*src_file_path = "";
+        for (auto& war_info : lex.lex_warn_list)
+        {
+            if (src_file_path != war_info.filename)
+                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
+            std::wcerr << war_info.to_wstring() << std::endl;
+        }*/
+    }
+    return _vm_compile_errors.c_str();
+}
+
+rs_bool_t rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
 {
     if (!virtual_src_path)
         virtual_src_path = "__runtime_script__";
 
     rs_virtual_source(virtual_src_path, src, true);
 
-    // 1. Prepare lexer..
-    rs::lexer lex(rs::str_to_wstr(src), virtual_src_path);
+    return _rs_load_source(vm, virtual_src_path, src);
+}
 
-    // 2. Lexer will create ast_tree;
-    auto result = rs::get_rs_grammar()->gen(lex);
-    if (!result)
-    {
-        // Clean all ast created by this thread..
-        rs::grammar::ast_base::clean_this_thread_ast();
-
-        std::string src_file_path = "";
-        for (auto& err_info : lex.lex_error_list)
-        {
-            if (src_file_path != err_info.filename)
-                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
-            std::wcerr << err_info.to_wstring() << std::endl;
-        }
-        src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
-            std::wcerr << war_info.to_wstring() << std::endl;
-        }
-        return false;
-    }
-
-    // 3. Create lang, most anything store here..
-    rs::lang lang(lex);
-    lang.analyze_pass1(result);
-    lang.analyze_pass2(result);
-
-    // result->display();
-
-    if (lang.has_compile_error())
-    {
-        // Clean all ast & lang's template things.
-        rs::grammar::ast_base::clean_this_thread_ast();
-
-        std::string src_file_path = "";
-        for (auto& err_info : lex.lex_error_list)
-        {
-            if (src_file_path != err_info.filename)
-                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
-            std::wcerr << err_info.to_wstring() << std::endl;
-        }
-        src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
-            std::wcerr << war_info.to_wstring() << std::endl;
-        }
-
-
-        return false;
-    }
-
-    rs::ir_compiler compiler;
-    lang.analyze_finalize(result, &compiler);
-    if (lang.has_compile_error())
-    {
-        // Clean all ast & lang's template things.
-        rs::grammar::ast_base::clean_this_thread_ast();
-
-        std::string src_file_path = "";
-        for (auto& err_info : lex.lex_error_list)
-        {
-            if (src_file_path != err_info.filename)
-                std::cerr << ANSI_HIR "In file: '" ANSI_RST << (src_file_path = err_info.filename) << ANSI_HIR "'" ANSI_RST << std::endl;
-            std::wcerr << err_info.to_wstring() << std::endl;
-        }
-        src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
-            std::wcerr << war_info.to_wstring() << std::endl;
-        }
-
-        return false;
-    }
-
-    compiler.end();
-    ((rs::vm*)vm)->set_runtime(compiler);
-
-    return true;
+rs_bool_t rs_load_file(rs_vm vm, rs_string_t virtual_src_path)
+{
+    return _rs_load_source(vm, virtual_src_path, nullptr);
 }
 
 rs_value rs_run(rs_vm vm)

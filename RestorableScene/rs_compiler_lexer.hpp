@@ -14,11 +14,13 @@
 #include "enum.h"
 
 #include "rs_lang_compiler_information.hpp"
+#include "rs_source_file_manager.hpp"
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN
 #define ANSI_WIDE_CHAR_SIGN L
 #endif
+
 
 namespace rs
 {
@@ -334,7 +336,26 @@ namespace rs
         {
             // read_stream.peek
         }
-
+        lexer(const std::string _source_file)
+            : next_reading_index(0)
+            , now_file_rowno(1)
+            , now_file_colno(0)
+            , next_file_rowno(1)
+            , next_file_colno(1)
+            , source_file(_source_file)
+        {
+            // read_stream.peek
+            std::wstring readed_real_path;
+            std::wstring input_path = rs::str_to_wstr(_source_file);
+            if (!rs::read_virtual_source(&reading_buffer, &readed_real_path, input_path))
+            {
+                lex_error(0x0000, RS_ERR_CANNOT_OPEN_FILE, input_path.c_str());
+            }
+            else
+            {
+                source_file = rs::wstr_to_str(readed_real_path);
+            }
+        }
     public:
         struct lex_error_msg
         {
@@ -525,6 +546,15 @@ namespace rs
             lex_warn_list.clear();
 
             lex_enable_error_warn = true;
+        }
+
+        bool has_error() const
+        {
+            return !lex_error_list.empty();
+        }
+        bool has_warning() const
+        {
+            return !lex_warn_list.empty();
         }
 
     public:
