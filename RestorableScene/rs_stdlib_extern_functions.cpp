@@ -123,11 +123,99 @@ RS_API rs_api rslib_std_sub(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_thread_sleep(rs_vm vm, rs_value args, size_t argc)
+{
+    using namespace std;
+
+    std::this_thread::sleep_for(rs_real(args) * 1s);
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_vm_create(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_pointer(vm, rs_create_vm());
+}
+
+RS_API rs_api rslib_std_vm_close(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_close_vm((rs_vm)rs_pointer(args));
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_vm_load_src(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+
+    bool compile_result;
+    if (argc < 3)
+        compile_result = rs_load_source(vmm, "_temp_source.rsn", rs_string(args + 1));
+    else
+        compile_result = rs_load_source(vmm, rs_string(args + 1), rs_string(args + 2));
+
+    return rs_ret_int(vm, compile_result);
+}
+
+RS_API rs_api rslib_std_vm_load_file(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    bool compile_result = rs_load_file(vmm, rs_string(args + 1));
+    return rs_ret_int(vm, compile_result);
+}
+
+RS_API rs_api rslib_std_vm_run(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    rs_value ret = rs_run(vmm);
+
+    return rs_ret_val(vm, ret);
+}
+
+RS_API rs_api rslib_std_vm_has_compile_error(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    return rs_ret_int(vm, rs_has_compile_error(vmm));
+}
+
+RS_API rs_api rslib_std_vm_has_compile_warning(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    return rs_ret_int(vm, rs_has_compile_warning(vmm));
+}
+
+RS_API rs_api rslib_std_vm_get_compile_error(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_NOTHING;
+
+    return rs_ret_string(vm, rs_get_compile_error(vmm, style));
+}
+
+RS_API rs_api rslib_std_vm_get_compile_warning(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm vmm = (rs_vm)rs_pointer(args);
+    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_NOTHING;
+
+    return rs_ret_string(vm, rs_get_compile_warning(vmm, style));
+}
+
+RS_API rs_api rslib_std_vm_virtual_source(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_int(vm, rs::create_virtual_source(
+        rs::str_to_wstr(rs_string(args + 0)),
+        rs::str_to_wstr(rs_string(args + 1)),
+        rs_int(args + 2)
+    ));
+}
+
+
 const char* rs_stdlib_src_path = u8"rscene/std.rsn";
 const char* rs_stdlib_src_data = {
 u8R"(
-const var true = 1;
-const var false = 0;
+using bool = int;
+
+const var true = 1:bool;
+const var false = 0:bool;
 
 namespace std
 {
@@ -155,23 +243,55 @@ namespace std
             func randreal(var from:real, var to:real):real;
     }
 
-    namespace debug
-    {
-        extern("rslib_std_debug_breakpoint")
-            func breakpoint():void;
-        extern("rslib_std_debug_attach_default_debuggee")
-            func attach_debuggee():void;
-        extern("rslib_std_debug_disattach_default_debuggee")
-            func disattach_debuggee():void;
+    extern("rslib_std_thread_sleep")
+    func sleep(var tm:real):void;
 
-        func run(var foo, ...)
+    using vm = handle;
+    namespace vm
+    {
+        enum info_style
         {
-            attach_debuggee();
-            var result = (foo:dynamic(...))(......);
-            disattach_debuggee();
-    
-            return result;
+            RS_NOTHING = 0,
+            RS_NEED_COLOR = 1,
         }
+
+        extern("rslib_std_vm_create")
+        func create():vm;
+
+        extern("rslib_std_vm_close")
+        func close(var vmhandle:vm):void;
+
+        extern("rslib_std_vm_load_src")
+        func load_source(var vmhandle:vm, var src:string):bool;
+        extern("rslib_std_vm_load_src")
+        func load_source(var vmhandle:vm, var vfilepath:string, var src:string):bool;
+
+        extern("rslib_std_vm_load_file")
+        func load_file(var vmhandle:vm, var vfilepath:string):bool;
+
+        extern("rslib_std_vm_run")
+        func run(var vmhandle:vm):dynamic;
+        
+        extern("rslib_std_vm_has_compile_error")
+        func has_error(var vmhandle:vm):bool;
+
+        extern("rslib_std_vm_has_compile_warning")
+        func has_warning(var vmhandle:vm):bool;
+
+        extern("rslib_std_vm_get_compile_error")
+        func error_msg(var vmhandle:vm):string;
+
+        extern("rslib_std_vm_get_compile_warning")
+        func warning_msg(var vmhandle:vm):string;
+
+        extern("rslib_std_vm_get_compile_error")
+        func error_msg(var vmhandle:vm, var style:info_style):string;
+
+        extern("rslib_std_vm_get_compile_warning")
+        func warning_msg(var vmhandle:vm, var style:info_style):string;
+        
+        extern("rslib_std_vm_virtual_source")
+        func virtual_source(var src:string, var vfilepath:string, var enable_overwrite:bool):bool;
     }
 }
 
@@ -240,6 +360,13 @@ RS_API rs_api rslib_std_debug_breakpoint(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_debug_invoke(rs_vm vm, rs_value args, size_t argc)
+{
+    for (size_t index = argc - 1; index > 0; index--)
+        rs_push_ref(vm, args + index);
+
+    return rs_ret_val(vm, rs_invoke_value(vm, args, argc - 1));
+}
 
 const char* rs_stdlib_debug_src_path = u8"rscene/debug.rsn";
 const char* rs_stdlib_debug_src_data = {
@@ -263,6 +390,9 @@ namespace std
     
             return result;
         }
+
+        extern("rslib_std_debug_invoke")
+        func invoke(var foo:dynamic, ...):dynamic;
     }
 }
 )" };

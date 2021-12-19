@@ -15,8 +15,8 @@ namespace rs
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
         std::condition_variable     _gc_cv;
 
-        uint32_t                    _gc_immediately_edge = 5000000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 100;
+        uint32_t                    _gc_immediately_edge = 50000;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
 
@@ -77,7 +77,9 @@ namespace rs
 
                         // if vm has env:
 
-                        if (auto env = vmimpl->env)
+                        if (auto env = vmimpl->env;
+                            vmimpl->virtual_machine_type != vmbase::vm_type::GC_DESTRUCTOR
+                            && env)
                         {
                             // walk thorgh global.
                             for (int cgr_index = 0;
@@ -245,10 +247,12 @@ namespace rs
                     if (!_gc_fullgc_stopping_the_world)
                     {
                         for (auto* vmimpl : vmbase::_alive_vm_list)
-                            vmimpl->interrupt(vmbase::GC_INTERRUPT);
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                vmimpl->interrupt(vmbase::GC_INTERRUPT);
 
                         for (auto* vmimpl : vmbase::_alive_vm_list)
-                            vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
                     }
 
                     for (auto* vmimpl : vmbase::_alive_vm_list)
@@ -268,8 +272,9 @@ namespace rs
                     if (!_gc_fullgc_stopping_the_world)
                     {
                         for (auto* vmimpl : vmbase::_alive_vm_list)
-                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                                vmimpl->wakeup();
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                    vmimpl->wakeup();
                     }
 
 #ifdef RS_GC_DEBUG   
@@ -289,6 +294,7 @@ namespace rs
 
                 check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
                 check_and_move_edge_to_edge(young_list, &gcbase::young_age_gcunit_list, &gcbase::old_age_gcunit_list, gcbase::gctype::old, _gc_max_count_to_move_young_to_old);
+                // Move all eden to young
                 check_and_move_edge_to_edge(eden_list, nullptr, &gcbase::young_age_gcunit_list, gcbase::gctype::young, 0);
 
                 // if full gc 
@@ -298,7 +304,37 @@ namespace rs
                 // delete unref elem, move others back to list,
                 // if scan over spcfy count, move elem to old
 
-                // Move all eden to young
+                // do gc destruct here..
+
+
+                // check all destructor vm, if vm's env has only one runner, and all instance
+                // has been closed, destroy it..
+                std::list<vmbase*> need_destruct_gc_destructor_list;
+
+                for (auto* vmimpl : vmbase::_alive_vm_list)
+                {
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
+                    {
+                        if (vmimpl->env->_running_on_vm_count == 1)
+                        {
+                            // assure vm's stack if empty
+                            rs_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
+
+                            // TODO: DO CLEAN
+
+                            if (vmimpl->env->_created_destructable_instance_count == 0)
+                            {
+                                need_destruct_gc_destructor_list.push_back(vmimpl);
+                            }
+
+                        }
+                    }
+                }
+                for (auto* destruct_vm : need_destruct_gc_destructor_list)
+                {
+                    delete destruct_vm;
+                }
+
 
                 // -----Run MINOR-GC once per 10 sec, Run FULL-GC once per 5 MINOR-GC
                 // -----Or you can awake gc-work manually.
@@ -313,10 +349,12 @@ namespace rs
                     if (!_gc_fullgc_stopping_the_world)
                     {
                         for (auto* vmimpl : vmbase::_alive_vm_list)
-                            vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
 
                         for (auto* vmimpl : vmbase::_alive_vm_list)
-                            vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
                     }
 
                     gcbase::gc_new_count -= _gc_stop_the_world_edge;
@@ -330,8 +368,9 @@ namespace rs
                 {
                     _gc_fullgc_stopping_the_world = false;
                     for (auto* vmimpl : vmbase::_alive_vm_list)
-                        if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
-                            vmimpl->wakeup();
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                                vmimpl->wakeup();
                     continue;
                 }
 

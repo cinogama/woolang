@@ -1,0 +1,22 @@
+import rscene.std;
+import test_tool;
+
+namespace test_gc
+{
+    var global_list = nil:array;
+
+    func main()
+    {
+        global_list = [1,2,3,4,5];
+        var i = 0;
+        while (i < 10000)
+        {
+                global_list += [{}];
+                global_list[-1]["Hello"] = "world";
+                i+=1;
+        }
+        global_list = nil;
+    }
+}
+
+test_function("test_gc.main", test_gc::main);

@@ -58,6 +58,15 @@ namespace rs
         inline static cxx_set_t<vmbase*> _alive_vm_list;
         inline thread_local static vmbase* _this_thread_vm;
 
+        enum class vm_type
+        {
+            NORMAL,
+
+            // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
+            GC_DESTRUCTOR,
+        };
+        vm_type virtual_machine_type = vm_type::NORMAL;
+
         enum vm_interrupt_type
         {
             NOTHING = 0,
@@ -217,9 +226,12 @@ namespace rs
 
             if (compile_info)
                 delete compile_info;
+
+            if (env)
+                --env->_running_on_vm_count;
         }
 
-        lexer* compile_info =nullptr;
+        lexer* compile_info = nullptr;
 
         // vm exception handler
         exception_recovery* veh = nullptr;
@@ -250,6 +262,7 @@ namespace rs
             rs_assert(nullptr == _self_stack_reg_mem_buf);
 
             env = _compiler.finalize();
+            ++env->_running_on_vm_count;
 
             stack_mem_begin = env->stack_begin;
             register_mem_begin = env->reg_begin;
@@ -262,6 +275,12 @@ namespace rs
             sp = bp = stack_mem_begin;
 
             rs_asure(interrupt(LEAVE_INTERRUPT));
+
+            // Create a new VM using for GC destruct
+            vmbase* gc_thread = make_machine();
+            // gc_thread will be destructed by gc_work..
+            gc_thread->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+
         }
         virtual vmbase* create_machine() const = 0;
         vmbase* make_machine() const
@@ -292,6 +311,7 @@ namespace rs
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
 
             new_vm->env = env;  // env setted, gc will scan this vm..
+            ++env->_running_on_vm_count;
 
             new_vm->attach_debuggee(this->attaching_debuggee);
 
@@ -838,6 +858,63 @@ namespace rs
 
             return call_trace_count;
         }
+
+        virtual void run() = 0;
+
+        value* invoke(rs_int_t rs_func_addr, rs_int_t argc)
+        {
+            rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+
+            if (!rs_func_addr)
+                rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                auto* return_ip = ip;
+                auto* return_sp = sp + argc;
+                auto* return_bp = bp;
+
+                (sp--)->set_native_callstack(ip);
+                ip = env->rt_codes + rs_func_addr;
+                tc->set_integer(argc);
+                bp = sp;
+
+                run();
+
+                ip = return_ip;
+                sp = return_sp;
+                bp = return_bp;
+            }
+            return cr;
+        }
+        value* invoke(rs_handle_t rs_func_addr, rs_int_t argc)
+        {
+            rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+
+            if (!rs_func_addr)
+                rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                auto* return_ip = ip;
+                auto* return_sp = sp + argc;
+                auto* return_bp = bp;
+
+                (sp--)->set_native_callstack(ip);
+                ip = env->rt_codes + rs_func_addr;
+                tc->set_integer(argc);
+                bp = sp;
+
+                reinterpret_cast<rs_native_func>(rs_func_addr)(
+                    reinterpret_cast<rs_vm>(this),
+                    reinterpret_cast<rs_value>(sp + 2),
+                    argc
+                    );
+
+                ip = return_ip;
+                sp = return_sp;
+                bp = return_bp;
+            }
+            return cr;
+        }
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
@@ -894,7 +971,7 @@ namespace rs
         }
 
     public:
-        void run()
+        void run() override
         {
             struct auto_leave
             {

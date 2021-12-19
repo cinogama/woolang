@@ -178,6 +178,8 @@ rs_integer_t rs_version_int(void)
 
 #define RS_VAL(v) (reinterpret_cast<rs::value*>(v)->get())
 #define RS_VM(v) (reinterpret_cast<rs::vmbase*>(v))
+#define CS_VAL(v) (reinterpret_cast<rs_value>(v))
+#define CS_VM(v) (reinterpret_cast<rs_vm>(v))
 
 rs_type rs_valuetype(rs_value value)
 {
@@ -215,6 +217,16 @@ rs_handle_t rs_handle(rs_value value)
     }
     return _rsvalue->handle;
 }
+rs_ptr_t rs_pointer(rs_value value)
+{
+    auto _rsvalue = RS_VAL(value);
+    if (_rsvalue->type != rs::value::valuetype::handle_type)
+    {
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
+        return rs_cast_pointer(value);
+    }
+    return (rs_ptr_t)_rsvalue->handle;
+}
 rs_string_t rs_string(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
@@ -241,6 +253,11 @@ void rs_set_handle(rs_value value, rs_handle_t val)
 {
     auto _rsvalue = RS_VAL(value);
     _rsvalue->set_handle(val);
+}
+void rs_set_pointer(rs_value value, rs_ptr_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_handle((rs_handle_t)val);
 }
 void rs_set_string(rs_value value, rs_string_t val)
 {
@@ -326,6 +343,10 @@ rs_handle_t rs_cast_handle(rs_value value)
         return 0;
         break;
     }
+}
+rs_ptr_t rs_cast_pointer(rs_value value)
+{
+    return (rs_ptr_t)rs_cast_handle(value);
 }
 void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
 {
@@ -502,6 +523,10 @@ rs_result_t rs_ret_handle(rs_vm vm, rs_handle_t result)
 {
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_handle(result));
 }
+rs_result_t rs_ret_pointer(rs_vm vm, rs_ptr_t result)
+{
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_handle((rs_handle_t)result));
+}
 rs_result_t rs_ret_string(rs_vm vm, rs_string_t result)
 {
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_string(result));
@@ -512,17 +537,21 @@ rs_result_t rs_ret_nil(rs_vm vm)
 }
 rs_result_t  rs_ret_val(rs_vm vm, rs_value result)
 {
-    return reinterpret_cast<rs_result_t>(
-        RS_VM(vm)->cr->set_val(
-            reinterpret_cast<rs::value*>(result)->get()
-        ));
+    if (result)
+        return reinterpret_cast<rs_result_t>(
+            RS_VM(vm)->cr->set_val(
+                reinterpret_cast<rs::value*>(result)->get()
+            ));
+    return rs_ret_nil(vm);
 }
 rs_result_t  rs_ret_ref(rs_vm vm, rs_value result)
 {
-    return reinterpret_cast<rs_result_t>(
-        RS_VM(vm)->cr->set_ref(
-            reinterpret_cast<rs::value*>(result)->get()
-        ));
+    if (result)
+        return reinterpret_cast<rs_result_t>(
+            RS_VM(vm)->cr->set_ref(
+                reinterpret_cast<rs::value*>(result)->get()
+            ));
+    return rs_ret_nil(vm);
 }
 
 rs_integer_t rs_lengthof(rs_value value)
@@ -575,6 +604,8 @@ rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t sr
         lex = new rs::lexer(rs::str_to_wstr(src), virtual_src_path);
     else
         lex = new rs::lexer(virtual_src_path);
+
+    lex->has_been_imported(rs::str_to_wstr(lex->source_file));
 
     if (!lex->has_error())
     {
@@ -690,6 +721,77 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
     return _vm_compile_errors.c_str();
 }
 
+rs_value rs_push_int(rs_vm vm, rs_int_t val)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_integer(val));
+}
+rs_value rs_push_real(rs_vm vm, rs_real_t val)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_real(val));
+}
+rs_value rs_push_handle(rs_vm vm, rs_handle_t val)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_handle(val));
+}
+rs_value rs_push_pointer(rs_vm vm, rs_ptr_t val)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_handle((rs_handle_t)val));
+}
+rs_value rs_push_string(rs_vm vm, rs_string_t val)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_string(val));
+}
+rs_value rs_push_nil(rs_vm vm)
+{
+    return CS_VAL((RS_VM(vm)->sp--)->set_nil());
+}
+rs_value rs_push_val(rs_vm vm, rs_value val)
+{
+    if (val)
+        return CS_VAL((RS_VM(vm)->sp--)->set_val(RS_VAL(val)));
+    return CS_VAL((RS_VM(vm)->sp--)->set_nil());
+}
+rs_value rs_push_ref(rs_vm vm, rs_value val)
+{
+    if (val)
+        return CS_VAL((RS_VM(vm)->sp--)->set_ref(RS_VAL(val)));
+    return CS_VAL((RS_VM(vm)->sp--)->set_nil());
+}
+
+rs_value rs_top_stack(rs_vm vm)
+{
+    return CS_VAL((RS_VM(vm)->sp - 1));
+}
+void rs_pop_stack(rs_vm vm)
+{
+    ++RS_VM(vm)->sp;
+}
+rs_value rs_invoke_rsfunc(rs_vm vm, rs_int_t vmfunc, rs_int_t argc)
+{
+    return CS_VAL(RS_VM(vm)->invoke(vmfunc, argc));
+}
+rs_value rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc)
+{
+    return CS_VAL(RS_VM(vm)->invoke(exfunc, argc));
+}
+rs_value rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc)
+{
+    if (!vmfunc)
+        rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+    else if (RS_VAL(vmfunc)->type == rs::value::valuetype::integer_type)
+        return CS_VAL(RS_VM(vm)->invoke(RS_VAL(vmfunc)->integer, argc));
+    else if (RS_VAL(vmfunc)->type == rs::value::valuetype::handle_type)
+        return CS_VAL(RS_VM(vm)->invoke(RS_VAL(vmfunc)->handle, argc));
+    else
+        rs_fail(RS_FAIL_CALL_FAIL, "Not callable type.");
+    return nullptr;
+}
+
+RS_API rs_value     rs_invoke_rsfunc(rs_vm vm, rs_int_t rsfunc, rs_int_t argc);
+RS_API rs_value     rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc);
+RS_API rs_value     rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc);
+
+
 rs_bool_t rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
 {
     if (!virtual_src_path)
@@ -709,7 +811,8 @@ rs_value rs_run(rs_vm vm)
 {
     if (RS_VM(vm)->env)
     {
-        reinterpret_cast<rs::vm*>(vm)->run();
+        RS_VM(vm)->ip = RS_VM(vm)->env->rt_codes;
+        RS_VM(vm)->run();
         return reinterpret_cast<rs_value>(RS_VM(vm)->cr);
     }
     return nullptr;
@@ -744,7 +847,11 @@ rs_value rs_arr_add(rs_value arr, rs_value elem)
         {
             rs::gcbase::gc_write_guard g1(_arr->array);
 
-            _arr->array->push_back(*RS_VAL(elem));
+            if (elem)
+                _arr->array->push_back(*RS_VAL(elem));
+            else
+                _arr->array->emplace_back(rs::value());
+
             return reinterpret_cast<rs_value>(&_arr->array->back());
         }
     }
@@ -764,7 +871,9 @@ rs_bool_t rs_map_find(rs_value map, rs_value index)
         else
         {
             rs::gcbase::gc_write_guard g1(_map->mapping);
-            return _map->mapping->find(*RS_VAL(index)) != _map->mapping->end();
+            if (index)
+                return _map->mapping->find(*RS_VAL(index)) != _map->mapping->end();
+            return  _map->mapping->find(rs::value()) != _map->mapping->end();
         }
     }
     else
@@ -783,7 +892,9 @@ rs_value rs_map_get(rs_value map, rs_value index)
         else
         {
             rs::gcbase::gc_write_guard g1(_map->mapping);
-            return reinterpret_cast<rs_value>(&((*_map->mapping)[*RS_VAL(index)]));
+            if (index)
+                return reinterpret_cast<rs_value>(&((*_map->mapping)[*RS_VAL(index)]));
+            return reinterpret_cast<rs_value>(&((*_map->mapping)[rs::value()]));
         }
     }
     else

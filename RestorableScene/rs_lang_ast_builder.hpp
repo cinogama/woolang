@@ -225,6 +225,7 @@ namespace rs
                 {
                     // simplx
                     set_type_with_name(_type->type_name);
+                    using_type_name = _type->using_type_name;
                 }
             }
 
@@ -257,7 +258,9 @@ namespace rs
                 if (is_complex())
                     return new ast_type(*complex_type);
 
-                return new ast_type(type_name);
+                auto * rett =  new ast_type(type_name);
+                rett->using_type_name = using_type_name;
+                return rett;
             }
             void append_function_argument_type(ast_type* arg_type)
             {
@@ -333,6 +336,14 @@ namespace rs
                     return false;
 
                 rs_test(!is_pending() && !another->is_pending());
+                if (using_type_name || another->using_type_name)
+                {
+                    if (!using_type_name || !another->using_type_name)
+                        return false;
+
+                    if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                        return false;
+                }
                 if (is_func())
                 {
                     if (argument_types.size() != another->argument_types.size())
@@ -699,6 +710,16 @@ namespace rs
             bool is_constant_attr() const
             {
                 return attributes.find(+lex_type::l_const) != attributes.end();
+            }
+
+            bool is_static_attr() const
+            {
+                return attributes.find(+lex_type::l_static) != attributes.end();
+            }
+
+            bool is_extern_attr() const
+            {
+                return attributes.find(+lex_type::l_extern) != attributes.end();
             }
         };
 
@@ -1511,23 +1532,27 @@ namespace rs
             {
                 rs_test(input.size() == 3);
                 std::wstring path;
-
+                std::wstring filename;
                 auto* fx = RS_NEED_AST(1);
 
                 ast_token* importfilepaths = dynamic_cast<ast_token*>(
                     dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
                 do
                 {
-                    path += importfilepaths->tokens.identifier;
+                    path += filename = importfilepaths->tokens.identifier;
                     importfilepaths = dynamic_cast<ast_token*>(importfilepaths->sibling);
                     if (importfilepaths)
                         path += L"/";
                 } while (importfilepaths);
 
-                path += L".rsn";
+                // path += L".rsn";
                 std::wstring srcfile, src_full_path;
-                if (!rs::read_virtual_source(&srcfile, &src_full_path, path, &lex))
-                    return lex.parser_error(0x0000, RS_ERR_CANNOT_OPEN_FILE, path.c_str());
+                if (!rs::read_virtual_source(&srcfile, &src_full_path, path + L".rsn", &lex))
+                {
+                    // import a.b; cannot open a/b.rsn, trying a/b/b.rsn
+                    if (!rs::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".rsn", &lex))
+                        return lex.parser_error(0x0000, RS_ERR_CANNOT_OPEN_FILE, path.c_str());
+                }
 
                 if (!lex.has_been_imported(src_full_path))
                 {
@@ -2101,7 +2126,7 @@ namespace rs
                 }
                 else if (!value_node->value_type->is_same(type_node))
                 {
-                    ast_value_literal* result_false= new ast_value_literal();
+                    ast_value_literal* result_false = new ast_value_literal();
                     result_false->value_type = new ast_type(L"int");
                     result_false->_constant_value.set_integer(0);
                     return result_false;
@@ -2814,7 +2839,7 @@ namespace rs
         {
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>]
                 = _register_builder<pass_type_check>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_directed_value_for_call>]
                 = _register_builder<pass_directed_value_for_call>();
 

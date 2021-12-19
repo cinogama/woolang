@@ -1,0 +1,20 @@
+import rscene.std;
+import test_tool;
+
+namespace test_while
+{
+    func main()
+    {
+        var i = 0;
+        var n = 0;
+        while (i < 100_0000)
+        {
+                n += 1;
+                i+=1;
+        }
+
+        test_equal(n, 100_0000);
+    }
+}
+
+test_function("test_while.main", test_while::main);

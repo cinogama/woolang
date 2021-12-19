@@ -1,0 +1,31 @@
+import rscene.std;
+import test_tool;
+
+namespace test_enum
+{
+    enum EnumA
+    {
+        ZERO,
+        ONE,
+        TWO,
+        THREE,
+        FOUR,
+        FIVE,
+    }
+    enum EnumB
+    {
+        ZERO,
+        SPECIAL_FIVE = 5,
+        SIX,
+    }
+
+    func main()
+    {
+        test_equal(EnumA::ZERO, 0);
+        test_equal(EnumB::ZERO, 0);
+        test_equal(EnumA::FIVE, 5);
+        test_equal(EnumB::SIX, 6);
+    }
+}
+
+test_function("test_enum.main", test_enum::main);

@@ -1,0 +1,15 @@
+import test_tool;
+
+import test_helloworld;
+import test_while;
+import test_debug_invoke;
+import test_gc;
+import test_dup;
+import test_static;
+import test_enum;
+import test_vm;
+
+// write tmp func here
+
+
+execute_all_test();

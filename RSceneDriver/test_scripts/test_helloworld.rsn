@@ -1,9 +1,13 @@
 import rscene.std;
+import test_tool;
 
-func main()
+namespace test_helloworld
 {
-    const var n = "Helloworld~";
-    std::println(n);
+    func main()
+    {
+        const var n = "Helloworld~";
+        std::println(n);
+    }
 }
 
-main();
+test_function("test_helloworld.main", test_helloworld::main);

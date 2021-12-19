@@ -95,7 +95,8 @@ namespace rs
         l_private,
         l_public,
         l_protected,
-        l_const
+        l_const,
+        l_static
     );
 
     class lexer
@@ -186,6 +187,7 @@ namespace rs
             {L"private", {lex_type::l_private}},
             {L"protected", {lex_type::l_protected}},
             {L"const", {lex_type::l_const}},
+            {L"static", {lex_type::l_static}},
             {L"enum", {lex_type::l_enum}},
             {L"as", {lex_type::l_as}},
             {L"is", {lex_type::l_is}},

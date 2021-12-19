@@ -157,6 +157,12 @@ namespace rs
             handle = 0;
             return this;
         }
+        inline value* set_native_callstack(rs::byte_t* ipplace)
+        {
+            type = valuetype::nativecallstack;
+            native_function_addr = ipplace;
+            return this;
+        }
         inline bool is_nil() const
         {
             return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);

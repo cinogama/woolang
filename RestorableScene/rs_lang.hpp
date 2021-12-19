@@ -103,7 +103,6 @@ namespace rs
 
     };
 
-
     class lang
     {
     private:
@@ -123,10 +122,12 @@ namespace rs
         lang(lexer& lex) :
             lang_anylizer(&lex)
         {
+            _this_thread_lang_context = this;
             begin_namespace(L"");   // global namespace
         }
         ~lang()
         {
+            _this_thread_lang_context = nullptr;
             clean_and_close_lang();
         }
 
@@ -1482,7 +1483,6 @@ namespace rs
             if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
                 reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT)
             {
-                rs_test(assigned_t_register_list[reg_ptr->id]);
                 assigned_t_register_list[reg_ptr->id] = false;
             }
         }
@@ -2601,24 +2601,49 @@ namespace rs
                 {
                     if (varref_define.is_ref)
                     {
+
                         auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
+
+                        std::string init_static_flag_check_tag;
+                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                        {
+                            init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                            compiler->equb(ref_ob, reg(reg::ni));
+                            compiler->jf(tag(init_static_flag_check_tag));
+                        }
                         auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
 
                         if (is_non_ref_tem_reg(aim_ob))
                             lang_anylizer->lang_error(0x0000, varref_define.init_val, RS_ERR_NOT_REFABLE_INIT_ITEM);
 
                         compiler->ext_setref(ref_ob, aim_ob);
+
+                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                            compiler->tag(init_static_flag_check_tag);
                     }
                     else
                     {
                         if (!varref_define.symbol->is_constexpr)
                         {
+                            auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
+
+                            std::string init_static_flag_check_tag;
+                            if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                            {
+                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                compiler->equb(ref_ob, reg(reg::ni));
+                                compiler->jf(tag(init_static_flag_check_tag));
+                            }
+
                             if (is_need_dup_when_mov(varref_define.init_val))
-                                compiler->movdup(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
-                                    auto_analyze_value(varref_define.init_val, compiler));
+                                compiler->movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
                             else
-                                compiler->mov(get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler),
-                                    auto_analyze_value(varref_define.init_val, compiler));
+                                compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+
+                            if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                                compiler->tag(init_static_flag_check_tag);
                         }
                     }
                 }
@@ -2982,12 +3007,17 @@ namespace rs
                 sym->variable_value = init_val;
                 sym->defined_in_scope = lang_scopes.back();
 
-                if (auto* func = in_function())
+                auto* func = in_function();
+                if (attr->is_extern_attr() && func)
+                {
+                    lang_anylizer->lang_error(0x0000, attr, RS_ERR_CANNOT_EXPORT_SYMB_IN_FUNC);
+                }
+                if (func && !sym->attribute->is_static_attr())
                 {
                     sym->define_in_function = true;
                     sym->static_symbol = false;
 
-                    // TODO:
+                    // TODO: following should generate same const things, 
                     // const var xxx = 0;
                     // const var ddd = xxx;
 
@@ -3002,8 +3032,13 @@ namespace rs
                 }
                 else
                 {
-                    sym->define_in_function = false;
+                    if (func)
+                        sym->define_in_function = true;
+                    else
+                        sym->define_in_function = false;
+
                     sym->static_symbol = true;
+
                     if (!attr->is_constant_attr() || !init_val->is_constant)
                         sym->global_index_in_lang = global_symbol_index++;
                     else

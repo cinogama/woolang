@@ -32,7 +32,7 @@ RS_FORCE_CAPI
 
 typedef int64_t     rs_integer_t, rs_int_t;
 typedef uint64_t    rs_handle_t;
-typedef void* rs_pointer_t;
+typedef void*       rs_ptr_t;
 typedef const char* rs_string_t;
 typedef double      rs_real_t;
 typedef size_t      rs_result_t, rs_api, rs_size_t;
@@ -90,11 +90,13 @@ RS_API rs_type      rs_valuetype(const rs_value value);
 RS_API rs_integer_t rs_int(const rs_value value);
 RS_API rs_real_t    rs_real(const rs_value value);
 RS_API rs_handle_t  rs_handle(const rs_value value);
+RS_API rs_ptr_t     rs_pointer(const rs_value value);
 RS_API rs_string_t  rs_string(const rs_value value);
 
 RS_API void rs_set_int(rs_value value, rs_integer_t val);
 RS_API void rs_set_real(rs_value value, rs_real_t val);
 RS_API void rs_set_handle(rs_value value, rs_handle_t val);
+RS_API void rs_set_pointer(rs_value value, rs_ptr_t val);
 RS_API void rs_set_string(rs_value value, rs_string_t val);
 RS_API void rs_set_val(rs_value value, rs_value val);
 RS_API void rs_set_ref(rs_value value, rs_value val);
@@ -102,6 +104,7 @@ RS_API void rs_set_ref(rs_value value, rs_value val);
 RS_API rs_integer_t rs_cast_int(const rs_value value);
 RS_API rs_real_t    rs_cast_real(const rs_value value);
 RS_API rs_handle_t  rs_cast_handle(const rs_value value);
+RS_API rs_ptr_t     rs_cast_pointer(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
 RS_API rs_string_t  rs_type_name(const rs_value value);
 RS_API rs_integer_t rs_argc(rs_vm vm);
@@ -109,6 +112,7 @@ RS_API rs_integer_t rs_argc(rs_vm vm);
 RS_API rs_result_t  rs_ret_int(rs_vm vm, rs_integer_t result);
 RS_API rs_result_t  rs_ret_real(rs_vm vm, rs_real_t result);
 RS_API rs_result_t  rs_ret_handle(rs_vm vm, rs_handle_t result);
+RS_API rs_result_t  rs_ret_pointer(rs_vm vm, rs_ptr_t result);
 RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
 RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
@@ -131,6 +135,20 @@ RS_API rs_bool_t    rs_has_compile_warning(rs_vm vm);
 RS_API rs_string_t  rs_get_compile_error(rs_vm vm, _rs_inform_style style);
 RS_API rs_string_t  rs_get_compile_warning(rs_vm vm, _rs_inform_style style);
 
+RS_API rs_value     rs_push_int(rs_vm vm, rs_int_t val);
+RS_API rs_value     rs_push_real(rs_vm vm, rs_real_t val);
+RS_API rs_value     rs_push_handle(rs_vm vm, rs_handle_t val);
+RS_API rs_value     rs_push_pointer(rs_vm vm, rs_ptr_t val);
+RS_API rs_value     rs_push_string(rs_vm vm, rs_string_t val);
+RS_API rs_value     rs_push_nil(rs_vm vm);
+RS_API rs_value     rs_push_val(rs_vm vm, rs_value val);
+RS_API rs_value     rs_push_ref(rs_vm vm, rs_value val);
+
+RS_API rs_value     rs_top_stack(rs_vm vm);
+RS_API void         rs_pop_stack(rs_vm vm);
+RS_API rs_value     rs_invoke_rsfunc(rs_vm vm, rs_int_t rsfunc, rs_int_t argc);
+RS_API rs_value     rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc);
+RS_API rs_value     rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc);
 
 RS_API rs_int_t     rs_lengthof(rs_value value);
 RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
@@ -138,6 +156,7 @@ RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
 RS_API rs_value     rs_arr_get(rs_value arr, rs_int_t index);
 RS_API rs_int_t     rs_arr_find(rs_value arr, rs_value elem);
 RS_API void         rs_arr_erase_at(rs_value arr, rs_int_t index);
+RS_API rs_value     rs_arr_items(rs_value arr);
 
 RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get(rs_value arr, rs_value index);

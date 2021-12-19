@@ -341,6 +341,9 @@ namespace rs
         size_t rt_code_len = 0;
         byte_t* rt_codes = nullptr;
 
+        std::atomic_size_t _running_on_vm_count = 0;
+        std::atomic_size_t _created_destructable_instance_count = 0;
+
         std::shared_ptr<program_debug_data_info> program_debug_info;
 
         ~runtime_env()

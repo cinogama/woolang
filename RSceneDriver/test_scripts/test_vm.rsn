@@ -1,0 +1,33 @@
+import rscene.std;
+import test_tool;
+
+namespace test_vm
+{
+    func load_and_create_vmm(var src:string)
+    {
+        var vmm = std::vm::create();
+        vmm->load_source(src);
+        return vmm;
+    }
+
+    func main()
+    {
+       var vmm = load_and_create_vmm(
+            @"
+            import rscene.std;
+            func main()
+            {
+                std::println("Hey! This inform come from another vm!~");
+            }
+            main();
+            "@
+        );
+
+        test_equal(vmm->has_error(), false);
+
+        vmm->run();
+        vmm->close();
+    }
+}
+
+test_function("test_vm.main", test_vm::main);
