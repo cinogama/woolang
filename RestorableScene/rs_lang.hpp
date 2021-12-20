@@ -410,30 +410,33 @@ namespace rs
                         if (a_ret->return_value->value_type->is_pending() == false)
                         {
                             auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
-
-                            if (func_return_type->is_pending())
+                            if (located_function_scope->function_node->auto_adjust_return_type)
                             {
-                                located_function_scope->function_node->value_type->set_ret_type(a_ret->return_value->value_type);
-                            }
-                            else if (located_function_scope->function_node->auto_adjust_return_type)
-                            {
-                                if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                if (func_return_type->is_pending())
                                 {
-                                    auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
-                                    if (mixed_type)
+                                    located_function_scope->function_node->value_type->set_ret_type(a_ret->return_value->value_type);
+                                }
+                                else
+                                {
+                                    if (!func_return_type->is_same(a_ret->return_value->value_type))
                                     {
-                                        located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
-                                    }
-                                    else
-                                    {
-                                        located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
-                                        lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                        auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                        if (mixed_type)
+                                        {
+                                            located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
+                                        }
+                                        else
+                                        {
+                                            located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
+                                            lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                        }
                                     }
                                 }
                             }
                             else
                             {
-                                if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                if (!func_return_type->is_pending()
+                                    && !func_return_type->is_same(a_ret->return_value->value_type))
                                 {
                                     auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                     cast_return_type->col_no = a_ret->col_no;
@@ -445,6 +448,7 @@ namespace rs
                                     a_ret->return_value = cast_return_type;
                                 }
                             }
+
                         }
 
                         a_ret->add_child(a_ret->return_value);
@@ -592,6 +596,10 @@ namespace rs
                 {
                     // ready for update..
                     fully_update_type(a_value->value_type);
+
+                    if (a_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE
+                            , a_value->value_type->get_return_type()->get_type_name().c_str());
                 }
 
 
@@ -657,24 +665,6 @@ namespace rs
                         {
                             a_value_idx->value_type = new ast_type(L"dynamic");
                             a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
-                        }
-                    }
-                    else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
-                    {
-                        analyze_pass2(a_value_assi->left);
-                        analyze_pass2(a_value_assi->right);
-
-                        a_value_assi->value_type = new ast_type(L"pending");
-                        a_value_assi->value_type->set_type(a_value_assi->left->value_type);
-
-                        if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
-                        {
-                            if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
-                            {
-                                lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
-                                    a_value_assi->right->value_type->get_type_name().c_str(),
-                                    a_value_assi->left->value_type->get_type_name().c_str());
-                            }
                         }
                     }
                     else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
@@ -1076,11 +1066,6 @@ namespace rs
                         // else
                             // not need to manage, if val is pending, other place will give error.
                     }
-                    else
-                    {
-                        lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE, a_value->value_type->get_type_name().c_str());
-                    }
-
                 }
 
                 //
@@ -1303,30 +1288,33 @@ namespace rs
                     else
                     {
                         auto* func_return_type = a_ret->located_function->value_type->get_return_type();
-
-                        if (func_return_type->is_pending())
+                        if (a_ret->located_function->auto_adjust_return_type)
                         {
-                            a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
-                        }
-                        else if (a_ret->located_function->auto_adjust_return_type)
-                        {
-                            if (!func_return_type->is_same(a_ret->return_value->value_type))
+                            if (func_return_type->is_pending())
                             {
-                                auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
-                                if (mixed_type)
+                                a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
+                            }
+                            else
+                            {
+                                if (!func_return_type->is_same(a_ret->return_value->value_type))
                                 {
-                                    a_ret->located_function->value_type->set_type_with_name(mixed_type->type_name);
-                                }
-                                else
-                                {
-                                    a_ret->located_function->value_type->set_type_with_name(L"dynamic");
-                                    lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                    auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                    if (mixed_type)
+                                    {
+                                        a_ret->located_function->value_type->set_type_with_name(mixed_type->type_name);
+                                    }
+                                    else
+                                    {
+                                        a_ret->located_function->value_type->set_type_with_name(L"dynamic");
+                                        lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                    }
                                 }
                             }
                         }
                         else
                         {
-                            if (!func_return_type->is_same(a_ret->return_value->value_type))
+                            if (!func_return_type->is_pending()
+                                && !func_return_type->is_same(a_ret->return_value->value_type))
                             {
                                 auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                 cast_return_type->col_no = a_ret->col_no;

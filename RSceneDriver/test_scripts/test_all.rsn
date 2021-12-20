@@ -10,7 +10,20 @@ import test_enum;
 import test_vm;
 
 // write tmp func here
-"Hello"->std::println();
+
+using higher_int = int;
+using highest_int = higher_int;
+
+var t = 0:highest_int;
+var a = 0:higher_int;
+var b = 0:int;
+
+b = a; // valid, ok
+a = b; // invalid
+
+t = a;
+t = b; // invalid
+a =t; // valid ok
 
 std::println("Unit-test begin!");
 execute_all_test();

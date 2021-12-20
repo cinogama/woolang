@@ -682,7 +682,7 @@ rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
                 else
                     _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
             }
-            _vm_compile_errors += rs::wstr_to_str(err_info.to_wstring(style & RS_NEED_COLOR)) + "'\n";
+            _vm_compile_errors += rs::wstr_to_str(err_info.to_wstring(style & RS_NEED_COLOR)) + "\n";
         }
         /*src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)
@@ -713,7 +713,7 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
                 else
                     _vm_compile_errors += "In file: '" + (src_file_path = war_info.filename) + "'\n";
             }
-            _vm_compile_errors += rs::wstr_to_str(war_info.to_wstring(style & RS_NEED_COLOR)) + "'\n";
+            _vm_compile_errors += rs::wstr_to_str(war_info.to_wstring(style & RS_NEED_COLOR)) + "\n";
         }
         /*src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)

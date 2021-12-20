@@ -87,9 +87,10 @@ namespace rs
 
         union
         {
-            valuetype type;
+            valuetype type; 
+            // uint32_t type_hash;
 
-            // std::atomic_uint8_t atomic_type;
+            // std::atomic_uint64_t atomic_type;
         };
 
         inline value* get() const

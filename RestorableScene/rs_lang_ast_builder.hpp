@@ -258,7 +258,7 @@ namespace rs
                 if (is_complex())
                     return new ast_type(*complex_type);
 
-                auto * rett =  new ast_type(type_name);
+                auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
                 return rett;
             }
@@ -397,7 +397,12 @@ namespace rs
 
             std::wstring get_type_name()const
             {
-                std::wstring result = (is_complex() ? complex_type->get_type_name() : type_name) + (is_pending() ? L"<pending>" : L"");
+                std::wstring result;
+
+                if (using_type_name)
+                    result = (using_type_name->type_name) + (is_pending() ? L"<pending>" : L"");
+                else
+                    result = (is_complex() ? complex_type->get_type_name() : type_name) + (is_pending() ? L"<pending>" : L"");
                 if (is_function_type)
                 {
                     result += L"(";
