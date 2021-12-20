@@ -1,4 +1,6 @@
 import rscene.std;
+import rscene.vm;
+
 import test_tool;
 
 namespace test_vm
@@ -27,6 +29,27 @@ namespace test_vm
 
         vmm->run();
         vmm->close();
+
+        // Test memmory leak
+        var i = 0;
+        while (i<100000)
+        {
+            var vmm = load_and_create_vmm(
+                @"
+                import rscene.std;
+                func main()
+                {
+                    var a = [1,2,3,4,5];
+                    var b = a+a;
+                    b += a+b;
+                }
+                main();
+                "@
+            );
+            test_equal(vmm->has_error(), false);
+            vmm->run();
+            vmm->close();
+        }
     }
 }
 

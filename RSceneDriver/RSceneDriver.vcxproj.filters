@@ -13,10 +13,42 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="test_scripts">
+      <UniqueIdentifier>{8f33f189-9c93-4f30-b3e0-eeb9d8cc1491}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_driver.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="test_scripts\test_all.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_debug_invoke.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_dup.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_enum.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_gc.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_helloworld.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_static.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_vm.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\test_while.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
   </ItemGroup>
 </Project>

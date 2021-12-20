@@ -57,6 +57,7 @@ namespace rs
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
         inline thread_local static vmbase* _this_thread_vm;
+        inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
         enum class vm_type
         {
@@ -98,7 +99,7 @@ namespace rs
 
             DEBUG_INTERRUPT = 1 << 10,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
-            // to check about breakpoint.
+            // to check something about debug, such as breakpoint.
             // * DEBUG_INTERRUPT will cause huge performance loss
         };
 
@@ -199,6 +200,8 @@ namespace rs
 
         vmbase()
         {
+            ++_alive_vm_count_for_gc_vm_destruct;
+
             vm_interrupt = vm_interrupt_type::NOTHING;
             interrupt(vm_interrupt_type::LEAVE_INTERRUPT);
 
@@ -2890,43 +2893,43 @@ namespace rs
                         rs_error("executed 'abrt'.");
                     default:
                     {
-                        if (vm_interrupt)
+                        --rt_ip;    // Move back one command.
+                        if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
                         {
-                            --rt_ip;    // Move back one command.
-                            if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
-                            {
-                                // write regist(sp) data, then clear interrupt mark.
-                                sp = rt_sp;
-                                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                                    hangup();   // SLEEP UNTIL WAKE UP
-                            }
-                            else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
-                            {
-                                // That should not be happend...
-                                rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
-                            }
+                            // write regist(sp) data, then clear interrupt mark.
+                            sp = rt_sp;
+                            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                                hangup();   // SLEEP UNTIL WAKE UP
+                        }
+                        else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                        {
+                            // That should not be happend...
+                            rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                        }
 
-                            // it should be last interrupt..
-                            else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
-                            {
-                                rtopcode = opcode;
+                        // it should be last interrupt..
+                        else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
+                        {
+                            rtopcode = opcode;
 
-                                ip = rt_ip;
-                                sp = rt_sp;
-                                bp = rt_bp;
-                                if (attaching_debuggee)
-                                {
-                                    // check debuggee here
-                                    rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                                    attaching_debuggee->_vm_invoke_debuggee(this);
-                                    rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                                }
-                                ++rt_ip;
-                                goto re_entry_for_interrupt;
+                            ip = rt_ip;
+                            sp = rt_sp;
+                            bp = rt_bp;
+                            if (attaching_debuggee)
+                            {
+                                // check debuggee here
+                                rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                attaching_debuggee->_vm_invoke_debuggee(this);
+                                rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             }
+                            ++rt_ip;
+                            goto re_entry_for_interrupt;
                         }
                         else
-                            rs_error("Unknown instruct.");
+                        {
+                            // a vm_interrupt is invalid now, just roll back one byte and continue~
+                            // so here do nothing
+                        }
                     }
                     }
                 }// vm loop end.

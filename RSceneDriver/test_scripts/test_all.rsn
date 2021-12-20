@@ -10,6 +10,7 @@ import test_enum;
 import test_vm;
 
 // write tmp func here
+"Hello"->std::println();
 
-
+std::println("Unit-test begin!");
 execute_all_test();

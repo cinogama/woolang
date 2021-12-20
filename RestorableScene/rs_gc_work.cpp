@@ -18,6 +18,10 @@ namespace rs
         uint32_t                    _gc_immediately_edge = 50000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
 
+        // If vmbase::_alive_vm_count_for_gc_vm_destruct > _gc_immediately_vm_count_edge,
+        // gc work will start immediately, either.
+        uint32_t                    _gc_immediately_vm_count_edge = 200;
+
         volatile bool               _gc_fullgc_stopping_the_world = false;
 
 
@@ -311,25 +315,31 @@ namespace rs
                 // has been closed, destroy it..
                 std::list<vmbase*> need_destruct_gc_destructor_list;
 
-                for (auto* vmimpl : vmbase::_alive_vm_list)
+                do
                 {
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
+                    std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
                     {
-                        if (vmimpl->env->_running_on_vm_count == 1)
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR)
                         {
-                            // assure vm's stack if empty
-                            rs_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
-
-                            // TODO: DO CLEAN
-
-                            if (vmimpl->env->_created_destructable_instance_count == 0)
+                            if (vmimpl->env->_running_on_vm_count == 1)
                             {
-                                need_destruct_gc_destructor_list.push_back(vmimpl);
-                            }
+                                // assure vm's stack if empty
+                                rs_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
 
+                                // TODO: DO CLEAN
+
+                                if (vmimpl->env->_created_destructable_instance_count == 0)
+                                {
+                                    need_destruct_gc_destructor_list.push_back(vmimpl);
+                                }
+
+                            }
                         }
                     }
-                }
+                } while (0);
+
                 for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 {
                     delete destruct_vm;
@@ -348,6 +358,8 @@ namespace rs
                     // Stop world immediately, then reboot gc...
                     if (!_gc_fullgc_stopping_the_world)
                     {
+                        std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+
                         for (auto* vmimpl : vmbase::_alive_vm_list)
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                                 vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
@@ -367,6 +379,9 @@ namespace rs
                 if (_gc_fullgc_stopping_the_world)
                 {
                     _gc_fullgc_stopping_the_world = false;
+                    
+                    std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
@@ -374,21 +389,26 @@ namespace rs
                     continue;
                 }
 
-                if (gcbase::gc_new_count < _gc_immediately_edge)
+                if (gcbase::gc_new_count < _gc_immediately_edge
+                    && vmbase::_alive_vm_count_for_gc_vm_destruct < _gc_immediately_vm_count_edge)
                 {
                     std::unique_lock ug1(_gc_mx);
 
                     for (int i = 0; i < 100; i++)
                     {
                         _gc_cv.wait_for(ug1, 0.1s);
-                        if (gcbase::gc_new_count > _gc_immediately_edge)
+                        if (gcbase::gc_new_count >= _gc_immediately_edge
+                            || vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge)
                             goto gc_immediately;
                     }
                 }
                 else
                 {
                 gc_immediately:
-                    gcbase::gc_new_count -= _gc_immediately_edge;
+                    if (gcbase::gc_new_count >= _gc_immediately_edge)
+                        gcbase::gc_new_count -= _gc_immediately_edge;
+                    if (vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge)
+                        vmbase::_alive_vm_count_for_gc_vm_destruct -= _gc_immediately_vm_count_edge;
                 }
 
             } while (true);

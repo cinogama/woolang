@@ -141,6 +141,17 @@
   <ItemGroup>
     <ClCompile Include="rs_driver.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="test_scripts\test_all.rsn" />
+    <None Include="test_scripts\test_debug_invoke.rsn" />
+    <None Include="test_scripts\test_dup.rsn" />
+    <None Include="test_scripts\test_enum.rsn" />
+    <None Include="test_scripts\test_gc.rsn" />
+    <None Include="test_scripts\test_helloworld.rsn" />
+    <None Include="test_scripts\test_static.rsn" />
+    <None Include="test_scripts\test_vm.rsn" />
+    <None Include="test_scripts\test_while.rsn" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

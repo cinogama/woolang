@@ -201,21 +201,25 @@ RS_API rs_api rslib_std_vm_get_compile_warning(rs_vm vm, rs_value args, size_t a
 
 RS_API rs_api rslib_std_vm_virtual_source(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_int(vm, rs::create_virtual_source(
-        rs::str_to_wstr(rs_string(args + 0)),
-        rs::str_to_wstr(rs_string(args + 1)),
+    return rs_ret_int(vm, rs_virtual_source(
+        rs_string(args + 0),
+        rs_string(args + 1),
         rs_int(args + 2)
     ));
 }
 
-
-const char* rs_stdlib_src_path = u8"rscene/std.rsn";
-const char* rs_stdlib_src_data = {
-u8R"(
+const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
+const char* rs_stdlib_basic_src_data = { u8R"(
 using bool = int;
 
 const var true = 1:bool;
 const var false = 0:bool;
+)" };
+
+const char* rs_stdlib_src_path = u8"rscene/std.rsn";
+const char* rs_stdlib_src_data = {
+u8R"(
+import rscene.basic;
 
 namespace std
 {
@@ -245,54 +249,6 @@ namespace std
 
     extern("rslib_std_thread_sleep")
     func sleep(var tm:real):void;
-
-    using vm = handle;
-    namespace vm
-    {
-        enum info_style
-        {
-            RS_NOTHING = 0,
-            RS_NEED_COLOR = 1,
-        }
-
-        extern("rslib_std_vm_create")
-        func create():vm;
-
-        extern("rslib_std_vm_close")
-        func close(var vmhandle:vm):void;
-
-        extern("rslib_std_vm_load_src")
-        func load_source(var vmhandle:vm, var src:string):bool;
-        extern("rslib_std_vm_load_src")
-        func load_source(var vmhandle:vm, var vfilepath:string, var src:string):bool;
-
-        extern("rslib_std_vm_load_file")
-        func load_file(var vmhandle:vm, var vfilepath:string):bool;
-
-        extern("rslib_std_vm_run")
-        func run(var vmhandle:vm):dynamic;
-        
-        extern("rslib_std_vm_has_compile_error")
-        func has_error(var vmhandle:vm):bool;
-
-        extern("rslib_std_vm_has_compile_warning")
-        func has_warning(var vmhandle:vm):bool;
-
-        extern("rslib_std_vm_get_compile_error")
-        func error_msg(var vmhandle:vm):string;
-
-        extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(var vmhandle:vm):string;
-
-        extern("rslib_std_vm_get_compile_error")
-        func error_msg(var vmhandle:vm, var style:info_style):string;
-
-        extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(var vmhandle:vm, var style:info_style):string;
-        
-        extern("rslib_std_vm_virtual_source")
-        func virtual_source(var src:string, var vfilepath:string, var enable_overwrite:bool):bool;
-    }
 }
 
 namespace string
@@ -393,6 +349,63 @@ namespace std
 
         extern("rslib_std_debug_invoke")
         func invoke(var foo:dynamic, ...):dynamic;
+    }
+}
+)" };
+
+const char* rs_stdlib_vm_src_path = u8"rscene/vm.rsn";
+const char* rs_stdlib_vm_src_data = {
+u8R"(
+import rscene.basic;
+
+namespace std
+{
+    using vm = handle;
+    namespace vm
+    {
+        enum info_style
+        {
+            RS_NOTHING = 0,
+            RS_NEED_COLOR = 1,
+        }
+
+        extern("rslib_std_vm_create")
+        func create():vm;
+
+        extern("rslib_std_vm_close")
+        func close(var vmhandle:vm):void;
+
+        extern("rslib_std_vm_load_src")
+        func load_source(var vmhandle:vm, var src:string):bool;
+        extern("rslib_std_vm_load_src")
+        func load_source(var vmhandle:vm, var vfilepath:string, var src:string):bool;
+
+        extern("rslib_std_vm_load_file")
+        func load_file(var vmhandle:vm, var vfilepath:string):bool;
+
+        extern("rslib_std_vm_run")
+        func run(var vmhandle:vm):dynamic;
+        
+        extern("rslib_std_vm_has_compile_error")
+        func has_error(var vmhandle:vm):bool;
+
+        extern("rslib_std_vm_has_compile_warning")
+        func has_warning(var vmhandle:vm):bool;
+
+        extern("rslib_std_vm_get_compile_error")
+        func error_msg(var vmhandle:vm):string;
+
+        extern("rslib_std_vm_get_compile_warning")
+        func warning_msg(var vmhandle:vm):string;
+
+        extern("rslib_std_vm_get_compile_error")
+        func error_msg(var vmhandle:vm, var style:info_style):string;
+
+        extern("rslib_std_vm_get_compile_warning")
+        func warning_msg(var vmhandle:vm, var style:info_style):string;
+        
+        extern("rslib_std_vm_virtual_source")
+        func virtual_source(var vfilepath:string, var src:string, var enable_overwrite:bool):bool;
     }
 }
 )" };

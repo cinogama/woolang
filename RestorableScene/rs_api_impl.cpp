@@ -158,8 +158,12 @@ void rs_init(int argc, char** argv)
 {
     rs::rs_init_locale();
     rs::gc::gc_start();
+
+    rs_virtual_source(rs_stdlib_basic_src_path, rs_stdlib_basic_src_data, false);
     rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
     rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
+    rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
+
     rs_handle_ctrl_c(nullptr);
 }
 
@@ -636,12 +640,13 @@ rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t sr
 
     rs::grammar::ast_base::clean_this_thread_ast();
 
-    if (lex->has_error() || lex->has_warning())
+    bool compile_has_err = lex->has_error();
+    if (compile_has_err || lex->has_warning())
         RS_VM(vm)->compile_info = lex;
     else
         delete lex;
 
-    return !lex->has_error();
+    return !compile_has_err;
 }
 
 rs_bool_t rs_has_compile_error(rs_vm vm)
