@@ -12,7 +12,9 @@ namespace rs
     {
         enum class symbol_type
         {
+            template_typing,
             typing,
+
             variable,
             function,
         };
@@ -41,6 +43,17 @@ namespace rs
         };
 
         std::vector<ast::ast_value_function_define*> function_overload_sets;
+
+        bool is_template_symbol = false;
+        std::vector<std::wstring> template_types;
+
+        void apply_template_setting(ast::ast_defines* defs)
+        {
+            if (is_template_symbol = defs->is_template_define)
+            {
+                template_types = defs->template_type_name_list;
+            }
+        }
     };
 
     struct lang_scope
@@ -118,6 +131,42 @@ namespace rs
         std::map<rs_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
 
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
+
+        using template_type_map = std::map<std::wstring, lang_symbol*>;
+
+        std::vector<template_type_map> template_stack;
+
+        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        {
+            rs_test(template_args.size());
+            if (template_defines->template_type_name_list.size() != template_args.size())
+            {
+                lang_anylizer->lang_error(0x0000, template_args.back(), RS_ERR_TEMPLATE_ARG_NOT_MATCH);
+                return false;
+            }
+
+            template_stack.push_back(template_type_map());
+            auto& current_template = template_stack.back();
+            for (size_t index = 0; index < template_defines->template_type_name_list.size(); index++)
+            {
+                lang_symbol* sym = new lang_symbol;
+                sym->attribute = new ast::ast_decl_attribute();
+                sym->type = lang_symbol::symbol_type::template_typing;
+                sym->name = template_defines->template_type_name_list[index];
+                sym->type_informatiom = template_args[index];
+                sym->defined_in_scope = lang_scopes.back();
+
+                lang_symbols.push_back(current_template[sym->name] = sym);
+            }
+            return true;
+        }
+
+        void end_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        {
+            template_stack.pop_back();
+        }
+
+
     public:
         lang(lexer& lex) :
             lang_anylizer(&lex)
@@ -133,6 +182,7 @@ namespace rs
 
         void fully_update_type(ast::ast_type* type)
         {
+            // todo: begin_template_scope here~
             if (type->is_custom())
             {
                 if (type->is_complex())
@@ -144,17 +194,22 @@ namespace rs
                 // ready for update..
                 if (ast::ast_type::is_custom_type(type->type_name))
                 {
+
                     auto* type_sym = find_type_in_this_scope(type);
                     if (type_sym)
                     {
                         fully_update_type(type_sym->type_informatiom);
+
+                        auto* using_type = new ast::ast_type(type_sym->name);
+                        using_type->template_arguments = type->template_arguments;
 
                         if (type->is_func())
                             type->set_ret_type(type_sym->type_informatiom);
                         else
                             type->set_type(type_sym->type_informatiom);
 
-                        type->using_type_name = new ast::ast_type(type_sym->name);
+
+                        type->using_type_name = using_type;
 
                         // Gen namespace chain
                         auto* inscopes = type_sym->defined_in_scope;
@@ -528,7 +583,6 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, a_using_namespace, RS_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
                         break;
                     }
-
                     parent_child = parent_child->sibling;
                 }
                 now_scope()->used_namespace.push_back(a_using_namespace);
@@ -536,7 +590,8 @@ namespace rs
             else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // now_scope()->used_namespace.push_back(a_using_namespace);
-                define_type_in_this_scope(a_using_type_as->new_type_identifier, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+                auto* typing_symb = define_type_in_this_scope(a_using_type_as->new_type_identifier, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+                typing_symb->apply_template_setting(a_using_type_as);
             }
             else
             {
@@ -3062,6 +3117,7 @@ namespace rs
                 return sym;
             }
         }
+
         lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, const std::wstring& ident_str)
         {
             rs_assert(lang_scopes.size());
@@ -3203,6 +3259,13 @@ namespace rs
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
+            if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
+                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+                {
+                    if (auto fnd = rind->find(var_ident->type_name); fnd != rind->end())
+                        return fnd->second;
+                }
+
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
             if (result && result->type != lang_symbol::symbol_type::typing)
             {

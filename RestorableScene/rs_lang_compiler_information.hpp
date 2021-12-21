@@ -132,6 +132,8 @@
 
 #define RS_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"不允许导出定义于函数中的符号"
 
+#define RS_ERR_TEMPLATE_ARG_NOT_MATCH L"泛型参数不匹配"
+
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
@@ -267,6 +269,8 @@
 #define RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF L"Cannot mark a a non-assignable item as 'ref'."
 
 #define RS_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"Cannot export the symbol defined in function."
+
+#define RS_ERR_TEMPLATE_ARG_NOT_MATCH L"Not matched template arguments."
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."

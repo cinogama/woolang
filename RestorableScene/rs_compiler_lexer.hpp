@@ -59,6 +59,7 @@ namespace rs
         l_lor,                  // ||
         l_lnot,                  // !
         l_scopeing,             // ::
+        l_template_using_begin,             // ::<
         l_typecast,              // :
         l_index_point,          // .
         l_double_index_point,          // ..  may be used? hey..
@@ -158,6 +159,7 @@ namespace rs
             {L"||",     {lex_type::l_lor}},                  // ||
             {L"!",      {lex_type::l_lnot}},                  // !=
             {L"::",     {lex_type::l_scopeing}},
+            {L":<",     {lex_type::l_template_using_begin}},
             {L",",      {lex_type::l_comma}},
             {L":",      {lex_type::l_typecast}},
             {L".",      {lex_type::l_index_point}},

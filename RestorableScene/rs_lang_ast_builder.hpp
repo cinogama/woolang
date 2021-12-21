@@ -92,6 +92,8 @@ namespace rs
             bool is_pending_type = false;
             std::vector<ast_type*> argument_types;
 
+            std::vector<ast_type*> template_arguments;
+
             ast_type* using_type_name = nullptr;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
@@ -226,6 +228,7 @@ namespace rs
                     // simplx
                     set_type_with_name(_type->type_name);
                     using_type_name = _type->using_type_name;
+                    template_arguments = _type->template_arguments;
                 }
             }
 
@@ -260,6 +263,7 @@ namespace rs
 
                 auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
+                rett->template_arguments = template_arguments;
                 return rett;
             }
             void append_function_argument_type(ast_type* arg_type)
@@ -277,6 +281,14 @@ namespace rs
             }
             bool is_custom() const
             {
+                if (has_template())
+                {
+                    for (auto arg_type : template_arguments)
+                    {
+                        if (arg_type->is_custom())
+                            return true;
+                    }
+                }
                 if (is_func())
                 {
                     for (auto arg_type : argument_types)
@@ -285,7 +297,6 @@ namespace rs
                             return true;
                     }
                 }
-
                 if (is_complex())
                     return complex_type->is_custom();
                 else
@@ -293,6 +304,14 @@ namespace rs
             }
             bool is_pending() const
             {
+                if (has_template())
+                {
+                    for (auto arg_type : template_arguments)
+                    {
+                        if (arg_type->is_pending())
+                            return true;
+                    }
+                }
                 if (is_func())
                 {
                     for (auto arg_type : argument_types)
@@ -301,7 +320,6 @@ namespace rs
                             return true;
                     }
                 }
-
                 bool base_type_pending;
                 if (is_complex())
                     base_type_pending = complex_type->is_pending();
@@ -344,6 +362,16 @@ namespace rs
                     if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
                         return false;
                 }
+                if (has_template())
+                {
+                    if (template_arguments.size() != another->template_arguments.size())
+                        return false;
+                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    {
+                        if (!template_arguments[index]->is_same(another->template_arguments[index]))
+                            return false;
+                    }
+                }
                 if (is_func())
                 {
                     if (argument_types.size() != another->argument_types.size())
@@ -365,6 +393,10 @@ namespace rs
             bool is_func()const
             {
                 return is_function_type;
+            }
+            bool has_template()const
+            {
+                return !template_arguments.empty();
             }
             bool is_complex()const
             {
@@ -400,9 +432,20 @@ namespace rs
                 std::wstring result;
 
                 if (using_type_name)
-                    result = (using_type_name->type_name) + (is_pending() ? L"<pending>" : L"");
+                    result = (using_type_name->type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 else
-                    result = (is_complex() ? complex_type->get_type_name() : type_name) + (is_pending() ? L"<pending>" : L"");
+                    result = (is_complex() ? complex_type->get_type_name() : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                if (has_template())
+                {
+                    result += L"<";
+                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    {
+                        result += template_arguments[index]->get_type_name();
+                        if (index + 1 != template_arguments.size())
+                            result += L", ";
+                    }
+                    result += L">";
+                }
                 if (is_function_type)
                 {
                     result += L"(";
@@ -732,6 +775,9 @@ namespace rs
         struct ast_defines : virtual public grammar::ast_base
         {
             ast_decl_attribute* declear_attribute = nullptr;
+
+            bool is_template_define = false;
+            std::vector<std::wstring> template_type_name_list;
         };
 
         struct ast_value_symbolable_base : virtual ast_value, virtual ast_symbolable_base
@@ -1728,43 +1774,43 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 7 || input.size() == 8 || input.size() == 9);
+                rs_test(input.size() == 8 || input.size() == 9 || input.size() == 10);
 
                 auto* ast_func = new ast_value_function_define;
                 ast_type* return_type = nullptr;
-                if (input.size() == 8)
+                if (input.size() == 9)
                 {
                     // function with name..
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(2).identifier;
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(7))->sentence_list;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(8))->sentence_list;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(7));
 
                 }
-                else if (input.size() == 7)
+                else if (input.size() == 8)
                 {
                     // anonymous function
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = L""; // just get a fucking name
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(3));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(6))->sentence_list;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(7))->sentence_list;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
                 }
                 else
                 {
-                    // function with name..
+                    // function with name.. export func
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(1));
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(3).identifier;
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
                     ast_func->in_function_sentence = nullptr;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(7));
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
 
                     ast_func->is_constant = true;
                     ast_func->externed_func = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0))->externed_func;
@@ -2712,37 +2758,24 @@ namespace rs
             }
         };
 
-        struct pass_build_type :public astnode_builder
+        struct pass_build_complex_type :public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_type* result = nullptr;
 
-                ast_basic* main_type = RS_NEED_AST(0);
-                if (auto* scoping_type = dynamic_cast<ast_value_variable*>(main_type))
-                {
-                    result = new ast_type(scoping_type->var_name);
-                    result->search_from_global_namespace = scoping_type->search_from_global_namespace;
-                    result->scope_namespaces = scoping_type->scope_namespaces;
-                    if (result->search_from_global_namespace || !result->scope_namespaces.empty())
-                        result->is_pending_type = true;
+                auto* complex_type = dynamic_cast<ast_type*>(RS_NEED_AST(0));
 
+                rs_test(complex_type);
+
+                if (complex_type->is_func())
+                {
+                    // complex type;
+                    rs_test(complex_type && input.size() == 2 && !ast_empty::is_empty(input[1]));
+                    result = new ast_type(complex_type);
                 }
                 else
-                {
-                    auto* complex_type = dynamic_cast<ast_type*>(main_type);
-                    rs_test(complex_type);
-
-                    if (complex_type->is_func())
-                    {
-                        // complex type;
-                        rs_test(complex_type && input.size() == 2 && !ast_empty::is_empty(input[1]));
-                        result = new ast_type(complex_type);
-                    }
-                    else
-                        result = complex_type;
-
-                }
+                    result = complex_type;
 
                 if (input.size() == 1 || ast_empty::is_empty(input[1]))
                 {
@@ -2774,6 +2807,41 @@ namespace rs
                 }
             }
         };
+        struct pass_build_type_may_template :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_type* result = nullptr;
+
+                auto* scoping_type = dynamic_cast<ast_value_variable*>(RS_NEED_AST(0));
+                rs_test(scoping_type);
+                result = new ast_type(scoping_type->var_name);
+                result->search_from_global_namespace = scoping_type->search_from_global_namespace;
+                result->scope_namespaces = scoping_type->scope_namespaces;
+                if (result->search_from_global_namespace || !result->scope_namespaces.empty())
+                    result->is_pending_type = true;
+
+                if (input.size() == 1 || ast_empty::is_empty(input[1]))
+                {
+                    return (ast_basic*)result;
+                }
+                else
+                {
+                    ast_list* template_arg_list = dynamic_cast<ast_list*>(RS_NEED_AST(1));
+
+                    rs_test(template_arg_list);
+                    ast_type* type = dynamic_cast<ast_type*>(template_arg_list->children);
+                    while (type)
+                    {
+                        result->template_arguments.push_back(type);
+
+                        type = dynamic_cast<ast_type*>(type->sibling);
+                    }
+
+                    return (ast_basic*)result;
+                }
+            }
+        };
 
         struct pass_using_type_as : public astnode_builder
         {
@@ -2783,8 +2851,25 @@ namespace rs
 
                 ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = RS_NEED_TOKEN(2).identifier;
-                using_type->old_type = dynamic_cast<ast_type*>(RS_NEED_AST(4));
+                using_type->old_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+
+                if (!ast_empty::is_empty(input[3]))
+                {
+                    ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
+                    rs_test(template_defines);
+                    using_type->is_template_define = true;
+
+                    ast_token* template_type = dynamic_cast<ast_token*>(template_defines->children);
+                    rs_test(template_type);
+                    while (template_type)
+                    {
+                        using_type->template_type_name_list.push_back(template_type->tokens.identifier);
+
+                        template_type = dynamic_cast<ast_token*>(template_type->sibling);
+                    }
+                }
+
                 return(ast_basic*)using_type;
             }
         };
@@ -2989,8 +3074,11 @@ namespace rs
             _registed_builder_function_id_list[meta::type_hash<pass_variable>]
                 = _register_builder<pass_variable>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_build_type>]
-                = _register_builder<pass_build_type>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_complex_type>]
+                = _register_builder<pass_build_complex_type>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_build_type_may_template>]
+                = _register_builder<pass_build_type_may_template>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_cast>]
                 = _register_builder<pass_type_cast>();

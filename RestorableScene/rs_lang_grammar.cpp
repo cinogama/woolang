@@ -85,6 +85,7 @@ gm::nt(L"SENTENCE") >> gm::symlist{
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                                     gm::te(gm::ttype::l_using),
                                     gm::te(gm::ttype::l_identifier),
+                                     gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                     gm::te(gm::ttype::l_assign),
                                     gm::nt(L"TYPE"),
                                     gm::te(gm::ttype::l_semicolon)}
@@ -182,6 +183,7 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                         gm::nt(L"DECL_ATTRIBUTE"),
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
+                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
                         gm::nt(L"SENTENCE_BLOCK")}
@@ -205,6 +207,7 @@ gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                          gm::nt(L"DECL_ATTRIBUTE"),
                         gm::te(gm::ttype::l_func),
                         gm::te(gm::ttype::l_identifier),
+                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"TYPE_DECLEAR"),
                          gm::te(gm::ttype::l_semicolon)
@@ -326,6 +329,7 @@ gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
 gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         gm::nt(L"DECL_ATTRIBUTE"), // In fact, it was useless, just for avoiding lr1-short-cut
                         gm::te(gm::ttype::l_func),
+                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                         gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                         gm::nt(L"RETURN_TYPE_DECLEAR"),
                         gm::nt(L"SENTENCE_BLOCK") }
@@ -345,11 +349,11 @@ gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"T
 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE") }
->> RS_ASTBUILDER_INDEX(ast::pass_build_type),
+gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
+>> RS_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 
 gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPE"),gm::nt(L"FUNC_ARG_TYPES") }
->> RS_ASTBUILDER_INDEX(ast::pass_build_type),
+                >> RS_ASTBUILDER_INDEX(ast::pass_build_complex_type),
 
 gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARG_TYPES_WITH_VARIADIC"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
@@ -422,13 +426,13 @@ gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::
 //	关系判别表达式 < > >= <=
 gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 // 等价判别表达式
 gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
@@ -558,7 +562,7 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNARIED_FACTOR") }
     >> RS_ASTBUILDER_INDEX(ast::pass_unary_op),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"), gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
@@ -637,6 +641,46 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
+    gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") >> gm::symlist{ gm::nt(L"TEMPLATE_ITEM") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+    gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+    gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+    gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") >> gm::symlist{ gm::nt(L"LEFT_TEMPLATE_ITEM") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+    gm::nt(L"LEFT_TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_template_using_begin),gm::nt(L"TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_larg) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+    gm::nt(L"TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_less),gm::nt(L"TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_larg) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+    gm::nt(L"TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"TYPE") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+
+
+    gm::nt(L"TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+
+    gm::nt(L"DEFINE_TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+    gm::nt(L"DEFINE_TEMPLATE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_less),gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_larg) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+    gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"DEFINE_TEMPLATE_TYPE") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+    gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"DEFINE_TEMPLATE_TYPE") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+
+    gm::nt(L"DEFINE_TEMPLATE_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+    >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
                 }
             );
