@@ -134,6 +134,10 @@
 
 #define RS_ERR_TEMPLATE_ARG_NOT_MATCH L"泛型参数不匹配"
 
+#define RS_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"'array' 类型需要提供一个类型参数"
+
+#define RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"'map' 类型需要提供两个类型参数"
+
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
@@ -271,6 +275,10 @@
 #define RS_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"Cannot export the symbol defined in function."
 
 #define RS_ERR_TEMPLATE_ARG_NOT_MATCH L"Not matched template arguments."
+
+#define RS_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"Type 'array' requires a type as generic parameters."
+
+#define RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as generic parameters."
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."

@@ -139,11 +139,14 @@ namespace rs
             }
             void remove_allnode()
             {
+                last = nullptr;
                 while (children)
                 {
-                    last = nullptr;
                     children->parent = nullptr;
-                    children = children->sibling;
+                    auto next_child = children->sibling;
+                    children->sibling = nullptr;
+
+                    children = next_child;
                 }
             }
             void add_child(ast_base* ast_node)

@@ -208,6 +208,19 @@ namespace rs
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
                 is_pending_type = _type_name == L"pending";// reset state;
+
+                using_type_name = nullptr;
+                template_arguments.clear();
+
+                if (value_type == value::valuetype::array_type)
+                {
+                    template_arguments.push_back(new ast_type(L"pending"));
+                }
+                else if (value_type == value::valuetype::mapping_type)
+                {
+                    template_arguments.push_back(new ast_type(L"pending"));
+                    template_arguments.push_back(new ast_type(L"pending"));
+                }
             }
             void set_type(const ast_type* _type)
             {
@@ -348,13 +361,13 @@ namespace rs
             {
                 return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
-            bool is_same(const ast_type* another)const
+            bool is_same(const ast_type* another, bool ignore_using_type = true)const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
 
                 rs_test(!is_pending() && !another->is_pending());
-                if (using_type_name || another->using_type_name)
+                if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
                     if (!using_type_name || !another->using_type_name)
                         return false;
@@ -387,7 +400,7 @@ namespace rs
                 if (is_complex() && another->is_complex())
                     return complex_type->is_same(another->complex_type);
                 else if (!is_complex() && !another->is_complex())
-                    return get_type_name() == another->get_type_name();
+                    return get_type_name(ignore_using_type) == another->get_type_name(ignore_using_type);
                 return false;
             }
             bool is_func()const
@@ -427,12 +440,12 @@ namespace rs
                 return value_type == value::valuetype::handle_type && !is_func();
             }
 
-            std::wstring get_type_name()const
+            std::wstring get_type_name(bool ignore_using_type = true)const
             {
                 std::wstring result;
 
-                if (using_type_name)
-                    result = (using_type_name->type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                if (!ignore_using_type && using_type_name)
+                    return using_type_name->get_type_name();
                 else
                     result = (is_complex() ? complex_type->get_type_name() : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 if (has_template())
@@ -2099,6 +2112,18 @@ namespace rs
                 }
                 else
                 {
+                    if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
+                    {
+                        array_builder->value_type = type_node;
+                        return array_builder;
+                    }
+
+                    if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
+                    {
+                        map_builder->value_type = type_node;
+                        return map_builder;
+                    }
+
                     if (value_node->is_mark_as_using_ref)
                     {
                         if (force)
@@ -2829,14 +2854,21 @@ namespace rs
                 {
                     ast_list* template_arg_list = dynamic_cast<ast_list*>(RS_NEED_AST(1));
 
+                    std::vector<ast_type*> template_args;
                     rs_test(template_arg_list);
                     ast_type* type = dynamic_cast<ast_type*>(template_arg_list->children);
                     while (type)
                     {
-                        result->template_arguments.push_back(type);
-
+                        template_args.push_back(type);
                         type = dynamic_cast<ast_type*>(type->sibling);
                     }
+                    result->template_arguments = template_args;
+                    if (result->is_array())
+                        if (result->template_arguments.size() != 1)
+                            lex.parser_error(0x0000, RS_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
+                    if (result->is_map())
+                        if (result->template_arguments.size() != 2)
+                            lex.parser_error(0x0000, RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
 
                     return (ast_basic*)result;
                 }

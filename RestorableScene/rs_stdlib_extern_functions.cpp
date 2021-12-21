@@ -261,41 +261,41 @@ namespace string
         func sub(var val:string, var begin:int, var length:int):string;
 }
 
-namespace array
-{
-    extern("rslib_std_lengthof") 
-        func len(var val:array):int;
-    extern("rslib_std_array_resize") 
-        func resize(var val:array, var newsz:int):void;
-    func get(var a:array, var index:int)
-    {
-        return a[index];
-    }
-    extern("rslib_std_array_add") 
-        func add(var val:array, var elem):dynamic;  
-    func dup(var val:array)
-    {
-        const var _dupval = val;
-        return _dupval;
-    }
-}
-
-namespace map
-{
-    extern("rslib_std_lengthof") 
-        func len(var val:map):int;
-    extern("rslib_std_map_find") 
-        func find(var val:map, var index):int;
-    extern("rslib_std_map_only_get") 
-        func get(var m:map, var index:dynamic):dynamic;
-    extern("rslib_std_map_get_by_default") 
-        func get(var m:map, var index:dynamic, var default_val:dynamic):dynamic;
-    func dup(var val:map)
-    {
-        const var _dupval = val;
-        return _dupval;
-    }
-}
+//namespace array
+//{
+//    extern("rslib_std_lengthof") 
+//        func len(var val):int;
+//    extern("rslib_std_array_resize") 
+//        func resize(var val, var newsz:int):void;
+//    func get(var a, var index:int)
+//    {
+//        return a[index];
+//    }
+//    extern("rslib_std_array_add") 
+//        func add(var val, var elem):dynamic;  
+//    func dup(var val)
+//    {
+//        const var _dupval = val;
+//        return _dupval;
+//    }
+//}
+//
+//namespace map
+//{
+//    extern("rslib_std_lengthof") 
+//        func len(var val):int;
+//    extern("rslib_std_map_find") 
+//        func find(var val, var index):int;
+//    extern("rslib_std_map_only_get") 
+//        func get(var m, var index:dynamic):dynamic;
+//    extern("rslib_std_map_get_by_default") 
+//        func get(var m, var index:dynamic, var default_val:dynamic):dynamic;
+//    func dup(var val)
+//    {
+//        const var _dupval = val;
+//        return _dupval;
+//    }
+//}
 )" };
 
 RS_API rs_api rslib_std_debug_attach_default_debuggee(rs_vm vm, rs_value args, size_t argc)

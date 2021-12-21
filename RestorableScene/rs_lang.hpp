@@ -21,6 +21,7 @@ namespace rs
         symbol_type type;
         std::wstring name;
 
+        ast::ast_defines* define_node = nullptr;
         ast::ast_decl_attribute* attribute;
         lang_scope* defined_in_scope;
         bool define_in_function = false;
@@ -161,7 +162,7 @@ namespace rs
             return true;
         }
 
-        void end_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        void end_template_scope()
         {
             template_stack.pop_back();
         }
@@ -191,13 +192,23 @@ namespace rs
                     for (auto& a_t : type->argument_types)
                         fully_update_type(a_t);
 
+                if (type->has_template())
+                {
+                    for (auto* template_type : type->template_arguments)
+                        fully_update_type(template_type);
+                }
+
                 // ready for update..
                 if (ast::ast_type::is_custom_type(type->type_name))
                 {
-
                     auto* type_sym = find_type_in_this_scope(type);
+
                     if (type_sym)
                     {
+                        bool using_template = false;
+                        if (type->has_template())
+                            using_template = begin_template_scope(type_sym->define_node, type->template_arguments);
+
                         fully_update_type(type_sym->type_informatiom);
 
                         auto* using_type = new ast::ast_type(type_sym->name);
@@ -223,7 +234,10 @@ namespace rs
                             }
                             inscopes = inscopes->belong_namespace;
                         }
+                        if (using_template)
+                            end_template_scope();
                     }
+
 
                 }
             }
@@ -312,7 +326,18 @@ namespace rs
                 }
                 else if (!a_value_idx->from->value_type->is_pending())
                 {
-                    a_value_idx->value_type = new ast_type(L"dynamic");
+                    if (a_value_idx->from->value_type->is_array())
+                    {
+                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
+                    }
+                    else if (a_value_idx->from->value_type->is_map())
+                    {
+                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
+                    }
+                    else
+                    {
+                        a_value_idx->value_type = new ast_type(L"dynamic");
+                    }
                     a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
                 }
 
@@ -374,6 +399,11 @@ namespace rs
             else if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(ast_node))
             {
                 analyze_pass1(ast_value_check->_be_check_value_node);
+                if (ast_value_check->aim_type->is_custom())
+                {
+                    // ready for update..
+                    fully_update_type(ast_value_check->aim_type);
+                }
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
@@ -440,11 +470,119 @@ namespace rs
             {
                 analyze_pass1(a_value_arr->array_items);
                 a_value_arr->add_child(a_value_arr->array_items);
+
+                if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
+                {
+                    // 
+                    ast_type* decide_array_item_type = new ast_type(L"dynamic");
+
+                    ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
+                    if (val)
+                    {
+                        if (!val->value_type->is_pending())
+                            decide_array_item_type->set_type(val->value_type);
+                        else
+                            decide_array_item_type = nullptr;
+                    }
+
+                    while (val)
+                    {
+                        if (val->value_type->is_pending())
+                        {
+                            decide_array_item_type = nullptr;
+                            break;
+                        }
+
+                        if (!val->value_type->is_same(decide_array_item_type, false))
+                        {
+                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_array_item_type, val->value_type);
+                            if (mixed_type)
+                            {
+                                decide_array_item_type->set_type_with_name(mixed_type->type_name);
+                            }
+                            else
+                            {
+                                decide_array_item_type->set_type_with_name(L"dynamic");
+                                // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                            }
+                        }
+                        val = dynamic_cast<ast_value*>(val->sibling);
+                    }
+
+                    if (decide_array_item_type)
+                    {
+                        a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
+                    }
+                }
             }
             else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
             {
                 analyze_pass1(a_value_map->mapping_pairs);
                 a_value_map->add_child(a_value_map->mapping_pairs);
+
+                if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
+                {
+                    ast_type* decide_map_key_type = new ast_type(L"dynamic");
+                    ast_type* decide_map_val_type = new ast_type(L"dynamic");
+
+                    ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
+                    if (map_pair)
+                    {
+                        if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
+                        {
+                            decide_map_key_type->set_type(map_pair->key->value_type);
+                            decide_map_val_type->set_type(map_pair->val->value_type);
+                        }
+                        else
+                        {
+                            decide_map_key_type = nullptr;
+                            decide_map_val_type = nullptr;
+                        }
+                    }
+                    while (map_pair)
+                    {
+                        if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
+                        {
+                            decide_map_key_type = nullptr;
+                            decide_map_val_type = nullptr;
+                            break;
+                        }
+
+                        if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
+                        {
+                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
+                            if (mixed_type)
+                            {
+                                decide_map_key_type->set_type_with_name(mixed_type->type_name);
+                            }
+                            else
+                            {
+                                decide_map_key_type->set_type_with_name(L"dynamic");
+                                // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                            }
+                        }
+                        if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
+                        {
+                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
+                            if (mixed_type)
+                            {
+                                decide_map_val_type->set_type_with_name(mixed_type->type_name);
+                            }
+                            else
+                            {
+                                decide_map_val_type->set_type_with_name(L"dynamic");
+                                // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                            }
+                        }
+                        map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
+                    }
+
+                    if (decide_map_key_type && decide_map_val_type)
+                    {
+                        a_value_map->value_type->template_arguments[0] = decide_map_key_type;
+                        a_value_map->value_type->template_arguments[1] = decide_map_val_type;
+                    }
+                }
             }
             else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
             {
@@ -473,7 +611,7 @@ namespace rs
                                 }
                                 else
                                 {
-                                    if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                    if (!func_return_type->is_same(a_ret->return_value->value_type, false))
                                     {
                                         auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                         if (mixed_type)
@@ -590,7 +728,7 @@ namespace rs
             else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // now_scope()->used_namespace.push_back(a_using_namespace);
-                auto* typing_symb = define_type_in_this_scope(a_using_type_as->new_type_identifier, a_using_type_as->old_type, a_using_type_as->declear_attribute);
+                auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
                 typing_symb->apply_template_setting(a_using_type_as);
             }
             else
@@ -612,6 +750,7 @@ namespace rs
                 a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
                 // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
             }
+
         }
         bool analyze_pass2(grammar::ast_base* ast_node)
         {
@@ -655,6 +794,15 @@ namespace rs
                     if (a_value->value_type->is_pending())
                         lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE
                             , a_value->value_type->get_return_type()->get_type_name().c_str());
+                }
+                if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
+                {
+                    // ready for update..
+                    fully_update_type(ast_value_check->aim_type);
+
+                    if (ast_value_check->aim_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, ast_value_check, RS_ERR_UNKNOWN_TYPE
+                            , ast_value_check->aim_type->get_return_type()->get_type_name().c_str());
                 }
 
 
@@ -718,7 +866,18 @@ namespace rs
                         }
                         else if (!a_value_idx->from->value_type->is_pending())
                         {
-                            a_value_idx->value_type = new ast_type(L"dynamic");
+                            if (a_value_idx->from->value_type->is_array())
+                            {
+                                a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
+                            }
+                            else if (a_value_idx->from->value_type->is_map())
+                            {
+                                a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
+                            }
+                            else
+                            {
+                                a_value_idx->value_type = new ast_type(L"dynamic");
+                            }
                             a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
                         }
                     }
@@ -1121,6 +1280,115 @@ namespace rs
                         // else
                             // not need to manage, if val is pending, other place will give error.
                     }
+                    else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
+                    {
+                        analyze_pass2(a_value_arr->array_items);
+                        // 
+                        ast_type* decide_array_item_type = new ast_type(L"dynamic");
+
+                        ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
+                        if (val)
+                        {
+                            if (!val->value_type->is_pending())
+                                decide_array_item_type->set_type(val->value_type);
+                            else
+                                decide_array_item_type = nullptr;
+                        }
+
+                        while (val)
+                        {
+                            if (val->value_type->is_pending())
+                            {
+                                decide_array_item_type = nullptr;
+                                break;
+                            }
+
+                            if (!val->value_type->is_same(decide_array_item_type, false))
+                            {
+                                auto* mixed_type = pass_binary_op::binary_upper_type(decide_array_item_type, val->value_type);
+                                if (mixed_type)
+                                {
+                                    decide_array_item_type->set_type_with_name(mixed_type->type_name);
+                                }
+                                else
+                                {
+                                    decide_array_item_type->set_type_with_name(L"dynamic");
+                                    // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                }
+                            }
+                            val = dynamic_cast<ast_value*>(val->sibling);
+                        }
+
+                        if (decide_array_item_type)
+                        {
+                            a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
+                        }
+                    }
+                    else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
+                    {
+                        analyze_pass2(a_value_map->mapping_pairs);
+
+                        ast_type* decide_map_key_type = new ast_type(L"dynamic");
+                        ast_type* decide_map_val_type = new ast_type(L"dynamic");
+
+                        ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
+                        if (map_pair)
+                        {
+                            if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
+                            {
+                                decide_map_key_type->set_type(map_pair->key->value_type);
+                                decide_map_val_type->set_type(map_pair->val->value_type);
+                            }
+                            else
+                            {
+                                decide_map_key_type = nullptr;
+                                decide_map_val_type = nullptr;
+                            }
+                        }
+                        while (map_pair)
+                        {
+                            if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
+                            {
+                                decide_map_key_type = nullptr;
+                                decide_map_val_type = nullptr;
+                                break;
+                            }
+
+                            if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
+                            {
+                                auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
+                                if (mixed_type)
+                                {
+                                    decide_map_key_type->set_type_with_name(mixed_type->type_name);
+                                }
+                                else
+                                {
+                                    decide_map_key_type->set_type_with_name(L"dynamic");
+                                    // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                }
+                            }
+                            if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
+                            {
+                                auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
+                                if (mixed_type)
+                                {
+                                    decide_map_val_type->set_type_with_name(mixed_type->type_name);
+                                }
+                                else
+                                {
+                                    decide_map_val_type->set_type_with_name(L"dynamic");
+                                    // lang_anylizer->lang_warning(0x0000, a_ret, RS_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                }
+                            }
+                            map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
+                        }
+
+                        if (decide_map_key_type && decide_map_val_type)
+                        {
+                            a_value_map->value_type->template_arguments[0] = decide_map_key_type;
+                            a_value_map->value_type->template_arguments[1] = decide_map_val_type;
+                        }
+                    }
                 }
 
                 //
@@ -1266,18 +1534,11 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_DYNAMIC);
                     }
                 }
-                else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(a_value))
-                {
-                    analyze_pass2(a_value_arr->array_items);
-                }
-                else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
-                {
-                    analyze_pass2(a_value_map->mapping_pairs);
-                }
                 else if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(ast_node))
                 {
                     analyze_pass2(a_value_index->from);
                     analyze_pass2(a_value_index->index);
+
                     if (!a_value_index->from->value_type->is_array()
                         && !a_value_index->from->value_type->is_map()
                         && !a_value_index->from->value_type->is_string()
@@ -1286,6 +1547,36 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, a_value_index->from, RS_ERR_UNINDEXABLE_TYPE
                             , a_value_index->from->value_type->get_type_name().c_str());
                     }
+
+                    if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_string())
+                    {
+                        if (!a_value_index->index->value_type->is_integer() && !a_value_index->index->value_type->is_handle())
+                        {
+                            auto* index_val = pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, new ast_type(L"int"));
+                            index_val->col_no = a_value_index->index->col_no;
+                            index_val->row_no = a_value_index->index->row_no;
+                            index_val->source_file = a_value_index->index->source_file;
+
+                            analyze_pass2(index_val);
+
+                            a_value_index->index = index_val;
+                        }
+                    }
+                    if (a_value_index->from->value_type->is_map())
+                    {
+                        if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0]))
+                        {
+                            auto* index_val = pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, a_value_index->from->value_type->template_arguments[0]);
+                            index_val->col_no = a_value_index->index->col_no;
+                            index_val->row_no = a_value_index->index->row_no;
+                            index_val->source_file = a_value_index->index->source_file;
+
+                            analyze_pass2(index_val);
+
+                            a_value_index->index = index_val;
+                        }
+                    }
+
                     if (!a_value_index->from->value_type->is_string())
                         a_value_index->can_be_assign = a_value_index->from->can_be_assign;
                 }
@@ -1321,9 +1612,94 @@ namespace rs
             {
                 analyze_pass2(a_value_logic_bin->left);
                 analyze_pass2(a_value_logic_bin->right);
+            }
+            else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
+            {
+                analyze_pass2(a_value_arr->array_items);
 
-                a_value_logic_bin->add_child(a_value_logic_bin->left);
-                a_value_logic_bin->add_child(a_value_logic_bin->right);
+                if (!a_value_arr->value_type->is_array())
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_arr, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                        L"'array'",
+                        a_value_arr->value_type->get_type_name().c_str()
+                    );
+                }
+                else
+                {
+                    std::vector<ast_value* > reenplace_array_items;
+
+                    ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
+
+                    while (val)
+                    {
+                        if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
+                        {
+                            auto* cast_array_item = pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
+                            cast_array_item->col_no = val->col_no;
+                            cast_array_item->row_no = val->row_no;
+                            cast_array_item->source_file = val->source_file;
+
+                            analyze_pass2(cast_array_item);
+
+                            reenplace_array_items.push_back(cast_array_item);
+                        }
+                        else
+                            reenplace_array_items.push_back(val);
+
+                        val = dynamic_cast<ast_value*>(val->sibling);
+                    }
+
+                    a_value_arr->array_items->remove_allnode();
+                    for (auto in_array_val : reenplace_array_items)
+                    {
+                        a_value_arr->array_items->add_child(in_array_val);
+                    }
+
+                }
+
+            }
+            else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
+            {
+                analyze_pass2(a_value_map->mapping_pairs);
+
+                if (!a_value_map->value_type->is_map())
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_map, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                        L"'map'",
+                        a_value_map->value_type->get_type_name().c_str()
+                    );
+                }
+                else
+                {
+                    ast_mapping_pair* pairs = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
+
+                    while (pairs)
+                    {
+                        if (pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
+                        {
+                            auto* cast_key_item = pass_type_cast::do_cast(*lang_anylizer, pairs->key, a_value_map->value_type->template_arguments[0]);
+                            cast_key_item->col_no = pairs->key->col_no;
+                            cast_key_item->row_no = pairs->key->row_no;
+                            cast_key_item->source_file = pairs->key->source_file;
+
+                            analyze_pass2(cast_key_item);
+
+                            pairs->key = cast_key_item;
+                        }
+                        if (pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
+                        {
+                            auto* cast_val_item = pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
+                            cast_val_item->col_no = pairs->key->col_no;
+                            cast_val_item->row_no = pairs->key->row_no;
+                            cast_val_item->source_file = pairs->key->source_file;
+
+                            analyze_pass2(cast_val_item);
+
+                            pairs->val = cast_val_item;
+                        }
+                        pairs = dynamic_cast<ast_mapping_pair*>(pairs->sibling);
+                    }
+                }
             }
             else if (ast_mapping_pair* a_mapping_pair = dynamic_cast<ast_mapping_pair*>(ast_node))
             {
@@ -1351,7 +1727,7 @@ namespace rs
                             }
                             else
                             {
-                                if (!func_return_type->is_same(a_ret->return_value->value_type))
+                                if (!func_return_type->is_same(a_ret->return_value->value_type, false))
                                 {
                                     auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                     if (mixed_type)
@@ -2081,7 +2457,6 @@ namespace rs
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
-
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->value_type->value_type);
@@ -2109,7 +2484,6 @@ namespace rs
                     rs_test(a_value_type_check->aim_type->value_type != value::valuetype::invalid);
                     compiler->typeis(result, a_value_type_check->aim_type->value_type);
 
-                    last_value_stored_to_cr = true;
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
                 else if (!a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type))
@@ -3049,7 +3423,6 @@ namespace rs
                 sym->name = names;
                 sym->variable_value = init_val;
                 sym->defined_in_scope = lang_scopes.back();
-
                 auto* func = in_function();
                 if (attr->is_extern_attr() && func)
                 {
@@ -3093,25 +3466,26 @@ namespace rs
                 return sym;
             }
         }
-        lang_symbol* define_type_in_this_scope(const std::wstring& names, ast::ast_type* as_type, ast::ast_decl_attribute* attr)
+        lang_symbol* define_type_in_this_scope(ast::ast_using_type_as* def, ast::ast_type* as_type, ast::ast_decl_attribute* attr)
         {
             rs_assert(lang_scopes.size());
 
-            if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+            if (lang_scopes.back()->symbols.find(def->new_type_identifier) != lang_scopes.back()->symbols.end())
             {
-                auto* last_func_symbol = lang_scopes.back()->symbols[names];
+                auto* last_func_symbol = lang_scopes.back()->symbols[def->new_type_identifier];
 
-                lang_anylizer->lang_error(0x0000, as_type, RS_ERR_REDEFINED, names.c_str());
+                lang_anylizer->lang_error(0x0000, as_type, RS_ERR_REDEFINED, def->new_type_identifier.c_str());
                 return last_func_symbol;
             }
             else
             {
-                lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                lang_symbol* sym = lang_scopes.back()->symbols[def->new_type_identifier] = new lang_symbol;
                 sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::typing;
-                sym->name = names;
+                sym->name = def->new_type_identifier;
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
+                sym->define_node = def;
 
                 lang_symbols.push_back(sym);
                 return sym;
