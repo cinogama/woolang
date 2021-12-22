@@ -10,10 +10,18 @@ import test_enum;
 import test_vm;
 
 // write tmp func here
-func t_func<T>(var args:T)
+func t_fib<T>(var n:T)
+{
+	if (n <= 2)
+		return 1;
+	return t_fib(n);
+}
+func t_fib(var args)
 {
 	return args;
 }
+
+t_fib(0);
 
 std::println("Unit-test begin!");
 execute_all_test();

@@ -102,6 +102,12 @@ namespace rs
             ast_base* last;
         public:
 
+            ast_base& operator = (const ast_base& another)
+            {
+                // do nothing
+                return *this;
+            }
+
             bool completed_in_pass2 = false;
 
             static void clean_this_thread_ast()
@@ -225,7 +231,11 @@ namespace rs
                 auto* fromchild = datfrom->children;
                 while (fromchild)
                 {
-                    instance->add_child(fromchild->instance());
+                    auto* child = fromchild->instance();
+
+                    child->last = child->parent = nullptr;
+
+                    instance->add_child(child);
 
                     fromchild = fromchild->sibling;
                 }

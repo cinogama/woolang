@@ -1031,6 +1031,10 @@ namespace rs
                                             if (override_func->is_template_define)
                                             {
                                                 lang_anylizer->lang_warning(0x0000, override_func, L"暂不支持调用泛型函数，继续");
+
+                                                // do a test~
+                                                auto duped = override_func->instance();
+
                                                 continue;
                                             }
 
