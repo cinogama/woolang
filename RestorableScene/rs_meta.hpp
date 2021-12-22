@@ -8,6 +8,7 @@ namespace rs
     {
         template<typename T>
         using origin_type = typename std::remove_cv<typename std::decay<T>::type>::type;
+
         using true_type = std::true_type;
         using false_type = std::false_type;
 
@@ -27,7 +28,7 @@ namespace rs
         struct is_string
         {
             static constexpr bool value =
-                std::is_convertible<origin_type<T> , std::string>::value;
+                std::is_convertible<origin_type<T>, std::string>::value;
 
         };
 

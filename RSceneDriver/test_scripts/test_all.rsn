@@ -15,7 +15,5 @@ func t_func<T>(var args:T)
 	return args;
 }
 
-t_func:<int>(1);
-
 std::println("Unit-test begin!");
 execute_all_test();

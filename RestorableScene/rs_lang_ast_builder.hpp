@@ -14,7 +14,9 @@
 
 namespace rs
 {
-    grammar *get_rs_grammar(void);
+#define RS_REINSTANCE(ITEM) if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}
+
+    grammar* get_rs_grammar(void);
     namespace ast
     {
 #if 1
@@ -22,10 +24,10 @@ namespace rs
         {
             using ast_basic = rs::grammar::ast_base;
             using inputs_t = std::vector<std::any>;
-            using builder_func_t = std::function<std::any(lexer &, const std::wstring &, inputs_t &)>;
+            using builder_func_t = std::function<std::any(lexer&, const std::wstring&, inputs_t&)>;
 
             virtual ~astnode_builder() = default;
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(false, "");
                 return nullptr;
@@ -68,12 +70,23 @@ namespace rs
             std::vector<std::wstring> scope_namespaces;
             bool search_from_global_namespace = false;
 
-            lang_symbol *symbol = nullptr;
-            lang_scope *searching_begin_namespace_in_pass2 = nullptr;
+            lang_symbol* symbol = nullptr;
+            lang_scope* searching_begin_namespace_in_pass2 = nullptr;
 
             std::string get_namespace_chain() const
             {
                 return get_belong_namespace_path_with_lang_scope(searching_begin_namespace_in_pass2);
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_base::instance(dumm);
+
+                // Write self copy functions here..
+
+                return dumm;
             }
         };
 
@@ -84,38 +97,38 @@ namespace rs
 
             // if this type is function, following type information will describe the return type;
             std::wstring type_name;
-            ast_type *complex_type = nullptr;
+            ast_type* complex_type = nullptr;
 
             value::valuetype value_type;
             bool is_pending_type = false;
-            std::vector<ast_type *> argument_types;
 
-            std::vector<ast_type *> template_arguments;
+            std::vector<ast_type*> argument_types;
+            std::vector<ast_type*> template_arguments;
 
-            ast_type *using_type_name = nullptr;
+            ast_type* using_type_name = nullptr;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
-                {
-                    {L"int", value::valuetype::integer_type},
-                    {L"handle", value::valuetype::handle_type},
-                    {L"real", value::valuetype::real_type},
-                    {L"string", value::valuetype::string_type},
-                    {L"map", value::valuetype::mapping_type},
-                    {L"array", value::valuetype::array_type},
-                    {L"nil", value::valuetype::invalid},
+            {
+                {L"int", value::valuetype::integer_type},
+                {L"handle", value::valuetype::handle_type},
+                {L"real", value::valuetype::real_type},
+                {L"string", value::valuetype::string_type},
+                {L"map", value::valuetype::mapping_type},
+                {L"array", value::valuetype::array_type},
+                {L"nil", value::valuetype::invalid},
 
-                    // special type
-                    {L"void", value::valuetype::invalid},
-                    {L"pending", value::valuetype::invalid},
-                    {L"dynamic", value::valuetype::invalid},
-                };
+                // special type
+                {L"void", value::valuetype::invalid},
+                {L"pending", value::valuetype::invalid},
+                {L"dynamic", value::valuetype::invalid},
+            };
 
             static std::wstring get_name_from_type(value::valuetype _type)
             {
                 if (_type == value::valuetype::invalid)
                     return L"nil";
 
-                for (auto &[tname, vtype] : name_type_pair)
+                for (auto& [tname, vtype] : name_type_pair)
                 {
                     if (vtype == _type)
                     {
@@ -126,14 +139,14 @@ namespace rs
                 return L"pending";
             }
 
-            static value::valuetype get_type_from_name(const std::wstring &name)
+            static value::valuetype get_type_from_name(const std::wstring& name)
             {
                 if (name_type_pair.find(name) != name_type_pair.end())
                     return name_type_pair.at(name);
                 return value::valuetype::invalid;
             }
 
-            static bool check_castable(ast_type *to, ast_type *from, bool force)
+            static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
                 if (from->is_dynamic() || to->is_dynamic())
                     return true;
@@ -179,14 +192,14 @@ namespace rs
                 return false;
             }
 
-            static bool is_custom_type(const std::wstring &name)
+            static bool is_custom_type(const std::wstring& name)
             {
                 if (name_type_pair.find(name) != name_type_pair.end())
                     return false;
                 return true;
             }
 
-            void set_type_with_name(const std::wstring &_type_name)
+            void set_type_with_name(const std::wstring& _type_name)
             {
                 complex_type = nullptr;
                 type_name = _type_name;
@@ -206,11 +219,11 @@ namespace rs
                     template_arguments.push_back(new ast_type(L"pending"));
                 }
             }
-            void set_type(const ast_type *_type)
+            void set_type(const ast_type* _type)
             {
                 *this = *_type;
             }
-            void set_ret_type(const ast_type *_type)
+            void set_ret_type(const ast_type* _type)
             {
                 rs_test(is_func());
 
@@ -229,18 +242,18 @@ namespace rs
                 }
             }
 
-            ast_type(const std::wstring &_type_name)
+            ast_type(const std::wstring& _type_name)
             {
                 set_type_with_name(_type_name);
                 if (is_custom_type(_type_name))
                     is_pending_type = true;
             }
-            ast_type(const value &_val)
+            ast_type(const value& _val)
             {
                 type_name = get_name_from_type(_val.type);
                 value_type = _val.type;
             }
-            ast_type(ast_type *_val)
+            ast_type(ast_type* _val)
             {
                 // complex_type
                 type_name = L"complex";
@@ -253,17 +266,17 @@ namespace rs
             {
                 is_function_type = true;
             }
-            ast_type *get_return_type()
+            ast_type* get_return_type()
             {
                 if (is_complex())
                     return new ast_type(*complex_type);
 
-                auto *rett = new ast_type(type_name);
+                auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
                 rett->template_arguments = template_arguments;
                 return rett;
             }
-            void append_function_argument_type(ast_type *arg_type)
+            void append_function_argument_type(ast_type* arg_type)
             {
                 argument_types.push_back(arg_type);
             }
@@ -345,7 +358,7 @@ namespace rs
             {
                 return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
-            bool is_same(const ast_type *another, bool ignore_using_type = true) const
+            bool is_same(const ast_type* another, bool ignore_using_type = true) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -462,15 +475,39 @@ namespace rs
                 return result;
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"<"
-                   << ANSI_HIR
-                   << L"type"
-                   << ANSI_RST
-                   << L" : "
-                   << ANSI_HIM << get_type_name() << ANSI_RST << L" >" << std::endl;
+                    << ANSI_HIR
+                    << L"type"
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << get_type_name() << ANSI_RST << L" >" << std::endl;
+            }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, L"pending");
+                if (!child_instance) *dumm = *this;
+                ast_symbolable_base::instance(dumm);
+
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->complex_type);
+                std::vector<ast_type*> argument_types;
+                std::vector<ast_type*> template_arguments;
+                for (auto& argtype : dumm->argument_types)
+                {
+                    RS_REINSTANCE(argtype);
+                }
+                for (auto& argtype : dumm->template_arguments)
+                {
+                    RS_REINSTANCE(argtype);
+                }
+                RS_REINSTANCE(dumm->using_type_name);
+
+                return dumm;
             }
         };
 
@@ -478,7 +515,7 @@ namespace rs
         {
             // this type of ast node is used for stand a value or product a value.
             // liter functioncall variable and so on will belong this type of node.
-            ast_type *value_type = nullptr;
+            ast_type* value_type = nullptr;
             bool is_constant = false;
             bool is_mark_as_using_ref = false;
             bool is_ref_ob_in_finalize = false;
@@ -492,6 +529,19 @@ namespace rs
                 _v.set_nil();
                 return _v;
             };
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_symbolable_base::instance(dumm);
+
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->value_type);
+
+                return dumm;
+            }
+
         };
 
         struct ast_value_literal : virtual public ast_value
@@ -506,11 +556,11 @@ namespace rs
                 }
             }
 
-            static rs_handle_t wstr_to_handle(const std::wstring &str)
+            static rs_handle_t wstr_to_handle(const std::wstring& str)
             {
                 rs_handle_t base = 10;
                 rs_handle_t sum = 0;
-                const wchar_t *wstr = str.c_str();
+                const wchar_t* wstr = str.c_str();
 
                 if (wstr[0] == L'0')
                 {
@@ -542,11 +592,11 @@ namespace rs
                 }
                 return sum;
             }
-            static rs_integer_t wstr_to_integer(const std::wstring &str)
+            static rs_integer_t wstr_to_integer(const std::wstring& str)
             {
                 rs_integer_t base = 10;
                 rs_integer_t sum = 0;
-                const wchar_t *wstr = str.c_str();
+                const wchar_t* wstr = str.c_str();
 
                 if (wstr[0] == L'0')
                 {
@@ -576,7 +626,7 @@ namespace rs
                 }
                 return sum;
             }
-            static rs_real_t wstr_to_real(const std::wstring &str)
+            static rs_real_t wstr_to_real(const std::wstring& str)
             {
                 return std::stod(str);
             }
@@ -587,7 +637,7 @@ namespace rs
                 _constant_value.set_nil();
             }
 
-            ast_value_literal(const token &te)
+            ast_value_literal(const token& te)
             {
                 is_constant = true;
 
@@ -619,7 +669,7 @@ namespace rs
                 value_type = new ast_type(_constant_value);
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIC << rs_cast_string((rs_value)&_constant_value) << ANSI_RST L" : " ANSI_HIG;
@@ -661,13 +711,25 @@ namespace rs
                 _v.set_val(&_constant_value);
                 return _v;
             };
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_value_type_cast : public ast_value
         {
-            ast_value *_be_cast_value_node;
+            ast_value* _be_cast_value_node;
             bool implicit;
-            ast_value_type_cast(ast_value *value, ast_type *type, bool _implicit)
+            ast_value_type_cast(ast_value* value, ast_type* type, bool _implicit)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
@@ -675,7 +737,20 @@ namespace rs
                 implicit = _implicit;
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            ast_value_type_cast() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->_be_cast_value_node);
+
+                return dumm;
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"cast" << ANSI_RST << L" : >" << std::endl;
@@ -683,7 +758,7 @@ namespace rs
 
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"to "
-                   << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
 
                 os << L" >" << std::endl;
             }
@@ -691,14 +766,26 @@ namespace rs
 
         struct ast_value_type_judge : public ast_value
         {
-            ast_value *_be_cast_value_node;
-            ast_value_type_judge(ast_value *value, ast_type *type)
+            ast_value* _be_cast_value_node;
+            ast_value_type_judge(ast_value* value, ast_type* type)
             {
                 _be_cast_value_node = value;
                 value_type = type;
             }
+            ast_value_type_judge() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->_be_cast_value_node);
+
+                return dumm;
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"as" << ANSI_RST << L" : >" << std::endl;
@@ -706,7 +793,7 @@ namespace rs
 
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"to "
-                   << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
 
                 os << L" >" << std::endl;
             }
@@ -714,17 +801,30 @@ namespace rs
 
         struct ast_value_type_check : public ast_value
         {
-            ast_value *_be_check_value_node;
-            ast_type *aim_type;
-            ast_value_type_check(ast_value *value, ast_type *type)
+            ast_value* _be_check_value_node;
+            ast_type* aim_type;
+            ast_value_type_check(ast_value* value, ast_type* type)
             {
                 _be_check_value_node = value;
                 aim_type = type;
 
                 value_type = new ast_type(L"int");
             }
+            ast_value_type_check() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->_be_check_value_node);
+                RS_REINSTANCE(dumm->aim_type);
+
+                return dumm;
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"is" << ANSI_RST << L" : >" << std::endl;
@@ -732,7 +832,7 @@ namespace rs
 
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"to "
-                   << ANSI_HIM << aim_type->get_type_name() << ANSI_RST;
+                    << ANSI_HIM << aim_type->get_type_name() << ANSI_RST;
 
                 os << L" >" << std::endl;
             }
@@ -741,7 +841,7 @@ namespace rs
         struct ast_decl_attribute : virtual public grammar::ast_base
         {
             std::set<lex_type> attributes;
-            void varify_attributes(lexer *lex) const
+            void varify_attributes(lexer* lex) const
             {
                 // 1) Check if public, protected or private at same time
                 lex_type has_describe = +lex_type::l_error;
@@ -758,7 +858,7 @@ namespace rs
                     }
                 }
             }
-            void add_attribute(lexer *lex, lex_type attr)
+            void add_attribute(lexer* lex, lex_type attr)
             {
                 if (attributes.find(attr) == attributes.end())
                 {
@@ -782,53 +882,99 @@ namespace rs
             {
                 return attributes.find(+lex_type::l_extern) != attributes.end();
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_defines : virtual public grammar::ast_base
         {
-            ast_decl_attribute *declear_attribute = nullptr;
+            ast_decl_attribute* declear_attribute = nullptr;
 
             bool is_template_define = false;
             std::vector<std::wstring> template_type_name_list;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+
+                // Write self copy functions here..
+                RS_REINSTANCE(dumm->declear_attribute);
+
+                return dumm;
+            }
         };
 
         struct ast_value_symbolable_base : virtual ast_value, virtual ast_symbolable_base
         {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                ast_symbolable_base::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_value_variable : virtual ast_value_symbolable_base
         {
             std::wstring var_name;
 
-            ast_value_variable(const std::wstring &_var_name)
+            ast_value_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;
                 value_type = new ast_type(L"pending");
                 can_be_assign = true;
             }
-
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            ast_value_variable() {}
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"variable: "
-                   << ANSI_HIR;
+                    << ANSI_HIR;
 
                 if (search_from_global_namespace)
                     os << "::";
-                for (auto &nspx : scope_namespaces)
+                for (auto& nspx : scope_namespaces)
                 {
                     os << nspx << "::";
                 }
                 os << var_name
-                   << ANSI_RST
-                   << L" : "
-                   << ANSI_HIM << value_type->get_type_name() << ANSI_RST << L" >" << std::endl;
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST << L" >" << std::endl;
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value_symbolable_base::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
             }
         };
 
         struct ast_list : virtual public grammar::ast_base
         {
-            void append_at_head(grammar::ast_base *astnode)
+            void append_at_head(grammar::ast_base* astnode)
             {
                 // item LIST
                 if (children)
@@ -841,19 +987,19 @@ namespace rs
                 else
                     add_child(astnode);
             }
-            void append_at_end(grammar::ast_base *astnode)
+            void append_at_end(grammar::ast_base* astnode)
             {
                 // LIST item
                 add_child(astnode);
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"list" << ANSI_RST << L" >" << std::endl;
                 space(os, lay);
                 os << L"{" << std::endl;
-                auto *mychild = children;
+                auto* mychild = children;
                 while (mychild)
                 {
                     mychild->display(os, lay + 1);
@@ -863,6 +1009,16 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value_symbolable_base::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_empty : virtual public grammar::ast_base
@@ -870,16 +1026,16 @@ namespace rs
             // used for stand fro l_empty
             // some passer will ignore this xx
 
-            static bool is_empty(std::any &any)
+            static bool is_empty(std::any& any)
             {
-                if (grammar::ast_base * _node; cast_any_to<grammar::ast_base *>(any, _node))
+                if (grammar::ast_base* _node; cast_any_to<grammar::ast_base*>(any, _node))
                 {
-                    if (dynamic_cast<ast_empty *>(_node))
+                    if (dynamic_cast<ast_empty*>(_node))
                     {
                         return true;
                     }
                 }
-                if (token _node = {lex_type::l_error}; cast_any_to<token>(any, _node))
+                if (token _node = { lex_type::l_error }; cast_any_to<token>(any, _node))
                 {
                     if (_node.type == +lex_type::l_empty)
                     {
@@ -889,25 +1045,35 @@ namespace rs
 
                 return false;
             }
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 /*display nothing*/
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value_symbolable_base::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
             }
         };
 
         struct ast_value_binary : virtual public ast_value
         {
             // used for storing binary-operate;
-            ast_value *left = nullptr;
+            ast_value* left = nullptr;
             lex_type operate = +lex_type::l_error;
-            ast_value *right = nullptr;
+            ast_value* right = nullptr;
 
             ast_value_binary()
             {
                 value_type = new ast_type(L"pending");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"bin-op: " << lexer::lex_is_operate_type(operate) << ANSI_RST << " >" << std::endl;
@@ -922,18 +1088,43 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->left);
+                RS_REINSTANCE(dumm->right);
+
+                return dumm;
+            }
         };
 
         struct ast_namespace : virtual public grammar::ast_base
         {
             std::wstring scope_name;
-            ast_list *in_scope_sentence;
+            ast_list* in_scope_sentence;
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"namespace: " << scope_name << ANSI_RST << " >" << std::endl;
                 in_scope_sentence->display(os, lay + 0);
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->in_scope_sentence);
+
+                return dumm;
             }
         };
 
@@ -943,17 +1134,17 @@ namespace rs
             {
                 bool is_ref;
                 std::wstring ident_name;
-                ast_value *init_val;
-                lang_symbol *symbol = nullptr;
+                ast_value* init_val;
+                lang_symbol* symbol = nullptr;
             };
             std::vector<varref_define> var_refs;
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"defines" << ANSI_RST << " >" << std::endl;
                 space(os, lay);
                 os << L"{" << std::endl;
-                for (auto &vr_define : var_refs)
+                for (auto& vr_define : var_refs)
                 {
                     space(os, lay + 1);
                     os << (vr_define.is_ref ? "ref " : "var ") << vr_define.ident_name << L" = " << std::endl;
@@ -962,6 +1153,21 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                for (auto& varref : dumm->var_refs)
+                {
+                    RS_REINSTANCE(varref.init_val);
+                }
+
+                return dumm;
+            }
         };
 
         struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
@@ -969,31 +1175,42 @@ namespace rs
             bool is_ref = false;
             std::wstring arg_name;
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << (is_ref ? L"ref " : L"var ")
-                   << arg_name << ANSI_HIM << L" (" << value_type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
+                    << arg_name << ANSI_HIM << L" (" << value_type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value_symbolable_base::instance(dumm);
+                ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
             }
         };
 
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             std::wstring function_name;
-            ast_list *argument_list;
-            ast_list *in_function_sentence;
+            ast_list* argument_list;
+            ast_list* in_function_sentence;
             bool auto_adjust_return_type = false;
 
             bool ir_func_has_been_generated = false;
             std::string ir_func_signature_tag = "";
 
-            lang_scope *this_func_scope = nullptr;
+            lang_scope* this_func_scope = nullptr;
 
             rs_extern_native_func_t externed_func;
 
             bool is_different_arg_count_in_same_extern_symbol = false;
 
-            const std::string &get_ir_func_signature_tag()
+            const std::string& get_ir_func_signature_tag()
             {
                 if (ir_func_signature_tag == "")
                 {
@@ -1012,22 +1229,22 @@ namespace rs
                 }
                 return ir_func_signature_tag;
             }
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"func "
-                   << ANSI_HIR;
+                    << ANSI_HIR;
 
                 if (search_from_global_namespace)
                     os << "::";
-                for (auto &nspx : scope_namespaces)
+                for (auto& nspx : scope_namespaces)
                 {
                     os << nspx << "::";
                 }
                 os << function_name
-                   << ANSI_RST
-                   << L" : "
-                   << ANSI_HIM << value_type->get_return_type()->get_type_name() << ANSI_RST << L" >" << std::endl;
+                    << ANSI_RST
+                    << L" : "
+                    << ANSI_HIM << value_type->get_return_type()->get_type_name() << ANSI_RST << L" >" << std::endl;
                 argument_list->display(os, lay + 1);
                 if (in_function_sentence)
                     in_function_sentence->display(os, lay + 1);
@@ -1042,48 +1259,93 @@ namespace rs
                 _v.set_handle((rs_handle_t)externed_func);
                 return _v;
             };
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value_symbolable_base::instance(dumm);
+                ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->argument_list);
+                RS_REINSTANCE(dumm->in_function_sentence);
+
+                return dumm;
+            }
         };
 
         struct ast_token : grammar::ast_base
         {
             token tokens;
-            ast_token(const token &tk)
+
+            ast_token(const token& tk)
                 : tokens(tk)
             {
             }
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+
+            ast_token() :tokens({+lex_type::l_error})
+            {
+
+            }
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << tokens << ANSI_RST << L" >" << std::endl;
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                 // Write self copy functions here..
+
+                return dumm;
             }
         };
 
         struct ast_return : public grammar::ast_base
         {
-            ast_value *return_value = nullptr;
-            ast_value_function_define *located_function = nullptr;
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            ast_value* return_value = nullptr;
+            ast_value_function_define* located_function = nullptr;
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << "return" << ANSI_RST << L" >" << std::endl;
                 if (return_value)
                     return_value->display(os, lay + 1);
             }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                 // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->return_value);
+
+                rs_assert(!located_function);
+
+                return dumm;
+            }
         };
 
         struct ast_value_funccall : virtual public ast_value
         {
-            ast_value *called_func;
-            ast_list *arguments;
+            ast_value* called_func;
+            ast_list* arguments;
 
-            ast_value *directed_value_from = nullptr;
-            ast_value_variable *callee_symbol_in_type_namespace = nullptr;
+            ast_value* directed_value_from = nullptr;
+            ast_value_variable* callee_symbol_in_type_namespace = nullptr;
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << "call" << ANSI_RST << L" >" << std::endl;
-                if (auto *fdef = dynamic_cast<ast_value_function_define *>(called_func))
+                if (auto* fdef = dynamic_cast<ast_value_function_define*>(called_func))
                 {
                     space(os, lay + 1);
                     os << fdef->function_name << " (" << ANSI_HIM << fdef->value_type->get_type_name() << ANSI_RST << ")" << std::endl;
@@ -1094,71 +1356,114 @@ namespace rs
                 os << L"< " << ANSI_HIY << "args:" << ANSI_RST << L" >" << std::endl;
                 arguments->display(os, lay + 1);
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->called_func);
+                RS_REINSTANCE(dumm->arguments);
+                RS_REINSTANCE(dumm->directed_value_from);
+                RS_REINSTANCE(dumm->callee_symbol_in_type_namespace);
+
+                return dumm;
+            }
         };
 
         struct ast_value_array : virtual public ast_value
         {
-            ast_list *array_items;
-            ast_value_array(ast_list *_items)
+            ast_list* array_items;
+            ast_value_array(ast_list* _items)
                 : array_items(_items)
             {
                 rs_test(array_items);
                 value_type = new ast_type(L"array");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << "array" << ANSI_RST << L" >" << std::endl;
                 array_items->display(os, lay + 1);
             }
+            ast_value_array() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->array_items);
+
+                return dumm;
+            }
         };
 
         struct ast_value_mapping : virtual public ast_value
         {
-            ast_list *mapping_pairs;
+            ast_list* mapping_pairs;
 
-            ast_value_mapping(ast_list *_items)
+            ast_value_mapping(ast_list* _items)
                 : mapping_pairs(_items)
             {
                 rs_test(mapping_pairs);
                 value_type = new ast_type(L"map");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << "map" << ANSI_RST << L" >" << std::endl;
                 mapping_pairs->display(os, lay + 1);
             }
+
+            ast_value_mapping() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->mapping_pairs);
+
+                return dumm;
+            }
         };
 
         struct ast_sentence_block : virtual public grammar::ast_base
         {
-            ast_list *sentence_list;
+            ast_list* sentence_list;
 
-            ast_sentence_block(ast_list *sentences)
+            ast_sentence_block(ast_list* sentences)
                 : sentence_list(sentences)
             {
                 rs_test(sentence_list);
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << "<block>" << std::endl;
                 sentence_list->display(os, lay);
             }
 
-            static ast_sentence_block *fast_parse_sentenceblock(grammar::ast_base *ast)
+            static ast_sentence_block* fast_parse_sentenceblock(grammar::ast_base* ast)
             {
-                if (auto r = dynamic_cast<ast_sentence_block *>(ast))
+                if (auto r = dynamic_cast<ast_sentence_block*>(ast))
                     return r;
 
-                ast_list *list = nullptr;
-                if (nullptr == dynamic_cast<ast_empty *>(ast))
+                ast_list* list = nullptr;
+                if (nullptr == dynamic_cast<ast_empty*>(ast))
                 {
-                    if (auto *lst = dynamic_cast<ast_list *>(ast))
+                    if (auto* lst = dynamic_cast<ast_list*>(ast))
                     {
                         list = lst;
                     }
@@ -1173,24 +1478,38 @@ namespace rs
                     list = new ast_list;
                     // emplace nothing..
                 }
-                ast_sentence_block *result = new ast_sentence_block(list);
+                ast_sentence_block* result = new ast_sentence_block(list);
 
                 return result;
+            }
+
+            ast_sentence_block() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->sentence_list);
+
+                return dumm;
             }
         };
 
         struct ast_if : virtual public grammar::ast_base
         {
-            ast_value *judgement_value;
-            ast_base *execute_if_true;
-            ast_base *execute_else;
+            ast_value* judgement_value;
+            ast_base* execute_if_true;
+            ast_base* execute_else;
 
-            ast_if(ast_value *jdg, ast_base *exe_true, ast_base *exe_else)
+            ast_if(ast_value* jdg, ast_base* exe_true, ast_base* exe_else)
                 : judgement_value(jdg), execute_if_true(exe_true), execute_else(exe_else)
             {
                 rs_test(judgement_value && execute_if_true);
             }
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << "<if>" << std::endl;
@@ -1207,19 +1526,35 @@ namespace rs
                 space(os, lay);
                 os << "<endif>" << std::endl;
             }
+
+            ast_if() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->judgement_value);
+                RS_REINSTANCE(dumm->execute_if_true);
+                RS_REINSTANCE(dumm->execute_else);
+
+                return dumm;
+            }
         };
 
         struct ast_while : virtual public grammar::ast_base
         {
-            ast_value *judgement_value;
-            ast_base *execute_sentence;
+            ast_value* judgement_value;
+            ast_base* execute_sentence;
 
-            ast_while(ast_value *jdg, ast_base *exec)
+            ast_while(ast_value* jdg, ast_base* exec)
                 : judgement_value(jdg), execute_sentence(exec)
             {
                 rs_test(judgement_value && execute_sentence);
             }
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << "<while>" << std::endl;
@@ -1230,21 +1565,36 @@ namespace rs
                 space(os, lay);
                 os << "<end while>" << std::endl;
             }
+
+            ast_while() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->judgement_value);
+                RS_REINSTANCE(dumm->execute_sentence);
+
+                return dumm;
+            }
         };
 
         struct ast_value_assign : virtual public ast_value
         {
             // used for storing binary-operate;
-            ast_value *left = nullptr;
+            ast_value* left = nullptr;
             lex_type operate = +lex_type::l_error;
-            ast_value *right = nullptr;
+            ast_value* right = nullptr;
 
             ast_value_assign()
             {
                 value_type = new ast_type(L"pending");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"assign: " << lexer::lex_is_operate_type(operate) << ANSI_RST << " >" << std::endl;
@@ -1259,21 +1609,35 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->left);
+                RS_REINSTANCE(dumm->right);
+
+                return dumm;
+            }
         };
 
         struct ast_value_logical_binary : virtual public ast_value
         {
             // used for storing binary-operate;
-            ast_value *left = nullptr;
+            ast_value* left = nullptr;
             lex_type operate = +lex_type::l_error;
-            ast_value *right = nullptr;
+            ast_value* right = nullptr;
 
             ast_value_logical_binary()
             {
                 value_type = new ast_type(L"int");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"logical: " << lexer::lex_is_operate_type(operate) << ANSI_RST << " >" << std::endl;
@@ -1288,19 +1652,33 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->left);
+                RS_REINSTANCE(dumm->right);
+
+                return dumm;
+            }
         };
 
         struct ast_value_index : virtual public ast_value
         {
-            ast_value *from = nullptr;
-            ast_value *index = nullptr;
+            ast_value* from = nullptr;
+            ast_value* index = nullptr;
 
             ast_value_index()
             {
                 value_type = new ast_type(L"pending");
             }
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"index" << ANSI_RST << " >" << std::endl;
@@ -1315,6 +1693,20 @@ namespace rs
                 space(os, lay);
                 os << L"}" << std::endl;
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->from);
+                RS_REINSTANCE(dumm->index);
+
+                return dumm;
+            }
         };
 
         struct ast_extern_info : virtual public grammar::ast_base
@@ -1324,7 +1716,7 @@ namespace rs
             std::wstring load_from_lib;
             std::wstring symbol_name;
 
-            void display(std::wostream &os = std::wcout, size_t lay = 0) const override
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
                 os << L"< " << ANSI_HIY << L"extern" << ANSI_RST << " >" << std::endl;
@@ -1332,6 +1724,16 @@ namespace rs
                 os << L"symbol: '" << symbol_name << "'" << std::endl;
                 space(os, lay);
                 os << L"from: '" << load_from_lib << "'" << std::endl;
+            }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+                return dumm;
             }
         };
 
@@ -1341,48 +1743,114 @@ namespace rs
             {
                 value_type = new ast_type(L"array");
             }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+                return dumm;
+            }
         };
 
         struct ast_value_indexed_variadic_args : virtual public ast_value
         {
-            ast_value *argindex;
-            ast_value_indexed_variadic_args(ast_value *arg_index)
+            ast_value* argindex;
+            ast_value_indexed_variadic_args(ast_value* arg_index)
                 : argindex(arg_index)
             {
                 rs_assert(argindex);
                 value_type = new ast_type(L"dynamic");
                 can_be_assign = true;
             }
+
+            ast_value_indexed_variadic_args() {}
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->argindex);
+
+                return dumm;
+            }
         };
 
         struct ast_fakevalue_unpacked_args : virtual public ast_value
         {
-            ast_value *unpacked_pack;
+            ast_value* unpacked_pack;
             rs_integer_t expand_count = 0;
 
-            ast_fakevalue_unpacked_args(ast_value *pak, rs_integer_t _expand_count)
+            ast_fakevalue_unpacked_args(ast_value* pak, rs_integer_t _expand_count)
                 : unpacked_pack(pak),
-                  expand_count(_expand_count)
+                expand_count(_expand_count)
             {
                 rs_assert(unpacked_pack && _expand_count >= 0);
                 value_type = new ast_type(L"dynamic");
+            }
+
+            ast_fakevalue_unpacked_args() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->unpacked_pack);
+
+                return dumm;
             }
         };
 
         struct ast_value_unary : virtual public ast_value
         {
             lex_type operate = +lex_type::l_error;
-            ast_value *val;
+            ast_value* val;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->val);
+
+                return dumm;
+            }
         };
 
         struct ast_mapping_pair : virtual public grammar::ast_base
         {
-            ast_value *key;
-            ast_value *val;
-            ast_mapping_pair(ast_value *_k, ast_value *_v)
+            ast_value* key;
+            ast_value* val;
+            ast_mapping_pair(ast_value* _k, ast_value* _v)
                 : key(_k), val(_v)
             {
                 rs_assert(key && val);
+            }
+            ast_mapping_pair() {}
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->key);
+                RS_REINSTANCE(dumm->val);
+
+                return dumm;
             }
         };
 
@@ -1390,6 +1858,17 @@ namespace rs
         {
             bool from_global_namespace;
             std::vector<std::wstring> used_namespace_chain;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_enum_item : virtual public grammar::ast_base
@@ -1397,28 +1876,92 @@ namespace rs
             std::wstring enum_ident;
             rs_integer_t enum_val;
             bool need_assign_val = true;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
         };
 
         struct ast_enum_items_list : virtual public grammar::ast_base
         {
             rs_integer_t next_enum_val = 0;
-            std::vector<ast_enum_item *> enum_items;
+            std::vector<ast_enum_item*> enum_items;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                for (auto& enumitem : dumm->enum_items)
+                {
+                    RS_REINSTANCE(enumitem);
+                }
+
+                return dumm;
+            }
         };
 
         struct ast_using_type_as : virtual public ast_defines
         {
             std::wstring new_type_identifier;
-            ast_type *old_type;
+            ast_type* old_type;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->old_type);
+
+                return dumm;
+            }
         };
 
         struct ast_directed_values : virtual public grammar::ast_base
         {
-            ast_value *from;
-            ast_value *direct_val;
+            ast_value* from;
+            ast_value* direct_val;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->from);
+                RS_REINSTANCE(dumm->direct_val);
+
+                return dumm;
+            }
         };
 
         struct ast_nop : virtual public grammar::ast_base
         {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+                return dumm;
+            }
+
         };
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -1452,7 +1995,7 @@ namespace rs
         template <size_t pass_idx>
         struct pass_direct : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
@@ -1461,19 +2004,19 @@ namespace rs
 
         struct pass_decl_attrib_begin : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto att = new ast_decl_attribute;
-                att->add_attribute(&lex, dynamic_cast<ast_token *>(RS_NEED_AST(0))->tokens.type);
-                return (ast_basic *)att;
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(RS_NEED_AST(0))->tokens.type);
+                return (ast_basic*)att;
             }
         };
 
         struct pass_enum_item_create : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_enum_item *item = new ast_enum_item;
+                ast_enum_item* item = new ast_enum_item;
                 item->enum_ident = RS_NEED_TOKEN(0).identifier;
                 if (input.size() == 3)
                 {
@@ -1481,16 +2024,16 @@ namespace rs
                     auto fxxk = RS_NEED_TOKEN(2);
                     item->enum_val = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(2).identifier);
                 }
-                return (ast_basic *)item;
+                return (ast_basic*)item;
             }
         };
 
         struct pass_enum_declear_begin : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_enum_items_list *items = new ast_enum_items_list;
-                auto *enum_item = dynamic_cast<ast_enum_item *>(RS_NEED_AST(0));
+                ast_enum_items_list* items = new ast_enum_items_list;
+                auto* enum_item = dynamic_cast<ast_enum_item*>(RS_NEED_AST(0));
                 items->enum_items.push_back(enum_item);
                 if (enum_item->need_assign_val)
                 {
@@ -1498,16 +2041,16 @@ namespace rs
                     enum_item->need_assign_val = false;
                 }
                 items->next_enum_val = enum_item->enum_val + 1;
-                return (ast_basic *)items;
+                return (ast_basic*)items;
             }
         };
 
         struct pass_enum_declear_append : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_enum_items_list *items = dynamic_cast<ast_enum_items_list *>(RS_NEED_AST(0));
-                auto *enum_item = dynamic_cast<ast_enum_item *>(RS_NEED_AST(2));
+                ast_enum_items_list* items = dynamic_cast<ast_enum_items_list*>(RS_NEED_AST(0));
+                auto* enum_item = dynamic_cast<ast_enum_item*>(RS_NEED_AST(2));
                 items->enum_items.push_back(enum_item);
                 if (enum_item->need_assign_val)
                 {
@@ -1515,16 +2058,16 @@ namespace rs
                     enum_item->need_assign_val = false;
                 }
                 items->next_enum_val = enum_item->enum_val + 1;
-                return (ast_basic *)items;
+                return (ast_basic*)items;
             }
         };
 
         struct pass_mark_value_as_ref : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
-                ast_value *val = input.size() == 4 ? dynamic_cast<ast_value *>(RS_NEED_AST(2)) : dynamic_cast<ast_value *>(RS_NEED_AST(1));
+                ast_value* val = input.size() == 4 ? dynamic_cast<ast_value*>(RS_NEED_AST(2)) : dynamic_cast<ast_value*>(RS_NEED_AST(1));
 
                 if (!val->can_be_assign)
                 {
@@ -1532,41 +2075,41 @@ namespace rs
                 }
 
                 val->is_mark_as_using_ref = true;
-                return (ast_basic *)val;
+                return (ast_basic*)val;
             }
         };
 
         struct pass_enum_finalize : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_assert(input.size() == 5);
 
-                ast_list *bind_type_and_decl_list = new ast_list;
+                ast_list* bind_type_and_decl_list = new ast_list;
 
-                ast_namespace *enum_scope = new ast_namespace;
-                ast_list *decl_list = new ast_list;
+                ast_namespace* enum_scope = new ast_namespace;
+                ast_list* decl_list = new ast_list;
 
                 enum_scope->scope_name = RS_NEED_TOKEN(1).identifier;
 
-                auto *using_enum_as_int = new ast_using_type_as;
+                auto* using_enum_as_int = new ast_using_type_as;
                 using_enum_as_int->new_type_identifier = enum_scope->scope_name;
                 using_enum_as_int->old_type = new ast_type(L"int");
                 bind_type_and_decl_list->append_at_end(using_enum_as_int);
 
                 enum_scope->in_scope_sentence = decl_list;
-                ast_enum_items_list *enum_items = dynamic_cast<ast_enum_items_list *>(RS_NEED_AST(3));
+                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(RS_NEED_AST(3));
 
-                ast_varref_defines *vardefs = new ast_varref_defines;
+                ast_varref_defines* vardefs = new ast_varref_defines;
                 vardefs->declear_attribute = new ast_decl_attribute;
                 vardefs->declear_attribute->add_attribute(&lex, +lex_type::l_const);
-                for (auto &enumitem : enum_items->enum_items)
+                for (auto& enumitem : enum_items->enum_items)
                 {
-                    ast_value_literal *const_val = new ast_value_literal(
-                        token{+lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val)});
+                    ast_value_literal* const_val = new ast_value_literal(
+                        token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
 
                     vardefs->var_refs.push_back(
-                        {false, enumitem->enum_ident, const_val});
+                        { false, enumitem->enum_ident, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -1574,35 +2117,35 @@ namespace rs
 
                 decl_list->append_at_end(vardefs);
                 bind_type_and_decl_list->append_at_end(enum_scope);
-                return (ast_basic *)bind_type_and_decl_list;
+                return (ast_basic*)bind_type_and_decl_list;
             }
         };
 
         struct pass_append_attrib : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                auto att = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
-                att->add_attribute(&lex, dynamic_cast<ast_token *>(RS_NEED_AST(1))->tokens.type);
-                return (ast_basic *)att;
+                auto att = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(RS_NEED_AST(1))->tokens.type);
+                return (ast_basic*)att;
             }
         };
 
         struct pass_unary_op : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
                 token _token = RS_NEED_TOKEN(0);
-                ast_value *right_v = dynamic_cast<ast_value *>(RS_NEED_AST(1));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(1));
 
                 rs_test(right_v);
                 rs_test(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
 
                 if (right_v->is_constant)
                 {
-                    ast_value_literal *const_result = new ast_value_literal();
+                    ast_value_literal* const_result = new ast_value_literal();
 
                     if (_token.type == +lex_type::l_sub)
                     {
@@ -1626,10 +2169,10 @@ namespace rs
                         const_result->value_type = new ast_type(L"int");
                         const_result->_constant_value.set_integer(!right_v->get_constant_value().handle);
                     }
-                    return (ast_basic *)const_result;
+                    return (ast_basic*)const_result;
                 }
 
-                ast_value_unary *vbin = new ast_value_unary();
+                ast_value_unary* vbin = new ast_value_unary();
                 vbin->operate = _token.type;
                 vbin->val = right_v;
 
@@ -1641,25 +2184,25 @@ namespace rs
 
                 vbin->value_type = result_type;
                 */
-                return (grammar::ast_base *)vbin;
+                return (grammar::ast_base*)vbin;
             }
         };
 
         struct pass_import_files : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
                 std::wstring path;
                 std::wstring filename;
-                auto *fx = RS_NEED_AST(1);
+                auto* fx = RS_NEED_AST(1);
 
-                ast_token *importfilepaths = dynamic_cast<ast_token *>(
-                    dynamic_cast<ast_list *>(RS_NEED_AST(1))->children);
+                ast_token* importfilepaths = dynamic_cast<ast_token*>(
+                    dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
                 do
                 {
                     path += filename = importfilepaths->tokens.identifier;
-                    importfilepaths = dynamic_cast<ast_token *>(importfilepaths->sibling);
+                    importfilepaths = dynamic_cast<ast_token*>(importfilepaths->sibling);
                     if (importfilepaths)
                         path += L"/";
                 } while (importfilepaths);
@@ -1678,53 +2221,53 @@ namespace rs
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
 
-                    auto *imported_ast = rs::get_rs_grammar()->gen(new_lex);
+                    auto* imported_ast = rs::get_rs_grammar()->gen(new_lex);
 
                     lex.lex_error_list.insert(lex.lex_error_list.end(),
-                                              new_lex.lex_error_list.begin(),
-                                              new_lex.lex_error_list.end());
+                        new_lex.lex_error_list.begin(),
+                        new_lex.lex_error_list.end());
 
                     lex.lex_warn_list.insert(lex.lex_warn_list.end(),
-                                             new_lex.lex_warn_list.begin(),
-                                             new_lex.lex_warn_list.end());
+                        new_lex.lex_warn_list.begin(),
+                        new_lex.lex_warn_list.end());
 
                     lex.imported_file_list = new_lex.imported_file_list;
 
                     if (imported_ast)
                     {
                         imported_ast->add_child(new ast_nop); // nop for debug info gen, avoid ip/cr confl..
-                        return (ast_basic *)imported_ast;
+                        return (ast_basic*)imported_ast;
                     }
 
                     return +lex_type::l_error;
                 }
-                return (ast_basic *)new ast_empty();
+                return (ast_basic*)new ast_empty();
             }
         };
 
         struct pass_mapping_pair : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 5);
                 // { x , x }
 
-                return (grammar::ast_base *)new ast_mapping_pair(
-                    dynamic_cast<ast_value *>(RS_NEED_AST(1)),
-                    dynamic_cast<ast_value *>(RS_NEED_AST(3)));
+                return (grammar::ast_base*)new ast_mapping_pair(
+                    dynamic_cast<ast_value*>(RS_NEED_AST(1)),
+                    dynamic_cast<ast_value*>(RS_NEED_AST(3)));
             }
         };
 
         struct pass_unpack_args : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2 || input.size() == 3);
 
                 if (input.size() == 2)
                 {
-                    return (ast_basic *)new ast_fakevalue_unpacked_args(
-                        dynamic_cast<ast_value *>(RS_NEED_AST(0)),
+                    return (ast_basic*)new ast_fakevalue_unpacked_args(
+                        dynamic_cast<ast_value*>(RS_NEED_AST(0)),
                         0);
                 }
                 else
@@ -1734,8 +2277,8 @@ namespace rs
                     if (!expand_count)
                         lex.parser_error(0x0000, RS_ERR_UNPACK_ARG_LESS_THEN_ONE);
 
-                    return (ast_basic *)new ast_fakevalue_unpacked_args(
-                        dynamic_cast<ast_value *>(RS_NEED_AST(0)),
+                    return (ast_basic*)new ast_fakevalue_unpacked_args(
+                        dynamic_cast<ast_value*>(RS_NEED_AST(0)),
                         expand_count);
                 }
             }
@@ -1743,16 +2286,16 @@ namespace rs
 
         struct pass_pack_variadic_args : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                return (ast_basic *)new ast_value_packed_variadic_args;
+                return (ast_basic*)new ast_value_packed_variadic_args;
             }
         };
         struct pass_extern : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_extern_info *extern_symb = new ast_extern_info;
+                ast_extern_info* extern_symb = new ast_extern_info;
                 if (input.size() == 4)
                 {
                     extern_symb->symbol_name = RS_NEED_TOKEN(2).identifier;
@@ -1772,79 +2315,79 @@ namespace rs
                     rs_error("error grammar..");
                 }
 
-                return (ast_basic *)extern_symb;
+                return (ast_basic*)extern_symb;
             }
         };
         struct pass_while : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 5);
-                return (grammar::ast_base *)new ast_while(dynamic_cast<ast_value *>(RS_NEED_AST(2)), RS_NEED_AST(4));
+                return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4));
             }
         };
         struct pass_if : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 6);
                 if (ast_empty::is_empty(input[5]))
-                    return (grammar::ast_base *)new ast_if(dynamic_cast<ast_value *>(RS_NEED_AST(2)), RS_NEED_AST(4), nullptr);
+                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4), nullptr);
                 else
-                    return (grammar::ast_base *)new ast_if(dynamic_cast<ast_value *>(RS_NEED_AST(2)), RS_NEED_AST(4), RS_NEED_AST(5));
+                    return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(RS_NEED_AST(2)), RS_NEED_AST(4), RS_NEED_AST(5));
             }
         };
 
         template <size_t pass_idx>
         struct pass_sentence_block : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() > pass_idx);
-                return (grammar::ast_base *)ast_sentence_block::fast_parse_sentenceblock(RS_NEED_AST(pass_idx));
+                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(RS_NEED_AST(pass_idx));
             }
         };
 
         struct pass_empty_sentence_block : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                return (grammar::ast_base *)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
+                return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
             }
         };
 
         struct pass_map_builder : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
-                return (ast_basic *)new ast_value_mapping(dynamic_cast<ast_list *>(RS_NEED_AST(1)));
+                return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(RS_NEED_AST(1)));
             }
         };
 
         struct pass_array_builder : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
-                return (ast_basic *)new ast_value_array(dynamic_cast<ast_list *>(RS_NEED_AST(1)));
+                return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(RS_NEED_AST(1)));
             }
         };
 
         struct pass_function_define : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 8 || input.size() == 9 || input.size() == 10);
 
-                auto *ast_func = new ast_value_function_define;
-                ast_type *return_type = nullptr;
+                auto* ast_func = new ast_value_function_define;
+                ast_type* return_type = nullptr;
                 ast_list* template_types = nullptr;
 
                 if (input.size() == 9)
                 {
                     // function with name..
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(2).identifier;
@@ -1852,14 +2395,14 @@ namespace rs
                     if (!ast_empty::is_empty(input[3]))
                         template_types = dynamic_cast<ast_list*>(RS_NEED_AST(3));
 
-                    ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(5));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block *>(RS_NEED_AST(8))->sentence_list;
-                    return_type = dynamic_cast<ast_type *>(RS_NEED_AST(7));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(8))->sentence_list;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(7));
                 }
                 else if (input.size() == 8)
                 {
                     // anonymous function
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                     rs_assert(ast_func->declear_attribute);
 
                     if (!ast_empty::is_empty(input[2]))
@@ -1870,14 +2413,14 @@ namespace rs
                     }
 
                     ast_func->function_name = L""; // just get a fucking name
-                    ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(4));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block *>(RS_NEED_AST(7))->sentence_list;
-                    return_type = dynamic_cast<ast_type *>(RS_NEED_AST(6));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(7))->sentence_list;
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
                 }
                 else
                 {
                     // function with name.. export func
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(1));
+                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(1));
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(3).identifier;
@@ -1887,12 +2430,12 @@ namespace rs
                         template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
                     }
 
-                    ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(6));
+                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
                     ast_func->in_function_sentence = nullptr;
-                    return_type = dynamic_cast<ast_type *>(RS_NEED_AST(8));
+                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
 
                     ast_func->is_constant = true;
-                    ast_func->externed_func = dynamic_cast<ast_extern_info *>(RS_NEED_AST(0))->externed_func;
+                    ast_func->externed_func = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0))->externed_func;
                 }
                 // many things to do..
 
@@ -1913,17 +2456,17 @@ namespace rs
                 }
 
                 ast_func->value_type->set_as_function_type();
-                auto *argchild = ast_func->argument_list->children;
+                auto* argchild = ast_func->argument_list->children;
                 while (argchild)
                 {
-                    if (auto *arg_node = dynamic_cast<ast_value_arg_define *>(argchild))
+                    if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
                     {
                         if (ast_func->value_type->is_variadic_function_type)
                             return lex.parser_error(0x0000, RS_ERR_ARG_DEFINE_AFTER_VARIADIC);
 
                         ast_func->value_type->append_function_argument_type(arg_node->value_type);
                     }
-                    else if (auto *arg_variadic = dynamic_cast<ast_token *>(argchild))
+                    else if (auto* arg_variadic = dynamic_cast<ast_token*>(argchild))
                         ast_func->value_type->set_as_variadic_arg_func();
                     argchild = argchild->sibling;
                 }
@@ -1943,143 +2486,143 @@ namespace rs
                 }
 
                 // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
-                return (grammar::ast_base *)ast_func;
+                return (grammar::ast_base*)ast_func;
             }
         };
 
         struct pass_function_call : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 4);
 
-                auto *result = new ast_value_funccall;
+                auto* result = new ast_value_funccall;
 
-                result->arguments = dynamic_cast<ast_list *>(RS_NEED_AST(2));
+                result->arguments = dynamic_cast<ast_list*>(RS_NEED_AST(2));
 
-                auto *callee = RS_NEED_AST(0);
-                if (ast_directed_values *adv = dynamic_cast<ast_directed_values *>(RS_NEED_AST(0)))
+                auto* callee = RS_NEED_AST(0);
+                if (ast_directed_values* adv = dynamic_cast<ast_directed_values*>(RS_NEED_AST(0)))
                 {
                     result->called_func = adv->direct_val;
                     result->arguments->append_at_head(adv->from);
                     result->directed_value_from = adv->from;
                 }
                 else
-                    result->called_func = dynamic_cast<ast_value *>(RS_NEED_AST(0));
+                    result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
 
                 result->value_type = result->called_func->value_type->get_return_type(); // just get pending..
                 result->can_be_assign = true;
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
 
         struct pass_directed_value_for_call : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
 
-                auto *result = new ast_directed_values();
-                auto *from = dynamic_cast<ast_value *>(RS_NEED_AST(0));
-                auto *to = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                auto* result = new ast_directed_values();
+                auto* from = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                auto* to = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 result->from = from;
                 result->direct_val = to;
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
 
         struct pass_literal : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 1);
-                return (grammar::ast_base *)new ast_value_literal(RS_NEED_TOKEN(0));
+                return (grammar::ast_base*)new ast_value_literal(RS_NEED_TOKEN(0));
             }
         };
 
         struct pass_namespace : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
                 if (ast_empty::is_empty(input[2]))
                     return input[2];
 
-                ast_namespace *result = new ast_namespace();
+                ast_namespace* result = new ast_namespace();
                 result->scope_name = RS_NEED_TOKEN(1).identifier;
 
-                auto *list = dynamic_cast<ast_sentence_block *>(RS_NEED_AST(2));
+                auto* list = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(2));
                 rs_test(list);
                 result->in_scope_sentence = list->sentence_list;
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
 
         struct pass_begin_varref_define : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
-                ast_varref_defines *result = new ast_varref_defines;
+                ast_varref_defines* result = new ast_varref_defines;
 
-                ast_value *init_val = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                ast_value* init_val = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 rs_test(init_val);
 
                 result->var_refs.push_back(
-                    {false, RS_NEED_TOKEN(0).identifier, init_val});
+                    { false, RS_NEED_TOKEN(0).identifier, init_val });
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
         struct pass_add_varref_define : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 5);
-                ast_varref_defines *result = dynamic_cast<ast_varref_defines *>(RS_NEED_AST(0));
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(0));
 
-                ast_value *init_val = dynamic_cast<ast_value *>(RS_NEED_AST(4));
+                ast_value* init_val = dynamic_cast<ast_value*>(RS_NEED_AST(4));
                 rs_test(result && init_val);
 
                 result->var_refs.push_back(
-                    {false, RS_NEED_TOKEN(2).identifier, init_val});
+                    { false, RS_NEED_TOKEN(2).identifier, init_val });
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
         struct pass_mark_as_ref_define : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 4);
-                ast_varref_defines *result = dynamic_cast<ast_varref_defines *>(RS_NEED_AST(2));
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
                 rs_test(result);
 
-                result->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                 rs_assert(result->declear_attribute);
 
-                for (auto &defines : result->var_refs)
+                for (auto& defines : result->var_refs)
                 {
                     defines.is_ref = true;
                 }
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
         struct pass_mark_as_var_define : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 4);
-                ast_varref_defines *result = dynamic_cast<ast_varref_defines *>(RS_NEED_AST(2));
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
                 rs_test(result);
 
-                result->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                 rs_assert(result->declear_attribute);
 
-                return (ast_basic *)result;
+                return (ast_basic*)result;
             }
         };
 
@@ -2103,13 +2646,13 @@ namespace rs
 
         struct pass_type_cast : public astnode_builder
         {
-            static ast_value *do_cast(lexer &lex, ast_value *value_node, ast_type *type_node, bool force = false)
+            static ast_value* do_cast(lexer& lex, ast_value* value_node, ast_type* type_node, bool force = false)
             {
                 if (value_node->is_constant && !type_node->is_pending())
                 {
                     // just cast the value!
                     value last_value = value_node->get_constant_value();
-                    ast_value_literal *cast_result = new ast_value_literal;
+                    ast_value_literal* cast_result = new ast_value_literal;
 
                     value::valuetype aim_real_type = type_node->value_type;
                     if (type_node->is_dynamic())
@@ -2168,12 +2711,12 @@ namespace rs
                         {
                             if (!force)
                                 lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                               ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
-                                               type_node->get_type_name().c_str());
+                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
+                                    type_node->get_type_name().c_str());
                             else
                                 lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                               ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
-                                               type_node->get_type_name().c_str());
+                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
+                                    type_node->get_type_name().c_str());
 
                             cast_result->_constant_value.set_nil();
                             cast_result->value_type = new ast_type(cast_result->_constant_value);
@@ -2187,13 +2730,13 @@ namespace rs
                 }
                 else
                 {
-                    if (auto *array_builder = dynamic_cast<ast_value_array *>(value_node))
+                    if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
                     {
                         array_builder->value_type = type_node;
                         return array_builder;
                     }
 
-                    if (auto *map_builder = dynamic_cast<ast_value_mapping *>(value_node))
+                    if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
                     {
                         map_builder->value_type = type_node;
                         return map_builder;
@@ -2214,15 +2757,15 @@ namespace rs
                 }
             }
 
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
-                ast_value *value_node;
-                ast_type *type_node;
-                if ((value_node = dynamic_cast<ast_value *>(RS_NEED_AST(0))) && (type_node = dynamic_cast<ast_type *>(RS_NEED_AST(1))))
+                ast_value* value_node;
+                ast_type* type_node;
+                if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-                    return (ast_basic *)do_cast(lex, value_node, type_node, true);
+                    return (ast_basic*)do_cast(lex, value_node, type_node, true);
                 }
 
                 rs_error("Unexcepted token type.");
@@ -2232,7 +2775,7 @@ namespace rs
 
         struct pass_type_judgement : public astnode_builder
         {
-            static ast_value *do_judge(lexer &lex, ast_value *value_node, ast_type *type_node)
+            static ast_value* do_judge(lexer& lex, ast_value* value_node, ast_type* type_node)
             {
                 if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
                 {
@@ -2246,17 +2789,17 @@ namespace rs
                 return value_node;
             }
 
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
-                ast_value *value_node;
-                ast_type *type_node;
-                if (value_node = dynamic_cast<ast_value *>(RS_NEED_AST(0)))
+                ast_value* value_node;
+                ast_type* type_node;
+                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                 {
-                    if (type_node = dynamic_cast<ast_type *>(RS_NEED_AST(1)))
-                        return (ast_basic *)do_judge(lex, value_node, type_node);
-                    return (ast_basic *)value_node;
+                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                        return (ast_basic*)do_judge(lex, value_node, type_node);
+                    return (ast_basic*)value_node;
                 }
 
                 rs_error("Unexcepted token type.");
@@ -2266,7 +2809,7 @@ namespace rs
 
         struct pass_type_check : public astnode_builder
         {
-            static ast_value *do_check(lexer &lex, ast_value *value_node, ast_type *type_node)
+            static ast_value* do_check(lexer& lex, ast_value* value_node, ast_type* type_node)
             {
                 if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
                 {
@@ -2274,29 +2817,29 @@ namespace rs
                 }
                 else if (!value_node->value_type->is_same(type_node))
                 {
-                    ast_value_literal *result_false = new ast_value_literal();
+                    ast_value_literal* result_false = new ast_value_literal();
                     result_false->value_type = new ast_type(L"int");
                     result_false->_constant_value.set_integer(0);
                     return result_false;
                 }
 
-                ast_value_literal *result_true = new ast_value_literal();
+                ast_value_literal* result_true = new ast_value_literal();
                 result_true->value_type = new ast_type(L"int");
                 result_true->_constant_value.set_integer(1);
                 return result_true;
             }
 
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
-                ast_value *value_node;
-                ast_type *type_node;
-                if (value_node = dynamic_cast<ast_value *>(RS_NEED_AST(0)))
+                ast_value* value_node;
+                ast_type* type_node;
+                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                 {
-                    if (type_node = dynamic_cast<ast_type *>(RS_NEED_AST(1)))
-                        return (ast_basic *)do_check(lex, value_node, type_node);
-                    return (ast_basic *)value_node;
+                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                        return (ast_basic*)do_check(lex, value_node, type_node);
+                    return (ast_basic*)value_node;
                 }
 
                 rs_error("Unexcepted token type.");
@@ -2306,60 +2849,60 @@ namespace rs
 
         struct pass_variable : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 1);
 
                 token tk = RS_NEED_TOKEN(0);
 
                 rs_test(tk.type == +lex_type::l_identifier);
-                return (grammar::ast_base *)new ast_value_variable(tk.identifier);
+                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
             }
         };
 
         struct pass_append_serching_namespace : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 3);
 
                 token tk = RS_NEED_TOKEN(1);
-                ast_value_variable *result = dynamic_cast<ast_value_variable *>(RS_NEED_AST(2));
+                ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(2));
 
                 rs_assert(tk.type == +lex_type::l_identifier && result);
 
                 result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
 
-                return (grammar::ast_base *)result;
+                return (grammar::ast_base*)result;
             }
         };
 
         struct pass_using_namespace : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_using_namespace *aunames = new ast_using_namespace();
-                auto vs = dynamic_cast<ast_value_variable *>(RS_NEED_AST(2));
+                ast_using_namespace* aunames = new ast_using_namespace();
+                auto vs = dynamic_cast<ast_value_variable*>(RS_NEED_AST(2));
                 rs_assert(vs);
 
                 aunames->from_global_namespace = vs->search_from_global_namespace;
 
-                for (auto &space : vs->scope_namespaces)
+                for (auto& space : vs->scope_namespaces)
                     aunames->used_namespace_chain.push_back(space);
                 aunames->used_namespace_chain.push_back(vs->var_name);
 
-                return (grammar::ast_base *)aunames;
+                return (grammar::ast_base*)aunames;
             }
         };
 
         struct pass_finalize_serching_namespace : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
                 token tk = RS_NEED_TOKEN(0);
-                ast_value_variable *result = dynamic_cast<ast_value_variable *>(RS_NEED_AST(1));
+                ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
 
                 rs_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
                 if (tk.type == +lex_type::l_identifier)
@@ -2371,13 +2914,13 @@ namespace rs
                     result->search_from_global_namespace = true;
                 }
 
-                return (grammar::ast_base *)result;
+                return (grammar::ast_base*)result;
             }
         };
 
         struct pass_variable_in_namespace : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
 
@@ -2385,40 +2928,40 @@ namespace rs
 
                 rs_test(tk.type == +lex_type::l_identifier);
 
-                return (grammar::ast_base *)new ast_value_variable(tk.identifier);
+                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
             }
         };
 
         template <size_t first_node>
         struct pass_create_list : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(first_node < input.size());
 
-                ast_list *result = new ast_list();
+                ast_list* result = new ast_list();
                 if (ast_empty::is_empty(input[first_node]))
-                    return (grammar::ast_base *)result;
+                    return (grammar::ast_base*)result;
 
-                ast_basic *_node = RS_NEED_AST(first_node);
+                ast_basic* _node = RS_NEED_AST(first_node);
 
                 result->append_at_end(_node);
-                return (grammar::ast_base *)result;
+                return (grammar::ast_base*)result;
             }
         };
 
         template <size_t from, size_t to_list>
         struct pass_append_list : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() > std::max(from, to_list));
 
-                ast_list *list = dynamic_cast<ast_list *>(RS_NEED_AST(to_list));
+                ast_list* list = dynamic_cast<ast_list*>(RS_NEED_AST(to_list));
                 if (list)
                 {
                     if (ast_empty::is_empty(input[from]))
-                        return (grammar::ast_base *)list;
+                        return (grammar::ast_base*)list;
 
                     if (from < to_list)
                     {
@@ -2432,7 +2975,7 @@ namespace rs
                     {
                         rs_error("You cannot add list to itself.");
                     }
-                    return (grammar::ast_base *)list;
+                    return (grammar::ast_base*)list;
                 }
                 rs_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
                 return 0;
@@ -2441,16 +2984,16 @@ namespace rs
 
         struct pass_empty : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                return (grammar::ast_base *)new ast_empty();
+                return (grammar::ast_base*)new ast_empty();
             }
         };
 
         struct pass_binary_op : public astnode_builder
         {
             template <typename T>
-            static T binary_operate(lexer &lex, T left, T right, lex_type op_type)
+            static T binary_operate(lexer& lex, T left, T right, lex_type op_type)
             {
                 if constexpr (std::is_same<T, rs_string_t>::value)
                     if (op_type != +lex_type::l_add)
@@ -2497,7 +3040,7 @@ namespace rs
                 return T{};
             }
 
-            static ast_type *binary_upper_type(ast_type *left_v, ast_type *right_v)
+            static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
             {
                 if (left_v->is_dynamic() || right_v->is_dynamic())
                 {
@@ -2609,18 +3152,18 @@ namespace rs
                 }
             }
 
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() >= 3);
 
-                ast_value *left_v = dynamic_cast<ast_value *>(RS_NEED_AST(0));
-                ast_value *right_v = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 rs_test(left_v && right_v);
 
                 token _token = RS_NEED_TOKEN(1);
                 rs_test(lexer::lex_is_operate_type(_token.type));
 
-                ast_type *result_type = nullptr;
+                ast_type* result_type = nullptr;
 
                 // calc type upgrade
                 if (left_v->value_type->is_dynamic() || right_v->value_type->is_dynamic())
@@ -2639,7 +3182,7 @@ namespace rs
 
                 if (left_v->is_constant && right_v->is_constant)
                 {
-                    ast_value_literal *const_result = new ast_value_literal();
+                    ast_value_literal* const_result = new ast_value_literal();
                     const_result->value_type = result_type;
 
                     value _left_val = left_v->get_constant_value();
@@ -2650,23 +3193,23 @@ namespace rs
                     case value::valuetype::integer_type:
                         const_result->_constant_value.set_integer(
                             binary_operate(lex,
-                                           rs_cast_int((rs_value)&_left_val),
-                                           rs_cast_int((rs_value)&_right_val),
-                                           _token.type));
+                                rs_cast_int((rs_value)&_left_val),
+                                rs_cast_int((rs_value)&_right_val),
+                                _token.type));
                         break;
                     case value::valuetype::real_type:
                         const_result->_constant_value.set_real(
                             binary_operate(lex,
-                                           rs_cast_real((rs_value)&_left_val),
-                                           rs_cast_real((rs_value)&_right_val),
-                                           _token.type));
+                                rs_cast_real((rs_value)&_left_val),
+                                rs_cast_real((rs_value)&_right_val),
+                                _token.type));
                         break;
                     case value::valuetype::handle_type:
                         const_result->_constant_value.set_handle(
                             binary_operate(lex,
-                                           rs_cast_handle((rs_value)&_left_val),
-                                           rs_cast_handle((rs_value)&_right_val),
-                                           _token.type));
+                                rs_cast_handle((rs_value)&_left_val),
+                                rs_cast_handle((rs_value)&_right_val),
+                                _token.type));
                         break;
                     case value::valuetype::string_type:
                     {
@@ -2674,9 +3217,9 @@ namespace rs
                         std::string right_str = rs_cast_string((rs_value)&_right_val);
                         const_result->_constant_value.set_string_nogc(
                             binary_operate(lex,
-                                           (rs_string_t)left_str.c_str(),
-                                           (rs_string_t)right_str.c_str(),
-                                           _token.type));
+                                (rs_string_t)left_str.c_str(),
+                                (rs_string_t)right_str.c_str(),
+                                _token.type));
                     }
                     break;
                     default:
@@ -2684,28 +3227,28 @@ namespace rs
                         break;
                     }
 
-                    return (grammar::ast_base *)const_result;
+                    return (grammar::ast_base*)const_result;
                 }
 
-                ast_value_binary *vbin = new ast_value_binary();
+                ast_value_binary* vbin = new ast_value_binary();
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
                 // In ast build pass, all left value's type cannot judge, so it was useless..
                 //vbin->value_type = result_type;
 
-                return (grammar::ast_base *)vbin;
+                return (grammar::ast_base*)vbin;
             }
         };
 
         struct pass_assign_op : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() >= 3);
 
-                ast_value *left_v = dynamic_cast<ast_value *>(RS_NEED_AST(0));
-                ast_value *right_v = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 rs_test(left_v && right_v);
 
                 token _token = RS_NEED_TOKEN(1);
@@ -2714,7 +3257,7 @@ namespace rs
                 if (left_v->is_constant)
                     return lex.parser_error(0x0000, RS_ERR_CANNOT_ASSIGN_TO_CONSTANT);
 
-                ast_value_assign *vbin = new ast_value_assign();
+                ast_value_assign* vbin = new ast_value_assign();
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
@@ -2727,26 +3270,26 @@ namespace rs
 
                 vbin->value_type = result_type;
                 */
-                return (grammar::ast_base *)vbin;
+                return (grammar::ast_base*)vbin;
             }
         };
 
         struct pass_binary_logical_op : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // TODO Do optmize, like pass_binary_op
 
                 rs_test(input.size() >= 3);
 
-                ast_value *left_v = dynamic_cast<ast_value *>(RS_NEED_AST(0));
-                ast_value *right_v = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                 rs_test(left_v && right_v);
 
                 token _token = RS_NEED_TOKEN(1);
                 rs_test(lexer::lex_is_operate_type(_token.type));
 
-                ast_value_logical_binary *vbin = new ast_value_logical_binary();
+                ast_value_logical_binary* vbin = new ast_value_logical_binary();
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
@@ -2759,27 +3302,27 @@ namespace rs
 
                 vbin->value_type = result_type;
                 */
-                return (grammar::ast_base *)vbin;
+                return (grammar::ast_base*)vbin;
             }
         };
 
         struct pass_index_op : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() >= 3);
 
-                ast_value *left_v = dynamic_cast<ast_value *>(RS_NEED_AST(0));
+                ast_value* left_v = dynamic_cast<ast_value*>(RS_NEED_AST(0));
                 token _token = RS_NEED_TOKEN(1);
 
                 if (_token.type == +lex_type::l_index_begin)
                 {
-                    ast_value *right_v = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                    ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                     rs_test(left_v && right_v);
 
-                    if (auto *apcked_varg = dynamic_cast<ast_value_packed_variadic_args *>(left_v))
+                    if (auto* apcked_varg = dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
-                        return (grammar::ast_base *)new ast_value_indexed_variadic_args(right_v);
+                        return (grammar::ast_base*)new ast_value_indexed_variadic_args(right_v);
                     }
                     else
                     {
@@ -2792,7 +3335,7 @@ namespace rs
                                     return lex.parser_error(0x0000, RS_ERR_CANNOT_INDEX_STR_WITH_TYPE, right_v->value_type->get_type_name().c_str());
                                 }
 
-                                ast_value_literal *const_result = new ast_value_literal();
+                                ast_value_literal* const_result = new ast_value_literal();
                                 const_result->value_type = new ast_type(L"string");
 
                                 size_t strlength = 0;
@@ -2801,14 +3344,14 @@ namespace rs
                                 const_result->_constant_value.set_string_nogc(
                                     std::string(out_str, strlength).c_str());
 
-                                return (grammar::ast_base *)const_result;
+                                return (grammar::ast_base*)const_result;
                             }
                         }
 
-                        ast_value_index *vbin = new ast_value_index();
+                        ast_value_index* vbin = new ast_value_index();
                         vbin->from = left_v;
                         vbin->index = right_v;
-                        return (grammar::ast_base *)vbin;
+                        return (grammar::ast_base*)vbin;
                     }
                 }
                 else if (_token.type == +lex_type::l_index_point)
@@ -2816,15 +3359,15 @@ namespace rs
                     token right_tk = RS_NEED_TOKEN(2);
                     rs_test(left_v && right_tk.type == +lex_type::l_identifier);
 
-                    ast_value_literal *const_result = new ast_value_literal();
+                    ast_value_literal* const_result = new ast_value_literal();
                     const_result->value_type = new ast_type(L"string");
                     const_result->_constant_value.set_string_nogc(
                         wstr_to_str(right_tk.identifier).c_str());
 
-                    ast_value_index *vbin = new ast_value_index();
+                    ast_value_index* vbin = new ast_value_index();
                     vbin->from = left_v;
                     vbin->index = const_result;
-                    return (grammar::ast_base *)vbin;
+                    return (grammar::ast_base*)vbin;
                 }
 
                 rs_error("Unexcepted token type.");
@@ -2834,11 +3377,11 @@ namespace rs
 
         struct pass_build_complex_type : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_type *result = nullptr;
+                ast_type* result = nullptr;
 
-                auto *complex_type = dynamic_cast<ast_type *>(RS_NEED_AST(0));
+                auto* complex_type = dynamic_cast<ast_type*>(RS_NEED_AST(0));
 
                 rs_test(complex_type);
 
@@ -2853,22 +3396,22 @@ namespace rs
 
                 if (input.size() == 1 || ast_empty::is_empty(input[1]))
                 {
-                    return (ast_basic *)result;
+                    return (ast_basic*)result;
                 }
                 else
                 {
                     result->set_as_function_type();
-                    auto *arg_list = dynamic_cast<ast_list *>(RS_NEED_AST(1));
-                    auto *child = arg_list->children;
+                    auto* arg_list = dynamic_cast<ast_list*>(RS_NEED_AST(1));
+                    auto* child = arg_list->children;
                     while (child)
                     {
-                        if (auto *type = dynamic_cast<ast_type *>(child))
+                        if (auto* type = dynamic_cast<ast_type*>(child))
                         {
                             result->append_function_argument_type(type);
                         }
                         else
                         {
-                            auto *tktype = dynamic_cast<ast_token *>(child);
+                            auto* tktype = dynamic_cast<ast_token*>(child);
                             rs_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
                             //must be last elem..
 
@@ -2877,17 +3420,17 @@ namespace rs
 
                         child = child->sibling;
                     }
-                    return (ast_basic *)result;
+                    return (ast_basic*)result;
                 }
             }
         };
         struct pass_build_type_may_template : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_type *result = nullptr;
+                ast_type* result = nullptr;
 
-                auto *scoping_type = dynamic_cast<ast_value_variable *>(RS_NEED_AST(0));
+                auto* scoping_type = dynamic_cast<ast_value_variable*>(RS_NEED_AST(0));
                 rs_test(scoping_type);
                 result = new ast_type(scoping_type->var_name);
                 result->search_from_global_namespace = scoping_type->search_from_global_namespace;
@@ -2897,19 +3440,19 @@ namespace rs
 
                 if (input.size() == 1 || ast_empty::is_empty(input[1]))
                 {
-                    return (ast_basic *)result;
+                    return (ast_basic*)result;
                 }
                 else
                 {
-                    ast_list *template_arg_list = dynamic_cast<ast_list *>(RS_NEED_AST(1));
+                    ast_list* template_arg_list = dynamic_cast<ast_list*>(RS_NEED_AST(1));
 
-                    std::vector<ast_type *> template_args;
+                    std::vector<ast_type*> template_args;
                     rs_test(template_arg_list);
-                    ast_type *type = dynamic_cast<ast_type *>(template_arg_list->children);
+                    ast_type* type = dynamic_cast<ast_type*>(template_arg_list->children);
                     while (type)
                     {
                         template_args.push_back(type);
-                        type = dynamic_cast<ast_type *>(type->sibling);
+                        type = dynamic_cast<ast_type*>(type->sibling);
                     }
                     result->template_arguments = template_args;
                     if (result->is_array())
@@ -2919,87 +3462,87 @@ namespace rs
                         if (result->template_arguments.size() != 2)
                             lex.parser_error(0x0000, RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
 
-                    return (ast_basic *)result;
+                    return (ast_basic*)result;
                 }
             }
         };
 
         struct pass_using_type_as : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // using xxx  = xxx
 
-                ast_using_type_as *using_type = new ast_using_type_as;
+                ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = RS_NEED_TOKEN(2).identifier;
-                using_type->old_type = dynamic_cast<ast_type *>(RS_NEED_AST(5));
-                using_type->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                using_type->old_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
+                using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
 
                 if (!ast_empty::is_empty(input[3]))
                 {
-                    ast_list *template_defines = dynamic_cast<ast_list *>(RS_NEED_AST(3));
+                    ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
                     rs_test(template_defines);
                     using_type->is_template_define = true;
 
-                    ast_token *template_type = dynamic_cast<ast_token *>(template_defines->children);
+                    ast_token* template_type = dynamic_cast<ast_token*>(template_defines->children);
                     rs_test(template_type);
                     while (template_type)
                     {
                         using_type->template_type_name_list.push_back(template_type->tokens.identifier);
 
-                        template_type = dynamic_cast<ast_token *>(template_type->sibling);
+                        template_type = dynamic_cast<ast_token*>(template_type->sibling);
                     }
                 }
 
-                return (ast_basic *)using_type;
+                return (ast_basic*)using_type;
             }
         };
 
         struct pass_token : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                return (grammar::ast_base *)new ast_token(RS_NEED_TOKEN(0));
+                return (grammar::ast_base*)new ast_token(RS_NEED_TOKEN(0));
             }
         };
 
         struct pass_return : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_return *result = new ast_return();
+                ast_return* result = new ast_return();
                 if (input.size() == 3)
                 {
                     if (!ast_empty::is_empty(input[1]))
                     {
-                        result->return_value = dynamic_cast<ast_value *>(RS_NEED_AST(1));
+                        result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(1));
                     }
                 }
                 else // ==4
                 {
-                    result->return_value = dynamic_cast<ast_value *>(RS_NEED_AST(2));
+                    result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                     result->return_value->is_mark_as_using_ref = true;
                 }
-                return (grammar::ast_base *)result;
+                return (grammar::ast_base*)result;
             }
         };
 
         struct pass_func_argument : public astnode_builder
         {
-            static std::any build(lexer &lex, const std::wstring &name, inputs_t &input)
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_value_arg_define *arg_def = new ast_value_arg_define;
-                arg_def->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
+                ast_value_arg_define* arg_def = new ast_value_arg_define;
+                arg_def->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
                 rs_assert(arg_def->declear_attribute);
 
                 arg_def->is_ref = RS_NEED_TOKEN(1).type == +lex_type::l_ref;
                 arg_def->arg_name = RS_NEED_TOKEN(2).identifier;
                 if (input.size() == 4)
-                    arg_def->value_type = dynamic_cast<ast_type *>(RS_NEED_AST(3));
+                    arg_def->value_type = dynamic_cast<ast_type*>(RS_NEED_AST(3));
                 else
                     arg_def->value_type = new ast_type(L"dynamic");
 
-                return (grammar::ast_base *)arg_def;
+                return (grammar::ast_base*)arg_def;
             }
         };
 

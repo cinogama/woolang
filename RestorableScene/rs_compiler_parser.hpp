@@ -9,6 +9,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 
 #include "rs_compiler_lexer.hpp"
 #include "rs_lang_compiler_information.hpp"
+#include "rs_meta.hpp"
 
 #include <variant>
 #include <functional>
@@ -111,7 +112,7 @@ namespace rs
                 }
                 list.clear();
             }
-            static void pickout_this_thread_ast(std::forward_list<ast_base*> & out_list)
+            static void pickout_this_thread_ast(std::forward_list<ast_base*>& out_list)
             {
                 rs_assert(out_list.empty());
 
@@ -211,6 +212,28 @@ namespace rs
             {
                 space(os, lay); os << L"<ast_base from " << typeid(*this).name() << L">" << std::endl;
             }
+
+            template<typename T, typename ... Args>
+            static T* MAKE_INSTANCE(const T* datfrom, Args && ... args)
+            {
+                auto* instance = new T(args...);
+
+                instance->row_no = datfrom->row_no;
+                instance->col_no = datfrom->col_no;
+                instance->source_file = datfrom->source_file;
+
+                auto* fromchild = datfrom->children;
+                while (fromchild)
+                {
+                    instance->add_child(fromchild->instance());
+
+                    fromchild = fromchild->sibling;
+                }
+
+                return instance;
+            }
+
+            virtual ast_base* instance(ast_base* child_instance = nullptr) const = 0;
         };
 
         struct ast_default :public ast_base
@@ -219,6 +242,18 @@ namespace rs
 
             std::wstring nonterminal_name;
             token        terminal_token = { lex_type::l_error };
+
+            ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_base::instance(dumm);
+
+                // Write self copy functions here..
+
+                return dumm;
+            }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0)const override
             {
