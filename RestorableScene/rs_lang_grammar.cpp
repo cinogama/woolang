@@ -418,31 +418,32 @@ gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
 gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"RELATION") }
+gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"EQUATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"RELATION") }
+gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"EQUATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+
+// 等价判别表达式
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"RELATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"RELATION") }
+>> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"RELATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
 //	关系判别表达式 < > >= <=
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_larg),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_less),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"EQUATION") }
+gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"SUMMATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-// 等价判别表达式
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-// 加减运算表达式		
 
+// 加减运算表达式		
 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") }

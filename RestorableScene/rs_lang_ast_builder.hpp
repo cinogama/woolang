@@ -1839,6 +1839,8 @@ namespace rs
 
                 auto *ast_func = new ast_value_function_define;
                 ast_type *return_type = nullptr;
+                ast_list* template_types = nullptr;
+
                 if (input.size() == 9)
                 {
                     // function with name..
@@ -1846,6 +1848,10 @@ namespace rs
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(2).identifier;
+
+                    if (!ast_empty::is_empty(input[3]))
+                        template_types = dynamic_cast<ast_list*>(RS_NEED_AST(3));
+
                     ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(5));
                     ast_func->in_function_sentence = dynamic_cast<ast_sentence_block *>(RS_NEED_AST(8))->sentence_list;
                     return_type = dynamic_cast<ast_type *>(RS_NEED_AST(7));
@@ -1855,6 +1861,13 @@ namespace rs
                     // anonymous function
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute *>(RS_NEED_AST(0));
                     rs_assert(ast_func->declear_attribute);
+
+                    if (!ast_empty::is_empty(input[2]))
+                    {
+                        rs_error("Not support now...");
+
+                        template_types = dynamic_cast<ast_list*>(RS_NEED_AST(2));
+                    }
 
                     ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(4));
@@ -1868,6 +1881,12 @@ namespace rs
                     rs_assert(ast_func->declear_attribute);
 
                     ast_func->function_name = RS_NEED_TOKEN(3).identifier;
+
+                    if (!ast_empty::is_empty(input[4]))
+                    {
+                        template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                    }
+
                     ast_func->argument_list = dynamic_cast<ast_list *>(RS_NEED_AST(6));
                     ast_func->in_function_sentence = nullptr;
                     return_type = dynamic_cast<ast_type *>(RS_NEED_AST(8));
@@ -1907,6 +1926,20 @@ namespace rs
                     else if (auto *arg_variadic = dynamic_cast<ast_token *>(argchild))
                         ast_func->value_type->set_as_variadic_arg_func();
                     argchild = argchild->sibling;
+                }
+
+                if (template_types)
+                {
+                    ast_func->is_template_define = true;
+                    ast_token* templatedef = dynamic_cast<ast_token*>(template_types->children);
+                    rs_assert(templatedef);
+
+                    while (templatedef)
+                    {
+                        ast_func->template_type_name_list.push_back(templatedef->tokens.identifier);
+
+                        templatedef = dynamic_cast<ast_token*>(templatedef->sibling);
+                    }
                 }
 
                 // if ast_func->in_function_sentence == nullptr it means this function have no sentences...

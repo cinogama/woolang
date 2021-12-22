@@ -143,10 +143,10 @@ namespace rs
                 while (children)
                 {
                     children->parent = nullptr;
-                    auto next_child = children->sibling;
-                    children->sibling = nullptr;
 
-                    children = next_child;
+                    // NOTE: DO NOT CLEAN CHILD'S SIB HERE, THIS FUNCTION JUST FOR
+                    //       PICKING OUT ALL CHILD NODES.
+                    children = children->sibling;
                 }
             }
             void add_child(ast_base* ast_node)

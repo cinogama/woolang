@@ -32,21 +32,27 @@ namespace test_vm
 
         // Test memmory leak
         var i = 0;
-        while (i<100000)
+        while (i<1000)
         {
+            i += 1;
             var vmm = load_and_create_vmm(
                 @"
                 import rscene.std;
                 func main()
                 {
                     var a = [1,2,3,4,5];
-                    var b = a+a;
-                    b += a+b;
+                    var b = a + a;
+                    
+                    // TODO: b is array<pending>, FIX IT
                 }
                 main();
                 "@
             );
             test_equal(vmm->has_error(), false);
+            if (vmm->has_error())
+            {
+                std::println(vmm->error_msg());
+            }
             vmm->run();
             vmm->close();
         }

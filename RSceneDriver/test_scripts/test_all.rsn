@@ -1,4 +1,4 @@
-/*import test_tool;
+import test_tool;
 
 import test_helloworld;
 import test_while;
@@ -7,34 +7,15 @@ import test_gc;
 import test_dup;
 import test_static;
 import test_enum;
-import test_vm;*/
+import test_vm;
 
 // write tmp func here
-
-// import rscene.std;
-
-using my_type<T> = array<T>;
-using same<T> = T;
-
-func temp_foo<T>(var n)
+func t_func<T>(var args:T)
 {
-	return n as T;
+	return args;
 }
 
-func main()
-{
-	var a = [1,2,3,4,5]:same<my_type<int>>;
-	var m = {{"name", "joy"}}:map<dynamic, dynamic>;
+t_func:<int>(1);
 
-	a[0] = 3.1415;
-	m[1] = 233;
-
-	var c = temp_foo:<map>(m);
-	var d = c;
-}
-
-main();
-
-/*
 std::println("Unit-test begin!");
-execute_all_test();*/
+execute_all_test();

@@ -3,15 +3,15 @@ import test_tool;
 
 namespace test_gc
 {
-    var global_list = nil:array;
+    var global_list = []:array<dynamic>;
 
     func main()
     {
-        global_list = [1,2,3,4,5];
+        global_list = [1,2,3,4,5]:array<dynamic>;
         var i = 0;
         while (i < 10000)
         {
-                global_list += [{}];
+                global_list += [{}]:array<dynamic>;
                 global_list[-1]["Hello"] = "world";
                 i+=1;
         }
