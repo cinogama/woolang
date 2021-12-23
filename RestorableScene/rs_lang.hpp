@@ -835,7 +835,7 @@ namespace rs
                                     dumpped_template_func_define->completed_in_pass2 = false;
                                     dumpped_template_func_define->is_template_define = false;
                                     dumpped_template_func_define->template_type_name_list.clear();
-
+                                    dumpped_template_func_define->is_template_reification = true;
                                     break;
                                 }
                             }
@@ -853,6 +853,10 @@ namespace rs
                                 end_template_scope();
                                 temporary_leave_scope_in_pass1();
 
+                                if (dumpped_template_func_define->symbol)
+                                {
+
+                                }
 
                                 lang_symbol* template_reification_symb = new lang_symbol;
 
@@ -3490,9 +3494,9 @@ namespace rs
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
             scope->function_node = ast_value_funcdef;
 
-            if (ast_value_funcdef->function_name != L"")
+            if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
             {
-                // Not anymous function, define func-symbol..
+                // Not anymous function or template_reification , define func-symbol..
                 define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
             }
 

@@ -903,6 +903,7 @@ namespace rs
             ast_decl_attribute* declear_attribute = nullptr;
 
             bool is_template_define = false;
+            bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
             std::vector<std::wstring> template_type_name_list;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override

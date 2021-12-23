@@ -13,24 +13,15 @@ import test_vm;
 
 import rscene.std;
 
-std::println(0->type_is:<int, array<int>>());
-std::println(0->type_is:<real, string>() + "xx");
-
-func type_is<T, B>(var n:T)
+func mkarr<T>()
 {
-	using std;
-	
-	if (n is int)
-		println("I am 'int'!");
-	else if (n is real)
-		println("I am 'real'!");
-	else
-		println("wtf ?!");
-
-	return n:B;
-
+	return [[],[],[]]:array<array<T>>;
 }
 
+var a = mkarr:<real>();
+a[0] = [1:real,2,3];
+
+std::println(a);
 
 /* */
 std::println("Unit-test begin!");
