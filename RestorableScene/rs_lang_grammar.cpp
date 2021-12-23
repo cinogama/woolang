@@ -563,8 +563,11 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNARIED_FACTOR") }
     >> RS_ASTBUILDER_INDEX(ast::pass_unary_op),
 
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"), gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"CALLABLE_LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"), gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_template_reification),
 
                 //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
                 gm::nt(L"LEFTVARIABLE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
@@ -594,7 +597,7 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"LEFTVARIABLE") }
+                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
                 gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }

@@ -720,6 +720,8 @@ namespace rs
                 ast_value::instance(dumm);
 
                 // Write self copy functions here..
+                if (_constant_value.type == value::valuetype::string_type)
+                    dumm->_constant_value.set_string_nogc(_constant_value.string->c_str());
 
                 return dumm;
             }
@@ -936,6 +938,8 @@ namespace rs
         {
             std::wstring var_name;
 
+            std::vector<ast_type*> template_reification_args;
+
             ast_value_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;
@@ -967,6 +971,11 @@ namespace rs
                 if (!child_instance) *dumm = *this;
                 ast_value_symbolable_base::instance(dumm);
                 // Write self copy functions here..
+
+                for (auto& tras : dumm->template_reification_args)
+                {
+                    RS_REINSTANCE(tras);
+                }
 
                 return dumm;
             }
@@ -1197,8 +1206,8 @@ namespace rs
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             std::wstring function_name;
-            ast_list* argument_list;
-            ast_list* in_function_sentence;
+            ast_list* argument_list = nullptr;
+            ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
 
             bool ir_func_has_been_generated = false;
@@ -1284,7 +1293,7 @@ namespace rs
             {
             }
 
-            ast_token() :tokens({+lex_type::l_error})
+            ast_token() :tokens({ +lex_type::l_error })
             {
 
             }
@@ -1999,6 +2008,25 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_template_reification : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto att = dynamic_cast<ast_value_variable*>(RS_NEED_AST(0));
+                if (!ast_empty::is_empty(input[1]))
+                {
+                    auto tsalist = dynamic_cast<ast_list*>(RS_NEED_AST(1));
+                    auto tsa = dynamic_cast<ast_type*>(tsalist->children);
+                    while (tsa)
+                    {
+                        att->template_reification_args.push_back(tsa);
+                        tsa = dynamic_cast<ast_type*>(tsa->sibling);
+                    }
+                }
+                return (ast_basic*)att;
             }
         };
 
@@ -3550,6 +3578,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+
+            _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_directed_value_for_call>] = _register_builder<pass_directed_value_for_call>();

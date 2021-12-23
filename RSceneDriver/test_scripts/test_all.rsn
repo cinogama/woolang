@@ -1,3 +1,4 @@
+/* */
 import test_tool;
 
 import test_helloworld;
@@ -8,20 +9,30 @@ import test_dup;
 import test_static;
 import test_enum;
 import test_vm;
+/* */
 
-// write tmp func here
-func t_fib<T>(var n:T)
+import rscene.std;
+
+std::println(0->type_is:<int, array<int>>());
+std::println(0->type_is:<real, string>() + "xx");
+
+func type_is<T, B>(var n:T)
 {
-	if (n <= 2)
-		return 1;
-	return t_fib(n);
-}
-func t_fib(var args)
-{
-	return args;
+	using std;
+	
+	if (n is int)
+		println("I am 'int'!");
+	else if (n is real)
+		println("I am 'real'!");
+	else
+		println("wtf ?!");
+
+	return n:B;
+
 }
 
-t_fib(0);
 
+/* */
 std::println("Unit-test begin!");
 execute_all_test();
+/* */

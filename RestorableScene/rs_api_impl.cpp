@@ -619,9 +619,12 @@ rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t sr
         {
             // 3. Create lang, most anything store here..
             rs::lang lang(*lex);
+
             lang.analyze_pass1(result);
+            lang.analyze_pass_template();
             lang.analyze_pass2(result);
 
+            // result->display();
             if (!lang.has_compile_error())
             {
                 rs::ir_compiler compiler;
