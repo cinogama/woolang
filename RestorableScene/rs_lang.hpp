@@ -913,6 +913,8 @@ namespace rs
                                         dumpped_template_func_define->template_type_name_list.clear();
                                         dumpped_template_func_define->is_template_reification = true;
 
+                                        dumpped_template_func_define->this_reification_template_args = a_value_var->template_reification_args;
+
                                         origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
                                             dumpped_template_func_define;
 
@@ -2699,6 +2701,18 @@ namespace rs
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
+
+                if (a_value_type_cast->_be_cast_value_node->is_constant)
+                {
+                    auto* casted = pass_type_cast::do_cast(*lang_anylizer,
+                        a_value_type_cast->_be_cast_value_node,
+                        a_value_type_cast->value_type,
+                        !a_value_type_cast->implicit);
+
+                    rs_assert(casted && casted->is_constant);
+
+                    return analyze_value(casted, compiler, get_pure_value);
+                }
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->setcast(treg,

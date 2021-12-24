@@ -159,9 +159,9 @@ namespace rs
 
                 if (from->is_nil())
                 {
-                    if (to->value_type == value::valuetype::array_type 
-                        || to->value_type == value::valuetype::mapping_type 
-                        || to->is_func() 
+                    if (to->value_type == value::valuetype::array_type
+                        || to->value_type == value::valuetype::mapping_type
+                        || to->is_func()
                         || to->is_nil())
                         return true;
                     return false;
@@ -178,23 +178,23 @@ namespace rs
                     if (to->value_type == value::valuetype::string_type)
                         return true;
 
-                    if (to->value_type == value::valuetype::integer_type 
-                        || to->value_type == value::valuetype::real_type 
-                        || to->value_type == value::valuetype::handle_type 
+                    if (to->value_type == value::valuetype::integer_type
+                        || to->value_type == value::valuetype::real_type
+                        || to->value_type == value::valuetype::handle_type
                         || to->value_type == value::valuetype::string_type)
                     {
-                        if (from->value_type == value::valuetype::integer_type 
-                            || from->value_type == value::valuetype::real_type 
-                            || from->value_type == value::valuetype::handle_type 
+                        if (from->value_type == value::valuetype::integer_type
+                            || from->value_type == value::valuetype::real_type
+                            || from->value_type == value::valuetype::handle_type
                             || from->value_type == value::valuetype::string_type)
                             return true;
                     }
                 }
                 else
                 {
-                    if ((to->value_type == value::valuetype::integer_type 
-                        || to->value_type == value::valuetype::real_type) 
-                        && (from->value_type == value::valuetype::integer_type 
+                    if ((to->value_type == value::valuetype::integer_type
+                        || to->value_type == value::valuetype::real_type)
+                        && (from->value_type == value::valuetype::integer_type
                             || from->value_type == value::valuetype::real_type))
                     {
                         return true;
@@ -917,8 +917,8 @@ namespace rs
             bool is_template_define = false;
             bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
             lang_symbol* this_reification_lang_symbol = nullptr;
+            std::vector<ast_type*> this_reification_template_args;
             std::vector<std::wstring> template_type_name_list;
-
             std::map<std::vector<uint32_t>, ast_defines*> template_typehashs_reification_instance_list;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -1246,11 +1246,26 @@ namespace rs
                         spacename.empty() ? "func " : ("func " + spacename + "::");
 
                     if (function_name != L"")
-                        ir_func_signature_tag += wstr_to_str(function_name) + "(...) : ";
+                        ir_func_signature_tag += wstr_to_str(function_name);
                     else
-                        ir_func_signature_tag += std::to_string((uint64_t)this) + "(...) : ";
+                        ir_func_signature_tag += std::to_string((uint64_t)this);
 
-                    ir_func_signature_tag += wstr_to_str(value_type->get_type_name());
+                    if (is_template_reification)
+                    {
+                        ir_func_signature_tag += "<";
+
+                        for (auto idx = this_reification_template_args.begin()
+                            ; idx != this_reification_template_args.end(); idx++)
+                        {
+                            ir_func_signature_tag += wstr_to_str((*idx)->get_type_name(false));
+                            if (idx + 1 != this_reification_template_args.end())
+                                ir_func_signature_tag += ",";
+                        }
+
+                        ir_func_signature_tag += ">";
+                    }
+
+                    ir_func_signature_tag += "(...) : " + wstr_to_str(value_type->get_type_name());
                 }
                 return ir_func_signature_tag;
             }

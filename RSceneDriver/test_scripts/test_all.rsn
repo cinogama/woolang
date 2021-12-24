@@ -12,3 +12,9 @@ import test_template;
 
 std::println("Unit-test begin!");
 execute_all_test();
+
+var a = [{
+			{"name", [1]},
+			{"key", [1.2]},
+		}];
+a=2;

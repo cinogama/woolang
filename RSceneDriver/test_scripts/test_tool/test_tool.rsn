@@ -43,3 +43,14 @@ func test_equal(var a, var b)
         std::println("Test fail:", b, " != ", a, ",but it should be equal.");
     }
 }
+
+func test_assure(var a)
+{
+    if (a)
+        test_success_count += 1;
+    else
+    {
+        test_failed_count += 1;
+        std::println("Test fail:", a, " is not true..");
+    }
+}

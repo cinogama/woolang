@@ -19,21 +19,64 @@ namespace test_template
         return a;
     }
 
+    func typename_of<T>()
+    {
+        const var _tmp = 0:T;
+
+        if (_tmp is dynamic)
+            return "dynamic";
+        if (_tmp is int)
+            return "int";
+        if (_tmp is real)
+            return "real";
+        
+        return "unknown";
+    }
+
+    func test_cost_time<T>()
+    {
+        var begin_time = std::time();
+        var i = 0:T;
+        while (i < 1_0000_0000:T)
+            i += 1:T;
+        var end_time = std::time();
+
+        std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
+    }
+
     func main()
     {
         test_equal(fib:<int>, fib:<int>);
-        test_equal(fib:<int> == fib:<real>, false);
+        test_assure(fib:<int> != fib:<real>);
 
-        test_equal(fib:<int> is int(int), true);
-        test_equal(fib:<real> is real(real), true);
+        test_assure(fib:<int> is int(int));
+        test_assure(fib:<real> is real(real));
 
-        test_equal(diff_static:<int>() is array<int>, true);
-        test_equal(diff_static:<real>() is array<real>, true);
-        test_equal(diff_static:<real>() == diff_static:<int>(), false);
+        test_assure(diff_static:<int>() is array<int>);
+        test_assure(diff_static:<real>() is array<real>);
+        test_assure(diff_static:<real>() != diff_static:<int>());
 
         var result = invokable:<int>(fib:<int>, 10);
 
         test_equal(result, 55);
+
+        test_cost_time:<int>();
+        test_cost_time:<int>();
+        test_cost_time:<int>();
+        test_cost_time:<int>();
+        test_cost_time:<int>();
+
+        test_cost_time:<real>();
+        test_cost_time:<real>();
+        test_cost_time:<real>();
+        test_cost_time:<real>();
+        test_cost_time:<real>();
+
+        test_cost_time:<dynamic>();
+        test_cost_time:<dynamic>();
+        test_cost_time:<dynamic>();
+        test_cost_time:<dynamic>();
+        test_cost_time:<dynamic>();
     }
 }
 
