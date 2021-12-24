@@ -239,13 +239,11 @@ namespace std
             fail(failed_info);
     }
 
-    namespace rand
-    {
-        extern("rslib_std_randomint") 
-            func randint(var from:int, var to:int):int;
-        extern("rslib_std_randomreal") 
-            func randreal(var from:real, var to:real):real;
-    }
+    extern("rslib_std_randomint") 
+        func rand(var from:int, var to:int):int;
+
+    extern("rslib_std_randomreal") 
+        func rand(var from:real, var to:real):real;
 
     extern("rslib_std_thread_sleep")
     func sleep(var tm:real):void;

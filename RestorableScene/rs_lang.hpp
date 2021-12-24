@@ -130,6 +130,57 @@ namespace rs
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
 
+        std::map<uint32_t, ast::ast_type*> hashed_typing;
+        uint32_t get_typing_hash_after_pass1(ast::ast_type* typing)
+        {
+            rs_assert(!typing->is_pending());
+
+            uint64_t hashval = (uint64_t)typing->value_type;
+            if (typing->is_complex())
+                hashval += get_typing_hash_after_pass1(typing->complex_type);
+
+            hashval *= hashval;
+
+            if (lang_symbol* using_type_symb = typing->using_type_name ? find_type_in_this_scope(typing->using_type_name) : nullptr)
+            {
+                hashval <<= 1;
+                hashval += (uint64_t)using_type_symb;
+                hashval *= hashval;
+            }
+
+            if (typing->has_template())
+            {
+                for (auto& template_arg : typing->template_arguments)
+                {
+                    hashval <<= 1;
+                    hashval += get_typing_hash_after_pass1(template_arg);
+                    hashval *= hashval;
+                }
+            }
+            if (typing->is_func())
+            {
+                for (auto& arg : typing->argument_types)
+                {
+                    hashval <<= 1;
+                    hashval += get_typing_hash_after_pass1(arg);
+                    hashval *= hashval;
+                }
+            }
+
+            hashval >>= 16;
+
+            uint32_t hash32 = hashval & 0xFFFFFFFF;
+            while (hashed_typing.find(hash32) != hashed_typing.end())
+            {
+                if (hashed_typing[hash32]->is_same(typing, false))
+                    return hash32;
+                hash32++;
+            }
+            hashed_typing[hash32] = typing;
+
+            return hash32;
+        }
+
         std::map<rs_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
 
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
@@ -249,28 +300,31 @@ namespace rs
                         symboled_type->set_type(type_sym->type_informatiom);
                         fully_update_type(symboled_type);
 
-                        auto* using_type = new ast::ast_type(type_sym->name);
-                        using_type->template_arguments = type->template_arguments;
-
                         if (type->is_func())
                             type->set_ret_type(symboled_type);
                         else
                             type->set_type(symboled_type);
 
-
-                        type->using_type_name = using_type;
-
-                        // Gen namespace chain
-                        auto* inscopes = type_sym->defined_in_scope;
-                        while (inscopes && inscopes->belong_namespace)
+                        if (type_sym->type != lang_symbol::symbol_type::template_typing)
                         {
-                            if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                            auto* using_type = new ast::ast_type(type_sym->name);
+                            using_type->template_arguments = type->template_arguments;
+
+
+                            type->using_type_name = using_type;
+
+                            // Gen namespace chain
+                            auto* inscopes = type_sym->defined_in_scope;
+                            while (inscopes && inscopes->belong_namespace)
                             {
-                                type->using_type_name->scope_namespaces.insert(
-                                    type->using_type_name->scope_namespaces.begin(),
-                                    inscopes->scope_namespace);
+                                if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                                {
+                                    type->using_type_name->scope_namespaces.insert(
+                                        type->using_type_name->scope_namespaces.begin(),
+                                        inscopes->scope_namespace);
+                                }
+                                inscopes = inscopes->belong_namespace;
                             }
-                            inscopes = inscopes->belong_namespace;
                         }
                         if (using_template)
                             end_template_scope();
@@ -419,13 +473,19 @@ namespace rs
 
                 if (sym)
                 {
-                    if (!a_value_var->template_reification_args.empty() || sym->is_template_symbol)
-                        template_variable_list_for_pass_template.insert(a_value_var);
-                    else
-                        a_value_var->value_type = sym->variable_value->value_type;
+                    a_value_var->value_type = sym->variable_value->value_type;
                 }
-                else
-                    template_variable_list_for_pass_template.insert(a_value_var);
+                for (auto* a_type : a_value_var->template_reification_args)
+                {
+                    if (a_type->is_custom())
+                    {
+                        // ready for update..
+                        fully_update_type(a_type);
+                    }
+                    a_type->searching_begin_namespace_in_pass2 = now_scope();
+                }
+
+                template_variable_list_for_pass_template.insert(a_value_var);
             }
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
@@ -787,6 +847,7 @@ namespace rs
                     child = child->sibling;
                 }
             }
+
             if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
             {
                 if (a_val->value_type->is_custom())
@@ -803,86 +864,103 @@ namespace rs
         {
             using namespace ast;
 
-            for (ast_value_variable* a_value_var : template_variable_list_for_pass_template)
+            do
             {
-                auto* sym = find_value_in_this_scope(a_value_var);
-                if (sym)
+                auto _duped_template_variable_list_for_pass_template = template_variable_list_for_pass_template;
+                template_variable_list_for_pass_template.clear();
+                for (ast_value_variable* a_value_var : _duped_template_variable_list_for_pass_template)
                 {
-                    if (!a_value_var->template_reification_args.empty())
+                    auto* sym = find_value_in_this_scope(a_value_var);
+                    if (sym && sym->is_template_symbol)
                     {
-                        if (sym->type != lang_symbol::symbol_type::function)
-                            lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
-                        else
+                        if (!a_value_var->template_reification_args.empty())
                         {
-                            ast_value_function_define* dumpped_template_func_define = nullptr;
-                            ast_value_function_define* origin_template_func_define = nullptr;
-
-                            rs_assert(sym->function_overload_sets.size());
-                            for (auto& func_overload : sym->function_overload_sets)
-                            {
-                                if (func_overload->is_template_define
-                                    && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
-                                {
-                                    // TODO: find if there is already a reification with this type, goon..
-
-                                    origin_template_func_define = func_overload;
-                                    dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(func_overload->instance());
-                                    rs_assert(dumpped_template_func_define);
-
-                                    // Reset compile state..
-                                    dumpped_template_func_define->symbol = nullptr;
-                                    dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
-                                    dumpped_template_func_define->completed_in_pass2 = false;
-                                    dumpped_template_func_define->is_template_define = false;
-                                    dumpped_template_func_define->template_type_name_list.clear();
-                                    dumpped_template_func_define->is_template_reification = true;
-                                    break;
-                                }
-                            }
-
-                            if (!dumpped_template_func_define)
-                                lang_anylizer->lang_error(0x0000, a_value_var, L"未找到符合模板参数的函数重载，继续");
+                            if (sym->type != lang_symbol::symbol_type::function)
+                                lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
                             else
                             {
-                                temporary_entry_scope_in_pass1(sym->defined_in_scope);
-                                begin_template_scope(origin_template_func_define, a_value_var->template_reification_args);
+                                ast_value_function_define* dumpped_template_func_define = nullptr;
+                                ast_value_function_define* origin_template_func_define = nullptr;
 
-                                analyze_pass1(dumpped_template_func_define);
-
-                                // origin_template_func_define->parent->add_child(dumpped_template_func_define);
-                                end_template_scope();
-                                temporary_leave_scope_in_pass1();
-
-                                if (dumpped_template_func_define->symbol)
+                                rs_assert(sym->function_overload_sets.size());
+                                for (auto& func_overload : sym->function_overload_sets)
                                 {
+                                    if (func_overload->is_template_define
+                                        && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
+                                    {
+                                        // TODO: find if there is already a reification with this type, goon..
+                                        std::vector<uint32_t> template_args_hashtypes;
+                                        for (auto temtype : a_value_var->template_reification_args)
+                                            template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
 
+                                        // Finding there is already a reification
+                                        if (auto fnd = func_overload->template_typehashs_reification_instance_list.find(template_args_hashtypes);
+                                            fnd != func_overload->template_typehashs_reification_instance_list.end())
+                                        {
+                                            dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(fnd->second);
+                                            break;
+                                        }
+
+                                        origin_template_func_define = func_overload;
+                                        dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(func_overload->instance());
+                                        rs_assert(dumpped_template_func_define);
+
+                                        // Reset compile state..
+                                        dumpped_template_func_define->symbol = nullptr;
+                                        dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
+                                        dumpped_template_func_define->completed_in_pass2 = false;
+                                        dumpped_template_func_define->is_template_define = false;
+                                        dumpped_template_func_define->template_type_name_list.clear();
+                                        dumpped_template_func_define->is_template_reification = true;
+
+                                        origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
+                                            dumpped_template_func_define;
+
+                                        break;
+                                    }
                                 }
 
-                                lang_symbol* template_reification_symb = new lang_symbol;
+                                if (!dumpped_template_func_define)
+                                    lang_anylizer->lang_error(0x0000, a_value_var, L"未找到符合模板参数的函数重载，继续");
+                                else if (origin_template_func_define)
+                                {
+                                    temporary_entry_scope_in_pass1(sym->defined_in_scope);
+                                    begin_template_scope(origin_template_func_define, a_value_var->template_reification_args);
 
-                                template_reification_symb->type = lang_symbol::symbol_type::function;
-                                template_reification_symb->name = dumpped_template_func_define->function_name;
-                                template_reification_symb->defined_in_scope = now_scope();
-                                template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
-                                template_reification_symb->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
-                                template_reification_symb->variable_value = dumpped_template_func_define;
+                                    analyze_pass1(dumpped_template_func_define);
 
-                                a_value_var->symbol = template_reification_symb; // apply symbol
+                                    // origin_template_func_define->parent->add_child(dumpped_template_func_define);
+                                    end_template_scope();
+                                    temporary_leave_scope_in_pass1();
+
+                                    lang_symbol* template_reification_symb = new lang_symbol;
+
+                                    template_reification_symb->type = lang_symbol::symbol_type::function;
+                                    template_reification_symb->name = dumpped_template_func_define->function_name;
+                                    template_reification_symb->defined_in_scope = now_scope();
+                                    template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
+                                    template_reification_symb->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
+                                    template_reification_symb->variable_value = dumpped_template_func_define;
+
+                                    dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
+                                }
+
+                                a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
                             }
                         }
-                    }
-                    else
-                    {
-                        // TODO: No template args, trying auto judgement..
-                        rs_error("Not support now!");
-                    }
+                        else
+                        {
+                            // TODO: No template args, trying auto judgement..
+                            rs_error("Not support now!");
+                        }
 
-                    a_value_var->value_type = a_value_var->symbol->variable_value->value_type;
+                        a_value_var->value_type = a_value_var->symbol->variable_value->value_type;
+                    }
+                    else;
+                    // Do nothing, error will be reported by pass2
+
                 }
-                else;
-                // Do nothing, error will be reported by pass2
-
-            }
+            } while (!template_variable_list_for_pass_template.empty());
 
         }
         bool analyze_pass2(grammar::ast_base* ast_node)
@@ -920,7 +998,14 @@ namespace rs
             if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
             {
                 if (ast_defines* a_defines = dynamic_cast<ast_defines*>(a_value);
-                    !a_defines || !a_defines->is_template_define)
+                    a_defines && a_defines->is_template_define)
+                {
+                    for (auto& [typehashs, astnode] : a_defines->template_typehashs_reification_instance_list)
+                    {
+                        analyze_pass2(astnode);
+                    }
+                }
+                else
                 {
                     if (a_value->value_type->is_custom())
                     {
@@ -2637,6 +2722,9 @@ namespace rs
             {
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
+                    if (a_value_type_check->aim_type->is_dynamic())
+                        return RS_NEW_OPNUM(imm(1));
+
                     // is dynamic do check..
                     auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
 

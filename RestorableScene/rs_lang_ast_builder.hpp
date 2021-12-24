@@ -159,7 +159,10 @@ namespace rs
 
                 if (from->is_nil())
                 {
-                    if (to->value_type == value::valuetype::array_type || to->value_type == value::valuetype::mapping_type || to->is_func() || to->is_nil())
+                    if (to->value_type == value::valuetype::array_type 
+                        || to->value_type == value::valuetype::mapping_type 
+                        || to->is_func() 
+                        || to->is_nil())
                         return true;
                     return false;
                 }
@@ -175,15 +178,24 @@ namespace rs
                     if (to->value_type == value::valuetype::string_type)
                         return true;
 
-                    if (to->value_type == value::valuetype::integer_type || to->value_type == value::valuetype::real_type || to->value_type == value::valuetype::handle_type || to->value_type == value::valuetype::string_type)
+                    if (to->value_type == value::valuetype::integer_type 
+                        || to->value_type == value::valuetype::real_type 
+                        || to->value_type == value::valuetype::handle_type 
+                        || to->value_type == value::valuetype::string_type)
                     {
-                        if (from->value_type == value::valuetype::integer_type || from->value_type == value::valuetype::real_type || from->value_type == value::valuetype::handle_type || from->value_type == value::valuetype::string_type)
+                        if (from->value_type == value::valuetype::integer_type 
+                            || from->value_type == value::valuetype::real_type 
+                            || from->value_type == value::valuetype::handle_type 
+                            || from->value_type == value::valuetype::string_type)
                             return true;
                     }
                 }
                 else
                 {
-                    if ((to->value_type == value::valuetype::integer_type || to->value_type == value::valuetype::real_type) && (from->value_type == value::valuetype::integer_type || from->value_type == value::valuetype::real_type))
+                    if ((to->value_type == value::valuetype::integer_type 
+                        || to->value_type == value::valuetype::real_type) 
+                        && (from->value_type == value::valuetype::integer_type 
+                            || from->value_type == value::valuetype::real_type))
                     {
                         return true;
                     }
@@ -211,12 +223,12 @@ namespace rs
 
                 if (value_type == value::valuetype::array_type)
                 {
-                    template_arguments.push_back(new ast_type(L"pending"));
+                    template_arguments.push_back(new ast_type(L"dynamic"));
                 }
                 else if (value_type == value::valuetype::mapping_type)
                 {
-                    template_arguments.push_back(new ast_type(L"pending"));
-                    template_arguments.push_back(new ast_type(L"pending"));
+                    template_arguments.push_back(new ast_type(L"dynamic"));
+                    template_arguments.push_back(new ast_type(L"dynamic"));
                 }
             }
             void set_type(const ast_type* _type)
@@ -904,7 +916,10 @@ namespace rs
 
             bool is_template_define = false;
             bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
+            lang_symbol* this_reification_lang_symbol = nullptr;
             std::vector<std::wstring> template_type_name_list;
+
+            std::map<std::vector<uint32_t>, ast_defines*> template_typehashs_reification_instance_list;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -1392,6 +1407,7 @@ namespace rs
             {
                 rs_test(array_items);
                 value_type = new ast_type(L"array");
+                value_type->template_arguments[0]->set_type_with_name(L"pending");
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -1424,6 +1440,8 @@ namespace rs
             {
                 rs_test(mapping_pairs);
                 value_type = new ast_type(L"map");
+                value_type->template_arguments[0]->set_type_with_name(L"pending");
+                value_type->template_arguments[1]->set_type_with_name(L"pending");
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override

@@ -1,4 +1,3 @@
-/* */
 import test_tool;
 
 import test_helloworld;
@@ -9,21 +8,7 @@ import test_dup;
 import test_static;
 import test_enum;
 import test_vm;
-/* */
+import test_template;
 
-import rscene.std;
-
-func mkarr<T>()
-{
-	return [[],[],[]]:array<array<T>>;
-}
-
-var a = mkarr:<real>();
-a[0] = [1:real,2,3];
-
-std::println(a);
-
-/* */
 std::println("Unit-test begin!");
 execute_all_test();
-/* */

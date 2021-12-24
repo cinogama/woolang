@@ -149,6 +149,7 @@
     <None Include="test_scripts\test_gc.rsn" />
     <None Include="test_scripts\test_helloworld.rsn" />
     <None Include="test_scripts\test_static.rsn" />
+    <None Include="test_scripts\test_template.rsn" />
     <None Include="test_scripts\test_vm.rsn" />
     <None Include="test_scripts\test_while.rsn" />
   </ItemGroup>
