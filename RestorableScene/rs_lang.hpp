@@ -860,6 +860,62 @@ namespace rs
             }
 
         }
+
+        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
+        {
+            using namespace ast;
+
+            std::vector<uint32_t> template_args_hashtypes;
+            for (auto temtype : template_args_types)
+                template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+
+            ast_value_function_define* dumpped_template_func_define = nullptr;
+
+            if (auto fnd = origin_template_func_define->template_typehashs_reification_instance_list.find(template_args_hashtypes);
+                fnd != origin_template_func_define->template_typehashs_reification_instance_list.end())
+            {
+                return  dynamic_cast<ast_value_function_define*>(fnd->second);
+            }
+
+            dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(origin_template_func_define->instance());
+            rs_assert(dumpped_template_func_define);
+
+            // Reset compile state..
+            dumpped_template_func_define->symbol = nullptr;
+            dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
+            dumpped_template_func_define->completed_in_pass2 = false;
+            dumpped_template_func_define->is_template_define = false;
+            dumpped_template_func_define->template_type_name_list.clear();
+            dumpped_template_func_define->is_template_reification = true;
+
+            dumpped_template_func_define->this_reification_template_args = template_args_types;
+
+            origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
+                dumpped_template_func_define;
+
+            temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
+            begin_template_scope(origin_template_func_define, template_args_types);
+
+            analyze_pass1(dumpped_template_func_define);
+
+            // origin_template_func_define->parent->add_child(dumpped_template_func_define);
+            end_template_scope();
+            temporary_leave_scope_in_pass1();
+
+            lang_symbol* template_reification_symb = new lang_symbol;
+
+            template_reification_symb->type = lang_symbol::symbol_type::function;
+            template_reification_symb->name = dumpped_template_func_define->function_name;
+            template_reification_symb->defined_in_scope = now_scope();
+            template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
+            template_reification_symb->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
+            template_reification_symb->variable_value = dumpped_template_func_define;
+
+            dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
+
+            return  dumpped_template_func_define;
+        }
+
         void analyze_pass_template()
         {
             using namespace ast;
@@ -888,35 +944,9 @@ namespace rs
                                     if (func_overload->is_template_define
                                         && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
                                     {
-                                        // TODO: find if there is already a reification with this type, goon..
-                                        std::vector<uint32_t> template_args_hashtypes;
-                                        for (auto temtype : a_value_var->template_reification_args)
-                                            template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+                                        // TODO: finding repeated template? goon
 
-                                        // Finding there is already a reification
-                                        if (auto fnd = func_overload->template_typehashs_reification_instance_list.find(template_args_hashtypes);
-                                            fnd != func_overload->template_typehashs_reification_instance_list.end())
-                                        {
-                                            dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(fnd->second);
-                                            break;
-                                        }
-
-                                        origin_template_func_define = func_overload;
-                                        dumpped_template_func_define = dynamic_cast<ast_value_function_define*>(func_overload->instance());
-                                        rs_assert(dumpped_template_func_define);
-
-                                        // Reset compile state..
-                                        dumpped_template_func_define->symbol = nullptr;
-                                        dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
-                                        dumpped_template_func_define->completed_in_pass2 = false;
-                                        dumpped_template_func_define->is_template_define = false;
-                                        dumpped_template_func_define->template_type_name_list.clear();
-                                        dumpped_template_func_define->is_template_reification = true;
-
-                                        dumpped_template_func_define->this_reification_template_args = a_value_var->template_reification_args;
-
-                                        origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
-                                            dumpped_template_func_define;
+                                        dumpped_template_func_define = analyze_pass_template_reification(func_overload, a_value_var->template_reification_args);
 
                                         break;
                                     }
@@ -924,36 +954,15 @@ namespace rs
 
                                 if (!dumpped_template_func_define)
                                     lang_anylizer->lang_error(0x0000, a_value_var, L"未找到符合模板参数的函数重载，继续");
-                                else if (origin_template_func_define)
-                                {
-                                    temporary_entry_scope_in_pass1(sym->defined_in_scope);
-                                    begin_template_scope(origin_template_func_define, a_value_var->template_reification_args);
-
-                                    analyze_pass1(dumpped_template_func_define);
-
-                                    // origin_template_func_define->parent->add_child(dumpped_template_func_define);
-                                    end_template_scope();
-                                    temporary_leave_scope_in_pass1();
-
-                                    lang_symbol* template_reification_symb = new lang_symbol;
-
-                                    template_reification_symb->type = lang_symbol::symbol_type::function;
-                                    template_reification_symb->name = dumpped_template_func_define->function_name;
-                                    template_reification_symb->defined_in_scope = now_scope();
-                                    template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
-                                    template_reification_symb->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
-                                    template_reification_symb->variable_value = dumpped_template_func_define;
-
-                                    dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
-                                }
-
-                                a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
+                                else
+                                    a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
                             }
                         }
                         else
                         {
-                            // TODO: No template args, trying auto judgement..
-                            rs_error("Not support now!");
+                            // No template args.. continue..
+
+                            continue;
                         }
 
                         a_value_var->value_type = a_value_var->symbol->variable_value->value_type;

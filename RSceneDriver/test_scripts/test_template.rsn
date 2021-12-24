@@ -44,6 +44,11 @@ namespace test_template
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
     }
 
+    func cast_to<FROM, TO>(var val:FROM)
+    {
+        return val:TO;
+    }
+
     func main()
     {
         test_equal(fib:<int>, fib:<int>);
@@ -77,6 +82,8 @@ namespace test_template
         test_cost_time:<dynamic>();
         test_cost_time:<dynamic>();
         test_cost_time:<dynamic>();
+
+        test_equal(cast_to:<int, string>(3)+".14159", "3.14159");
     }
 }
 
