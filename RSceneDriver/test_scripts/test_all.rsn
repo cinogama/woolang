@@ -12,4 +12,47 @@ import test_vm;
 import test_template;
 
 std::println("Unit-test begin!");
-execute_all_test();
+// execute_all_test();
+
+
+import rscene.thread;
+
+var summ_mtx = std::mutex::create();
+var summ = 0;
+
+var created_thread = []:array<std::thread>;
+
+const var thread_count = 4;
+
+var i = 0;
+while (i<thread_count)
+{
+	created_thread->add(
+		std::thread::create(
+			func(var id:int)
+			{
+				var c = 0;
+				while (c<1_0000_0000)
+				{
+					//summ_mtx->lock();
+					summ += 1;
+					//summ_mtx->unlock();
+
+					c+=1;
+				}
+				std::println("Thread:", id, "complete");
+			}, i 
+			)
+	);
+	i+=1;
+}
+
+std::println("OK! Waiting to end..");
+
+i = 0;
+while (i<thread_count)
+{
+	created_thread[i]->wait();
+	i+=1;
+}
+std::println("Result:", summ);

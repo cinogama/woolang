@@ -67,6 +67,7 @@ typedef enum _rs_value_type
     RS_STRING_TYPE,
     RS_ARRAY_TYPE,
     RS_MAPPING_TYPE,
+    RS_GCHANDLE_TYPE,
 }
 rs_type;
 
@@ -114,6 +115,7 @@ RS_API rs_result_t  rs_ret_real(rs_vm vm, rs_real_t result);
 RS_API rs_result_t  rs_ret_handle(rs_vm vm, rs_handle_t result);
 RS_API rs_result_t  rs_ret_pointer(rs_vm vm, rs_ptr_t result);
 RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
+RS_API rs_result_t  rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, void(*destruct_func)(rs_ptr_t));
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
 RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
 RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
@@ -126,6 +128,8 @@ enum _rs_inform_style
 
 RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 RS_API rs_vm        rs_create_vm();
+RS_API rs_vm        rs_sub_vm(rs_vm vm);
+RS_API rs_bool_t    rs_abort_vm(rs_vm vm);
 RS_API void         rs_close_vm(rs_vm vm);
 RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
 RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
@@ -143,6 +147,7 @@ RS_API rs_value     rs_push_string(rs_vm vm, rs_string_t val);
 RS_API rs_value     rs_push_nil(rs_vm vm);
 RS_API rs_value     rs_push_val(rs_vm vm, rs_value val);
 RS_API rs_value     rs_push_ref(rs_vm vm, rs_value val);
+RS_API rs_value     rs_push_valref(rs_vm vm, rs_value val);
 
 RS_API rs_value     rs_top_stack(rs_vm vm);
 RS_API void         rs_pop_stack(rs_vm vm);

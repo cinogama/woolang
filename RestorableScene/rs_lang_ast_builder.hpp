@@ -115,6 +115,7 @@ namespace rs
                 {L"string", value::valuetype::string_type},
                 {L"map", value::valuetype::mapping_type},
                 {L"array", value::valuetype::array_type},
+                {L"gchandle", value::valuetype::gchandle_type},
                 {L"nil", value::valuetype::invalid},
 
                 // special type
@@ -176,6 +177,7 @@ namespace rs
                 {
                     if (to->value_type == value::valuetype::array_type
                         || to->value_type == value::valuetype::mapping_type
+                        || to->value_type == value::valuetype::gchandle_type
                         || to->is_func()
                         || to->is_nil())
                         return true;
@@ -727,6 +729,9 @@ namespace rs
                 case value::valuetype::mapping_type:
                     os << L"map";
                     break;
+                case value::valuetype::gchandle_type:
+                    os << L"gchandle";
+                    break;
                 case value::valuetype::array_type:
                     os << L"array";
                     break;
@@ -844,6 +849,14 @@ namespace rs
                             if (last_value.is_nil())
                             {
                                 constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                break;
+                            }
+                            goto try_cast_nil_to_int_handle_real_str;
+                            break;
+                        case value::valuetype::gchandle_type:
+                            if (last_value.is_nil())
+                            {
+                                constant_value.set_gcunit_with_barrier(value::valuetype::gchandle_type);
                                 break;
                             }
                             goto try_cast_nil_to_int_handle_real_str;

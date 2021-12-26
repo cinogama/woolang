@@ -2620,6 +2620,7 @@ namespace rs
                 case value::valuetype::invalid:  // for nil
                 case value::valuetype::array_type:  // for nil
                 case value::valuetype::mapping_type:  // for nil
+                case value::valuetype::gchandle_type:  // for nil
                     if (!get_pure_value)
                         return RS_NEW_OPNUM(reg(reg::ni));
                     else

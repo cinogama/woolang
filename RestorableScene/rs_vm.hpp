@@ -101,6 +101,9 @@ namespace rs
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
             // to check something about debug, such as breakpoint.
             // * DEBUG_INTERRUPT will cause huge performance loss
+
+            ABORT_INTERRUPT = 1 << 11,
+            // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
         };
 
         vmbase(const vmbase&) = delete;
@@ -590,6 +593,8 @@ namespace rs
                         tmpos << "array"; break;
                     case value::valuetype::mapping_type:
                         tmpos << "map"; break;
+                    case value::valuetype::gchandle_type:
+                        tmpos << "gchandle"; break;
                     default:
                         tmpos << "unknown"; break;
                     }
@@ -613,6 +618,8 @@ namespace rs
                         tmpos << "array"; break;
                     case value::valuetype::mapping_type:
                         tmpos << "map"; break;
+                    case value::valuetype::gchandle_type:
+                        tmpos << "gchandle"; break;
                     default:
                         tmpos << "unknown"; break;
                     }
@@ -639,6 +646,8 @@ namespace rs
                         tmpos << "array"; break;
                     case value::valuetype::mapping_type:
                         tmpos << "map"; break;
+                    case value::valuetype::gchandle_type:
+                        tmpos << "gchandle"; break;
                     default:
                         tmpos << "unknown"; break;
                     }
@@ -2828,7 +2837,7 @@ namespace rs
                                 packed_array->resize(tc->integer - opnum2->integer);
                                 for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                                 {
-                                    (*packed_array)[argindex - opnum2->integer].set_ref((rt_bp + 2 + argindex)->get());
+                                    (*packed_array)[argindex - opnum2->integer].set_trans((rt_bp + 2 + argindex)->get());
                                 }
 
                                 break;
@@ -2854,7 +2863,7 @@ namespace rs
                                         for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
                                             arg_idx != arg_array->rend();
                                             arg_idx++)
-                                            (rt_sp--)->set_ref(arg_idx->get());
+                                            (rt_sp--)->set_trans(&*arg_idx);
                                     }
                                 }
                                 else
@@ -2864,7 +2873,7 @@ namespace rs
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
 
                                     for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                                        (rt_sp--)->set_ref(arg_idx->get());
+                                        (rt_sp--)->set_trans(&*arg_idx);
 
                                     tc->integer += arg_array->size();
                                 }
@@ -2905,6 +2914,12 @@ namespace rs
                         {
                             // That should not be happend...
                             rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                        }
+                        else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
+                        {
+                            // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+                            // CLEAR ABORT_INTERRUPT
+                            return;
                         }
 
                         // it should be last interrupt..

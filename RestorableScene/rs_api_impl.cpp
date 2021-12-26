@@ -191,6 +191,7 @@ void rs_init(int argc, char** argv)
         rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
         rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
         rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
+        rs_virtual_source(rs_stdlib_thread_src_path, rs_stdlib_thread_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -210,7 +211,8 @@ rs_integer_t rs_version_int(void)
     return version;
 }
 
-#define RS_VAL(v) (reinterpret_cast<rs::value*>(v)->get())
+#define RS_ORIGIN_VAL(v) (reinterpret_cast<rs::value*>(v))
+#define RS_VAL(v) (RS_ORIGIN_VAL(v)->get())
 #define RS_VM(v) (reinterpret_cast<rs::vmbase*>(v))
 #define CS_VAL(v) (reinterpret_cast<rs_value>(v))
 #define CS_VM(v) (reinterpret_cast<rs_vm>(v))
@@ -244,22 +246,30 @@ rs_real_t rs_real(rs_value value)
 rs_handle_t rs_handle(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
-    if (_rsvalue->type != rs::value::valuetype::handle_type)
+    if (_rsvalue->type != rs::value::valuetype::handle_type
+        && _rsvalue->type != rs::value::valuetype::gchandle_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
         return rs_cast_handle(value);
     }
-    return _rsvalue->handle;
+    return _rsvalue->type == rs::value::valuetype::handle_type ?
+        (rs_handle_t)_rsvalue->handle
+        :
+        (rs_handle_t)_rsvalue->gchandle->holding_handle;
 }
 rs_ptr_t rs_pointer(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
-    if (_rsvalue->type != rs::value::valuetype::handle_type)
+    if (_rsvalue->type != rs::value::valuetype::handle_type
+        && _rsvalue->type != rs::value::valuetype::gchandle_type)
     {
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
         return rs_cast_pointer(value);
     }
-    return (rs_ptr_t)_rsvalue->handle;
+    return _rsvalue->type == rs::value::valuetype::handle_type?
+        (rs_ptr_t)_rsvalue->handle
+        :
+        (rs_ptr_t)_rsvalue->gchandle->holding_handle;
 }
 rs_string_t rs_string(rs_value value)
 {
@@ -365,6 +375,8 @@ rs_handle_t rs_cast_handle(rs_value value)
         return (rs_handle_t)_rsvalue->integer;
     case rs::value::valuetype::handle_type:
         return _rsvalue->handle;
+    case rs::value::valuetype::gchandle_type:
+        return (rs_handle_t)_rsvalue->gchandle->holding_handle;
     case rs::value::valuetype::real_type:
         return (rs_handle_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
@@ -399,6 +411,9 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         return;
     case rs::value::valuetype::real_type:
         *out_str += std::to_string(_rsvalue->real);
+        return;
+    case rs::value::valuetype::gchandle_type:
+        *out_str += std::to_string((size_t)_rsvalue->gchandle->holding_handle);
         return;
     case rs::value::valuetype::string_type:
     {
@@ -499,6 +514,9 @@ rs_string_t rs_cast_string(const rs_value value)
     case rs::value::valuetype::handle_type:
         _buf = std::to_string(_rsvalue->handle);
         return _buf.c_str();
+    case rs::value::valuetype::gchandle_type:
+        _buf = std::to_string((size_t)_rsvalue->gchandle->holding_handle);
+        return _buf.c_str();
     case rs::value::valuetype::real_type:
         _buf = std::to_string(_rsvalue->real);
         return _buf.c_str();
@@ -534,6 +552,8 @@ rs_string_t rs_type_name(const rs_value value)
         return "array";
     case rs::value::valuetype::mapping_type:
         return "map";
+    case rs::value::valuetype::gchandle_type:
+        return "gchandle";
     case rs::value::valuetype::invalid:
         return "nil";
     }
@@ -564,6 +584,15 @@ rs_result_t rs_ret_pointer(rs_vm vm, rs_ptr_t result)
 rs_result_t rs_ret_string(rs_vm vm, rs_string_t result)
 {
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_string(result));
+}
+rs_result_t rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, void(*destruct_func)(rs_ptr_t))
+{
+    RS_VM(vm)->cr->set_gcunit_with_barrier(rs::value::valuetype::gchandle_type);
+    auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(RS_VM(vm)->cr->gcunit);
+    handle_ptr->holding_handle = resource_ptr;
+    handle_ptr->destructor = destruct_func;
+
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr);
 }
 rs_result_t rs_ret_nil(rs_vm vm)
 {
@@ -623,6 +652,11 @@ rs_bool_t rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t en
 rs_vm rs_create_vm()
 {
     return (rs_vm)new rs::vm;
+}
+
+rs_vm rs_sub_vm(rs_vm vm)
+{
+    return CS_VM(RS_VM(vm)->make_machine());
 }
 
 void rs_close_vm(rs_vm vm)
@@ -759,6 +793,17 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
     return _vm_compile_errors.c_str();
 }
 
+rs_bool_t rs_abort_vm(rs_vm vm)
+{
+    std::shared_lock gs(rs::vmbase::_alive_vm_list_mx);
+
+    if (rs::vmbase::_alive_vm_list.find(RS_VM(vm)) != rs::vmbase::_alive_vm_list.end())
+    {
+        return RS_VM(vm)->interrupt(rs::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+    }
+    return false;
+}
+
 rs_value rs_push_int(rs_vm vm, rs_int_t val)
 {
     return CS_VAL((RS_VM(vm)->sp--)->set_integer(val));
@@ -795,6 +840,13 @@ rs_value rs_push_ref(rs_vm vm, rs_value val)
         return CS_VAL((RS_VM(vm)->sp--)->set_ref(RS_VAL(val)));
     return CS_VAL((RS_VM(vm)->sp--)->set_nil());
 }
+rs_value rs_push_valref(rs_vm vm, rs_value val)
+{
+    if (val)
+        return CS_VAL((RS_VM(vm)->sp--)->set_trans(RS_ORIGIN_VAL(val)));
+    return CS_VAL((RS_VM(vm)->sp--)->set_nil());
+}
+
 
 rs_value rs_top_stack(rs_vm vm)
 {

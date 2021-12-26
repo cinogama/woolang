@@ -1,9 +1,11 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_utf8.hpp"
+#include "rs_vm.hpp"
 
 #include <chrono>
 #include <random>
+#include <thread>
 
 RS_API rs_api rslib_std_print(rs_vm vm, rs_value args, size_t argc)
 {
@@ -409,4 +411,159 @@ namespace std
         func virtual_source(var vfilepath:string, var src:string, var enable_overwrite:bool):bool;
     }
 }
+)" };
+
+struct rs_thread_pack
+{
+    std::thread* _thread;
+    rs_vm _vm;
+};
+
+RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_vm new_thread_vm = rs_sub_vm(vm);
+
+    rs_int_t funcaddr_vm = 0;
+    rs_handle_t funcaddr_native = 0;
+
+    if (rs_valuetype(args) == RS_INTEGER_TYPE)
+        funcaddr_vm = rs_int(args);
+    else if (rs_valuetype(args) == RS_HANDLE_TYPE)
+        funcaddr_native = rs_handle(args);
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Cannot invoke this type of value.");
+
+    for (size_t argidx = argc - 1; argidx > 0; argidx--)
+    {
+        rs_push_valref(new_thread_vm, args + argidx);
+    }
+
+    auto* _vmthread = new std::thread([=]() {
+
+        try
+        {
+            if (funcaddr_vm)
+                rs_invoke_rsfunc((rs_vm)new_thread_vm, funcaddr_vm, argc - 1);
+            else
+                rs_invoke_exfunc((rs_vm)new_thread_vm, funcaddr_native, argc - 1);
+        }
+        catch (...)
+        {
+            // ?
+        }
+
+        rs_close_vm(new_thread_vm);
+
+
+        });
+
+    return rs_ret_gchandle(vm,
+        new rs_thread_pack{ _vmthread , new_thread_vm },
+        [](void* rs_thread_pack_ptr)
+        {
+            ((rs_thread_pack*)rs_thread_pack_ptr)->_thread->detach();
+            delete ((rs_thread_pack*)rs_thread_pack_ptr)->_thread;
+        });
+}
+
+RS_API rs_api rslib_std_thread_wait(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_thread_pack* rtp = (rs_thread_pack*)rs_pointer(args);
+    rtp->_thread->join();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_abort(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_thread_pack* rtp = (rs_thread_pack*)rs_pointer(args);
+    return rs_ret_int(vm, rs_abort_vm(rtp->_vm));
+}
+
+
+RS_API rs_api rslib_std_thread_mutex_create(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_gchandle(vm,
+        new std::shared_mutex,
+        [](void* mtx_ptr)
+        {
+            delete (std::shared_mutex*)mtx_ptr;
+        });
+}
+
+RS_API rs_api rslib_std_thread_mutex_read(rs_vm vm, rs_value args, size_t argc)
+{
+    std::shared_mutex* smtx = (std::shared_mutex*)rs_pointer(args);
+    smtx->lock_shared();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_mutex_write(rs_vm vm, rs_value args, size_t argc)
+{
+    std::shared_mutex* smtx = (std::shared_mutex*)rs_pointer(args);
+    smtx->lock();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_mutex_read_end(rs_vm vm, rs_value args, size_t argc)
+{
+    std::shared_mutex* smtx = (std::shared_mutex*)rs_pointer(args);
+    smtx->unlock_shared();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_mutex_write_end(rs_vm vm, rs_value args, size_t argc)
+{
+    std::shared_mutex* smtx = (std::shared_mutex*)rs_pointer(args);
+    smtx->unlock();
+
+    return rs_ret_nil(vm);
+}
+
+
+
+
+const char* rs_stdlib_thread_src_path = u8"rscene/thread.rsn";
+const char* rs_stdlib_thread_src_data = {
+u8R"(
+import rscene.basic;
+
+namespace std
+{
+    using thread = gchandle;
+    namespace thread
+    {
+        extern("rslib_std_thread_create")
+            func create<FuncT>(var thread_work:FuncT, ...):thread;
+
+        extern("rslib_std_thread_wait")
+            func wait(var threadhandle : thread):void;
+
+        extern("rslib_std_thread_abort")
+            func abort(var threadhandle : thread):bool;
+    }
+
+    using mutex = gchandle;
+    namespace mutex
+    {
+        extern("rslib_std_thread_mutex_create")
+            func create():mutex;
+
+        extern("rslib_std_thread_mutex_read")
+            func read(var mtx : mutex):void;
+
+        extern("rslib_std_thread_mutex_write")
+            func lock(var mtx : mutex):void;
+
+        extern("rslib_std_thread_mutex_read_end")
+            func unread(var mtx : mutex):void;
+
+        extern("rslib_std_thread_mutex_write_end")
+            func unlock(var mtx : mutex):void;
+    }
+}
+
 )" };

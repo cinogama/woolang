@@ -36,6 +36,20 @@ namespace rs
     template<typename ... TS>
     using cxx_map_t = std::map<TS...>;
 
+    struct gc_handle_base_t
+    {
+        void* holding_handle = nullptr;
+        void(*destructor)(void*) = nullptr;
+
+        ~gc_handle_base_t()
+        {
+            if (destructor)
+                destructor(holding_handle);
+        }
+    };
+
+    using gchandle_t = gcunit<gc_handle_base_t>;
+
     struct value
     {
         //  value
@@ -59,6 +73,7 @@ namespace rs
             string_type,
             mapping_type,
             array_type,
+            gchandle_type,
 
         };
 
@@ -72,6 +87,7 @@ namespace rs
             string_t* string;     // ADD-ABLE TYPE
             array_t* array;
             mapping_t* mapping;
+            gchandle_t* gchandle;
 
             struct
             {
@@ -224,6 +240,14 @@ namespace rs
             }
             return _ref;
         }
+
+        inline value* set_trans(value* _ref)
+        {
+            if (_ref->is_ref())
+                return set_ref(_ref->get());
+            return set_val(_ref);
+        }
+
         inline bool is_gcunit() const
         {
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
