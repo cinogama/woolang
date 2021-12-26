@@ -19,13 +19,24 @@ namespace rs
         {
 
         }
-        void set_breakpoint(const std::string& src_file, size_t rowno)
+        bool set_breakpoint(const std::string& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
             if (_env)
-                break_point_traps.insert(_env->program_debug_info->get_ip_by_src_location(src_file, rowno));
+            {
+                auto breakip = _env->program_debug_info->get_ip_by_src_location(src_file, rowno);
+
+                if (breakip < _env->rt_code_len)
+                {
+                    break_point_traps.insert(breakip);
+                    return true;
+                }
+                return false;
+            }
             else
                 template_breakpoint[src_file][rowno] = true;
+
+            return true;
         }
         void clear_breakpoint(const std::string& src_file, size_t rowno)
         {
@@ -59,7 +70,7 @@ return          r                             Execute to the return of this fun
                                             -ction.
 help            ?                             Get help informations.   
 list            l               <listitem>    List something, such as:
-                                            break, var, 
+                                            break, var, vm(thread)
 next            n                             Execute next line of src.
 print           p               <varname>     Print the value.
 quit                                          Exit(0)
@@ -283,8 +294,11 @@ stepir          si                            Execute next command.
                     if (need_possiable_input(inputbuf, filename_or_funcname))
                     {
                         size_t lineno;
+
+                        bool result = false;
+
                         if (need_possiable_input(inputbuf, lineno))
-                            set_breakpoint(filename_or_funcname, lineno);
+                            result = set_breakpoint(filename_or_funcname, lineno);
                         else
                         {
                             for (auto ch : filename_or_funcname)
@@ -307,12 +321,16 @@ stepir          si                            Execute next command.
                                 }
                             }
                             ;
-                            set_breakpoint(
+                            result = set_breakpoint(
                                 vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
                                 , std::stoull(filename_or_funcname));
 
                         }
-                        std::cout << "OK!" << std::endl;
+
+                        if (result)
+                            std::cout << "OK!" << std::endl;
+                        else
+                            std::cout << "FAIL!" << std::endl;
                     }
                     else
                         printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
@@ -468,6 +486,36 @@ stepir          si                            Execute next command.
                             }
                             else
                                 printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                        }
+                        else if (list_what == "vm" || list_what == "thread")
+                        {
+                            if (rs::vmbase::_alive_vm_list_mx.try_lock_shared())
+                            {
+                                size_t vmcount = 0;
+                                for (auto vms : rs::vmbase::_alive_vm_list)
+                                {
+                                    std::cout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " ";
+
+                                    if (vms->env->rt_codes == vms->ip || vms->ip == vms->env->rt_codes + vms->env->rt_code_len)
+                                        std::cout << "(pending)" << std::endl;
+                                    else if (vms->ip < vms->env->rt_codes || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
+                                    {
+                                        std::cout << "(leaving)" << std::endl;
+                                        vms->dump_call_stack(5, false);
+                                    }
+                                    else
+                                    {
+                                        std::cout << "(running)" << std::endl;
+                                        vms->dump_call_stack(5, false);
+                                    }
+
+                                    vmcount++;
+                                }
+
+                                rs::vmbase::_alive_vm_list_mx.unlock_shared();
+                            }
+                            else
+                                printf(ANSI_HIR "Failed to get thread(virtual machine) list, may busy.\n" ANSI_RST);
                         }
                         else
                             printf(ANSI_HIR "Unknown type to list.\n" ANSI_RST);

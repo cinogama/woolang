@@ -376,9 +376,15 @@ namespace rs
 
                 wchar_t error_num_str[10] = {};
                 swprintf(error_num_str, 10, L"%04X", errorno);
-
-                return (is_warning ?
-                    (ANSI_HIY L"warning" ANSI_RST) : (ANSI_HIR L"error" ANSI_RST))
+                if (need_ansi_describe)
+                    return (is_warning ?
+                        (ANSI_HIY L"warning" ANSI_RST) : (ANSI_HIR L"error" ANSI_RST))
+                    + ((is_warning ? L" W"s : L" E"s) + error_num_str)
+                    + (L" (" + std::to_wstring(row) + L"," + std::to_wstring(col))
+                    + (L") " + describe);
+                else
+                    return (is_warning ?
+                        (L"warning") : (L"error"))
                     + ((is_warning ? L" W"s : L" E"s) + error_num_str)
                     + (L" (" + std::to_wstring(row) + L"," + std::to_wstring(col))
                     + (L") " + describe);

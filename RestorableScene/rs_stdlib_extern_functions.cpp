@@ -77,8 +77,7 @@ RS_API rs_api rslib_std_array_add(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_map_find(args + 0, args + 1);
-    return rs_ret_nil(vm);
+    return rs_ret_int(vm, rs_map_find(args + 0, args + 1));
 }
 
 RS_API rs_api rslib_std_map_only_get(rs_vm vm, rs_value args, size_t argc)
@@ -259,22 +258,23 @@ namespace string
         func sub(var val:string, var begin:int, var length:int):string;
 }
 
-// TODO: array & map have template args now, but template function has not completed.
-//       here just using dynamic...
-
 namespace array
 {
     extern("rslib_std_lengthof") 
-        func len(var val):int;
+        func len<T>(var val:array<T>):int;
+
     extern("rslib_std_array_resize") 
-        func resize(var val, var newsz:int):void;
-    func get(var a, var index:int)
+        func resize<T>(var val:array<T>, var newsz:int):void;
+
+    func get<T>(var a:array<T>, var index:int)
     {
         return a[index];
     }
+
     extern("rslib_std_array_add") 
-        func add(var val, var elem):dynamic;  
-    func dup(var val)
+        func add<T>(var val:array<T>, var elem:T):T;
+  
+    func dup<T>(var val:array<T>)
     {
         const var _dupval = val;
         return _dupval;
@@ -284,14 +284,14 @@ namespace array
 namespace map
 {
     extern("rslib_std_lengthof") 
-        func len(var val):int;
+        func len<KT, VT>(var val:map<KT, VT>):int;
     extern("rslib_std_map_find") 
-        func find(var val, var index):int;
+        func find<KT, VT>(var val:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_only_get") 
-        func get(var m, var index:dynamic):dynamic;
+        func get<KT, VT>(var m:map<KT, VT>, var index:KT):VT;
     extern("rslib_std_map_get_by_default") 
-        func get(var m, var index:dynamic, var default_val:dynamic):dynamic;
-    func dup(var val)
+        func get<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
+    func dup<KT, VT>(var val:map<KT, VT>)
     {
         const var _dupval = val;
         return _dupval;

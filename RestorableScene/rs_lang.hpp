@@ -182,7 +182,6 @@ namespace rs
         }
 
         std::map<rs_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
-
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
 
         using template_type_map = std::map<std::wstring, lang_symbol*>;
@@ -399,7 +398,7 @@ namespace rs
                 a_value_bin->add_child(a_value_bin->left);
                 a_value_bin->add_child(a_value_bin->right);
 
-                a_value_bin->value_type = pass_binary_op::binary_upper_type(
+                a_value_bin->value_type = ast_value_binary::binary_upper_type(
                     a_value_bin->left->value_type,
                     a_value_bin->right->value_type
                 );
@@ -474,6 +473,11 @@ namespace rs
                 if (sym)
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
+                    if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
+                    }
+
                 }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
@@ -508,6 +512,8 @@ namespace rs
                     // ready for update..
                     fully_update_type(ast_value_check->aim_type);
                 }
+
+                ast_value_check->update_constant_value(lang_anylizer);
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
@@ -520,6 +526,12 @@ namespace rs
                     {
                         if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                         {
+                            if (argdef->value_type->is_custom())
+                            {
+                                // ready for update..
+                                fully_update_type(argdef->value_type);
+                            }
+
                             argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
                             argdef->symbol->is_ref = argdef->is_ref;
                         }
@@ -549,23 +561,28 @@ namespace rs
             }
             else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
             {
-                if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func)
-                    ; symb_callee && a_value_funccall->directed_value_from)
+                if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
                 {
-                    if (!symb_callee->search_from_global_namespace
-                        && symb_callee->scope_namespaces.empty())
+                    if (a_value_funccall->directed_value_from)
                     {
-                        analyze_pass1(a_value_funccall->directed_value_from);
+                        if (!symb_callee->search_from_global_namespace
+                            && symb_callee->scope_namespaces.empty())
+                        {
+                            analyze_pass1(a_value_funccall->directed_value_from);
 
-                        a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
-                        a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
-                        a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
-                        // a_value_funccall->callee_symbol_in_type_namespace wiil search in pass2..
+                            a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
+                            a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
+                            a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
+                            // a_value_funccall->callee_symbol_in_type_namespace wiil search in pass2..
+                        }
                     }
                 }
 
                 analyze_pass1(a_value_funccall->called_func);
                 analyze_pass1(a_value_funccall->arguments);
+
+                if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
+                    template_variable_list_for_pass_template.erase(symb_callee);
 
                 // NOTE There is no need for adding arguments and celled_func to child, pass2 must read them..
                 //a_value_funccall->add_child(a_value_funccall->called_func);
@@ -602,7 +619,7 @@ namespace rs
 
                         if (!val->value_type->is_same(decide_array_item_type, false))
                         {
-                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_array_item_type, val->value_type);
+                            auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
                             if (mixed_type)
                             {
                                 decide_array_item_type->set_type_with_name(mixed_type->type_name);
@@ -657,7 +674,7 @@ namespace rs
 
                         if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
                         {
-                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
+                            auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
                             if (mixed_type)
                             {
                                 decide_map_key_type->set_type_with_name(mixed_type->type_name);
@@ -670,7 +687,7 @@ namespace rs
                         }
                         if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
                         {
-                            auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
+                            auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
                             if (mixed_type)
                             {
                                 decide_map_val_type->set_type_with_name(mixed_type->type_name);
@@ -707,11 +724,14 @@ namespace rs
                     {
                         analyze_pass1(a_ret->return_value);
 
-                        if (a_ret->return_value->value_type->is_pending() == false)
+                        // NOTE: DONOT JUDGE FUNCTION'S RETURN VAL TYPE IN PASS1 TO AVOID TYPE MIXED IN CONSTEXPR IF
+
+                        if (located_function_scope->function_node->auto_adjust_return_type)
                         {
-                            auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
-                            if (located_function_scope->function_node->auto_adjust_return_type)
+                            if (a_ret->return_value->value_type->is_pending() == false)
                             {
+                                auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
+
                                 if (func_return_type->is_pending())
                                 {
                                     located_function_scope->function_node->value_type->set_ret_type(a_ret->return_value->value_type);
@@ -720,7 +740,7 @@ namespace rs
                                 {
                                     if (!func_return_type->is_same(a_ret->return_value->value_type, false))
                                     {
-                                        auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                        auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                         if (mixed_type)
                                         {
                                             located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
@@ -733,22 +753,6 @@ namespace rs
                                     }
                                 }
                             }
-                            else
-                            {
-                                if (!func_return_type->is_pending()
-                                    && !func_return_type->is_same(a_ret->return_value->value_type))
-                                {
-                                    auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
-                                    cast_return_type->col_no = a_ret->col_no;
-                                    cast_return_type->row_no = a_ret->row_no;
-                                    cast_return_type->source_file = a_ret->source_file;
-
-                                    analyze_pass1(cast_return_type);
-
-                                    a_ret->return_value = cast_return_type;
-                                }
-                            }
-
                         }
 
                         a_ret->add_child(a_ret->return_value);
@@ -785,9 +789,23 @@ namespace rs
             else if (ast_if* ast_if_sentence = dynamic_cast<ast_if*>(ast_node))
             {
                 analyze_pass1(ast_if_sentence->judgement_value);
-                analyze_pass1(ast_if_sentence->execute_if_true);
-                if (ast_if_sentence->execute_else)
-                    analyze_pass1(ast_if_sentence->execute_else);
+
+                if (ast_if_sentence->judgement_value->is_constant
+                    && in_function()->function_node->is_template_reification)
+                {
+                    ast_if_sentence->is_constexpr_if = true;
+
+                    if (ast_if_sentence->judgement_value->get_constant_value().integer)
+                        analyze_pass1(ast_if_sentence->execute_if_true);
+                    else if (ast_if_sentence->execute_else)
+                        analyze_pass1(ast_if_sentence->execute_else);
+                }
+                else
+                {
+                    analyze_pass1(ast_if_sentence->execute_if_true);
+                    if (ast_if_sentence->execute_else)
+                        analyze_pass1(ast_if_sentence->execute_else);
+                }
             }
             else if (ast_while* ast_while_sentence = dynamic_cast<ast_while*>(ast_node))
             {
@@ -857,6 +875,8 @@ namespace rs
                 }
                 a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
                 // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
+
+                a_val->update_constant_value(lang_anylizer);
             }
 
         }
@@ -913,13 +933,14 @@ namespace rs
 
             dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
 
-            return  dumpped_template_func_define;
+            lang_symbols.push_back(template_reification_symb);
+
+            return dumpped_template_func_define;
         }
 
         void analyze_pass_template()
         {
             using namespace ast;
-
             do
             {
                 auto _duped_template_variable_list_for_pass_template = template_variable_list_for_pass_template;
@@ -974,6 +995,7 @@ namespace rs
             } while (!template_variable_list_for_pass_template.empty());
 
         }
+
         bool analyze_pass2(grammar::ast_base* ast_node)
         {
             rs_assert(ast_node);
@@ -1008,6 +1030,8 @@ namespace rs
 
             if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
             {
+                a_value->update_constant_value(lang_anylizer);
+
                 if (ast_defines* a_defines = dynamic_cast<ast_defines*>(a_value);
                     a_defines && a_defines->is_template_define)
                 {
@@ -1035,6 +1059,8 @@ namespace rs
                         if (ast_value_check->aim_type->is_custom())
                             lang_anylizer->lang_error(0x0000, ast_value_check, RS_ERR_UNKNOWN_TYPE
                                 , ast_value_check->aim_type->get_return_type()->get_type_name().c_str());
+
+                        ast_value_check->update_constant_value(lang_anylizer);
                     }
 
 
@@ -1046,6 +1072,9 @@ namespace rs
 
                             if (sym)
                             {
+                                if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
+                                    lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
+
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2)
                                     lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
@@ -1076,7 +1105,7 @@ namespace rs
                             analyze_pass2(a_value_bin->left);
                             analyze_pass2(a_value_bin->right);
 
-                            a_value_bin->value_type = pass_binary_op::binary_upper_type(
+                            a_value_bin->value_type = ast_value_binary::binary_upper_type(
                                 a_value_bin->left->value_type,
                                 a_value_bin->right->value_type
                             );
@@ -1200,6 +1229,7 @@ namespace rs
                         start_ast_op_calling:
 
                             analyze_pass2(a_value_funccall->called_func);
+
                             analyze_pass2(a_value_funccall->arguments);
 
                             // judge the function override..
@@ -1216,33 +1246,94 @@ namespace rs
                                     {
 
                                         // have override set, judge with following rule:
-                                        // 1. best match
-                                        // 2. need cast
-                                        // 3. variadic func
+                                        // 1. best match <may be template>
+                                        // 2. need cast <may be template>
+                                        // 3. variadic func <may be template>
                                         // -  bad match
 
                                         std::vector<ast_value_function_define*> best_match_sets;
+                                        std::vector<ast_value_function_define*> best_match_sets_template;
                                         std::vector<ast_value_function_define*> need_cast_sets;
+                                        std::vector<ast_value_function_define*> need_cast_sets_template;
                                         std::vector<ast_value_function_define*> variadic_sets;
+                                        std::vector<ast_value_function_define*> variadic_sets_template;
 
                                         for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
                                         {
                                             auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
                                             rs_test(override_func);
 
+                                            bool best_match = true;
+                                            bool with_template = false;
+
                                             if (override_func->is_template_define)
                                             {
-                                                lang_anylizer->lang_warning(0x0000, override_func, L"暂不支持调用泛型函数，继续");
+                                                // try judge templates..
+                                                with_template = true;
 
-                                                // do a test~
-                                                auto duped = override_func->instance();
+                                                std::vector<ast_type*> template_args(override_func->template_type_name_list.size(), nullptr);
 
+                                                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
+                                                {
+                                                    for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                                                    {
+                                                        template_args[index] = variable->template_reification_args[index];
+                                                    }
+                                                }
+
+                                                // finish template args spcified by : xxxxx:<a,b,c> 
+                                                // trying auto judge type..
+
+                                                std::vector<ast_type*> real_argument_types;
+                                                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                                                while (funccall_arg)
+                                                {
+                                                    real_argument_types.push_back(funccall_arg->value_type);
+                                                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                                                }
+
+                                                // begin auto template args
+                                                // FXXXXXXXXXXXXXXXXK!!!!!!
+                                                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                                                {
+                                                    auto& pending_template_arg = template_args[tempindex];
+
+                                                    if (!pending_template_arg)
+                                                    {
+                                                        for (size_t index = 0;
+                                                            index < real_argument_types.size() &&
+                                                            index < override_func->value_type->argument_types.size();
+                                                            index++)
+                                                        {
+                                                            pending_template_arg = analyze_template_derivation(
+                                                                override_func->template_type_name_list[tempindex],
+                                                                override_func->value_type->argument_types[index],
+                                                                real_argument_types[index]
+                                                            );
+
+                                                            if (pending_template_arg)
+                                                                break;
+                                                        }
+                                                    }
+                                                }
+
+                                                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                                                    continue; // failed getting each of template args, abandon this one
+
+                                                for (auto* template_agrs : template_args)
+                                                    fully_update_type(template_agrs);
+
+                                                override_func = analyze_pass_template_reification(override_func, template_args); //tara~ get analyze_pass_template_reification 
+                                                _override_func = override_func;
+                                            }
+                                            else if (auto callee_fun_variable = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func);
+                                                callee_fun_variable && !callee_fun_variable->template_reification_args.empty())
+                                            {
+                                                // force template call, go on..
                                                 continue;
                                             }
 
                                             analyze_pass2(_override_func);
-
-                                            bool best_match = true;
 
                                             auto* real_args = a_value_funccall->arguments->children;
                                             auto* form_args = override_func->argument_list->children;
@@ -1259,7 +1350,12 @@ namespace rs
                                                     if (nullptr == real_arg) // arg count match, just like best match/ need cast match
                                                         goto match_check_end_for_variadic_func;
                                                     else
-                                                        variadic_sets.push_back(override_func);
+                                                    {
+                                                        if (with_template)
+                                                            variadic_sets_template.push_back(override_func);
+                                                        else
+                                                            variadic_sets.push_back(override_func);
+                                                    }
 
                                                     goto this_function_override_checking_over;
                                                 }
@@ -1274,7 +1370,11 @@ namespace rs
                                                     if (0 == ecount)
                                                     {
                                                         // all in!!!
-                                                        variadic_sets.push_back(override_func);
+                                                        if (with_template)
+                                                            variadic_sets.push_back(override_func);
+                                                        else
+                                                            variadic_sets_template.push_back(override_func);
+
                                                         goto this_function_override_checking_over;
                                                     }
 
@@ -1288,7 +1388,10 @@ namespace rs
                                                         else if (form_args)
                                                         {
                                                             // is variadic
-                                                            variadic_sets.push_back(override_func);
+                                                            if (with_template)
+                                                                variadic_sets_template.push_back(override_func);
+                                                            else
+                                                                variadic_sets.push_back(override_func);
                                                             goto this_function_override_checking_over;
                                                         }
                                                         else
@@ -1322,9 +1425,19 @@ namespace rs
                                                     if (real_args == nullptr)
                                                     {
                                                         if (best_match)
-                                                            best_match_sets.push_back(override_func);
+                                                        {
+                                                            if (with_template)
+                                                                best_match_sets_template.push_back(override_func);
+                                                            else
+                                                                best_match_sets.push_back(override_func);
+                                                        }
                                                         else
-                                                            need_cast_sets.push_back(override_func);
+                                                        {
+                                                            if (with_template)
+                                                                need_cast_sets_template.push_back(override_func);
+                                                            else
+                                                                need_cast_sets.push_back(override_func);
+                                                        }
 
                                                     }
                                                     // else: bad match..
@@ -1338,10 +1451,16 @@ namespace rs
                                         std::vector<ast_value_function_define*>* judge_sets = nullptr;
                                         if (best_match_sets.size())
                                             judge_sets = &best_match_sets;
+                                        else if (best_match_sets_template.size())
+                                            judge_sets = &best_match_sets_template;
                                         else if (need_cast_sets.size())
                                             judge_sets = &need_cast_sets;
+                                        else if (need_cast_sets_template.size())
+                                            judge_sets = &need_cast_sets_template;
                                         else if (variadic_sets.size())
                                             judge_sets = &variadic_sets;
+                                        else if (variadic_sets_template.size())
+                                            judge_sets = &variadic_sets_template;
 
                                         if (judge_sets)
                                         {
@@ -1477,11 +1596,14 @@ namespace rs
                                         {
                                             if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index))
                                             {
-                                                auto* cast_arg_type = pass_type_cast::do_cast(*lang_anylizer, arg_val, *a_type_index);
+                                                auto* cast_arg_type = new ast_value_type_cast(arg_val, *a_type_index, true);
+
                                                 cast_arg_type->col_no = arg_val->col_no;
                                                 cast_arg_type->row_no = arg_val->row_no;
                                                 cast_arg_type->source_file = arg_val->source_file;
                                                 analyze_pass2(cast_arg_type);
+
+                                                cast_arg_type->update_constant_value(lang_anylizer);
 
                                                 a_value_funccall->arguments->add_child(cast_arg_type);
                                             }
@@ -1511,10 +1633,10 @@ namespace rs
                                 }
 
                             }
-                            else
+                            else if (!a_value_funccall->called_func->value_type->is_pending())
                             {
                                 lang_anylizer->lang_error(0x0000, a_value, RS_ERR_TYPE_CANNOT_BE_CALL,
-                                    a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                    a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                             }
                         }
                         else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
@@ -1553,7 +1675,7 @@ namespace rs
 
                                 if (!val->value_type->is_same(decide_array_item_type, false))
                                 {
-                                    auto* mixed_type = pass_binary_op::binary_upper_type(decide_array_item_type, val->value_type);
+                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
                                     if (mixed_type)
                                     {
                                         decide_array_item_type->set_type_with_name(mixed_type->type_name);
@@ -1604,7 +1726,7 @@ namespace rs
 
                                 if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
                                 {
-                                    auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
+                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
                                     if (mixed_type)
                                     {
                                         decide_map_key_type->set_type_with_name(mixed_type->type_name);
@@ -1617,7 +1739,7 @@ namespace rs
                                 }
                                 if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
                                 {
-                                    auto* mixed_type = pass_binary_op::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
+                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
                                     if (mixed_type)
                                     {
                                         decide_map_val_type->set_type_with_name(mixed_type->type_name);
@@ -1663,12 +1785,13 @@ namespace rs
 
                         if (a_value_assi->right->value_type->is_pending_function())
                         {
-                            auto* try_finding_override = pass_type_cast::do_cast(*lang_anylizer, a_value_assi->right, a_value_assi->value_type);
+                            auto* try_finding_override = new ast_value_type_cast(a_value_assi->right, a_value_assi->value_type, true);
                             try_finding_override->col_no = a_value_assi->right->col_no;
                             try_finding_override->row_no = a_value_assi->right->row_no;
                             try_finding_override->source_file = a_value_assi->right->source_file;
 
                             analyze_pass2(try_finding_override);
+                            try_finding_override->update_constant_value(lang_anylizer);
 
                             a_value_assi->right = try_finding_override;
                         }
@@ -1784,6 +1907,8 @@ namespace rs
                         {
                             lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_DYNAMIC);
                         }
+
+                        a_value_type_check->update_constant_value(lang_anylizer);
                     }
                     else if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(ast_node))
                     {
@@ -1803,12 +1928,14 @@ namespace rs
                         {
                             if (!a_value_index->index->value_type->is_integer() && !a_value_index->index->value_type->is_handle())
                             {
-                                auto* index_val = pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, new ast_type(L"int"));
+                                auto* index_val = new ast_value_type_cast(a_value_index->index, new ast_type(L"int"), true);
                                 index_val->col_no = a_value_index->index->col_no;
                                 index_val->row_no = a_value_index->index->row_no;
                                 index_val->source_file = a_value_index->index->source_file;
 
                                 analyze_pass2(index_val);
+
+                                index_val->update_constant_value(lang_anylizer);
 
                                 a_value_index->index = index_val;
                             }
@@ -1817,12 +1944,15 @@ namespace rs
                         {
                             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0]))
                             {
-                                auto* index_val = pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, a_value_index->from->value_type->template_arguments[0]);
+                                auto* index_val = new ast_value_type_cast(a_value_index->index, a_value_index->from->value_type->template_arguments[0], true);
+                                // pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, );
                                 index_val->col_no = a_value_index->index->col_no;
                                 index_val->row_no = a_value_index->index->row_no;
                                 index_val->source_file = a_value_index->index->source_file;
 
                                 analyze_pass2(index_val);
+
+                                index_val->update_constant_value(lang_anylizer);
 
                                 a_value_index->index = index_val;
                             }
@@ -1837,12 +1967,16 @@ namespace rs
 
                         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                         {
-                            auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, new ast_type(L"int"));
+                            auto* cast_return_type = new ast_value_type_cast(a_value_variadic_args_idx->argindex, new ast_type(L"int"), true);
+                            //pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, new ast_type(L"int"));
                             cast_return_type->col_no = a_value_variadic_args_idx->col_no;
                             cast_return_type->row_no = a_value_variadic_args_idx->row_no;
                             cast_return_type->source_file = a_value_variadic_args_idx->source_file;
 
                             analyze_pass2(cast_return_type);
+
+                            cast_return_type->update_constant_value(lang_anylizer);
+
                             a_value_variadic_args_idx->argindex = cast_return_type;
                         }
                     }
@@ -1856,7 +1990,6 @@ namespace rs
                     }
                 }
             }
-
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1886,12 +2019,15 @@ namespace rs
                     {
                         if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
                         {
-                            auto* cast_array_item = pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
+                            auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], true);
+                            //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
                             cast_array_item->col_no = val->col_no;
                             cast_array_item->row_no = val->row_no;
                             cast_array_item->source_file = val->source_file;
 
                             analyze_pass2(cast_array_item);
+
+                            cast_array_item->update_constant_value(lang_anylizer);
 
                             reenplace_array_items.push_back(cast_array_item);
                         }
@@ -1930,23 +2066,29 @@ namespace rs
                     {
                         if (pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
                         {
-                            auto* cast_key_item = pass_type_cast::do_cast(*lang_anylizer, pairs->key, a_value_map->value_type->template_arguments[0]);
+                            auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], true);
+                            //pass_type_cast::do_cast(*lang_anylizer, );
                             cast_key_item->col_no = pairs->key->col_no;
                             cast_key_item->row_no = pairs->key->row_no;
                             cast_key_item->source_file = pairs->key->source_file;
 
                             analyze_pass2(cast_key_item);
 
+                            cast_key_item->update_constant_value(lang_anylizer);
+
                             pairs->key = cast_key_item;
                         }
                         if (pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
                         {
-                            auto* cast_val_item = pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
+                            auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], true);
+                            //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
                             cast_val_item->col_no = pairs->key->col_no;
                             cast_val_item->row_no = pairs->key->row_no;
                             cast_val_item->source_file = pairs->key->source_file;
 
                             analyze_pass2(cast_val_item);
+
+                            cast_val_item->update_constant_value(lang_anylizer);
 
                             pairs->val = cast_val_item;
                         }
@@ -1982,7 +2124,7 @@ namespace rs
                             {
                                 if (!func_return_type->is_same(a_ret->return_value->value_type, false))
                                 {
-                                    auto* mixed_type = pass_binary_op::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                    auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                     if (mixed_type)
                                     {
                                         a_ret->located_function->value_type->set_type_with_name(mixed_type->type_name);
@@ -2000,12 +2142,15 @@ namespace rs
                             if (!func_return_type->is_pending()
                                 && !func_return_type->is_same(a_ret->return_value->value_type))
                             {
-                                auto* cast_return_type = pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
+                                auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type, true);
+                                // pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
                                 cast_return_type->col_no = a_ret->col_no;
                                 cast_return_type->row_no = a_ret->row_no;
                                 cast_return_type->source_file = a_ret->source_file;
 
                                 analyze_pass2(cast_return_type);
+
+                                cast_return_type->update_constant_value(lang_anylizer);
 
                                 a_ret->return_value = cast_return_type;
                             }
@@ -2041,9 +2186,22 @@ namespace rs
             else if (ast_if* ast_if_sentence = dynamic_cast<ast_if*>(ast_node))
             {
                 analyze_pass2(ast_if_sentence->judgement_value);
-                analyze_pass2(ast_if_sentence->execute_if_true);
-                if (ast_if_sentence->execute_else)
-                    analyze_pass2(ast_if_sentence->execute_else);
+
+                if (ast_if_sentence->is_constexpr_if)
+                {
+                    if (ast_if_sentence->judgement_value->get_constant_value().integer)
+                        analyze_pass2(ast_if_sentence->execute_if_true);
+                    else if (ast_if_sentence->execute_else)
+                        analyze_pass2(ast_if_sentence->execute_else);
+                }
+                else
+                {
+                    analyze_pass2(ast_if_sentence->execute_if_true);
+                    if (ast_if_sentence->execute_else)
+                        analyze_pass2(ast_if_sentence->execute_else);
+                }
+
+
             }
             else if (ast_while* ast_while_sentence = dynamic_cast<ast_while*>(ast_node))
             {
@@ -2112,10 +2270,10 @@ namespace rs
 
         void clean_and_close_lang()
         {
+            for (auto& created_symbols : lang_symbols)
+                delete created_symbols;
             for (auto* created_scopes : lang_scopes_buffers)
             {
-                for (auto& [symbool_name, created_symbols] : created_scopes->symbols)
-                    delete created_symbols;
                 delete created_scopes;
             }
             for (auto* created_temp_opnum : generated_opnum_list_for_clean)
@@ -2123,9 +2281,58 @@ namespace rs
             for (auto generated_ast_node : generated_ast_nodes_buffers)
                 delete generated_ast_node;
 
+            lang_symbols.clear();
             lang_scopes_buffers.clear();
             generated_opnum_list_for_clean.clear();
             generated_ast_nodes_buffers.clear();
+        }
+
+        ast::ast_type* analyze_template_derivation(const std::wstring& temp_form, ast::ast_type* para, ast::ast_type* args)
+        {
+            if (para->is_complex() && args->is_complex())
+            {
+                if (auto* derivation_result = analyze_template_derivation(temp_form,
+                    para->complex_type,
+                    args->complex_type))
+                    return derivation_result;
+            }
+
+            if (para->type_name == temp_form
+                && para->scope_namespaces.empty()
+                && !para->search_from_global_namespace)
+            {
+                if (para->is_func())
+                {
+                    // T(...) should return args..
+                    return args->get_return_type();
+                }
+                else
+                    return args;
+            }
+
+            for (size_t index = 0;
+                index < para->template_arguments.size()
+                && index < args->template_arguments.size();
+                index++)
+            {
+                if (auto* derivation_result = analyze_template_derivation(temp_form,
+                    para->template_arguments[index],
+                    args->template_arguments[index]))
+                    return derivation_result;
+            }
+
+            for (size_t index = 0;
+                index < para->argument_types.size()
+                && index < args->argument_types.size();
+                index++)
+            {
+                if (auto* derivation_result = analyze_template_derivation(temp_form,
+                    para->argument_types[index],
+                    args->argument_types[index]))
+                    return derivation_result;
+            }
+
+            return nullptr;
         }
 
         // register mapping.... fxxk
@@ -2710,18 +2917,6 @@ namespace rs
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
-
-                if (a_value_type_cast->_be_cast_value_node->is_constant)
-                {
-                    auto* casted = pass_type_cast::do_cast(*lang_anylizer,
-                        a_value_type_cast->_be_cast_value_node,
-                        a_value_type_cast->value_type,
-                        !a_value_type_cast->implicit);
-
-                    rs_assert(casted && casted->is_constant);
-
-                    return analyze_value(casted, compiler, get_pure_value);
-                }
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->setcast(treg,
@@ -3346,21 +3541,47 @@ namespace rs
             }
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
-                mov_value_to_cr(auto_analyze_value(a_if->judgement_value, compiler), compiler);
-
-                auto ifelse_tag = "if_else_" + compiler->get_unique_tag_based_command_ip();
-                auto ifend_tag = "if_end_" + compiler->get_unique_tag_based_command_ip();
-
-                compiler->jf(tag(ifelse_tag));
-
-                real_analyze_finalize(a_if->execute_if_true, compiler);
-                if (a_if->execute_else)
-                    compiler->jmp(tag(ifend_tag));
-                compiler->tag(ifelse_tag);
-                if (a_if->execute_else)
+                if (a_if->judgement_value->is_constant)
                 {
-                    real_analyze_finalize(a_if->execute_else, compiler);
-                    compiler->tag(ifend_tag);
+                    if (a_if->judgement_value->get_constant_value().integer)
+                        real_analyze_finalize(a_if->execute_if_true, compiler);
+                    else if (a_if->execute_else)
+                        real_analyze_finalize(a_if->execute_else, compiler);
+                }
+                else
+                {
+                    auto generate_state = compiler->get_now_ip();
+
+                    auto& if_judge_val = auto_analyze_value(a_if->judgement_value, compiler);
+
+                    if (auto* immval = dynamic_cast<opnum::immbase*>(&if_judge_val))
+                    {
+                        compiler->revert_code_to(generate_state);
+
+                        if (immval->is_true())
+                            real_analyze_finalize(a_if->execute_if_true, compiler);
+                        else if (a_if->execute_else)
+                            real_analyze_finalize(a_if->execute_else, compiler);
+                    }
+                    else
+                    {
+                        mov_value_to_cr(if_judge_val, compiler);
+
+                        auto ifelse_tag = "if_else_" + compiler->get_unique_tag_based_command_ip();
+                        auto ifend_tag = "if_end_" + compiler->get_unique_tag_based_command_ip();
+
+                        compiler->jf(tag(ifelse_tag));
+
+                        real_analyze_finalize(a_if->execute_if_true, compiler);
+                        if (a_if->execute_else)
+                            compiler->jmp(tag(ifend_tag));
+                        compiler->tag(ifelse_tag);
+                        if (a_if->execute_else)
+                        {
+                            real_analyze_finalize(a_if->execute_else, compiler);
+                            compiler->tag(ifend_tag);
+                        }
+                    }
                 }
 
             }
@@ -3670,6 +3891,8 @@ namespace rs
                         pending_function->function_name = func_def->function_name;
                         pending_function->symbol = sym;
                         sym->variable_value = pending_function;
+
+                        lang_symbols.push_back(sym);
                     }
 
                     if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
@@ -3682,6 +3905,7 @@ namespace rs
                         {
                             sym->is_template_symbol = true;
                         }
+
                         return sym;
                     }
                 }

@@ -9,7 +9,6 @@ namespace rs
 {
     constexpr size_t u8str_npos = SIZE_MAX/2;
 
-    uint8_t u8chsize(char ch);
     size_t u8strlen(rs_string_t u8str);
     rs_string_t u8stridxstr(rs_string_t u8str, size_t chidx);
     size_t u8stridx(rs_string_t u8str, size_t chidx);

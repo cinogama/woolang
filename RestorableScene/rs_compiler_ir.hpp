@@ -139,6 +139,7 @@ namespace rs
                 buffer.push_back(buf[3]);
             }
 
+            virtual bool is_true()const = 0;
             virtual int64_t try_int()const = 0;
             virtual int64_t try_set_int(int64_t _val) = 0;
         };
@@ -228,6 +229,10 @@ namespace rs
 
                 rs_error("Immediate is not integer.");
                 return 0;
+            }
+            virtual bool is_true()const
+            {
+                return (bool)val;
             }
         };
 

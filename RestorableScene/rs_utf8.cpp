@@ -1,16 +1,22 @@
 #include "rs_utf8.hpp"
+#include <cwchar>
+#include <cstring>
 
 namespace rs
 {
-    uint8_t u8chsize(char ch)
+    uint8_t u8chsize(const char* chidx)
     {
-        uint8_t count = 1;
-        if (ch & (char)0b10000000)
+        std::mbstate_t mb = {};
+
+        auto strlength = strlen(chidx);
+
+        if (std::mbrlen(chidx, 1, &mb) == -2)
         {
-            while ((ch <<= 1) & (char)0b10000000)
-                ++count;
+            if (strlength)
+                return std::mbrlen(chidx + 1, strlength - 1, &mb) + 1;
+
         }
-        return count;
+        return 1;
     }
     size_t u8strlen(rs_string_t u8str)
     {
@@ -18,7 +24,7 @@ namespace rs
         while (*u8str)
         {
             strlength++;
-            u8str += u8chsize(*u8str);
+            u8str += u8chsize(u8str);
         }
         return strlength;
     }
@@ -27,7 +33,7 @@ namespace rs
         while (chidx && *u8str)
         {
             --chidx;
-            u8str += u8chsize(*u8str);
+            u8str += u8chsize(u8str);
         }
         return u8str;
     }

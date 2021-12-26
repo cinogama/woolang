@@ -44,9 +44,70 @@ namespace test_template
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
     }
 
-    func cast_to<FROM, TO>(var val:FROM)
+    func cast_to<TO, FROM>(var val:FROM)
     {
         return val:TO;
+    }
+
+    func no_template_test()
+    {
+        return "no_template";
+    }
+
+    func no_template_test<T>()
+    {
+        return "has_template";
+    }
+
+    func no_template_first_test_1(var n:int)
+    {
+        return "no_template";
+    }
+    func no_template_first_test_1<T>(var n:T)
+    {
+        return "has_template";
+    }
+
+    func no_template_first_test_2(var n:int, var x:real)
+    {
+        return "no_template";
+    }
+    func no_template_first_test_2<T>(var n:T, var x:real)
+    {
+        return "has_template";
+    }
+
+    func no_template_first_test_3(var n:int, ...)
+    {
+        return "no_template";
+    }
+    func no_template_first_test_3<T>(var n:T, ...)
+    {
+        return "has_template";
+    }
+
+    func template_if_constexpr_test<T>()
+    {
+        if (0:T is real)
+            return 1.25;
+        else
+            return 1;
+    }
+
+    func no_if_constexpr_test_1()
+    {
+        if (1)
+            return 1.25;
+        else
+            return 1;
+    }
+
+    func no_if_constexpr_test_2()
+    {
+        if (0)
+            return 1.25;
+        else
+            return 1;
     }
 
     func main()
@@ -61,29 +122,25 @@ namespace test_template
         test_assure(diff_static:<real>() is array<real>);
         test_assure(diff_static:<real>() != diff_static:<int>());
 
-        var result = invokable:<int>(fib:<int>, 10);
+        var result = invokable(fib:<int>, 10);
 
         test_equal(result, 55);
 
         test_cost_time:<int>();
-        test_cost_time:<int>();
-        test_cost_time:<int>();
-        test_cost_time:<int>();
-        test_cost_time:<int>();
-
         test_cost_time:<real>();
-        test_cost_time:<real>();
-        test_cost_time:<real>();
-        test_cost_time:<real>();
-        test_cost_time:<real>();
-
-        test_cost_time:<dynamic>();
-        test_cost_time:<dynamic>();
-        test_cost_time:<dynamic>();
-        test_cost_time:<dynamic>();
         test_cost_time:<dynamic>();
 
-        test_equal(cast_to:<int, string>(3)+".14159", "3.14159");
+        test_equal(cast_to:<string>(3)+".14159", "3.14159");
+
+        test_equal(no_template_test(), "no_template");
+        test_equal(no_template_first_test_1(0), "no_template");
+        test_equal(no_template_first_test_2(0,0), "no_template");
+        test_equal(no_template_first_test_3(0,233), "no_template");
+
+        template_if_constexpr_test:<int>() as int;
+        template_if_constexpr_test:<real>() as real;
+        no_if_constexpr_test_1() as real;
+        no_if_constexpr_test_2() as real;
     }
 }
 

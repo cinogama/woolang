@@ -156,15 +156,45 @@ void rs_handle_ctrl_c(void(*handler)(int))
 
 void rs_init(int argc, char** argv)
 {
-    rs::rs_init_locale();
-    rs::gc::gc_start();
+    const char* basic_env_local = "en_US.UTF-8";
+    bool enable_std_package = true;
+    bool enable_ctrl_c_to_debug = true;
+    bool enable_gc = true;
 
-    rs_virtual_source(rs_stdlib_basic_src_path, rs_stdlib_basic_src_data, false);
-    rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
-    rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
-    rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
+    for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
+    {
+        std::string current_arg = argv[command_idx];
+        if (current_arg.size() >= 2 && current_arg[0] == '-' && current_arg[1] == '-')
+        {
+            current_arg = current_arg.substr(2);
+            if ("local" == current_arg)
+                basic_env_local = argv[++command_idx];
+            else if ("enable_std" == current_arg)
+                enable_std_package = std::stoi(argv[++command_idx]);
+            else if ("enable_ctrlc_debug" == current_arg)
+                enable_ctrl_c_to_debug = std::stoi(argv[++command_idx]);
+            else if ("enable_gc" == current_arg)
+                enable_gc = std::stoi(argv[++command_idx]);
+            else
+                std::cerr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << std::endl;
+        }
+    }
 
-    rs_handle_ctrl_c(nullptr);
+    rs::rs_init_locale(basic_env_local);
+
+    if (enable_gc)
+        rs::gc::gc_start(); // I dont know who will disable gc..
+
+    if (enable_std_package)
+    {
+        rs_virtual_source(rs_stdlib_basic_src_path, rs_stdlib_basic_src_data, false);
+        rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
+        rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
+        rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
+    }
+
+    if (enable_ctrl_c_to_debug)
+        rs_handle_ctrl_c(nullptr);
 }
 
 rs_string_t  rs_compile_date(void)

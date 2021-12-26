@@ -53,5 +53,8 @@
     <None Include="test_scripts\test_template.rsn">
       <Filter>test_scripts</Filter>
     </None>
+    <None Include="test_scripts\test_string_u8.rsn">
+      <Filter>test_scripts</Filter>
+    </None>
   </ItemGroup>
 </Project>

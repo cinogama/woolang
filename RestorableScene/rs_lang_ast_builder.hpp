@@ -148,8 +148,23 @@ namespace rs
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
-                if (from->is_dynamic() || to->is_dynamic())
+                if (to->is_dynamic())
                     return true;
+                if (from->is_dynamic())
+                {
+                    // Not allowed cast template type from dynamic
+                    // In fact, cast func from dynamic is dangerous too...
+
+                    if (!to->is_func() && to->has_template())
+                    {
+                        for (auto ta_type : to->template_arguments)
+                            if (!ta_type->is_dynamic())
+                                return false;
+                        return true;
+                    }
+                    return true;
+                }
+
 
                 if (from->is_pending() || to->is_pending())
                     return false;
@@ -528,19 +543,27 @@ namespace rs
             // this type of ast node is used for stand a value or product a value.
             // liter functioncall variable and so on will belong this type of node.
             ast_type* value_type = nullptr;
-            bool is_constant = false;
+
             bool is_mark_as_using_ref = false;
             bool is_ref_ob_in_finalize = false;
             bool can_be_assign = false;
 
-            virtual rs::value get_constant_value() const
-            {
-                rs_error("Cannot get constant value from 'ast_value'.");
+            bool is_constant = false;
+            rs::value constant_value;
 
-                value _v;
-                _v.set_nil();
-                return _v;
+            virtual rs::value& get_constant_value()
+            {
+                if (!this->is_constant)
+                    rs_error("This value is not a constant.");
+
+                return constant_value;
             };
+
+            virtual void update_constant_value(lexer* lex)
+            {
+                rs_error("ast_value cannot update_constant_value.");
+            }
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -553,19 +576,20 @@ namespace rs
 
                 return dumm;
             }
-
         };
 
         struct ast_value_literal : virtual public ast_value
         {
-            value _constant_value;
-
             ~ast_value_literal()
             {
-                if (_constant_value.is_gcunit())
+                if (constant_value.is_gcunit())
                 {
-                    delete _constant_value.get_gcunit_with_barrier();
+                    delete constant_value.get_gcunit_with_barrier();
                 }
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
             }
 
             static rs_handle_t wstr_to_handle(const std::wstring& str)
@@ -646,7 +670,7 @@ namespace rs
             ast_value_literal()
             {
                 is_constant = true;
-                _constant_value.set_nil();
+                constant_value.set_nil();
             }
 
             ast_value_literal(const token& te)
@@ -656,37 +680,37 @@ namespace rs
                 switch (te.type)
                 {
                 case lex_type::l_literal_handle:
-                    _constant_value.set_handle(wstr_to_handle(te.identifier));
+                    constant_value.set_handle(wstr_to_handle(te.identifier));
                     break;
                 case lex_type::l_literal_integer:
-                    _constant_value.set_integer(wstr_to_integer(te.identifier));
+                    constant_value.set_integer(wstr_to_integer(te.identifier));
                     break;
                 case lex_type::l_literal_real:
-                    _constant_value.set_real(wstr_to_real(te.identifier));
+                    constant_value.set_real(wstr_to_real(te.identifier));
                     break;
                 case lex_type::l_literal_string:
-                    _constant_value.set_string_nogc(wstr_to_str(te.identifier).c_str());
+                    constant_value.set_string_nogc(wstr_to_str(te.identifier).c_str());
                     break;
                 case lex_type::l_nil:
-                    _constant_value.set_nil();
+                    constant_value.set_nil();
                     break;
                 case lex_type::l_inf:
-                    _constant_value.set_real(INFINITY);
+                    constant_value.set_real(INFINITY);
                     break;
                 default:
                     rs_error("Unexcepted literal type.");
                     break;
                 }
 
-                value_type = new ast_type(_constant_value);
+                value_type = new ast_type(constant_value);
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
-                os << L"< " << ANSI_HIC << rs_cast_string((rs_value)&_constant_value) << ANSI_RST L" : " ANSI_HIG;
+                os << L"< " << ANSI_HIC << rs_cast_string((rs_value)&constant_value) << ANSI_RST L" : " ANSI_HIG;
 
-                switch (_constant_value.type)
+                switch (constant_value.type)
                 {
                 case value::valuetype::integer_type:
                     os << L"int";
@@ -717,13 +741,6 @@ namespace rs
                 os << ANSI_RST L" >" << std::endl;
             }
 
-            rs::value get_constant_value() const override
-            {
-                value _v;
-                _v.set_val(&_constant_value);
-                return _v;
-            };
-
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -732,8 +749,8 @@ namespace rs
                 ast_value::instance(dumm);
 
                 // Write self copy functions here..
-                if (_constant_value.type == value::valuetype::string_type)
-                    dumm->_constant_value.set_string_nogc(_constant_value.string->c_str());
+                if (constant_value.type == value::valuetype::string_type)
+                    dumm->constant_value.set_string_nogc(constant_value.string->c_str());
 
                 return dumm;
             }
@@ -776,6 +793,95 @@ namespace rs
 
                 os << L" >" << std::endl;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                _be_cast_value_node->update_constant_value(lex);
+
+                if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
+                {
+                    if (_be_cast_value_node->is_constant)
+                    {
+                        // just cast the value!
+                        value last_value = _be_cast_value_node->get_constant_value();
+
+                        value::valuetype aim_real_type = value_type->value_type;
+                        if (value_type->is_dynamic())
+                        {
+                            aim_real_type = last_value.type;
+                        }
+                        else if (_be_cast_value_node->value_type->is_dynamic())
+                        {
+                            lex->lang_warning(0x0000, value_type, RS_WARN_OVERRIDDEN_DYNAMIC_TYPE);
+                        }
+
+                        switch (aim_real_type)
+                        {
+                        case value::valuetype::real_type:
+                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
+                                goto try_cast_nil_to_int_handle_real_str;
+                            constant_value.set_real(rs_cast_real((rs_value)&last_value));
+                            break;
+                        case value::valuetype::integer_type:
+                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
+                                goto try_cast_nil_to_int_handle_real_str;
+                            constant_value.set_integer(rs_cast_int((rs_value)&last_value));
+                            break;
+                        case value::valuetype::string_type:
+                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                goto try_cast_nil_to_int_handle_real_str;
+                            constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
+                            break;
+                        case value::valuetype::handle_type:
+                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                goto try_cast_nil_to_int_handle_real_str;
+                            constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
+                            break;
+                        case value::valuetype::mapping_type:
+                            if (last_value.is_nil())
+                            {
+                                constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                break;
+                            }
+                            goto try_cast_nil_to_int_handle_real_str;
+                            break;
+                        case value::valuetype::array_type:
+                            if (last_value.is_nil())
+                            {
+                                constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
+                                break;
+                            }
+                            goto try_cast_nil_to_int_handle_real_str;
+                            break;
+                        default:
+                        try_cast_nil_to_int_handle_real_str:
+                            if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
+                            {
+                            }
+                            else
+                            {
+                                if (implicit)
+                                    lex->lang_error(0x0000, value_type, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                        ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
+                                        value_type->get_type_name().c_str());
+                                else
+                                    lex->lang_error(0x0000, value_type, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                        ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
+                                        value_type->get_type_name().c_str());
+
+                                constant_value.set_nil();
+                                value_type = new ast_type(constant_value);
+                            }
+                            break;
+                        }
+
+                        is_constant = true;
+                    }
+                }
+            }
         };
 
         struct ast_value_type_judge : public ast_value
@@ -811,12 +917,17 @@ namespace rs
 
                 os << L" >" << std::endl;
             }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
+            }
         };
 
         struct ast_value_type_check : public ast_value
         {
             ast_value* _be_check_value_node;
             ast_type* aim_type;
+
             ast_value_type_check(ast_value* value, ast_type* type)
             {
                 _be_check_value_node = value;
@@ -838,6 +949,21 @@ namespace rs
 
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                _be_check_value_node->update_constant_value(lex);
+
+                if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
+                {
+                    is_constant = true;
+                    constant_value.set_integer(_be_check_value_node->value_type->is_same(aim_type));
+                }
+            }
+
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
@@ -914,6 +1040,7 @@ namespace rs
         {
             ast_decl_attribute* declear_attribute = nullptr;
 
+            bool template_reification_judge_by_funccall = false;// if template_reification_judge_by_funccall==true, pass2 will not checkxx
             bool is_template_define = false;
             bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
             lang_symbol* this_reification_lang_symbol = nullptr;
@@ -947,6 +1074,11 @@ namespace rs
                 // Write self copy functions here..
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing;
             }
         };
 
@@ -994,6 +1126,12 @@ namespace rs
                 }
 
                 return dumm;
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // TODO: constant variable here..
+
+                // do nothing;
             }
         };
 
@@ -1125,6 +1263,238 @@ namespace rs
                 RS_REINSTANCE(dumm->right);
 
                 return dumm;
+            }
+
+            template <typename T>
+            static T binary_operate(lexer& lex, T left, T right, lex_type op_type)
+            {
+                if constexpr (std::is_same<T, rs_string_t>::value)
+                    if (op_type != +lex_type::l_add)
+                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP);
+                if constexpr (std::is_same<T, rs_handle_t>::value)
+                    if (op_type == +lex_type::l_mul || op_type == +lex_type::l_div || op_type == +lex_type::l_mod || op_type == +lex_type::l_mul_assign || op_type == +lex_type::l_div_assign || op_type == +lex_type::l_mod_assign)
+                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP);
+
+                switch (op_type)
+                {
+                case lex_type::l_add:
+                    if constexpr (std::is_same<T, rs_string_t>::value)
+                    {
+                        thread_local static std::string _tmp_string_add_result;
+                        _tmp_string_add_result = left;
+                        _tmp_string_add_result += right;
+                        return _tmp_string_add_result.c_str();
+                    }
+                    else
+                        return left + right;
+                case lex_type::l_sub:
+                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                        return left - right;
+                case lex_type::l_mul:
+                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                        return left * right;
+                case lex_type::l_div:
+                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                        return left / right;
+                case lex_type::l_mod:
+                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                    {
+                        if constexpr (std::is_same<T, rs_real_t>::value)
+                        {
+                            return fmod(left, right);
+                        }
+                        else
+                            return left % right;
+                    }
+                default:
+                    rs_error("Grammar error: cannot calculate by this funcion");
+                    break;
+                }
+                return T{};
+            }
+
+            static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
+            {
+                if (left_v->is_dynamic() || right_v->is_dynamic())
+                {
+                    return new ast_type(L"dynamic");
+                }
+                if (left_v->is_func() || right_v->is_func())
+                {
+                    return nullptr;
+                }
+
+                auto left_t = left_v->value_type;
+                auto right_t = right_v->value_type;
+
+                switch (left_t)
+                {
+                case value::valuetype::integer_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"int");
+                        break;
+                    case value::valuetype::real_type:
+                        return new ast_type(L"real");
+                        break;
+                    case value::valuetype::handle_type:
+                        return new ast_type(L"handle");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::real_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"real");
+                        break;
+                    case value::valuetype::real_type:
+                        return new ast_type(L"real");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::handle_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::integer_type:
+                        return new ast_type(L"handle");
+                        break;
+                    case value::valuetype::handle_type:
+                        return new ast_type(L"handle");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::string_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::string_type:
+                        return new ast_type(L"string");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::array_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::array_type:
+                        return new ast_type(L"array");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                case value::valuetype::mapping_type:
+                {
+                    switch (right_t)
+                    {
+                    case value::valuetype::array_type:
+                        return new ast_type(L"map");
+                        break;
+                    default:
+                        return nullptr;
+                        break;
+                    }
+                    break;
+                }
+                default:
+                    return nullptr;
+                    break;
+                }
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                left->update_constant_value(lex);
+                right->update_constant_value(lex);
+                if (left->value_type->is_dynamic() || right->value_type->is_dynamic())
+                {
+                    value_type = new ast_type(L"dynamic");
+                }
+                else if (left->value_type->is_pending() || right->value_type->is_pending())
+                {
+                    value_type = new ast_type(L"pending");
+                }
+                else
+                {
+                    if (nullptr == (value_type = binary_upper_type(left->value_type, right->value_type)))
+                    {
+                        lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        return;
+                    }
+                }
+
+                if (left->is_constant && right->is_constant)
+                {
+                    is_constant = true;
+
+                    value _left_val = left->get_constant_value();
+                    value _right_val = right->get_constant_value();
+
+                    switch (value_type->value_type)
+                    {
+                    case value::valuetype::integer_type:
+                        constant_value.set_integer(
+                            binary_operate(*lex,
+                                rs_cast_int((rs_value)&_left_val),
+                                rs_cast_int((rs_value)&_right_val),
+                                operate));
+                        break;
+                    case value::valuetype::real_type:
+                        constant_value.set_real(
+                            binary_operate(*lex,
+                                rs_cast_real((rs_value)&_left_val),
+                                rs_cast_real((rs_value)&_right_val),
+                                operate));
+                        break;
+                    case value::valuetype::handle_type:
+                        constant_value.set_handle(
+                            binary_operate(*lex,
+                                rs_cast_handle((rs_value)&_left_val),
+                                rs_cast_handle((rs_value)&_right_val),
+                                operate));
+                        break;
+                    case value::valuetype::string_type:
+                    {
+                        std::string left_str = rs_cast_string((rs_value)&_left_val);
+                        std::string right_str = rs_cast_string((rs_value)&_right_val);
+                        constant_value.set_string_nogc(
+                            binary_operate(*lex,
+                                (rs_string_t)left_str.c_str(),
+                                (rs_string_t)right_str.c_str(),
+                                operate));
+                    }
+                    break;
+                    default:
+                        lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        return;
+                    }
+                }
             }
         };
 
@@ -1290,14 +1660,13 @@ namespace rs
                     in_function_sentence->display(os, lay + 1);
             }
 
-            virtual rs::value get_constant_value() const override
+            rs::value& get_constant_value() override
             {
                 if (!this->is_constant)
                     rs_error("Not externed_func.");
 
-                value _v;
-                _v.set_handle((rs_handle_t)externed_func);
-                return _v;
+                constant_value.set_handle((rs_handle_t)externed_func);
+                return constant_value;
             };
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -1412,6 +1781,12 @@ namespace rs
 
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // TODO: MAYBE THERE IS CONSTEXPR FUNC?
+                // do nothing
+            }
         };
 
         struct ast_value_array : virtual public ast_value
@@ -1443,6 +1818,11 @@ namespace rs
                 RS_REINSTANCE(dumm->array_items);
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
             }
         };
 
@@ -1478,6 +1858,11 @@ namespace rs
                 RS_REINSTANCE(dumm->mapping_pairs);
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
             }
         };
 
@@ -1546,6 +1931,8 @@ namespace rs
             ast_value* judgement_value;
             ast_base* execute_if_true;
             ast_base* execute_else;
+
+            bool is_constexpr_if = false;
 
             ast_if(ast_value* jdg, ast_base* exe_true, ast_base* exe_else)
                 : judgement_value(jdg), execute_if_true(exe_true), execute_else(exe_else)
@@ -1666,6 +2053,11 @@ namespace rs
 
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing
+            }
         };
 
         struct ast_value_logical_binary : virtual public ast_value
@@ -1709,6 +2101,151 @@ namespace rs
 
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                left->update_constant_value(lex);
+                right->update_constant_value(lex);
+                if (left->is_constant && right->is_constant)
+                {
+                    is_constant = true;
+                    value_type = new ast_type(L"int");
+
+                    switch (operate)
+                    {
+                    case lex_type::l_land:
+                        constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
+                        break;
+                    case lex_type::l_lor:
+                        constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
+                        break;
+                    case lex_type::l_equal:
+                    case lex_type::l_not_equal:
+                        if (left->value_type->is_integer())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_real())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_string())
+                        {
+                            if (right->value_type->is_string())
+                                constant_value.set_integer(*left->get_constant_value().string == *right->get_constant_value().string);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else
+                            constant_value.set_integer(left->get_constant_value().handle == right->get_constant_value().handle);
+
+                        if (operate == +lex_type::l_not_equal)
+                            constant_value.set_integer(!constant_value.integer);
+                        break;
+
+                    case lex_type::l_less:
+                    case lex_type::l_larg_or_equal:
+                        if (left->value_type->is_integer())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_real())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_string())
+                        {
+                            if (right->value_type->is_string())
+                                constant_value.set_integer(*left->get_constant_value().string < *right->get_constant_value().string);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_handle())
+                        {
+                            if (right->value_type->is_handle())
+                                constant_value.set_integer(left->get_constant_value().handle < right->get_constant_value().handle);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else
+                            lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+
+
+                        if (operate == +lex_type::l_larg_or_equal)
+                            constant_value.set_integer(!constant_value.integer);
+                        break;
+
+                    case lex_type::l_larg:
+                    case lex_type::l_less_or_equal:
+
+                        if (left->value_type->is_integer())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_real())
+                        {
+                            if (right->value_type->is_integer())
+                                constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().integer);
+                            else if (right->value_type->is_real())
+                                constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_string())
+                        {
+                            if (right->value_type->is_string())
+                                constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else if (left->value_type->is_handle())
+                        {
+                            if (right->value_type->is_handle())
+                                constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
+                            else
+                                lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        }
+                        else
+                            lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+
+
+                        if (operate == +lex_type::l_less_or_equal)
+                            constant_value.set_integer(!constant_value.integer);
+                        break;
+
+                    default:
+                        rs_error("Do not support this op.");
+                    }
+                }
+            }
         };
 
         struct ast_value_index : virtual public ast_value
@@ -1749,6 +2286,39 @@ namespace rs
                 RS_REINSTANCE(dumm->index);
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                from->update_constant_value(lex);
+                index->update_constant_value(lex);
+                if (from->is_constant && index->is_constant)
+                {
+                    if (from->value_type->is_string())
+                    {
+                        is_constant = true;
+                        value_type = new ast_type(L"string");
+
+                        if (!index->value_type->is_integer() && !index->value_type->is_handle())
+                        {
+                            lex->lang_error(0x0000, this, RS_ERR_CANNOT_INDEX_STR_WITH_TYPE, value_type->get_type_name().c_str());
+                            return;
+                        }
+
+                        size_t strlength = 0;
+                        rs_string_t out_str = u8substr(from->get_constant_value().string->c_str(), index->get_constant_value().integer, 1, &strlength);
+
+                        constant_value.set_string_nogc(
+                            std::string(out_str, strlength).c_str());
+                    }
+                    else
+                    {
+                        // TODO: Index nil, report error in compile time?
+                    }
+                }
             }
         };
 
@@ -1796,6 +2366,11 @@ namespace rs
                 // Write self copy functions here..
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING
+            }
         };
 
         struct ast_value_indexed_variadic_args : virtual public ast_value
@@ -1822,6 +2397,11 @@ namespace rs
                 RS_REINSTANCE(dumm->argindex);
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING
             }
         };
 
@@ -1851,6 +2431,11 @@ namespace rs
 
                 return dumm;
             }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING
+            }
         };
 
         struct ast_value_unary : virtual public ast_value
@@ -1869,6 +2454,42 @@ namespace rs
                 RS_REINSTANCE(dumm->val);
 
                 return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                val->update_constant_value(lex);
+                if (val->is_constant)
+                {
+                    is_constant = true;
+
+                    if (operate == +lex_type::l_sub)
+                    {
+                        value_type = val->value_type;
+                        auto _rval = val->get_constant_value();
+                        if (_rval.type == value::valuetype::integer_type)
+                        {
+                            constant_value.set_integer(-_rval.integer);
+                        }
+                        else if (_rval.type == value::valuetype::real_type)
+                        {
+                            constant_value.set_real(-_rval.real);
+                        }
+                        else
+                        {
+                            lex->lang_error(0x0000, this, RS_ERR_TYPE_CANNOT_NEGATIVE, val->value_type->get_type_name().c_str());
+                            return;
+                        }
+                    }
+                    else /*if(_token.type == +lex_type::l_lnot)*/
+                    {
+                        value_type = new ast_type(L"int");
+                        constant_value.set_integer(!val->get_constant_value().handle);
+                    }
+                }
             }
         };
 
@@ -2205,38 +2826,11 @@ namespace rs
                 rs_test(right_v);
                 rs_test(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
 
-                if (right_v->is_constant)
-                {
-                    ast_value_literal* const_result = new ast_value_literal();
-
-                    if (_token.type == +lex_type::l_sub)
-                    {
-                        const_result->value_type = right_v->value_type;
-                        auto _rval = right_v->get_constant_value();
-                        if (_rval.type == value::valuetype::integer_type)
-                        {
-                            const_result->_constant_value.set_integer(-_rval.integer);
-                        }
-                        else if (_rval.type == value::valuetype::real_type)
-                        {
-                            const_result->_constant_value.set_real(-_rval.real);
-                        }
-                        else
-                        {
-                            return lex.parser_error(0x0000, RS_ERR_TYPE_CANNOT_NEGATIVE, right_v->value_type->get_type_name().c_str());
-                        }
-                    }
-                    else /*if(_token.type == +lex_type::l_lnot)*/
-                    {
-                        const_result->value_type = new ast_type(L"int");
-                        const_result->_constant_value.set_integer(!right_v->get_constant_value().handle);
-                    }
-                    return (ast_basic*)const_result;
-                }
-
                 ast_value_unary* vbin = new ast_value_unary();
                 vbin->operate = _token.type;
                 vbin->val = right_v;
+
+                vbin->update_constant_value(&lex);
 
                 /*
                  // In ast build pass, all left value's type cannot judge, so it was useless..
@@ -2708,117 +3302,6 @@ namespace rs
 
         struct pass_type_cast : public astnode_builder
         {
-            static ast_value* do_cast(lexer& lex, ast_value* value_node, ast_type* type_node, bool force = false)
-            {
-                if (value_node->is_constant && !type_node->is_pending())
-                {
-                    // just cast the value!
-                    value last_value = value_node->get_constant_value();
-                    ast_value_literal* cast_result = new ast_value_literal;
-
-                    value::valuetype aim_real_type = type_node->value_type;
-                    if (type_node->is_dynamic())
-                    {
-                        aim_real_type = last_value.type;
-                    }
-                    else if (value_node->value_type->is_dynamic())
-                    {
-                        lex.lang_warning(0x0000, type_node, RS_WARN_OVERRIDDEN_DYNAMIC_TYPE);
-                    }
-
-                    switch (aim_real_type)
-                    {
-                    case value::valuetype::real_type:
-                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
-                            goto try_cast_nil_to_int_handle_real_str;
-                        cast_result->_constant_value.set_real(rs_cast_real((rs_value)&last_value));
-                        break;
-                    case value::valuetype::integer_type:
-                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
-                            goto try_cast_nil_to_int_handle_real_str;
-                        cast_result->_constant_value.set_integer(rs_cast_int((rs_value)&last_value));
-                        break;
-                    case value::valuetype::string_type:
-                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type))
-                            goto try_cast_nil_to_int_handle_real_str;
-                        cast_result->_constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
-                        break;
-                    case value::valuetype::handle_type:
-                        if (last_value.is_nil() || (!force && last_value.type != aim_real_type))
-                            goto try_cast_nil_to_int_handle_real_str;
-                        cast_result->_constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
-                        break;
-                    case value::valuetype::mapping_type:
-                        if (last_value.is_nil())
-                        {
-                            cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
-                            break;
-                        }
-                        goto try_cast_nil_to_int_handle_real_str;
-                        break;
-                    case value::valuetype::array_type:
-                        if (last_value.is_nil())
-                        {
-                            cast_result->_constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
-                            break;
-                        }
-                        goto try_cast_nil_to_int_handle_real_str;
-                        break;
-                    default:
-                    try_cast_nil_to_int_handle_real_str:
-                        if (type_node->is_dynamic() || (last_value.is_nil() && type_node->is_func()))
-                        {
-                        }
-                        else
-                        {
-                            if (!force)
-                                lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
-                                    type_node->get_type_name().c_str());
-                            else
-                                lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                    ast_type::get_name_from_type(value_node->value_type->value_type).c_str(),
-                                    type_node->get_type_name().c_str());
-
-                            cast_result->_constant_value.set_nil();
-                            cast_result->value_type = new ast_type(cast_result->_constant_value);
-                            return cast_result;
-                        }
-                        break;
-                    }
-
-                    cast_result->value_type = type_node;
-                    return cast_result;
-                }
-                else
-                {
-                    if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
-                    {
-                        array_builder->value_type = type_node;
-                        return array_builder;
-                    }
-
-                    if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
-                    {
-                        map_builder->value_type = type_node;
-                        return map_builder;
-                    }
-
-                    if (value_node->is_mark_as_using_ref)
-                    {
-                        if (force)
-                            lex.lang_warning(0x0000, value_node, RS_WARN_CAST_REF);
-                        else
-                            lex.lang_error(0x0000, value_node, RS_ERR_CANNOT_IMPLCAST_REF);
-                    }
-
-                    if (!value_node->value_type->is_pending() && !type_node->is_pending() && (value_node->value_type->is_same(type_node)))
-                        return value_node;
-
-                    return new ast_value_type_cast(value_node, type_node, !force);
-                }
-            }
-
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
@@ -2827,7 +3310,22 @@ namespace rs
                 ast_type* type_node;
                 if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-                    return (ast_basic*)do_cast(lex, value_node, type_node, true);
+
+                    if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
+                    {
+                        array_builder->value_type = type_node;
+                        return (ast_basic*)array_builder;
+                    }
+
+                    if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
+                    {
+                        map_builder->value_type = type_node;
+                        return (ast_basic*)map_builder;
+                    }
+
+                    ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node, false);
+                    typecast->update_constant_value(&lex);
+                    return (ast_basic*)typecast;
                 }
 
                 rs_error("Unexcepted token type.");
@@ -2871,26 +3369,6 @@ namespace rs
 
         struct pass_type_check : public astnode_builder
         {
-            static ast_value* do_check(lexer& lex, ast_value* value_node, ast_type* type_node)
-            {
-                if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
-                {
-                    return new ast_value_type_check(value_node, type_node);
-                }
-                else if (!value_node->value_type->is_same(type_node))
-                {
-                    ast_value_literal* result_false = new ast_value_literal();
-                    result_false->value_type = new ast_type(L"int");
-                    result_false->_constant_value.set_integer(0);
-                    return result_false;
-                }
-
-                ast_value_literal* result_true = new ast_value_literal();
-                result_true->value_type = new ast_type(L"int");
-                result_true->_constant_value.set_integer(1);
-                return result_true;
-            }
-
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() == 2);
@@ -2900,7 +3378,11 @@ namespace rs
                 if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
                 {
                     if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
-                        return (ast_basic*)do_check(lex, value_node, type_node);
+                    {
+                        ast_value_type_check* checking_node = new ast_value_type_check(value_node, type_node);
+                        checking_node->update_constant_value(&lex);
+                        return (ast_basic*)checking_node;
+                    }
                     return (ast_basic*)value_node;
                 }
 
@@ -3054,166 +3536,6 @@ namespace rs
 
         struct pass_binary_op : public astnode_builder
         {
-            template <typename T>
-            static T binary_operate(lexer& lex, T left, T right, lex_type op_type)
-            {
-                if constexpr (std::is_same<T, rs_string_t>::value)
-                    if (op_type != +lex_type::l_add)
-                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP);
-                if constexpr (std::is_same<T, rs_handle_t>::value)
-                    if (op_type == +lex_type::l_mul || op_type == +lex_type::l_div || op_type == +lex_type::l_mod || op_type == +lex_type::l_mul_assign || op_type == +lex_type::l_div_assign || op_type == +lex_type::l_mod_assign)
-                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP);
-
-                switch (op_type)
-                {
-                case lex_type::l_add:
-                    if constexpr (std::is_same<T, rs_string_t>::value)
-                    {
-                        thread_local static std::string _tmp_string_add_result;
-                        _tmp_string_add_result = left;
-                        _tmp_string_add_result += right;
-                        return _tmp_string_add_result.c_str();
-                    }
-                    else
-                        return left + right;
-                case lex_type::l_sub:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
-                        return left - right;
-                case lex_type::l_mul:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
-                        return left * right;
-                case lex_type::l_div:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
-                        return left / right;
-                case lex_type::l_mod:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
-                    {
-                        if constexpr (std::is_same<T, rs_real_t>::value)
-                        {
-                            return fmod(left, right);
-                        }
-                        else
-                            return left % right;
-                    }
-                default:
-                    rs_error("Grammar error: cannot calculate by this funcion");
-                    break;
-                }
-                return T{};
-            }
-
-            static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
-            {
-                if (left_v->is_dynamic() || right_v->is_dynamic())
-                {
-                    return new ast_type(L"dynamic");
-                }
-                if (left_v->is_func() || right_v->is_func())
-                {
-                    return nullptr;
-                }
-
-                auto left_t = left_v->value_type;
-                auto right_t = right_v->value_type;
-
-                switch (left_t)
-                {
-                case value::valuetype::integer_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"int");
-                        break;
-                    case value::valuetype::real_type:
-                        return new ast_type(L"real");
-                        break;
-                    case value::valuetype::handle_type:
-                        return new ast_type(L"handle");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::real_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"real");
-                        break;
-                    case value::valuetype::real_type:
-                        return new ast_type(L"real");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::handle_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"handle");
-                        break;
-                    case value::valuetype::handle_type:
-                        return new ast_type(L"handle");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::string_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::string_type:
-                        return new ast_type(L"string");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::array_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::array_type:
-                        return new ast_type(L"array");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::mapping_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::array_type:
-                        return new ast_type(L"map");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                default:
-                    return nullptr;
-                    break;
-                }
-            }
-
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 rs_test(input.size() >= 3);
@@ -3225,77 +3547,15 @@ namespace rs
                 token _token = RS_NEED_TOKEN(1);
                 rs_test(lexer::lex_is_operate_type(_token.type));
 
-                ast_type* result_type = nullptr;
-
                 // calc type upgrade
-                if (left_v->value_type->is_dynamic() || right_v->value_type->is_dynamic())
-                {
-                    result_type = new ast_type(L"dynamic");
-                }
-                else if (left_v->value_type->is_pending() || right_v->value_type->is_pending())
-                {
-                    result_type = new ast_type(L"pending");
-                }
-                else
-                {
-                    if (nullptr == (result_type = binary_upper_type(left_v->value_type, right_v->value_type)))
-                        return lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
-                }
 
-                if (left_v->is_constant && right_v->is_constant)
-                {
-                    ast_value_literal* const_result = new ast_value_literal();
-                    const_result->value_type = result_type;
-
-                    value _left_val = left_v->get_constant_value();
-                    value _right_val = right_v->get_constant_value();
-
-                    switch (result_type->value_type)
-                    {
-                    case value::valuetype::integer_type:
-                        const_result->_constant_value.set_integer(
-                            binary_operate(lex,
-                                rs_cast_int((rs_value)&_left_val),
-                                rs_cast_int((rs_value)&_right_val),
-                                _token.type));
-                        break;
-                    case value::valuetype::real_type:
-                        const_result->_constant_value.set_real(
-                            binary_operate(lex,
-                                rs_cast_real((rs_value)&_left_val),
-                                rs_cast_real((rs_value)&_right_val),
-                                _token.type));
-                        break;
-                    case value::valuetype::handle_type:
-                        const_result->_constant_value.set_handle(
-                            binary_operate(lex,
-                                rs_cast_handle((rs_value)&_left_val),
-                                rs_cast_handle((rs_value)&_right_val),
-                                _token.type));
-                        break;
-                    case value::valuetype::string_type:
-                    {
-                        std::string left_str = rs_cast_string((rs_value)&_left_val);
-                        std::string right_str = rs_cast_string((rs_value)&_right_val);
-                        const_result->_constant_value.set_string_nogc(
-                            binary_operate(lex,
-                                (rs_string_t)left_str.c_str(),
-                                (rs_string_t)right_str.c_str(),
-                                _token.type));
-                    }
-                    break;
-                    default:
-                        return lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
-                        break;
-                    }
-
-                    return (grammar::ast_base*)const_result;
-                }
 
                 ast_value_binary* vbin = new ast_value_binary();
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
+
+                vbin->update_constant_value(&lex);
                 // In ast build pass, all left value's type cannot judge, so it was useless..
                 //vbin->value_type = result_type;
 
@@ -3388,31 +3648,12 @@ namespace rs
                     }
                     else
                     {
-                        if (left_v->is_constant && right_v->is_constant)
-                        {
-                            if (left_v->value_type->value_type == value::valuetype::string_type)
-                            {
-                                if (right_v->value_type->value_type != value::valuetype::integer_type && right_v->value_type->value_type != value::valuetype::handle_type)
-                                {
-                                    return lex.parser_error(0x0000, RS_ERR_CANNOT_INDEX_STR_WITH_TYPE, right_v->value_type->get_type_name().c_str());
-                                }
-
-                                ast_value_literal* const_result = new ast_value_literal();
-                                const_result->value_type = new ast_type(L"string");
-
-                                size_t strlength = 0;
-                                rs_string_t out_str = u8substr(left_v->get_constant_value().string->c_str(), right_v->get_constant_value().integer, 1, &strlength);
-
-                                const_result->_constant_value.set_string_nogc(
-                                    std::string(out_str, strlength).c_str());
-
-                                return (grammar::ast_base*)const_result;
-                            }
-                        }
-
                         ast_value_index* vbin = new ast_value_index();
                         vbin->from = left_v;
                         vbin->index = right_v;
+
+                        vbin->update_constant_value(&lex);
+
                         return (grammar::ast_base*)vbin;
                     }
                 }
@@ -3423,12 +3664,15 @@ namespace rs
 
                     ast_value_literal* const_result = new ast_value_literal();
                     const_result->value_type = new ast_type(L"string");
-                    const_result->_constant_value.set_string_nogc(
+                    const_result->constant_value.set_string_nogc(
                         wstr_to_str(right_tk.identifier).c_str());
 
                     ast_value_index* vbin = new ast_value_index();
                     vbin->from = left_v;
                     vbin->index = const_result;
+
+                    vbin->update_constant_value(&lex);
+
                     return (grammar::ast_base*)vbin;
                 }
 
