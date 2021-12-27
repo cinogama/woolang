@@ -217,6 +217,16 @@ rs_integer_t rs_version_int(void)
 #define CS_VAL(v) (reinterpret_cast<rs_value>(v))
 #define CS_VM(v) (reinterpret_cast<rs_vm>(v))
 
+rs_ptr_t rs_safety_pointer(rs::gchandle_t * gchandle)
+{
+    if (gchandle->has_been_closed)
+    {
+        rs_fail(RS_FAIL_ACCESS_NIL, "Reading a closed gchandle.");
+        return nullptr;
+    }
+    return gchandle->holding_handle;
+}
+
 rs_type rs_valuetype(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
@@ -255,7 +265,7 @@ rs_handle_t rs_handle(rs_value value)
     return _rsvalue->type == rs::value::valuetype::handle_type ?
         (rs_handle_t)_rsvalue->handle
         :
-        (rs_handle_t)_rsvalue->gchandle->holding_handle;
+        (rs_handle_t)rs_safety_pointer(_rsvalue->gchandle);
 }
 rs_ptr_t rs_pointer(rs_value value)
 {
@@ -266,10 +276,10 @@ rs_ptr_t rs_pointer(rs_value value)
         rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a handle.");
         return rs_cast_pointer(value);
     }
-    return _rsvalue->type == rs::value::valuetype::handle_type?
+    return _rsvalue->type == rs::value::valuetype::handle_type ?
         (rs_ptr_t)_rsvalue->handle
         :
-        (rs_ptr_t)_rsvalue->gchandle->holding_handle;
+        (rs_ptr_t)rs_safety_pointer(_rsvalue->gchandle);
 }
 rs_string_t rs_string(rs_value value)
 {
@@ -376,7 +386,7 @@ rs_handle_t rs_cast_handle(rs_value value)
     case rs::value::valuetype::handle_type:
         return _rsvalue->handle;
     case rs::value::valuetype::gchandle_type:
-        return (rs_handle_t)_rsvalue->gchandle->holding_handle;
+        return (rs_handle_t)rs_safety_pointer(_rsvalue->gchandle);
     case rs::value::valuetype::real_type:
         return (rs_handle_t)_rsvalue->real;
     case rs::value::valuetype::string_type:
@@ -413,7 +423,7 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
         *out_str += std::to_string(_rsvalue->real);
         return;
     case rs::value::valuetype::gchandle_type:
-        *out_str += std::to_string((size_t)_rsvalue->gchandle->holding_handle);
+        *out_str += std::to_string((rs_handle_t)rs_safety_pointer(_rsvalue->gchandle));
         return;
     case rs::value::valuetype::string_type:
     {
@@ -515,7 +525,7 @@ rs_string_t rs_cast_string(const rs_value value)
         _buf = std::to_string(_rsvalue->handle);
         return _buf.c_str();
     case rs::value::valuetype::gchandle_type:
-        _buf = std::to_string((size_t)_rsvalue->gchandle->holding_handle);
+        _buf = std::to_string((rs_handle_t)rs_safety_pointer(_rsvalue->gchandle));
         return _buf.c_str();
     case rs::value::valuetype::real_type:
         _buf = std::to_string(_rsvalue->real);
@@ -993,8 +1003,14 @@ rs_value rs_map_get(rs_value map, rs_value index)
     return nullptr;
 }
 
-// DEBUGGEE TOOLS
+rs_bool_t rs_gchandle_close(rs_value gchandle)
+{
+    if (RS_VAL(gchandle)->gchandle)
+        return RS_VAL(gchandle)->gchandle->close();
+    return false;
+}
 
+// DEBUGGEE TOOLS
 void rs_attach_default_debuggee(rs_vm vm)
 {
     rs::default_debuggee* dgb = new rs::default_debuggee;

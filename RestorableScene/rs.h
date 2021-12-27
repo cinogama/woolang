@@ -169,6 +169,8 @@ RS_API rs_value     rs_map_read(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get_default(rs_value arr, rs_value index, rs_value default_value);
 RS_API rs_bool_t    rs_map_erase(rs_value arr, rs_value index);
 
+RS_API rs_bool_t    rs_gchandle_close(rs_value gchandle);
+
 // Here to define RSRuntime code accroding to the type.
 
 // Here to define RSRuntime debug tools API

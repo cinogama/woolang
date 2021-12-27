@@ -40,7 +40,7 @@ func test_equal(var a, var b)
     else
     {
         test_failed_count += 1;
-        std::println("Test fail:", b, " != ", a, ",but it should be equal.");
+        std::println("Test fail:", a, " != ", b, ",but it should be equal.");
     }
 }
 

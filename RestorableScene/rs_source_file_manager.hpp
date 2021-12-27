@@ -48,6 +48,9 @@ namespace rs
                 auto src_file_loc = rs::get_file_loc(lex->source_file);
                 *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
                 std::wifstream src_1(wstr_to_str(*out_real_read_path));
+
+                src_1.imbue(rs_global_locale);
+
                 if (src_1.is_open())
                 {
                     src_1.seekg(0, std::ios::end);
@@ -65,6 +68,9 @@ namespace rs
         {
             *out_real_read_path = str_to_wstr(rs::exe_path()) + filepath;
             std::wifstream src_1(wstr_to_str(*out_real_read_path));
+
+            src_1.imbue(rs_global_locale);
+
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);
@@ -94,6 +100,9 @@ namespace rs
         {
             *out_real_read_path = str_to_wstr(rs::work_path()) + filepath;
             std::wifstream src_1(wstr_to_str(*out_real_read_path));
+
+            src_1.imbue(rs_global_locale);
+
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);
@@ -110,6 +119,9 @@ namespace rs
         do
         {
             std::wifstream src_1(filepath);
+
+            src_1.imbue(rs_global_locale);
+
             if (src_1.is_open())
             {
                 src_1.seekg(0, std::ios::end);

@@ -19,6 +19,8 @@ namespace rs
     // RS will work in UTF-8 mode as default 
     // (Before Windows 10 build 17134, setlocale will not work when using UTF-8).
 
+    inline std::locale rs_global_locale = std::locale::classic();
+
     inline void rs_init_locale(const char* local_type)
     {
 
@@ -37,17 +39,15 @@ namespace rs
 
 #ifdef _WIN32
 #endif
-        try
-        {
-            std::locale::global(std::locale(local_type));
-        }
-        catch (const std::exception& e)
+        if (nullptr == std::setlocale(LC_CTYPE, local_type))
         {
             std::cerr << ANSI_HIR "RS: " ANSI_RST "Unable to initialize locale character set environment: " << std::endl;
-            std::cerr << "\t" << ANSI_HIY << e.what() << ANSI_RST << std::endl;
+            std::cerr << "\t" << ANSI_HIY << local_type << ANSI_RST <<" is not a valid locale type." << std::endl;
 
             std::exit(-1);
         }
+        rs_global_locale = std::locale(local_type);
+
         printf(ANSI_RST);
     }
 

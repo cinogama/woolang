@@ -109,6 +109,29 @@ namespace test_template
         else
             return 1;
     }
+    
+    using MyTemplate<T> = int;
+    namespace MyTemplate
+    {
+        func MyTemplateTName<T>(var self:MyTemplate<T>)
+        {
+            return typename_of:<T>();
+        }
+    }
+
+    using MySecTemplate<T> = int;
+    func TemplateAutoJudgeTest<T>(var self:MyTemplate<T>)
+    {
+        return "fail";
+    }
+    func TemplateAutoJudgeTest<T>(var self:MySecTemplate<T>)
+    {
+        return "ohooo";
+    }
+    func TemplateAutoJudgeTest<T>(var self:array<T>)
+    {
+        return "success";
+    }
 
     func main()
     {
@@ -141,6 +164,19 @@ namespace test_template
         template_if_constexpr_test:<real>() as real;
         no_if_constexpr_test_1() as real;
         no_if_constexpr_test_2() as real;
+
+        var mt_int = 0:MyTemplate<int>;
+        var mt_real = 0:MyTemplate<real>;
+
+        test_equal(mt_int->MyTemplateTName(), "int");
+        test_equal(mt_real->MyTemplateTName(), "real");
+
+        var n0 = []:array<real>;
+        var n1 = 0:MyTemplate<real>;
+        var n2 = 0:MySecTemplate<real>;
+        test_equal(TemplateAutoJudgeTest(n0), "success");
+        test_equal(TemplateAutoJudgeTest(n1), "fail");
+        test_equal(TemplateAutoJudgeTest(n2), "ohooo");
     }
 }
 

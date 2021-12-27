@@ -66,6 +66,9 @@
     <ClCompile Include="rs_utf8.cpp">
       <Filter>basic</Filter>
     </ClCompile>
+    <ClCompile Include="rs_lang_ast_builder.cpp">
+      <Filter>lang</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs.h">

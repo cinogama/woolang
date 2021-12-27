@@ -349,6 +349,9 @@ gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"T
 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
+gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+>> RS_ASTBUILDER_INDEX(ast::pass_typeof),
+
 gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
 >> RS_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 

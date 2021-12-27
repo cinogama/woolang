@@ -38,13 +38,29 @@ namespace rs
 
     struct gc_handle_base_t
     {
+        gc_handle_base_t* last = nullptr;
+
         void* holding_handle = nullptr;
         void(*destructor)(void*) = nullptr;
 
+        std::atomic_flag has_been_closed_af = {};
+        bool has_been_closed = false;
+
+        bool close()
+        {
+            if (!has_been_closed_af.test_and_set())
+            {
+                has_been_closed = true;
+                if (destructor)
+                    destructor(holding_handle);
+                return true;
+            }
+            return false;
+        }
+
         ~gc_handle_base_t()
         {
-            if (destructor)
-                destructor(holding_handle);
+            close();
         }
     };
 
@@ -103,7 +119,7 @@ namespace rs
 
         union
         {
-            valuetype type; 
+            valuetype type;
             // uint32_t type_hash;
 
             // std::atomic_uint64_t atomic_type;
@@ -312,7 +328,7 @@ namespace rs
                 }
                 else
                     set_nil();
-             
+
             }
             else if (from->type == valuetype::mapping_type)
             {

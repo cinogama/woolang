@@ -62,6 +62,7 @@ namespace test_vm
                 std::println(vmm->error_msg());
             }
             vmm->run();
+
             vmm->close();
         }
     }

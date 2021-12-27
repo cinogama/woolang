@@ -42,7 +42,6 @@ int main(int argc, char** argv)
         std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
         std::cout << rs_compile_date() << std::endl;
     }
-    
 
     return 0;
 }

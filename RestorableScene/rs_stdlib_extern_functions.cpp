@@ -134,15 +134,17 @@ RS_API rs_api rslib_std_thread_sleep(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_vm_create(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_pointer(vm, rs_create_vm());
+    return rs_ret_gchandle(vm, rs_create_vm(),
+        [](void * vm_ptr) {
+            rs_close_vm((rs_vm)vm_ptr);
+        });
 }
 
-RS_API rs_api rslib_std_vm_close(rs_vm vm, rs_value args, size_t argc)
-{
-    rs_close_vm((rs_vm)rs_pointer(args));
-
-    return rs_ret_nil(vm);
-}
+//RS_API rs_api rslib_std_vm_close(rs_vm vm, rs_value args, size_t argc)
+//{
+//    rs_close_vm((rs_vm)rs_pointer(args));
+//    return rs_ret_nil(vm);
+//}
 
 RS_API rs_api rslib_std_vm_load_src(rs_vm vm, rs_value args, size_t argc)
 {
@@ -207,6 +209,11 @@ RS_API rs_api rslib_std_vm_virtual_source(rs_vm vm, rs_value args, size_t argc)
         rs_string(args + 1),
         rs_int(args + 2)
     ));
+}
+
+RS_API rs_api rslib_std_gchandle_close(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_gchandle_close(args);
 }
 
 const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
@@ -299,6 +306,13 @@ namespace map
         return _dupval;
     }
 }
+
+namespace gchandle
+{
+    extern("rslib_std_gchandle_close")
+        func close(var handle:gchandle):void;
+}
+
 )" };
 
 RS_API rs_api rslib_std_debug_attach_default_debuggee(rs_vm vm, rs_value args, size_t argc)
@@ -363,7 +377,7 @@ import rscene.basic;
 
 namespace std
 {
-    using vm = handle;
+    using vm = gchandle;
     namespace vm
     {
         enum info_style
@@ -374,9 +388,6 @@ namespace std
 
         extern("rslib_std_vm_create")
         func create():vm;
-
-        extern("rslib_std_vm_close")
-        func close(var vmhandle:vm):void;
 
         extern("rslib_std_vm_load_src")
         func load_source(var vmhandle:vm, var src:string):bool;

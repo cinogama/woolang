@@ -90,6 +90,10 @@ namespace rs
             }
         };
 
+        struct ast_value;
+
+        ast_value* dude_dump_ast_value(ast_value*);
+
         struct ast_type : virtual public ast_symbolable_base
         {
             bool is_function_type = false;
@@ -106,6 +110,8 @@ namespace rs
             std::vector<ast_type*> template_arguments;
 
             ast_type* using_type_name = nullptr;
+
+            ast_value* typefrom = nullptr;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
@@ -387,6 +393,50 @@ namespace rs
             {
                 return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
+            bool is_like(const ast_type* another, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
+            {
+                // Only used after pass1
+
+                if (is_func() != another->is_func()
+                    || is_variadic_function_type != another->is_variadic_function_type
+                    || template_arguments.size() != template_arguments.size()
+                    || argument_types.size() != another->argument_types.size())
+                    return false;
+
+                if ((using_type_name == nullptr && another->using_type_name)
+                    || (using_type_name && another->using_type_name == nullptr))
+                {
+                    if (using_type_name && using_type_name->is_like(another))
+                    {
+                        if (out_para)*out_para = using_type_name;
+                        if (out_args)*out_args = const_cast<ast_type*>(another);
+                        return true;
+                    }
+                    if (another->using_type_name && is_like(another->using_type_name))
+                    {
+                        if (out_para)*out_para = const_cast<ast_type*>(this);
+                        if (out_args)*out_args = another->using_type_name;
+                        return true;
+                    }
+                    return false;
+                }
+
+                if (using_type_name)
+                {
+                    if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                        return false;
+                }
+                else
+                {
+                    if (value_type != another->value_type
+                        || type_name != another->type_name)
+                        return false;
+                }
+                if (out_para)*out_para = const_cast<ast_type*>(this);
+                if (out_args)*out_args = const_cast<ast_type*>(another);
+                return true;
+
+            }
             bool is_same(const ast_type* another, bool ignore_using_type = true) const
             {
                 if (is_pending_function() || another->is_pending_function())
@@ -471,15 +521,20 @@ namespace rs
                 std::wstring result;
 
                 if (!ignore_using_type && using_type_name)
-                    return using_type_name->get_type_name();
+                {
+                    auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
+                        rs::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
+                    result = (namespacechain.empty() ? L"" : namespacechain + L"::")
+                        + using_type_name->get_type_name(ignore_using_type);
+                }
                 else
-                    result = (is_complex() ? complex_type->get_type_name() : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    result = (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 if (has_template())
                 {
                     result += L"<";
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        result += template_arguments[index]->get_type_name();
+                        result += template_arguments[index]->get_type_name(ignore_using_type);
                         if (index + 1 != template_arguments.size())
                             result += L", ";
                     }
@@ -490,7 +545,7 @@ namespace rs
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
-                        result += argument_types[index]->get_type_name();
+                        result += argument_types[index]->get_type_name(ignore_using_type);
                         if (index + 1 != argument_types.size() || is_variadic_function_type)
                             result += L", ";
                     }
@@ -523,6 +578,7 @@ namespace rs
                 ast_symbolable_base::instance(dumm);
 
                 // Write self copy functions here..
+                dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
                 RS_REINSTANCE(dumm->complex_type);
                 std::vector<ast_type*> argument_types;
                 std::vector<ast_type*> template_arguments;
@@ -761,7 +817,7 @@ namespace rs
             }
         };
 
-        struct ast_value_type_cast : public ast_value
+        struct ast_value_type_cast : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
             bool implicit;
@@ -897,7 +953,7 @@ namespace rs
             }
         };
 
-        struct ast_value_type_judge : public ast_value
+        struct ast_value_type_judge : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
             ast_value_type_judge(ast_value* value, ast_type* type)
@@ -936,7 +992,7 @@ namespace rs
             }
         };
 
-        struct ast_value_type_check : public ast_value
+        struct ast_value_type_check : public virtual ast_value
         {
             ast_value* _be_check_value_node;
             ast_type* aim_type;
@@ -1075,7 +1131,7 @@ namespace rs
             }
         };
 
-        struct ast_value_symbolable_base : virtual ast_value, virtual ast_symbolable_base
+        struct ast_value_symbolable_base : virtual  ast_value, virtual ast_symbolable_base
         {
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -1648,7 +1704,7 @@ namespace rs
                         ir_func_signature_tag += ">";
                     }
 
-                    ir_func_signature_tag += "(...) : " + wstr_to_str(value_type->get_type_name());
+                    ir_func_signature_tag += "(...) : " + wstr_to_str(value_type->get_type_name(false));
                 }
                 return ir_func_signature_tag;
             }
@@ -1697,7 +1753,7 @@ namespace rs
             }
         };
 
-        struct ast_token : grammar::ast_base
+        struct ast_token : virtual grammar::ast_base
         {
             token tokens;
 
@@ -1728,7 +1784,7 @@ namespace rs
             }
         };
 
-        struct ast_return : public grammar::ast_base
+        struct ast_return : virtual public grammar::ast_base
         {
             ast_value* return_value = nullptr;
             ast_value_function_define* located_function = nullptr;
@@ -2677,6 +2733,20 @@ namespace rs
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
             }
+        };
+
+        struct pass_typeof : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* att = new ast_type(L"pending");
+                att->typefrom = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+
+                rs_assert(att->typefrom);
+
+                return (ast_basic*)att;
+            }
+
         };
 
         struct pass_template_reification : public astnode_builder
@@ -3869,6 +3939,7 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
 

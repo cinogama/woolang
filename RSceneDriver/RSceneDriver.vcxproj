@@ -151,6 +151,7 @@
     <None Include="test_scripts\test_static.rsn" />
     <None Include="test_scripts\test_string_u8.rsn" />
     <None Include="test_scripts\test_template.rsn" />
+    <None Include="test_scripts\test_thread.rsn" />
     <None Include="test_scripts\test_vm.rsn" />
     <None Include="test_scripts\test_while.rsn" />
   </ItemGroup>

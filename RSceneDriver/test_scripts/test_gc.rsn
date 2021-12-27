@@ -11,7 +11,7 @@ namespace test_gc
         var i = 0;
         while (i < 10000)
         {
-                global_list += [{}]:array<dynamic>;
+                global_list->add({});
                 global_list[-1]["Hello"] = "world";
                 i+=1;
         }

@@ -21,6 +21,14 @@ namespace rs
             return wstr_to_str(scope->scope_namespace);
     }
 
+    std::string get_belong_namespace_path_with_lang_scope(const lang_symbol* symbol)
+    {
+        if (!symbol)
+            return "";
+
+        return get_belong_namespace_path_with_lang_scope(symbol->defined_in_scope);
+    }
+
     lang_symbol* find_type_in_this_scope(ast::ast_type* type)
     {
         rs_assert(_this_thread_lang_context);

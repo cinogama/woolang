@@ -246,21 +246,32 @@ namespace rs
             clean_and_close_lang();
         }
 
-        void fully_update_type(ast::ast_type* type)
+        void fully_update_type(ast::ast_type* type, bool in_pass_1)
         {
+            if (type->typefrom)
+            {
+                if (in_pass_1)
+                    analyze_pass1(type->typefrom);
+                else
+                    analyze_pass2(type->typefrom);
+
+                if (!type->typefrom->value_type->is_pending())
+                    type->set_type(type->typefrom->value_type);
+            }
+
             // todo: begin_template_scope here~
             if (type->is_custom())
             {
                 if (type->is_complex())
-                    fully_update_type(type->complex_type);
+                    fully_update_type(type->complex_type, in_pass_1);
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
-                        fully_update_type(a_t);
+                        fully_update_type(a_t, in_pass_1);
 
                 if (type->has_template())
                 {
                     for (auto* template_type : type->template_arguments)
-                        fully_update_type(template_type);
+                        fully_update_type(template_type, in_pass_1);
                 }
 
                 // ready for update..
@@ -292,12 +303,13 @@ namespace rs
                     if (type_sym)
                     {
                         bool using_template = false;
+                        auto using_template_args = type->template_arguments;
                         if (type->has_template())
                             using_template = begin_template_scope(type_sym->define_node, type->template_arguments);
 
                         auto* symboled_type = new ast::ast_type(L"pending");
                         symboled_type->set_type(type_sym->type_informatiom);
-                        fully_update_type(symboled_type);
+                        fully_update_type(symboled_type, in_pass_1);
 
                         if (type->is_func())
                             type->set_ret_type(symboled_type);
@@ -309,8 +321,8 @@ namespace rs
                             auto* using_type = new ast::ast_type(type_sym->name);
                             using_type->template_arguments = type->template_arguments;
 
-
                             type->using_type_name = using_type;
+                            type->using_type_name->template_arguments = using_template_args;
 
                             // Gen namespace chain
                             auto* inscopes = type_sym->defined_in_scope;
@@ -481,10 +493,10 @@ namespace rs
                 }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
-                    if (a_type->is_custom())
+                    if (a_type->is_pending())
                     {
                         // ready for update..
-                        fully_update_type(a_type);
+                        fully_update_type(a_type, true);
                     }
                     a_type->searching_begin_namespace_in_pass2 = now_scope();
                 }
@@ -507,10 +519,10 @@ namespace rs
             else if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(ast_node))
             {
                 analyze_pass1(ast_value_check->_be_check_value_node);
-                if (ast_value_check->aim_type->is_custom())
+                if (ast_value_check->aim_type->is_pending())
                 {
                     // ready for update..
-                    fully_update_type(ast_value_check->aim_type);
+                    fully_update_type(ast_value_check->aim_type, true);
                 }
 
                 ast_value_check->update_constant_value(lang_anylizer);
@@ -529,7 +541,7 @@ namespace rs
                             if (argdef->value_type->is_custom())
                             {
                                 // ready for update..
-                                fully_update_type(argdef->value_type);
+                                fully_update_type(argdef->value_type, true);
                             }
 
                             argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
@@ -868,10 +880,10 @@ namespace rs
 
             if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
             {
-                if (a_val->value_type->is_custom())
+                if (a_val->value_type->is_pending())
                 {
                     // ready for update..
-                    fully_update_type(a_val->value_type);
+                    fully_update_type(a_val->value_type, true);
                 }
                 a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
                 // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
@@ -1042,10 +1054,10 @@ namespace rs
                 }
                 else
                 {
-                    if (a_value->value_type->is_custom())
+                    if (a_value->value_type->is_pending())
                     {
                         // ready for update..
-                        fully_update_type(a_value->value_type);
+                        fully_update_type(a_value->value_type, false);
 
                         if (a_value->value_type->is_custom())
                             lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE
@@ -1054,7 +1066,7 @@ namespace rs
                     if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
                     {
                         // ready for update..
-                        fully_update_type(ast_value_check->aim_type);
+                        fully_update_type(ast_value_check->aim_type, false);
 
                         if (ast_value_check->aim_type->is_custom())
                             lang_anylizer->lang_error(0x0000, ast_value_check, RS_ERR_UNKNOWN_TYPE
@@ -1321,7 +1333,7 @@ namespace rs
                                                     continue; // failed getting each of template args, abandon this one
 
                                                 for (auto* template_agrs : template_args)
-                                                    fully_update_type(template_agrs);
+                                                    fully_update_type(template_agrs, false);
 
                                                 override_func = analyze_pass_template_reification(override_func, template_args); //tara~ get analyze_pass_template_reification 
                                                 _override_func = override_func;
@@ -2289,6 +2301,21 @@ namespace rs
 
         ast::ast_type* analyze_template_derivation(const std::wstring& temp_form, ast::ast_type* para, ast::ast_type* args)
         {
+            // Must match all formal
+            if (!para->is_like(args, &para, &args))
+            {
+                if (!para->is_func()
+                    && !para->has_template()
+                    && para->scope_namespaces.empty()
+                    && !para->search_from_global_namespace
+                    && para->type_name == temp_form)
+                {
+                    // do nothing..
+                }
+                else
+                    return nullptr;
+            }
+
             if (para->is_complex() && args->is_complex())
             {
                 if (auto* derivation_result = analyze_template_derivation(temp_form,
@@ -2318,6 +2345,14 @@ namespace rs
                 if (auto* derivation_result = analyze_template_derivation(temp_form,
                     para->template_arguments[index],
                     args->template_arguments[index]))
+                    return derivation_result;
+            }
+
+
+            if (para->using_type_name && args->using_type_name)
+            {
+                if (auto* derivation_result =
+                    analyze_template_derivation(temp_form, para->using_type_name, args->using_type_name))
                     return derivation_result;
             }
 
@@ -3618,10 +3653,10 @@ namespace rs
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
-                    compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
+                    compiler->ret();
                 }
                 else
-                    compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret_void"));
+                    compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
             }
             else if (auto* a_namespace = dynamic_cast<ast_namespace*>(ast_node))
             {
@@ -3732,10 +3767,8 @@ namespace rs
 
                     compiler->pdb_info->generate_debug_info_at_funcend(funcdef, compiler);
 
-                    compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret_void");
-                    compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
-
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
+                    compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
                     // compiler->pop(reserved_stack_size);
                     compiler->ret();                                            // do return
 

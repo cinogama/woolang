@@ -92,6 +92,7 @@ namespace rs
         l_enum,
         l_as,
         l_is,
+        l_typeof,
 
         l_private,
         l_public,
@@ -193,6 +194,7 @@ namespace rs
             {L"enum", {lex_type::l_enum}},
             {L"as", {lex_type::l_as}},
             {L"is", {lex_type::l_is}},
+            {L"typeof", {lex_type::l_typeof}},
         };
 
 

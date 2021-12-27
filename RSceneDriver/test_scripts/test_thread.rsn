@@ -1,0 +1,52 @@
+import rscene.std;
+import test_tool;
+
+import rscene.thread;
+
+namespace test_thread
+{
+	var summ_mtx = std::mutex::create();
+	var summ = 0;
+
+	var created_threads = []:array<std::thread>;
+
+	const var thread_count = 4;
+
+    func main()
+    {
+        var i = 0;
+		while (i<thread_count)
+		{
+			created_threads->add(
+				std::thread::create(
+					func(var id:int)
+					{
+						var c = 0;
+						while (c<10_000_000)
+						{
+							summ_mtx->lock();
+							summ += 1;
+							summ_mtx->unlock();
+
+							c+=1;
+						}
+						std::println("Thread:", id, "complete");
+					}, i 	
+			));
+			i+=1;
+		}
+
+		std::println("OK! Waiting to end..");
+
+		i = 0;
+		while (i<thread_count)
+		{
+			created_threads[i]->wait();
+			i+=1;
+		}
+		std::println("Result:", summ);
+		test_equal(summ, 10_000_000 * thread_count);
+    }
+}
+
+test_function("test_thread.main", test_thread::main);
