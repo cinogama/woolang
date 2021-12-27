@@ -349,7 +349,10 @@ gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"T
 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPEOF")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
 >> RS_ASTBUILDER_INDEX(ast::pass_typeof),
 
 gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
@@ -582,6 +585,8 @@ gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_brac
                 gm::nt(L"SCOPING_IDENTIFIER") >> gm::symlist{ gm::nt(L"SCOPING_BEGIN_IDENT"),gm::nt(L"SCOPING_LIST") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_finalize_serching_namespace),
 
+                gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::nt(L"TYPEOF") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_empty) }

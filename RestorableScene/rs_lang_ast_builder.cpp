@@ -10,5 +10,11 @@ namespace rs
                 return dynamic_cast<ast_value*>(dude->instance());
             return nullptr;
         }
+        ast_type* dude_dump_ast_type(ast_type* dude)
+        {
+            if (dude)
+                return dynamic_cast<ast_type*>(dude->instance());
+            return nullptr;
+        }
     }
 }

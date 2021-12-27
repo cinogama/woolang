@@ -65,10 +65,17 @@ namespace rs
 #endif
         /////////////////////////////////////////////////////////////////////////////////
 
+        struct ast_value;
+        ast_value* dude_dump_ast_value(ast_value*);
+        struct ast_type;
+        ast_type* dude_dump_ast_type(ast_type*);
+
         struct ast_symbolable_base : virtual grammar::ast_base
         {
             std::vector<std::wstring> scope_namespaces;
             bool search_from_global_namespace = false;
+
+            ast_type* searching_from_type = nullptr;
 
             lang_symbol* symbol = nullptr;
             lang_scope* searching_begin_namespace_in_pass2 = nullptr;
@@ -85,14 +92,11 @@ namespace rs
                 // ast_base::instance(dumm);
 
                 // Write self copy functions here..
+                dumm->searching_from_type = dude_dump_ast_type(searching_from_type);
 
                 return dumm;
             }
         };
-
-        struct ast_value;
-
-        ast_value* dude_dump_ast_value(ast_value*);
 
         struct ast_type : virtual public ast_symbolable_base
         {
@@ -3528,20 +3532,31 @@ namespace rs
             {
                 rs_test(input.size() == 2);
 
-                token tk = RS_NEED_TOKEN(0);
-                ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
-
-                rs_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
-                if (tk.type == +lex_type::l_identifier)
+                if (RS_IS_TOKEN(0))
                 {
-                    result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+                    token tk = RS_NEED_TOKEN(0);
+                    ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
+
+                    rs_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
+                    if (tk.type == +lex_type::l_identifier)
+                    {
+                        result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+                    }
+                    else
+                    {
+                        result->search_from_global_namespace = true;
+                    }
+                    return (grammar::ast_base*)result;
                 }
                 else
                 {
-                    result->search_from_global_namespace = true;
+                    ast_type* findingfrom = dynamic_cast<ast_type*>(RS_NEED_AST(0));
+                    ast_value_variable* result = dynamic_cast<ast_value_variable*>(RS_NEED_AST(1));
+
+                    result->searching_from_type = findingfrom;
+                    return (grammar::ast_base*)result;
                 }
 
-                return (grammar::ast_base*)result;
             }
         };
 
@@ -3824,6 +3839,7 @@ namespace rs
                 result = new ast_type(scoping_type->var_name);
                 result->search_from_global_namespace = scoping_type->search_from_global_namespace;
                 result->scope_namespaces = scoping_type->scope_namespaces;
+                result->searching_from_type = scoping_type->searching_from_type;
                 if (result->search_from_global_namespace || !result->scope_namespaces.empty())
                     result->is_pending_type = true;
 

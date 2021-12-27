@@ -259,6 +259,11 @@ namespace rs
                     type->set_type(type->typefrom->value_type);
             }
 
+            if (type->using_type_name && !type->using_type_name->symbol)
+            {
+                type->using_type_name->symbol = find_type_in_this_scope(type->using_type_name);
+            }
+
             // todo: begin_template_scope here~
             if (type->is_custom())
             {
@@ -346,8 +351,25 @@ namespace rs
             }
         }
 
+        std::vector<bool> in_pass2 = { false };
+        struct entry_pass
+        {
+            std::vector<bool>* _set;
+            entry_pass(std::vector<bool>& state_set, bool inpass2)
+                :_set(&state_set)
+            {
+                state_set.push_back(inpass2);
+            }
+            ~entry_pass()
+            {
+                _set->pop_back();
+            }
+        };
+
         void analyze_pass1(grammar::ast_base* ast_node)
         {
+            entry_pass ep1(in_pass2, false);
+
             if (traving_node.find(ast_node) != traving_node.end())
                 return;
 
@@ -1010,6 +1032,8 @@ namespace rs
 
         bool analyze_pass2(grammar::ast_base* ast_node)
         {
+            entry_pass ep1(in_pass2, true);
+
             rs_assert(ast_node);
 
             if (ast_node->completed_in_pass2)
@@ -4032,6 +4056,55 @@ namespace rs
         lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, const std::wstring& ident_str)
         {
             rs_assert(lang_scopes.size());
+
+            if (var_ident->searching_from_type)
+            {
+                fully_update_type(var_ident->searching_from_type, !in_pass2.back());
+
+                if (!var_ident->searching_from_type->is_pending() || var_ident->searching_from_type->using_type_name)
+                {
+                    auto* finding_from_type = var_ident->searching_from_type;
+                    if (var_ident->searching_from_type->using_type_name)
+                        finding_from_type = var_ident->searching_from_type->using_type_name;
+
+                    if (finding_from_type->symbol)
+                        var_ident->searching_begin_namespace_in_pass2 =
+                        finding_from_type->symbol->defined_in_scope;
+                    else
+                        var_ident->search_from_global_namespace = true;
+
+                    var_ident->scope_namespaces.insert(var_ident->scope_namespaces.begin(),
+                        finding_from_type->type_name);
+
+                    var_ident->searching_from_type = nullptr;
+                }
+                else
+                {
+                    return nullptr;
+                }
+            }
+            else if (!var_ident->scope_namespaces.empty())
+            {
+                if (!var_ident->search_from_global_namespace)
+                    for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+                    {
+                        if (auto fnd = rind->find(var_ident->scope_namespaces.front()); fnd != rind->end())
+                        {
+                            auto* fnd_template_type = fnd->second->type_informatiom;
+                            if (fnd_template_type->using_type_name)
+                                fnd_template_type = fnd_template_type->using_type_name;
+
+                            if (fnd_template_type->symbol)
+                                var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
+                            else
+                                var_ident->search_from_global_namespace = true;
+
+                            var_ident->scope_namespaces[0] = fnd_template_type->type_name;;
+                            break;
+                        }
+                    }
+
+            }
 
             if (var_ident->symbol)
                 return var_ident->symbol;
