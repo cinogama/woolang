@@ -48,7 +48,7 @@ namespace test_vm
                     a->get(0) = 233;
 
                     if (a[0] != 233)
-                        std::fail("Unexcepted reason fail.");
+                        std::panic("Unexcepted reason fail.");
 
                     test_template(233);
                     test_template("My world!");

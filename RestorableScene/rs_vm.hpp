@@ -56,7 +56,7 @@ namespace rs
     {
         inline static std::shared_mutex _alive_vm_list_mx;
         inline static cxx_set_t<vmbase*> _alive_vm_list;
-        inline thread_local static vmbase* _this_thread_vm;
+        inline thread_local static vmbase* _this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
 
         enum class vm_type
@@ -983,6 +983,11 @@ namespace rs
         }
 
     public:
+
+
+        inline thread_local static int layer;
+
+
         void run() override
         {
             struct auto_leave
@@ -1017,6 +1022,24 @@ namespace rs
                 }
             };
 
+            struct ip_restore_raii_stack
+            {
+                void*& ot;
+                void*& nt;
+
+                ip_restore_raii_stack(void*& _nt, void*& _ot)
+                    : ot(_ot)
+                    , nt(_nt)
+                {
+                    _nt = _ot;
+                }
+
+                ~ip_restore_raii_stack()
+                {
+                    nt = ot;
+                }
+            };
+
             runtime_env* rt_env = env.get();
             byte_t* rt_ip;
             value* rt_bp, * rt_sp;
@@ -1032,7 +1055,7 @@ namespace rs
 
             vmbase* last_this_thread_vm = _this_thread_vm;
             vmbase* _nullptr = this;
-            ip_restore_raii _o4((void*&)_this_thread_vm, (void*&)_nullptr);
+            ip_restore_raii_stack _o4((void*&)_this_thread_vm, (void*&)_nullptr);
             _nullptr = last_this_thread_vm;
 
             rs_assert(rt_env->reg_begin == rt_env->constant_global_reg_rtstack

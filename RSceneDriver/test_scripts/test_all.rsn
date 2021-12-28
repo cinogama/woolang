@@ -1,3 +1,4 @@
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -11,6 +12,18 @@ import test_static;
 import test_enum;
 import test_vm;
 import test_thread;
+/*                                       */
+///////////////////////////////////////////
 
+func example(var xff:void())
+{
+	xff();
+}
+
+example(func(){std::println("你好世界");});
+你好世界 = 222;
+///////////////////////////////////////////
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
+/*                                       */

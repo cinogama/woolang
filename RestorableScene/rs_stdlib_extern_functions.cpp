@@ -18,10 +18,9 @@ RS_API rs_api rslib_std_print(rs_vm vm, rs_value args, size_t argc)
     }
     return rs_ret_int(vm, argc);
 }
-RS_API rs_api rslib_std_fail(rs_vm vm, rs_value args, size_t argc)
+RS_API rs_api rslib_std_panic(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_fail(RS_FAIL_CALL_FAIL, rs_string(args + 0));
-
+    rs_fail(RS_FAIL_DEADLY, rs_string(args + 0));
     return rs_ret_nil(vm);
 }
 RS_API rs_api rslib_std_lengthof(rs_vm vm, rs_value args, size_t argc)
@@ -231,7 +230,7 @@ import rscene.basic;
 
 namespace std
 {
-    extern("rslib_std_fail") func fail(var msg:string):void;
+    extern("rslib_std_panic") func panic(var msg:string):void;
     extern("rslib_std_print") func print(...):int;
     extern("rslib_std_time_sec") func time():real;
 
@@ -244,7 +243,7 @@ namespace std
     func assert(var judgement, var failed_info:string)
     {
         if (!judgement)
-            fail(failed_info);
+            panic(failed_info);
     }
 
     extern("rslib_std_randomint") 
@@ -450,7 +449,6 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
     }
 
     auto* _vmthread = new std::thread([=]() {
-
         try
         {
             if (funcaddr_vm)
@@ -464,8 +462,6 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
         }
 
         rs_close_vm(new_thread_vm);
-
-
         });
 
     return rs_ret_gchandle(vm,

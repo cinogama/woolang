@@ -6,12 +6,14 @@
 #ifdef __cplusplus
 #include <cstdint>
 #include <cstddef>
+#include <clocale>
 #   define RS_FORCE_CAPI extern "C"{
 #   define RS_FORCE_CAPI_END }
 #else
 #include <stdint.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <locale.h>
 #   define RS_FORCE_CAPI /* nothing */
 #   define RS_FORCE_CAPI_END /* nothing */
 #endif
@@ -32,7 +34,7 @@ RS_FORCE_CAPI
 
 typedef int64_t     rs_integer_t, rs_int_t;
 typedef uint64_t    rs_handle_t;
-typedef void*       rs_ptr_t;
+typedef void* rs_ptr_t;
 typedef const char* rs_string_t;
 typedef double      rs_real_t;
 typedef size_t      rs_result_t, rs_api, rs_size_t;
@@ -85,6 +87,8 @@ RS_API rs_string_t  rs_version(void);
 RS_API rs_integer_t rs_version_int(void);
 
 RS_API void         rs_init(int argc, char** argv);
+#define rs_init(argc, argv) do{rs_init(argc, argv); setlocale(LC_CTYPE, rs_locale_name());}while(0)
+
 
 RS_API rs_type      rs_valuetype(const rs_value value);
 
@@ -125,6 +129,8 @@ enum _rs_inform_style
     RS_NOTHING = 0,
     RS_NEED_COLOR = 1,
 };
+
+RS_API rs_string_t  rs_locale_name();
 
 RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 RS_API rs_vm        rs_create_vm();

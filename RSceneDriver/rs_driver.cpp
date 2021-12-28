@@ -18,6 +18,7 @@
 
 #include <iostream>
 #include <string>
+#include <locale.h>
 
 int main(int argc, char** argv)
 {
@@ -33,9 +34,17 @@ int main(int argc, char** argv)
         if (rs_has_compile_warning(vmm))
             std::cerr << rs_get_compile_warning(vmm, RS_NEED_COLOR) << std::endl;
 
+        rs_value return_state = nullptr;
+
         if (compile_successful_flag)
-            rs_run(vmm);
+            return_state = rs_run(vmm);
         rs_close_vm(vmm);
+
+        if (return_state)
+            return 0;
+        if (!compile_successful_flag)
+            return -2;
+        return -1;
     }
     else
     {

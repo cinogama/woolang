@@ -197,6 +197,7 @@ namespace test_template
         test_equal(result, 55);
 
         test_cost_time:<int>();
+        test_cost_time:<int>();
         test_cost_time:<real>();
         test_cost_time:<dynamic>();
 

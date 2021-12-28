@@ -20,6 +20,7 @@ namespace rs
     // (Before Windows 10 build 17134, setlocale will not work when using UTF-8).
 
     inline std::locale rs_global_locale = std::locale::classic();
+    inline std::string rs_global_locale_name = "";
 
     inline void rs_init_locale(const char* local_type)
     {
@@ -47,7 +48,7 @@ namespace rs
             std::exit(-1);
         }
         rs_global_locale = std::locale(local_type);
-
+        rs_global_locale_name = local_type;
         printf(ANSI_RST);
     }
 

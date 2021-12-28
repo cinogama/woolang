@@ -154,6 +154,8 @@ void rs_handle_ctrl_c(void(*handler)(int))
     signal(SIGINT, handler ? handler : _rs_ctrl_c_signal_handler);
 }
 
+#undef rs_init
+
 void rs_init(int argc, char** argv)
 {
     const char* basic_env_local = "en_US.UTF-8";
@@ -217,7 +219,21 @@ rs_integer_t rs_version_int(void)
 #define CS_VAL(v) (reinterpret_cast<rs_value>(v))
 #define CS_VM(v) (reinterpret_cast<rs_vm>(v))
 
-rs_ptr_t rs_safety_pointer(rs::gchandle_t * gchandle)
+rs_string_t rs_locale_name()
+{
+    return rs::rs_global_locale_name.c_str();
+}
+
+rs_ptr_t rs_safety_pointer_ignore_fail(rs::gchandle_t* gchandle)
+{
+    if (gchandle->has_been_closed)
+    {
+        return nullptr;
+    }
+    return gchandle->holding_handle;
+}
+
+rs_ptr_t rs_safety_pointer(rs::gchandle_t* gchandle)
 {
     if (gchandle->has_been_closed)
     {
@@ -913,7 +929,10 @@ rs_value rs_run(rs_vm vm)
     {
         RS_VM(vm)->ip = RS_VM(vm)->env->rt_codes;
         RS_VM(vm)->run();
-        return reinterpret_cast<rs_value>(RS_VM(vm)->cr);
+        if (RS_VM(vm)->veh)
+            return reinterpret_cast<rs_value>(RS_VM(vm)->cr);
+        else
+            return nullptr;
     }
     return nullptr;
 }
