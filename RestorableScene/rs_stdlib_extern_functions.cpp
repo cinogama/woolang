@@ -254,7 +254,7 @@ namespace std
         func rand(var from:real, var to:real):real;
 
     extern("rslib_std_thread_sleep")
-    func sleep(var tm:real):void;
+        func sleep(var tm:real):void;
 }
 
 namespace string

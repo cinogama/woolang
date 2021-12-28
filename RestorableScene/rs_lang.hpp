@@ -1915,41 +1915,10 @@ namespace rs
                             ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
 
                         analyze_pass2(ast_value_judge->_be_cast_value_node);
-
-                        if (ast_value_judge->_be_cast_value_node->value_type->is_pending()
-                            || ast_value_judge->_be_cast_value_node->value_type->is_dynamic())
-                        {
-                            if (ast_value_judge->value_type->is_func())
-                                lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_COMPLEX_TYPE);
-                        }
-                        else if (!ast_value_judge->value_type->is_same(ast_value_judge->_be_cast_value_node->value_type))
-                        {
-                            lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_TYPE,
-                                ast_value_judge->_be_cast_value_node->value_type->get_type_name().c_str(),
-                                ast_value_judge->value_type->get_type_name().c_str());
-                        }
-                        if (ast_value_judge->value_type->is_dynamic())
-                        {
-                            lang_anylizer->lang_error(0x0000, ast_value_judge, RS_ERR_CANNOT_AS_DYNAMIC);
-                        }
                     }
                     else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(ast_node))
                     {
                         analyze_pass2(a_value_type_check->_be_check_value_node);
-
-                        if (a_value_type_check->_be_check_value_node->value_type->is_pending()
-                            || a_value_type_check->_be_check_value_node->value_type->is_dynamic())
-                        {
-                            if (a_value_type_check->aim_type->is_func())
-                                lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_COMPLEX_TYPE);
-                        }
-                        // check type and get result in finalize
-
-                        if (a_value_type_check->value_type->is_dynamic())
-                        {
-                            lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_AS_DYNAMIC);
-                        }
-
                         a_value_type_check->update_constant_value(lang_anylizer);
                     }
                     else if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(ast_node))
@@ -2995,33 +2964,56 @@ namespace rs
             else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
-                if (!a_value_type_judge->value_type->is_same(a_value_type_judge->_be_cast_value_node->value_type))
+
+                if (a_value_type_judge->value_type->is_same(a_value_type_judge->_be_cast_value_node->value_type, false))
+                    return result;
+                else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    rs_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
-                    compiler->typeas(result, a_value_type_judge->value_type->value_type);
+                    if (a_value_type_judge->value_type->is_func()
+                        || a_value_type_judge->value_type->using_type_name
+                        || a_value_type_judge->value_type->has_template())
+                        lang_anylizer->lang_error(0x0000, a_value_type_judge, RS_ERR_CANNOT_TEST_COMPLEX_TYPE);
+
+                    if (!a_value_type_judge->value_type->is_dynamic())
+                    {
+                        rs_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
+                        compiler->typeas(result, a_value_type_judge->value_type->value_type);
+
+                        return result;
+                    }
                 }
+
+                lang_anylizer->lang_error(0x0000, a_value_type_judge, RS_ERR_CANNOT_AS_TYPE,
+                    a_value_type_judge->_be_cast_value_node->value_type->get_type_name(false).c_str(),
+                    a_value_type_judge->value_type->get_type_name(false).c_str());
+
                 return result;
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
+                if (a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type, false))
+                    return RS_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_check->aim_type->is_dynamic())
-                        return RS_NEW_OPNUM(imm(1));
+                    if (a_value_type_check->value_type->is_func()
+                        || a_value_type_check->value_type->using_type_name
+                        || a_value_type_check->value_type->has_template())
+                        lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
-                    // is dynamic do check..
-                    auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
+                    if (!a_value_type_check->aim_type->is_dynamic())
+                    {
+                        // is dynamic do check..
+                        auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
 
-                    rs_test(a_value_type_check->aim_type->value_type != value::valuetype::invalid);
-                    compiler->typeis(result, a_value_type_check->aim_type->value_type);
+                        rs_test(a_value_type_check->aim_type->value_type != value::valuetype::invalid);
+                        compiler->typeis(result, a_value_type_check->aim_type->value_type);
 
-                    return RS_NEW_OPNUM(reg(reg::cr));
+                        return RS_NEW_OPNUM(reg(reg::cr));
+                    }
                 }
-                else if (!a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type))
-                {
-                    return RS_NEW_OPNUM(imm(0));
-                }
-                return RS_NEW_OPNUM(imm(1));
+
+                return RS_NEW_OPNUM(imm(0));
+
             }
             else if (auto* a_value_function_define = dynamic_cast<ast_value_function_define*>(value))
             {

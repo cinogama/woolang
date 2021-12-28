@@ -122,7 +122,7 @@
 
 #define RS_ERR_CANNOT_AS_TYPE L"类型 '%ls' 与要求的类型 '%ls' 不相同"
 
-#define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"'as' 不允许在运行时测试复杂类型"
+#define RS_ERR_CANNOT_TEST_COMPLEX_TYPE L"不允许在运行时检查复杂类型"
 
 #define RS_ERR_CANNOT_AS_DYNAMIC L"此处出现的 'dynamic' 是无效的"
 
@@ -264,7 +264,7 @@
 
 #define RS_ERR_CANNOT_AS_TYPE L"The type '%ls' is not the same as the requested type '%ls'."
 
-#define RS_ERR_CANNOT_AS_COMPLEX_TYPE L"The 'as' operation does not allow testing complex types at runtime."
+#define RS_ERR_CANNOT_TEST_COMPLEX_TYPE L"Cannot testing complex types at runtime."
 
 #define RS_ERR_CANNOT_AS_DYNAMIC L"'dynamic' here is useless."
 

@@ -168,8 +168,20 @@ namespace test_template
 		}
     }
 
+    func is_same<T1, T2>()
+    {
+	    return func():T1{}() is T2;
+    }
+
     func main()
     {
+        test_equal(is_same:<int, int>(), true);
+        test_equal(is_same:<real, int>(), false);
+        test_equal(is_same:<MyTemplate<int>, MyTemplate<int>>(), true);
+        test_equal(is_same:<MyTemplate<int>, MyTemplate<real>>(), false);
+        test_equal(is_same:<MyTemplate<int>, MySecTemplate<int>>(), false);
+        test_equal(is_same:<MyTemplate<int>, int>(), false);
+
         test_equal(fib:<int>, fib:<int>);
         test_assure(fib:<int> != fib:<real>);
 
@@ -195,10 +207,10 @@ namespace test_template
         test_equal(no_template_first_test_2(0,0), "no_template");
         test_equal(no_template_first_test_3(0,233), "no_template");
 
-        template_if_constexpr_test:<int>() as int;
-        template_if_constexpr_test:<real>() as real;
-        no_if_constexpr_test_1() as real;
-        no_if_constexpr_test_2() as real;
+        template_if_constexpr_test:<int>():dynamic as int;
+        template_if_constexpr_test:<real>():dynamic as real;
+        no_if_constexpr_test_1():dynamic as real;
+        no_if_constexpr_test_2():dynamic as real;
 
         var mt_int = 0:MyTemplate<int>;
         var mt_real = 0:MyTemplate<real>;

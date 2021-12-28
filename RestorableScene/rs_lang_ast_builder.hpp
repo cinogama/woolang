@@ -1032,8 +1032,20 @@ namespace rs
 
                 if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
+                    auto result = _be_check_value_node->value_type->is_same(aim_type, false);
+
+                    if (result)
+                    {
+                        is_constant = true;
+                        constant_value.set_integer(result);
+                    }
+                    if (_be_check_value_node->value_type->is_dynamic())
+                    {
+                        if (!aim_type->is_dynamic())
+                            return; // do nothing... give error in analyze_finalize
+                    }
                     is_constant = true;
-                    constant_value.set_integer(_be_check_value_node->value_type->is_same(aim_type));
+                    constant_value.set_integer(result);
                 }
             }
 
@@ -1518,6 +1530,7 @@ namespace rs
                     if (nullptr == (value_type = binary_upper_type(left->value_type, right->value_type)))
                     {
                         lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        value_type = new ast_type(L"pending");
                         return;
                     }
                 }
