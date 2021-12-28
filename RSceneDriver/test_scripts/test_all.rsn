@@ -1,4 +1,4 @@
-/*import test_tool;
+import test_tool;
 
 import test_helloworld;
 import test_string_u8;
@@ -14,32 +14,4 @@ import test_thread;
 
 
 std::println("Unit-test begin!");
-execute_all_test();*/
-
-
-import rscene.std;
-
-func make_instance<T>()
-{
-	return typeof(T::instance())::create();
-}
-
-namespace A
-{
-	using xx = gchandle;
-	namespace xx
-	{
-		func create()
-		{
-			return "fuckyou!";
-		}
-		func instance()
-		{
-			return nil:xx;
-		}
-	}
-}
-
-var a = make_instance:<A::xx>();
-
-std::println(a);
+execute_all_test();

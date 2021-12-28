@@ -133,6 +133,41 @@ namespace test_template
         return "success";
     }
 
+    
+    namespace A
+    {
+	    using xxtype = gchandle_type;
+	    namespace xxtype
+	    {
+		    func create()
+		    {
+			    return "success";
+		    }
+		    func instance()
+		    {
+			    return nil:xxtype;
+		    }
+	    }
+    }
+
+    func make_instance<T>()
+    {
+	    return typeof(T::instance())::create();
+    }
+
+    using gchandle_type = gchandle;
+    namespace gchandle_type
+    {
+        func create()
+		{
+			return "gchandle_type success";
+		}
+		func instance()
+		{
+			return nil:gchandle_type;
+		}
+    }
+
     func main()
     {
         test_equal(fib:<int>, fib:<int>);
@@ -177,6 +212,9 @@ namespace test_template
         test_equal(TemplateAutoJudgeTest(n0), "success");
         test_equal(TemplateAutoJudgeTest(n1), "fail");
         test_equal(TemplateAutoJudgeTest(n2), "ohooo");
+
+        test_equal(make_instance:<A::xxtype>(), "success");
+        test_equal(make_instance:<gchandle_type>(), "gchandle_type success");
     }
 }
 

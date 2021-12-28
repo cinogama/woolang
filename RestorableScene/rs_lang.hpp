@@ -307,6 +307,8 @@ namespace rs
 
                     if (type_sym)
                     {
+                        auto already_has_using_type_name = type->using_type_name;
+
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
                         if (type->has_template())
@@ -321,7 +323,9 @@ namespace rs
                         else
                             type->set_type(symboled_type);
 
-                        if (type_sym->type != lang_symbol::symbol_type::template_typing)
+                        if (already_has_using_type_name)
+                            type->using_type_name = already_has_using_type_name;
+                        else if (type_sym->type != lang_symbol::symbol_type::template_typing)
                         {
                             auto* using_type = new ast::ast_type(type_sym->name);
                             using_type->template_arguments = type->template_arguments;
@@ -341,6 +345,8 @@ namespace rs
                                 }
                                 inscopes = inscopes->belong_namespace;
                             }
+
+                            type->using_type_name->symbol = type_sym;
                         }
                         if (using_template)
                             end_template_scope();
