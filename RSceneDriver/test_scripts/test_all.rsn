@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -22,23 +22,9 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-func xx<T>():int
-{
-	return "hey";
-}
-func xxx(var n)
-{
-	return xx:<typeof(dd)>();
-}
-var dd = 25;
-
-
-
-
-
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */

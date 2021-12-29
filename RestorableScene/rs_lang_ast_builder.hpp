@@ -940,11 +940,11 @@ namespace rs
                             else
                             {
                                 if (implicit)
-                                    lex->lang_error(0x0000, value_type, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                    lex->lang_error(0x0000, this, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                         ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                         value_type->get_type_name().c_str());
                                 else
-                                    lex->lang_error(0x0000, value_type, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                    lex->lang_error(0x0000, this, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                                         ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                         value_type->get_type_name().c_str());
 
