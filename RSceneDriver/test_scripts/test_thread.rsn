@@ -5,7 +5,7 @@ import rscene.thread;
 
 namespace test_thread
 {
-	var summ_mtx = std::mutex::create();
+	var summ_mtx = std::spin::create();
 	var summ = 0;
 
 	var created_threads = []:array<std::thread>;
@@ -46,6 +46,23 @@ namespace test_thread
 		}
 		std::println("Result:", summ);
 		test_equal(summ, 10_000_000 * thread_count);
+
+		// Thread should be abort-able..
+		summ = 0;
+		var th = std::thread::create(
+			func(ref i)
+			{
+				while (i <= 1_0000_0000)
+				{
+					i+=1;
+				}
+			}, ref summ);
+		std::sleep(0.2);
+		th->abort();
+		th->wait();
+
+		test_assure(summ!=0 && summ<1_0000_0000);
+
     }
 }
 

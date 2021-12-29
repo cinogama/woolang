@@ -49,6 +49,7 @@ namespace rs
         }
         rs_global_locale = std::locale(local_type);
         rs_global_locale_name = local_type;
+
         printf(ANSI_RST);
     }
 

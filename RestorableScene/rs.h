@@ -227,6 +227,7 @@ RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
 #define RS_FAIL_MEDIUM 0xB000
+
 #define RS_FAIL_TYPE_FAIL 0xB001
 
 // Heavy error:
@@ -237,6 +238,7 @@ RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
 //
 #define RS_FAIL_HEAVY 0xC000
+
 #define RS_FAIL_ACCESS_NIL 0xC001
 #define RS_FAIL_INDEX_FAIL 0xC002
 #define RS_FAIL_CALL_FAIL 0xC003

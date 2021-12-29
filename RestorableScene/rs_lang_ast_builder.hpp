@@ -159,6 +159,9 @@ namespace rs
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
+                if (to->is_pending() || to->is_void())
+                    return false;
+
                 if (to->is_dynamic())
                     return true;
                 if (from->is_dynamic())
@@ -1681,7 +1684,7 @@ namespace rs
             ast_list* argument_list = nullptr;
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
-
+            bool has_return_value = false;
             bool ir_func_has_been_generated = false;
             std::string ir_func_signature_tag = "";
 

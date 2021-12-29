@@ -530,6 +530,49 @@ RS_API rs_api rslib_std_thread_mutex_write_end(rs_vm vm, rs_value args, size_t a
     return rs_ret_nil(vm);
 }
 
+////////////////////////////////////////////////////////////////////////
+
+RS_API rs_api rslib_std_thread_spin_create(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_gchandle(vm,
+        new rs::gcbase::rw_lock,
+        [](void* mtx_ptr)
+        {
+            delete (rs::gcbase::rw_lock*)mtx_ptr;
+        });
+}
+
+RS_API rs_api rslib_std_thread_spin_read(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::gcbase::rw_lock* smtx = (rs::gcbase::rw_lock*)rs_pointer(args);
+    smtx->lock_shared();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_spin_write(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::gcbase::rw_lock* smtx = (rs::gcbase::rw_lock*)rs_pointer(args);
+    smtx->lock();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_spin_read_end(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::gcbase::rw_lock* smtx = (rs::gcbase::rw_lock*)rs_pointer(args);
+    smtx->unlock_shared();
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_thread_spin_write_end(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::gcbase::rw_lock* smtx = (rs::gcbase::rw_lock*)rs_pointer(args);
+    smtx->unlock();
+
+    return rs_ret_nil(vm);
+}
 
 
 
@@ -570,6 +613,25 @@ namespace std
 
         extern("rslib_std_thread_mutex_write_end")
             func unlock(var mtx : mutex):void;
+    }
+
+    using spin = gchandle;
+    namespace spin
+    {
+        extern("rslib_std_thread_spin_create")
+            func create():spin;
+
+        extern("rslib_std_thread_spin_read")
+            func read(var mtx : spin):void;
+
+        extern("rslib_std_thread_spin_write")
+            func lock(var mtx : spin):void;
+
+        extern("rslib_std_thread_spin_read_end")
+            func unread(var mtx : spin):void;
+
+        extern("rslib_std_thread_spin_write_end")
+            func unlock(var mtx : spin):void;
     }
 }
 

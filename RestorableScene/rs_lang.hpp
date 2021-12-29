@@ -120,6 +120,8 @@ namespace rs
     class lang
     {
     private:
+        using template_type_map = std::map<std::wstring, lang_symbol*>;
+
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_scopes_buffers;
         std::vector<lang_symbol*> lang_symbols; // only used for storing symbols to release
@@ -183,11 +185,7 @@ namespace rs
 
         std::map<rs_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
-
-        using template_type_map = std::map<std::wstring, lang_symbol*>;
-
         std::vector<template_type_map> template_stack;
-
         std::unordered_set<ast::ast_value_variable*> template_variable_list_for_pass_template;
 
         bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
@@ -232,7 +230,6 @@ namespace rs
 
             return scop;
         }
-
     public:
         lang(lexer& lex) :
             lang_anylizer(&lex)
@@ -428,6 +425,9 @@ namespace rs
                     varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
                     varref.symbol->is_ref = varref.is_ref;
                     a_varref_defs->add_child(varref.init_val);
+
+                    if (varref.is_ref)
+                        varref.init_val->is_mark_as_using_ref = true;
                 }
             }
             else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(ast_node))
@@ -591,6 +591,12 @@ namespace rs
                     if (a_value_func->externed_func)
                         extern_symb_func_definee[a_value_func->externed_func]
                         .push_back(a_value_func);
+
+                    if (a_value_func->value_type->type_name == L"pending")
+                    {
+                        // NOTE: JUST CHECK RETURN TYPE;
+                        // type compute fail, delay them..
+                    }
                 }
 
                 end_function();
@@ -760,6 +766,7 @@ namespace rs
                 else
                 {
                     a_ret->located_function = located_function_scope->function_node;
+                    a_ret->located_function->has_return_value = true;
                     if (a_ret->return_value)
                     {
                         analyze_pass1(a_ret->return_value);
@@ -1033,22 +1040,32 @@ namespace rs
 
                 }
             } while (!template_variable_list_for_pass_template.empty());
-
         }
 
-        bool analyze_pass2(grammar::ast_base* ast_node)
+        bool write_flag_complete_in_pass2 = true;
+
+        void start_trying_pass2()
+        {
+            write_flag_complete_in_pass2 = false;
+        }
+        void end_trying_pass2()
+        {
+            write_flag_complete_in_pass2 = true;
+        }
+
+        void analyze_pass2(grammar::ast_base* ast_node)
         {
             entry_pass ep1(in_pass2, true);
 
             rs_assert(ast_node);
 
             if (ast_node->completed_in_pass2)
-                return true;
+                return;
 
             if (traving_node.find(ast_node) != traving_node.end())
-                return true;
+                return;
 
-            ast_node->completed_in_pass2 = true;
+            ast_node->completed_in_pass2 = write_flag_complete_in_pass2;
 
             struct traving_guard
             {
@@ -1128,7 +1145,8 @@ namespace rs
                                 {
                                     if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
                                         lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNABLE_DECIDE_VAR_TYPE);
-                                    else if (a_value_var->symbol->function_overload_sets.size() == 1)
+                                    else if (a_value_var->symbol->function_overload_sets.size() == 1
+                                        && !a_value_var->symbol->is_template_symbol)
                                     {
                                         // only you~
                                         a_value_var->value_type = sym->function_overload_sets.front()->value_type;
@@ -1196,7 +1214,12 @@ namespace rs
                                 {
                                     // There is no return in function  return void
                                     if (a_value_funcdef->auto_adjust_return_type)
+                                    {
+                                        if (a_value_funcdef->has_return_value)
+                                            lang_anylizer->lang_error(0x0000, a_value_funcdef, RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, rs::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+
                                         a_value_funcdef->value_type->set_type_with_name(L"void");
+                                    }
                                 }
                             }
                         }
@@ -1307,6 +1330,8 @@ namespace rs
 
                                             bool best_match = true;
                                             bool with_template = false;
+                                            grammar::ast_base* real_args = nullptr;
+                                            grammar::ast_base* form_args = nullptr;
 
                                             if (override_func->is_template_define)
                                             {
@@ -1362,8 +1387,16 @@ namespace rs
                                                 if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
                                                     continue; // failed getting each of template args, abandon this one
 
-                                                for (auto* template_agrs : template_args)
-                                                    fully_update_type(template_agrs, false);
+                                                for (auto* templ_arg : template_args)
+                                                {
+                                                    fully_update_type(templ_arg, false);
+                                                    if (templ_arg->is_pending())
+                                                    {
+                                                        lang_anylizer->lang_error(0x0000, templ_arg, RS_ERR_UNKNOWN_TYPE,
+                                                            templ_arg->get_type_name(false).c_str());
+                                                        goto this_function_override_checking_over;
+                                                    }
+                                                }
 
                                                 override_func = analyze_pass_template_reification(override_func, template_args); //tara~ get analyze_pass_template_reification 
                                                 _override_func = override_func;
@@ -1377,8 +1410,8 @@ namespace rs
 
                                             analyze_pass2(_override_func);
 
-                                            auto* real_args = a_value_funccall->arguments->children;
-                                            auto* form_args = override_func->argument_list->children;
+                                            real_args = a_value_funccall->arguments->children;
+                                            form_args = override_func->argument_list->children;
                                             do
                                             {
                                                 auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
@@ -1566,6 +1599,10 @@ namespace rs
 
                                 if (funcsymb && funcsymb->auto_adjust_return_type)
                                 {
+                                    // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
+                                    if (funcsymb->has_return_value)
+                                        lang_anylizer->lang_error(0x0000, funcsymb, RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, rs::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
+
                                     funcsymb->value_type->set_ret_type(new ast_type(L"void"));
                                     funcsymb->auto_adjust_return_type = false;
                                 }
@@ -1610,9 +1647,11 @@ namespace rs
                                                     (rs_integer_t)(
                                                         a_value_funccall->called_func->value_type->argument_types.end()
                                                         - a_type_index);
-                                                a_fakevalue_unpack_args->expand_count = -ecount;
+                                                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                                    a_fakevalue_unpack_args->expand_count = -ecount;
+                                                else
+                                                    a_fakevalue_unpack_args->expand_count = ecount;
                                             }
-
                                             while (ecount)
                                             {
                                                 if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
@@ -1631,7 +1670,6 @@ namespace rs
                                                 }
                                                 ecount--;
                                             }
-
                                             a_type_index--;
                                         }
                                         else
@@ -1673,7 +1711,6 @@ namespace rs
                                 {
                                     lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
                                 }
-
                             }
                             else if (!a_value_funccall->called_func->value_type->is_pending())
                             {
@@ -2226,6 +2263,8 @@ namespace rs
                     varref.symbol->has_been_defined_in_pass2 = true;
                     if (varref.is_ref)
                     {
+                        varref.init_val->is_mark_as_using_ref = true;
+
                         if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
                             (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
                             || !varref.init_val->can_be_assign)
@@ -2276,7 +2315,7 @@ namespace rs
                 child = child->sibling;
             }
 
-            return ast_node->completed_in_pass2 = true;
+            ast_node->completed_in_pass2 = write_flag_complete_in_pass2;
         }
 
         void clean_and_close_lang()
@@ -3116,8 +3155,24 @@ namespace rs
 
                 compiler->call(complete_using_register(*called_func_aim));
 
+                last_value_stored_to_cr = true;
+
+                opnum::opnumbase* result_storage_place = nullptr;
+
                 if (full_unpack_arguments)
                 {
+                    last_value_stored_to_cr = false;
+                    if (a_value_funccall->is_mark_as_using_ref)
+                    {
+                        result_storage_place = &get_useable_register_for_ref_value();
+                        compiler->ext_setref(*result_storage_place, reg(reg::cr));
+                    }
+                    else
+                    {
+                        result_storage_place = &get_useable_register_for_pure_value();
+                        compiler->set(*result_storage_place, reg(reg::cr));
+                    }
+
                     rs_assert(reg_for_current_funccall_argc);
                     auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
                     auto pop_head = compiler->get_unique_tag_based_command_ip() + "_pop_head";
@@ -3137,20 +3192,25 @@ namespace rs
                     compiler->tag(pop_end);
                 }
                 else
+                {
+                    result_storage_place = &RS_NEW_OPNUM(reg(reg::cr));
                     compiler->pop(arg_list.size() + extern_unpack_arg_count);
+                }
 
                 if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
                     compiler->pop(reg(reg::tc));
 
-                last_value_stored_to_cr = true;
                 if (!get_pure_value)
                 {
-                    return RS_NEW_OPNUM(reg(reg::cr));
+                    return *result_storage_place;
                 }
                 else
                 {
+                    if (full_unpack_arguments && !a_value_funccall->is_mark_as_using_ref)
+                        return *result_storage_place;
+
                     auto& funcresult = get_useable_register_for_pure_value();
-                    compiler->set(funcresult, reg(reg::cr));
+                    compiler->set(funcresult, *result_storage_place);
                     return funcresult;
                 }
             }

@@ -62,6 +62,9 @@ namespace rs
 gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+gm::nt(L"PROGRAM") >> gm::symlist{gm::te(gm::ttype::l_empty)}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
 gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

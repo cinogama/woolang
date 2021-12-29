@@ -1947,6 +1947,7 @@ namespace rs
                             }
                             case value::valuetype::array_type:
                             case value::valuetype::mapping_type:
+                            case value::valuetype::gchandle_type:
                                 if (opnum2->type == value::valuetype::invalid)
                                 {
                                     rs_assert(opnum2->handle == 0);

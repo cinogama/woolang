@@ -5,7 +5,11 @@
 #define RS_LANG_EN 0
 #define RS_LANG_ZH_CN 1
 
-#define RS_USED_LANGUAGE RS_LANG_EN
+#define RS_USED_LANGUAGE RS_LANG_ZH_CN
+
+
+
+
 
 #if RS_USED_LANGUAGE == RS_LANG_ZH_CN
 
@@ -137,6 +141,8 @@
 #define RS_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"'array' 类型需要提供一个类型参数"
 
 #define RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"'map' 类型需要提供两个类型参数"
+
+#define RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数'%ls'的返回类型，需要手动标注"
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
@@ -279,6 +285,8 @@
 #define RS_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"Type 'array' requires a type as generic parameters."
 
 #define RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as generic parameters."
+
+#define RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"Unable to deduce the return type of function '%ls', it needs to be marked manually。"
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."

@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -14,16 +14,31 @@ import test_vm;
 import test_thread;
 /*                                       */
 ///////////////////////////////////////////
-
-func example(var xff:void())
-{
-	xff();
-}
-
-example(func(){std::println("你好世界");});
-你好世界 = 222;
+/*	TODO-LIST
+ *  
+ *  1. TYPEING ERROR MAY NOT REPORT OR WILL MAKE CRASH..
+ *
+ *
+ */
 ///////////////////////////////////////////
-/*                                       */
+
+func xx<T>():int
+{
+	return "hey";
+}
+func xxx(var n)
+{
+	return xx:<typeof(dd)>();
+}
+var dd = 25;
+
+
+
+
+
+
+///////////////////////////////////////////
+/*                                       
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
