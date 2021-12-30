@@ -247,6 +247,8 @@ namespace rs
         {
             if (type->typefrom)
             {
+                auto used_type_info = type->using_type_name;
+
                 if (in_pass_1)
                     analyze_pass1(type->typefrom);
                 else
@@ -254,11 +256,15 @@ namespace rs
 
                 if (!type->typefrom->value_type->is_pending())
                     type->set_type(type->typefrom->value_type);
+
+                if (used_type_info)
+                    type->using_type_name = used_type_info;
             }
 
-            if (type->using_type_name && !type->using_type_name->symbol)
+            if (type->using_type_name)
             {
-                type->using_type_name->symbol = find_type_in_this_scope(type->using_type_name);
+                if (!type->using_type_name->symbol)
+                    type->using_type_name->symbol = find_type_in_this_scope(type->using_type_name);
             }
 
             // todo: begin_template_scope here~
@@ -915,15 +921,24 @@ namespace rs
 
             if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
             {
-                if (a_val->value_type->is_pending())
+                if (ast_defines* a_def = dynamic_cast<ast_defines*>(ast_node);
+                    a_def && a_def->is_template_define)
                 {
-                    // ready for update..
-                    fully_update_type(a_val->value_type, true);
+                    // Do nothing
                 }
-                a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
-                // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
+                else
+                {
+                    if (a_val->value_type->is_pending())
+                    {
+                        // ready for update..
+                        fully_update_type(a_val->value_type, true);
+                    }
+                    a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
+                    // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
-                a_val->update_constant_value(lang_anylizer);
+                    a_val->update_constant_value(lang_anylizer);
+                }
+
             }
 
         }
@@ -1674,7 +1689,7 @@ namespace rs
                                         }
                                         else
                                         {
-                                            if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index))
+                                            if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index, false))
                                             {
                                                 auto* cast_arg_type = new ast_value_type_cast(arg_val, *a_type_index, true);
 
@@ -1891,7 +1906,7 @@ namespace rs
                     {
                         // check: cast is valid?
                         ast_value* origin_value = a_value_typecast->_be_cast_value_node;
-                        analyze_pass2(a_value_typecast->value_type);
+                        fully_update_type(a_value_typecast->value_type, false);
                         analyze_pass2(origin_value);
 
                         if (auto* a_variable_sym = dynamic_cast<ast_value_variable*>(origin_value);
@@ -1935,13 +1950,13 @@ namespace rs
                             {
                                 if (a_value_typecast->implicit)
                                     lang_anylizer->lang_error(0x0000, a_value, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                        origin_value->value_type->get_type_name().c_str(),
-                                        a_value_typecast->value_type->get_type_name().c_str()
+                                        origin_value->value_type->get_type_name(false).c_str(),
+                                        a_value_typecast->value_type->get_type_name(false).c_str()
                                     );
                                 else
                                     lang_anylizer->lang_error(0x0000, a_value, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                        origin_value->value_type->get_type_name().c_str(),
-                                        a_value_typecast->value_type->get_type_name().c_str()
+                                        origin_value->value_type->get_type_name(false).c_str(),
+                                        a_value_typecast->value_type->get_type_name(false).c_str()
                                     );
                             }
                         }

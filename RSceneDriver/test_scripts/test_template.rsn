@@ -25,12 +25,12 @@ namespace test_template
 
         if (_tmp is dynamic)
             return "dynamic";
-        if (_tmp is int)
+        else if (_tmp is int)
             return "int";
-        if (_tmp is real)
+        else if (_tmp is real)
             return "real";
-        
-        return "unknown";
+        else
+            return "unknown";
     }
 
     func test_cost_time<T>()
@@ -170,11 +170,25 @@ namespace test_template
 
     func is_same<T1, T2>()
     {
-	    return func():T1{}() is T2;
+	    return func():T1{} is T2();
+    }
+
+    var constexpr_if_test_flag = false;
+    func constexpr_if_test<T>()
+    {
+        nil:gchandle as T; // T must same as gchandle for this test..
+
+        if (func():T{constexpr_if_test_flag = true;return nil;}() is T)
+        {
+            return 233;
+        }
     }
 
     func main()
     {
+        constexpr_if_test:<gchandle>();
+        test_assure(constexpr_if_test_flag);
+
         test_equal(is_same:<int, int>(), true);
         test_equal(is_same:<real, int>(), false);
         test_equal(is_same:<MyTemplate<int>, MyTemplate<int>>(), true);

@@ -2032,6 +2032,12 @@ namespace rs
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
+                            case value::valuetype::gchandle_type:
+                                if (opnum2->is_nil())
+                                    rt_cr->set_ref(opnum1->set_nil());
+                                else
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
+                                break;
                             default:
                                 rs_error("Unknown type.");
                             }
@@ -2105,6 +2111,12 @@ namespace rs
                                     rt_cr->set_ref(opnum1->set_nil());
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
+                                break;
+                            case value::valuetype::gchandle_type:
+                                if (opnum2->is_nil())
+                                    rt_cr->set_ref(opnum1->set_nil());
+                                else
+                                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                                 break;
                             default:
                                 rs_error("Unknown type.");

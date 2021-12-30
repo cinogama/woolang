@@ -183,8 +183,15 @@ namespace rs
                 if (from->is_pending() || to->is_pending())
                     return false;
 
-                if (from->is_same(to))
+                if (from->is_same(to, force))
                     return true;
+
+                if (from->is_same(to))
+                {
+                    // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
+                    if (from->using_type_name && !to->using_type_name)
+                        return true;
+                }
 
                 if (from->is_nil())
                 {
@@ -222,10 +229,8 @@ namespace rs
                 }
                 else
                 {
-                    if ((to->value_type == value::valuetype::integer_type
-                        || to->value_type == value::valuetype::real_type)
-                        && (from->value_type == value::valuetype::integer_type
-                            || from->value_type == value::valuetype::real_type))
+                    if ((to->value_type == value::valuetype::integer_type && from->value_type == value::valuetype::real_type)
+                        || (to->value_type == value::valuetype::real_type && from->value_type == value::valuetype::integer_type))
                     {
                         return true;
                     }
@@ -3440,7 +3445,9 @@ namespace rs
         {
             static ast_value* do_judge(lexer& lex, ast_value* value_node, ast_type* type_node)
             {
-                if (value_node->value_type->is_pending() || value_node->value_type->is_dynamic())
+                if (value_node->value_type->is_pending() 
+                    || value_node->value_type->is_dynamic() 
+                    || type_node->is_pending())
                 {
                     return new ast_value_type_judge(value_node, type_node);
                 }
