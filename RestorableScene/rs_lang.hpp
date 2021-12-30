@@ -2656,7 +2656,7 @@ namespace rs
 
         bool last_value_stored_to_cr = false;
 
-        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true)
+        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true, bool force_value = false)
         {
             if (need_symbol)
                 compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
@@ -2664,7 +2664,7 @@ namespace rs
             last_value_stored_to_cr = false;
             using namespace ast;
             using namespace opnum;
-            if (value->is_constant)
+            if (value->is_constant && !force_value)
             {
                 auto const_value = value->get_constant_value();
                 switch (const_value.type)
@@ -2724,6 +2724,9 @@ namespace rs
             }
             else if (auto* a_value_literal = dynamic_cast<ast_value_literal*>(value))
             {
+                if (force_value)
+                    return analyze_value(value, compiler, get_pure_value);
+
                 rs_error("ast_value_literal should be 'constant'..");
             }
             else if (auto* a_value_binary = dynamic_cast<ast_value_binary*>(value))
@@ -3001,6 +3004,9 @@ namespace rs
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
+                if (force_value)
+                    return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
+
                 if (a_value_type_cast->value_type->is_dynamic()
                     || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type)
                     || a_value_type_cast->value_type->is_func())
@@ -3017,6 +3023,9 @@ namespace rs
             }
             else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
             {
+                if (force_value)
+                    return analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
+
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
                 if (a_value_type_judge->value_type->is_same(a_value_type_judge->_be_cast_value_node->value_type, false))
@@ -3045,6 +3054,9 @@ namespace rs
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
+                if (force_value)
+                    return analyze_value(a_value_type_check->_be_check_value_node, compiler, get_pure_value);
+
                 if (a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type, false))
                     return RS_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
@@ -3571,9 +3583,9 @@ namespace rs
 #undef RS_NEW_OPNUM
         }
 
-        opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false)
+        opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool force_value = false)
         {
-            auto& result = analyze_value(value, compiler, get_pure_value);
+            auto& result = analyze_value(value, compiler, get_pure_value, true, force_value);
             complete_using_all_register();
 
             return result;
@@ -3676,6 +3688,8 @@ namespace rs
             {
                 if (a_if->judgement_value->is_constant)
                 {
+                    auto_analyze_value(a_if->judgement_value, compiler, false, true);
+
                     if (a_if->judgement_value->get_constant_value().integer)
                         real_analyze_finalize(a_if->execute_if_true, compiler);
                     else if (a_if->execute_else)

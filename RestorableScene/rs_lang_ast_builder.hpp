@@ -236,6 +236,26 @@ namespace rs
                     }
                 }
 
+                if (from->is_array() && to->is_array())
+                    if (to->template_arguments[0]->is_dynamic())
+                        return true;
+
+                if (from->is_map() && to->is_map())
+                {
+                    if (to->template_arguments[0]->is_dynamic())
+                    {
+                        if (to->template_arguments[1]->is_dynamic()
+                            || to->template_arguments[1]->is_same(from->template_arguments[1], false))
+                            return true;
+
+                    }
+                    else if (to->template_arguments[1]->is_dynamic())
+                    {
+                        if (to->template_arguments[0]->is_same(from->template_arguments[0], false))
+                            return true;
+                    }
+                }
+
                 return false;
             }
 
@@ -3445,8 +3465,8 @@ namespace rs
         {
             static ast_value* do_judge(lexer& lex, ast_value* value_node, ast_type* type_node)
             {
-                if (value_node->value_type->is_pending() 
-                    || value_node->value_type->is_dynamic() 
+                if (value_node->value_type->is_pending()
+                    || value_node->value_type->is_dynamic()
                     || type_node->is_pending())
                 {
                     return new ast_value_type_judge(value_node, type_node);

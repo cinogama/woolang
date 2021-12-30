@@ -32,6 +32,8 @@ namespace rs
 
             unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::full_mark);
 
+            rs::gcbase::gc_read_guard g1(unit);
+
             if (array_t* rs_arr = dynamic_cast<array_t*>(unit))
             {
                 for (auto& val : *rs_arr)
