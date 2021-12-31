@@ -22,7 +22,12 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+var th = std::thread(func(){
+	std::println("Helloworld");
+	while(true);
+});
 
+th->wait();
 
 ///////////////////////////////////////////
 /*                                       */

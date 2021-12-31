@@ -4351,8 +4351,17 @@ namespace rs
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
         {
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
+  
             if (result && result->type == lang_symbol::symbol_type::typing)
             {
+                var_ident->symbol = nullptr;
+                var_ident->scope_namespaces.push_back(var_ident->var_name);
+                var_ident->var_name = L"create";
+
+                result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
+                if (result)
+                    return result;
+
                 lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE, var_ident->var_name.c_str());
                 return nullptr;
             }
