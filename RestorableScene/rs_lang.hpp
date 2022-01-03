@@ -1392,6 +1392,7 @@ namespace rs
                                                         {
                                                             pending_template_arg = analyze_template_derivation(
                                                                 override_func->template_type_name_list[tempindex],
+                                                                override_func->template_type_name_list,
                                                                 override_func->value_type->argument_types[index],
                                                                 real_argument_types[index]
                                                             );
@@ -2365,10 +2366,13 @@ namespace rs
             generated_ast_nodes_buffers.clear();
         }
 
-        ast::ast_type* analyze_template_derivation(const std::wstring& temp_form, ast::ast_type* para, ast::ast_type* args)
+        ast::ast_type* analyze_template_derivation(
+            const std::wstring& temp_form,
+            const std::vector<std::wstring>& termplate_set,
+            ast::ast_type* para, ast::ast_type* args)
         {
             // Must match all formal
-            if (!para->is_like(args, &para, &args))
+            if (!para->is_like(args, termplate_set, &para, &args))
             {
                 if (!para->is_func()
                     && !para->has_template()
@@ -2384,7 +2388,9 @@ namespace rs
 
             if (para->is_complex() && args->is_complex())
             {
-                if (auto* derivation_result = analyze_template_derivation(temp_form,
+                if (auto* derivation_result = analyze_template_derivation(
+                    temp_form,
+                    termplate_set,
                     para->complex_type,
                     args->complex_type))
                     return derivation_result;
@@ -2409,6 +2415,7 @@ namespace rs
                 index++)
             {
                 if (auto* derivation_result = analyze_template_derivation(temp_form,
+                    termplate_set,
                     para->template_arguments[index],
                     args->template_arguments[index]))
                     return derivation_result;
@@ -2418,7 +2425,7 @@ namespace rs
             if (para->using_type_name && args->using_type_name)
             {
                 if (auto* derivation_result =
-                    analyze_template_derivation(temp_form, para->using_type_name, args->using_type_name))
+                    analyze_template_derivation(temp_form, termplate_set, para->using_type_name, args->using_type_name))
                     return derivation_result;
             }
 
@@ -2428,6 +2435,7 @@ namespace rs
                 index++)
             {
                 if (auto* derivation_result = analyze_template_derivation(temp_form,
+                    termplate_set,
                     para->argument_types[index],
                     args->argument_types[index]))
                     return derivation_result;
@@ -3226,7 +3234,7 @@ namespace rs
                 if (full_unpack_arguments)
                 {
                     last_value_stored_to_cr_flag.not_write_to_cr();
-                    
+
                     if (a_value_funccall->is_mark_as_using_ref)
                     {
                         result_storage_place = &get_useable_register_for_ref_value();
@@ -4417,7 +4425,7 @@ namespace rs
                     var_ident->template_reification_args = typing_index->template_arguments;
 
                 }
-                
+
                 var_ident->scope_namespaces.push_back(used_template_impl_typing_name);
                 auto type_name = var_ident->var_name;
                 var_ident->var_name = L"create";

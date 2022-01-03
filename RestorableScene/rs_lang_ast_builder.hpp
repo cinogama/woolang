@@ -425,7 +425,7 @@ namespace rs
             {
                 return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
-            bool is_like(const ast_type* another, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
+            bool is_like(const ast_type* another, const std::vector<std::wstring>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
             {
                 // Only used after pass1
 
@@ -438,16 +438,16 @@ namespace rs
                 if ((using_type_name == nullptr && another->using_type_name)
                     || (using_type_name && another->using_type_name == nullptr))
                 {
-                    if (using_type_name && using_type_name->is_like(another))
+                    if (using_type_name && using_type_name->is_like(another, termplate_set))
                     {
-                        if (out_para)*out_para = using_type_name;
+                        if (out_para)*out_para = dynamic_cast<ast_type*>(using_type_name->instance());
                         if (out_args)*out_args = const_cast<ast_type*>(another);
                         return true;
                     }
-                    if (another->using_type_name && is_like(another->using_type_name))
+                    if (another->using_type_name && is_like(another->using_type_name, termplate_set))
                     {
                         if (out_para)*out_para = const_cast<ast_type*>(this);
-                        if (out_args)*out_args = another->using_type_name;
+                        if (out_args)*out_args = dynamic_cast<ast_type*>(another->using_type_name->instance());
                         return true;
                     }
                     return false;
@@ -458,12 +458,17 @@ namespace rs
                     if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
                         return false;
                 }
-                /*else
+                else
                 {
-                    if (value_type != another->value_type
+                    if (std::find(termplate_set.begin(), termplate_set.end(), type_name) != termplate_set.end()
+                        || std::find(termplate_set.begin(), termplate_set.end(), type_name) != termplate_set.end())
+                    {
+                        // Do nothing
+                    }
+                    else if (value_type != another->value_type
                         || type_name != another->type_name)
                         return false;
-                }*/
+                }
                 if (out_para)*out_para = const_cast<ast_type*>(this);
                 if (out_args)*out_args = const_cast<ast_type*>(another);
                 return true;
@@ -475,9 +480,6 @@ namespace rs
                     return false;
 
                 rs_test(!is_pending() && !another->is_pending());
-
-                if (is_pending() || another->is_pending())
-                    return false;
 
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
@@ -2948,7 +2950,7 @@ namespace rs
                     }
 
                     mkinstance_value->value_type = becasted_type;
-                   
+
                     ast_return* areturnsentence = new ast_return();
                     areturnsentence->return_value = mkinstance_value;
 
