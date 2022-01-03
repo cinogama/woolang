@@ -298,6 +298,8 @@ namespace rs
                 return "array";
             case valuetype::mapping_type:
                 return "map";
+            case valuetype::invalid:
+                return "nil";
             case valuetype::is_ref:
                 return get()->get_type_name();
             default:

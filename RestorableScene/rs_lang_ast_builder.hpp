@@ -458,12 +458,12 @@ namespace rs
                     if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
                         return false;
                 }
-                else
+                /*else
                 {
                     if (value_type != another->value_type
                         || type_name != another->type_name)
                         return false;
-                }
+                }*/
                 if (out_para)*out_para = const_cast<ast_type*>(this);
                 if (out_args)*out_args = const_cast<ast_type*>(another);
                 return true;
@@ -475,6 +475,10 @@ namespace rs
                     return false;
 
                 rs_test(!is_pending() && !another->is_pending());
+
+                if (is_pending() || another->is_pending())
+                    return false;
+
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
                     if (!using_type_name || !another->using_type_name)
@@ -560,17 +564,19 @@ namespace rs
                         + using_type_name->get_type_name(ignore_using_type);
                 }
                 else
-                    result = (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
-                if (has_template())
                 {
-                    result += L"<";
-                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    result = (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    if (has_template())
                     {
-                        result += template_arguments[index]->get_type_name(ignore_using_type);
-                        if (index + 1 != template_arguments.size())
-                            result += L", ";
+                        result += L"<";
+                        for (size_t index = 0; index < template_arguments.size(); index++)
+                        {
+                            result += template_arguments[index]->get_type_name(ignore_using_type);
+                            if (index + 1 != template_arguments.size())
+                                result += L", ";
+                        }
+                        result += L">";
                     }
-                    result += L">";
                 }
                 if (is_function_type)
                 {
@@ -961,6 +967,7 @@ namespace rs
                         try_cast_nil_to_int_handle_real_str:
                             if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
                             {
+                                constant_value.set_val(&last_value);
                             }
                             else
                             {
@@ -1255,10 +1262,14 @@ namespace rs
                 // item LIST
                 if (children)
                 {
-                    auto bkup = children;
-                    children = nullptr;
+                    auto old_last = last;
+                    auto old_child = children;
+
+                    remove_allnode();
                     add_child(astnode);
-                    astnode->sibling = bkup;
+
+                    astnode->sibling = old_child;
+                    last = old_last;
                 }
                 else
                     add_child(astnode);
@@ -2694,6 +2705,8 @@ namespace rs
             std::wstring new_type_identifier;
             ast_type* old_type;
 
+            std::map<std::wstring, ast::ast_value*> class_const_index_typing;
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -2777,6 +2790,184 @@ namespace rs
             {
                 rs_test(input.size() > pass_idx);
                 return input[pass_idx];
+            }
+        };
+
+        struct pass_class_define : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_using_type_as* using_type = new ast_using_type_as;
+                using_type->new_type_identifier = RS_NEED_TOKEN(2).identifier;
+                using_type->old_type = new ast_type(L"map");
+                using_type->old_type->template_arguments[0] = new ast_type(L"string");
+                using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+
+                if (!ast_empty::is_empty(input[3]))
+                {
+                    ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
+                    rs_test(template_defines);
+                    using_type->is_template_define = true;
+
+                    ast_token* template_type = dynamic_cast<ast_token*>(template_defines->children);
+                    rs_test(template_type);
+                    while (template_type)
+                    {
+                        using_type->template_type_name_list.push_back(template_type->tokens.identifier);
+
+                        template_type = dynamic_cast<ast_token*>(template_type->sibling);
+                    }
+                }
+
+                // TYPE DECLS STORE IN 5
+
+                bool has_custom_new_func = false;
+                bool has_custom_create_func = false;
+
+                ast_namespace* ast_cls_namespace = new ast_namespace;
+                ast_cls_namespace->scope_name = using_type->new_type_identifier;
+
+                std::vector<ast_varref_defines::varref_define*> init_mem_list;
+
+                if (!ast_empty::is_empty(input[5]))
+                {
+                    ast_cls_namespace->in_scope_sentence = dynamic_cast<ast_list*>(RS_NEED_AST(5));
+                    auto* ast_decl = ast_cls_namespace->in_scope_sentence->children;
+                    while (ast_decl)
+                    {
+                        auto current_ast_node = ast_decl;
+                        ast_decl = ast_decl->sibling;
+
+                        if (auto* avfdef = dynamic_cast<ast_value_function_define*>(current_ast_node))
+                        {
+                            if (avfdef->function_name == L"create")
+                                has_custom_create_func = true;
+                            else if (avfdef->function_name == L"new"
+                                && !avfdef->argument_list->children)
+                                has_custom_new_func = true;
+                        }
+                        else
+                        {
+                            auto* varrefdef = dynamic_cast<ast_varref_defines*>(current_ast_node);
+                            rs_assert(varrefdef);
+
+                            for (auto& definfo : varrefdef->var_refs)
+                                init_mem_list.push_back(&definfo);
+
+                            // NOTE: Remove current varref def 
+                            ast_cls_namespace->in_scope_sentence->remove_child(current_ast_node);
+                        }
+                    }
+                }
+                else
+                    ast_cls_namespace->in_scope_sentence = new ast_list;
+
+                if (!has_custom_create_func)
+                {
+                    // MAKE FUNC DECL
+                    ast_value_function_define* avfd_create = new ast_value_function_define;
+                    avfd_create->function_name = L"create";
+                    avfd_create->argument_list = new ast_list;
+                    avfd_create->value_type = new ast_type(L"pending");
+                    avfd_create->value_type->set_as_function_type();
+
+                    avfd_create->auto_adjust_return_type = true;
+                    avfd_create->declear_attribute = new ast_decl_attribute();
+
+                    if (using_type->is_template_define)
+                    {
+                        avfd_create->is_template_define = true;
+                        avfd_create->template_type_name_list = using_type->template_type_name_list;
+                    }
+
+                    avfd_create->in_function_sentence = new ast_list;
+
+                    //return new()
+                    ast_value_funccall* callnew = new ast_value_funccall();
+                    ast_value_variable* called_funcname = new ast_value_variable(L"new");
+
+                    for (auto& template_impl_args : avfd_create->template_type_name_list)
+                    {
+                        called_funcname->template_reification_args.push_back(new ast_type(template_impl_args));
+                    }
+
+                    callnew->called_func = called_funcname;
+                    callnew->arguments = new ast_list();
+                    callnew->value_type = new ast_type(L"pending");
+
+                    ast_return* areturnsentence = new ast_return();
+                    areturnsentence->return_value = callnew;
+
+                    // all done ~ fuck!
+                    avfd_create->in_function_sentence->append_at_end(areturnsentence);
+                    ast_cls_namespace->in_scope_sentence->append_at_head(avfd_create);
+                }
+
+                if (!has_custom_new_func)
+                {
+                    // MAKE FUNC DECL
+                    ast_value_function_define* avfd_new = new ast_value_function_define;
+                    avfd_new->function_name = L"new";
+                    avfd_new->argument_list = new ast_list;
+                    avfd_new->value_type = new ast_type(L"pending");
+                    avfd_new->value_type->set_as_function_type();
+                    avfd_new->auto_adjust_return_type = true;
+                    avfd_new->declear_attribute = new ast_decl_attribute();
+
+                    if (using_type->is_template_define)
+                    {
+                        avfd_new->is_template_define = true;
+                        avfd_new->template_type_name_list = using_type->template_type_name_list;
+                    }
+
+                    avfd_new->in_function_sentence = new ast_list;
+
+
+                    // return {...}:CLASS_TYPE_NAME
+                    ast_list* in_instance_pairs = new ast_list();
+                    for (auto map_instance_val : init_mem_list)
+                    {
+                        ast_value_literal* vpair_key = new ast_value_literal(
+                            token{ +lex_type::l_literal_string, map_instance_val->ident_name });
+
+                        ast_mapping_pair* vpair = new ast_mapping_pair(
+                            vpair_key,
+                            map_instance_val->init_val);
+
+                        map_instance_val->init_val->is_mark_as_using_ref = map_instance_val->is_ref;
+
+                        in_instance_pairs->append_at_end(vpair);
+
+                    }
+                    ast_value_mapping* mkinstance_value = new ast_value_mapping(in_instance_pairs);
+
+                    ast_type* becasted_type = new ast_type(using_type->new_type_identifier);
+                    for (auto& template_impl_args : avfd_new->template_type_name_list)
+                    {
+                        becasted_type->template_arguments.push_back(new ast_type(template_impl_args));
+                    }
+
+                    mkinstance_value->value_type = becasted_type;
+                   
+                    ast_return* areturnsentence = new ast_return();
+                    areturnsentence->return_value = mkinstance_value;
+
+                    // all done ~ fuck!
+                    avfd_new->in_function_sentence->append_at_end(areturnsentence);
+
+                    ast_cls_namespace->in_scope_sentence->append_at_head(avfd_new);
+                }
+
+                for (auto* vdefinfo : init_mem_list)
+                {
+                    using_type->class_const_index_typing[vdefinfo->ident_name] = vdefinfo->init_val;
+                }
+
+
+                ast_list* type_decl_and_clas_body_pair = new ast_list;
+                type_decl_and_clas_body_pair->append_at_end(using_type);
+                type_decl_and_clas_body_pair->append_at_end(ast_cls_namespace);
+                return (ast_basic*)type_decl_and_clas_body_pair;
             }
         };
 
@@ -3998,6 +4189,9 @@ namespace rs
 #if 1
         inline void init_builder()
         {
+
+            _registed_builder_function_id_list[meta::type_hash<pass_class_define>] = _register_builder<pass_class_define>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();

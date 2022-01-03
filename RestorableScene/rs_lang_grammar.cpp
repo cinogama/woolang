@@ -100,32 +100,40 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                                     gm::te(gm::ttype::l_using),
                                     gm::te(gm::ttype::l_identifier),
                                     gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                                    gm::te(gm::ttype::l_assign),
+                                    gm::nt(L"ASSIGN_MAY_EMPTY"),
                                     gm::nt(L"CLASS_DEFINE_BODY")}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_class_define),
 
 gm::nt(L"CLASS_DEFINE_BODY") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
                                             gm::nt(L"CLASS_DEFINE_ITEMS"),
                                             gm::te(gm::ttype::l_right_curly_braces)}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 gm::nt(L"CLASS_DEFINE_BODY") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
                                             gm::te(gm::ttype::l_right_curly_braces)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
 gm::nt(L"CLASS_DEFINE_ITEMS") >> gm::symlist{gm::nt(L"CLASS_DEFINE_ITEM")}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
 gm::nt(L"CLASS_DEFINE_ITEMS") >> gm::symlist{gm::nt(L"CLASS_DEFINE_ITEMS")
                                             ,gm::nt(L"CLASS_DEFINE_ITEM")}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
 
 gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::nt(L"VAR_REF_DEFINE")}
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
 gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME"), gm::nt(L"SEMICOLON_MAY_EMPTY")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
+gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_assign) }
+        >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+        >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
 //////////////////////////////////////////////////////////////////////////////////////
 

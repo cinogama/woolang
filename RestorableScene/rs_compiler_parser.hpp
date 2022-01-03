@@ -98,8 +98,6 @@ namespace rs
         {
         private:
             inline thread_local static std::forward_list<ast_base*> list;
-        private:
-            ast_base* last;
         public:
 
             ast_base& operator = (const ast_base& another)
@@ -128,6 +126,7 @@ namespace rs
             ast_base* parent;
             ast_base* children;
             ast_base* sibling;
+            ast_base* last;
 
             size_t row_no;
             size_t col_no;
@@ -192,7 +191,12 @@ namespace rs
                             ast_node->sibling = nullptr;
                         }
                         else
+                        {
+                            if (children == ast_node)
+                                children = ast_node->sibling;
+
                             childs = last_childs;
+                        }
 
                         if (last == ast_node)
                             last = last_childs;

@@ -44,6 +44,7 @@ namespace rs
         };
 
         std::vector<ast::ast_value_function_define*> function_overload_sets;
+        std::map<std::wstring, ast::ast_type*> class_const_index_typing; // for class
 
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
@@ -358,6 +359,8 @@ namespace rs
 
                 }
             }
+
+            rs_test(!type->using_type_name || !type->using_type_name->using_type_name);
         }
 
         std::vector<bool> in_pass2 = { false };
@@ -2068,7 +2071,7 @@ namespace rs
                 if (!a_value_arr->value_type->is_array())
                 {
                     lang_anylizer->lang_error(0x0000, a_value_arr, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                        L"'array'",
+                        L"array",
                         a_value_arr->value_type->get_type_name().c_str()
                     );
                 }
@@ -2082,7 +2085,7 @@ namespace rs
                     {
                         if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
                         {
-                            auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], true);
+                            auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], false);
                             //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
                             cast_array_item->col_no = val->col_no;
                             cast_array_item->row_no = val->row_no;
@@ -2117,7 +2120,7 @@ namespace rs
                 if (!a_value_map->value_type->is_map())
                 {
                     lang_anylizer->lang_error(0x0000, a_value_map, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                        L"'map'",
+                        L"map",
                         a_value_map->value_type->get_type_name().c_str()
                     );
                 }
@@ -2127,33 +2130,43 @@ namespace rs
 
                     while (pairs)
                     {
-                        if (pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
+                        if (pairs->key->value_type->is_pending()
+                            || pairs->val->value_type->is_pending()
+                            || a_value_map->value_type->template_arguments[0]->is_pending()
+                            || a_value_map->value_type->template_arguments[1]->is_pending())
                         {
-                            auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], true);
-                            //pass_type_cast::do_cast(*lang_anylizer, );
-                            cast_key_item->col_no = pairs->key->col_no;
-                            cast_key_item->row_no = pairs->key->row_no;
-                            cast_key_item->source_file = pairs->key->source_file;
-
-                            analyze_pass2(cast_key_item);
-
-                            cast_key_item->update_constant_value(lang_anylizer);
-
-                            pairs->key = cast_key_item;
+                            // Do nothing..
                         }
-                        if (pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
+                        else
                         {
-                            auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], true);
-                            //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
-                            cast_val_item->col_no = pairs->key->col_no;
-                            cast_val_item->row_no = pairs->key->row_no;
-                            cast_val_item->source_file = pairs->key->source_file;
+                            if (!pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
+                            {
+                                auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], false);
+                                //pass_type_cast::do_cast(*lang_anylizer, );
+                                cast_key_item->col_no = pairs->key->col_no;
+                                cast_key_item->row_no = pairs->key->row_no;
+                                cast_key_item->source_file = pairs->key->source_file;
 
-                            analyze_pass2(cast_val_item);
+                                analyze_pass2(cast_key_item);
 
-                            cast_val_item->update_constant_value(lang_anylizer);
+                                cast_key_item->update_constant_value(lang_anylizer);
 
-                            pairs->val = cast_val_item;
+                                pairs->key = cast_key_item;
+                            }
+                            if (!pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
+                            {
+                                auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], false);
+                                //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
+                                cast_val_item->col_no = pairs->key->col_no;
+                                cast_val_item->row_no = pairs->key->row_no;
+                                cast_val_item->source_file = pairs->key->source_file;
+
+                                analyze_pass2(cast_val_item);
+
+                                cast_val_item->update_constant_value(lang_anylizer);
+
+                                pairs->val = cast_val_item;
+                            }
                         }
                         pairs = dynamic_cast<ast_mapping_pair*>(pairs->sibling);
                     }
@@ -2560,7 +2573,7 @@ namespace rs
         {
             using namespace ast;
             using namespace opnum;
-            if (last_value_stored_to_cr)
+            if (_last_value_stored_to_cr)
                 return op_num;
 
             if (auto* regist = dynamic_cast<reg*>(&op_num))
@@ -2576,7 +2589,7 @@ namespace rs
         {
             using namespace ast;
             using namespace opnum;
-            if (last_value_stored_to_cr)
+            if (_last_value_stored_to_cr)
                 return op_num;
 
             if (auto* regist = dynamic_cast<reg*>(&op_num))
@@ -2654,14 +2667,38 @@ namespace rs
             }
         }
 
-        bool last_value_stored_to_cr = false;
+        bool _last_value_stored_to_cr = false;
+
+        struct auto_cancel_value_store_to_cr
+        {
+            bool clear_sign = false;
+            bool* aim_flag;
+            auto_cancel_value_store_to_cr(bool& flag)
+                :aim_flag(&flag)
+            {
+
+            }
+            ~auto_cancel_value_store_to_cr()
+            {
+                *aim_flag = clear_sign;
+            }
+
+            void write_to_cr()
+            {
+                clear_sign = true;
+            }
+            void not_write_to_cr()
+            {
+                clear_sign = false;
+            }
+        };
 
         opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true, bool force_value = false)
         {
             if (need_symbol)
                 compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
 
-            last_value_stored_to_cr = false;
+            auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
             using namespace ast;
             using namespace opnum;
             if (value->is_constant && !force_value)
@@ -2842,7 +2879,7 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
                 return beoped_left_opnum;
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
@@ -2864,7 +2901,7 @@ namespace rs
                 auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
 
                 if (is_cr_reg(*beoped_left_opnum_ptr)
-                    && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || last_value_stored_to_cr))
+                    && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*beoped_left_opnum_ptr);
                     complete_using_register(*op_right_opnum_ptr);
@@ -2993,7 +3030,7 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
                 return beoped_left_opnum;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
@@ -3017,7 +3054,7 @@ namespace rs
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->value_type->value_type);
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
                 return treg;
 
             }
@@ -3182,13 +3219,14 @@ namespace rs
 
                 compiler->call(complete_using_register(*called_func_aim));
 
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
 
                 opnum::opnumbase* result_storage_place = nullptr;
 
                 if (full_unpack_arguments)
                 {
-                    last_value_stored_to_cr = false;
+                    last_value_stored_to_cr_flag.not_write_to_cr();
+                    
                     if (a_value_funccall->is_mark_as_using_ref)
                     {
                         result_storage_place = &get_useable_register_for_ref_value();
@@ -3255,7 +3293,7 @@ namespace rs
                 auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
 
                 if (is_cr_reg(*_beoped_left_opnum)
-                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || last_value_stored_to_cr))
+                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*_beoped_left_opnum);
                     complete_using_register(*_beoped_left_opnum);
@@ -3338,7 +3376,7 @@ namespace rs
                 }
 
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
 
                 if (!get_pure_value)
                     return RS_NEW_OPNUM(reg(reg::cr));
@@ -3409,7 +3447,7 @@ namespace rs
                 auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
 
                 if (is_cr_reg(*_beoped_left_opnum)
-                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || last_value_stored_to_cr))
+                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*_beoped_left_opnum);
                     complete_using_register(*_beoped_left_opnum);
@@ -3420,7 +3458,7 @@ namespace rs
                 auto& beoped_left_opnum = *_beoped_left_opnum;
                 auto& op_right_opnum = *_op_right_opnum;
 
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
 
                 compiler->idx(beoped_left_opnum, op_right_opnum);
 
@@ -3499,7 +3537,7 @@ namespace rs
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
                         if (_cv.integer <= 63 - 2)
                         {
-                            last_value_stored_to_cr = true;
+                            last_value_stored_to_cr_flag.write_to_cr();
                             compiler->set(result, reg(reg::bp_offset(_cv.integer + 2
                                 + now_function_in_final_anylize->value_type->argument_types.size())));
                         }
@@ -3562,7 +3600,7 @@ namespace rs
                     rs_error("Do not support this operator..");
                     break;
                 }
-                last_value_stored_to_cr = true;
+                last_value_stored_to_cr_flag.write_to_cr();
                 if (!get_pure_value)
                     return RS_NEW_OPNUM(reg(reg::cr));
                 else
@@ -4144,6 +4182,13 @@ namespace rs
         {
             rs_assert(lang_scopes.size());
 
+            if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
+                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
+                {
+                    if (auto fnd = rind->find(ident_str); fnd != rind->end())
+                        return fnd->second;
+                }
+
             if (var_ident->searching_from_type)
             {
                 fully_update_type(var_ident->searching_from_type, !in_pass2.back());
@@ -4333,15 +4378,10 @@ namespace rs
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
-            if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
-                for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
-                {
-                    if (auto fnd = rind->find(var_ident->type_name); fnd != rind->end())
-                        return fnd->second;
-                }
-
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
-            if (result && result->type != lang_symbol::symbol_type::typing)
+            if (result
+                && result->type != lang_symbol::symbol_type::typing
+                && result->type != lang_symbol::symbol_type::template_typing)
             {
                 lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_NOT_A_TYPE, var_ident->type_name.c_str());
                 return nullptr;
@@ -4351,18 +4391,44 @@ namespace rs
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
         {
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
-  
-            if (result && result->type == lang_symbol::symbol_type::typing)
+
+            if (result
+                && (result->type == lang_symbol::symbol_type::typing
+                    || result->type == lang_symbol::symbol_type::template_typing))
             {
                 var_ident->symbol = nullptr;
-                var_ident->scope_namespaces.push_back(var_ident->var_name);
+
+                std::wstring used_template_impl_typing_name;
+
+                ast::ast_type* typing_index = nullptr;
+
+                if (result->type == lang_symbol::symbol_type::typing)
+                    used_template_impl_typing_name = var_ident->var_name;
+                else
+                {
+                    typing_index = result->type_informatiom;
+
+                    if (typing_index->using_type_name)
+                        typing_index = typing_index->using_type_name;
+
+                    used_template_impl_typing_name = typing_index->type_name;
+
+                    var_ident->scope_namespaces = typing_index->scope_namespaces;
+                    var_ident->template_reification_args = typing_index->template_arguments;
+
+                }
+                
+                var_ident->scope_namespaces.push_back(used_template_impl_typing_name);
+                auto type_name = var_ident->var_name;
                 var_ident->var_name = L"create";
 
                 result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
                 if (result)
                     return result;
 
-                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE, var_ident->var_name.c_str());
+                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE,
+                    used_template_impl_typing_name.c_str()
+                );
                 return nullptr;
             }
             return result;
