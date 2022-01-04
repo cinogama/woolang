@@ -9,6 +9,7 @@
 #include "rs_lang.hpp"
 #include "rs_utf8.hpp"
 #include "rs_runtime_debuggee.hpp"
+#include "rs_global_setting.hpp"
 
 #include <csignal>
 
@@ -172,11 +173,13 @@ void rs_init(int argc, char** argv)
             if ("local" == current_arg)
                 basic_env_local = argv[++command_idx];
             else if ("enable_std" == current_arg)
-                enable_std_package = std::stoi(argv[++command_idx]);
+                enable_std_package = atoi(argv[++command_idx]);
             else if ("enable_ctrlc_debug" == current_arg)
-                enable_ctrl_c_to_debug = std::stoi(argv[++command_idx]);
+                enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
             else if ("enable_gc" == current_arg)
-                enable_gc = std::stoi(argv[++command_idx]);
+                enable_gc = atoi(argv[++command_idx]);
+            else if ("enable_code_allign" == current_arg)
+                rs::config::ENABLE_IR_CODE_ACTIVE_ALLIGN = atoi(argv[++command_idx]);
             else
                 std::cerr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << std::endl;
         }

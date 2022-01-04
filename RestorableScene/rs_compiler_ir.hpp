@@ -6,9 +6,12 @@
 #include "rs_meta.hpp"
 #include "rs_compiler_parser.hpp"
 #include "rs_env_locale.hpp"
+#include "rs_global_setting.hpp"
 
 #include <cstring>
 #include <string>
+
+
 
 namespace rs
 {
@@ -17,9 +20,11 @@ namespace rs
         struct opnumbase
         {
             virtual ~opnumbase() = default;
-            virtual void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const
+            virtual size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const
             {
                 rs_error("This type can not generate opnum.");
+
+                return 0;
             }
         };
 
@@ -46,7 +51,7 @@ namespace rs
 
             }
 
-            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 byte_t* buf = (byte_t*)&real_offset_const_glb;
 
@@ -54,6 +59,8 @@ namespace rs
                 buffer.push_back(buf[1]);
                 buffer.push_back(buf[2]);
                 buffer.push_back(buf[3]);
+
+                return 4;
             }
         };
 
@@ -115,9 +122,10 @@ namespace rs
 #undef RS_SIGNED_SHIFT
             }
 
-            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 buffer.push_back(id);
+                return 1;
             }
         };
 
@@ -129,7 +137,7 @@ namespace rs
             virtual bool operator < (const immbase&) const = 0;
             virtual void apply(value*) const = 0;
 
-            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
                 byte_t* buf = (byte_t*)&constant_index;
 
@@ -137,6 +145,8 @@ namespace rs
                 buffer.push_back(buf[1]);
                 buffer.push_back(buf[2]);
                 buffer.push_back(buf[3]);
+
+                return 4;
             }
 
             virtual bool is_true()const = 0;
@@ -251,9 +261,9 @@ namespace rs
                 return true;
             }
 
-            void generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
+            size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const override
             {
-                imm<int>::generate_opnum_to_buffer(buffer);
+                return imm<int>::generate_opnum_to_buffer(buffer);
             }
         };
     } // namespace opnum;
@@ -1475,7 +1485,8 @@ namespace rs
 
             value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
 
-            cxx_vec_t<byte_t> runtime_command_buffer;
+            cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
+
             std::map<std::string, cxx_vec_t<size_t>> jmp_record_table;
             std::map<std::string, cxx_vec_t<value*>> jmp_record_table_for_immtag;
             std::map<std::string, uint32_t> tag_offset_vector_table;
@@ -1502,18 +1513,6 @@ namespace rs
 
             for (size_t ip = 0; ip < ir_command_buffer.size(); ip++)
             {
-                pdb_info->pdd_rt_code_byte_offset_to_ir[runtime_command_buffer.size()] = ip;
-
-                if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
-                {
-                    for (auto& tag_name : fnd->second)
-                    {
-                        rs_assert(tag_offset_vector_table.find(tag_name) == tag_offset_vector_table.end()
-                            , "The tag point to different place.");
-
-                        tag_offset_vector_table[tag_name] = (uint32_t)runtime_command_buffer.size();
-                    }
-                }
 
 #define RS_IR ir_command_buffer[ip]
 #define RS_OPCODE(...) rs_macro_overload(RS_OPCODE,__VA_ARGS__)
@@ -1524,47 +1523,62 @@ namespace rs
 #define RS_OPCODE_EXT0_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, RS_IR.dr()).opcode_dr)
 #define RS_OPCODE_EXT0_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, 0b000000##DR).opcode_dr)
 
+                cxx_vec_t<byte_t> temp_this_command_code_buf; // one command will be store here tempery for coding allign
+                size_t already_allign_tmp_sz = 0; // temp store the written sz for allign check, will be reset 0 at each command loop;
+                size_t need_fill_count = 0;
+                auto auto_check_mem_allign = [&](int offset, size_t write_sz)
+                {
+                    if (config::ENABLE_IR_CODE_ACTIVE_ALLIGN)
+                        if (auto no_allign_sz = (generated_runtime_code_buf.size() + already_allign_tmp_sz + offset) % write_sz)
+                        {
+                            rs_assert(write_sz && (write_sz % 2 == 0));
+                            need_fill_count += write_sz - no_allign_sz;
+
+                            already_allign_tmp_sz += write_sz; // temp add writed sz;
+                        }
+                };
+
                 switch (RS_IR.opcode)
                 {
                 case instruct::opcode::nop:
-                    runtime_command_buffer.push_back(RS_OPCODE(nop));
+                    temp_this_command_code_buf.push_back(RS_OPCODE(nop));
                     break;
                 case instruct::opcode::set:
-                    runtime_command_buffer.push_back(RS_OPCODE(set));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(set));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::mov:
-                    runtime_command_buffer.push_back(RS_OPCODE(mov));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(mov));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::movcast:
-                    runtime_command_buffer.push_back(RS_OPCODE(movcast));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(movcast));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
                     break;
                 case instruct::opcode::setcast:
-                    runtime_command_buffer.push_back(RS_OPCODE(setcast));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(setcast));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
                     break;
                 case instruct::opcode::typeas:
 
                     if (RS_IR.ext_page_id)
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(typeas) | 0b01);
-                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                        runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                        temp_this_command_code_buf.push_back(RS_OPCODE(typeas) | 0b01);
+                        auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                        temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
                     }
                     else
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(typeas));
-                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                        runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
+                        temp_this_command_code_buf.push_back(RS_OPCODE(typeas));
+                        auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                        temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
                     }
 
 
@@ -1575,26 +1589,27 @@ namespace rs
                         if (RS_IR.opinteger == 0)
                             break;
 
-                        runtime_command_buffer.push_back(RS_OPCODE(psh, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(psh, 00));
 
                         rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
                             , "Invalid count to reserve in stack.");
 
                         uint16_t opushort = (uint16_t)RS_IR.opinteger;
                         byte_t* readptr = (byte_t*)&opushort;
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
 
-                        runtime_command_buffer.push_back(readptr[0]);
-                        runtime_command_buffer.push_back(readptr[1]);
+                        auto_check_mem_allign(1, 2);
                     }
                     else
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(psh) | 0b01);
-                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                        temp_this_command_code_buf.push_back(RS_OPCODE(psh) | 0b01);
+                        auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     }
                     break;
                 case instruct::opcode::pshr:
-                    runtime_command_buffer.push_back(RS_OPCODE(pshr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(pshr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::pop:
                     if (nullptr == RS_IR.op1)
@@ -1602,7 +1617,7 @@ namespace rs
                         if (RS_IR.opinteger == 0)
                             break;
 
-                        runtime_command_buffer.push_back(RS_OPCODE(pop, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(pop, 00));
 
                         rs_assert(RS_IR.opinteger > 0 && RS_IR.opinteger <= UINT16_MAX
                             , "Invalid count to pop from stack.");
@@ -1610,377 +1625,395 @@ namespace rs
                         uint16_t opushort = (uint16_t)RS_IR.opinteger;
                         byte_t* readptr = (byte_t*)&opushort;
 
-                        runtime_command_buffer.push_back(readptr[0]);
-                        runtime_command_buffer.push_back(readptr[1]);
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
+
+                        auto_check_mem_allign(1, 2);
                     }
                     else
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(pop) | 0b01);
-                        RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                        temp_this_command_code_buf.push_back(RS_OPCODE(pop) | 0b01);
+                        auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     }
                     break;
                 case instruct::opcode::popr:
-                    runtime_command_buffer.push_back(RS_OPCODE(popr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(popr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::lds:
-                    runtime_command_buffer.push_back(RS_OPCODE(lds));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(lds));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::ldsr:
-                    runtime_command_buffer.push_back(RS_OPCODE(ldsr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(ldsr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::addi:
-                    runtime_command_buffer.push_back(RS_OPCODE(addi));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(addi));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::subi:
-                    runtime_command_buffer.push_back(RS_OPCODE(subi));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(subi));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::muli:
-                    runtime_command_buffer.push_back(RS_OPCODE(muli));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(muli));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::divi:
-                    runtime_command_buffer.push_back(RS_OPCODE(divi));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(divi));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::modi:
-                    runtime_command_buffer.push_back(RS_OPCODE(modi));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(modi));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::movx:
-                    runtime_command_buffer.push_back(RS_OPCODE(movx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(movx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::movdup:
-                    runtime_command_buffer.push_back(RS_OPCODE(movdup));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(movdup));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::addx:
-                    runtime_command_buffer.push_back(RS_OPCODE(addx));
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(addx));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
+                    auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::subx:
-                    runtime_command_buffer.push_back(RS_OPCODE(subx));
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(subx));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
+                    auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::mulx:
-                    runtime_command_buffer.push_back(RS_OPCODE(mulx));
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(mulx));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
+                    auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::divx:
-                    runtime_command_buffer.push_back(RS_OPCODE(divx));
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(divx));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
+                    auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::modx:
-                    runtime_command_buffer.push_back(RS_OPCODE(modx));
-                    runtime_command_buffer.push_back((byte_t)RS_IR.opinteger);
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(modx));
+                    temp_this_command_code_buf.push_back((byte_t)RS_IR.opinteger);
+                    auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::addr:
-                    runtime_command_buffer.push_back(RS_OPCODE(addr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(addr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::subr:
-                    runtime_command_buffer.push_back(RS_OPCODE(subr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(subr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::mulr:
-                    runtime_command_buffer.push_back(RS_OPCODE(mulr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(mulr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::divr:
-                    runtime_command_buffer.push_back(RS_OPCODE(divr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(divr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::modr:
-                    runtime_command_buffer.push_back(RS_OPCODE(modr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(modr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::addh:
-                    runtime_command_buffer.push_back(RS_OPCODE(addh));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(addh));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::subh:
-                    runtime_command_buffer.push_back(RS_OPCODE(subh));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(subh));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::adds:
-                    runtime_command_buffer.push_back(RS_OPCODE(adds));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(adds));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::equb:
-                    runtime_command_buffer.push_back(RS_OPCODE(equb));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(equb));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::nequb:
-                    runtime_command_buffer.push_back(RS_OPCODE(nequb));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(nequb));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::equx:
-                    runtime_command_buffer.push_back(RS_OPCODE(equx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(equx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::nequx:
-                    runtime_command_buffer.push_back(RS_OPCODE(nequx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(nequx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::land:
-                    runtime_command_buffer.push_back(RS_OPCODE(land));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(land));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::lor:
-                    runtime_command_buffer.push_back(RS_OPCODE(lor));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(lor));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::lnot:
-                    runtime_command_buffer.push_back(RS_OPCODE(lnot));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(lnot));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::gti:
-                    runtime_command_buffer.push_back(RS_OPCODE(gti));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(gti));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::lti:
-                    runtime_command_buffer.push_back(RS_OPCODE(lti));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(lti));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::egti:
-                    runtime_command_buffer.push_back(RS_OPCODE(egti));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(egti));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::elti:
-                    runtime_command_buffer.push_back(RS_OPCODE(elti));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(elti));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::gtr:
-                    runtime_command_buffer.push_back(RS_OPCODE(gtr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(gtr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::ltr:
-                    runtime_command_buffer.push_back(RS_OPCODE(ltr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(ltr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::egtr:
-                    runtime_command_buffer.push_back(RS_OPCODE(egtr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(egtr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::eltr:
-                    runtime_command_buffer.push_back(RS_OPCODE(eltr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(eltr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::gtx:
-                    runtime_command_buffer.push_back(RS_OPCODE(gtx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(gtx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::ltx:
-                    runtime_command_buffer.push_back(RS_OPCODE(ltx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(ltx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::egtx:
-                    runtime_command_buffer.push_back(RS_OPCODE(egtx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(egtx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::eltx:
-                    runtime_command_buffer.push_back(RS_OPCODE(eltx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(eltx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::mkarr:
-                    runtime_command_buffer.push_back(RS_OPCODE(mkarr));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(mkarr));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::mkmap:
-                    runtime_command_buffer.push_back(RS_OPCODE(mkmap));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(mkmap));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::idx:
-                    runtime_command_buffer.push_back(RS_OPCODE(idx));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                    RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(idx));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::jt:
-                    runtime_command_buffer.push_back(RS_OPCODE(jt));
-
+                    temp_this_command_code_buf.push_back(RS_OPCODE(jt));
+                    auto_check_mem_allign(1, 4);
                     rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
-                        .push_back(runtime_command_buffer.size());
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
 
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+
+
                     break;
                 case instruct::opcode::jf:
-                    runtime_command_buffer.push_back(RS_OPCODE(jf));
+                    temp_this_command_code_buf.push_back(RS_OPCODE(jf));
+                    auto_check_mem_allign(1, 4);
 
                     rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
-                        .push_back(runtime_command_buffer.size());
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
 
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
                     break;
 
                 case instruct::opcode::jmp:
-                    runtime_command_buffer.push_back(RS_OPCODE(jmp, 00));
+                    temp_this_command_code_buf.push_back(RS_OPCODE(jmp, 00));
+                    auto_check_mem_allign(1, 4);
+
 
                     rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
-                        .push_back(runtime_command_buffer.size());
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
 
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
-                    runtime_command_buffer.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
                     break;
 
                 case instruct::opcode::call:
-                    runtime_command_buffer.push_back(RS_OPCODE(call));
-                    RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                    temp_this_command_code_buf.push_back(RS_OPCODE(call));
+                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
                 case instruct::opcode::calln:
                     if (RS_IR.op2)
                     {
                         rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op2) != nullptr, "Operator num should be a tag.");
 
-                        runtime_command_buffer.push_back(RS_OPCODE(calln, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(calln, 00));
+                        auto_check_mem_allign(1, 4);
 
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op2)->name]
-                            .push_back(runtime_command_buffer.size());
+                            .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
 
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
                     }
                     else if (RS_IR.op1)
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(calln, 01));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(calln, 01));
+                        auto_check_mem_allign(1, 8);
 
                         uint64_t addr = (uint64_t)(RS_IR.op1);
 
                         byte_t* readptr = (byte_t*)&addr;
-                        runtime_command_buffer.push_back(readptr[0]);
-                        runtime_command_buffer.push_back(readptr[1]);
-                        runtime_command_buffer.push_back(readptr[2]);
-                        runtime_command_buffer.push_back(readptr[3]);
-                        runtime_command_buffer.push_back(readptr[4]);
-                        runtime_command_buffer.push_back(readptr[5]);
-                        runtime_command_buffer.push_back(readptr[6]);
-                        runtime_command_buffer.push_back(readptr[7]);
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
+                        temp_this_command_code_buf.push_back(readptr[2]);
+                        temp_this_command_code_buf.push_back(readptr[3]);
+                        temp_this_command_code_buf.push_back(readptr[4]);
+                        temp_this_command_code_buf.push_back(readptr[5]);
+                        temp_this_command_code_buf.push_back(readptr[6]);
+                        temp_this_command_code_buf.push_back(readptr[7]);
+
                     }
                     else
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(calln, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(calln, 00));
+                        auto_check_mem_allign(1, 4);
+
                         byte_t* readptr = (byte_t*)&RS_IR.opinteger;
-                        runtime_command_buffer.push_back(readptr[0]);
-                        runtime_command_buffer.push_back(readptr[1]);
-                        runtime_command_buffer.push_back(readptr[2]);
-                        runtime_command_buffer.push_back(readptr[3]);
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
+                        temp_this_command_code_buf.push_back(readptr[2]);
+                        temp_this_command_code_buf.push_back(readptr[3]);
                     }
                     break;
                 case instruct::opcode::ret:
                     if (RS_IR.opinteger)
-                        runtime_command_buffer.push_back(RS_OPCODE(ret, 01));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ret, 01));
                     else
-                        runtime_command_buffer.push_back(RS_OPCODE(ret, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ret, 00));
                     break;
                 case instruct::opcode::veh:
                     if (RS_IR.op1)
                     {
                         // begin
                         rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
+                        auto_check_mem_allign(1, 4);
 
-                        runtime_command_buffer.push_back(RS_OPCODE(veh, 10));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(veh, 10));
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
-                            .push_back(runtime_command_buffer.size());
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
+                            .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+
                     }
                     else if (RS_IR.op2)
                     {
                         // clean
                         rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op2) != nullptr, "Operator num should be a tag.");
+                        auto_check_mem_allign(1, 4);
 
-                        runtime_command_buffer.push_back(RS_OPCODE(veh, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(veh, 00));
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op2)->name]
-                            .push_back(runtime_command_buffer.size());
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
-                        runtime_command_buffer.push_back(0x00);
+                            .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+
+
                     }
                     else
                     {
                         // throw
-                        runtime_command_buffer.push_back(RS_OPCODE(veh, 01));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(veh, 01));
                     }
                     break;
                 case instruct::opcode::ext:
@@ -1989,31 +2022,31 @@ namespace rs
                     {
                     case 0:
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(ext, 00));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ext, 00));
                         switch (RS_IR.ext_opcode_p0)
                         {
                         case instruct::extern_opcode_page_0::setref:
-                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(setref));
-                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(setref));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
                         case instruct::extern_opcode_page_0::mknilarr:
-                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(mknilarr));
-                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilarr));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
                         case instruct::extern_opcode_page_0::mknilmap:
-                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(mknilmap));
-                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilmap));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
                         case instruct::extern_opcode_page_0::packargs:
-                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(packargs));
-                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(packargs));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
                         case instruct::extern_opcode_page_0::unpackargs:
-                            runtime_command_buffer.push_back(RS_OPCODE_EXT0(unpackargs));
-                            RS_IR.op1->generate_opnum_to_buffer(runtime_command_buffer);
-                            RS_IR.op2->generate_opnum_to_buffer(runtime_command_buffer);
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(unpackargs));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
                         default:
                             rs_error("Unknown instruct.");
@@ -2023,17 +2056,17 @@ namespace rs
                     }
                     case 1:
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(ext, 01));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ext, 01));
                         break;
                     }
                     case 2:
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(ext, 10));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ext, 10));
                         break;
                     }
                     case 3:
                     {
-                        runtime_command_buffer.push_back(RS_OPCODE(ext, 11));
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ext, 11));
                         break;
                     }
                     default:
@@ -2043,16 +2076,64 @@ namespace rs
 
                     break;
                 case instruct::opcode::abrt:
-                    runtime_command_buffer.push_back(RS_OPCODE(abrt, 00));
+                    temp_this_command_code_buf.push_back(RS_OPCODE(abrt, 00));
                     break;
 
                 case instruct::opcode::end:
-                    runtime_command_buffer.push_back(RS_OPCODE(end, 00));
+                    temp_this_command_code_buf.push_back(RS_OPCODE(end, 00));
                     break;
 
                 default:
                     rs_error("Unknown instruct.");
                 }
+
+                // Move temp_this_command_code_buf data to generated_runtime_code_buf
+
+
+                auto _4byte_tkplace = need_fill_count / 4;
+                auto _nbyte_tkplace = need_fill_count % 4;
+
+                for (size_t ci = 0; ci < _4byte_tkplace; ci++)
+                {
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 11)); // nop(3) will move 4 byte
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 10)); // useless mem fill
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 01)); // useless mem fill
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 00)); // useless mem fill
+                }
+
+                switch (_nbyte_tkplace)
+                {
+                case 3:
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 10));
+                    // fallthrow
+                case 2:
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 01));
+                    // fallthrow
+                case 1:
+                    generated_runtime_code_buf.push_back(RS_OPCODE(nop, 00));
+                case 0:
+                    break; // do nothing
+                }
+
+                pdb_info->pdd_rt_code_byte_offset_to_ir[generated_runtime_code_buf.size()] = ip;
+
+                if (auto fnd = tag_irbuffer_offset.find(ip); fnd != tag_irbuffer_offset.end())
+                {
+                    for (auto& tag_name : fnd->second)
+                    {
+                        rs_assert(tag_offset_vector_table.find(tag_name) == tag_offset_vector_table.end()
+                            , "The tag point to different place.");
+
+                        tag_offset_vector_table[tag_name] = (uint32_t)generated_runtime_code_buf.size();
+                    }
+                }
+
+
+                generated_runtime_code_buf.insert(
+                    generated_runtime_code_buf.end(),
+                    temp_this_command_code_buf.begin(),
+                    temp_this_command_code_buf.end());
+
             }
 #undef RS_OPCODE_2
 #undef RS_OPCODE_1
@@ -2066,7 +2147,7 @@ namespace rs
 
                 for (auto offset : offsets)
                 {
-                    *(uint32_t*)(runtime_command_buffer.data() + offset) = offset_val;
+                    *(uint32_t*)(generated_runtime_code_buf.data() + offset) = offset_val;
                 }
             }
 
@@ -2094,15 +2175,18 @@ namespace rs
 
             env->runtime_stack_count = runtime_stack_count;
 
-            env->rt_code_len = runtime_command_buffer.size();
+            env->rt_code_len = generated_runtime_code_buf.size();
 
             pdb_info->runtime_codes_base =
                 env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+
+            rs_test(reinterpret_cast<size_t>(env->rt_codes) % 8 == 0);
+
             pdb_info->runtime_codes_length = env->rt_code_len;
 
             rs_assert(env->rt_codes, "Alloc memory fail.");
 
-            memcpy(env->rt_codes, runtime_command_buffer.data(), env->rt_code_len * sizeof(byte_t));
+            memcpy(env->rt_codes, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
 
             env->program_debug_info = pdb_info;
 

@@ -23,7 +23,7 @@ namespace rs
         enum opcode : uint8_t
         {
 #define RS_OPCODE_SPACE <<2
-            nop = 0 RS_OPCODE_SPACE,    // nop()                                                        1 byte
+            nop = 0 RS_OPCODE_SPACE,    // nop(TKPLS)                                                        1 byte
 
             mov = 1 RS_OPCODE_SPACE,    // mov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
             set = 2 RS_OPCODE_SPACE,    // set(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte

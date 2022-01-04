@@ -118,7 +118,7 @@ namespace rs
         // 5) Read file from default path
         do
         {
-            std::wifstream src_1(filepath);
+            std::wifstream src_1(wstr_to_str(filepath));
 
             src_1.imbue(rs_global_locale);
 

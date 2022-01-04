@@ -152,5 +152,8 @@
     <ClInclude Include="rs_utf8.hpp">
       <Filter>basic</Filter>
     </ClInclude>
+    <ClInclude Include="rs_global_setting.hpp">
+      <Filter>environment</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -22,6 +22,18 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+using Helloworlder
+{
+	var what_to_display = "hello,world";
+
+	func display(var self:Helloworlder)
+	{
+		std::println(self.what_to_display as string);
+	}
+}
+
+var x = Helloworlder();
+x->display();
 
 
 ///////////////////////////////////////////

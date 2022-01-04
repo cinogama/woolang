@@ -450,7 +450,11 @@ namespace rs
                 switch (main_command & (byte_t)0b11111100)
                 {
                 case instruct::nop:
-                    tmpos << "nop\t"; break;
+                    tmpos << "nop\t"; 
+                    
+                    this_command_ptr += main_command & (byte_t)0b00000011;
+                    
+                    break;
                 case instruct::set:
                     tmpos << "set\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::mov:
@@ -2932,6 +2936,7 @@ namespace rs
                     }
                     case instruct::opcode::nop:
                     {
+                        rt_ip += dr; // may need take place, skip them
                         break;
                     }
                     case instruct::opcode::abrt:
