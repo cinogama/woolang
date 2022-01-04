@@ -450,10 +450,10 @@ namespace rs
                 switch (main_command & (byte_t)0b11111100)
                 {
                 case instruct::nop:
-                    tmpos << "nop\t"; 
-                    
+                    tmpos << "nop\t";
+
                     this_command_ptr += main_command & (byte_t)0b00000011;
-                    
+
                     break;
                 case instruct::set:
                     tmpos << "set\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
@@ -1088,13 +1088,45 @@ namespace rs
 
                 }
             }
+#define RS_SAFE_READ
+
+#ifdef RS_SAFE_READ
+
+#   define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
+#   define RS_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
+#   define RS_SAFE_READ_OFFSET_GET_WORD (*(uint16_t*)(rt_ip-2))
+
+            // FOR BigEndian
+#   define RS_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
+#   define RS_IS_ODD_IRPTR(ALLIGN) (reinterpret_cast<size_t>(rt_ip)%ALLIGN)
+
+#   define RS_SAFE_READ_MOVE_2 (rt_ip+=2,RS_IS_ODD_IRPTR(2)?\
+                                        (RS_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
+                                        RS_SAFE_READ_OFFSET_GET_WORD)
+#   define RS_SAFE_READ_MOVE_4 (rt_ip+=4,RS_IS_ODD_IRPTR(4)?\
+                                        (RS_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
+                                        |RS_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
+                                        RS_SAFE_READ_OFFSET_GET_DWORD)
+#   define RS_SAFE_READ_MOVE_8 (rt_ip+=8,RS_IS_ODD_IRPTR(8)?\
+                                        (RS_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
+                                        RS_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
+                                        RS_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
+                                        RS_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
+                                        RS_SAFE_READ_OFFSET_GET_QWORD)
+
+#   define RS_IPVAL_MOVE_2 RS_SAFE_READ_MOVE_2
+#   define RS_IPVAL_MOVE_4 RS_SAFE_READ_MOVE_4
+#   define RS_IPVAL_MOVE_8 RS_SAFE_READ_MOVE_8
+#else
+#   define RS_IPVAL_MOVE_2 (*(uint16_t*)((rt_ip+=2)-2))
+#   define RS_IPVAL_MOVE_4 (*(uint32_t*)((rt_ip+=4)-4))
+#   define RS_IPVAL_MOVE_8 (*(uint64_t*)((rt_ip+=8)-8))
+#endif
 
             // addressing macro
 #define RS_IPVAL (*(rt_ip))
 #define RS_IPVAL_MOVE_1 (*(rt_ip++))
-#define RS_IPVAL_MOVE_2 (*(uint16_t*)((rt_ip+=2)-2))
-#define RS_IPVAL_MOVE_4 (*(uint32_t*)((rt_ip+=4)-4))
-#define RS_IPVAL_MOVE_8 (*(uint64_t*)((rt_ip+=8)-8))
+
 #define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
