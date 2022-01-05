@@ -16,25 +16,21 @@ import test_thread;
 ///////////////////////////////////////////
 /*	TODO-LIST
  *  
- *  
+ *  Calling a function which has no template args with template args should give error
  *
  *
  */
 ///////////////////////////////////////////
 
-using Helloworlder
+using HelloworldSpeaker
 {
-	var what_to_display = "hello,world";
-
-	func display(var self:Helloworlder)
+	func speak(var self: HelloworldSpeaker)
 	{
-		std::println(self.what_to_display as string);
+		std::println("Helloworld");
 	}
 }
 
-var x = Helloworlder();
-x->display();
-
+HelloworldSpeaker()->speak();
 
 ///////////////////////////////////////////
 /*                                       */

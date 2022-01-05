@@ -44,7 +44,6 @@ namespace rs
         };
 
         std::vector<ast::ast_value_function_define*> function_overload_sets;
-        std::map<std::wstring, ast::ast_type*> class_const_index_typing; // for class
 
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
@@ -327,6 +326,11 @@ namespace rs
                         else
                             type->set_type(symboled_type);
 
+                        // Update member typing index;
+                        if (using_template)
+                            for (auto& [name, initval] : type->class_member_index)
+                                initval = dynamic_cast<ast::ast_value*>(initval->instance());
+
                         if (already_has_using_type_name)
                             type->using_type_name = already_has_using_type_name;
                         else if (type_sym->type != lang_symbol::symbol_type::template_typing)
@@ -358,6 +362,14 @@ namespace rs
 
 
                 }
+            }
+
+            for (auto& [name, initval] : type->class_member_index)
+            {
+                if (in_pass_1)
+                    analyze_pass1(initval);
+                else
+                    analyze_pass2(initval);
             }
 
             rs_test(!type->using_type_name || !type->using_type_name->using_type_name);
@@ -460,7 +472,23 @@ namespace rs
                 analyze_pass1(a_value_idx->from);
                 analyze_pass1(a_value_idx->index);
 
-                if (a_value_idx->from->value_type->is_string())
+                if (!a_value_idx->from->value_type->class_member_index.empty())
+                {
+                    if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
+                    {
+                        if (auto fnd =
+                            a_value_idx->from->value_type->class_member_index.find(
+                                str_to_wstr(*a_value_idx->index->get_constant_value().string)
+                            ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                        {
+                            if (!fnd->second->value_type->is_pending())
+                            {
+                                a_value_idx->value_type = fnd->second->value_type;
+                            }
+                        }
+                    }
+                }
+                else if (a_value_idx->from->value_type->is_string())
                 {
                     a_value_idx->value_type = new ast_type(L"string");
                 }
@@ -1199,7 +1227,33 @@ namespace rs
                             analyze_pass2(a_value_idx->from);
                             analyze_pass2(a_value_idx->index);
 
-                            if (a_value_idx->from->value_type->is_string())
+                            if (!a_value_idx->from->value_type->class_member_index.empty())
+                            {
+                                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
+                                {
+                                    if (auto fnd =
+                                        a_value_idx->from->value_type->class_member_index.find(
+                                            str_to_wstr(*a_value_idx->index->get_constant_value().string)
+                                        ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                                    {
+                                        if (!fnd->second->value_type->is_pending())
+                                        {
+                                            a_value_idx->value_type = fnd->second->value_type;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        lang_anylizer->lang_error(0x0000, a_value_idx, L"尝试索引未定义的成员'%ls'，继续",
+                                            str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
+                                    }
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_idx, L"尝试使用非字符串常量索引具类型映射，继续");
+                                }
+                               
+                            }
+                            else if (a_value_idx->from->value_type->is_string())
                             {
                                 a_value_idx->value_type = new ast_type(L"string");
                             }

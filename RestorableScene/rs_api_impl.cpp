@@ -172,13 +172,13 @@ void rs_init(int argc, char** argv)
             current_arg = current_arg.substr(2);
             if ("local" == current_arg)
                 basic_env_local = argv[++command_idx];
-            else if ("enable_std" == current_arg)
+            else if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
-            else if ("enable_ctrlc_debug" == current_arg)
+            else if ("enable-ctrlc-debug" == current_arg)
                 enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
-            else if ("enable_gc" == current_arg)
+            else if ("enable-gc" == current_arg)
                 enable_gc = atoi(argv[++command_idx]);
-            else if ("enable_code_allign" == current_arg)
+            else if ("enable-code-allign" == current_arg)
                 rs::config::ENABLE_IR_CODE_ACTIVE_ALLIGN = atoi(argv[++command_idx]);
             else
                 std::cerr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << std::endl;

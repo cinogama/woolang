@@ -113,6 +113,8 @@ namespace rs
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
 
+            std::map<std::wstring, ast_value*> class_member_index;
+
             ast_type* using_type_name = nullptr;
 
             ast_value* typefrom = nullptr;
@@ -306,6 +308,7 @@ namespace rs
                     set_type_with_name(_type->type_name);
                     using_type_name = _type->using_type_name;
                     template_arguments = _type->template_arguments;
+                    class_member_index = _type->class_member_index;
                 }
             }
 
@@ -341,6 +344,7 @@ namespace rs
                 auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
                 rett->template_arguments = template_arguments;
+                rett->class_member_index = class_member_index;
                 return rett;
             }
             void append_function_argument_type(ast_type* arg_type)
@@ -2929,6 +2933,9 @@ namespace rs
                     ast_list* in_instance_pairs = new ast_list();
                     for (auto map_instance_val : init_mem_list)
                     {
+                        using_type->old_type->class_member_index[map_instance_val->ident_name]
+                            = map_instance_val->init_val;
+
                         ast_value_literal* vpair_key = new ast_value_literal(
                             token{ +lex_type::l_literal_string, map_instance_val->ident_name });
 
