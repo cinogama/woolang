@@ -1192,7 +1192,8 @@ namespace rs
                                     if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
                                         lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNABLE_DECIDE_VAR_TYPE);
                                     else if (a_value_var->symbol->function_overload_sets.size() == 1
-                                        && !a_value_var->symbol->is_template_symbol)
+                                        && !a_value_var->symbol->is_template_symbol
+                                        && a_value_var->template_reification_args.empty())
                                     {
                                         // only you~
                                         a_value_var->value_type = sym->function_overload_sets.front()->value_type;

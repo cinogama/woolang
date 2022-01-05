@@ -222,13 +222,11 @@ namespace test_template
 
         test_equal(result, 55);
 
-        while(true)
-        {
-            test_cost_time:<int>();
-            test_cost_time:<int>();
-            test_cost_time:<real>();
-            test_cost_time:<dynamic>();
-        }
+        test_cost_time:<int>();
+        test_cost_time:<int>();
+        test_cost_time:<real>();
+        test_cost_time:<dynamic>();
+        
 
         test_equal(cast_to:<string>(3)+".14159", "3.14159");
 
