@@ -138,7 +138,7 @@ namespace rs
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
+            *reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle) = nullptr;
             *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
 
             return this;
@@ -146,7 +146,7 @@ namespace rs
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = nullptr;
+            *reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle) = nullptr;
             *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
             *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = gcunit_ptr;
 

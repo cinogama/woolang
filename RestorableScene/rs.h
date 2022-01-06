@@ -166,8 +166,8 @@ RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
 RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
 RS_API rs_value     rs_arr_get(rs_value arr, rs_int_t index);
 RS_API rs_int_t     rs_arr_find(rs_value arr, rs_value elem);
-RS_API void         rs_arr_erase_at(rs_value arr, rs_int_t index);
-RS_API rs_value     rs_arr_items(rs_value arr);
+RS_API void         rs_arr_remove(rs_value arr, rs_int_t index);
+RS_API void         rs_arr_clear(rs_value arr);
 
 RS_API rs_bool_t    rs_map_find(rs_value arr, rs_value index);
 RS_API rs_value     rs_map_get(rs_value arr, rs_value index);
@@ -249,6 +249,8 @@ RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 //
 // * If you are re-write fail-handler-function, you may need abort program.
 #define RS_FAIL_DEADLY 0xD000
+
+#define RS_FAIL_NOT_SUPPORT 0xD001
 
 // dEADLY 
 

@@ -15,7 +15,8 @@ import test_thread;
 /*                                       */
 ///////////////////////////////////////////
 /*	TODO-LIST
- *  
+ *  define function & type (maybe value have same problem) with same name may cause crash.
+ *  32-bit machine equb may useless, now make sure full writing HANDLE(8B) with nullptr. need test. 
  */
 ///////////////////////////////////////////
 
@@ -28,6 +29,14 @@ using HelloworldSpeaker
 }
 
 typeof(HelloworldSpeaker())::create()->speak();
+
+func main()
+{
+	var a = [1,2,3,4,5]->iter();
+}
+
+main();
+
 
 ///////////////////////////////////////////
 /*                                       */

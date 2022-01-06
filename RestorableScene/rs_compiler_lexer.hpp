@@ -81,7 +81,7 @@ namespace rs
         l_if,
         l_else,
         l_namespace,
-
+        l_for,
         l_extern,
 
         l_var,
@@ -177,6 +177,7 @@ namespace rs
             {L"inf", {lex_type::l_inf}},
             {L"nil", {lex_type::l_nil}},
             {L"while", {lex_type::l_while}},
+             {L"for", {lex_type::l_for}},
             {L"if", {lex_type::l_if}},
             {L"else", {lex_type::l_else}},
             {L"var", {lex_type::l_var}},

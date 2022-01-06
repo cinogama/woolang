@@ -1252,7 +1252,7 @@ namespace rs
                                 {
                                     lang_anylizer->lang_error(0x0000, a_value_idx, L"尝试使用非字符串常量索引具类型映射，继续");
                                 }
-                               
+
                             }
                             else if (a_value_idx->from->value_type->is_string())
                             {
@@ -1952,8 +1952,8 @@ namespace rs
                         if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, a_value_assi, RS_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
-                                a_value_assi->right->value_type->get_type_name().c_str(),
-                                a_value_assi->left->value_type->get_type_name().c_str());
+                                a_value_assi->right->value_type->get_type_name(false).c_str(),
+                                a_value_assi->left->value_type->get_type_name(false).c_str());
                         }
 
                         if (!a_value_assi->left->can_be_assign)

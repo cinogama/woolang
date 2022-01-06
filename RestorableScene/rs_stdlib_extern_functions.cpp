@@ -50,6 +50,7 @@ RS_API rs_api rslib_std_randomint(rs_vm vm, rs_value args, size_t argc)
     std::uniform_int_distribution<rs_int_t> dis(from, to);
     return rs_ret_int(vm, dis(mt64));
 }
+
 RS_API rs_api rslib_std_randomreal(rs_vm vm, rs_value args)
 {
     static std::random_device rd;
@@ -74,6 +75,82 @@ RS_API rs_api rslib_std_array_resize(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_array_add(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_ret_ref(vm, rs_arr_add(args + 0, args + 1));
+}
+
+RS_API rs_api rslib_std_array_remove(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_arr_remove(args + 0, rs_int(args + 1));
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_array_find(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_int(vm, rs_arr_find(args + 0, args + 1));
+}
+
+RS_API rs_api rslib_std_array_clear(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_arr_clear(args);
+
+    return rs_ret_nil(vm);
+}
+
+struct array_iter
+{
+    using array_iter_t = decltype(std::declval<rs::array_t>().begin());
+
+    array_iter_t iter;
+    array_iter_t end_place;
+    rs_int_t     index_count;
+};
+
+RS_API rs_api rslib_std_array_iter(rs_vm vm, rs_value args, size_t argc)
+{
+
+    rs::value* arr = reinterpret_cast<rs::value*>(args)->get();
+
+    if (arr->is_nil())
+    {
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        return rs_ret_nil(vm);
+    }
+    else
+    {
+        return rs_ret_gchandle(vm,
+            new array_iter{ arr->array->begin(), arr->array->end(), 0 },
+            [](void* array_iter_t_ptr)
+            {
+                delete (array_iter*)array_iter_t_ptr;
+            }
+        );
+    }
+}
+
+RS_API rs_api rslib_std_array_iter_next(rs_vm vm, rs_value args, size_t argc)
+{
+    array_iter& iter = *(array_iter*)rs_pointer(args);
+
+    if (iter.iter == iter.end_place)
+        return rs_ret_int(vm, 0);
+
+    rs_set_int(args + 1, iter.index_count++); // key
+    rs_set_val(args + 2, reinterpret_cast<rs_value>(&*(iter.iter++))); // val
+
+    return rs_ret_int(vm, 1);
+}
+
+RS_API rs_api rslib_std_array_iter_next_ref(rs_vm vm, rs_value args, size_t argc)
+{
+    array_iter& iter = *(array_iter*)rs_pointer(args);
+
+    if (iter.iter == iter.end_place)
+        return rs_ret_int(vm, 0);
+
+    rs_set_int(args + 1, iter.index_count++); // key
+    rs_set_val(args + 2, reinterpret_cast<rs_value>(&*(iter.iter++))); // val
+
+    return rs_ret_int(vm, 1);
 }
 
 RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
@@ -102,6 +179,24 @@ RS_API rs_api rslib_std_map_get_by_default(rs_vm vm, rs_value args, size_t argc)
     rs_set_val(mapping_indexed, args + 2);
 
     return rs_ret_ref(vm, mapping_indexed);
+}
+
+RS_API rs_api rslib_std_map_remove(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_map_clear(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_map_iter(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
+    return rs_ret_nil(vm);
 }
 
 RS_API rs_api rslib_std_sub(rs_vm vm, rs_value args, size_t argc)
@@ -134,16 +229,10 @@ RS_API rs_api rslib_std_thread_sleep(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_vm_create(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_ret_gchandle(vm, rs_create_vm(),
-        [](void * vm_ptr) {
+        [](void* vm_ptr) {
             rs_close_vm((rs_vm)vm_ptr);
         });
 }
-
-//RS_API rs_api rslib_std_vm_close(rs_vm vm, rs_value args, size_t argc)
-//{
-//    rs_close_vm((rs_vm)rs_pointer(args));
-//    return rs_ret_nil(vm);
-//}
 
 RS_API rs_api rslib_std_vm_load_src(rs_vm vm, rs_value args, size_t argc)
 {
@@ -287,6 +376,25 @@ namespace array
         const var _dupval = val;
         return _dupval;
     }
+
+    extern("rslib_std_array_remove")
+        func remove<T>(var val:array<T>, var index:int):void;
+
+    extern("rslib_std_array_find")
+        func find<T>(var val:array<T>, var elem:dynamic):int;
+
+    extern("rslib_std_array_clear")
+        func clear<T>(var val:array<T>):void;
+
+    using iterator<T> = gchandle;
+    namespace iterator 
+    {
+        extern("rslib_std_array_iter_next")
+            func next<T>(var iter:iterator<T>, ref out_key:int, ref out_val:T):bool;
+    }
+
+    extern("rslib_std_array_iter")
+        func iter<T>(var val:array<T>):iterator<T>;
 }
 
 namespace map
@@ -304,6 +412,15 @@ namespace map
         const var _dupval = val;
         return _dupval;
     }
+
+    extern("rslib_std_map_remove")
+        func remove<KT, VT>(var val:map<KT, VT>, var index:int):void;
+
+    extern("rslib_std_map_find")
+        func find<KT, VT>(var val:map<KT, VT>, var key:dynamic):bool;
+
+    extern("rslib_std_map_clear")
+        func clear<KT, VT>(var val:map<KT, VT>):void;
 }
 
 namespace gchandle
