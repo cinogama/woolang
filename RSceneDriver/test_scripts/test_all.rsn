@@ -30,13 +30,57 @@ using HelloworldSpeaker
 
 typeof(HelloworldSpeaker())::create()->speak();
 
-func main()
+using range
 {
-	for(var a,b,c,value : [2,3,5,7,11])
+	var current = 0;
+	var aim = 0;
+	var step = 0;
+
+	func create(var from:int, var to:int)
 	{
-		std::println(":", value);
+		var self = new();
+		self.current = from;
+		self.aim = to;
+
+		if (from <= to)
+			self.step = 1;
+		else
+			self.step = -1;
+
+		return self;
 	}
 
+	func iter(var self:range)
+	{
+		return self;
+	}
+
+	func next(var self:range, ref step:int)
+	{
+		if (self.step > 0 && self.current > self.aim)
+			return false;
+		if (self.step < 0 && self.current < self.aim)
+			return false;
+
+		step = self.current;
+		self.current += self.step;
+
+		return true;
+	}
+
+}
+
+func main()
+{
+	for(var n : range(0,100))
+	{
+		std::println(n);
+	}
+	for(var n : range(0,-100))
+	{
+		std::println(n);
+		n="";
+	}
 
 
 	while(true);
