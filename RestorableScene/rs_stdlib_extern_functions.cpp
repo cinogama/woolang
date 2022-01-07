@@ -107,7 +107,6 @@ struct array_iter
 
 RS_API rs_api rslib_std_array_iter(rs_vm vm, rs_value args, size_t argc)
 {
-
     rs::value* arr = reinterpret_cast<rs::value*>(args)->get();
 
     if (arr->is_nil())
@@ -119,6 +118,7 @@ RS_API rs_api rslib_std_array_iter(rs_vm vm, rs_value args, size_t argc)
     {
         return rs_ret_gchandle(vm,
             new array_iter{ arr->array->begin(), arr->array->end(), 0 },
+            args + 0,
             [](void* array_iter_t_ptr)
             {
                 delete (array_iter*)array_iter_t_ptr;
@@ -228,7 +228,9 @@ RS_API rs_api rslib_std_thread_sleep(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_vm_create(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_gchandle(vm, rs_create_vm(),
+    return rs_ret_gchandle(vm,
+        rs_create_vm(),
+        nullptr,
         [](void* vm_ptr) {
             rs_close_vm((rs_vm)vm_ptr);
         });
@@ -415,10 +417,6 @@ namespace map
 
     extern("rslib_std_map_remove")
         func remove<KT, VT>(var val:map<KT, VT>, var index:int):void;
-
-    extern("rslib_std_map_find")
-        func find<KT, VT>(var val:map<KT, VT>, var key:dynamic):bool;
-
     extern("rslib_std_map_clear")
         func clear<KT, VT>(var val:map<KT, VT>):void;
 }
@@ -583,6 +581,7 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
 
     return rs_ret_gchandle(vm,
         new rs_thread_pack{ _vmthread , new_thread_vm },
+        nullptr,
         [](void* rs_thread_pack_ptr)
         {
             ((rs_thread_pack*)rs_thread_pack_ptr)->_thread->detach();
@@ -609,6 +608,7 @@ RS_API rs_api rslib_std_thread_mutex_create(rs_vm vm, rs_value args, size_t argc
 {
     return rs_ret_gchandle(vm,
         new std::shared_mutex,
+        nullptr,
         [](void* mtx_ptr)
         {
             delete (std::shared_mutex*)mtx_ptr;
@@ -653,6 +653,7 @@ RS_API rs_api rslib_std_thread_spin_create(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_ret_gchandle(vm,
         new rs::gcbase::rw_lock,
+        nullptr,
         [](void* mtx_ptr)
         {
             delete (rs::gcbase::rw_lock*)mtx_ptr;

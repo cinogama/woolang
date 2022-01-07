@@ -119,7 +119,7 @@ RS_API rs_result_t  rs_ret_real(rs_vm vm, rs_real_t result);
 RS_API rs_result_t  rs_ret_handle(rs_vm vm, rs_handle_t result);
 RS_API rs_result_t  rs_ret_pointer(rs_vm vm, rs_ptr_t result);
 RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
-RS_API rs_result_t  rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, void(*destruct_func)(rs_ptr_t));
+RS_API rs_result_t  rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t));
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
 RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
 RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);

@@ -53,6 +53,11 @@ namespace rs
                         deep_in_to_mark_unit(gcunit_addr);
                 }
             }
+            else if (gchandle_t* rs_gchandle = dynamic_cast<gchandle_t*>(unit))
+            {
+                if (gcbase* gcunit_addr = rs_gchandle->holding_value.get_gcunit_with_barrier())
+                    deep_in_to_mark_unit(gcunit_addr);
+            }
 
         } // void deep_in_to_mark_unit(gcbase * unit)
 
@@ -382,7 +387,7 @@ namespace rs
                 if (_gc_fullgc_stopping_the_world)
                 {
                     _gc_fullgc_stopping_the_world = false;
-                    
+
                     std::shared_lock sg1(vmbase::_alive_vm_list_mx);
 
                     for (auto* vmimpl : vmbase::_alive_vm_list)

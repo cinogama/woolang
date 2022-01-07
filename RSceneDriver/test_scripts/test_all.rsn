@@ -32,7 +32,14 @@ typeof(HelloworldSpeaker())::create()->speak();
 
 func main()
 {
-	var a = [1,2,3,4,5]->iter();
+	for(var a,b,c,value : [2,3,5,7,11])
+	{
+		std::println(":", value);
+	}
+
+
+
+	while(true);
 }
 
 main();

@@ -271,25 +271,25 @@ gm::nt(L"WHILE") >> gm::symlist{
                         gm::nt(L"BLOCKED_SENTENCE")
 } >> RS_ASTBUILDER_INDEX(ast::pass_while),
 
-//gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FOREACH") }
-//>> RS_ASTBUILDER_INDEX(ast::pass_empty),
-//gm::nt(L"FOREACH") >> gm::symlist{
-//                            gm::te(gm::ttype::l_for),
-//                            gm::te(gm::ttype::l_left_brackets),
-//                            gm::te(gm::ttype::l_var),
-//                            gm::nt(L"FOREACH_VAR_IDENTS"),
-//                            gm::te(gm::ttype::l_typecast),
-//                            gm::nt(L"EXPRESSION"),
-//                            gm::te(gm::ttype::l_right_brackets),
-//                            gm::nt(L"BLOCKED_SENTENCE")
-//} >> RS_ASTBUILDER_INDEX(ast::pass_empty),
-//
-//gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"FOREACH_VAR_ITEM") }
-// >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-//gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"FOREACH_VAR_ITEM") }
-// >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-//gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-// >> RS_ASTBUILDER_INDEX(ast::pass_token),
+gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FOREACH") }
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+gm::nt(L"FOREACH") >> gm::symlist{
+                            gm::te(gm::ttype::l_for),
+                            gm::te(gm::ttype::l_left_brackets),
+                            gm::te(gm::ttype::l_var),
+                            gm::nt(L"FOREACH_VAR_IDENTS"),
+                            gm::te(gm::ttype::l_typecast),
+                            gm::nt(L"EXPRESSION"),
+                            gm::te(gm::ttype::l_right_brackets),
+                            gm::nt(L"BLOCKED_SENTENCE")
+} >> RS_ASTBUILDER_INDEX(ast::pass_foreach),
+
+gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"FOREACH_VAR_ITEM") }
+ >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"FOREACH_VAR_ITEM") }
+ >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+ >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
                 //IFÓï¾ä
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}

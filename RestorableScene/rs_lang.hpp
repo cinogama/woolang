@@ -940,6 +940,22 @@ namespace rs
                 auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
                 typing_symb->apply_template_setting(a_using_type_as);
             }
+            else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
+            {
+                begin_scope();
+
+                analyze_pass1(a_foreach->used_vars_defines);
+
+                for (auto& variable : a_foreach->foreach_var)
+                    analyze_pass1(variable);
+                analyze_pass1(a_foreach->iterator_var);
+
+                analyze_pass1(a_foreach->iter_next_judge_expr);
+
+                analyze_pass1(a_foreach->execute_sentences);
+
+                end_scope();
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -1552,7 +1568,10 @@ namespace rs
                                                     }
 
                                                 }
-                                                if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
+
+                                                if (dynamic_cast<ast_value_takeplace*>(real_arg))
+                                                    ;
+                                                else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
                                                     break;
                                                 else if (real_arg->value_type->is_same(form_arg->value_type))
                                                     ;// do nothing..
@@ -1746,6 +1765,8 @@ namespace rs
                                             }
                                             a_type_index--;
                                         }
+                                        else if (dynamic_cast<ast_value_takeplace*>(arg_val))
+                                            continue;
                                         else
                                         {
                                             if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index, false))
@@ -2339,6 +2360,97 @@ namespace rs
             {
                 analyze_pass2(ast_while_sentence->judgement_value);
                 analyze_pass2(ast_while_sentence->execute_sentence);
+            }
+            else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
+            {
+
+                analyze_pass2(a_foreach->used_vars_defines);
+
+                /*lang_anylizer->lex_enable_error_warn = false;
+                for (auto& variable : a_foreach->foreach_var)
+                    analyze_pass2(variable);
+                lang_anylizer->lex_enable_error_warn = true;*/
+
+                analyze_pass1(a_foreach->iterator_var);
+                analyze_pass2(a_foreach->iter_next_judge_expr->directed_value_from);
+
+                // Try Getting next Function
+
+                ast_value_variable* next_func_symb_getter = new ast_value_variable(L"next");
+                next_func_symb_getter->searching_from_type = a_foreach->iter_next_judge_expr->directed_value_from->value_type;
+                analyze_pass2(next_func_symb_getter);
+
+                if (next_func_symb_getter->symbol
+                    && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::template_typing
+                    && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::typing)
+                {
+                    ast_type* _next_executer_type = next_func_symb_getter->symbol
+                        ->variable_value->value_type;
+
+                    if (!next_func_symb_getter->symbol->function_overload_sets.empty())
+                    {
+                        _next_executer_type =
+                            next_func_symb_getter->symbol->function_overload_sets.front()
+                            ->value_type;
+                    }
+
+                    if (_next_executer_type->is_variadic_function_type)
+                    {
+                        lang_anylizer->lang_error(0x0000, a_foreach, L"迭代器类型%ls的next方法不可以是变长的，继续",
+                            a_foreach->iter_next_judge_expr->directed_value_from->value_type
+                            ->get_type_name(false).c_str());
+                    }
+
+                    int need_takeplace_count = _next_executer_type->argument_types.size();
+                    need_takeplace_count -= a_foreach->foreach_var.size();
+                    need_takeplace_count -= 1;//iter
+
+                    if (need_takeplace_count < 0)
+                        lang_anylizer->lang_error(0x0000, a_foreach, L"迭代器类型%ls的next方法无法接受%zu个迭代项目，继续"
+                            , a_foreach->iter_next_judge_expr->directed_value_from->value_type
+                            ->get_type_name(false).c_str()
+                            , a_foreach->foreach_var.size());
+
+                    rs_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
+
+                    // Make it fast over..
+                    a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
+                    for (int i = 1; i < _next_executer_type->argument_types.size(); i++)
+                    {
+                        a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
+                    }
+                    analyze_pass2(a_foreach->iter_next_judge_expr);
+                    a_foreach->iter_next_judge_expr->completed_in_pass2 = false;
+                    a_foreach->iter_next_judge_expr->arguments->remove_allnode();
+                    a_foreach->iterator_var->parent = nullptr;
+                    a_foreach->iterator_var->sibling = nullptr;
+
+                    int rndidx = a_foreach->foreach_var.size() - 1;
+                    for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
+                        ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
+                        ridx++)
+                    {
+                        a_foreach->foreach_var[rndidx]->completed_in_pass2 = false;
+                        a_foreach->foreach_var[rndidx--]->symbol->variable_value->value_type->set_type(*ridx);
+
+                        if (rndidx < 0)
+                            break;
+                    }
+
+                    rs_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
+
+                    a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
+                    for (int i = 0; i < need_takeplace_count; i++)
+                        a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
+                    for (auto& variable : a_foreach->foreach_var)
+                        a_foreach->iter_next_judge_expr->arguments->append_at_end(variable);
+                }
+                else
+                {
+                    // Do not find symbol, but do nothing.. error has been reported by analyze_pass2
+                }
+                analyze_pass2(a_foreach->iter_next_judge_expr);
+                analyze_pass2(a_foreach->execute_sentences);
             }
             else if (ast_varref_defines* a_varref_defs = dynamic_cast<ast_varref_defines*>(ast_node))
             {
@@ -3673,6 +3785,13 @@ namespace rs
                     return result;
                 }
             }
+            else if (dynamic_cast<ast_value_takeplace*>(value))
+            {
+                if (!get_pure_value)
+                    return RS_NEW_OPNUM(reg(reg::ni));
+                else
+                    return get_useable_register_for_pure_value();
+            }
             else
             {
                 rs_error("unknown value type..");
@@ -3729,7 +3848,7 @@ namespace rs
                 {
                     if (varref_define.is_ref)
                     {
-
+                        rs_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
                         auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
 
                         std::string init_static_flag_check_tag;
@@ -3765,11 +3884,13 @@ namespace rs
                                 compiler->jf(tag(init_static_flag_check_tag));
                             }
 
-                            if (is_need_dup_when_mov(varref_define.init_val))
-                                compiler->movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                            else
-                                compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-
+                            if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
+                            {
+                                if (is_need_dup_when_mov(varref_define.init_val))
+                                    compiler->movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                else
+                                    compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                            }
                             if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
                                 compiler->tag(init_static_flag_check_tag);
                         }
@@ -3885,6 +4006,22 @@ namespace rs
             else if (ast_nop* a_nop = dynamic_cast<ast_nop*>(ast_node))
             {
                 compiler->nop();
+            }
+            else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
+            {
+                real_analyze_finalize(a_foreach->used_vars_defines, compiler);
+
+                auto foreach_begin_tag = "foreach_begin_" + compiler->get_unique_tag_based_command_ip();
+                auto foreach_end_tag = "foreach_end_" + compiler->get_unique_tag_based_command_ip();
+
+                compiler->tag(foreach_begin_tag);
+                mov_value_to_cr(auto_analyze_value(a_foreach->iter_next_judge_expr, compiler), compiler);
+                compiler->jf(tag(foreach_end_tag));
+
+                real_analyze_finalize(a_foreach->execute_sentences, compiler);
+
+                compiler->jmp(tag(foreach_begin_tag));
+                compiler->tag(foreach_end_tag);
             }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");

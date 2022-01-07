@@ -36,33 +36,7 @@ namespace rs
     template<typename ... TS>
     using cxx_map_t = std::map<TS...>;
 
-    struct gc_handle_base_t
-    {
-        gc_handle_base_t* last = nullptr;
-
-        void* holding_handle = nullptr;
-        void(*destructor)(void*) = nullptr;
-
-        std::atomic_flag has_been_closed_af = {};
-        bool has_been_closed = false;
-
-        bool close()
-        {
-            if (!has_been_closed_af.test_and_set())
-            {
-                has_been_closed = true;
-                if (destructor)
-                    destructor(holding_handle);
-                return true;
-            }
-            return false;
-        }
-
-        ~gc_handle_base_t()
-        {
-            close();
-        }
-    };
+    struct gc_handle_base_t;
 
     using gchandle_t = gcunit<gc_handle_base_t>;
 
@@ -381,4 +355,33 @@ namespace rs
         }
         return lhs.type < rhs.type;
     }
+
+    struct gc_handle_base_t
+    {
+        gc_handle_base_t* last = nullptr;
+
+        value holding_value = {};
+        void* holding_handle = nullptr;
+        void(*destructor)(void*) = nullptr;
+
+        std::atomic_flag has_been_closed_af = {};
+        bool has_been_closed = false;
+
+        bool close()
+        {
+            if (!has_been_closed_af.test_and_set())
+            {
+                has_been_closed = true;
+                if (destructor)
+                    destructor(holding_handle);
+                return true;
+            }
+            return false;
+        }
+
+        ~gc_handle_base_t()
+        {
+            close();
+        }
+    };
 }

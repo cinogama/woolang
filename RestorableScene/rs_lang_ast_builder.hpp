@@ -680,6 +680,18 @@ namespace rs
             }
         };
 
+        struct ast_value_takeplace : virtual public ast_value
+        {
+            ast_value_takeplace()
+            {
+                value_type = new ast_type(L"pending");
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing..
+            }
+        };
+
         struct ast_value_literal : virtual public ast_value
         {
             ~ast_value_literal()
@@ -2761,6 +2773,40 @@ namespace rs
 
         };
 
+        struct ast_foreach : virtual public grammar::ast_base
+        {
+            std::vector<std::wstring> foreach_varname;
+            std::vector<ast_value_variable*> foreach_var;
+            ast_value_variable* iterator_var;
+
+            ast_varref_defines* used_vars_defines; // Just used for taking place;;;
+
+            ast_value_funccall* iter_getting_funccall;  // Used for get iter's type. it will used for getting func symbol;;
+            ast_value_funccall* iter_next_judge_expr;   // cannot make instance, will instance in pass2
+
+            grammar::ast_base* execute_sentences;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                for (auto& vptr : dumm->foreach_var)
+                {
+                    RS_REINSTANCE(vptr);
+                }
+                RS_REINSTANCE(dumm->iterator_var);
+                RS_REINSTANCE(dumm->used_vars_defines);
+                RS_REINSTANCE(dumm->iter_getting_funccall);
+                RS_REINSTANCE(dumm->iter_next_judge_expr);
+                RS_REINSTANCE(dumm->execute_sentences);
+                return dumm;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID) [&]() {             \
@@ -4194,44 +4240,76 @@ namespace rs
             }
         };
 
-        //struct pass_foreach : public astnode_builder
-        //{
-        //    static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-        //    {
-        //        // for ( var LIST : EXP ) SENT
-        //        // 0   1  2   3   4  5  6  7
-        //        ast_list* foreach_sentences = dynamic_cast<ast_list*>(RS_NEED_AST(7));
+        struct pass_foreach : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_foreach* afor = new ast_foreach;
 
-        //        // build EXP->iter() / var LIST;
-        //        ast_varref_defines* used_variables = new ast_varref_defines();
+                // for ( var LIST : EXP ) SENT
+                // 0   1  2   3   4  5  6  7
 
-        //        ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
-        //        exp_dir_iter_call->arguments = new ast_list();
-        //        exp_dir_iter_call->value_type = new ast_type(L"pending");
-        //        exp_dir_iter_call->called_func = new ast_value_variable(L"iter");
-        //        exp_dir_iter_call->arguments->append_at_head(dynamic_cast<ast_value*>(RS_NEED_AST(5)));
-        //        exp_dir_iter_call->directed_value_from = dynamic_cast<ast_value*>(RS_NEED_AST(5));
+                // build EXP->iter() / var LIST;
 
-        //        used_variables->var_refs.push_back({ false, L"_iter", exp_dir_iter_call });
+                //{{{{
+                    // var _iter = XXXXXX->iter();
+                ast_varref_defines* used_variables = new ast_varref_defines();
 
-        //        ast_token* a_var_defs = dynamic_cast<ast_token*>(dynamic_cast<ast_list*>(RS_NEED_AST(3))->children);
-        //        while(a_var_defs)
-        //        {
-        //            ast_value* tkplace_nilvalue_with_type = new ast_value();
-        //            tkplace_nilvalue_with_type->value_type = new ast_type(L"pending");
+                ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
+                exp_dir_iter_call->arguments = new ast_list();
+                exp_dir_iter_call->value_type = new ast_type(L"pending");
+                exp_dir_iter_call->called_func = new ast_value_variable(L"iter");
+                exp_dir_iter_call->arguments->append_at_head(dynamic_cast<ast_value*>(RS_NEED_AST(5)));
+                exp_dir_iter_call->directed_value_from = dynamic_cast<ast_value*>(RS_NEED_AST(5));
 
-        //            a_foreach->taking_place_foreach_val_decl_items.push_back(tkplace_nilvalue_with_type);
-        //            used_variables->var_refs.push_back({ false, a_var_defs->tokens.identifier, tkplace_nilvalue_with_type });
+                afor->iter_getting_funccall = exp_dir_iter_call;
 
-        //            a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
-        //        }
-        //    }
-        //};
+                afor->used_vars_defines = new ast_varref_defines;
+                afor->used_vars_defines->declear_attribute = new ast_decl_attribute;
+
+                afor->used_vars_defines->var_refs.push_back({ false, L"_iter", exp_dir_iter_call });
+                //}}}}
+
+                    // var a= tkplace, b = tkplace...
+                ast_token* a_var_defs = dynamic_cast<ast_token*>(dynamic_cast<ast_list*>(RS_NEED_AST(3))->children);
+                while (a_var_defs)
+                {
+                    ast_value_variable* foreachvar = new ast_value_variable(a_var_defs->tokens.identifier);
+                    foreachvar->is_mark_as_using_ref = true;
+                    afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
+                    afor->foreach_var.push_back(foreachvar);
+                    afor->used_vars_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, new ast_value_takeplace() });
+
+                    a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
+                }
+
+                // in loop body..
+                // {{{{
+                //    while (_iter->next(..., a,b))
+                // DONOT INSERT ARGUS NOW, TAKE PLACE IN PASS2..    
+                // }}}}
+
+                ast_value_funccall* iter_dir_next_call = new ast_value_funccall();
+                iter_dir_next_call->arguments = new ast_list();
+                iter_dir_next_call->value_type = new ast_type(L"pending");
+                iter_dir_next_call->called_func = new ast_value_variable(L"next");
+                iter_dir_next_call->directed_value_from = new ast_value_variable(L"_iter");
+
+                afor->iter_next_judge_expr = iter_dir_next_call;
+                afor->iterator_var = new ast_value_variable(L"_iter");
+
+                afor->execute_sentences = RS_NEED_AST(7);
+
+
+                return (ast_basic*)afor;
+            }
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_foreach>] = _register_builder<pass_foreach>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_class_define>] = _register_builder<pass_class_define>();
 

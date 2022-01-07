@@ -619,11 +619,13 @@ rs_result_t rs_ret_string(rs_vm vm, rs_string_t result)
 {
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_string(result));
 }
-rs_result_t rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, void(*destruct_func)(rs_ptr_t))
+rs_result_t rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t))
 {
     RS_VM(vm)->cr->set_gcunit_with_barrier(rs::value::valuetype::gchandle_type);
     auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(RS_VM(vm)->cr->gcunit);
     handle_ptr->holding_handle = resource_ptr;
+    if (holding_val)
+        handle_ptr->holding_value.set_val(RS_VAL(holding_val));
     handle_ptr->destructor = destruct_func;
 
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr);
