@@ -140,19 +140,6 @@ RS_API rs_api rslib_std_array_iter_next(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_int(vm, 1);
 }
 
-RS_API rs_api rslib_std_array_iter_next_ref(rs_vm vm, rs_value args, size_t argc)
-{
-    array_iter& iter = *(array_iter*)rs_pointer(args);
-
-    if (iter.iter == iter.end_place)
-        return rs_ret_int(vm, 0);
-
-    rs_set_int(args + 1, iter.index_count++); // key
-    rs_set_val(args + 2, reinterpret_cast<rs_value>(&*(iter.iter++))); // val
-
-    return rs_ret_int(vm, 1);
-}
-
 RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_ret_int(vm, rs_map_find(args + 0, args + 1));
@@ -193,10 +180,48 @@ RS_API rs_api rslib_std_map_clear(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+struct map_iter
+{
+    using mapping_iter_t = decltype(std::declval<rs::mapping_t>().begin());
+
+    mapping_iter_t iter;
+    mapping_iter_t end_place;
+};
+
 RS_API rs_api rslib_std_map_iter(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
-    return rs_ret_nil(vm);
+    rs::value* mapp = reinterpret_cast<rs::value*>(args)->get();
+
+    if (mapp->is_nil())
+    {
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+        return rs_ret_nil(vm);
+    }
+    else
+    {
+        return rs_ret_gchandle(vm,
+            new map_iter{ mapp->mapping->begin(), mapp->mapping->end() },
+            args + 0,
+            [](void* array_iter_t_ptr)
+            {
+                delete (map_iter*)array_iter_t_ptr;
+            }
+        );
+    }
+}
+
+RS_API rs_api rslib_std_map_iter_next(rs_vm vm, rs_value args, size_t argc)
+{
+    map_iter& iter = *(map_iter*)rs_pointer(args);
+
+    if (iter.iter == iter.end_place)
+        return rs_ret_int(vm, 0);
+
+    rs_set_val(args + 1, reinterpret_cast<rs_value>(const_cast<rs::value*>(&iter.iter->first))); // key
+    rs_set_val(args + 2, reinterpret_cast<rs_value>(&iter.iter->second)); // val
+    iter.iter++;
+
+    return rs_ret_int(vm, 1);
 }
 
 RS_API rs_api rslib_std_sub(rs_vm vm, rs_value args, size_t argc)
@@ -419,6 +444,16 @@ namespace map
         func remove<KT, VT>(var val:map<KT, VT>, var index:int):void;
     extern("rslib_std_map_clear")
         func clear<KT, VT>(var val:map<KT, VT>):void;
+
+    using iterator<KT, VT> = gchandle;
+    namespace iterator 
+    {
+        extern("rslib_std_map_iter_next")
+            func next<KT, VT>(var iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT):bool;
+    }
+
+    extern("rslib_std_map_iter")
+        func iter<KT, VT>(var val:map<KT, VT>):iterator<KT, VT>;
 }
 
 namespace gchandle

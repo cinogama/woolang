@@ -72,16 +72,15 @@ using range
 
 func main()
 {
-	for(var n : range(0,100))
-	{
-		std::println(n);
-	}
-	for(var n : range(0,-100))
-	{
-		std::println(n);
-		n="";
-	}
+	var m ={
+		{"name", "joy"},
+		{"age",  "19"},
+	};
 
+	m["xx"] = "Test";
+
+	for(var key, val : m)
+		std::println(nil, "\t:", val);
 
 	while(true);
 }
