@@ -19,13 +19,17 @@
 #endif
 
 #ifdef _WIN32
-#   ifdef RS_IMPL
-#       define RS_IMPORT_OR_EXPORT __declspec(dllexport)
-#   else
-#       define RS_IMPORT_OR_EXPORT __declspec(dllimport)
-#   endif
+#   define RS_IMPORT __declspec(dllimport)
+#   define RS_EXPORT __declspec(dllexport)
 #else
-#       define RS_IMPORT_OR_EXPORT extern
+#   define RS_IMPORT extern
+#   define RS_EXPORT extern
+#endif
+
+#ifdef RS_IMPL
+#   define RS_IMPORT_OR_EXPORT RS_EXPORT
+#else
+#   define RS_IMPORT_OR_EXPORT RS_IMPORT
 #endif
 
 #define RS_API RS_IMPORT_OR_EXPORT
@@ -318,11 +322,7 @@ RS_FORCE_CAPI_END
 #undef RS_API
 
 #ifdef __cplusplus
-#   ifdef _WIN32
-#       define RS_API extern "C" RS_IMPORT_OR_EXPORT
-#   else
-#       define RS_API extern "C"
-#   endif
+#   define RS_API extern "C" RS_EXPORT
 #else
-#   define RS_API RS_IMPORT_OR_EXPORT
+#   define RS_API RS_EXPORT
 #endif

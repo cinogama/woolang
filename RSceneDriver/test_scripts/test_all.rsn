@@ -24,11 +24,16 @@ using HelloworldSpeaker
 {
 	func speak(var self: HelloworldSpeaker)
 	{	
-		std::println("Helloworld");
+		std::println("Helloworld!~");
 	}
 }
 
-typeof(HelloworldSpeaker())::create()->speak();
+func instance<T>()
+{
+	return T();
+}
+
+instance:<typeof(HelloworldSpeaker())>()->speak();
 
 ///////////////////////////////////////////
 /*                                       */

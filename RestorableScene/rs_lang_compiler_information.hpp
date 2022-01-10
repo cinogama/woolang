@@ -60,6 +60,8 @@
 
 #define RS_ERR_CANNOT_FIND_EXT_SYM L"无法找到外部符号: '%ls'"
 
+#define RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB L"无法找到外部符号: '%ls' 位于 '%ls'"
+
 #define RS_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不应该有其他参数"
 
 #define RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP L"不支持对字符串进行该运算"
@@ -217,6 +219,8 @@
 #define RS_ERR_UNPACK_ARG_LESS_THEN_ONE L"Unpacking operate should unpack at least 1 arguments."
 
 #define RS_ERR_CANNOT_FIND_EXT_SYM L"Cannot find extern symbol: '%ls'."
+
+#define RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB L"Cannot find extern symbol: '%ls' in '%ls'"
 
 #define RS_ERR_ARG_DEFINE_AFTER_VARIADIC L"There should be no argument after '...'."
 

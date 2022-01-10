@@ -1731,6 +1731,33 @@ namespace rs
                 return dumm;
             }
         };
+        struct ast_extern_info : virtual public grammar::ast_base
+        {
+            rs_extern_native_func_t externed_func = nullptr;
+
+            std::wstring load_from_lib;
+            std::wstring symbol_name;
+
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
+            {
+                space(os, lay);
+                os << L"< " << ANSI_HIY << L"extern" << ANSI_RST << " >" << std::endl;
+                space(os, lay);
+                os << L"symbol: '" << symbol_name << "'" << std::endl;
+                space(os, lay);
+                os << L"from: '" << load_from_lib << "'" << std::endl;
+            }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value::instance(dumm);
+                // Write self copy functions here..
+                return dumm;
+            }
+        };
 
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
@@ -1744,7 +1771,7 @@ namespace rs
 
             lang_scope* this_func_scope = nullptr;
 
-            rs_extern_native_func_t externed_func;
+            ast_extern_info* externed_func_info = nullptr;
 
             bool is_different_arg_count_in_same_extern_symbol = false;
 
@@ -1808,7 +1835,9 @@ namespace rs
                 if (!this->is_constant)
                     rs_error("Not externed_func.");
 
-                constant_value.set_handle((rs_handle_t)externed_func);
+                rs_assert(externed_func_info && externed_func_info->externed_func);
+
+                constant_value.set_handle((rs_handle_t)externed_func_info->externed_func);
                 return constant_value;
             };
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2462,34 +2491,6 @@ namespace rs
                         // TODO: Index nil, report error in compile time?
                     }
                 }
-            }
-        };
-
-        struct ast_extern_info : virtual public grammar::ast_base
-        {
-            rs_extern_native_func_t externed_func;
-
-            std::wstring load_from_lib;
-            std::wstring symbol_name;
-
-            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
-            {
-                space(os, lay);
-                os << L"< " << ANSI_HIY << L"extern" << ANSI_RST << " >" << std::endl;
-                space(os, lay);
-                os << L"symbol: '" << symbol_name << "'" << std::endl;
-                space(os, lay);
-                os << L"from: '" << load_from_lib << "'" << std::endl;
-            }
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
-                return dumm;
             }
         };
 
@@ -3393,7 +3394,12 @@ namespace rs
                 }
                 else if (input.size() == 6)
                 {
-                    rs_error("not support now..");
+                    // extern ( lib , symb )
+                    extern_symb->load_from_lib = RS_NEED_TOKEN(2).identifier;
+                    extern_symb->symbol_name = RS_NEED_TOKEN(4).identifier;
+                    extern_symb->externed_func = nullptr;
+
+                    // Load it in pass
                 }
                 else
                 {
@@ -3519,8 +3525,10 @@ namespace rs
                     ast_func->in_function_sentence = nullptr;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
 
-                    ast_func->is_constant = true;
-                    ast_func->externed_func = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0))->externed_func;
+
+                    ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0));
+                    if (ast_func->externed_func_info->externed_func)
+                        ast_func->is_constant = true;
                 }
                 // many things to do..
 

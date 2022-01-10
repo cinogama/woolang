@@ -188,6 +188,8 @@ namespace rs
         std::vector<template_type_map> template_stack;
         std::unordered_set<ast::ast_value_variable*> template_variable_list_for_pass_template;
 
+        rslib_extern_symbols::extern_lib_set extern_libs;
+
         bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
         {
             rs_test(template_args.size());
@@ -625,8 +627,30 @@ namespace rs
                         analyze_pass1(a_value_func->in_function_sentence);
                         a_value_func->add_child(a_value_func->in_function_sentence);
                     }
-                    if (a_value_func->externed_func)
-                        extern_symb_func_definee[a_value_func->externed_func]
+
+                    if (a_value_func->externed_func_info && !a_value_func->externed_func_info->externed_func)
+                    {
+                        if (a_value_func->externed_func_info->load_from_lib != L"")
+                        {
+                            // Load lib,
+                            a_value_func->externed_func_info->externed_func =
+                                rslib_extern_symbols::get_lib_symbol(
+                                    a_value_func->source_file.c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                                    extern_libs);
+                            if (a_value_func->externed_func_info->externed_func)
+                                a_value_func->is_constant = true;
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_func, RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                    a_value_func->externed_func_info->symbol_name.c_str(),
+                                    a_value_func->externed_func_info->load_from_lib.c_str());
+                            
+                        }
+                    }
+
+                    if (a_value_func->externed_func_info)
+                        extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
                         .push_back(a_value_func);
 
                     if (a_value_func->value_type->type_name == L"pending")
@@ -4286,8 +4310,9 @@ namespace rs
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
+            compiler->pdb_info->loaded_libs = extern_libs;
             compiler->pdb_info->finalize_generate_debug_info();
-
+            
             rs::grammar::ast_base::pickout_this_thread_ast(generated_ast_nodes_buffers);
         }
 

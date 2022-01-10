@@ -8,6 +8,14 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "RSceneDriver", "RSceneDriver\RSceneDriver.vcxproj", "{B4A2C9EF-D182-47BD-A933-B926053ADE6A}"
 	ProjectSection(ProjectDependencies) = postProject
 		{0DB28885-57CA-4C81-A1C8-FEF70AF7B68A} = {0DB28885-57CA-4C81-A1C8-FEF70AF7B68A}
+		{B43E3796-91D3-491B-82DE-92F20B19D185} = {B43E3796-91D3-491B-82DE-92F20B19D185}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "StandardPackage", "StandardPackage", "{92DB1A37-4CB0-4789-A6BA-7F6AC660BE8B}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "dylib_test", "StandardPackage\dylib_test\dylib_test.vcxproj", "{B43E3796-91D3-491B-82DE-92F20B19D185}"
+	ProjectSection(ProjectDependencies) = postProject
+		{0DB28885-57CA-4C81-A1C8-FEF70AF7B68A} = {0DB28885-57CA-4C81-A1C8-FEF70AF7B68A}
 	EndProjectSection
 EndProject
 Global
@@ -34,9 +42,20 @@ Global
 		{B4A2C9EF-D182-47BD-A933-B926053ADE6A}.Release|x64.Build.0 = Release|x64
 		{B4A2C9EF-D182-47BD-A933-B926053ADE6A}.Release|x86.ActiveCfg = Release|Win32
 		{B4A2C9EF-D182-47BD-A933-B926053ADE6A}.Release|x86.Build.0 = Release|Win32
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Debug|x64.ActiveCfg = Debug|x64
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Debug|x64.Build.0 = Debug|x64
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Debug|x86.ActiveCfg = Debug|Win32
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Debug|x86.Build.0 = Debug|Win32
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Release|x64.ActiveCfg = Release|x64
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Release|x64.Build.0 = Release|x64
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Release|x86.ActiveCfg = Release|Win32
+		{B43E3796-91D3-491B-82DE-92F20B19D185}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B43E3796-91D3-491B-82DE-92F20B19D185} = {92DB1A37-4CB0-4789-A6BA-7F6AC660BE8B}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BB74DDA5-0753-41F4-B6C2-BAF2A6A51300}

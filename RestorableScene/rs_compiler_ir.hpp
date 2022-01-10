@@ -7,11 +7,10 @@
 #include "rs_compiler_parser.hpp"
 #include "rs_env_locale.hpp"
 #include "rs_global_setting.hpp"
+#include "rs_lang_extern_symbol_loader.hpp"
 
 #include <cstring>
 #include <string>
-
-
 
 namespace rs
 {
@@ -322,6 +321,8 @@ namespace rs
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
         byte_t* runtime_codes_base;
         size_t runtime_codes_length;
+
+        rslib_extern_symbols::extern_lib_set loaded_libs;
 
         // for lang
         void generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
