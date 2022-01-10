@@ -552,7 +552,7 @@ namespace rs
                     a_value_var->value_type = sym->variable_value->value_type;
                     if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
+                        lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
                     }
 
                 }
@@ -896,6 +896,17 @@ namespace rs
                 analyze_pass1(ast_while_sentence->judgement_value);
                 analyze_pass1(ast_while_sentence->execute_sentence);
             }
+            else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
+            {
+                begin_scope();
+
+                analyze_pass1(a_forloop->pre_execute);
+                analyze_pass1(a_forloop->judgement_expr);
+                analyze_pass1(a_forloop->execute_sentences);
+                analyze_pass1(a_forloop->after_execute);
+
+                end_scope();
+            }
             else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
             {
                 analyze_pass1(a_value_unary->val);
@@ -1062,7 +1073,7 @@ namespace rs
                         if (!a_value_var->template_reification_args.empty())
                         {
                             if (sym->type != lang_symbol::symbol_type::function)
-                                lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
+                                lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
                             else
                             {
                                 ast_value_function_define* dumpped_template_func_define = nullptr;
@@ -1083,7 +1094,7 @@ namespace rs
                                 }
 
                                 if (!dumpped_template_func_define)
-                                    lang_anylizer->lang_error(0x0000, a_value_var, L"未找到符合模板参数的函数重载，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_MATCHED_TEMPLATE_FUNC);
                                 else
                                     a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
                             }
@@ -1194,7 +1205,7 @@ namespace rs
                             if (sym)
                             {
                                 if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
-                                    lang_anylizer->lang_error(0x0000, a_value_var, L"泛型不能用于修饰变量，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
 
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2)
                                     lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
@@ -1260,13 +1271,13 @@ namespace rs
                                     }
                                     else
                                     {
-                                        lang_anylizer->lang_error(0x0000, a_value_idx, L"尝试索引未定义的成员'%ls'，继续",
+                                        lang_anylizer->lang_error(0x0000, a_value_idx, RS_ERR_UNDEFINED_MEMBER,
                                             str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
                                     }
                                 }
                                 else
                                 {
-                                    lang_anylizer->lang_error(0x0000, a_value_idx, L"尝试使用非字符串常量索引具类型映射，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_idx, RS_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
                                 }
 
                             }
@@ -2361,17 +2372,31 @@ namespace rs
                 analyze_pass2(ast_while_sentence->judgement_value);
                 analyze_pass2(ast_while_sentence->execute_sentence);
             }
+            else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
+            {
+                if (a_forloop->pre_execute)
+                    analyze_pass2(a_forloop->pre_execute);
+                if (a_forloop->judgement_expr)
+                    analyze_pass2(a_forloop->judgement_expr);
+
+                analyze_pass2(a_forloop->execute_sentences);
+
+                if (a_forloop->after_execute)
+                    analyze_pass2(a_forloop->after_execute);
+            }
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
 
                 analyze_pass2(a_foreach->used_vars_defines);
 
-                /*lang_anylizer->lex_enable_error_warn = false;
+                /*
                 for (auto& variable : a_foreach->foreach_var)
                     analyze_pass2(variable);
-                lang_anylizer->lex_enable_error_warn = true;*/
+                */
 
-                analyze_pass1(a_foreach->iterator_var);
+                lang_anylizer->lex_enable_error_warn = false;
+
+                analyze_pass2(a_foreach->iterator_var);
                 analyze_pass2(a_foreach->iter_next_judge_expr->directed_value_from);
 
                 // Try Getting next Function
@@ -2394,22 +2419,17 @@ namespace rs
                             ->value_type;
                     }
 
-                    if (_next_executer_type->is_variadic_function_type)
-                    {
-                        lang_anylizer->lang_error(0x0000, a_foreach, L"迭代器类型%ls的next方法不可以是变长的，继续",
-                            a_foreach->iter_next_judge_expr->directed_value_from->value_type
-                            ->get_type_name(false).c_str());
-                    }
-
                     int need_takeplace_count = _next_executer_type->argument_types.size();
                     need_takeplace_count -= a_foreach->foreach_var.size();
                     need_takeplace_count -= 1;//iter
 
+                    lang_anylizer->lex_enable_error_warn = true;
                     if (need_takeplace_count < 0)
-                        lang_anylizer->lang_error(0x0000, a_foreach, L"迭代器类型%ls的next方法无法接受%zu个迭代项目，继续"
+                        lang_anylizer->lang_error(0x0000, a_foreach, RS_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT
                             , a_foreach->iter_next_judge_expr->directed_value_from->value_type
                             ->get_type_name(false).c_str()
                             , a_foreach->foreach_var.size());
+                    lang_anylizer->lex_enable_error_warn = false;
 
                     rs_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
 
@@ -2424,6 +2444,16 @@ namespace rs
                     a_foreach->iter_next_judge_expr->arguments->remove_allnode();
                     a_foreach->iterator_var->parent = nullptr;
                     a_foreach->iterator_var->sibling = nullptr;
+
+                    lang_anylizer->lex_enable_error_warn = true;
+                    if (a_foreach->iter_next_judge_expr->called_func->value_type
+                        ->is_variadic_function_type)
+                    {
+                        lang_anylizer->lang_error(0x0000, a_foreach, RS_ERR_VARIADIC_NEXT_IS_ILEAGAL,
+                            a_foreach->iter_next_judge_expr->directed_value_from->value_type
+                            ->get_type_name(false).c_str());
+                    }
+                    lang_anylizer->lex_enable_error_warn = false;
 
                     int rndidx = a_foreach->foreach_var.size() - 1;
                     for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
@@ -2449,6 +2479,8 @@ namespace rs
                 {
                     // Do not find symbol, but do nothing.. error has been reported by analyze_pass2
                 }
+                lang_anylizer->lex_enable_error_warn = true;
+
                 analyze_pass2(a_foreach->iter_next_judge_expr);
                 analyze_pass2(a_foreach->execute_sentences);
             }
@@ -3811,6 +3843,16 @@ namespace rs
             return result;
         }
 
+        struct loop_label_info
+        {
+            std::wstring current_loop_label;
+
+            std::string current_loop_break_aim_tag;
+            std::string current_loop_continue_aim_tag;
+        };
+
+        std::vector<loop_label_info> loop_stack_for_break_and_continue;
+
         void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
             compiler->pdb_info->generate_debug_info_at_astnode(ast_node, compiler);
@@ -3956,18 +3998,66 @@ namespace rs
             }
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
+
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
 
-                compiler->tag(while_begin_tag);
-                mov_value_to_cr(auto_analyze_value(a_while->judgement_value, compiler), compiler);
-                compiler->jf(tag(while_end_tag));
+                loop_stack_for_break_and_continue.push_back({
+                   a_while->marking_label,
 
-                real_analyze_finalize(a_while->execute_sentence, compiler);
+                     while_end_tag,
+                   while_begin_tag,
 
-                compiler->jmp(tag(while_begin_tag));
-                compiler->tag(while_end_tag);
+                    });
+
+                compiler->tag(while_begin_tag);                                                         // while_begin_tag:
+                mov_value_to_cr(auto_analyze_value(a_while->judgement_value, compiler), compiler);      //    * do expr
+                compiler->jf(tag(while_end_tag));                                                       //    jf    while_end_tag;
+
+                real_analyze_finalize(a_while->execute_sentence, compiler);                             //              ...
+
+                compiler->jmp(tag(while_begin_tag));                                                    //    jmp   while_begin_tag;
+                compiler->tag(while_end_tag);                                                           // while_end_tag:
+
+                loop_stack_for_break_and_continue.pop_back();
             }
+            else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
+            {
+                auto forloop_begin_tag = "forloop_begin_" + compiler->get_unique_tag_based_command_ip();
+                auto forloop_continue_tag = "forloop_continue_" + compiler->get_unique_tag_based_command_ip();
+                auto forloop_end_tag = "forloop_end_" + compiler->get_unique_tag_based_command_ip();
+
+                loop_stack_for_break_and_continue.push_back({
+                   a_forloop->marking_label,
+
+                   forloop_end_tag,
+                   a_forloop->after_execute ? forloop_continue_tag : forloop_begin_tag,
+                    });
+
+                if (a_forloop->pre_execute)
+                    real_analyze_finalize(a_forloop->pre_execute, compiler);
+
+                compiler->tag(forloop_begin_tag);
+
+                if (a_forloop->judgement_expr)
+                {
+                    mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
+                    compiler->jf(tag(forloop_end_tag));
+                }
+
+                real_analyze_finalize(a_forloop->execute_sentences, compiler);
+
+                compiler->tag(forloop_continue_tag);
+
+                if (a_forloop->after_execute)
+                    real_analyze_finalize(a_forloop->after_execute, compiler);
+
+                compiler->jmp(tag(forloop_begin_tag));
+                compiler->tag(forloop_end_tag);
+
+                loop_stack_for_break_and_continue.pop_back();
+            }
+
             else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
             {
                 auto_analyze_value(a_value, compiler);
@@ -4014,6 +4104,13 @@ namespace rs
                 auto foreach_begin_tag = "foreach_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto foreach_end_tag = "foreach_end_" + compiler->get_unique_tag_based_command_ip();
 
+                loop_stack_for_break_and_continue.push_back({
+                  a_foreach->marking_label,
+
+                  foreach_end_tag,
+                  foreach_begin_tag,
+                    });
+
                 compiler->tag(foreach_begin_tag);
                 mov_value_to_cr(auto_analyze_value(a_foreach->iter_next_judge_expr, compiler), compiler);
                 compiler->jf(tag(foreach_end_tag));
@@ -4022,6 +4119,64 @@ namespace rs
 
                 compiler->jmp(tag(foreach_begin_tag));
                 compiler->tag(foreach_end_tag);
+
+                loop_stack_for_break_and_continue.pop_back();
+            }
+            else if (ast_break* a_break = dynamic_cast<ast_break*>(ast_node))
+            {
+                if (a_break->label == L"")
+                {
+                    if (loop_stack_for_break_and_continue.empty())
+                        lang_anylizer->lang_error(0x0000, a_break, RS_ERR_INVALID_OPERATE, L"break");
+                    else
+                        compiler->jmp(tag(loop_stack_for_break_and_continue.back().current_loop_break_aim_tag));
+                }
+                else
+                {
+                    for (auto ridx = loop_stack_for_break_and_continue.rbegin();
+                        ridx != loop_stack_for_break_and_continue.rend();
+                        ridx++)
+                    {
+                        if (ridx->current_loop_label == a_break->label)
+                        {
+                            compiler->jmp(tag(ridx->current_loop_break_aim_tag));
+                            goto break_label_successful;
+                        }
+                    }
+
+                    lang_anylizer->lang_error(0x0000, a_break, RS_ERR_INVALID_OPERATE, L"break");
+
+                break_label_successful:
+                    ;
+                }
+            }
+            else if (ast_continue* a_continue = dynamic_cast<ast_continue*>(ast_node))
+            {
+                if (a_continue->label == L"")
+                {
+                    if (loop_stack_for_break_and_continue.empty())
+                        lang_anylizer->lang_error(0x0000, a_continue, RS_ERR_INVALID_OPERATE, L"continue");
+                    else
+                        compiler->jmp(tag(loop_stack_for_break_and_continue.back().current_loop_continue_aim_tag));
+                }
+                else
+                {
+                    for (auto ridx = loop_stack_for_break_and_continue.rbegin();
+                        ridx != loop_stack_for_break_and_continue.rend();
+                        ridx++)
+                    {
+                        if (ridx->current_loop_label == a_continue->label)
+                        {
+                            compiler->jmp(tag(ridx->current_loop_continue_aim_tag));
+                            goto continue_label_successful;
+                        }
+                    }
+
+                    lang_anylizer->lang_error(0x0000, a_continue, RS_ERR_INVALID_OPERATE, L"continue");
+
+                continue_label_successful:
+                    ;
+                }
             }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
@@ -4255,6 +4410,11 @@ namespace rs
                     if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
                     {
                         sym = lang_scopes.back()->symbols[names];
+                        if (sym->type != lang_symbol::symbol_type::function)
+                        {
+                            lang_anylizer->lang_error(0x0000, init_val, RS_ERR_REDEFINED, names.c_str());
+                            return sym;
+                        }
                     }
                     else
                     {

@@ -144,6 +144,20 @@
 
 #define RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数'%ls'的返回类型，需要手动标注"
 
+#define RS_ERR_NO_TEMPLATE_VARIABLE L"泛型不能用于修饰变量"
+
+#define RS_ERR_NO_MATCHED_TEMPLATE_FUNC L"未找到符合模板参数的函数重载"
+
+#define RS_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员'%ls'"
+
+#define RS_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"尝试使用非字符串常量索引具类型映射"
+
+#define RS_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT L"迭代器类型'%ls'的'next'方法无法接受%zu个迭代项目"
+
+#define RS_ERR_VARIADIC_NEXT_IS_ILEAGAL L"迭代器类型'%ls'的'next'方法不可以是变长的"
+
+#define RS_ERR_INVALID_OPERATE L"无效的'%ls'"
+
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
@@ -287,6 +301,20 @@
 #define RS_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as generic parameters."
 
 #define RS_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"Unable to deduce the return type of function '%ls', it needs to be marked manually。"
+
+#define RS_ERR_NO_TEMPLATE_VARIABLE L"Templated variable is invalid."
+
+#define RS_ERR_NO_MATCHED_TEMPLATE_FUNC L"No matched template function."
+
+#define RS_ERR_UNDEFINED_MEMBER L"try index undefined '%ls'."
+
+#define RS_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"Typed mapping only indexable form 'string'."
+
+#define RS_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT L"Iterator '%ls': Cannot get %zu items from function 'next'."
+
+#define RS_ERR_VARIADIC_NEXT_IS_ILEAGAL L"Function 'next' of iterator '%ls' cannot be variadic."
+
+#define RS_ERR_INVALID_OPERATE L"Invalid '%ls'."
 
 
 #define RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."

@@ -25,8 +25,8 @@
 #define RS_DEBUG_SFX ""
 #endif
 
-constexpr rs_integer_t version = RS_VERSION(de, 0, 0, 0);
-constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 0) RS_DEBUG_SFX;
+constexpr rs_integer_t version = RS_VERSION(de, 0, 0, 1);
+constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 1) RS_DEBUG_SFX;
 
 #undef RS_DEBUG_SFX
 #undef RS_VERSION_STR

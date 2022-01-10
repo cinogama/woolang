@@ -132,6 +132,8 @@ namespace rs
             size_t col_no;
             std::string source_file;
 
+            std::wstring marking_label;
+
             virtual ~ast_base() = default;
             ast_base()
                 : parent(nullptr)
@@ -231,6 +233,7 @@ namespace rs
                 instance->row_no = datfrom->row_no;
                 instance->col_no = datfrom->col_no;
                 instance->source_file = datfrom->source_file;
+                instance->marking_label = datfrom->marking_label;
 
                 auto* fromchild = datfrom->children;
                 while (fromchild)

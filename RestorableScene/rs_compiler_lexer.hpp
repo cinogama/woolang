@@ -98,8 +98,13 @@ namespace rs
         l_public,
         l_protected,
         l_const,
-        l_static
-    );
+        l_static,
+
+        l_break,
+        l_continue,
+        l_goto,
+        l_at
+        );
 
     class lexer
     {
@@ -169,6 +174,7 @@ namespace rs
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
             {L"->",      {lex_type::l_direct }},
+            {L"@",      {lex_type::l_at }},
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
@@ -196,6 +202,9 @@ namespace rs
             {L"as", {lex_type::l_as}},
             {L"is", {lex_type::l_is}},
             {L"typeof", {lex_type::l_typeof}},
+            {L"break", {lex_type::l_break}},
+            {L"continue", {lex_type::l_continue}},
+            {L"goto", {lex_type::l_goto}},
         };
 
 
@@ -924,8 +933,10 @@ namespace rs
             {
                 // @"(Example string "without" '\' it will be very happy!)"
 
-                if (int tmp_ch = next_one(); tmp_ch == L'"')
+                if (int tmp_ch = peek_one(); tmp_ch == L'"')
                 {
+                    next_one();
+
                     int following_ch;
                     while (true)
                     {
@@ -943,7 +954,8 @@ namespace rs
                     }
                 }
                 else
-                    return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');
+                    goto checking_valid_operator;
+                    /*return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');*/
             }
             else if (readed_ch == L'"')
             {
@@ -1053,6 +1065,7 @@ namespace rs
             }
             else if (lex_isoperatorch(readed_ch))
             {
+            checking_valid_operator:
                 write_result(readed_ch);
                 lex_type operator_type = lex_is_valid_operator(read_result());
 

@@ -2807,6 +2807,61 @@ namespace rs
             }
         };
 
+        struct ast_forloop : virtual public grammar::ast_base
+        {
+            grammar::ast_base* pre_execute;
+            ast_value* judgement_expr;
+            ast_value* after_execute;
+            grammar::ast_base* execute_sentences;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->pre_execute);
+                RS_REINSTANCE(dumm->judgement_expr);
+                RS_REINSTANCE(dumm->after_execute);
+                RS_REINSTANCE(dumm->execute_sentences);
+                return dumm;
+            }
+        };
+
+        struct ast_break : virtual public grammar::ast_base
+        {
+            std::wstring label;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_continue : virtual public grammar::ast_base
+        {
+            std::wstring label;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID) [&]() {             \
@@ -4255,12 +4310,22 @@ namespace rs
                     // var _iter = XXXXXX->iter();
                 ast_varref_defines* used_variables = new ast_varref_defines();
 
+                ast_value* be_iter_value = dynamic_cast<ast_value*>(RS_NEED_AST(5));
+
                 ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
                 exp_dir_iter_call->arguments = new ast_list();
                 exp_dir_iter_call->value_type = new ast_type(L"pending");
                 exp_dir_iter_call->called_func = new ast_value_variable(L"iter");
-                exp_dir_iter_call->arguments->append_at_head(dynamic_cast<ast_value*>(RS_NEED_AST(5)));
-                exp_dir_iter_call->directed_value_from = dynamic_cast<ast_value*>(RS_NEED_AST(5));
+                exp_dir_iter_call->arguments->append_at_head(be_iter_value);
+                exp_dir_iter_call->directed_value_from = be_iter_value;
+
+                exp_dir_iter_call->called_func->source_file = be_iter_value->source_file;
+                exp_dir_iter_call->called_func->row_no = be_iter_value->row_no;
+                exp_dir_iter_call->called_func->col_no = be_iter_value->col_no;
+
+                exp_dir_iter_call->source_file = be_iter_value->source_file;
+                exp_dir_iter_call->row_no = be_iter_value->row_no;
+                exp_dir_iter_call->col_no = be_iter_value->col_no;
 
                 afor->iter_getting_funccall = exp_dir_iter_call;
 
@@ -4295,6 +4360,15 @@ namespace rs
                 iter_dir_next_call->called_func = new ast_value_variable(L"next");
                 iter_dir_next_call->directed_value_from = new ast_value_variable(L"_iter");
 
+
+                iter_dir_next_call->called_func->source_file = be_iter_value->source_file;
+                iter_dir_next_call->called_func->row_no = be_iter_value->row_no;
+                iter_dir_next_call->called_func->col_no = be_iter_value->col_no;
+
+                iter_dir_next_call->source_file = be_iter_value->source_file;
+                iter_dir_next_call->row_no = be_iter_value->row_no;
+                iter_dir_next_call->col_no = be_iter_value->col_no;
+
                 afor->iter_next_judge_expr = iter_dir_next_call;
                 afor->iterator_var = new ast_value_variable(L"_iter");
 
@@ -4305,10 +4379,86 @@ namespace rs
             }
         };
 
+        struct pass_forloop : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // ast_forloop
+                // 1. for ( VARREF_DEFINE EXECUTE ; EXECUTE ) SENTENCES
+                //     0  1        2        3     4    5    6     7 
+                // 2. for ( EXECUTE ; EXECUTE ; EXECUTE ) SENTENCES
+                //     0  1    2    3    4    5    6    7    8
+
+                ast_forloop* result = new ast_forloop;
+                if (input.size() == 8)
+                {
+                    result->pre_execute = RS_NEED_AST(2);
+                    result->judgement_expr = dynamic_cast<ast_value*>(RS_NEED_AST(3));
+                    result->after_execute = dynamic_cast<ast_value*>(RS_NEED_AST(5));
+                    result->execute_sentences = RS_NEED_AST(7);
+                }
+                else
+                {
+                    if (ast_empty::is_empty(input[2]))
+                        result->pre_execute = nullptr;
+                    else
+                        result->pre_execute = RS_NEED_AST(2);
+                    result->judgement_expr = dynamic_cast<ast_value*>(RS_NEED_AST(4));
+                    result->after_execute = dynamic_cast<ast_value*>(RS_NEED_AST(6));
+                    result->execute_sentences = RS_NEED_AST(8);
+                }
+
+                return (ast_basic*)result;
+            }
+
+        };
+
+        struct pass_mark_label : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = RS_NEED_AST(2);
+                result->marking_label = RS_NEED_TOKEN(0).identifier;
+                return (ast_basic*)result;
+            }
+
+        };
+
+        struct pass_break : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                if (input.size() == 2)
+                    return (ast_basic*)new ast_break;
+                auto result = new ast_break;
+                result->label = RS_NEED_TOKEN(1).identifier;
+                return (ast_basic*)result;
+            }
+        };
+        struct pass_continue : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                if (input.size() == 2)
+                    return (ast_basic*)new ast_continue;
+                auto result = new ast_continue;
+                result->label = RS_NEED_TOKEN(1).identifier;
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_label>] = _register_builder<pass_mark_label>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_break>] = _register_builder<pass_break>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_continue>] = _register_builder<pass_continue>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_forloop>] = _register_builder<pass_forloop>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_foreach>] = _register_builder<pass_foreach>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_class_define>] = _register_builder<pass_class_define>();

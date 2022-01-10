@@ -71,10 +71,17 @@ gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")}
 gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_LIST")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE_LIST"),gm::nt(L"SENTENCE")}
+gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE_LIST"),gm::nt(L"LABELED_SENTENCE")}
 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
-gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE")}
+gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"LABELED_SENTENCE")}
 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_identifier),gm::te(gm::ttype::l_at),gm::nt(L"SENTENCE")}
+>> RS_ASTBUILDER_INDEX(ast::pass_mark_label),
+
+gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME"), gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_import_files),
@@ -135,161 +142,213 @@ gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_assign) }
 gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
         >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-//////////////////////////////////////////////////////////////////////////////////////
+                //////////////////////////////////////////////////////////////////////////////////////
 
-gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
->> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
->> RS_ASTBUILDER_INDEX(ast::pass_append_list<0,1>),
+                gm::nt(L"IMPORT_NAME") >> gm::symlist{gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<0,1>),
 
-gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)}
->> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_empty)}
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
->> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,2>),
+                gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,2>),
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"DECL_ENUM") >> gm::symlist{gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
-                                    gm::te(gm::ttype::l_left_curly_braces),
-                                    gm::nt(L"ENUM_ITEMS"),
-                                    gm::te(gm::ttype::l_right_curly_braces)}
-                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_finalize),
+                gm::nt(L"DECL_ENUM") >> gm::symlist{gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
+                                                    gm::te(gm::ttype::l_left_curly_braces),
+                                                    gm::nt(L"ENUM_ITEMS"),
+                                                    gm::te(gm::ttype::l_right_curly_braces)}
+                                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_finalize),
 
-gm::nt(L"ENUM_ITEMS") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM")}
- >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_begin),
-gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"),gm::te(gm::ttype::l_comma) ,gm::nt(L"ENUM_ITEM")}
- >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_append),
-gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
- >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
-gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_literal_integer)}
- >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
+                gm::nt(L"ENUM_ITEMS") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_begin),
+                gm::nt(L"ENUM_ITEM_LIST") >> gm::symlist{gm::nt(L"ENUM_ITEM_LIST"),gm::te(gm::ttype::l_comma) ,gm::nt(L"ENUM_ITEM")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_declear_append),
+                gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
+                gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_literal_integer)}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
 
-gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
- >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(gm::ttype::l_identifier), gm::nt(L"BLOCKED_SENTENCE")}
- >> RS_ASTBUILDER_INDEX(ast::pass_namespace),
+                gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(gm::ttype::l_identifier), gm::nt(L"BLOCKED_SENTENCE")}
+                 >> RS_ASTBUILDER_INDEX(ast::pass_namespace),
 
-gm::nt(L"BLOCKED_SENTENCE") >> gm::symlist{ gm::nt(L"SENTENCE") }
->> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
+                gm::nt(L"BLOCKED_SENTENCE") >> gm::symlist{ gm::nt(L"LABELED_SENTENCE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
 
-gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"SENTENCE_BLOCK") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"SENTENCE_BLOCK") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces) }
->> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
+                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),gm::nt(L"PARAGRAPH"),gm::te(gm::ttype::l_right_curly_braces) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_sentence_block<1>),
 
-// Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
-// gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
-// So, just make a production like this:
-gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty_sentence_block),
-// NOTE: Why the production can solve the conflict?
-//       A > {}
-//       B > {l_empty}
-//       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
-//       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
+                // Because of CONSTANT MAP => ,,, => { l_empty } Following production will cause R-R Conflict
+                // gm::nt(L"PARAGRAPH") >> gm::symlist{gm::te(gm::ttype::l_empty)},
+                // So, just make a production like this:
+                gm::nt(L"SENTENCE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),gm::te(gm::ttype::l_right_curly_braces) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty_sentence_block),
+                // NOTE: Why the production can solve the conflict?
+                //       A > {}
+                //       B > {l_empty}
+                //       In fact, A B have same production, but in rs_lr(1) parser, l_empty have a lower priority then production like A
+                //       This rule can solve many grammar conflict easily, but in some case, it will cause bug, so please use it carefully.
 
-gm::nt(L"DECL_ATTRIBUTE") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DECL_ATTRIBUTE") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_decl_attrib_begin),
+                gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEM") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_decl_attrib_begin),
 
-gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS"),gm::nt(L"DECL_ATTRIBUTE_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_append_attrib),
+                gm::nt(L"DECL_ATTRIBUTE_ITEMS") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_ITEMS"),gm::nt(L"DECL_ATTRIBUTE_ITEM") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_attrib),
 
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_const) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_public) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_static) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
-gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_const) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_public) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_static) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FUNC_DEFINE_WITH_NAME") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FUNC_DEFINE_WITH_NAME") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
-                        gm::nt(L"DECL_ATTRIBUTE"),
-                        gm::te(gm::ttype::l_func),
-                        gm::te(gm::ttype::l_identifier),
-                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                        gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                        gm::nt(L"RETURN_TYPE_DECLEAR"),
-                        gm::nt(L"SENTENCE_BLOCK") }
-                        >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
+                gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                                        gm::nt(L"DECL_ATTRIBUTE"),
+                                        gm::te(gm::ttype::l_func),
+                                        gm::te(gm::ttype::l_identifier),
+                                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                                        gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
+                                        gm::nt(L"RETURN_TYPE_DECLEAR"),
+                                        gm::nt(L"SENTENCE_BLOCK") }
+                                        >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-    gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
-                            gm::te(gm::ttype::l_left_brackets),
-                                gm::te(gm::ttype::l_literal_string),
-                              gm::te(gm::ttype::l_comma),
-                               gm::te(gm::ttype::l_literal_string),
-                            gm::te(gm::ttype::l_right_brackets) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_extern),
-    gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
-                            gm::te(gm::ttype::l_left_brackets),
-                                gm::te(gm::ttype::l_literal_string),
-                            gm::te(gm::ttype::l_right_brackets) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_extern),
+                    gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
+                                            gm::te(gm::ttype::l_left_brackets),
+                                                gm::te(gm::ttype::l_literal_string),
+                                              gm::te(gm::ttype::l_comma),
+                                               gm::te(gm::ttype::l_literal_string),
+                                            gm::te(gm::ttype::l_right_brackets) }
+                    >> RS_ASTBUILDER_INDEX(ast::pass_extern),
+                    gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
+                                            gm::te(gm::ttype::l_left_brackets),
+                                                gm::te(gm::ttype::l_literal_string),
+                                            gm::te(gm::ttype::l_right_brackets) }
+                    >> RS_ASTBUILDER_INDEX(ast::pass_extern),
 
-    gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
-                             gm::nt(L"EXTERN_FROM"),
-                             gm::nt(L"DECL_ATTRIBUTE"),
-                            gm::te(gm::ttype::l_func),
-                            gm::te(gm::ttype::l_identifier),
-                            gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                            gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                            gm::nt(L"TYPE_DECLEAR"),
-                             gm::te(gm::ttype::l_semicolon)
-}
->> RS_ASTBUILDER_INDEX(ast::pass_function_define),
+                    gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                                             gm::nt(L"EXTERN_FROM"),
+                                             gm::nt(L"DECL_ATTRIBUTE"),
+                                            gm::te(gm::ttype::l_func),
+                                            gm::te(gm::ttype::l_identifier),
+                                            gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                                            gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
+                                            gm::nt(L"TYPE_DECLEAR"),
+                                             gm::te(gm::ttype::l_semicolon)
+                }
+                >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-//WHILE语句
-gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"WHILE") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"WHILE") >> gm::symlist{
-                        gm::te(gm::ttype::l_while),
-                        gm::te(gm::ttype::l_left_brackets),
-                        gm::nt(L"EXPRESSION"),
-                        gm::te(gm::ttype::l_right_brackets),
-                        gm::nt(L"BLOCKED_SENTENCE")
-} >> RS_ASTBUILDER_INDEX(ast::pass_while),
+                //WHILE语句
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"WHILE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"WHILE") >> gm::symlist{
+                                        gm::te(gm::ttype::l_while),
+                                        gm::te(gm::ttype::l_left_brackets),
+                                        gm::nt(L"EXPRESSION"),
+                                        gm::te(gm::ttype::l_right_brackets),
+                                        gm::nt(L"BLOCKED_SENTENCE")
+                } >> RS_ASTBUILDER_INDEX(ast::pass_while),
 
-gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FOREACH") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"FOREACH") >> gm::symlist{
-                            gm::te(gm::ttype::l_for),
-                            gm::te(gm::ttype::l_left_brackets),
-                            gm::te(gm::ttype::l_var),
-                            gm::nt(L"FOREACH_VAR_IDENTS"),
-                            gm::te(gm::ttype::l_typecast),
-                            gm::nt(L"EXPRESSION"),
-                            gm::te(gm::ttype::l_right_brackets),
-                            gm::nt(L"BLOCKED_SENTENCE")
-} >> RS_ASTBUILDER_INDEX(ast::pass_foreach),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FORLOOP") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FORLOOP") >> gm::symlist{
+                                            gm::te(gm::ttype::l_for),
+                                            gm::te(gm::ttype::l_left_brackets),
+                                            gm::nt(L"VAR_REF_DEFINE"),
+                                            gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                                            gm::te(gm::ttype::l_semicolon),
+                                             gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                                            gm::te(gm::ttype::l_right_brackets),
+                                            gm::nt(L"BLOCKED_SENTENCE")
+                } >> RS_ASTBUILDER_INDEX(ast::pass_forloop),
 
-gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"FOREACH_VAR_ITEM") }
- >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"FOREACH_VAR_ITEM") }
- >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
- >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"FORLOOP") >> gm::symlist{
+                                            gm::te(gm::ttype::l_for),
+                                            gm::te(gm::ttype::l_left_brackets),
+                                            gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                                            gm::te(gm::ttype::l_semicolon),
+                                            gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                                            gm::te(gm::ttype::l_semicolon),
+                                             gm::nt(L"MAY_EMPTY_EXPRESSION"),
+                                            gm::te(gm::ttype::l_right_brackets),
+                                            gm::nt(L"BLOCKED_SENTENCE")
+                } >> RS_ASTBUILDER_INDEX(ast::pass_forloop),
+
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_break),
+                                            gm::te(gm::ttype::l_semicolon)
+                } >> RS_ASTBUILDER_INDEX(ast::pass_break),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_continue),
+                                            gm::te(gm::ttype::l_semicolon)
+                } >> RS_ASTBUILDER_INDEX(ast::pass_continue),
+
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_break),
+                                             gm::te(gm::ttype::l_identifier),
+                                            gm::te(gm::ttype::l_semicolon)
+                } >> RS_ASTBUILDER_INDEX(ast::pass_break),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_continue),
+                                                 gm::te(gm::ttype::l_identifier),
+                                                gm::te(gm::ttype::l_semicolon)
+                } >> RS_ASTBUILDER_INDEX(ast::pass_continue),
+
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_goto),
+                                            gm::te(gm::ttype::l_identifier),
+                                            gm::te(gm::ttype::l_semicolon)
+                } >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"MAY_EMPTY_EXPRESSION") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"MAY_EMPTY_EXPRESSION") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FOREACH") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FOREACH") >> gm::symlist{
+                                            gm::te(gm::ttype::l_for),
+                                            gm::te(gm::ttype::l_left_brackets),
+                                             gm::nt(L"DECL_ATTRIBUTE"),
+                                            gm::te(gm::ttype::l_var),
+                                            gm::nt(L"FOREACH_VAR_IDENTS"),
+                                            gm::te(gm::ttype::l_typecast),
+                                            gm::nt(L"EXPRESSION"),
+                                            gm::te(gm::ttype::l_right_brackets),
+                                            gm::nt(L"BLOCKED_SENTENCE")
+                } >> RS_ASTBUILDER_INDEX(ast::pass_foreach),
+
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"FOREACH_VAR_ITEM") }
+                 >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"FOREACH_VAR_ITEM") }
+                 >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+                gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                 >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
                 //IF语句
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
@@ -405,233 +464,233 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                         gm::nt(L"SENTENCE_BLOCK") }
                         >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-    // May empty
+                // May empty
 
-    gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_empty),
-    gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-    gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"TYPE") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-    gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-    gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_typeof),
+                gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_typeof),
 
-    gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
+                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 
-    gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPE"),gm::nt(L"FUNC_ARG_TYPES") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_build_complex_type),
+                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPE"),gm::nt(L"FUNC_ARG_TYPES") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_build_complex_type),
 
-    gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARG_TYPES_WITH_VARIADIC"),gm::te(gm::ttype::l_right_brackets) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"FUNC_ARG_TYPES") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARG_TYPES_WITH_VARIADIC"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-    gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-    gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-    gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"VARIADIC_ARG_SIGN") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"VARIADIC_ARG_SIGN") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-    gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES"), gm::te(gm::ttype::l_comma) ,gm::nt(L"VARIADIC_ARG_SIGN") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+                gm::nt(L"ARG_TYPES_WITH_VARIADIC") >> gm::symlist{ gm::nt(L"ARG_TYPES"), gm::te(gm::ttype::l_comma) ,gm::nt(L"VARIADIC_ARG_SIGN") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-    gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"TYPE") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-    gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"ARG_TYPES"),gm::te(gm::ttype::l_comma),gm::nt(L"TYPE") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+                gm::nt(L"ARG_TYPES") >> gm::symlist{ gm::nt(L"ARG_TYPES"),gm::te(gm::ttype::l_comma),gm::nt(L"TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
 
-    gm::nt(L"VARIADIC_ARG_SIGN") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"VARIADIC_ARG_SIGN") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
+                //////////////////////////////////////////////////////////////////////////////////////////////
 
-gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+            gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+            >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_VAR_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+            gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_VAR_ITEM") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_REF_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+            gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_REF_ITEM") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_VAR_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
->> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+            gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_VAR_ITEM") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+            gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
->> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
->> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)}
->> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)}
->> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
+            gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
+            gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+            >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
+            gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)}
+            >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
+            gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)}
+            >> RS_ASTBUILDER_INDEX(ast::pass_func_argument),
 
-gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
->> RS_ASTBUILDER_INDEX(ast::pass_token),
+            gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
+            >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-//		运算转换，左值可以转化为右值ASTUnary
+                //		运算转换，左值可以转化为右值ASTUnary
 
-gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-//	逻辑运算表达式
-gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                //	逻辑运算表达式
+                gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"EQUATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"EQUATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"EQUATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"EQUATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-// 等价判别表达式
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"RELATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"RELATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"RELATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                // 等价判别表达式
+                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"RELATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"RELATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"RELATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-//	关系判别表达式 < > >= <=
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
-gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"SUMMATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                //	关系判别表达式 < > >= <=
+                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"SUMMATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less),gm::nt(L"SUMMATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_less_or_equal),gm::nt(L"SUMMATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
+                gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"SUMMATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-// 加减运算表达式		
-gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+                // 加减运算表达式		
+                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+                gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-// 乘除运算表达式
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"UNARIED_FACTOR") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"UNARIED_FACTOR") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"UNARIED_FACTOR") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
-gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"UNARIED_FACTOR") }
->> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+                // 乘除运算表达式
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"UNARIED_FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"UNARIED_FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_div),gm::nt(L"UNARIED_FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
+                gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mod),gm::nt(L"UNARIED_FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"SINGLE_VALUE") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"SINGLE_VALUE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CHECK"), gm::nt(L"AS_TYPE") }
->> RS_ASTBUILDER_INDEX(ast::pass_type_judgement),
+                gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CHECK"), gm::nt(L"AS_TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_type_judgement),
 
-gm::nt(L"FACTOR_TYPE_CHECK") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE") }
->> RS_ASTBUILDER_INDEX(ast::pass_type_check),
+                gm::nt(L"FACTOR_TYPE_CHECK") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_type_check),
 
-gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_as), gm::nt(L"TYPE") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_as), gm::nt(L"TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_is), gm::nt(L"TYPE") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_is), gm::nt(L"TYPE") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-// TYPE CASTING..
-gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
->> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
+                // TYPE CASTING..
+                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_type_cast),
 
-gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
-gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"LEFT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+                gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"UNIT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ARGUMENT_EXPAND") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign) }
->> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
-gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign),gm::te(gm::ttype::l_literal_integer) }
->> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
+                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ARGUMENT_EXPAND") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
+                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign),gm::te(gm::ttype::l_literal_integer) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_unpack_args),
 
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
->> RS_ASTBUILDER_INDEX(ast::pass_pack_variadic_args),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_pack_variadic_args),
 
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_real) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_string) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
-gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_inf) }
->> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_real) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_string) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_handle) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_inf) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_literal),
 
-gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_MAP") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_MAP") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_ARRAY") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"CONSTANT_ARRAY") >> gm::symlist{
-                                    gm::te(gm::ttype::l_index_begin),
-                                    gm::nt(L"CONSTANT_ARRAY_ITEMS"),
-                                    gm::te(gm::ttype::l_index_end) }
->> RS_ASTBUILDER_INDEX(ast::pass_array_builder),
+                gm::nt(L"CONSTANT_ARRAY") >> gm::symlist{
+                                                    gm::te(gm::ttype::l_index_begin),
+                                                    gm::nt(L"CONSTANT_ARRAY_ITEMS"),
+                                                    gm::te(gm::ttype::l_index_end) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_array_builder),
 
-gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-gm::nt(L"CONSTANT_MAP") >> gm::symlist{
-                                    gm::te(gm::ttype::l_left_curly_braces),
-                                    gm::nt(L"CONSTANT_MAP_PAIRS"),
-                                    gm::te(gm::ttype::l_right_curly_braces) }
->> RS_ASTBUILDER_INDEX(ast::pass_map_builder),
+                gm::nt(L"CONSTANT_MAP") >> gm::symlist{
+                                                    gm::te(gm::ttype::l_left_curly_braces),
+                                                    gm::nt(L"CONSTANT_MAP_PAIRS"),
+                                                    gm::te(gm::ttype::l_right_curly_braces) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_map_builder),
 
-gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIR") }
->> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
-                                                gm::te(gm::ttype::l_comma),
-                                                gm::nt(L"CONSTANT_MAP_PAIR") }
-    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+                gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIR") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"CONSTANT_MAP_PAIRS") >> gm::symlist{ gm::nt(L"CONSTANT_MAP_PAIRS"),
+                                                                gm::te(gm::ttype::l_comma),
+                                                                gm::nt(L"CONSTANT_MAP_PAIR") }
+                    >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty),
-gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
-                                                gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_VALUE"),
-                                                gm::te(gm::ttype::l_right_curly_braces) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_mapping_pair),
+                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
+                                                                gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_VALUE"),
+                                                                gm::te(gm::ttype::l_right_curly_braces) }
+                    >> RS_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 //单目运算符
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
