@@ -10,6 +10,7 @@
 #include "rs_utf8.hpp"
 #include "rs_runtime_debuggee.hpp"
 #include "rs_global_setting.hpp"
+#include "rs_io.hpp"
 
 #include <csignal>
 
@@ -42,50 +43,50 @@ constexpr char         version_str[] = RS_VERSION_STR(de, 0, 0, 1) RS_DEBUG_SFX;
 
 void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason)
 {
-    std::cerr << ANSI_HIR "RS Runtime happend a failure: "
-        << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << std::endl;
-    std::cerr << "\tAt source: \t" << src_file << std::endl;
-    std::cerr << "\tAt line: \t" << lineno << std::endl;
-    std::cerr << "\tAt function: \t" << functionname << std::endl;
-    std::cerr << std::endl;
+    rs::rs_stderr << ANSI_HIR "RS Runtime happend a failure: "
+        << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << rs::rs_endl;
+    rs::rs_stderr << "\tAt source: \t" << src_file << rs::rs_endl;
+    rs::rs_stderr << "\tAt line: \t" << lineno << rs::rs_endl;
+    rs::rs_stderr << "\tAt function: \t" << functionname << rs::rs_endl;
+    rs::rs_stderr << rs::rs_endl;
 
-    std::cerr << ANSI_HIR "callstack: " ANSI_RST << std::endl;
+    rs::rs_stderr << ANSI_HIR "callstack: " ANSI_RST << rs::rs_endl;
 
     if (rs::vmbase::_this_thread_vm)
         rs::vmbase::_this_thread_vm->dump_call_stack(32, true, std::cerr);
 
-    std::cerr << std::endl;
+    rs::rs_stderr << rs::rs_endl;
 
     if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MINOR)
     {
-        std::cerr << ANSI_HIY "This is a minor failure, ignore it." ANSI_RST << std::endl;
+        rs::rs_stderr << ANSI_HIY "This is a minor failure, ignore it." ANSI_RST << rs::rs_endl;
         // Just ignore it..
     }
     else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_MEDIUM)
     {
         // Just throw it..
-        std::cerr << ANSI_HIY "This is a medium failure, it will be throw." ANSI_RST << std::endl;
+        rs::rs_stderr << ANSI_HIY "This is a medium failure, it will be throw." ANSI_RST << rs::rs_endl;
         throw rs::rsruntime_exception(rterrcode, reason);
     }
     else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_HEAVY)
     {
         // Just throw it..
-        std::cerr << ANSI_HIY "This is a heavy failure, it will be throw." ANSI_RST << std::endl;
+        rs::rs_stderr << ANSI_HIY "This is a heavy failure, it will be throw." ANSI_RST << rs::rs_endl;
         throw rs::rsruntime_exception(rterrcode, reason);
     }
     else
     {
-        std::cerr << "This failure may cause a crash or nothing happens." << std::endl;
-        std::cerr << "1) Abort program.(You can attatch debuggee.)" << std::endl;
-        std::cerr << "2) Continue.(May cause unknown errors.)" << std::endl;
-        std::cerr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << std::endl;
-        std::cerr << "4) Throw exception.(Not exactly safe.)" << std::endl;
+        rs::rs_stderr << "This failure may cause a crash or nothing happens." << rs::rs_endl;
+        rs::rs_stderr << "1) Abort program.(You can attatch debuggee.)" << rs::rs_endl;
+        rs::rs_stderr << "2) Continue.(May cause unknown errors.)" << rs::rs_endl;
+        rs::rs_stderr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << rs::rs_endl;
+        rs::rs_stderr << "4) Throw exception.(Not exactly safe.)" << rs::rs_endl;
         do
         {
             int choice;
-            std::cerr << "Please input your choice: " ANSI_HIY;
+            rs::rs_stderr << "Please input your choice: " ANSI_HIY;
             std::cin >> choice;
-            std::cerr << ANSI_RST;
+            rs::rs_stderr << ANSI_RST;
             switch (choice)
             {
             case 1:
@@ -100,7 +101,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
                     rs::exception_recovery::rollback(rs::vmbase::_this_thread_vm);
                 }
                 else
-                    std::cerr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << std::endl;
+                    rs::rs_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << rs::rs_endl;
 
                 break;
             case 4:
@@ -112,7 +113,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
                 rs_error(reason);
 
             default:
-                std::cerr << ANSI_HIR "Invalid choice" ANSI_RST << std::endl;
+                rs::rs_stderr << ANSI_HIR "Invalid choice" ANSI_RST << rs::rs_endl;
             }
 
             char _useless_for_clear = 0;
@@ -136,7 +137,7 @@ void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionna
 void _rs_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
-    std::cerr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all virtual-machine by default debuggee immediately." << std::endl;
+    rs::rs_stderr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all virtual-machine by default debuggee immediately." << rs::rs_endl;
 
     std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
     for (auto vm : rs::vmbase::_alive_vm_list)
@@ -180,8 +181,10 @@ void rs_init(int argc, char** argv)
                 enable_gc = atoi(argv[++command_idx]);
             else if ("enable-code-allign" == current_arg)
                 rs::config::ENABLE_IR_CODE_ACTIVE_ALLIGN = atoi(argv[++command_idx]);
+            else if ("enable-ansi-color" == current_arg)
+                rs::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else
-                std::cerr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << std::endl;
+                rs::rs_stderr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << rs::rs_endl;
         }
     }
 
@@ -768,6 +771,9 @@ rs_bool_t rs_has_compile_warning(rs_vm vm)
 
 rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
 {
+    if (style == RS_DEFAULT)
+        style = rs::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? RS_NEED_COLOR : RS_NOTHING;
+
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors = "";
     if (vm && RS_VM(vm)->compile_info)
@@ -780,7 +786,7 @@ rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
         {
             if (src_file_path != err_info.filename)
             {
-                if (style & RS_NEED_COLOR)
+                if (style == RS_NEED_COLOR)
                     _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + (src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
                 else
                     _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
@@ -791,8 +797,8 @@ rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
         for (auto& war_info : lex.lex_warn_list)
         {
             if (src_file_path != war_info.filename)
-                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
-            std::wcerr << war_info.to_wstring() << std::endl;
+                rs::rs_stderr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << rs::rs_endl;
+            rs_wstderr << war_info.to_wstring() << rs::rs_endl;
         }*/
     }
     return _vm_compile_errors.c_str();
@@ -800,6 +806,9 @@ rs_string_t rs_get_compile_error(rs_vm vm, _rs_inform_style style)
 
 rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
 {
+    if (style == RS_DEFAULT)
+        style = rs::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? RS_NEED_COLOR : RS_NOTHING;
+
     thread_local std::string _vm_compile_errors;
     _vm_compile_errors = "";
     if (vm && RS_VM(vm)->compile_info)
@@ -811,7 +820,7 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
         {
             if (src_file_path != war_info.filename)
             {
-                if (style & RS_NEED_COLOR)
+                if (style == RS_NEED_COLOR)
                     _vm_compile_errors += ANSI_HIY "In file: '" ANSI_RST + (src_file_path = war_info.filename) + ANSI_HIY "'" ANSI_RST "\n";
                 else
                     _vm_compile_errors += "In file: '" + (src_file_path = war_info.filename) + "'\n";
@@ -822,8 +831,8 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
         for (auto& war_info : lex.lex_warn_list)
         {
             if (src_file_path != war_info.filename)
-                std::cerr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << std::endl;
-            std::wcerr << war_info.to_wstring() << std::endl;
+                rs::rs_stderr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << rs::rs_endl;
+            rs_wstderr << war_info.to_wstring() << rs::rs_endl;
         }*/
     }
     return _vm_compile_errors.c_str();

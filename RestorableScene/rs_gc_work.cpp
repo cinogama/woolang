@@ -272,7 +272,7 @@ namespace rs
 
 
 #ifdef RS_GC_DEBUG
-                    std::cout << "===== GC WORK BEGIN =====" << std::endl;
+                    rs_stdout << "===== GC WORK BEGIN =====" << std::endl;
                     auto _gcdebug_start_time = _gc_debug_system_clock.now();
 #endif
                     for (auto& gc_work_thread : _gc_work_threads)
@@ -291,8 +291,8 @@ namespace rs
 
 #ifdef RS_GC_DEBUG   
                     auto _gcdebug_end_time = _gc_debug_system_clock.now();
-                    std::cout << "GC Time cost: " << (_gcdebug_end_time - _gcdebug_start_time).count() / 10000000.0f << std::endl;
-                    std::cout << "===== GC WORK END =====" << std::endl;
+                    rs_stdout << "GC Time cost: " << (_gcdebug_end_time - _gcdebug_start_time).count() / 10000000.0f << std::endl;
+                    rs_stdout << "===== GC WORK END =====" << std::endl;
 #endif
 
                 } while (0);

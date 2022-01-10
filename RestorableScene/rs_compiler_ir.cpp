@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "rs_compiler_ir.hpp"
 #include "rs_lang_ast_builder.hpp"
 

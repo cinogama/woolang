@@ -155,5 +155,8 @@
     <ClInclude Include="rs_global_setting.hpp">
       <Filter>environment</Filter>
     </ClInclude>
+    <ClInclude Include="rs_io.hpp">
+      <Filter>basic</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

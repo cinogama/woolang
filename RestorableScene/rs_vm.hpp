@@ -1083,7 +1083,7 @@ namespace rs
                 RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
                 {
                     // unhandled exception happend.
-                    std::cerr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << std::endl;
+                    rs_stderr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << rs_endl;
                     dump_call_stack(32, true, std::cerr);
                     return;
 

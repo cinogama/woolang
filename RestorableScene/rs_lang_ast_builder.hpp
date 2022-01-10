@@ -4309,8 +4309,8 @@ namespace rs
             {
                 ast_foreach* afor = new ast_foreach;
 
-                // for ( var LIST : EXP ) SENT
-                // 0   1  2   3   4  5  6  7
+                // for ( DECL_ATTRIBUTE var LIST : EXP ) SENT
+                // 0   1        2        3   4   5  6  7   8
 
                 // build EXP->iter() / var LIST;
 
@@ -4318,7 +4318,7 @@ namespace rs
                     // var _iter = XXXXXX->iter();
                 ast_varref_defines* used_variables = new ast_varref_defines();
 
-                ast_value* be_iter_value = dynamic_cast<ast_value*>(RS_NEED_AST(5));
+                ast_value* be_iter_value = dynamic_cast<ast_value*>(RS_NEED_AST(6));
 
                 ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
                 exp_dir_iter_call->arguments = new ast_list();
@@ -4344,7 +4344,7 @@ namespace rs
                 //}}}}
 
                     // var a= tkplace, b = tkplace...
-                ast_token* a_var_defs = dynamic_cast<ast_token*>(dynamic_cast<ast_list*>(RS_NEED_AST(3))->children);
+                ast_token* a_var_defs = dynamic_cast<ast_token*>(dynamic_cast<ast_list*>(RS_NEED_AST(4))->children);
                 while (a_var_defs)
                 {
                     ast_value_variable* foreachvar = new ast_value_variable(a_var_defs->tokens.identifier);
@@ -4380,7 +4380,7 @@ namespace rs
                 afor->iter_next_judge_expr = iter_dir_next_call;
                 afor->iterator_var = new ast_value_variable(L"_iter");
 
-                afor->execute_sentences = RS_NEED_AST(7);
+                afor->execute_sentences = RS_NEED_AST(8);
 
 
                 return (ast_basic*)afor;

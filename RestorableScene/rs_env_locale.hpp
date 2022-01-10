@@ -1,4 +1,6 @@
 #pragma once
+#include "rs_io.hpp"
+
 #include <iostream>
 #include <string>
 #include <clocale>
@@ -42,15 +44,16 @@ namespace rs
 #endif
         if (nullptr == std::setlocale(LC_CTYPE, local_type))
         {
-            std::cerr << ANSI_HIR "RS: " ANSI_RST "Unable to initialize locale character set environment: " << std::endl;
-            std::cerr << "\t" << ANSI_HIY << local_type << ANSI_RST <<" is not a valid locale type." << std::endl;
+            rs_stderr << ANSI_HIR "RS: " ANSI_RST "Unable to initialize locale character set environment: " << rs_endl;
+            rs_stderr << "\t" << ANSI_HIY << local_type << ANSI_RST << " is not a valid locale type." << rs_endl;
 
             std::exit(-1);
         }
         rs_global_locale = std::locale(local_type);
         rs_global_locale_name = local_type;
 
-        printf(ANSI_RST);
+        if (rs::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL)
+            printf(ANSI_RST);
     }
 
     inline std::string wstr_to_str(const std::wstring& wstr)

@@ -721,7 +721,7 @@ namespace rs
         //    std::wstring fff;
         //    auto fffff = _next(&fff);
         //    if (lex_enable_error_warn)
-        //        std::wcout << ANSI_HIG << "GET! " << fffff._to_string() << " " << fff << ANSI_RST << std::endl;
+        //        rs_wstdout << ANSI_HIG << "GET! " << fffff._to_string() << " " << fff << ANSI_RST << std::endl;
         //    if (out_literal)*out_literal = fff;
         //    return fffff;
         //}

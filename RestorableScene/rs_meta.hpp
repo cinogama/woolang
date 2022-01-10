@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include <string>
 
 
 namespace rs
@@ -29,6 +30,14 @@ namespace rs
         {
             static constexpr bool value =
                 std::is_convertible<origin_type<T>, std::string>::value;
+
+        };
+
+        template<typename T>
+        struct is_wstring
+        {
+            static constexpr bool value =
+                std::is_convertible<origin_type<T>, std::wstring>::value;
 
         };
 

@@ -3,6 +3,8 @@
 #include "rs_utf8.hpp"
 #include "rs_vm.hpp"
 
+#include "rs_io.hpp"
+
 #include <chrono>
 #include <random>
 #include <thread>
@@ -11,10 +13,10 @@ RS_API rs_api rslib_std_print(rs_vm vm, rs_value args, size_t argc)
 {
     for (size_t i = 0; i < argc; i++)
     {
-        std::cout << rs_cast_string(args + i);
+        rs::rs_stdout << rs_cast_string(args + i);
 
         if (i + 1 < argc)
-            std::cout << " ";
+            rs::rs_stdout << " ";
     }
     return rs_ret_int(vm, argc);
 }
@@ -304,7 +306,7 @@ RS_API rs_api rslib_std_vm_has_compile_warning(rs_vm vm, rs_value args, size_t a
 RS_API rs_api rslib_std_vm_get_compile_error(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm vmm = (rs_vm)rs_pointer(args);
-    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_NOTHING;
+    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_DEFAULT;
 
     return rs_ret_string(vm, rs_get_compile_error(vmm, style));
 }
@@ -312,7 +314,7 @@ RS_API rs_api rslib_std_vm_get_compile_error(rs_vm vm, rs_value args, size_t arg
 RS_API rs_api rslib_std_vm_get_compile_warning(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm vmm = (rs_vm)rs_pointer(args);
-    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_NOTHING;
+    _rs_inform_style style = argc > 1 ? (_rs_inform_style)rs_int(args + 1) : RS_DEFAULT;
 
     return rs_ret_string(vm, rs_get_compile_warning(vmm, style));
 }
@@ -531,8 +533,10 @@ namespace std
     {
         enum info_style
         {
-            RS_NOTHING = 0,
-            RS_NEED_COLOR = 1,
+            RS_DEFAULT = 0,
+
+            RS_NOTHING = 1,
+            RS_NEED_COLOR = 2,
         }
 
         extern("rslib_std_vm_create")

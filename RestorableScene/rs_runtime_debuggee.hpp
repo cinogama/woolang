@@ -53,7 +53,7 @@ namespace rs
     private:
         void command_help()
         {
-            std::cout <<
+            rs_stdout <<
                 R"(RestorableScene debuggee tool command list:
 
 COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
@@ -81,7 +81,7 @@ step            s                             Execute next line of src, will ste
                                             in functions.
 stepir          si                            Execute next command.
 )"
-<< std::endl;
+<< rs_endl;
         }
 
         static std::vector<std::string> get_and_split_line()
@@ -183,16 +183,16 @@ stepir          si                            Execute next command.
         {
             auto real_offset = -varinfo.bp_offset;
             auto value_in_stack = current_frame_bp - varinfo.bp_offset;
-            std::cout << varinfo.name << " define at line: " << varinfo.define_place << std::endl;
+            rs_stdout << varinfo.name << " define at line: " << varinfo.define_place << rs_endl;
             if (varinfo.bp_offset >= 0)
-                std::cout << "[bp-" << varinfo.bp_offset << "]: ";
+                rs_stdout << "[bp-" << varinfo.bp_offset << "]: ";
             else
-                std::cout << "[bp+" << -varinfo.bp_offset << "]: ";
+                rs_stdout << "[bp+" << -varinfo.bp_offset << "]: ";
 
             if (value_in_stack <= current_frame_sp)
-                std::cout << value_in_stack << " nil (not in stack)" << std::endl;
+                rs_stdout << value_in_stack << " nil (not in stack)" << rs_endl;
             else
-                std::cout << value_in_stack << " " << rs_cast_string((rs_value)value_in_stack) << std::endl;
+                rs_stdout << value_in_stack << " " << rs_cast_string((rs_value)value_in_stack) << rs_endl;
         }
 
         bool debug_command(vmbase* vmm)
@@ -258,10 +258,10 @@ stepir          si                            Execute next command.
                         else
                         {
                             auto&& fndresult = search_function_begin_rtip_scope_with_name(function_name);
-                            std::cout << "Find " << fndresult.size() << " symbol(s):" << std::endl;
+                            rs_stdout << "Find " << fndresult.size() << " symbol(s):" << rs_endl;
                             for (auto& funcinfo : fndresult)
                             {
-                                std::cout << "In function: " << funcinfo.func_sig << std::endl;
+                                rs_stdout << "In function: " << funcinfo.func_sig << rs_endl;
                                 vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
                             }
                         }
@@ -272,7 +272,7 @@ stepir          si                            Execute next command.
                         auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
                         if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
                         {
-                            std::cout << "In function: " << funcname << std::endl;
+                            rs_stdout << "In function: " << funcname << rs_endl;
                             vmm->dump_program_bin(
                                 _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
                                 , _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
@@ -308,10 +308,10 @@ stepir          si                            Execute next command.
                                     std::lock_guard g1(_mx);
 
                                     auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
-                                    std::cout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << std::endl;
+                                    rs_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << rs_endl;
                                     for (auto& funcinfo : fndresult)
                                     {
-                                        std::cout << "In function: " << funcinfo.func_sig << std::endl;
+                                        rs_stdout << "In function: " << funcinfo.func_sig << rs_endl;
                                         break_point_traps.insert(
                                             _env->program_debug_info->get_ip_by_runtime_ip(
                                                 _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
@@ -328,9 +328,9 @@ stepir          si                            Execute next command.
                         }
 
                         if (result)
-                            std::cout << "OK!" << std::endl;
+                            rs_stdout << "OK!" << rs_endl;
                         else
-                            std::cout << "FAIL!" << std::endl;
+                            rs_stdout << "FAIL!" << rs_endl;
                     }
                     else
                         printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
@@ -351,7 +351,7 @@ stepir          si                            Execute next command.
                             for (size_t i = 0; i < breakno; i++)
                                 fnd++;
                             break_point_traps.erase(fnd);
-                            std::cout << "OK!" << std::endl;
+                            rs_stdout << "OK!" << rs_endl;
                         }
                         else
                             printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
@@ -396,7 +396,7 @@ stepir          si                            Execute next command.
                     auto* currentsp = current_frame_sp;
                     while ((++currentsp) <= current_frame_bp)
                     {
-                        std::cout << "[bp-" << current_frame_bp - currentsp << "]: " << currentsp << " " << rs_cast_string((rs_value)currentsp) << std::endl;
+                        rs_stdout << "[bp-" << current_frame_bp - currentsp << "]: " << currentsp << " " << rs_cast_string((rs_value)currentsp) << rs_endl;
                     }
 
                 }
@@ -467,7 +467,7 @@ stepir          si                            Execute next command.
                                 auto& file_loc =
                                     _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
                                         _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                                std::cout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << std::endl;;
+                                rs_stdout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << rs_endl;;
                             }
                         }
                         else if (list_what == "var")
@@ -494,18 +494,18 @@ stepir          si                            Execute next command.
                                 size_t vmcount = 0;
                                 for (auto vms : rs::vmbase::_alive_vm_list)
                                 {
-                                    std::cout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " ";
+                                    rs_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " ";
 
                                     if (vms->env->rt_codes == vms->ip || vms->ip == vms->env->rt_codes + vms->env->rt_code_len)
-                                        std::cout << "(pending)" << std::endl;
+                                        rs_stdout << "(pending)" << rs_endl;
                                     else if (vms->ip < vms->env->rt_codes || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
                                     {
-                                        std::cout << "(leaving)" << std::endl;
+                                        rs_stdout << "(leaving)" << rs_endl;
                                         vms->dump_call_stack(5, false);
                                     }
                                     else
                                     {
-                                        std::cout << "(running)" << std::endl;
+                                        rs_stdout << "(running)" << rs_endl;
                                         vms->dump_call_stack(5, false);
                                     }
 
@@ -576,17 +576,17 @@ stepir          si                            Execute next command.
                 printf(ANSI_HIR "Cannot open source: '%s'.\n" ANSI_RST, filepath.c_str());
             else
             {
-                std::cout << filepath << " from: ";
+                rs_stdout << filepath << " from: ";
                 if (from == 0)
-                    std::cout << "File begin";
+                    rs_stdout << "File begin";
                 else
-                    std::cout << from;
-                std::cout << " to: ";
+                    rs_stdout << from;
+                rs_stdout << " to: ";
                 if (to == SIZE_MAX)
-                    std::cout << "File end";
+                    rs_stdout << "File end";
                 else
-                    std::cout << to;
-                std::cout << std::endl;
+                    rs_stdout << to;
+                rs_stdout << rs_endl;
 
                 // print source;
                 // here is a easy lexer..
@@ -606,7 +606,7 @@ stepir          si                            Execute next command.
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            std::cout << std::endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
+                            rs_stdout << rs_endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
                         }
                         continue;
                     }
@@ -618,7 +618,7 @@ stepir          si                            Execute next command.
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            std::cout << std::endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
+                            rs_stdout << rs_endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                             index++;
@@ -629,13 +629,13 @@ stepir          si                            Execute next command.
                         printf(ANSI_INV);
 
                     if (from <= current_row_no && current_row_no <= to)
-                        std::wcout << srcfile[index];
+                        rs_wstdout << srcfile[index];
 
                     if (current_row_no == highlight)
                         printf(ANSI_RST);
                 }
             }
-            std::cout << std::endl;
+            rs_stdout << rs_endl;
         }
 
         virtual void debug_interrupt(vmbase* vmm) override

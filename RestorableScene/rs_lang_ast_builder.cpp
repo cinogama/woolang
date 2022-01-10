@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "rs_lang_ast_builder.hpp"
 
 namespace rs

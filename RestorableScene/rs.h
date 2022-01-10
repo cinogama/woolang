@@ -130,8 +130,11 @@ RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
 
 enum _rs_inform_style
 {
-    RS_NOTHING = 0,
-    RS_NEED_COLOR = 1,
+    RS_DEFAULT = 0,
+
+    RS_NOTHING = 1,
+    RS_NEED_COLOR = 2,
+
 };
 
 RS_API rs_string_t  rs_locale_name();

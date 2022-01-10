@@ -30,9 +30,9 @@ int main(int argc, char** argv)
         bool compile_successful_flag = rs_load_file(vmm, argv[1]);
 
         if (rs_has_compile_error(vmm))
-            std::cerr << rs_get_compile_error(vmm, RS_NEED_COLOR) << std::endl;
+            std::cerr << rs_get_compile_error(vmm, RS_DEFAULT) << std::endl;
         if (rs_has_compile_warning(vmm))
-            std::cerr << rs_get_compile_warning(vmm, RS_NEED_COLOR) << std::endl;
+            std::cerr << rs_get_compile_warning(vmm, RS_DEFAULT) << std::endl;
 
         rs_value return_state = nullptr;
 

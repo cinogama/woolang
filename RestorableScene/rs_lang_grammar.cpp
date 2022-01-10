@@ -1,3 +1,5 @@
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "rs_lang_grammar_loader.hpp"
 #include "rs_lang_grammar_lr1_autogen.hpp"
 #include "rs_crc_64.hpp"
@@ -52,7 +54,7 @@ namespace rs
         else
         {
 #endif
-            std::cout << ANSI_HIY "RSGramma: " ANSI_RST "Syntax update detected, LR table cache is being regenerating..." << std::endl;
+            rs_stdout << ANSI_HIY "RSGramma: " ANSI_RST "Syntax update detected, LR table cache is being regenerating..." << rs_endl;
 
             using gm = rs::grammar;
             rs_grammar = new grammar(
@@ -832,11 +834,11 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 }
             );
 
-            std::cout << ANSI_HIY "RSGramma: " ANSI_RST "Checking LR(1) table..." << std::endl;
+            rs_stdout << ANSI_HIY "RSGramma: " ANSI_RST "Checking LR(1) table..." << rs_endl;
 
             if (rs_grammar->check_lr1())
             {
-                std::cout << ANSI_HIR "RSGramma: " ANSI_RST "LR(1) have some problem, abort." << std::endl;
+                rs_stdout << ANSI_HIR "RSGramma: " ANSI_RST "LR(1) have some problem, abort." << rs_endl;
                 exit(-1);
             }
 
@@ -844,7 +846,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
             if (!RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE)
             {
-                std::cout << ANSI_HIY "RSGramma: " ANSI_RST "OK, now writting cache..." << std::endl;
+                rs_stdout << ANSI_HIY "RSGramma: " ANSI_RST "OK, now writting cache..." << rs_endl;
 
                 using namespace std;
                 const wchar_t* tab = L"    ";
@@ -1043,7 +1045,8 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 {
                     if (aim.builder_index == 0)
                     {
-                        std::wcout << ANSI_HIY "RSGramma: " ANSI_RST "Producer: " ANSI_HIR << grammar::lr_item{ grammar::rule{ aim ,rule },size_t(-1),grammar::te(grammar::ttype::l_eof) } << ANSI_RST " have no ast builder, using default builder.." << std::endl;
+                        rs_wstdout << ANSI_HIY "RSGramma: " ANSI_RST "Producer: " ANSI_HIR << grammar::lr_item{ grammar::rule{ aim ,rule },size_t(-1),grammar::te(grammar::ttype::l_eof) }
+                        << ANSI_RST " have no ast builder, using default builder.." << rs_endl;
                     }
 
                     cachefile << L"   { " << nonte_list[aim.nt_name] << L", " << aim.builder_index << L", " << rule.size() << ", ";
@@ -1071,11 +1074,11 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 cachefile << L"}// end of namespace 'rs'" << endl;
                 cachefile.flush();
 
-                std::cout << ANSI_HIG "RSGramma: " ANSI_RST "Finished." << std::endl;
+                rs_stdout << ANSI_HIG "RSGramma: " ANSI_RST "Finished." << rs_endl;
             }
             else
             {
-                std::cout << ANSI_HIG "RSGramma: " ANSI_RST "Skip generating LR(1) table cache (RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE is true)." << std::endl;
+                rs_stdout << ANSI_HIG "RSGramma: " ANSI_RST "Skip generating LR(1) table cache (RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE is true)." << rs_endl;
             }
 
 #if defined(RS_LANG_GRAMMAR_LR1_AUTO_GENED) && !RS_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE

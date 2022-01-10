@@ -1,9 +1,9 @@
 #pragma once
-
-#include "rs_macro.hpp"
-
 #define RS_IMPL
 #include "rs.h"
+
+#include "rs_macro.hpp"
+#include "rs_io.hpp"
 
 #include <iostream>
 #include <cstdlib>
@@ -13,25 +13,25 @@ static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
 static void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
-    std::cerr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << std::endl;
+    rs::rs_stderr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << rs::rs_endl;
     if (reason)
-        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
+        rs::rs_stderr << "\t" ANSI_HIY << reason << ANSI_RST << rs::rs_endl;
 
-    std::cerr << "Function : " << function << std::endl;
-    std::cerr << "File : " << file << std::endl;
-    std::cerr << "Line : " << line << std::endl;
+    rs::rs_stderr << "Function : " << function << rs::rs_endl;
+    rs::rs_stderr << "File : " << file << rs::rs_endl;
+    rs::rs_stderr << "Line : " << line << rs::rs_endl;
     abort();
 }
 
 static void _rs_warning(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
-    std::cerr << ANSI_HIY "Warning: " ANSI_RST << judgement << std::endl;
+    rs::rs_stderr << ANSI_HIY "Warning: " ANSI_RST << judgement << rs::rs_endl;
     if (reason)
-        std::cerr << "\t" ANSI_HIY << reason << ANSI_RST << std::endl;
+        rs::rs_stderr << "\t" ANSI_HIY << reason << ANSI_RST << rs::rs_endl;
 
-    std::cerr << "Function : " << function << std::endl;
-    std::cerr << "File : " << file << std::endl;
-    std::cerr << "Line : " << line << std::endl;
+    rs::rs_stderr << "Function : " << function << rs::rs_endl;
+    rs::rs_stderr << "File : " << file << rs::rs_endl;
+    rs::rs_stderr << "Line : " << line << rs::rs_endl;
 }
 
 #define rs_test(...) rs_macro_overload(rs_test,__VA_ARGS__)

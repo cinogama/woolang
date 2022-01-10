@@ -72,5 +72,7 @@ namespace rs
         */
         inline bool ENABLE_IR_CODE_ACTIVE_ALLIGN = false;
 
+        inline bool ENABLE_OUTPUT_ANSI_COLOR_CTRL = true;
+
     }
 }
