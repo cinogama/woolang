@@ -2729,6 +2729,7 @@ namespace rs
             ast_type* old_type;
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
+            std::map<std::wstring, std::vector<ast::ast_value_function_define*>> class_methods_list;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -2962,6 +2963,8 @@ namespace rs
                             else if (avfdef->function_name == L"new"
                                 && !avfdef->argument_list->children)
                                 has_custom_new_func = true;
+
+                            using_type->class_methods_list[avfdef->function_name].push_back(avfdef);
                         }
                         else
                         {

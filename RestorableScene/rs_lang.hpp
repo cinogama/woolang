@@ -42,7 +42,6 @@ namespace rs
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
-
         std::vector<ast::ast_value_function_define*> function_overload_sets;
 
         bool is_template_symbol = false;
@@ -248,9 +247,42 @@ namespace rs
         bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
         {
             bool result = true;
+            // Check function
+
+            if (clstype->using_type_name && naming->using_type_name &&
+                clstype->using_type_name->symbol && naming->using_type_name->symbol)
+            {
+                auto cls_using = dynamic_cast<ast::ast_using_type_as*>(clstype->using_type_name->symbol->define_node);
+                auto naming_using = dynamic_cast<ast::ast_using_type_as*>(naming->using_type_name->symbol->define_node);
+
+                for (auto& [naming_func_name, naming_funcs] : naming_using->class_methods_list)
+                {
+                    if (auto fnd = cls_using->class_methods_list.find(naming_func_name); fnd != cls_using->class_methods_list.end())
+                    {
+                        if (fnd->second.size() != naming_funcs.size())
+                        {
+                            lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 方法%ls的重载集不符，继续",
+                                clstype->get_type_name(false).c_str(),
+                                naming->get_type_name(false).c_str(),
+                                naming_func_name.c_str());
+                            result = false;
+                        }
+                        // TODO: do more check.. here just so~
+                    }
+                    else
+                    {
+                        lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 缺少方法%ls，继续",
+                            clstype->get_type_name(false).c_str(),
+                            naming->get_type_name(false).c_str(),
+                            naming_func_name.c_str());
+                        result = false;
+                    }
+                }
+
+            }
 
             // Check member
-            for (auto [naming_memb_name, naming_memb_name_val] : naming->class_member_index)
+            for (auto& [naming_memb_name, naming_memb_name_val] : naming->class_member_index)
             {
                 if (auto fnd = clstype->class_member_index.find(naming_memb_name); fnd != clstype->class_member_index.end())
                 {
@@ -402,8 +434,6 @@ namespace rs
                         if (using_template)
                             end_template_scope();
                     }
-
-
                 }
             }
 
@@ -4597,7 +4627,6 @@ namespace rs
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
                 sym->define_node = def;
-
                 lang_symbols.push_back(sym);
                 return sym;
             }

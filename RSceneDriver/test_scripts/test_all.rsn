@@ -23,11 +23,17 @@ import test_thread;
 naming IPlayer<T>
 {
 	var name = []:array<T>;
+
+	func foo<T>(var self:IPlayer<T>, var x:int):void{}
 }
 
 using Joy<B> : IPlayer<B>
 {
-	var name = []:array<string>;
+	var name = []:array<B>;
+
+	func foo<T>(var self:Joy<B>, var x:int)
+	{
+	}
 }
 
 Joy:<int>();
