@@ -70,7 +70,7 @@ RS_API rs_api rslib_std_randomreal(rs_vm vm, rs_value args)
 
 RS_API rs_api rslib_std_array_resize(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_arr_resize(args + 0, rs_int(args + 1));
+    rs_arr_resize(args + 0, rs_int(args + 1), args + 2);
     return rs_ret_nil(vm);
 }
 
@@ -390,7 +390,7 @@ namespace array
         func len<T>(var val:array<T>):int;
 
     extern("rslib_std_array_resize") 
-        func resize<T>(var val:array<T>, var newsz:int):void;
+        func resize<T>(var val:array<T>, var newsz:int, var init_val:T):void;
 
     func get<T>(var a:array<T>, var index:int)
     {

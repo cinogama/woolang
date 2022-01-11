@@ -958,7 +958,7 @@ rs_value rs_run(rs_vm vm)
 
 // CONTAINER OPERATE
 
-void rs_arr_resize(rs_value arr, rs_int_t newsz)
+void rs_arr_resize(rs_value arr, rs_int_t newsz, rs_value init_val)
 {
     auto _arr = RS_VAL(arr);
 
@@ -967,10 +967,10 @@ void rs_arr_resize(rs_value arr, rs_int_t newsz)
     else if (_arr->type == rs::value::valuetype::array_type)
     {
         rs::gcbase::gc_write_guard g1(_arr->array);
-        _arr->array->resize((size_t)newsz);
+        _arr->array->resize((size_t)newsz, *RS_VAL(init_val));
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
 rs_value rs_arr_add(rs_value arr, rs_value elem)
@@ -991,7 +991,7 @@ rs_value rs_arr_add(rs_value arr, rs_value elem)
         return reinterpret_cast<rs_value>(&_arr->array->back());
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 
     return nullptr;
 }
@@ -1012,7 +1012,7 @@ rs_value rs_arr_get(rs_value arr, rs_int_t index)
 
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 
     return nullptr;
 }
@@ -1038,7 +1038,7 @@ rs_int_t rs_arr_find(rs_value arr, rs_value elem)
 
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 
     return -1;
 }
@@ -1059,7 +1059,7 @@ void rs_arr_remove(rs_value arr, rs_int_t index)
             rs_fail(RS_FAIL_INDEX_FAIL, "Index out of range.");
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 void rs_arr_clear(rs_value arr)
 {
@@ -1074,7 +1074,7 @@ void rs_arr_clear(rs_value arr)
 
     }
     else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a array.");
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
 rs_bool_t rs_map_find(rs_value map, rs_value index)

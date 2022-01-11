@@ -245,6 +245,36 @@ namespace rs
             clean_and_close_lang();
         }
 
+        bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
+        {
+            bool result = true;
+
+            // Check member
+            for (auto [naming_memb_name, naming_memb_name_val] : naming->class_member_index)
+            {
+                if (auto fnd = clstype->class_member_index.find(naming_memb_name); fnd != clstype->class_member_index.end())
+                {
+                    if (!fnd->second->value_type->is_same(naming_memb_name_val->value_type))
+                    {
+                        lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
+                            clstype->get_type_name(false).c_str(),
+                            naming->get_type_name(false).c_str(),
+                            naming_memb_name.c_str());
+                        result = false;
+                    }
+                }
+                else
+                {
+                    lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 缺少成员%ls，继续",
+                        clstype->get_type_name(false).c_str(),
+                        naming->get_type_name(false).c_str(),
+                        naming_memb_name.c_str());
+                    result = false;
+                }
+            }
+            return result;
+        }
+
         void fully_update_type(ast::ast_type* type, bool in_pass_1)
         {
             if (type->typefrom)
@@ -358,6 +388,17 @@ namespace rs
 
                             type->using_type_name->symbol = type_sym;
                         }
+
+                        if (!type->template_impl_naming_checking.empty())
+                        {
+                            for (ast::ast_type* naming_type : type->template_impl_naming_checking)
+                            {
+                                fully_update_type(naming_type, in_pass_1);
+
+                                check_matching_naming(type, naming_type);
+                            }
+                        }
+
                         if (using_template)
                             end_template_scope();
                     }
@@ -645,7 +686,6 @@ namespace rs
                                 lang_anylizer->lang_error(0x0000, a_value_func, RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
                                     a_value_func->externed_func_info->symbol_name.c_str(),
                                     a_value_func->externed_func_info->load_from_lib.c_str());
-                            
                         }
                     }
 
@@ -4312,7 +4352,7 @@ namespace rs
             compiler->tag("__rsir_rtcode_seg_function_define_end");
             compiler->pdb_info->loaded_libs = extern_libs;
             compiler->pdb_info->finalize_generate_debug_info();
-            
+
             rs::grammar::ast_base::pickout_this_thread_ast(generated_ast_nodes_buffers);
         }
 

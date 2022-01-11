@@ -109,7 +109,15 @@ gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                                     gm::te(gm::ttype::l_using),
                                     gm::te(gm::ttype::l_identifier),
                                     gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                                    gm::nt(L"ASSIGN_MAY_EMPTY"),
+                                    gm::nt(L"MATCH_NAMEING_MAY_EMPTY"),
+                                    gm::nt(L"CLASS_DEFINE_BODY")}
+>> RS_ASTBUILDER_INDEX(ast::pass_class_define),
+
+gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                                    gm::te(gm::ttype::l_naming),
+                                    gm::te(gm::ttype::l_identifier),
+                                    gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                                    gm::nt(L"MATCH_NAMEING_MAY_EMPTY"),
                                     gm::nt(L"CLASS_DEFINE_BODY")}
 >> RS_ASTBUILDER_INDEX(ast::pass_class_define),
 
@@ -138,12 +146,17 @@ gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME"), gm
 gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_assign) }
+gm::nt(L"MATCH_NAMEING_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"MATCH_NAMEING_LIST")}
+        >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+gm::nt(L"MATCH_NAMEING_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
         >> RS_ASTBUILDER_INDEX(ast::pass_empty),
 
-gm::nt(L"ASSIGN_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-        >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"TYPE") }
+        >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
+gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE")}
+        >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
                 //////////////////////////////////////////////////////////////////////////////////////
 
                 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
@@ -706,6 +719,9 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"CALLABLE_LEFT") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"), gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_template_reification),
 
+                gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
                 //左值是被赋值的对象，应该是一个标识符或者一个函数表达式
                 gm::nt(L"LEFTVARIABLE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_variable),
@@ -737,6 +753,9 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
+
+                gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
                 gm::nt(L"CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }

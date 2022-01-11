@@ -113,6 +113,8 @@ namespace rs
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
 
+            std::vector<ast_type*> template_impl_naming_checking;
+
             std::map<std::wstring, ast_value*> class_member_index;
 
             ast_type* using_type_name = nullptr;
@@ -309,6 +311,7 @@ namespace rs
                     using_type_name = _type->using_type_name;
                     template_arguments = _type->template_arguments;
                     class_member_index = _type->class_member_index;
+                    template_impl_naming_checking = _type->template_impl_naming_checking;
                 }
             }
 
@@ -345,6 +348,7 @@ namespace rs
                 rett->using_type_name = using_type_name;
                 rett->template_arguments = template_arguments;
                 rett->class_member_index = class_member_index;
+                rett->template_impl_naming_checking = template_impl_naming_checking;
                 return rett;
             }
             void append_function_argument_type(ast_type* arg_type)
@@ -2905,6 +2909,11 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
+                // ATTRIB using/naming  IDENT <TEMPLIST> :NAMINGLIST {INSCOPE_SENTENCE}
+                //   0          1        2        3           4              5              
+
+                bool decl_naming = RS_NEED_TOKEN(1).type == +lex_type::l_naming;
+
                 ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = RS_NEED_TOKEN(2).identifier;
                 using_type->old_type = new ast_type(L"map");
@@ -2970,7 +2979,7 @@ namespace rs
                 else
                     ast_cls_namespace->in_scope_sentence = new ast_list;
 
-                if (!has_custom_create_func)
+                if (!decl_naming && !has_custom_create_func)
                 {
                     // MAKE FUNC DECL
                     ast_value_function_define* avfd_create = new ast_value_function_define;
@@ -3011,7 +3020,7 @@ namespace rs
                     ast_cls_namespace->in_scope_sentence->append_at_head(avfd_create);
                 }
 
-                if (!has_custom_new_func)
+                if (!decl_naming && !has_custom_new_func)
                 {
                     // MAKE FUNC DECL
                     ast_value_function_define* avfd_new = new ast_value_function_define;
@@ -3035,9 +3044,6 @@ namespace rs
                     ast_list* in_instance_pairs = new ast_list();
                     for (auto map_instance_val : init_mem_list)
                     {
-                        using_type->old_type->class_member_index[map_instance_val->ident_name]
-                            = map_instance_val->init_val;
-
                         ast_value_literal* vpair_key = new ast_value_literal(
                             token{ +lex_type::l_literal_string, map_instance_val->ident_name });
 
@@ -3071,13 +3077,30 @@ namespace rs
 
                 for (auto* vdefinfo : init_mem_list)
                 {
-                    using_type->class_const_index_typing[vdefinfo->ident_name] = vdefinfo->init_val;
+                    using_type->old_type->class_member_index[vdefinfo->ident_name]
+                        = using_type->class_const_index_typing[vdefinfo->ident_name]
+                        = vdefinfo->init_val;
                 }
 
+                if (!ast_empty::is_empty(input[4]))
+                {
+                    if (decl_naming)
+                        lex.parser_error(0x0000, L"具名声明不可继承自其他具名，继续");
+                    else
+                    {
+                        ast_type* depending_naming = dynamic_cast<ast_type*>(dynamic_cast<ast_list*>(RS_NEED_AST(4))->children);
+                        while (depending_naming)
+                        {
+                            using_type->old_type->template_impl_naming_checking.push_back(depending_naming);
+                            depending_naming = dynamic_cast<ast_type*>(depending_naming->sibling);
+                        }
+                    }
+                }
 
                 ast_list* type_decl_and_clas_body_pair = new ast_list;
                 type_decl_and_clas_body_pair->append_at_end(using_type);
                 type_decl_and_clas_body_pair->append_at_end(ast_cls_namespace);
+
                 return (ast_basic*)type_decl_and_clas_body_pair;
             }
         };

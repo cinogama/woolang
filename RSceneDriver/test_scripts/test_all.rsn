@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -20,23 +20,21 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-using HelloworldSpeaker
+naming IPlayer<T>
 {
-	func speak(var self: HelloworldSpeaker)
-	{	
-		std::println("Helloworld!~");
-	}
+	var name = []:array<T>;
 }
 
-func instance<T>()
+using Joy<B> : IPlayer<B>
 {
-	return T();
+	var name = []:array<string>;
 }
 
-instance:<typeof(HelloworldSpeaker())>()->speak();
+Joy:<int>();
 
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
+

@@ -169,7 +169,7 @@ RS_API rs_value     rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc
 RS_API rs_value     rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc);
 
 RS_API rs_int_t     rs_lengthof(rs_value value);
-RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz);
+RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz, rs_value init_val);
 RS_API rs_value     rs_arr_add(rs_value arr, rs_value elem);
 RS_API rs_value     rs_arr_get(rs_value arr, rs_int_t index);
 RS_API rs_int_t     rs_arr_find(rs_value arr, rs_value elem);
