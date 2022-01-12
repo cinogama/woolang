@@ -847,9 +847,14 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
     gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"DEFINE_TEMPLATE_TYPE") }
     >> RS_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-    gm::nt(L"DEFINE_TEMPLATE_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-    >> RS_ASTBUILDER_INDEX(ast::pass_token),
+    gm::nt(L"DEFINE_TEMPLATE_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") }
+    >> RS_ASTBUILDER_INDEX(ast::pass_template_decl),
 
+    gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+        >> RS_ASTBUILDER_INDEX(ast::pass_empty),
+
+    gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"TYPE") }
+        >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
                 }
             );
 

@@ -2868,6 +2868,25 @@ namespace rs
             }
         };
 
+        struct ast_template_define_with_naming : virtual public grammar::ast_base
+        {
+            std::wstring template_ident;
+            ast_type* naming_const;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->naming_const);
+
+                return dumm;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID) [&]() {             \
@@ -2927,13 +2946,13 @@ namespace rs
                     rs_test(template_defines);
                     using_type->is_template_define = true;
 
-                    ast_token* template_type = dynamic_cast<ast_token*>(template_defines->children);
+                    ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
                     rs_test(template_type);
                     while (template_type)
                     {
-                        using_type->template_type_name_list.push_back(template_type->tokens.identifier);
+                        using_type->template_type_name_list.push_back(template_type->template_ident);
 
-                        template_type = dynamic_cast<ast_token*>(template_type->sibling);
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
                     }
                 }
 
@@ -3593,14 +3612,14 @@ namespace rs
                 if (template_types)
                 {
                     ast_func->is_template_define = true;
-                    ast_token* templatedef = dynamic_cast<ast_token*>(template_types->children);
+                    ast_template_define_with_naming* templatedef = dynamic_cast<ast_template_define_with_naming*>(template_types->children);
                     rs_assert(templatedef);
 
                     while (templatedef)
                     {
-                        ast_func->template_type_name_list.push_back(templatedef->tokens.identifier);
+                        ast_func->template_type_name_list.push_back(templatedef->template_ident);
 
-                        templatedef = dynamic_cast<ast_token*>(templatedef->sibling);
+                        templatedef = dynamic_cast<ast_template_define_with_naming*>(templatedef->sibling);
                     }
                 }
 
@@ -4266,14 +4285,14 @@ namespace rs
                     ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
                     rs_test(template_defines);
                     using_type->is_template_define = true;
-
-                    ast_token* template_type = dynamic_cast<ast_token*>(template_defines->children);
+                    
+                    ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
                     rs_test(template_type);
                     while (template_type)
                     {
-                        using_type->template_type_name_list.push_back(template_type->tokens.identifier);
+                        using_type->template_type_name_list.push_back(template_type->template_ident);
 
-                        template_type = dynamic_cast<ast_token*>(template_type->sibling);
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
                     }
                 }
 
@@ -4480,11 +4499,23 @@ namespace rs
                 return (ast_basic*)result;
             }
         };
-
+        struct pass_template_decl : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                atn->template_ident = RS_NEED_TOKEN(0).identifier;
+                if (ast_empty::is_empty(input[1]))
+                    atn->naming_const = dynamic_cast<ast_type*>(RS_NEED_AST(1));
+                return (ast_basic*)atn;
+            }
+        };
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
         {
+            _registed_builder_function_id_list[meta::type_hash<pass_template_decl>] = _register_builder<pass_template_decl>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_mark_label>] = _register_builder<pass_mark_label>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_break>] = _register_builder<pass_break>();

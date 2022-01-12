@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -20,26 +20,29 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-naming IPlayer<T>
+naming IContainer
 {
-	var name = []:array<T>;
-
-	func foo<T>(var self:IPlayer<T>, var x:int):void{}
-}
-
-using Joy<B> : IPlayer<B>
-{
-	var name = []:array<B>;
-
-	func foo<T>(var self:Joy<B>, var x:int)
+	func get(var self:IContainer, var index)
 	{
 	}
 }
 
-Joy:<int>();
+using Joy<B> : IContainer
+{
+	func get()
+	{
+	}
+}
+
+func instance<T:IContainer>()
+{
+	return T();
+}
+
+instance:<Joy<int>>();
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
