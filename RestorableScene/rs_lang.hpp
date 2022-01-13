@@ -43,7 +43,7 @@ namespace rs
             ast::ast_type* type_informatiom;
         };
         std::vector<ast::ast_value_function_define*> function_overload_sets;
-
+        std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
 
@@ -429,6 +429,11 @@ namespace rs
 
                                 check_matching_naming(type, naming_type);
                             }
+                        }
+
+                        for (auto& naming : type_sym->naming_list)
+                        {
+                            analyze_pass2(naming);  // FORCE PASS2
                         }
 
                         if (using_template)
@@ -1060,6 +1065,20 @@ namespace rs
                 analyze_pass1(a_foreach->execute_sentences);
 
                 end_scope();
+            }
+            else if (ast_check_type_with_naming_in_pass2* a_check_naming = dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
+            {
+                fully_update_type(a_check_naming->template_type, true);
+                fully_update_type(a_check_naming->naming_const, true);
+
+                for (auto& namings : a_check_naming->template_type->template_impl_naming_checking)
+                {
+                    if (a_check_naming->naming_const->is_pending() || namings->is_pending())
+                        break; // Continue..
+                    if (namings->is_same(a_check_naming->naming_const, false))
+                        goto checking_naming_end;
+                }
+            checking_naming_end:;
             }
             else
             {
@@ -2595,6 +2614,23 @@ namespace rs
                         }
                     }
                 }
+            }
+            else if (ast_check_type_with_naming_in_pass2* a_check_naming = dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
+            {
+                fully_update_type(a_check_naming->template_type, false);
+                fully_update_type(a_check_naming->naming_const, false);
+
+                for (auto& namings : a_check_naming->template_type->template_impl_naming_checking)
+                {
+                    if (a_check_naming->naming_const->is_pending() || namings->is_pending())
+                        break;
+                    if (namings->is_same(a_check_naming->naming_const, false))
+                        goto checking_naming_end;
+                }
+                lang_anylizer->lang_error(0x0000, a_check_naming, L"泛型参数'%ls'没有具名'%ls'约束，继续",
+                    a_check_naming->template_type->get_type_name(false).c_str(),
+                    a_check_naming->naming_const->get_type_name(false).c_str());
+            checking_naming_end:;
             }
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
@@ -4272,6 +4308,10 @@ namespace rs
                     ;
                 }
             }
+            else if (dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
+            {
+                // do nothing..
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -4627,6 +4667,15 @@ namespace rs
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
                 sym->define_node = def;
+
+                ast::ast_check_type_with_naming_in_pass2* naming =
+                    dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(def->naming_check_list->children);
+                while (naming)
+                {
+                    sym->naming_list.push_back(naming);
+                    naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
+                }
+
                 lang_symbols.push_back(sym);
                 return sym;
             }

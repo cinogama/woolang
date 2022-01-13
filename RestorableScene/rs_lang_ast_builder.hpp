@@ -2723,6 +2723,27 @@ namespace rs
             }
         };
 
+        struct ast_check_type_with_naming_in_pass2 : virtual public grammar::ast_base
+        {
+            ast_type* template_type;
+            ast_type* naming_const;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                RS_REINSTANCE(dumm->template_type);
+                RS_REINSTANCE(dumm->naming_const);
+
+                return dumm;
+            }
+        };
+
+
         struct ast_using_type_as : virtual public ast_defines
         {
             std::wstring new_type_identifier;
@@ -2730,6 +2751,8 @@ namespace rs
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
             std::map<std::wstring, std::vector<ast::ast_value_function_define*>> class_methods_list;
+
+            ast_list* naming_check_list = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -2887,6 +2910,7 @@ namespace rs
             }
         };
 
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define RS_NEED_TOKEN(ID) [&]() {             \
@@ -2940,6 +2964,8 @@ namespace rs
                 using_type->old_type->template_arguments[0] = new ast_type(L"string");
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
 
+                ast_list* template_const_list = new ast_list;
+
                 if (!ast_empty::is_empty(input[3]))
                 {
                     ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
@@ -2952,10 +2978,24 @@ namespace rs
                     {
                         using_type->template_type_name_list.push_back(template_type->template_ident);
 
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
                         template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+
                     }
                 }
 
+                using_type->naming_check_list = template_const_list;
                 // TYPE DECLS STORE IN 5
 
                 bool has_custom_new_func = false;
@@ -3609,19 +3649,38 @@ namespace rs
                     argchild = argchild->sibling;
                 }
 
+                ast_list* template_const_list = new ast_list;
+
                 if (template_types)
                 {
                     ast_func->is_template_define = true;
-                    ast_template_define_with_naming* templatedef = dynamic_cast<ast_template_define_with_naming*>(template_types->children);
-                    rs_assert(templatedef);
+                    ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_types->children);
+                    rs_assert(template_type);
 
-                    while (templatedef)
+                    while (template_type)
                     {
-                        ast_func->template_type_name_list.push_back(templatedef->template_ident);
+                        ast_func->template_type_name_list.push_back(template_type->template_ident);
 
-                        templatedef = dynamic_cast<ast_template_define_with_naming*>(templatedef->sibling);
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
                     }
                 }
+
+                if (ast_func->in_function_sentence)
+                    ast_func->in_function_sentence->append_at_head(template_const_list);
+                else
+                    ast_func->in_function_sentence = template_const_list;
 
                 // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
                 return (grammar::ast_base*)ast_func;
@@ -4280,21 +4339,37 @@ namespace rs
                 using_type->old_type = dynamic_cast<ast_type*>(RS_NEED_AST(5));
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
 
+                ast_list* template_const_list = new ast_list;
+
                 if (!ast_empty::is_empty(input[3]))
                 {
                     ast_list* template_defines = dynamic_cast<ast_list*>(RS_NEED_AST(3));
                     rs_test(template_defines);
                     using_type->is_template_define = true;
-                    
+
                     ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
                     rs_test(template_type);
                     while (template_type)
                     {
                         using_type->template_type_name_list.push_back(template_type->template_ident);
 
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
                         template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
                     }
                 }
+
+                using_type->naming_check_list = template_const_list;
 
                 return (ast_basic*)using_type;
             }
@@ -4506,6 +4581,8 @@ namespace rs
                 ast_template_define_with_naming* atn = new ast_template_define_with_naming;
                 atn->template_ident = RS_NEED_TOKEN(0).identifier;
                 if (ast_empty::is_empty(input[1]))
+                    atn->naming_const = nullptr;
+                else
                     atn->naming_const = dynamic_cast<ast_type*>(RS_NEED_AST(1));
                 return (ast_basic*)atn;
             }

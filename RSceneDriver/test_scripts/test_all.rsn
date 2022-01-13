@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -27,11 +27,19 @@ naming IContainer
 	}
 }
 
-using Joy<B> : IContainer
+naming INothing
+{
+}
+
+using Joy<B:INothing> : INothing, IContainer
 {
 	func get()
 	{
 	}
+}
+
+using RelNothing : INothing
+{
 }
 
 func instance<T:IContainer>()
@@ -39,10 +47,10 @@ func instance<T:IContainer>()
 	return T();
 }
 
-instance:<Joy<int>>();
+instance:<Joy<RelNothing>>();
 
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
