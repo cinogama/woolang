@@ -286,7 +286,10 @@ namespace rs
             {
                 if (auto fnd = clstype->class_member_index.find(naming_memb_name); fnd != clstype->class_member_index.end())
                 {
-                    if (!fnd->second->value_type->is_same(naming_memb_name_val->value_type))
+                    if (naming_memb_name_val->value_type->is_pending())
+                        ; // member type not computed, just pass
+                    else if (fnd->second->value_type->is_pending()
+                        || !fnd->second->value_type->is_same(naming_memb_name_val->value_type))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -315,7 +318,7 @@ namespace rs
 
                 if (in_pass_1)
                     analyze_pass1(type->typefrom);
-                else
+                if (has_step_in_step2)
                     analyze_pass2(type->typefrom);
 
                 if (!type->typefrom->value_type->is_pending())
@@ -433,7 +436,11 @@ namespace rs
 
                         for (auto& naming : type_sym->naming_list)
                         {
+                            if (in_pass_1)
+                                analyze_pass1(type->typefrom);
+                            auto inpass2 = has_step_in_step2;
                             analyze_pass2(naming);  // FORCE PASS2
+                            has_step_in_step2 = inpass2;
                         }
 
                         if (using_template)
@@ -446,7 +453,7 @@ namespace rs
             {
                 if (in_pass_1)
                     analyze_pass1(initval);
-                else
+                if (has_step_in_step2)
                     analyze_pass2(initval);
             }
 
@@ -1229,6 +1236,7 @@ namespace rs
         }
 
         bool write_flag_complete_in_pass2 = true;
+        bool has_step_in_step2 = false;
 
         void start_trying_pass2()
         {
@@ -1241,6 +1249,8 @@ namespace rs
 
         void analyze_pass2(grammar::ast_base* ast_node)
         {
+            has_step_in_step2 = true;
+
             entry_pass ep1(in_pass2, true);
 
             rs_assert(ast_node);
@@ -3257,7 +3267,9 @@ namespace rs
                         // TODO Right may be 'nil', do not dup nil..
                         compiler->movdup(beoped_left_opnum, op_right_opnum);
                     else if (optype == value::valuetype::invalid &&
-                        !a_value_assign->left->value_type->is_dynamic())
+                        !a_value_assign->left->value_type->is_dynamic()
+                        && !a_value_assign->left->value_type->is_func()
+                        && !a_value_assign->right->value_type->is_func())
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     else
                         compiler->mov(beoped_left_opnum, op_right_opnum);
@@ -4668,12 +4680,15 @@ namespace rs
                 sym->defined_in_scope = lang_scopes.back();
                 sym->define_node = def;
 
-                ast::ast_check_type_with_naming_in_pass2* naming =
-                    dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(def->naming_check_list->children);
-                while (naming)
+                if (def->naming_check_list)
                 {
-                    sym->naming_list.push_back(naming);
-                    naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
+                    ast::ast_check_type_with_naming_in_pass2* naming =
+                        dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(def->naming_check_list->children);
+                    while (naming)
+                    {
+                        sym->naming_list.push_back(naming);
+                        naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
+                    }
                 }
 
                 lang_symbols.push_back(sym);

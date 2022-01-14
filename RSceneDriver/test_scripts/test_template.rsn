@@ -194,8 +194,31 @@ namespace test_template
 	    return "hello" + msg;
     }
 
+    func test_typeof_in_template<T>()
+    {
+        return nil:typeof(func(){});
+    }
+
+    func test_typeof_in_template2<T>()
+    {
+        var a = func(){return 1;};
+        return nil:typeof(a);
+    }
+
     func main()
     {
+        var xfunc = test_typeof_in_template:<int>;
+        xfunc = func(){return func(){};};
+
+        var xfunc2 = test_typeof_in_template:<int>();
+        xfunc2 = func(){};
+ 
+        var xfunc3 = test_typeof_in_template2:<int>;
+        xfunc3 = func(){return func(){return 0;};};
+
+        var xfunc4 = test_typeof_in_template2:<int>();
+        xfunc4 = func(){return 0;};
+
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");
 
         constexpr_if_test:<gchandle>();

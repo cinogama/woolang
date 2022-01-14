@@ -163,7 +163,7 @@ namespace rs
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
-                if (to->is_pending() || to->is_void())
+                if (to->is_pending() || (to->is_void()&& !to->is_func()))
                     return false;
 
                 if (to->is_dynamic())

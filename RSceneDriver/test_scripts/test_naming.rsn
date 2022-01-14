@@ -1,0 +1,33 @@
+import rscene.std;
+import test_tool;
+
+namespace test_naming
+{
+/*
+    func judge_test<T:IExample<int>>()
+    {
+    }
+
+    using RExample : IExample<int>
+    {
+        var m_typed_val = "";
+    }
+
+    naming IExample<T>
+    {
+        var m_typed_val = get_nil:<T>();
+    }
+    
+    func get_nil<T>():T 
+    {
+        // Do nothing, just get a nil to fool compiler..
+    }
+
+    func main()
+    {
+        judge_test:<RExample>();
+    }
+    */
+}
+
+// test_function("test_naming.main", test_naming::main);

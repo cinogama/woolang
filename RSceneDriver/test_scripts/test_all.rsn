@@ -1,7 +1,8 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
+import test_naming;
 import test_string_u8;
 import test_while;
 import test_debug_invoke;
@@ -20,37 +21,38 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-naming IContainer
+func thread_vm_mem_test()
 {
-	func get(var self:IContainer, var index)
+	var ths = []:array<std::thread>;
+
+	std::println("Test begin!");
+	std::sleep(10);
+	std::println("Start thread!");
+	for(var i = 0; i < 10; i+=1)
 	{
+		ths->add(std::thread(
+			func()
+			{
+				while(true);
+			}));
 	}
-}
+	std::println("Waiting!");
+	std::sleep(10);
+	std::println("Close thread!");
 
-naming INothing
-{
-}
-
-using Joy<B:INothing> : INothing, IContainer
-{
-	func get()
+	for(var th : ths)
 	{
+		th->abort();
 	}
+	std::println("Waiting!");
+	std::sleep(20);
+	std::println("Test Over!");
+	std::sleep(20);
 }
-
-using RelNothing : INothing
-{
-}
-
-func instance<T:IContainer>()
-{
-	return T();
-}
-
-instance:<Joy<RelNothing>>();
+thread_vm_mem_test();
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
