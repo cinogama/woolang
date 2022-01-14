@@ -105,6 +105,11 @@ namespace rs
 
             ABORT_INTERRUPT = 1 << 11,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
+
+            YIELD_INTERRUPT = 1 << 12,
+            // If virtual machine interrupt with YIELD_INTERRUPT, vm will stop immediately.
+            //  * Unlike ABORT_INTERRUPT, VM will clear YIELD_INTERRUPT flag after detective.
+            //  * This flag used for rs_coroutine
         };
 
         vmbase(const vmbase&) = delete;
@@ -2992,7 +2997,11 @@ namespace rs
                             // CLEAR ABORT_INTERRUPT
                             return;
                         }
-
+                        else if (vm_interrupt & vm_interrupt_type::YIELD_INTERRUPT)
+                        {
+                            rs_assure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
+                            return;
+                        }
                         // it should be last interrupt..
                         else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
                         {

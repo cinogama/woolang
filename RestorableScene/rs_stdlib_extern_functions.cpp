@@ -793,3 +793,11 @@ namespace std
 }
 
 )" };
+
+
+// RScene coroutine manager
+/*
+            RSTHREAD_RESOURCE
+           /         |        \
+RSCOROUTINE... RSCOROUTINE... RSCOROUTINE...
+*/
