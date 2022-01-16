@@ -8,6 +8,7 @@
 #include "rs_env_locale.hpp"
 #include "rs_global_setting.hpp"
 #include "rs_lang_extern_symbol_loader.hpp"
+#include "rs_shared_ptr.hpp"
 
 #include <cstring>
 #include <string>
@@ -360,7 +361,7 @@ namespace rs
         std::atomic_size_t _running_on_vm_count = 0;
         std::atomic_size_t _created_destructable_instance_count = 0;
 
-        std::shared_ptr<program_debug_data_info> program_debug_info;
+        shared_pointer<program_debug_data_info> program_debug_info;
 
         ~runtime_env()
         {
@@ -457,7 +458,7 @@ namespace rs
 
     public:
 
-        std::shared_ptr<program_debug_data_info> pdb_info = std::make_shared< program_debug_data_info>();
+        shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
 
         ~ir_compiler()
         {
@@ -1457,7 +1458,7 @@ namespace rs
 #undef RS_PUT_IR_TO_BUFFER
 
     private:
-        std::shared_ptr<runtime_env> finalize()
+        shared_pointer<runtime_env> finalize()
         {
             // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
@@ -1510,7 +1511,7 @@ namespace rs
             }
 
             // 2. Generate code
-            std::shared_ptr<runtime_env> env = std::make_shared<runtime_env>();
+            shared_pointer<runtime_env> env = new runtime_env();
 
             for (size_t ip = 0; ip < ir_command_buffer.size(); ip++)
             {

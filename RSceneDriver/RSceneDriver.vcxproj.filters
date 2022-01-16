@@ -59,7 +59,7 @@
     <None Include="test_scripts\test_thread.rsn">
       <Filter>test_scripts</Filter>
     </None>
-    <None Include="test_scripts\test_naming.rsn">
+    <None Include="test_scripts\test_coroutine.rsn">
       <Filter>test_scripts</Filter>
     </None>
   </ItemGroup>

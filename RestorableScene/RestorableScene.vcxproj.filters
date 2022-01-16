@@ -34,6 +34,9 @@
     <Filter Include="stdlib">
       <UniqueIdentifier>{117ab175-6ff0-4183-a15a-3eb3498061b0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="roroutine">
+      <UniqueIdentifier>{a7bfe678-fd42-4d08-b6ab-e083ea4ae547}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -156,6 +159,12 @@
       <Filter>environment</Filter>
     </ClInclude>
     <ClInclude Include="rs_io.hpp">
+      <Filter>basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_mgr.hpp">
+      <Filter>roroutine</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_shared_ptr.hpp">
       <Filter>basic</Filter>
     </ClInclude>
   </ItemGroup>

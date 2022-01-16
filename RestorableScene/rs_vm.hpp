@@ -110,6 +110,10 @@ namespace rs
             // If virtual machine interrupt with YIELD_INTERRUPT, vm will stop immediately.
             //  * Unlike ABORT_INTERRUPT, VM will clear YIELD_INTERRUPT flag after detective.
             //  * This flag used for rs_coroutine
+
+            PENDING_INTERRUPT = 1 << 13,
+            // VM will be pending when roroutine_mgr finish using pooled-vm, PENDING_INTERRUPT
+            // only setted when vm is not running.
         };
 
         vmbase(const vmbase&) = delete;
@@ -129,8 +133,11 @@ namespace rs
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
+
     protected:
         debuggee_base* attaching_debuggee = nullptr;
+        unsigned int _vm_native_calling_flag = 0;
+        bool _vm_native_calling_need_yield_flag = false;
 
     public:
         inline debuggee_base* attach_debuggee(debuggee_base* dbg)
@@ -264,7 +271,7 @@ namespace rs
         value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
         value* _self_stack_reg_mem_buf = nullptr;
-        std::shared_ptr<runtime_env> env;
+        shared_pointer<runtime_env> env;
         void set_runtime(ir_compiler& _compiler)
         {
             // using LEAVE_INTERRUPT to stop GC
@@ -883,6 +890,26 @@ namespace rs
 
         virtual void run() = 0;
 
+        value* co_pre_invoke(rs_int_t rs_func_addr, rs_int_t argc)
+        {
+            rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+
+            if (!rs_func_addr)
+                rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                auto* return_sp = sp;
+
+                (sp--)->set_native_callstack(ip);
+                ip = env->rt_codes + rs_func_addr;
+                tc->set_integer(argc);
+                bp = sp;
+
+                return return_sp;
+            }
+            return nullptr;
+        }
+
         value* invoke(rs_int_t rs_func_addr, rs_int_t argc)
         {
             rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
@@ -900,7 +927,9 @@ namespace rs
                 tc->set_integer(argc);
                 bp = sp;
 
+                ++_vm_native_calling_flag;
                 run();
+                --_vm_native_calling_flag;
 
                 ip = return_ip;
                 sp = return_sp;
@@ -925,11 +954,13 @@ namespace rs
                 tc->set_integer(argc);
                 bp = sp;
 
+                ++_vm_native_calling_flag;
                 reinterpret_cast<rs_native_func>(rs_func_addr)(
                     reinterpret_cast<rs_vm>(this),
                     reinterpret_cast<rs_value>(sp + 2),
                     argc
                     );
+                --_vm_native_calling_flag;
 
                 ip = return_ip;
                 sp = return_sp;
@@ -2606,7 +2637,14 @@ namespace rs
                             || (rt_bp + 1)->type == value::valuetype::nativecallstack);
 
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
+                        {
+                            if (_vm_native_calling_need_yield_flag)
+                            {
+                                interrupt(YIELD_INTERRUPT);
+                                _vm_native_calling_need_yield_flag = false;
+                            }
                             return; // last stack is native_func, just do return; stack balance should be keeped by invoker
+                        }
 
                         value* stored_bp = stack_mem_begin - rt_bp->bp;
                         rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
@@ -2640,9 +2678,11 @@ namespace rs
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
                             rt_cr->set_nil();
 
-                            rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            ++_vm_native_calling_flag;
+                                rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            --_vm_native_calling_flag;
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -2675,11 +2715,13 @@ namespace rs
 
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
+                            ++_vm_native_calling_flag;
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            --_vm_native_calling_flag;
 
-                            rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                                rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                             rt_sp = rt_bp;
                             rt_bp = stored_bp;
@@ -2986,11 +3028,6 @@ namespace rs
                             if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
                                 hangup();   // SLEEP UNTIL WAKE UP
                         }
-                        else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
-                        {
-                            // That should not be happend...
-                            rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
-                        }
                         else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
                         {
                             // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
@@ -2999,8 +3036,21 @@ namespace rs
                         }
                         else if (vm_interrupt & vm_interrupt_type::YIELD_INTERRUPT)
                         {
-                            rs_assure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
-                            return;
+                            rs_asure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
+                            if (_vm_native_calling_flag)
+                                _vm_native_calling_need_yield_flag = true;
+                            else
+                                return;
+                        }
+                        else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                        {
+                            // That should not be happend...
+                            rs_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                        }
+                        else if (vm_interrupt & vm_interrupt_type::PENDING_INTERRUPT)
+                        {
+                            // That should not be happend...
+                            rs_error("Virtual machine handled a PENDING_INTERRUPT.");
                         }
                         // it should be last interrupt..
                         else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)

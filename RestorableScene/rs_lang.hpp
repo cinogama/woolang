@@ -322,7 +322,12 @@ namespace rs
                     analyze_pass2(type->typefrom);
 
                 if (!type->typefrom->value_type->is_pending())
-                    type->set_type(type->typefrom->value_type);
+                {
+                    if (type->is_func())
+                        type->set_ret_type(type->typefrom->value_type);
+                    else
+                        type->set_type(type->typefrom->value_type);
+                }
 
                 if (used_type_info)
                     type->using_type_name = used_type_info;
@@ -705,6 +710,10 @@ namespace rs
                         arg_child = arg_child->sibling;
                     }
 
+                    fully_update_type(a_value_func->value_type, true);  
+                    // update return type info for
+                    // func xxx(var x:int): typeof(x)
+
                     if (a_value_func->in_function_sentence)
                     {
                         analyze_pass1(a_value_func->in_function_sentence);
@@ -1034,21 +1043,26 @@ namespace rs
             {
                 // do using namespace op..
                 // do check..
-                auto* parent_child = a_using_namespace->parent->children;
-                while (parent_child)
-                {
-                    if (auto* using_namespace_ch = dynamic_cast<ast_using_namespace*>(parent_child))
-                    {
-                        if (using_namespace_ch == a_using_namespace)
-                            break;
-                    }
-                    else
-                    {
-                        lang_anylizer->lang_error(0x0000, a_using_namespace, RS_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
-                        break;
-                    }
-                    parent_child = parent_child->sibling;
-                }
+
+                // NOTE: Because of function's head insert a naming check list, this check is useless.
+
+                //auto* parent_child = a_using_namespace->parent->children;
+                //while (parent_child)
+                //{
+                //    if (auto* using_namespace_ch = dynamic_cast<ast_using_namespace*>(parent_child))
+                //    {
+                //        if (using_namespace_ch == a_using_namespace)
+                //            break;
+                //    }
+                //    else
+                //    {
+                //        
+                //        // lang_anylizer->lang_error(0x0000, a_using_namespace, RS_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
+                //        break;
+                //    }
+                //    parent_child = parent_child->sibling;
+                //}
+
                 now_scope()->used_namespace.push_back(a_using_namespace);
             }
             else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
@@ -1938,7 +1952,12 @@ namespace rs
                                 }
                                 if (real_args)
                                 {
-                                    lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
+                                    {
+                                        // TODO MARK NOT NEED EXPAND HERE
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
                                 }
                             }
                             else if (!a_value_funccall->called_func->value_type->is_pending())

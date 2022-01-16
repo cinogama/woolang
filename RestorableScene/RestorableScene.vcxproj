@@ -197,6 +197,8 @@
     <ClInclude Include="rs_io.hpp" />
     <ClInclude Include="rs_lang_compiler_information.hpp" />
     <ClInclude Include="rs_lang_extern_symbol_loader.hpp" />
+    <ClInclude Include="rs_roroutine_mgr.hpp" />
+    <ClInclude Include="rs_shared_ptr.hpp" />
     <ClInclude Include="rs_source_file_manager.hpp" />
     <ClInclude Include="rs_lang.hpp" />
     <ClInclude Include="rs_lang_ast_builder.hpp" />

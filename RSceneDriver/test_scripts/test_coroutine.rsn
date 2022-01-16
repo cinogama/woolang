@@ -1,0 +1,49 @@
+import rscene.std;
+import rscene.coroutine;
+
+import test_tool;
+
+namespace test_coroutine
+{
+	func main()
+	{
+		var co1 = std::coroutine(func(){
+			for (var i = 0; i < 10; i += 1)
+			{
+				std::println("co working:", i);
+				std::yield();
+			}
+		});
+
+		while(!co1->completed())
+			std::sleep(0.1);
+
+		co1 = std::coroutine(func(){
+			for (;;)
+			{
+				std::println("co working 1...");
+			}
+		});
+		var co2 = std::coroutine(func(){
+			for (;;)
+			{
+				std::println("co working 2...");
+			}
+		});
+
+		std::coroutine::stop_all();
+
+		co1 = std::coroutine(func(){
+			for (var i = 0; i < 10; i += 1)
+			{
+				std::println("co working:", i);
+				std::yield();
+			}
+		});
+
+		while(!co1->completed())
+			std::sleep(0.1);
+	}
+}
+
+test_function("test_coroutine.main", test_coroutine::main);

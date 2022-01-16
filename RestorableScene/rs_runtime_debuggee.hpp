@@ -14,6 +14,8 @@ namespace rs
         std::set<size_t> break_point_traps;
         std::map<std::string, std::map<size_t, bool>> template_breakpoint;
 
+        inline static std::atomic_bool stop_attach_debuggee_for_exit_flag = false;
+
     public:
         default_debuggee()
         {
@@ -337,7 +339,9 @@ stepir          si                            Execute next command.
                 }
                 else if (main_command == "quit")
                 {
-                    exit(0);
+                    // exit(0);
+                    stop_attach_debuggee_for_exit_flag = true;
+                    return false;
                 }
                 else if (main_command == "delbreak" || main_command == "deletebreak")
                 {
@@ -496,9 +500,12 @@ stepir          si                            Execute next command.
                                 {
                                     rs_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " ";
 
-                                    if (vms->env->rt_codes == vms->ip || vms->ip == vms->env->rt_codes + vms->env->rt_code_len)
+                                    if (vms->env->rt_codes == vms->ip
+                                        || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
+                                        || vms->vm_interrupt & vmbase::PENDING_INTERRUPT)
                                         rs_stdout << "(pending)" << rs_endl;
-                                    else if (vms->ip < vms->env->rt_codes || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
+                                    else if (vms->ip < vms->env->rt_codes
+                                        || vms->ip > vms->env->rt_codes + vms->env->rt_code_len)
                                     {
                                         rs_stdout << "(leaving)" << rs_endl;
                                         vms->dump_call_stack(5, false);
@@ -642,68 +649,84 @@ stepir          si                            Execute next command.
         {
             do
             {
-                std::lock_guard g1(_mx);
-                if (!_env)
+                do
                 {
-                    _env = vmm->env.get();
+                    std::lock_guard g1(_mx);
+                    if (stop_attach_debuggee_for_exit_flag)
+                        return;
 
-                    for (auto& [src_name, rowbuf] : template_breakpoint)
-                        for (auto [row, breakdown] : rowbuf)
-                            if (breakdown)
-                                set_breakpoint(src_name, row);
+                    if (!_env)
+                    {
+                        _env = vmm->env.get();
 
-                    template_breakpoint.clear();
+                        for (auto& [src_name, rowbuf] : template_breakpoint)
+                            for (auto [row, breakdown] : rowbuf)
+                                if (breakdown)
+                                    set_breakpoint(src_name, row);
+
+                        template_breakpoint.clear();
+                    }
+
+                } while (0);
+
+                byte_t* next_execute_ip = vmm->ip;
+                auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
+
+                current_frame_bp = vmm->bp;
+                current_frame_sp = vmm->sp;
+                current_runtime_ip = vmm->ip;
+
+                auto command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
+                auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
+
+                // check breakpoint..
+                std::lock_guard g1(_mx);
+
+                if (stop_attach_debuggee_for_exit_flag)
+                    return;
+
+                if (breakdown_temp_for_stepir
+                    || (breakdown_temp_for_step
+                        && (loc.row_no != breakdown_temp_for_step_lineno
+                            || loc.source_file != breakdown_temp_for_step_srcfile))
+                    || (breakdown_temp_for_next
+                        && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
+                        && (loc.row_no != breakdown_temp_for_step_lineno
+                            || loc.source_file != breakdown_temp_for_step_srcfile))
+                    || (breakdown_temp_for_return
+                        && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
+                    || break_point_traps.find(command_ip) != break_point_traps.end())
+                {
+                    block_other_vm_in_this_debuggee();
+
+                    breakdown_temp_for_stepir = false;
+                    breakdown_temp_for_step = false;
+                    breakdown_temp_for_next = false;
+                    breakdown_temp_for_return = false;
+
+
+                    printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
+                        loc.source_file.c_str(), loc.row_no, loc.col_no,
+                        vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
+                    );
+
+                    printf("===========================================\n");
+
+                    while (debug_command(vmm))
+                    {
+                        // ...?
+                    }
+
+                    unblock_other_vm_in_this_debuggee();
+
                 }
-
             } while (0);
 
-            byte_t* next_execute_ip = vmm->ip;
-            auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
-
-            current_frame_bp = vmm->bp;
-            current_frame_sp = vmm->sp;
-            current_runtime_ip = vmm->ip;
-
-            auto command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
-            auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
-
-            // check breakpoint..
-            std::lock_guard g1(_mx);
-            if (breakdown_temp_for_stepir
-                || (breakdown_temp_for_step
-                    && (loc.row_no != breakdown_temp_for_step_lineno
-                        || loc.source_file != breakdown_temp_for_step_srcfile))
-                || (breakdown_temp_for_next
-                    && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                    && (loc.row_no != breakdown_temp_for_step_lineno
-                        || loc.source_file != breakdown_temp_for_step_srcfile))
-                || (breakdown_temp_for_return
-                    && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
-                || break_point_traps.find(command_ip) != break_point_traps.end())
+            if (stop_attach_debuggee_for_exit_flag)
             {
-                block_other_vm_in_this_debuggee();
-
-                breakdown_temp_for_stepir = false;
-                breakdown_temp_for_step = false;
-                breakdown_temp_for_next = false;
-                breakdown_temp_for_return = false;
-
-
-                printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
-                    loc.source_file.c_str(), loc.row_no, loc.col_no,
-                    vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
-                );
-
-                printf("===========================================\n");
-
-                while (debug_command(vmm))
-                {
-                    // ...?
-                }
-
-                unblock_other_vm_in_this_debuggee();
+                rs_abort_all_vm_to_exit();
+                return;
             }
-
         }
     };
 

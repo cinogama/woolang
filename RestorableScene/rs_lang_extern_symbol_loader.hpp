@@ -5,6 +5,7 @@
 #endif
 #include "rs_assert.hpp"
 #include "rs_os_api.hpp"
+#include "rs_shared_ptr.hpp"
 
 #include <shared_mutex>
 #include <map>
@@ -75,7 +76,7 @@ namespace rs
 
         struct extern_lib_set
         {
-            using extern_lib = std::shared_ptr<extern_lib_guard>;
+            using extern_lib = shared_pointer<extern_lib_guard>;
             using srcpath_externlib_pairs = std::map<std::string, std::map<std::string, extern_lib>>;
 
             srcpath_externlib_pairs loaded_libsrc;
@@ -93,7 +94,7 @@ namespace rs
                     return fnd->second->load_func(funcname);
                 }
 
-                extern_lib elib = std::make_shared<extern_lib_guard>(libpath);
+                extern_lib elib = new extern_lib_guard(libpath);
                 srcloadedlibs[libpath] = elib;
 
                 return elib->load_func(funcname);

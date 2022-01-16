@@ -125,8 +125,15 @@ RS_API rs_result_t  rs_ret_pointer(rs_vm vm, rs_ptr_t result);
 RS_API rs_result_t  rs_ret_string(rs_vm vm, rs_string_t result);
 RS_API rs_result_t  rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t));
 RS_API rs_result_t  rs_ret_nil(rs_vm vm);
+RS_API rs_result_t  rs_ret_bool(rs_vm vm, rs_bool_t result);
 RS_API rs_result_t  rs_ret_val(rs_vm vm, rs_value result);
 RS_API rs_result_t  rs_ret_ref(rs_vm vm, rs_value result);
+
+RS_API void         rs_coroutine_pauseall();
+RS_API void         rs_coroutine_resumeall();
+RS_API void         rs_coroutine_stopall();
+
+RS_API void         rs_abort_all_vm_to_exit();
 
 enum _rs_inform_style
 {
@@ -144,6 +151,7 @@ RS_API rs_vm        rs_create_vm();
 RS_API rs_vm        rs_sub_vm(rs_vm vm);
 RS_API rs_bool_t    rs_abort_vm(rs_vm vm);
 RS_API void         rs_close_vm(rs_vm vm);
+RS_API rs_bool_t    rs_yield_vm(rs_vm vm);
 RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);
 RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_value     rs_run(rs_vm vm);

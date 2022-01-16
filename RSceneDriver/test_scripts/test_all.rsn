@@ -2,7 +2,7 @@
 import test_tool;
 
 import test_helloworld;
-import test_naming;
+import test_coroutine;
 import test_string_u8;
 import test_while;
 import test_debug_invoke;
@@ -16,58 +16,9 @@ import test_thread;
 /*                                       */
 ///////////////////////////////////////////
 /*	TODO-LIST
- *  define function & type (maybe value have same problem) with same name may cause crash.
- *  32-bit machine equb may useless, now make sure full writing HANDLE(8B) with nullptr. need test. 
+ *
  */
 ///////////////////////////////////////////
-naming IThread
-{
-	func abort(var self:IThread):void
-	{
-		// 
-	}
-}
-
-using thread_guard : IThread
-{
-	var _thread = nil:std::thread;
-	func create<FT>(var thfunc:FT, ...)
-	{
-		var self = new();
-		self._thread = std::thread(thfunc, ......);
-
-		return self;
-	}
-
-	func abort(var self:thread_guard)
-	{
-		self._thread->abort();
-	}
-}
-
-func thread_vm_mem_test()
-{
-	var ths = []:array<thread_guard>;
-
-	std::println("Test begin!");
-	std::sleep(10);
-	std::println("Start thread!");
-	for(var i = 0; i < 10; i+=1)
-		ths->add(thread_guard(func(){while(true);}));
-
-	std::println("Waiting!");
-	std::sleep(10);
-	std::println("Close thread!");
-
-	for(var th : ths)
-		th->abort();
-	
-	std::println("Waiting!");
-	std::sleep(20);
-	std::println("Test Over!");
-	std::sleep(20);
-}
-thread_vm_mem_test();
 
 ///////////////////////////////////////////
 /*                                       */

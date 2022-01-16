@@ -11,6 +11,7 @@
 #include "rs_runtime_debuggee.hpp"
 #include "rs_global_setting.hpp"
 #include "rs_io.hpp"
+#include "rs_roroutine_mgr.hpp"
 
 #include <csignal>
 
@@ -200,6 +201,7 @@ void rs_init(int argc, char** argv)
         rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
         rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
         rs_virtual_source(rs_stdlib_thread_src_path, rs_stdlib_thread_src_data, false);
+        rs_virtual_source(rs_stdlib_roroutine_src_path, rs_stdlib_roroutine_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -601,7 +603,10 @@ rs_integer_t rs_argc(const rs_vm vm)
 {
     return reinterpret_cast<const rs::vmbase*>(vm)->tc->integer;
 }
-
+rs_result_t rs_ret_bool(rs_vm vm, rs_bool_t result)
+{
+    return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_integer(result ? 1 : 0));
+}
 rs_result_t rs_ret_int(rs_vm vm, rs_integer_t result)
 {
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr->set_integer(result));
@@ -656,6 +661,48 @@ rs_result_t  rs_ret_ref(rs_vm vm, rs_value result)
     return rs_ret_nil(vm);
 }
 
+void rs_coroutine_pauseall()
+{
+    RSCO_Scheduler::pause_all();
+}
+void rs_coroutine_resumeall()
+{
+    RSCO_Scheduler::resume_all();
+}
+
+void rs_coroutine_stopall()
+{
+    RSCO_Scheduler::stop_all();
+}
+
+void _rs_check_atexit()
+{
+    std::shared_lock g1(rs::vmbase::_alive_vm_list_mx);
+
+    do
+    {
+    waitting_vm_leave:
+        for (auto& vm : rs::vmbase::_alive_vm_list)
+            if (!(vm->vm_interrupt & rs::vmbase::LEAVE_INTERRUPT))
+                goto waitting_vm_leave;
+    } while (0);
+
+    // STOP GC
+}
+
+void rs_abort_all_vm_to_exit()
+{
+    // rs_stop used for stop all vm and exit..
+
+    // 1. ABORT ALL VM
+    std::shared_lock g1(rs::vmbase::_alive_vm_list_mx);
+
+    for (auto& vm : rs::vmbase::_alive_vm_list)
+        vm->interrupt(rs::vmbase::ABORT_INTERRUPT);
+
+    std::atexit(_rs_check_atexit);
+}
+
 rs_integer_t rs_lengthof(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
@@ -701,6 +748,12 @@ rs_vm rs_sub_vm(rs_vm vm)
 void rs_close_vm(rs_vm vm)
 {
     delete (rs::vmbase*)vm;
+}
+
+rs_bool_t rs_yield_vm(rs_vm vm)
+{
+    return RS_VM(vm)->interrupt
+    (rs::vmbase::vm_interrupt_type::YIELD_INTERRUPT);
 }
 
 rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)

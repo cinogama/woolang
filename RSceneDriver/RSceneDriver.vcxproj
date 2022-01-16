@@ -152,7 +152,7 @@
     <None Include="test_scripts\test_enum.rsn" />
     <None Include="test_scripts\test_gc.rsn" />
     <None Include="test_scripts\test_helloworld.rsn" />
-    <None Include="test_scripts\test_naming.rsn" />
+    <None Include="test_scripts\test_coroutine.rsn" />
     <None Include="test_scripts\test_static.rsn" />
     <None Include="test_scripts\test_string_u8.rsn" />
     <None Include="test_scripts\test_template.rsn" />

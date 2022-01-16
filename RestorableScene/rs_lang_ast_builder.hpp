@@ -1292,6 +1292,13 @@ namespace rs
 
                     astnode->sibling = old_child;
                     last = old_last;
+
+                    auto* node = old_child;
+                    while (node)
+                    {
+                        node->parent = this;
+                        node = node->sibling;
+                    }
                 }
                 else
                     add_child(astnode);
@@ -3707,7 +3714,8 @@ namespace rs
                 else
                     result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
 
-                result->value_type = result->called_func->value_type->get_return_type(); // just get pending..
+                result->value_type = new ast_type(L"pending");
+                    //  result->called_func->value_type->get_return_type(); // just get pending..
                 result->can_be_assign = true;
                 return (ast_basic*)result;
             }

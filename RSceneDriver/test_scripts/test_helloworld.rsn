@@ -5,8 +5,10 @@ namespace test_helloworld
 {
     func main()
     {
+        using std;
+
         const var n = "Helloworld~";
-        std::println(n);
+        println(n);
     }
 }
 

@@ -2,7 +2,7 @@
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_utf8.hpp"
 #include "rs_vm.hpp"
-
+#include "rs_roroutine_mgr.hpp"
 #include "rs_io.hpp"
 
 #include <chrono>
@@ -134,17 +134,17 @@ RS_API rs_api rslib_std_array_iter_next(rs_vm vm, rs_value args, size_t argc)
     array_iter& iter = *(array_iter*)rs_pointer(args);
 
     if (iter.iter == iter.end_place)
-        return rs_ret_int(vm, 0);
+        return rs_ret_bool(vm, false);
 
     rs_set_int(args + 1, iter.index_count++); // key
     rs_set_val(args + 2, reinterpret_cast<rs_value>(&*(iter.iter++))); // val
 
-    return rs_ret_int(vm, 1);
+    return rs_ret_bool(vm, true);
 }
 
 RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_int(vm, rs_map_find(args + 0, args + 1));
+    return rs_ret_bool(vm, rs_map_find(args + 0, args + 1));
 }
 
 RS_API rs_api rslib_std_map_only_get(rs_vm vm, rs_value args, size_t argc)
@@ -217,13 +217,13 @@ RS_API rs_api rslib_std_map_iter_next(rs_vm vm, rs_value args, size_t argc)
     map_iter& iter = *(map_iter*)rs_pointer(args);
 
     if (iter.iter == iter.end_place)
-        return rs_ret_int(vm, 0);
+        return rs_ret_bool(vm, false);
 
     rs_set_val(args + 1, reinterpret_cast<rs_value>(const_cast<rs::value*>(&iter.iter->first))); // key
     rs_set_val(args + 2, reinterpret_cast<rs_value>(&iter.iter->second)); // val
     iter.iter++;
 
-    return rs_ret_int(vm, 1);
+    return rs_ret_bool(vm, true);
 }
 
 RS_API rs_api rslib_std_sub(rs_vm vm, rs_value args, size_t argc)
@@ -273,14 +273,14 @@ RS_API rs_api rslib_std_vm_load_src(rs_vm vm, rs_value args, size_t argc)
     else
         compile_result = rs_load_source(vmm, rs_string(args + 1), rs_string(args + 2));
 
-    return rs_ret_int(vm, compile_result);
+    return rs_ret_bool(vm, compile_result);
 }
 
 RS_API rs_api rslib_std_vm_load_file(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm vmm = (rs_vm)rs_pointer(args);
     bool compile_result = rs_load_file(vmm, rs_string(args + 1));
-    return rs_ret_int(vm, compile_result);
+    return rs_ret_bool(vm, compile_result);
 }
 
 RS_API rs_api rslib_std_vm_run(rs_vm vm, rs_value args, size_t argc)
@@ -294,13 +294,13 @@ RS_API rs_api rslib_std_vm_run(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_vm_has_compile_error(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm vmm = (rs_vm)rs_pointer(args);
-    return rs_ret_int(vm, rs_has_compile_error(vmm));
+    return rs_ret_bool(vm, rs_has_compile_error(vmm));
 }
 
 RS_API rs_api rslib_std_vm_has_compile_warning(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm vmm = (rs_vm)rs_pointer(args);
-    return rs_ret_int(vm, rs_has_compile_warning(vmm));
+    return rs_ret_bool(vm, rs_has_compile_warning(vmm));
 }
 
 RS_API rs_api rslib_std_vm_get_compile_error(rs_vm vm, rs_value args, size_t argc)
@@ -321,7 +321,7 @@ RS_API rs_api rslib_std_vm_get_compile_warning(rs_vm vm, rs_value args, size_t a
 
 RS_API rs_api rslib_std_vm_virtual_source(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_int(vm, rs_virtual_source(
+    return rs_ret_bool(vm, rs_virtual_source(
         rs_string(args + 0),
         rs_string(args + 1),
         rs_int(args + 2)
@@ -331,6 +331,11 @@ RS_API rs_api rslib_std_vm_virtual_source(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_gchandle_close(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_gchandle_close(args);
+}
+
+RS_API rs_api rslib_std_thread_yield(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_bool(vm, rs_yield_vm(vm));
 }
 
 const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
@@ -358,11 +363,6 @@ namespace std
         print("\n");
         return c;
     }
-    func assert(var judgement, var failed_info:string)
-    {
-        if (!judgement)
-            panic(failed_info);
-    }
 
     extern("rslib_std_randomint") 
         func rand(var from:int, var to:int):int;
@@ -372,6 +372,9 @@ namespace std
 
     extern("rslib_std_thread_sleep")
         func sleep(var tm:real):void;
+
+    extern("rslib_std_thread_yield")
+        func yield():bool;
 }
 
 namespace string
@@ -516,7 +519,7 @@ namespace std
         }
 
         extern("rslib_std_debug_invoke")
-        func invoke(var foo:dynamic, ...):dynamic;
+        func invoke<FT>(var foo:FT, ...):typeof(foo(......));
     }
 }
 )" };
@@ -795,9 +798,99 @@ namespace std
 )" };
 
 
-// RScene coroutine manager
-/*
-            RSTHREAD_RESOURCE
-           /         |        \
-RSCOROUTINE... RSCOROUTINE... RSCOROUTINE...
-*/
+///////////////////////////////////////////////////////////////////////////////////////
+// roroutine APIs
+///////////////////////////////////////////////////////////////////////////////////////
+
+RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
+{
+    // rslib_std_roroutine_launch(...)   
+
+    auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<rs::vmbase*>(vm));
+    for (size_t i = 1; i < argc; i++)
+    {
+        rs_push_valref(reinterpret_cast<rs_vm>(_nvm), args + i);
+    }
+
+    rs::shared_pointer<RSCO_Waitter>* gchandle_roroutine = new rs::shared_pointer<RSCO_Waitter>;
+
+    if (RS_INTEGER_TYPE == rs_valuetype(args + 0))
+        *gchandle_roroutine = RSCO_Scheduler::launch(_nvm, rs_int(args + 0), argc - 1);
+    else
+        *gchandle_roroutine = RSCO_Scheduler::launch(_nvm, rs_handle(args + 0), argc - 1);
+
+    return rs_ret_gchandle(vm,
+        gchandle_roroutine,
+        nullptr,
+        [](void* gchandle_roroutine_ptr)
+        {
+            delete (rs::shared_pointer<RSCO_Waitter>*)gchandle_roroutine_ptr;
+        });
+}
+
+RS_API rs_api rslib_std_roroutine_abort(rs_vm vm, rs_value args, size_t argc)
+{
+    auto* gchandle_roroutine = (rs::shared_pointer<RSCO_Waitter>*) rs_pointer(args);
+    (*gchandle_roroutine)->force_abort = true;
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_roroutine_completed(rs_vm vm, rs_value args, size_t argc)
+{
+    auto* gchandle_roroutine = (rs::shared_pointer<RSCO_Waitter>*) rs_pointer(args);
+
+    return rs_ret_bool(vm, (*gchandle_roroutine)->complete);
+}
+
+RS_API rs_api rslib_std_roroutine_pause_all(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_coroutine_pauseall();
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_roroutine_resume_all(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_coroutine_resumeall();
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_roroutine_stop_all(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_coroutine_stopall();
+    return rs_ret_nil(vm);
+}
+
+const char* rs_stdlib_roroutine_src_path = u8"rscene/coroutine.rsn";
+const char* rs_stdlib_roroutine_src_data = {
+u8R"(
+import rscene.basic;
+
+namespace std
+{
+    using coroutine = gchandle;
+    namespace coroutine
+    {
+        extern("rslib_std_roroutine_launch")
+            func create<FT>(var f:FT, ...):coroutine;
+        
+        extern("rslib_std_roroutine_abort")
+            func abort(var co:coroutine):void;
+
+        extern("rslib_std_roroutine_completed")
+            func completed(var co:coroutine):bool;
+
+        // Static functions:
+
+        extern("rslib_std_roroutine_pause_all")
+            func pause_all():void;
+
+        extern("rslib_std_roroutine_resume_all")
+            func resume_all():void;
+
+        extern("rslib_std_roroutine_stop_all")
+            func stop_all():void;
+    }
+}
+
+)" };
