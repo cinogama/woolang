@@ -2,7 +2,8 @@
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_utf8.hpp"
 #include "rs_vm.hpp"
-#include "rs_roroutine_mgr.hpp"
+#include "rs_roroutine_simulate_mgr.hpp"
+#include "rs_roroutine_thread_mgr.hpp"
 #include "rs_io.hpp"
 
 #include <chrono>
@@ -626,7 +627,8 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
         nullptr,
         [](void* rs_thread_pack_ptr)
         {
-            ((rs_thread_pack*)rs_thread_pack_ptr)->_thread->detach();
+            if (((rs_thread_pack*)rs_thread_pack_ptr)->_thread->joinable())
+                ((rs_thread_pack*)rs_thread_pack_ptr)->_thread->detach();
             delete ((rs_thread_pack*)rs_thread_pack_ptr)->_thread;
         });
 }
@@ -634,7 +636,9 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_thread_wait(rs_vm vm, rs_value args, size_t argc)
 {
     rs_thread_pack* rtp = (rs_thread_pack*)rs_pointer(args);
-    rtp->_thread->join();
+
+    if (rtp->_thread->joinable())
+        rtp->_thread->join();
 
     return rs_ret_nil(vm);
 }
@@ -805,42 +809,44 @@ namespace std
 RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
 {
     // rslib_std_roroutine_launch(...)   
-
     auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<rs::vmbase*>(vm));
     for (size_t i = 1; i < argc; i++)
     {
         rs_push_valref(reinterpret_cast<rs_vm>(_nvm), args + i);
     }
 
-    rs::shared_pointer<RSCO_Waitter>* gchandle_roroutine = new rs::shared_pointer<RSCO_Waitter>;
+    rs::shared_pointer<rs::RSCO_Waitter>* gchandle_roroutine = new rs::shared_pointer<rs::RSCO_Waitter>;
 
     if (RS_INTEGER_TYPE == rs_valuetype(args + 0))
-        *gchandle_roroutine = RSCO_Scheduler::launch(_nvm, rs_int(args + 0), argc - 1);
+        *gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_int(args + 0), argc - 1);
     else
-        *gchandle_roroutine = RSCO_Scheduler::launch(_nvm, rs_handle(args + 0), argc - 1);
+        *gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_handle(args + 0), argc - 1);
 
     return rs_ret_gchandle(vm,
         gchandle_roroutine,
         nullptr,
         [](void* gchandle_roroutine_ptr)
         {
-            delete (rs::shared_pointer<RSCO_Waitter>*)gchandle_roroutine_ptr;
+            delete (rs::shared_pointer<rs::RSCO_Waitter>*)gchandle_roroutine_ptr;
         });
 }
 
 RS_API rs_api rslib_std_roroutine_abort(rs_vm vm, rs_value args, size_t argc)
 {
-    auto* gchandle_roroutine = (rs::shared_pointer<RSCO_Waitter>*) rs_pointer(args);
-    (*gchandle_roroutine)->force_abort = true;
+    auto* gchandle_roroutine = (rs::shared_pointer<rs::RSCO_Waitter>*) rs_pointer(args);
+    if ((*gchandle_roroutine))
+        (*gchandle_roroutine)->abort();
 
     return rs_ret_nil(vm);
 }
 
 RS_API rs_api rslib_std_roroutine_completed(rs_vm vm, rs_value args, size_t argc)
 {
-    auto* gchandle_roroutine = (rs::shared_pointer<RSCO_Waitter>*) rs_pointer(args);
-
-    return rs_ret_bool(vm, (*gchandle_roroutine)->complete);
+    auto* gchandle_roroutine = (rs::shared_pointer<rs::RSCO_Waitter>*) rs_pointer(args);
+    if ((*gchandle_roroutine))
+        return rs_ret_bool(vm, (*gchandle_roroutine)->complete_flag);
+    else
+        return rs_ret_bool(vm, true);
 }
 
 RS_API rs_api rslib_std_roroutine_pause_all(rs_vm vm, rs_value args, size_t argc)

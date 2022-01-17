@@ -4,6 +4,7 @@
 
 #include<functional>
 #include<thread>
+#include<atomic>
 
 namespace rs
 {
@@ -13,8 +14,8 @@ namespace rs
 
         fiber* m_scheduler_fiber = nullptr;
         fiber* m_fiber = nullptr;
-        volatile bool   m_finish_flag = false;
-        volatile bool   m_disable_yield_flag = false;
+        std::atomic_bool   m_finish_flag = false;
+        std::atomic_bool   m_disable_yield_flag = false;
         std::function<void(void)> m_invoke_func;
 
         static void _invoke_fthread(fthread* _this)
@@ -22,7 +23,7 @@ namespace rs
             _this->m_invoke_func();
             _this->m_finish_flag = true;
 
-            yield();
+            yield(true);
         }
 
     public:
@@ -63,12 +64,12 @@ namespace rs
         }
 
     public:
-        static void yield()
+        static void yield(bool force = false)
         {
             // Used for yield back to scheduler thread..
             if (current_co && current_co->m_scheduler_fiber)
             {
-                if (!current_co->m_disable_yield_flag)
+                if (force || !current_co->m_disable_yield_flag)
                     current_co->m_fiber->switch_to(current_co->m_scheduler_fiber);
             }
             else

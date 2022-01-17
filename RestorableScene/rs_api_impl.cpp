@@ -11,7 +11,8 @@
 #include "rs_runtime_debuggee.hpp"
 #include "rs_global_setting.hpp"
 #include "rs_io.hpp"
-#include "rs_roroutine_mgr.hpp"
+#include "rs_roroutine_simulate_mgr.hpp"
+#include "rs_roroutine_thread_mgr.hpp"
 
 #include <csignal>
 
@@ -193,6 +194,8 @@ void rs_init(int argc, char** argv)
 
     if (enable_gc)
         rs::gc::gc_start(); // I dont know who will disable gc..
+
+    rs::fvmscheduler::init();
 
     if (enable_std_package)
     {
@@ -663,16 +666,16 @@ rs_result_t  rs_ret_ref(rs_vm vm, rs_value result)
 
 void rs_coroutine_pauseall()
 {
-    RSCO_Scheduler::pause_all();
+    rs::fvmscheduler::pause_all();
 }
 void rs_coroutine_resumeall()
 {
-    RSCO_Scheduler::resume_all();
+    rs::fvmscheduler::resume_all();
 }
 
 void rs_coroutine_stopall()
 {
-    RSCO_Scheduler::stop_all();
+    rs::fvmscheduler::stop_all();
 }
 
 void _rs_check_atexit()

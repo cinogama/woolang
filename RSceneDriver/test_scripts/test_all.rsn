@@ -25,4 +25,3 @@ import test_thread;
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
-

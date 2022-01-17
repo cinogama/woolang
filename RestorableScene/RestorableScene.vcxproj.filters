@@ -167,9 +167,6 @@
     <ClInclude Include="rs_io.hpp">
       <Filter>basic</Filter>
     </ClInclude>
-    <ClInclude Include="rs_roroutine_mgr.hpp">
-      <Filter>roroutine</Filter>
-    </ClInclude>
     <ClInclude Include="rs_shared_ptr.hpp">
       <Filter>basic</Filter>
     </ClInclude>
@@ -181,6 +178,12 @@
     </ClInclude>
     <ClInclude Include="rs_roroutine_thread.hpp">
       <Filter>roroutine\context</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_vmpool.hpp">
+      <Filter>roroutine</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_simulate_mgr.hpp">
+      <Filter>roroutine</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
