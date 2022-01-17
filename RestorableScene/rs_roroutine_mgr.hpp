@@ -47,7 +47,11 @@ public:
         {
             for (auto* vmm : m_vm_list)
             {
-                rs_asure(vmm->clear_interrupt(rs::vmbase::vm_interrupt_type::PENDING_INTERRUPT));
+                while (
+                    !(vmm->vm_interrupt & rs::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
+                    && (!(vmm->vm_interrupt & rs::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
+                        || !(vmm->vm_interrupt & rs::vmbase::vm_interrupt_type::ABORT_INTERRUPT)))
+                    std::this_thread::yield();
                 delete vmm;
             }
         }
@@ -221,6 +225,7 @@ public:
                 return; // TODO: STEAL SOME WORK FROM OTHER WORKER
 
             running_vm_work = m_work_load.front();
+            m_work_load.pop_front();
 
         } while (0);
 
@@ -231,7 +236,6 @@ public:
 
             rs_asure(running_vm_work->vmbase
                 ->interrupt(rs::vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-            m_work_load.pop_front();
 
             running_vm_work->waitter->complete = true;
 
@@ -252,7 +256,6 @@ public:
 
                 rs_asure(running_vm_work->vmbase
                     ->interrupt(rs::vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-                m_work_load.pop_front();
 
                 running_vm_work->waitter->complete = true;
 
@@ -262,8 +265,6 @@ public:
             {
                 // WORK YIELD, MOVE IT TO LIST BACK
                 std::lock_guard g1(m_work_mx);
-
-                m_work_load.pop_front();
                 m_work_load.push_back(running_vm_work);
             }
         }
@@ -281,8 +282,6 @@ public:
 
             rs_asure(running_vm_work->vmbase
                 ->interrupt(rs::vmbase::vm_interrupt_type::PENDING_INTERRUPT));
-            m_work_load.pop_front();
-
             running_vm_work->waitter->complete = true;
 
             delete running_vm_work;

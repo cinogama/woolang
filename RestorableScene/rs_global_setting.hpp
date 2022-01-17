@@ -18,8 +18,10 @@ namespace rs
 
         constexpr auto OS_TYPE =
 #ifdef _WIN32
+#define RS_PLATRORM_OS_WINDOWS
             OSType::WINDOWS
 #elif defined(__linux__)
+#define RS_PLATRORM_OS_LINUX
             OSType::LINUX
 #else
             OSType::UNKNOWN

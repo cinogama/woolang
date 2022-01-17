@@ -27,7 +27,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -40,7 +40,7 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
@@ -175,6 +175,7 @@
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
     <ClCompile Include="rs_lang_ast_builder.cpp" />
+    <ClCompile Include="rs_roroutine_fiber.cpp" />
     <ClCompile Include="rs_stdlib_extern_functions.cpp" />
     <ClCompile Include="rs_lang_functions_for_ast.cpp" />
     <ClCompile Include="rs_compiler_ir.cpp" />
@@ -198,6 +199,9 @@
     <ClInclude Include="rs_lang_compiler_information.hpp" />
     <ClInclude Include="rs_lang_extern_symbol_loader.hpp" />
     <ClInclude Include="rs_roroutine_mgr.hpp" />
+    <ClInclude Include="rs_roroutine_fiber.hpp" />
+    <ClInclude Include="rs_roroutine_thread.hpp" />
+    <ClInclude Include="rs_roroutine_thread_mgr.hpp" />
     <ClInclude Include="rs_shared_ptr.hpp" />
     <ClInclude Include="rs_source_file_manager.hpp" />
     <ClInclude Include="rs_lang.hpp" />

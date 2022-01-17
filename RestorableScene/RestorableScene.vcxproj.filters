@@ -37,6 +37,9 @@
     <Filter Include="roroutine">
       <UniqueIdentifier>{a7bfe678-fd42-4d08-b6ab-e083ea4ae547}</UniqueIdentifier>
     </Filter>
+    <Filter Include="roroutine\context">
+      <UniqueIdentifier>{0adbda23-2d57-4470-9cfc-afbbfdb86e7b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -71,6 +74,9 @@
     </ClCompile>
     <ClCompile Include="rs_lang_ast_builder.cpp">
       <Filter>lang</Filter>
+    </ClCompile>
+    <ClCompile Include="rs_roroutine_fiber.cpp">
+      <Filter>roroutine\context</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +172,15 @@
     </ClInclude>
     <ClInclude Include="rs_shared_ptr.hpp">
       <Filter>basic</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_thread_mgr.hpp">
+      <Filter>roroutine</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_fiber.hpp">
+      <Filter>roroutine\context</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_roroutine_thread.hpp">
+      <Filter>roroutine\context</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

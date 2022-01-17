@@ -1024,10 +1024,6 @@ namespace rs
         }
 
     public:
-
-
-        inline thread_local static int layer;
-
         template<int/* rs::platform_info::ArchType */ ARCH = rs::platform_info::ARCH_TYPE>
         void run_impl()
         {

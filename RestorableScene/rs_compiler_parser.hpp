@@ -97,7 +97,7 @@ namespace rs
         class ast_base
         {
         private:
-            inline thread_local static std::forward_list<ast_base*> list;
+            inline thread_local static std::forward_list<ast_base*>* list = nullptr;
         public:
 
             ast_base& operator = (const ast_base& another)
@@ -110,17 +110,18 @@ namespace rs
 
             static void clean_this_thread_ast()
             {
-                for (auto astnode : list)
-                {
+                for (auto astnode : *list)
                     delete astnode;
-                }
-                list.clear();
+                
+                delete list;
+                list = nullptr;
             }
             static void pickout_this_thread_ast(std::forward_list<ast_base*>& out_list)
             {
                 rs_assert(out_list.empty());
 
-                out_list.swap(list);
+                if (list)
+                    out_list.swap(*list);
             }
 
             ast_base* parent;
@@ -143,7 +144,10 @@ namespace rs
                 , row_no(0)
                 , col_no(0)
             {
-                list.push_front(this);
+                if (!list)
+                    list = new std::forward_list<ast_base*>;
+
+                list->push_front(this);
             }
             void remove_allnode()
             {
