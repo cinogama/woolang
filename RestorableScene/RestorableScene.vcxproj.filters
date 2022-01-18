@@ -80,9 +80,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="rs.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
     <ClInclude Include="rs_vm.hpp">
       <Filter>runtime</Filter>
     </ClInclude>
@@ -184,6 +181,9 @@
     </ClInclude>
     <ClInclude Include="rs_roroutine_simulate_mgr.hpp">
       <Filter>roroutine</Filter>
+    </ClInclude>
+    <ClInclude Include="rs.h">
+      <Filter>源文件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

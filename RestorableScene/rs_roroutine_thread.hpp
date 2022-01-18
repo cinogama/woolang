@@ -8,6 +8,21 @@
 
 namespace rs
 {
+    class fthread;
+
+    class fwaitable
+    {
+        std::atomic_flag _fwaitable_pendable_flag = {};
+        fthread *_fthread = nullptr;
+    protected:
+        virtual bool be_pending() = 0;
+        virtual void be_awake() = 0;
+    public:
+        virtual ~fwaitable() = default;
+
+        bool pending(fthread* pending);
+        void awake();
+    };
     class fthread
     {
         inline static thread_local fthread* current_co = nullptr;
@@ -25,6 +40,16 @@ namespace rs
 
             yield(true);
         }
+    public:
+        enum class fthread_state
+        {
+            NORMAL,     // Nothing to wait, just as a normal work~ 
+            WAITTING,   // Have something to wait
+            READY,      // Waitting items ready!
+            YIELD,      // Take a break~
+        };
+
+        fthread_state state = fthread_state::NORMAL;
 
     public:
         template<typename FT, typename ... ARGTs>
@@ -46,6 +71,8 @@ namespace rs
         {
             if (m_finish_flag)
                 return;
+
+            state = fthread_state::NORMAL;
 
             auto* origin_current_co = current_co;
             current_co = this;
@@ -70,10 +97,59 @@ namespace rs
             if (current_co && current_co->m_scheduler_fiber)
             {
                 if (force || !current_co->m_disable_yield_flag)
+                {
+                    current_co->state = fthread_state::YIELD;
                     current_co->m_fiber->switch_to(current_co->m_scheduler_fiber);
+                }
+            }
+            else
+                rs_error("non-fiber-thread cannot yield;");
+        }
+        template<typename T>
+        static void wait(rs::shared_pointer<T> waitable)
+        {
+            static_assert(std::is_base_of<fwaitable, T>::value);
+
+            if (current_co && current_co->m_scheduler_fiber)
+            {
+                if (waitable->pending(current_co))
+                {
+                    current_co->m_fiber->switch_to(current_co->m_scheduler_fiber);
+                }
             }
             else
                 rs_error("non-fiber-thread cannot yield;");
         }
     };
+
+
+    inline bool fwaitable::pending(fthread* pending)
+    {
+        if (!_fwaitable_pendable_flag.test_and_set())
+        {
+            _fthread = pending;
+            if (be_pending())
+            {
+                pending->state = fthread::fthread_state::WAITTING;
+                _fwaitable_pendable_flag.clear();
+                return true;
+            }
+            else
+            {
+                _fwaitable_pendable_flag.clear();
+            }
+        }
+        return false;
+    }
+    inline void fwaitable::awake()
+    {
+        while(!_fwaitable_pendable_flag.test_and_set())
+            ;
+
+        if (_fthread)
+        {
+            _fthread->state = fthread::fthread_state::READY;
+            be_awake();
+        }
+    }
 }

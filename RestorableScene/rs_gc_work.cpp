@@ -74,6 +74,9 @@ namespace rs
 
             static void _gc_work_func(gc_mark_thread* gmt)
             {
+#ifdef RS_PLATRORM_OS_WINDOWS
+                SetThreadDescription(GetCurrentThread(), L"rs_gc_worker_thread");
+#endif
                 while (true)
                 {
                     std::unique_lock ug1(gmt->_gc_mark_fence_mx);
@@ -235,6 +238,9 @@ namespace rs
 
         void gc_work_thread()
         {
+#ifdef RS_PLATRORM_OS_WINDOWS
+            SetThreadDescription(GetCurrentThread(), L"rs_gc_scheduler_thread");
+#endif
             using namespace std;
 
             std::mutex          _gc_mx;

@@ -20,8 +20,28 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+var arr = [];
+
+for(var i = 0; i < 100; i += 1)
+	var co = std::coroutine(
+		func()
+		{
+			while(true)
+			{
+				arr->add(1);
+				arr = [2,3,3];
+
+				std::yield();
+			}
+		}
+	);
+	
+std::println("coroutine ready!");
+while(1)
+	std::sleep(10);
+
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
