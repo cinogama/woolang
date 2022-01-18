@@ -44,7 +44,7 @@ public:
             } while (0);
 
             std::lock_guard g1(m_vm_list_mx);
-            rs::vmbase* vmm = origin->make_machine();
+            rs::vmbase* vmm = origin->make_machine(16384);
             return m_vm_list.emplace_back(vmm);
         }
         rs::shared_pointer<rs::runtime_env> get_one_env()
@@ -59,7 +59,7 @@ public:
         {
             std::shared_lock s1(m_vm_list_mx);
             if (auto env = get_one_env();
-                env && env.used_count() == m_vm_list.size())
+                env && env.used_count() == m_vm_list.size() + 2/*(GC_THREAD)*/)
             {
                 // If all vm is PENDING, return true
                 for (auto* vm : m_vm_list)

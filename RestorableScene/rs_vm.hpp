@@ -271,6 +271,8 @@ namespace rs
         value* stack_mem_begin = nullptr;
         value* register_mem_begin = nullptr;
         value* _self_stack_reg_mem_buf = nullptr;
+        size_t stack_size = 0;
+
         shared_pointer<runtime_env> env;
         void set_runtime(ir_compiler& _compiler)
         {
@@ -285,6 +287,7 @@ namespace rs
 
             stack_mem_begin = env->stack_begin;
             register_mem_begin = env->reg_begin;
+            stack_size = env->runtime_stack_count;
 
             ip = env->rt_codes;
             cr = register_mem_begin + opnum::reg::spreg::cr;
@@ -302,7 +305,7 @@ namespace rs
 
         }
         virtual vmbase* create_machine() const = 0;
-        vmbase* make_machine() const
+        vmbase* make_machine(size_t stack_sz = 0) const
         {
             rs_assert(env != nullptr);
 
@@ -312,14 +315,18 @@ namespace rs
             new_vm->block_interrupt(GC_INTERRUPT);  // must not working when gc'
             rs_asure(new_vm->clear_interrupt(LEAVE_INTERRUPT));
 
+            if (!stack_sz)
+                stack_sz = env->runtime_stack_count;
+            new_vm->stack_size = stack_sz;
+
             new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
-                (env->real_register_count + env->runtime_stack_count));
+                (env->real_register_count + stack_sz));
 
             memset(new_vm->_self_stack_reg_mem_buf, 0, sizeof(value) *
-                (env->real_register_count + env->runtime_stack_count));
+                (env->real_register_count + stack_sz));
 
             new_vm->stack_mem_begin = new_vm->_self_stack_reg_mem_buf
-                + (env->real_register_count + env->runtime_stack_count - 1);
+                + (env->real_register_count + stack_sz - 1);
             new_vm->register_mem_begin = new_vm->_self_stack_reg_mem_buf;
 
             new_vm->ip = env->rt_codes;
@@ -2675,7 +2682,7 @@ namespace rs
                             rt_cr->set_nil();
 
                             ++_vm_native_calling_flag;
-                                rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             --_vm_native_calling_flag;
@@ -2717,7 +2724,7 @@ namespace rs
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             --_vm_native_calling_flag;
 
-                                rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                            rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                             rt_sp = rt_bp;
                             rt_bp = stored_bp;

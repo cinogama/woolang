@@ -7,6 +7,44 @@ namespace test_coroutine
 {
 	func main()
 	{
+		var vm = std::vm();
+
+		vm->load_source(
+		@"
+		import rscene.std;
+		import rscene.coroutine;
+
+		var co_list = []:array<std::coroutine>;
+
+		for(var i = 0; i < 10000; i += 1)
+			co_list->add(std::coroutine(
+				func()
+				{
+					while(true)
+						std::coroutine::yield();
+				}
+			));
+
+		std::println("coroutine ready!");
+		std::sleep(3);
+		std::println("shutting down coroutines!");
+
+		for(var co : co_list)
+		{
+			co->abort();
+		}
+		std::println("over!");
+		std::sleep(3);
+		"@
+		);
+
+		vm->run();
+		std::println("vm over!");
+		std::sleep(3);
+		std::println("close vm!");
+		vm->close();
+
+
 		var co1 = std::coroutine(func(){
 			for (var i = 0; i < 10; i += 1)
 			{
