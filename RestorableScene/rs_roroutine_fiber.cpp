@@ -16,8 +16,10 @@ namespace rs
     {
         // Make a thread to fiber
         m_context = ConvertThreadToFiber(nullptr);
-        m_pure_fiber = false;
+        if (!m_context)
+            m_context = GetCurrentFiber();
 
+        m_pure_fiber = false;
         rs_assert(m_context);
     }
     fiber::fiber(void(*fiber_entry)(void*), void* argn)

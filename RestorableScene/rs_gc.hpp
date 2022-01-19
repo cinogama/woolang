@@ -51,8 +51,8 @@ namespace rs
 
             inline void lock() noexcept
             {
-                while (_sspin_read_flag);
                 while (_sspin_write_flag.test_and_set());
+                while (_sspin_read_flag);
             }
             inline void unlock() noexcept
             {

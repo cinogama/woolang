@@ -13,7 +13,7 @@ namespace rs
     class fwaitable
     {
         std::atomic_flag _fwaitable_pendable_flag = {};
-        fthread *_fthread = nullptr;
+        fthread* _fthread = nullptr;
     protected:
         virtual bool be_pending() = 0;
         virtual void be_awake() = 0;
@@ -103,7 +103,7 @@ namespace rs
                 }
             }
             else
-                rs_error("non-fiber-thread cannot yield;");
+                rs_fail(RS_FAIL_NOT_SUPPORT, "non-fiber-thread cannot yield.");
         }
         template<typename T>
         static void wait(rs::shared_pointer<T> waitable)
@@ -118,7 +118,7 @@ namespace rs
                 }
             }
             else
-                rs_error("non-fiber-thread cannot yield;");
+                rs_fail(RS_FAIL_NOT_SUPPORT, "non-fiber-thread cannot yield.");
         }
     };
 
@@ -143,7 +143,7 @@ namespace rs
     }
     inline void fwaitable::awake()
     {
-        while(!_fwaitable_pendable_flag.test_and_set())
+        while (!_fwaitable_pendable_flag.test_and_set())
             ;
 
         if (_fthread)
