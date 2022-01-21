@@ -21,6 +21,7 @@ import test_thread;
 ///////////////////////////////////////////
 
 import rscene.std;
+import rscene.thread;
 import rscene.coroutine;
 
 var arr = []:array<int>;
@@ -28,31 +29,35 @@ var completed = {}:map<int, int>;
 
 func main()
 {
-	for(var i = 0; i < 10000; i += 1)
+	for(var i = 0; i < 20; i += 1)
 	{
 		std::coroutine(func(var index:int){
 			while(true)
 			{
-				arr->add(1);
+				arr->add(index);
+				std::println("wuhu~", index);
+				std::yield();
 				arr->clear();
-				// std::println("wuhu~", index);
-				completed->get(index, 0) += 1;
-				std::coroutine::yield();
 			}
 		}, i);
 	}
+
 }
 std::sleep(1);
 std::sleep(1);
 std::sleep(1);
 main();
-while (true)
+if (true)
 {
+	std::sleep(5);
+	std::coroutine::pause_all();
 	std::sleep(1);
-	std::println(completed);
+	std::coroutine::resume_all();
+	std::sleep(1);
+	std::coroutine::pause_all();
+	
 }
-
-
+while(true);
 ///////////////////////////////////////////
 /*                                       
 std::println("Unit-test begin!");

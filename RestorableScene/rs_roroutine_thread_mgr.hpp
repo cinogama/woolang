@@ -208,7 +208,9 @@ namespace rs
                     {
                         std::unique_lock ug1(_this->_jobs_queue_mx);
                         _this->_jobs_cv.wait(ug1,
-                            [=]() {return !_this->_jobs_queue.empty()
+                            [=]() {return
+                            (!_this->_jobs_queue.empty()
+                                && !_this->_pause_flag)
                             || _this->_shutdown_flag; });
 
                         if (_this->_shutdown_flag)
@@ -216,6 +218,13 @@ namespace rs
                     } while (0);
 
                     vmthread* working_thread = nullptr;
+
+                    if (_this->_pause_flag)
+                    {
+                        _this->_current_vmthread = nullptr;
+                        continue;
+                    }
+
                     do
                     {
                         std::lock_guard g1(_this->_jobs_queue_mx);
@@ -224,11 +233,6 @@ namespace rs
                     } while (0);
 
                     _this->_current_vmthread = working_thread;
-                    if (_this->_pause_flag)
-                    {
-                        _this->_current_vmthread = nullptr;
-                        continue;
-                    }
                     working_thread->invoke_from(&_queue_main);
                     _this->_current_vmthread = nullptr;
                     if (working_thread->waitting())
