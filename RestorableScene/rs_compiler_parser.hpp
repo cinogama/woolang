@@ -110,6 +110,9 @@ namespace rs
 
             static void clean_this_thread_ast()
             {
+                if (nullptr == list)
+                    return;
+
                 for (auto astnode : *list)
                     delete astnode;
                 
