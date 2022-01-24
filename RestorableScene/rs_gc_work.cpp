@@ -1,5 +1,6 @@
 #define _CRT_SECURE_NO_WARNINGS
 #include "rs_vm.hpp"
+#include "rs_memory.hpp"
 
 #include <thread>
 #include <chrono>
@@ -212,7 +213,8 @@ namespace rs
                     // was not marked, delete it
                     // TODO: is map? if is map check it if need gc_destruct?
 
-                    delete picked_list;
+                    picked_list->~gcbase();
+                    free64(picked_list);
 
                 } // ~
                 else if ((picked_list->gc_type == gcbase::gctype::eden

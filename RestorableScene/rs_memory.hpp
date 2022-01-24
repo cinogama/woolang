@@ -1,17 +1,18 @@
 #pragma once
 #include <cstdlib>
+#include <new>
 
-extern "C"
-{
-    void* _rs_aligned_alloc(size_t allocsz, size_t allign);
-    void _rs_aligned_free(void* memptr);
-}
-
+void* _rs_aligned_alloc(size_t allocsz, size_t allign);
+void _rs_aligned_free(void* memptr);
 
 namespace rs
 {
-    void alloc64(size_t memsz)
+    inline void* alloc64(size_t memsz)
     {
-        return malloc();
+        return _rs_aligned_alloc(memsz, std::hardware_constructive_interference_size);
+    }
+    inline void free64(void* ptr)
+    {
+        _rs_aligned_free(ptr);
     }
 }

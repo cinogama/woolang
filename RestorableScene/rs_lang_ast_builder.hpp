@@ -7,6 +7,7 @@
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_source_file_manager.hpp"
 #include "rs_utf8.hpp"
+#include "rs_memory.hpp"
 
 #include <any>
 #include <type_traits>
@@ -163,7 +164,7 @@ namespace rs
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
-                if (to->is_pending() || (to->is_void()&& !to->is_func()))
+                if (to->is_pending() || (to->is_void() && !to->is_func()))
                     return false;
 
                 if (to->is_dynamic())
@@ -700,9 +701,10 @@ namespace rs
         {
             ~ast_value_literal()
             {
-                if (constant_value.is_gcunit())
+                if (auto* gcunit = constant_value.get_gcunit_with_barrier())
                 {
-                    delete constant_value.get_gcunit_with_barrier();
+                    gcunit->~gcbase();
+                    free64(gcunit);
                 }
             }
             void update_constant_value(lexer* lex) override
@@ -3715,7 +3717,7 @@ namespace rs
                     result->called_func = dynamic_cast<ast_value*>(RS_NEED_AST(0));
 
                 result->value_type = new ast_type(L"pending");
-                    //  result->called_func->value_type->get_return_type(); // just get pending..
+                //  result->called_func->value_type->get_return_type(); // just get pending..
                 result->can_be_assign = true;
                 return (ast_basic*)result;
             }

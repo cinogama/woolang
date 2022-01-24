@@ -1,7 +1,9 @@
 #pragma once
+#include "rs_memory.hpp"
 
 #include <shared_mutex>
 #include <atomic>
+
 
 namespace rs
 {
@@ -184,14 +186,12 @@ namespace rs
     template<typename T>
     struct gcunit : public gcbase, public T
     {
-
-
         template<gcbase::gctype AllocType, typename ... ArgTs >
         static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
         {
             ++gc_new_count;
 
-            auto* created_gcnuit = new gcunit<T>(args...);
+            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>)))gcunit<T>(args...);
             created_gcnuit->gc_type = AllocType;
 
             *reinterpret_cast<std::atomic<gcbase*>*>(&write_aim) = created_gcnuit;

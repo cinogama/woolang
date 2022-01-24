@@ -875,6 +875,12 @@ RS_API rs_api rslib_std_roroutine_sleep(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_roroutine_yield(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::fthread::yield();
+    return rs_ret_nil(vm);
+}
+
 const char* rs_stdlib_roroutine_src_path = u8"rscene/coroutine.rsn";
 const char* rs_stdlib_roroutine_src_data = {
 u8R"(

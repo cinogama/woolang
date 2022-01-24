@@ -9,6 +9,7 @@
 #include "rs_global_setting.hpp"
 #include "rs_lang_extern_symbol_loader.hpp"
 #include "rs_shared_ptr.hpp"
+#include "rs_memory.hpp"
 
 #include <cstring>
 #include <string>
@@ -365,10 +366,10 @@ namespace rs
         ~runtime_env()
         {
             if (constant_global_reg_rtstack)
-                free(constant_global_reg_rtstack);
+                free64(constant_global_reg_rtstack);
 
             if (rt_codes)
-                free(rt_codes);
+                free64(rt_codes);
         }
     };
 
@@ -1492,7 +1493,7 @@ namespace rs
 
             const auto v = sizeof(value);
 
-            value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
+            value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
 
             cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
@@ -2192,7 +2193,7 @@ namespace rs
             env->rt_code_len = generated_runtime_code_buf.size();
 
             pdb_info->runtime_codes_base =
-                env->rt_codes = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
+                env->rt_codes = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
 
             rs_test(reinterpret_cast<size_t>(env->rt_codes) % 8 == 0);
 

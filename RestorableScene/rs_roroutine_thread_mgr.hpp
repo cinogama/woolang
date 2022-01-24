@@ -395,7 +395,7 @@ namespace rs
                 do
                 {
                     std::unique_lock ug1(_this->_schedule_mx);
-                    _this->_schedule_cv.wait_for(ug1, 0.5s, [&]()->bool
+                    _this->_schedule_cv.wait_for(ug1, 5s, [&]()->bool
                         {
                             _awake_flag = !_this->_awaking_flag.test_and_set();
                             return _this->_shutdown_flag || _awake_flag;
@@ -532,24 +532,19 @@ namespace rs
             {
                 rs_fail(RS_FAIL_NOT_SUPPORT, "Coroutine scheduler not supported.");
                 return nullptr;
+
             }
+
+            static size_t using_machine_id = 0;
 
             std::shared_lock s1(_scheduler->_schedule_mx);
             if (_scheduler->_shutdown_flag)
                 return nullptr;
 
             // Finding a minor thread_queue;
-            fvmshcedule_queue_thread* minor_wthread = nullptr;
-            size_t minor_wthread_job_count = SIZE_MAX;
-            for (auto& wthread : _scheduler->m_working_thread)
-            {
-                if (size_t count = wthread.work_count();
-                    count < minor_wthread_job_count)
-                {
-                    minor_wthread_job_count = count;
-                    minor_wthread = &wthread;
-                }
-            }
+            fvmshcedule_queue_thread* minor_wthread =
+                &(_scheduler->m_working_thread[using_machine_id++ % _scheduler->m_working_thread.size()]);
+
             if (minor_wthread)
             {
                 return minor_wthread->new_work(_vm, funcaddr, argc);

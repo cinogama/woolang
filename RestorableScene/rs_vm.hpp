@@ -4,6 +4,7 @@
 #include "rs_compiler_ir.hpp"
 #include "rs_utf8.hpp"
 #include "rs_global_setting.hpp"
+#include "rs_memory.hpp"
 
 #include <csetjmp>
 #include <shared_mutex>
@@ -233,7 +234,7 @@ namespace rs
             std::lock_guard g1(_alive_vm_list_mx);
 
             if (_self_stack_reg_mem_buf)
-                free(_self_stack_reg_mem_buf);
+                free64(_self_stack_reg_mem_buf);
 
             rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                 "This vm not exists in _alive_vm_list, that is illegal.");
@@ -319,7 +320,7 @@ namespace rs
                 stack_sz = env->runtime_stack_count;
             new_vm->stack_size = stack_sz;
 
-            new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
+            new_vm->_self_stack_reg_mem_buf = (value*)alloc64(sizeof(value) *
                 (env->real_register_count + stack_sz));
 
             memset(new_vm->_self_stack_reg_mem_buf, 0, sizeof(value) *
