@@ -76,5 +76,12 @@ namespace rs
 
         inline bool ENABLE_OUTPUT_ANSI_COLOR_CTRL = true;
 
+
+        /*
+        * ENABLE_AVOIDING_FALSE_SHARED = true
+        * --------------------------------------------------------------------
+        */
+        inline bool ENABLE_AVOIDING_FALSE_SHARED = true;
+
     }
 }

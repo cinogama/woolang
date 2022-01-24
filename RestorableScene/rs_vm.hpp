@@ -1103,12 +1103,10 @@ namespace rs
             _nullptr = last_this_thread_vm;
 
             rs_assert(rt_env->reg_begin == rt_env->constant_global_reg_rtstack
-                + rt_env->constant_value_count
-                + rt_env->global_value_count);
+                + rt_env->constant_and_global_value_takeplace_count);
 
             rs_assert(rt_env->stack_begin == rt_env->constant_global_reg_rtstack
-                + rt_env->constant_value_count
-                + rt_env->global_value_count
+                + rt_env->constant_and_global_value_takeplace_count
                 + rt_env->real_register_count
                 + (rt_env->runtime_stack_count - 1)
             );

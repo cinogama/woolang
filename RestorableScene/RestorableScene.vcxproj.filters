@@ -78,6 +78,9 @@
     <ClCompile Include="rs_roroutine_fiber.cpp">
       <Filter>roroutine\context</Filter>
     </ClCompile>
+    <ClCompile Include="rs_memory.c">
+      <Filter>basic</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_vm.hpp">
@@ -184,6 +187,9 @@
     </ClInclude>
     <ClInclude Include="rs.h">
       <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_memory.hpp">
+      <Filter>basic</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

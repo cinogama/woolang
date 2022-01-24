@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -22,19 +22,7 @@ import test_thread;
 
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
-
-import rscene.std;
-import rscene.coroutine;
-
-using std;
-
-func foo:<T>()
-{
-	T as string;
-
-	return T();
-}

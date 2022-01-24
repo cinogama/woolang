@@ -175,6 +175,7 @@
   <ItemGroup>
     <ClCompile Include="rs_api_impl.cpp" />
     <ClCompile Include="rs_lang_ast_builder.cpp" />
+    <ClCompile Include="rs_memory.c" />
     <ClCompile Include="rs_roroutine_fiber.cpp" />
     <ClCompile Include="rs_stdlib_extern_functions.cpp" />
     <ClCompile Include="rs_lang_functions_for_ast.cpp" />
@@ -198,6 +199,7 @@
     <ClInclude Include="rs_io.hpp" />
     <ClInclude Include="rs_lang_compiler_information.hpp" />
     <ClInclude Include="rs_lang_extern_symbol_loader.hpp" />
+    <ClInclude Include="rs_memory.hpp" />
     <ClInclude Include="rs_roroutine_simulate_mgr.hpp" />
     <ClInclude Include="rs_roroutine_fiber.hpp" />
     <ClInclude Include="rs_roroutine_thread.hpp" />

@@ -348,10 +348,9 @@ namespace rs
         value* reg_begin = nullptr;
         value* stack_begin = nullptr;
 
+        size_t constant_and_global_value_takeplace_count = 0;
         size_t constant_value_count = 0;
-        size_t global_value_count = 0;
         size_t real_register_count = 0;
-        size_t cgr_global_value_count = 0;
 
         size_t runtime_stack_count = 0;
 
@@ -1463,13 +1462,19 @@ namespace rs
             // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
-
+            size_t global_allign_takeplace_for_avoiding_false_shared =
+                config::ENABLE_AVOIDING_FALSE_SHARED ?
+                ((size_t)(std::hardware_constructive_interference_size / (double)sizeof(rs::value) + 0.5)) : (1);
             size_t global_value_count = 0;
 
             for (auto* global_opnum : global_record_list)
             {
-                rs_assert(global_opnum->offset + constant_value_count < INT32_MAX&& global_opnum->offset >= 0);
-                global_opnum->real_offset_const_glb = (int32_t)(global_opnum->offset + constant_value_count);
+                rs_assert(global_opnum->offset + constant_value_count + global_allign_takeplace_for_avoiding_false_shared
+                    < INT32_MAX&& global_opnum->offset >= 0);
+                global_opnum->real_offset_const_glb = (int32_t)
+                    (global_opnum->offset * global_allign_takeplace_for_avoiding_false_shared 
+                        + constant_value_count + global_allign_takeplace_for_avoiding_false_shared);
+
                 if (((size_t)global_opnum->offset + 1) > global_value_count)
                     global_value_count = (size_t)global_opnum->offset + 1;
             }
@@ -1479,7 +1484,9 @@ namespace rs
 
             size_t preserve_memory_size =
                 constant_value_count
-                + global_value_count
+                + global_allign_takeplace_for_avoiding_false_shared
+                + global_value_count * global_allign_takeplace_for_avoiding_false_shared
+                + global_allign_takeplace_for_avoiding_false_shared
                 + real_register_count
                 + runtime_stack_count;
 
@@ -2165,15 +2172,20 @@ namespace rs
             }
 
             env->constant_global_reg_rtstack = preserved_memory;
-            env->reg_begin = env->constant_global_reg_rtstack + constant_value_count + global_value_count;
-            env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
 
             env->constant_value_count = constant_value_count;
-            env->global_value_count = global_value_count;
+            env->constant_and_global_value_takeplace_count =
+                constant_value_count
+                + global_value_count * global_allign_takeplace_for_avoiding_false_shared
+                + 2 * global_allign_takeplace_for_avoiding_false_shared;
+
+
+            env->reg_begin = env->constant_global_reg_rtstack 
+                + env->constant_and_global_value_takeplace_count;
+
+            env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
+         
             env->real_register_count = real_register_count;
-            env->cgr_global_value_count = env->constant_value_count
-                + env->global_value_count
-                + env->real_register_count;
 
             env->runtime_stack_count = runtime_stack_count;
 

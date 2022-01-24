@@ -98,7 +98,7 @@ namespace rs
                         {
                             // walk thorgh global.
                             for (int cgr_index = 0;
-                                cgr_index < env->constant_value_count + env->global_value_count;
+                                cgr_index < env->constant_and_global_value_takeplace_count;
                                 cgr_index++)
                             {
                                 auto global_val = env->constant_global_reg_rtstack + cgr_index;
@@ -114,7 +114,7 @@ namespace rs
                             }
 
                             for (int reg_index = 0;
-                                reg_index < env->cgr_global_value_count - (env->constant_value_count + env->global_value_count);
+                                reg_index < env->real_register_count;
                                 reg_index++)
                             {
                                 auto self_reg_walker = vmimpl->register_mem_begin + reg_index;
