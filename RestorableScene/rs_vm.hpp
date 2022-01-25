@@ -3034,7 +3034,10 @@ namespace rs
                         else if (vm_interrupt & vm_interrupt_type::YIELD_INTERRUPT)
                         {
                             rs_asure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
+
+                            rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             rs_co_yield();
+                            rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         }
                         else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
                         {
