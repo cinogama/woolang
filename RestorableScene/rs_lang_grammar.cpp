@@ -59,7 +59,7 @@ namespace rs
             using gm = rs::grammar;
             rs_grammar = new grammar(
                 {
-                    //ÎÄ·¨¶¨ÒåÐÎÈç
+                    //æ–‡æ³•å®šä¹‰å½¢å¦‚
                     // nt >> list{nt/te ... } [>> ast_create_function]
 gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -282,7 +282,7 @@ gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm:
                 }
                 >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
-                //WHILEÓï¾ä
+                //WHILEè¯­å¥
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"WHILE") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"WHILE") >> gm::symlist{
@@ -365,7 +365,7 @@ gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm:
                 gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                  >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-                //IFÓï¾ä
+                //IFè¯­å¥
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 gm::nt(L"IF") >> gm::symlist{
@@ -382,7 +382,7 @@ gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 gm::nt(L"ELSE") >> gm::symlist{gm::te(gm::ttype::l_else),gm::nt(L"BLOCKED_SENTENCE")}
  >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-                //±äÁ¿¶¨Òå±í´ïÊ½
+                //å˜é‡å®šä¹‰è¡¨è¾¾å¼
 
 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"VAR_REF_DEFINE")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),//ASTVariableDefination
@@ -427,7 +427,7 @@ gm::nt(L"REFDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
                             gm::nt(L"LEFT") }
                             >> RS_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
-                                //±äÁ¿¶¨Òå±í´ïÊ½
+                                //å˜é‡å®šä¹‰è¡¨è¾¾å¼
 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"),gm::te(gm::ttype::l_semicolon)}
 >> RS_ASTBUILDER_INDEX(ast::pass_return),
 
@@ -435,14 +435,14 @@ gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_return), gm::te(gm::ttyp
 >> RS_ASTBUILDER_INDEX(ast::pass_return),
 
 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
->> RS_ASTBUILDER_INDEX(ast::pass_empty),//·µ»ØÖµ¿ÉÒÔÊÇ¿Õ²úÉúÊ½
+>> RS_ASTBUILDER_INDEX(ast::pass_empty),//è¿”å›žå€¼å¯ä»¥æ˜¯ç©ºäº§ç”Ÿå¼
 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"EXPRESSION") }
->> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),//·µ»ØÖµÒ²¿ÉÒÔÊÇÒ»¸ö±í´ïÊ½
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),//è¿”å›žå€¼ä¹Ÿå¯ä»¥æ˜¯ä¸€ä¸ªè¡¨è¾¾å¼
 
-//Óï¾äÓë±í´ïÊ½
+//è¯­å¥ä¸Žè¡¨è¾¾å¼
 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"),gm::te(gm::ttype::l_semicolon) }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-//	RIGHTµ±È»ÊÇÒ»¸ö±í´ïÊ½
+//	RIGHTå½“ç„¶æ˜¯ä¸€ä¸ªè¡¨è¾¾å¼
 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 gm::nt(L"EXPRESSION") >> gm::symlist{ gm::nt(L"RIGHT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -461,12 +461,12 @@ gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_as
 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_assign_op),
 
-//ÓÒÖµÊÇ½öÈ¡ÖµµÄ±í´ïÊ½ £¬¸³ÖµÓï¾äµ±È»Ò²ÊÇÒ»¸öÓÒÖµ		
+//å³å€¼æ˜¯ä»…å–å€¼çš„è¡¨è¾¾å¼ ï¼Œèµ‹å€¼è¯­å¥å½“ç„¶ä¹Ÿæ˜¯ä¸€ä¸ªå³å€¼		
 
 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-//		func¶¨ÒåÊ½
+//		funcå®šä¹‰å¼
 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -558,11 +558,11 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
             gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
             >> RS_ASTBUILDER_INDEX(ast::pass_token),
 
-                //		ÔËËã×ª»»£¬×óÖµ¿ÉÒÔ×ª»¯ÎªÓÒÖµASTUnary
+                //		è¿ç®—è½¬æ¢ï¼Œå·¦å€¼å¯ä»¥è½¬åŒ–ä¸ºå³å€¼ASTUnary
 
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                //	Âß¼­ÔËËã±í´ïÊ½
+                //	é€»è¾‘è¿ç®—è¡¨è¾¾å¼
                 gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_OR"),gm::te(gm::ttype::l_lor),gm::nt(L"LOGICAL_AND") }
@@ -573,7 +573,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"LOGICAL_AND") >> gm::symlist{ gm::nt(L"LOGICAL_AND"),gm::te(gm::ttype::l_land),gm::nt(L"EQUATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-                // µÈ¼ÛÅÐ±ð±í´ïÊ½
+                // ç­‰ä»·åˆ¤åˆ«è¡¨è¾¾å¼
                 gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"RELATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_equal),gm::nt(L"RELATION") }
@@ -581,7 +581,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"EQUATION") >> gm::symlist{ gm::nt(L"EQUATION"),gm::te(gm::ttype::l_not_equal),gm::nt(L"RELATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-                //	¹ØÏµÅÐ±ð±í´ïÊ½ < > >= <=
+                //	å…³ç³»åˆ¤åˆ«è¡¨è¾¾å¼ < > >= <=
                 gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"SUMMATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg),gm::nt(L"SUMMATION") }
@@ -593,7 +593,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"RELATION") >> gm::symlist{ gm::nt(L"RELATION"),gm::te(gm::ttype::l_larg_or_equal),gm::nt(L"SUMMATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_binary_logical_op),
 
-                // ¼Ó¼õÔËËã±í´ïÊ½		
+                // åŠ å‡è¿ç®—è¡¨è¾¾å¼		
                 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_add),gm::nt(L"MULTIPLICATION") }
@@ -601,7 +601,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"SUMMATION") >> gm::symlist{ gm::nt(L"SUMMATION"),gm::te(gm::ttype::l_sub),gm::nt(L"MULTIPLICATION") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_binary_op),
 
-                // ³Ë³ýÔËËã±í´ïÊ½
+                // ä¹˜é™¤è¿ç®—è¡¨è¾¾å¼
                 gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"UNARIED_FACTOR") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"MULTIPLICATION") >> gm::symlist{ gm::nt(L"MULTIPLICATION"),gm::te(gm::ttype::l_mul),gm::nt(L"UNARIED_FACTOR") }
@@ -707,7 +707,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                                                                 gm::te(gm::ttype::l_right_curly_braces) }
                     >> RS_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
-                //µ¥Ä¿ÔËËã·û
+                //å•ç›®è¿ç®—ç¬¦
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
     >> RS_ASTBUILDER_INDEX(ast::pass_unary_op),
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot),gm::nt(L"UNARIED_FACTOR") }
@@ -722,7 +722,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-                //×óÖµÊÇ±»¸³ÖµµÄ¶ÔÏó£¬Ó¦¸ÃÊÇÒ»¸ö±êÊ¶·û»òÕßÒ»¸öº¯Êý±í´ïÊ½
+                //å·¦å€¼æ˜¯è¢«èµ‹å€¼çš„å¯¹è±¡ï¼Œåº”è¯¥æ˜¯ä¸€ä¸ªæ ‡è¯†ç¬¦æˆ–è€…ä¸€ä¸ªå‡½æ•°è¡¨è¾¾å¼
                 gm::nt(L"LEFTVARIABLE") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_variable),
 
