@@ -2,6 +2,13 @@
 
 #include "rs_global_setting.hpp"
 
+#include <cstdint>
+
+#ifdef _WIN32
+// include nothing
+#else
+#   include <ucontext.h>
+#endif
 namespace rs
 {
     class fiber

@@ -3156,7 +3156,7 @@ namespace rs
                 if (!ast_empty::is_empty(input[4]))
                 {
                     if (decl_naming)
-                        lex.parser_error(0x0000, L"具名声明不可继承自其他具名，继续");
+                        lex.parser_error(0x0000, L"鍏峰悕澹版槑涓嶅彲缁ф壙鑷叾浠栧叿鍚嶏紝缁х画");
                     else
                     {
                         ast_type* depending_naming = dynamic_cast<ast_type*>(dynamic_cast<ast_list*>(RS_NEED_AST(4))->children);

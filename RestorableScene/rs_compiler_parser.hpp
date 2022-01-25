@@ -85,14 +85,14 @@ namespace rs
             }
         };
 
-        using te = terminal;//ÖÕ½á·û
+        using te = terminal;//ç»ˆç»“ç¬¦
         struct nonterminal;
-        using nt = nonterminal;//·ÇÖÕ½á·û
+        using nt = nonterminal;//éç»ˆç»“ç¬¦
         using symbol = std::variant<te, nt>;
         using sym = symbol;
         using rule = std::pair< nonterminal, std::vector<sym>>;
         using symlist = std::vector<sym>;
-        using ttype = lex_type;//tokenÀàĞÍ ¼ò¼Ç·¨
+        using ttype = lex_type;//tokenç±»å‹ ç®€è®°æ³•
 
         class ast_base
         {
@@ -359,9 +359,9 @@ namespace rs
             }
         };
 
-        std::map< nonterminal, std::vector<symlist>>P;//²úÉúÊ½¹æÔò
-        std::vector<rule>ORGIN_P;//Ô­Ê¼ĞÎÊ½µÄ²úÉúÊ½¹æÔò
-        nonterminal S;//ÆğÊ¼·ûºÅ
+        std::map< nonterminal, std::vector<symlist>>P;//äº§ç”Ÿå¼è§„åˆ™
+        std::vector<rule>ORGIN_P;//åŸå§‹å½¢å¼çš„äº§ç”Ÿå¼è§„åˆ™
+        nonterminal S;//èµ·å§‹ç¬¦å·
 
         struct sym_less {
             constexpr bool operator()(const sym& _Left, const sym& _Right) const {
@@ -369,7 +369,7 @@ namespace rs
                 bool left_is_te = std::holds_alternative<te>(_Left);
                 if (left_is_te == std::holds_alternative<te>(_Right))
                 {
-                    //Á½Õß·ûºÅÏàÍ¬
+                    //ä¸¤è€…ç¬¦å·ç›¸åŒ
                     if (left_is_te)
                     {
                         return  std::get<te>(_Left) < std::get<te>(_Right);
@@ -380,7 +380,7 @@ namespace rs
                     }
                 }
 
-                //ÎŞÁÄµÄ¹æ¶¨ ÈÏ¶¨te<nt
+                //æ— èŠçš„è§„å®š è®¤å®šte<nt
 
 
                 return !left_is_te;
@@ -391,7 +391,7 @@ namespace rs
         sym_nts_t FIRST_SET;
         sym_nts_t FOLLOW_SET;
 
-        struct lr_item//lr·ÖÎöÏîÄ¿
+        struct lr_item//lråˆ†æé¡¹ç›®
         {
             rule item_rule;
             size_t next_sign = 0;//		
@@ -440,7 +440,7 @@ namespace rs
             friend inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
         };
 
-        struct lr0_item//lr·ÖÎöÏîÄ¿
+        struct lr0_item//lråˆ†æé¡¹ç›®
         {
             rule item_rule;
             size_t next_sign = 0;//		
@@ -487,11 +487,11 @@ namespace rs
 
         std::set< te>& FIRST(const sym& _sym)
         {
-            if (std::holds_alternative<te>(_sym))//_symÊÇÖÕ½á·û
+            if (std::holds_alternative<te>(_sym))//_symæ˜¯ç»ˆç»“ç¬¦
             {
                 if (FIRST_SET.find(_sym) == FIRST_SET.end())
                 {
-                    //teÊ×´Î±»»ñÈ¡ Ó¦µ±¸øÓèÉèÖÃ
+                    //teé¦–æ¬¡è¢«è·å– åº”å½“ç»™äºˆè®¾ç½®
                     FIRST_SET[_sym] = { std::get<te>(_sym) };
                 }
                 return FIRST_SET[_sym];
@@ -533,7 +533,7 @@ namespace rs
                     {
                         if (std::holds_alternative<nt>(item.item_rule.second[item.next_sign]))
                         {
-                            //·ÇÖÕ½á·û²Å¼ÌĞø
+                            //éç»ˆç»“ç¬¦æ‰ç»§ç»­
                             auto& ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
                             auto& prules = P[ntv];
                             for (auto& prule : prules)
@@ -680,7 +680,7 @@ namespace rs
 
             }
             P_TERMINAL_SET.insert(te(ttype::l_eof));
-            //¼ÆËãFIRST¼¯ºÏ
+            //è®¡ç®—FIRSTé›†åˆ
 
 
             auto CALC_FIRST_SET_COUNT = [this] {
@@ -704,25 +704,25 @@ namespace rs
                     for (size_t pindex = 0; pindex < single_rule.second.size(); pindex++)
                     {
                         auto& cFIRST = FIRST(single_rule.second[pindex]);
-                        /*FIRST[single_rule.first].insert(cFIRST.begin(), cFIRST.end());*///ÓÉÓÚ°üº¬E ËùÒÔ²»ÄÜÖ±½Ó¼ÓÈë¼¯ºÏ
+                        /*FIRST[single_rule.first].insert(cFIRST.begin(), cFIRST.end());*///ç”±äºåŒ…å«E æ‰€ä»¥ä¸èƒ½ç›´æ¥åŠ å…¥é›†åˆ
 
                         bool e_prd = false;
 
                         for (auto& sy : cFIRST)
                         {
                             if (sy.t_type != +ttype::l_empty)
-                                FIRST_SET[single_rule.first].insert(sy);//Ö»Òª²»ÊÇ¿Õ²úÉúÊ½ ¾Í°Ñ·ûºÅÈû½øFIRST¼¯ºÏÖĞ
+                                FIRST_SET[single_rule.first].insert(sy);//åªè¦ä¸æ˜¯ç©ºäº§ç”Ÿå¼ å°±æŠŠç¬¦å·å¡è¿›FIRSTé›†åˆä¸­
                             else
                                 e_prd = true;
                         }
 
-                        if (!e_prd)//Èç¹ûµ±Ç°ÏîÄ¿Ã»ÓĞ¿Õ²úÉúÊ½ Ôò½áÊø
+                        if (!e_prd)//å¦‚æœå½“å‰é¡¹ç›®æ²¡æœ‰ç©ºäº§ç”Ÿå¼ åˆ™ç»“æŸ
                             break;
 
 
                         if (pindex + 1 == single_rule.second.size())
                         {
-                            //Èç¹ûÕû¸ö·ûºÅ´®È«¶¼¿ÉÍÆµ¼¿Õ²úÉúÊ½£¬ÄÇÃ´¿Õ²úÉúÊ½±»Ìí¼Óµ½FIRST
+                            //å¦‚æœæ•´ä¸ªç¬¦å·ä¸²å…¨éƒ½å¯æ¨å¯¼ç©ºäº§ç”Ÿå¼ï¼Œé‚£ä¹ˆç©ºäº§ç”Ÿå¼è¢«æ·»åŠ åˆ°FIRST
                             FIRST_SET[single_rule.first].insert(te(ttype::l_empty));
                         }
                     }
@@ -734,10 +734,10 @@ namespace rs
             } while (LAST_FIRST_SIZE != FIRST_SIZE);
 
 
-            //¼ÆËãFOLLOW¼¯ºÏ
+            //è®¡ç®—FOLLOWé›†åˆ
 
             //
-            FOLLOW_SET[S].insert(te(ttype::l_eof));//¿ªÊ¼·ûºÅµÄFOLLOW¼¯ÖĞÌí¼Óeof
+            FOLLOW_SET[S].insert(te(ttype::l_eof));//å¼€å§‹ç¬¦å·çš„FOLLOWé›†ä¸­æ·»åŠ eof
             auto CALC_FOLLOW_SET_COUNT = [this] {
 
                 size_t SUM = 0;
@@ -767,7 +767,7 @@ namespace rs
                             }
                             else
                             {
-                                //·ÇÖÕ½á·û²ÅÓĞ¼ÆËãFOLLOW¼¯ºÏµÄÒâÒå
+                                //éç»ˆç»“ç¬¦æ‰æœ‰è®¡ç®—FOLLOWé›†åˆçš„æ„ä¹‰
                                 auto& first_set = FIRST(single_rule.second[pindex + 1]);
 
                                 bool have_e_prud = false;
@@ -794,10 +794,10 @@ namespace rs
             } while (LAST_FOLLOW_SIZE != FOLLOW_SIZE);
 
 
-            //LR0·ÖÎö±í¹¹½¨
+            //LR0åˆ†æè¡¨æ„å»º
 
 
-            //1.¹¹½¨LR Ïî¼¯×å
+            //1.æ„å»ºLR é¡¹é›†æ—
             auto LR_ITEM_SET_EQULE = [](const std::set<lr_item>& A, const std::set<lr_item>& B)
             {
                 if (A.size() == B.size())
@@ -856,26 +856,26 @@ namespace rs
             } while (LAST_C_SIZE != C.size());
             C_SET = C;
 
-            //2. ¹¹½¨LR0 Óï·¨·ÖÎö¶¯×÷±í
+            //2. æ„å»ºLR0 è¯­æ³•åˆ†æåŠ¨ä½œè¡¨
             /*
 
             std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr0_table = LR0_TABLE;
 
             for (size_t statei = 0; statei < C.size(); statei++)
             {
-                for (auto& prod : C[statei])//×´Ì¬i
+                for (auto& prod : C[statei])//çŠ¶æ€i
                 {
 
                     if (prod.next_sign >= prod.item_rule.second.size())
                     {
                         if (prod.item_rule.first == p[0].first)
                         {
-                            //ÊÕ¹¤
+                            //æ”¶å·¥
                             lr0_table[statei][te(ttype::l_eof)].insert(action{ action::act_type::accept });
                         }
                         else
                         {
-                            //´ËÊ±ÊÇ¹éÔ¼ÏîÄ¿
+                            //æ­¤æ—¶æ˜¯å½’çº¦é¡¹ç›®
                             size_t orgin_index = (size_t)(std::find(ORGIN_P.begin(), ORGIN_P.end(), prod.item_rule) - ORGIN_P.begin());
                             for (auto& p_te : P_TERMINAL_SET)
                                 lr0_table[statei][p_te].insert(action{ action::act_type::reduction,orgin_index });
@@ -886,7 +886,7 @@ namespace rs
                     }
                     else if (std::holds_alternative<nt>(prod.item_rule.second[prod.next_sign]))
                     {
-                        //GOTO ±í
+                        //GOTO è¡¨
                         auto& next_state = GOTO({ prod }, prod.item_rule.second[prod.next_sign]);
                         for (size_t j = 0; j < C.size(); j++)
                         {
@@ -899,7 +899,7 @@ namespace rs
                     }
                     else
                     {
-                        //SATCK ±í
+                        //SATCK è¡¨
                         auto& next_state = GOTO({ prod }, prod.item_rule.second[prod.next_sign]);
                         for (size_t j = 0; j < C.size(); j++)
                         {
@@ -915,26 +915,26 @@ namespace rs
             */
 
 
-            //3. ¹¹½¨LR1 Óï·¨·ÖÎö¶¯×÷±í
+            //3. æ„å»ºLR1 è¯­æ³•åˆ†æåŠ¨ä½œè¡¨
 
             std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr1_table = LR1_TABLE;
             for (size_t statei = 0; statei < C.size(); statei++)
             {
                 std::set<sym>next_set;
 
-                for (auto& CSTATE_I : C[statei])//×´Ì¬i
+                for (auto& CSTATE_I : C[statei])//çŠ¶æ€i
                 {
                     if (CSTATE_I.next_sign >= CSTATE_I.item_rule.second.size())
                     {
-                        //¹éÔ¼»òÕß½ÓÊÕÏîÄ¿
+                        //å½’çº¦æˆ–è€…æ¥æ”¶é¡¹ç›®
                         if (CSTATE_I.item_rule.first == p[0].first)
                         {
-                            //ÊÕ¹¤
+                            //æ”¶å·¥
                             lr1_table[statei][te(ttype::l_eof)].insert(action{ action::act_type::accept ,CSTATE_I.prospect });
                         }
                         else
                         {
-                            //´ËÊ±ÊÇ¹éÔ¼ÏîÄ¿
+                            //æ­¤æ—¶æ˜¯å½’çº¦é¡¹ç›®
                             size_t orgin_index = (size_t)(std::find(ORGIN_P.begin(), ORGIN_P.end(), CSTATE_I.item_rule) - ORGIN_P.begin());
                             for (auto& p_te : P_TERMINAL_SET)
                             {
@@ -944,7 +944,7 @@ namespace rs
                         }
                     }
                     else
-                        next_set.insert(CSTATE_I.item_rule.second[CSTATE_I.next_sign]);//½øÈëGOTO »òÕßSTACK
+                        next_set.insert(CSTATE_I.item_rule.second[CSTATE_I.next_sign]);//è¿›å…¥GOTO æˆ–è€…STACK
                 }
 
                 for (auto& next_symb : next_set)
@@ -1177,7 +1177,7 @@ namespace rs
 
         bool check(lexer& tkr)
         {
-            //¶ÁÈ¡token_reader£¬¼ì²éÊÇ·ñ·ûºÏÓï·¨
+            //è¯»å–token_readerï¼Œæ£€æŸ¥æ˜¯å¦ç¬¦åˆè¯­æ³•
 
             std::stack<size_t> state_stack;
             std::stack<sym> sym_stack;
@@ -1252,7 +1252,7 @@ namespace rs
                         {
                             size_t index = i - 1;
 
-                            //ĞèÒªÑéÖ¤£¿
+                            //éœ€è¦éªŒè¯ï¼Ÿ
                             /*if (sym_stack.top() != red_rule.second[index])
                             {
                                 return false;
@@ -1288,7 +1288,7 @@ namespace rs
                 else
                 {
                     std::wcout << "fail: no action can be take." << std::endl;
-                    return false;//Ã»ÓĞÕÒµ½
+                    return false;//æ²¡æœ‰æ‰¾åˆ°
                 }
 
             } while (true);
@@ -1400,7 +1400,7 @@ namespace rs
                             }
 
                             return false;
-                            }) != bnodes.end())//bnodes°üº¬¾Ü¾ø±í´ïÊ½
+                            }) != bnodes.end())//bnodesåŒ…å«æ‹’ç»è¡¨è¾¾å¼
                         {
                             node_stack.push(token{ +lex_type::l_error });
                             // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
@@ -1526,7 +1526,7 @@ namespace rs
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
 
-                    // Èç¹û¸Õ¸Õ·¢ÉúÁËÏàÍ¬µÄ´íÎó£¬ ½áÊø´¦Àí
+                    // å¦‚æœåˆšåˆšå‘ç”Ÿäº†ç›¸åŒçš„é”™è¯¯ï¼Œ ç»“æŸå¤„ç†
                     if (tkr.just_have_err ||
                         (last_error_rowno == tkr.now_file_rowno &&
                             last_error_colno == tkr.now_file_colno))
@@ -1548,8 +1548,8 @@ namespace rs
 
 
 
-                    //tokens_queue.front();//µ±Ç°´íÎó·ûºÅ
-                    //¿Ö»ÅÄ£Ê½£¬²éÕÒ¿ÉÄÜµÄ×´Ì¬A
+                    //tokens_queue.front();//å½“å‰é”™è¯¯ç¬¦å·
+                    //ææ…Œæ¨¡å¼ï¼ŒæŸ¥æ‰¾å¯èƒ½çš„çŠ¶æ€A
 
                     while (!state_stack.empty())
                     {
@@ -1564,8 +1564,8 @@ namespace rs
                                     {
                                         if (act.second.begin()->act == action::act_type::reduction)
                                         {
-                                            //ÕÒµ½¶ÔÓ¦µÄ·ÇÖÕ½á·û
-                                            //ÕÒµ½Õâ¸ö·ÇÖÕ½á·ûµÄFOLLOW¼¯
+                                            //æ‰¾åˆ°å¯¹åº”çš„éç»ˆç»“ç¬¦
+                                            //æ‰¾åˆ°è¿™ä¸ªéç»ˆç»“ç¬¦çš„FOLLOWé›†
 
                                             auto& follow_set = FOLLOW_READ(std::get<nt>(act.first));
 
@@ -1586,7 +1586,7 @@ namespace rs
                                                     });
                                                 if (place != follow_set.end())
                                                 {
-                                                    //¿ªÊ¼´¦Àí¹éÔ¼
+                                                    //å¼€å§‹å¤„ç†å½’çº¦
 
                                                     auto& red_rule = RT_PRODUCTION[act.second.begin()->state];
 
@@ -1595,7 +1595,7 @@ namespace rs
                                                     node_stack.push(token{ +lex_type::l_error });
 
                                                     goto error_progress_end;
-                                                    //Íê³É¼Ù¹éÔ¼
+                                                    //å®Œæˆå‡å½’çº¦
                                                 }
                                             }
 
@@ -1657,7 +1657,7 @@ namespace rs
                         }
                     }
 
-                    //´Ë´¦½øĞĞ´íÎóÀı³Ì£¬»Ö¸´´íÎó×´Ì¬£¬¼ì²â¿ÉÄÜµÄ´íÎó¿ÉÄÜ£¬È»ºó¼ÌĞø
+                    //æ­¤å¤„è¿›è¡Œé”™è¯¯ä¾‹ç¨‹ï¼Œæ¢å¤é”™è¯¯çŠ¶æ€ï¼Œæ£€æµ‹å¯èƒ½çš„é”™è¯¯å¯èƒ½ï¼Œç„¶åç»§ç»­
                 error_handle_fail:
                     tkr.parser_error(0x0000, RS_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;

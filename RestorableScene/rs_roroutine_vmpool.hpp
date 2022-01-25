@@ -2,6 +2,7 @@
 
 #include "rs_vm.hpp"
 
+#include <list>
 class RSCO_WorkerPool
 {
     // RSCO_WorkerPool

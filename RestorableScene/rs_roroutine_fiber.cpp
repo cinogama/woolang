@@ -60,7 +60,7 @@ namespace rs
     fiber::fiber()
     {
         // Make a thread to fiber
-        m_stack = nullptr;
+        m_fiber_stack = nullptr;
         m_pure_fiber = false;
     }
     fiber::fiber(void(*fiber_entry)(void*), void* argn)
@@ -68,23 +68,29 @@ namespace rs
         // Create a new fiber
         getcontext(&m_context);
 
-        m_stack = malloc(FIBER_DEFAULT_STACK_SZ);
-        m_ctx.uc_stack.ss_sp = m_stack;
-        m_ctx.uc_stack.ss_size = FIBER_DEFAULT_STACK_SZ;
-        m_ctx.uc_link = nullptr;
+        m_fiber_stack = malloc(FIBER_DEFAULT_STACK_SZ);
+        m_context.uc_stack.ss_sp = m_fiber_stack;
+        m_context.uc_stack.ss_size = FIBER_DEFAULT_STACK_SZ;
+        m_context.uc_link = nullptr;
 
-        makecontext(&m_ctx, (void(*)(void))fiber_entry, 4,
-            (uint32_t)(uint64_t)fiber_entry, (uint32_t)(((uint64_t)fiber_entry) >> 32)
-            (uint32_t)(uint64_t)argn, (uint32_t)(((uint64_t)argn) >> 32));
+        uint32_t fib_entry_lo32 = (uint64_t)fiber_entry;
+        uint32_t fib_entry_hi32 = ((uint64_t)fiber_entry) >> 32;
+
+        uint32_t arg_lo32 = (uint64_t)argn;
+        uint32_t arg_hi32 = ((uint64_t)argn) >> 32;
+
+        makecontext(&m_context, (void(*)(void))fiber_entry, 4,
+            fib_entry_lo32, fib_entry_hi32,
+            arg_lo32, arg_hi32);
 
         m_pure_fiber = true;
 
-        rs_assert(m_context);
+        rs_assert(m_fiber_stack);
     }
     fiber::~fiber()
     {
         if (m_pure_fiber)
-            free(m_stack);
+            free(m_fiber_stack);
     }
     bool fiber::switch_to(fiber* another_fiber)
     {

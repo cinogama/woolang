@@ -261,7 +261,7 @@ namespace rs
                     {
                         if (fnd->second.size() != naming_funcs.size())
                         {
-                            lang_anylizer->lang_error(0x0000, naming, L"ÀàÐÍ%ls²»Âú×ã¾ßÃû%lsµÄÒªÇó: ·½·¨%lsµÄÖØÔØ¼¯²»·û£¬¼ÌÐø",
+                            lang_anylizer->lang_error(0x0000, naming, L"ç±»åž‹%lsä¸æ»¡è¶³å…·å%lsçš„è¦æ±‚: æ–¹æ³•%lsçš„é‡è½½é›†ä¸ç¬¦ï¼Œç»§ç»­",
                                 clstype->get_type_name(false).c_str(),
                                 naming->get_type_name(false).c_str(),
                                 naming_func_name.c_str());
@@ -271,7 +271,7 @@ namespace rs
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, naming, L"ÀàÐÍ%ls²»Âú×ã¾ßÃû%lsµÄÒªÇó: È±ÉÙ·½·¨%ls£¬¼ÌÐø",
+                        lang_anylizer->lang_error(0x0000, naming, L"ç±»åž‹%lsä¸æ»¡è¶³å…·å%lsçš„è¦æ±‚: ç¼ºå°‘æ–¹æ³•%lsï¼Œç»§ç»­",
                             clstype->get_type_name(false).c_str(),
                             naming->get_type_name(false).c_str(),
                             naming_func_name.c_str());
@@ -291,7 +291,7 @@ namespace rs
                     else if (fnd->second->value_type->is_pending()
                         || !fnd->second->value_type->is_same(naming_memb_name_val->value_type))
                     {
-                        lang_anylizer->lang_error(0x0000, naming, L"ÀàÐÍ%ls²»Âú×ã¾ßÃû%lsµÄÒªÇó: ³ÉÔ±%lsÀàÐÍ²»Í¬£¬¼ÌÐø",
+                        lang_anylizer->lang_error(0x0000, naming, L"ç±»åž‹%lsä¸æ»¡è¶³å…·å%lsçš„è¦æ±‚: æˆå‘˜%lsç±»åž‹ä¸åŒï¼Œç»§ç»­",
                             clstype->get_type_name(false).c_str(),
                             naming->get_type_name(false).c_str(),
                             naming_memb_name.c_str());
@@ -300,7 +300,7 @@ namespace rs
                 }
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, naming, L"ÀàÐÍ%ls²»Âú×ã¾ßÃû%lsµÄÒªÇó: È±ÉÙ³ÉÔ±%ls£¬¼ÌÐø",
+                    lang_anylizer->lang_error(0x0000, naming, L"ç±»åž‹%lsä¸æ»¡è¶³å…·å%lsçš„è¦æ±‚: ç¼ºå°‘æˆå‘˜%lsï¼Œç»§ç»­",
                         clstype->get_type_name(false).c_str(),
                         naming->get_type_name(false).c_str(),
                         naming_memb_name.c_str());
@@ -2656,7 +2656,7 @@ namespace rs
                     if (namings->is_same(a_check_naming->naming_const, false))
                         goto checking_naming_end;
                 }
-                lang_anylizer->lang_error(0x0000, a_check_naming, L"·ºÐÍ²ÎÊý'%ls'Ã»ÓÐ¾ßÃû'%ls'Ô¼Êø£¬¼ÌÐø",
+                lang_anylizer->lang_error(0x0000, a_check_naming, L"æ³›åž‹å‚æ•°'%ls'æ²¡æœ‰å…·å'%ls'çº¦æŸï¼Œç»§ç»­",
                     a_check_naming->template_type->get_type_name(false).c_str(),
                     a_check_naming->naming_const->get_type_name(false).c_str());
             checking_naming_end:;

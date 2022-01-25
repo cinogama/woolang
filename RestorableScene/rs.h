@@ -332,8 +332,17 @@ RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 RS_FORCE_CAPI_END
 #undef RS_API
 
-#ifdef __cplusplus
-#   define RS_API extern "C" RS_EXPORT
+#ifdef _WIN32
+#   ifdef __cplusplus
+#       define RS_API extern "C" RS_EXPORT
+#   else
+#       define RS_API RS_EXPORT
+#   endif
 #else
-#   define RS_API RS_EXPORT
+#   ifdef __cplusplus
+#       define RS_API extern "C"
+#   else
+#       define RS_API RS_EXPORT
+#   endif
 #endif
+
