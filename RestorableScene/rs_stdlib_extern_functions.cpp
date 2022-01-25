@@ -336,7 +336,8 @@ RS_API rs_api rslib_std_gchandle_close(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_thread_yield(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_bool(vm, rs_yield_vm(vm));
+    rs_co_yield();
+    return rs_ret_nil(vm);
 }
 
 const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
@@ -373,9 +374,6 @@ namespace std
 
     extern("rslib_std_thread_sleep")
         func sleep(var tm:real):void;
-
-    extern("rslib_std_thread_yield")
-        func yield():bool;
 }
 
 namespace string

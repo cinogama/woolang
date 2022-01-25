@@ -130,6 +130,15 @@ namespace rs
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
+        void* operator new(size_t sz)
+        {
+            return alloc64(sz);
+        }
+        void operator delete(void* ptr)
+        {
+            return free64(ptr);
+        }
+
     private:
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
@@ -137,8 +146,6 @@ namespace rs
 
     protected:
         debuggee_base* attaching_debuggee = nullptr;
-        unsigned int _vm_native_calling_flag = 0;
-        bool _vm_native_calling_need_yield_flag = false;
 
     public:
         inline debuggee_base* attach_debuggee(debuggee_base* dbg)
@@ -935,9 +942,7 @@ namespace rs
                 tc->set_integer(argc);
                 bp = sp;
 
-                ++_vm_native_calling_flag;
                 run();
-                --_vm_native_calling_flag;
 
                 ip = return_ip;
                 sp = return_sp;
@@ -962,13 +967,11 @@ namespace rs
                 tc->set_integer(argc);
                 bp = sp;
 
-                ++_vm_native_calling_flag;
                 reinterpret_cast<rs_native_func>(rs_func_addr)(
                     reinterpret_cast<rs_vm>(this),
                     reinterpret_cast<rs_value>(sp + 2),
                     argc
                     );
-                --_vm_native_calling_flag;
 
                 ip = return_ip;
                 sp = return_sp;
@@ -1095,8 +1098,8 @@ namespace rs
 
             auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
-            ip_restore_raii _o2((void*&)rt_bp, (void*&)sp);
-            ip_restore_raii _o3((void*&)rt_sp, (void*&)bp);
+            ip_restore_raii _o2((void*&)rt_sp, (void*&)sp);
+            ip_restore_raii _o3((void*&)rt_bp, (void*&)bp);
 
             vmbase* last_this_thread_vm = _this_thread_vm;
             vmbase* _nullptr = this;
@@ -2640,11 +2643,7 @@ namespace rs
 
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
                         {
-                            if (_vm_native_calling_need_yield_flag)
-                            {
-                                interrupt(YIELD_INTERRUPT);
-                                _vm_native_calling_need_yield_flag = false;
-                            }
+                            rt_sp = rt_bp;
                             return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                         }
 
@@ -2680,11 +2679,9 @@ namespace rs
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
                             rt_cr->set_nil();
 
-                            ++_vm_native_calling_flag;
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            --_vm_native_calling_flag;
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -2717,11 +2714,9 @@ namespace rs
 
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-                            ++_vm_native_calling_flag;
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            --_vm_native_calling_flag;
 
                             rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -3039,10 +3034,7 @@ namespace rs
                         else if (vm_interrupt & vm_interrupt_type::YIELD_INTERRUPT)
                         {
                             rs_asure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
-                            if (_vm_native_calling_flag)
-                                _vm_native_calling_need_yield_flag = true;
-                            else
-                                return;
+                            rs_co_yield();
                         }
                         else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
                         {

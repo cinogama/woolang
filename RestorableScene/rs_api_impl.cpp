@@ -753,10 +753,9 @@ void rs_close_vm(rs_vm vm)
     delete (rs::vmbase*)vm;
 }
 
-rs_bool_t rs_yield_vm(rs_vm vm)
+void rs_co_yield()
 {
-    return RS_VM(vm)->interrupt
-    (rs::vmbase::vm_interrupt_type::YIELD_INTERRUPT);
+    rs::fthread::yield();
 }
 
 rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)

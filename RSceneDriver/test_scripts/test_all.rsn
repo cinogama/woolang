@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -34,7 +34,7 @@ import rscene.thread;
 for(var i = 0; i< 100; i+=1)
 {
 for(var i=0; i<4; i+=1)
-	std::thread(func(){
+	std::coroutine(func(){
 		var beg_tm = std::time();
 		for(var i=0; i<1'0000'0000; i+=1)
 			;

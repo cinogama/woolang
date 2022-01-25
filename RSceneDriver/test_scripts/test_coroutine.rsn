@@ -49,7 +49,7 @@ namespace test_coroutine
 			for (var i = 0; i < 10; i += 1)
 			{
 				std::println("co working:", i);
-				std::yield();
+				std::coroutine::yield();
 			}
 		});
 
@@ -75,7 +75,7 @@ namespace test_coroutine
 			for (var i = 0; i < 10; i += 1)
 			{
 				std::println("co working:", i);
-				std::yield();
+				std::coroutine::yield();
 			}
 		});
 

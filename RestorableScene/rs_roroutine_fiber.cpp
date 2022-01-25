@@ -1,5 +1,6 @@
 #include "rs_roroutine_fiber.hpp"
 #include "rs_assert.hpp"
+#include "rs_memory.hpp"
 
 #ifdef RS_PLATRORM_OS_WINDOWS
 #   include <Windows.h>
@@ -68,7 +69,7 @@ namespace rs
         // Create a new fiber
         getcontext(&m_context);
 
-        m_stack = malloc(FIBER_DEFAULT_STACK_SZ);
+        m_stack = alloc64(FIBER_DEFAULT_STACK_SZ);
         m_ctx.uc_stack.ss_sp = m_stack;
         m_ctx.uc_stack.ss_size = FIBER_DEFAULT_STACK_SZ;
         m_ctx.uc_link = nullptr;
@@ -84,7 +85,7 @@ namespace rs
     fiber::~fiber()
     {
         if (m_pure_fiber)
-            free(m_stack);
+            free64(m_stack);
     }
     bool fiber::switch_to(fiber* another_fiber)
     {
