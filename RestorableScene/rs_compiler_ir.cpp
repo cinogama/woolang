@@ -61,7 +61,7 @@ namespace rs
             }
         }
     }
-    const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(byte_t* rt_pos) const
+    const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(const byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
         static program_debug_data_info::location     FAIL_LOC;
@@ -133,7 +133,7 @@ namespace rs
         }
         return FAIL_INDEX;
     }
-    size_t program_debug_data_info::get_ip_by_runtime_ip(byte_t* rt_pos) const
+    size_t program_debug_data_info::get_ip_by_runtime_ip(const byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
         static location     FAIL_LOC;
@@ -181,7 +181,7 @@ namespace rs
         _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
     }
 
-    std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const
+    std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
     {
         auto compile_ip = get_ip_by_runtime_ip(rt_pos);
         for (auto& [func_signature, iplocs] : _function_ip_data_buf)

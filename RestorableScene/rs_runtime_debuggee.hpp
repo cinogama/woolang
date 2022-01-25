@@ -177,7 +177,7 @@ stepir          si                            Execute next command.
         size_t breakdown_temp_for_step_lineno = 0;
         std::string breakdown_temp_for_step_srcfile = "";
 
-        rs::byte_t* current_runtime_ip;
+        const rs::byte_t* current_runtime_ip;
         rs::value* current_frame_sp;
         rs::value* current_frame_bp;
 
@@ -669,7 +669,7 @@ stepir          si                            Execute next command.
 
                 } while (0);
 
-                byte_t* next_execute_ip = vmm->ip;
+                const byte_t* next_execute_ip = vmm->ip;
                 auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
 
                 current_frame_bp = vmm->bp;

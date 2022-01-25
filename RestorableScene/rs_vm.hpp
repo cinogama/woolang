@@ -41,17 +41,17 @@ namespace rs
 
     class exception_recovery
     {
-        exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp);
+        exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
         vmbase* vm;
     public:
-        byte_t* ip;
+        const byte_t* ip;
         value* sp;
         value* bp;
         exception_recovery* last;
         std::jmp_buf native_env;
         inline static void rollback(vmbase* _vm);
         inline static void ok(vmbase* _vm);
-        inline static void _ready(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp);
+        inline static void _ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
     };
 
     struct vmbase
@@ -257,7 +257,7 @@ namespace rs
         exception_recovery* veh = nullptr;
 
         // next ircode pointer
-        byte_t* ip = nullptr;
+        const byte_t* ip = nullptr;
 
         // special regist
         value* cr = nullptr;  // op result trace & function return;
@@ -978,7 +978,7 @@ namespace rs
         }
     };
 
-    inline exception_recovery::exception_recovery(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
+    inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
         : vm(_vm)
         , ip(_ip)
         , sp(_sp)
@@ -1004,7 +1004,7 @@ namespace rs
         _vm->veh = veh->last;
         delete veh;
     }
-    inline void exception_recovery::_ready(vmbase* _vm, byte_t* _ip, value* _sp, value* _bp)
+    inline void exception_recovery::_ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
     {
         exception_recovery* _er = new exception_recovery(_vm, _ip, _sp, _bp);
     }
@@ -1086,7 +1086,7 @@ namespace rs
             };
 
             runtime_env* rt_env = env.get();
-            byte_t* rt_ip;
+            const byte_t* rt_ip;
             value* rt_bp, * rt_sp;
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
             value* reg_begin = register_mem_begin;
@@ -1114,7 +1114,7 @@ namespace rs
 
             if (!veh)
             {
-                byte_t* _uselessip = nullptr;
+                const byte_t* _uselessip = nullptr;
                 value* _uselesssp = nullptr;
                 value* _uselessbp = nullptr;
 
@@ -2730,7 +2730,7 @@ namespace rs
                         }
                         else
                         {
-                            byte_t* aimplace = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                            const byte_t* aimplace = rt_env->rt_codes + RS_IPVAL_MOVE_4;
 
                             rt_sp->type = value::valuetype::callstack;
                             rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);

@@ -321,7 +321,7 @@ namespace rs
         ip_src_location_info_t          _general_src_data_buf_b;
         function_signature_ip_info_t    _function_ip_data_buf;
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
-        byte_t* runtime_codes_base;
+        const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
         rslib_extern_symbols::extern_lib_set loaded_libs;
@@ -336,11 +336,11 @@ namespace rs
         void generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler);
         void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, rs_integer_t loc);
 
-        const location& get_src_location_by_runtime_ip(byte_t* rt_pos) const;
+        const location& get_src_location_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_ip_by_src_location(const std::string& src_name, size_t rowno, bool strict = false)const;
-        size_t get_ip_by_runtime_ip(byte_t* rt_pos) const;
+        size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
-        std::string get_current_func_signature_by_runtime_ip(byte_t* rt_pos) const;
+        std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;
     };
 
     struct runtime_env
@@ -356,7 +356,7 @@ namespace rs
         size_t runtime_stack_count = 0;
 
         size_t rt_code_len = 0;
-        byte_t* rt_codes = nullptr;
+        const byte_t* rt_codes = nullptr;
 
         std::atomic_size_t _running_on_vm_count = 0;
         std::atomic_size_t _created_destructable_instance_count = 0;
@@ -369,7 +369,7 @@ namespace rs
                 free64(constant_global_reg_rtstack);
 
             if (rt_codes)
-                free64(rt_codes);
+                free64((byte_t*)rt_codes);
         }
     };
 
@@ -1473,7 +1473,7 @@ namespace rs
                 rs_assert(global_opnum->offset + constant_value_count + global_allign_takeplace_for_avoiding_false_shared
                     < INT32_MAX&& global_opnum->offset >= 0);
                 global_opnum->real_offset_const_glb = (int32_t)
-                    (global_opnum->offset * global_allign_takeplace_for_avoiding_false_shared 
+                    (global_opnum->offset * global_allign_takeplace_for_avoiding_false_shared
                         + constant_value_count + global_allign_takeplace_for_avoiding_false_shared);
 
                 if (((size_t)global_opnum->offset + 1) > global_value_count)
@@ -2181,19 +2181,18 @@ namespace rs
                 + 2 * global_allign_takeplace_for_avoiding_false_shared;
 
 
-            env->reg_begin = env->constant_global_reg_rtstack 
+            env->reg_begin = env->constant_global_reg_rtstack
                 + env->constant_and_global_value_takeplace_count;
 
             env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
-         
+
             env->real_register_count = real_register_count;
 
             env->runtime_stack_count = runtime_stack_count;
 
             env->rt_code_len = generated_runtime_code_buf.size();
 
-            pdb_info->runtime_codes_base =
-                env->rt_codes = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
+            env->rt_codes = pdb_info->runtime_codes_base = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
 
             rs_test(reinterpret_cast<size_t>(env->rt_codes) % 8 == 0);
 
@@ -2201,7 +2200,7 @@ namespace rs
 
             rs_assert(env->rt_codes, "Alloc memory fail.");
 
-            memcpy(env->rt_codes, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
+            memcpy((byte_t*)env->rt_codes, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
 
             env->program_debug_info = pdb_info;
 

@@ -84,7 +84,7 @@ namespace rs
                 uint32_t bp;
                 uint32_t ret_ip;
             };
-            void* native_function_addr;
+            const byte_t* native_function_addr;
 
             value* ref;
 
@@ -164,7 +164,7 @@ namespace rs
             handle = 0;
             return this;
         }
-        inline value* set_native_callstack(rs::byte_t* ipplace)
+        inline value* set_native_callstack(const rs::byte_t* ipplace)
         {
             type = valuetype::nativecallstack;
             native_function_addr = ipplace;
