@@ -1465,7 +1465,7 @@ namespace rs
             size_t constant_value_count = constant_record_list.size();
             size_t global_allign_takeplace_for_avoiding_false_shared =
                 config::ENABLE_AVOIDING_FALSE_SHARED ?
-                ((size_t)(std::hardware_constructive_interference_size / (double)sizeof(rs::value) + 0.5)) : (1);
+                ((size_t)(platform_info::CPU_CACHELINE_SIZE / (double)sizeof(rs::value) + 0.5)) : (1);
             size_t global_value_count = 0;
 
             for (auto* global_opnum : global_record_list)

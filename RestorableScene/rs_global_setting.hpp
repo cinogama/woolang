@@ -1,6 +1,8 @@
 #pragma once
 // Here to place some global variable for config..
 
+#include <new>
+
 namespace rs
 {
     namespace platform_info
@@ -49,6 +51,13 @@ namespace rs
 #endif
             | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
 
+        constexpr size_t CPU_CACHELINE_SIZE =
+#ifdef __cpp_lib_hardware_interference_size
+            std::hardware_constructive_interference_size
+#else
+            64
+#endif
+            ;
 
     }
     namespace config

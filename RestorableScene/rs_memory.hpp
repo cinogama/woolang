@@ -1,4 +1,6 @@
 #pragma once
+#include "rs_global_setting.hpp"
+
 #include <cstdlib>
 #include <new>
 
@@ -9,7 +11,7 @@ namespace rs
 {
     inline void* alloc64(size_t memsz)
     {
-        return _rs_aligned_alloc(memsz, std::hardware_constructive_interference_size);
+        return _rs_aligned_alloc(memsz, platform_info::CPU_CACHELINE_SIZE);
     }
     inline void free64(void* ptr)
     {
