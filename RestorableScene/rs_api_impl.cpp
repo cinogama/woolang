@@ -166,6 +166,7 @@ void rs_init(int argc, char** argv)
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
     bool enable_gc = true;
+    size_t coroutine_mgr_thread_count = 4;
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
@@ -185,6 +186,8 @@ void rs_init(int argc, char** argv)
                 rs::config::ENABLE_IR_CODE_ACTIVE_ALLIGN = atoi(argv[++command_idx]);
             else if ("enable-ansi-color" == current_arg)
                 rs::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
+            else if ("coroutine-thread-count" == current_arg)
+                coroutine_mgr_thread_count = atoi(argv[++command_idx]);
             else
                 rs::rs_stderr << ANSI_HIR "RScene: " << ANSI_RST << "unknown setting --" << current_arg << rs::rs_endl;
         }
@@ -195,7 +198,7 @@ void rs_init(int argc, char** argv)
     if (enable_gc)
         rs::gc::gc_start(); // I dont know who will disable gc..
 
-    rs::fvmscheduler::init();
+    rs::fvmscheduler::init(coroutine_mgr_thread_count);
 
     if (enable_std_package)
     {

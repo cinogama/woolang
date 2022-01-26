@@ -521,8 +521,9 @@ namespace rs
 
         static void init(size_t working_thread_count = 4)
         {
-            if (nullptr == _scheduler)
-                _scheduler = new fvmscheduler(working_thread_count);
+            if (working_thread_count)
+                if (nullptr == _scheduler)
+                    _scheduler = new fvmscheduler(working_thread_count);
         }
 
         template<typename FT>
