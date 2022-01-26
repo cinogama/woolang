@@ -1,5 +1,6 @@
 #include "rs_roroutine_fiber.hpp"
 #include "rs_assert.hpp"
+#include "rs_memory.hpp"
 
 #ifdef RS_PLATRORM_OS_WINDOWS
 #   include <Windows.h>
