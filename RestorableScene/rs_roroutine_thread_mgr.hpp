@@ -193,8 +193,8 @@ namespace rs
 
             std::condition_variable_any _jobs_cv;
 
-            std::atomic_bool            _shutdown_flag = false;
-            std::atomic_bool            _pause_flag = false;
+            std::atomic_bool   _shutdown_flag = false;
+            std::atomic_bool   _pause_flag = false;
 
             static void _queue_thread_work(fvmshcedule_queue_thread* _this)
             {
@@ -208,10 +208,13 @@ namespace rs
                     {
                         std::unique_lock ug1(_this->_jobs_queue_mx);
                         _this->_jobs_cv.wait(ug1,
-                            [=]() {return
-                            (!_this->_jobs_queue.empty()
-                                && !_this->_pause_flag)
-                            || _this->_shutdown_flag; });
+                            [=]() {
+
+                                bool enable_execute_flag =
+                                    (!_this->_jobs_queue.empty() && !_this->_pause_flag)
+                                    || _this->_shutdown_flag;
+                                return enable_execute_flag;
+                            });
 
                         if (_this->_shutdown_flag)
                             goto thread_work_end;
@@ -283,9 +286,8 @@ namespace rs
             }
 
             fvmshcedule_queue_thread()
-                :_real_thread(_queue_thread_work, this)
             {
-
+                _real_thread = std::move(std::thread(_queue_thread_work, this));
             }
 
             template<typename FT>
@@ -496,11 +498,12 @@ namespace rs
             m_working_thread.clear();
         }
         fvmscheduler(size_t working_thread_count)
-            :m_working_thread(working_thread_count)
-            , _schedule_thread(_fvmscheduler_thread_work, this)
-            , _schedule_timer_thread(_fvmscheduler_timer_work, this)
-            , _hr_current_time_point(_hr_clock.now())
+            :_hr_current_time_point(_hr_clock.now())
+            , m_working_thread(working_thread_count)
         {
+            _schedule_thread = std::move(std::thread(_fvmscheduler_thread_work, this));
+            _schedule_timer_thread = std::move(std::thread(_fvmscheduler_timer_work, this));
+
             rs_assert(working_thread_count);
         }
 
