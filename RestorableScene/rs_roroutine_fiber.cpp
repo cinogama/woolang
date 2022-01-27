@@ -15,6 +15,8 @@ namespace rs
 #ifdef RS_PLATRORM_OS_WINDOWS
     fiber::fiber()
     {
+        std::cout << "fiber created: " << this << std::endl;
+
         // Make a thread to fiber
         m_context = ConvertThreadToFiber(nullptr);
         if (!m_context)
@@ -25,6 +27,8 @@ namespace rs
     }
     fiber::fiber(void(*fiber_entry)(void*), void* argn)
     {
+        std::cout << "fiber created: " << this << std::endl;
+
         // Create a new fiber
         m_context = CreateFiber(FIBER_DEFAULT_STACK_SZ, fiber_entry, argn);
         m_pure_fiber = true;
