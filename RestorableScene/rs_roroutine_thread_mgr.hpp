@@ -39,8 +39,16 @@ namespace rs
         std::atomic_bool m_finish_flag = false;
 
     public:
+
+        vmthread(const vmthread&) = delete;
+        vmthread(vmthread&&) = delete;
+        vmthread& operator = (const vmthread&) = delete;
+        vmthread& operator = (vmthread&&) = delete;
+
         ~vmthread()
         {
+            std::cout << "vmthread freeed: " << this << std::endl;
+
             if (m_fthread)
                 delete m_fthread;
 

@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -27,6 +27,7 @@ std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
 
+/*
 import rscene.std;
 import rscene.co;
 import rscene.thread;
@@ -49,3 +50,27 @@ for(var i = 0; i< 100; i+=1)
 
 while(true)
 	std::sleep(1);
+*/
+
+import rscene.std;
+import rscene.co;
+import rscene.thread;
+
+using std;
+
+func cost_tm_func()
+{
+	var beg_tm = time();
+	for(var i=0;i<1'0000'0000;i+=1)
+	{
+	}
+	var end_tm = time();
+	println("cost:", end_tm - beg_tm);
+}
+
+for(var i=0;i<4;i+=1)
+	std::co(cost_tm_func);
+
+while(true)
+	std::sleep(1);
+

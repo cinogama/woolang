@@ -33,6 +33,7 @@ namespace rs
     }
     fiber::~fiber()
     {
+        std::cout << "fthread freeed: " << this << std::endl;
         if (m_pure_fiber)
             DeleteFiber(m_context);
     }
@@ -49,12 +50,16 @@ namespace rs
     
     fiber::fiber()
     {
+        std::cout << "fiber created: " << this << std::endl;
+
         // Make a thread to fiber
         m_fiber_stack = nullptr;
         m_pure_fiber = false;
     }
     fiber::fiber(void(*fiber_entry)(void*), void* argn)
     {
+        std::cout << "fiber created: " << this << std::endl;
+
         // Create a new fiber
         getcontext(&m_context);
 
@@ -72,11 +77,16 @@ namespace rs
         m_pure_fiber = true;
 
         rs_assert(m_fiber_stack);
+        std::cout << "fiber stack created: " << m_fiber_stack << std::endl;
     }
     fiber::~fiber()
     {
+        std::cout << "fiber freeed: " << this << std::endl;
         if (m_pure_fiber)
+        {
+            std::cout << "fiber stack freeed: " << m_fiber_stack << std::endl;
             free64(m_fiber_stack);
+        }
     }
     bool fiber::switch_to(fiber* another_fiber)
     {

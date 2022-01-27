@@ -73,6 +73,8 @@ namespace rs
 
         ~fthread()
         {
+            std::cout << "fthread freeed: " << this << std::endl;
+
             rs_assert(m_finish_flag);
 
             if (m_fiber)
