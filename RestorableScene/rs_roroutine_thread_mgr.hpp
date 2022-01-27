@@ -47,8 +47,6 @@ namespace rs
 
         ~vmthread()
         {
-            std::cout << "vmthread freeed: " << this << std::endl;
-
             if (m_fthread)
                 delete m_fthread;
 
