@@ -22,6 +22,11 @@ namespace rs
 
 #endif
     public:
+        fiber(const fiber&) = delete;
+        fiber(fiber&&) = delete;
+        fiber& operator = (const fiber&) = delete;
+        fiber& operator = (fiber&&) = delete;
+
         fiber();
         fiber(void(*fiber_entry)(void*), void* argn);
         ~fiber();

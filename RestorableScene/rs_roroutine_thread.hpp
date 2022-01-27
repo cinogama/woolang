@@ -18,6 +18,13 @@ namespace rs
         virtual bool be_pending() = 0;
         virtual void be_awake() = 0;
     public:
+        fwaitable() = default;
+        fwaitable(const fwaitable&) = delete;
+        fwaitable(fwaitable&&) = delete;
+        fwaitable& operator = (const fwaitable&) = delete;
+        fwaitable& operator = (fwaitable&&) = delete;
+
+
         virtual ~fwaitable() = default;
 
         bool pending(fthread* pending);
@@ -41,6 +48,11 @@ namespace rs
             yield(true);
         }
     public:
+        fthread(const fthread&) = delete;
+        fthread(fthread&&) = delete;
+        fthread& operator = (const fthread&) = delete;
+        fthread& operator = (fthread&&) = delete;
+
         enum class fthread_state
         {
             NORMAL,     // Nothing to wait, just as a normal work~ 
