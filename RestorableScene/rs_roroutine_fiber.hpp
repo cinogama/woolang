@@ -20,11 +20,6 @@ namespace rs
         ucontext_t m_context;
         void* m_fiber_stack;
 
-        static void _fiber_func_invoker(
-            uint32_t aimf_lo32,
-            uint32_t aimf_hi32,
-            uint32_t argp_lo32,
-            uint32_t argp_hi32);
 #endif
     public:
         fiber();

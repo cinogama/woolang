@@ -879,24 +879,24 @@ RS_API rs_api rslib_std_roroutine_yield(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
-const char* rs_stdlib_roroutine_src_path = u8"rscene/coroutine.rsn";
+const char* rs_stdlib_roroutine_src_path = u8"rscene/co.rsn";
 const char* rs_stdlib_roroutine_src_data = {
 u8R"(
 import rscene.basic;
 
 namespace std
 {
-    using coroutine = gchandle;
-    namespace coroutine
+    using co = gchandle;
+    namespace co
     {
         extern("rslib_std_roroutine_launch")
-            func create<FT>(var f:FT, ...):coroutine;
+            func create<FT>(var f:FT, ...):co;
         
         extern("rslib_std_roroutine_abort")
-            func abort(var co:coroutine):void;
+            func abort(var co:co):void;
 
         extern("rslib_std_roroutine_completed")
-            func completed(var co:coroutine):bool;
+            func completed(var co:co):bool;
 
         // Static functions:
 

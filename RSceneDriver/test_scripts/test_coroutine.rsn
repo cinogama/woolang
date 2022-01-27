@@ -1,5 +1,5 @@
 import rscene.std;
-import rscene.coroutine;
+import rscene.co;
 
 import test_tool;
 
@@ -12,20 +12,20 @@ namespace test_coroutine
 		vm->load_source(
 		@"
 		import rscene.std;
-		import rscene.coroutine;
+		import rscene.co;
 
-		var co_list = []:array<std::coroutine>;
+		var co_list = []:array<std::co>;
 
 		for(var i = 0; i < 10000; i += 1)
-			co_list->add(std::coroutine(
+			co_list->add(std::co(
 				func()
 				{
 					while(true)
-						std::coroutine::yield();
+						std::co::yield();
 				}
 			));
 
-		std::println("coroutine ready!");
+		std::println("co ready!");
 		std::sleep(3);
 		std::println("shutting down coroutines!");
 
@@ -45,37 +45,37 @@ namespace test_coroutine
 		vm->close();
 
 
-		var co1 = std::coroutine(func(){
+		var co1 = std::co(func(){
 			for (var i = 0; i < 10; i += 1)
 			{
 				std::println("co working:", i);
-				std::coroutine::yield();
+				std::co::yield();
 			}
 		});
 
 		while(!co1->completed())
 			std::sleep(0.1);
 
-		co1 = std::coroutine(func(){
+		co1 = std::co(func(){
 			for (;;)
 			{
 				std::println("co working 1...");
 			}
 		});
-		var co2 = std::coroutine(func(){
+		var co2 = std::co(func(){
 			for (;;)
 			{
 				std::println("co working 2...");
 			}
 		});
 
-		std::coroutine::stop_all();
+		std::co::stop_all();
 
-		co1 = std::coroutine(func(){
+		co1 = std::co(func(){
 			for (var i = 0; i < 10; i += 1)
 			{
 				std::println("co working:", i);
-				std::coroutine::yield();
+				std::co::yield();
 			}
 		});
 
