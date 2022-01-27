@@ -81,7 +81,7 @@ namespace rs
         uint32_t arg_lo32 = (uint64_t)argn;
         uint32_t arg_hi32 = ((uint64_t)argn) >> 32;
 
-        makecontext(&m_context, (void(*)(void))fiber_entry, 4,
+        makecontext(&m_context, (void(*)(void))_fiber_func_invoker, 4,
             fib_entry_lo32, fib_entry_hi32,
             arg_lo32, arg_hi32);
 
