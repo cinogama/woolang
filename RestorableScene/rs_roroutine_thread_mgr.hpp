@@ -638,10 +638,11 @@ namespace rs
 
         _scheduler_instance->_hr_listening_awakeup_time_point[this->awake_time_point].push_back(this);
 
-        if (_scheduler_instance->_hr_listening_awakeup_time_point.size() > 1)
+        if (need_update_timer_flag)
+        {
             _scheduler_instance->_timer_list_cv.notify_all();
-        else if (need_update_timer_flag)
             _scheduler_instance->_timer_cv.notify_all();
+        }
         return true;
     }
     inline void fvmscheduler_fwaitable_base::be_awake()
