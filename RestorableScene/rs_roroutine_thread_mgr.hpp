@@ -489,10 +489,17 @@ namespace rs
             do
             {
                 std::lock_guard g1(_schedule_mx);
+                std::unique_lock ug1(_timer_mx);
                 _shutdown_flag = true;
 
             } while (0);
+
+            _schedule_cv.notify_all();
+            _timer_cv.notify_all();
+            _timer_list_cv.notify_all();
+
             _schedule_thread.join();
+            _schedule_timer_thread.join();
 
             m_working_thread.clear();
         }
@@ -526,6 +533,19 @@ namespace rs
             if (working_thread_count)
                 if (nullptr == _scheduler)
                     _scheduler = new fvmscheduler(working_thread_count);
+        }
+
+        static void shutdown()
+        {
+            if (_scheduler)
+            {
+                rs_coroutine_stopall();
+
+                delete _scheduler;
+                _scheduler = nullptr;
+
+                RSCO_WorkerPool::shutdown();
+            }
         }
 
         template<typename FT>

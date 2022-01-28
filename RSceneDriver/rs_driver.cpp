@@ -40,6 +40,8 @@ int main(int argc, char** argv)
             return_state = rs_run(vmm);
         rs_close_vm(vmm);
 
+        rs_finish();
+
         if (return_state)
             return 0;
         if (!compile_successful_flag)
@@ -51,6 +53,5 @@ int main(int argc, char** argv)
         std::cout << "RestorableScene ver." << rs_version() << " " << std::endl;
         std::cout << rs_compile_date() << std::endl;
     }
-
     return 0;
 }

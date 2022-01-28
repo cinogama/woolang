@@ -126,5 +126,12 @@ public:
         }
 
     }
+
+    static void shutdown()
+    {
+        std::lock_guard gl(pool().m_pooled_vm_list_mx);
+        
+        pool().m_pooled_vm_list.clear();
+    }
 };
 

@@ -160,6 +160,40 @@ void rs_handle_ctrl_c(void(*handler)(int))
 
 #undef rs_init
 
+void rs_finish()
+{
+    bool scheduler_need_shutdown = true;
+
+    // Ready to shutdown all vm & coroutine.
+    do
+    {
+        if (scheduler_need_shutdown)
+            rs_coroutine_stopall();
+
+        do
+        {
+            std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
+
+            for (auto& alive_vms : rs::vmbase::_alive_vm_list)
+                alive_vms->interrupt(rs::vmbase::ABORT_INTERRUPT);
+        } while (false);
+
+        if (scheduler_need_shutdown)
+        {
+            rs::fvmscheduler::shutdown();
+            scheduler_need_shutdown = false;
+        }
+        rs_gc_immediately();
+
+        std::this_thread::yield();
+
+        std::lock_guard g1(rs::vmbase::_alive_vm_list_mx);
+        if (rs::vmbase::_alive_vm_list.empty())
+            break;
+
+    } while (true);
+}
+
 void rs_init(int argc, char** argv)
 {
     const char* basic_env_local = "en_US.UTF-8";

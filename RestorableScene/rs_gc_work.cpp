@@ -25,7 +25,7 @@ namespace rs
         uint32_t                    _gc_immediately_vm_count_edge = 200;
 
         volatile bool               _gc_fullgc_stopping_the_world = false;
-
+        std::atomic_flag            _gc_immediately_manually_flag = {};
 
         void deep_in_to_mark_unit(gcbase* unit)
         {
@@ -368,63 +368,66 @@ namespace rs
 
                 using namespace std;
 
-
-                if (gcbase::gc_new_count > _gc_stop_the_world_edge)
+                if (_gc_immediately_manually_flag.test_and_set())
                 {
-                    // Stop world immediately, then reboot gc...
-                    if (!_gc_fullgc_stopping_the_world)
+                    if (gcbase::gc_new_count > _gc_stop_the_world_edge)
                     {
+                        // Stop world immediately, then reboot gc...
+                        if (!_gc_fullgc_stopping_the_world)
+                        {
+                            std::shared_lock sg1(vmbase::_alive_vm_list_mx);
+
+                            for (auto* vmimpl : vmbase::_alive_vm_list)
+                                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                    vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+
+                            for (auto* vmimpl : vmbase::_alive_vm_list)
+                                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                                    vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                        }
+
+                        gcbase::gc_new_count -= _gc_stop_the_world_edge;
+
+                        _gc_fullgc_stopping_the_world = true;
+
+                        continue;
+                    }
+
+                    if (_gc_fullgc_stopping_the_world)
+                    {
+                        _gc_fullgc_stopping_the_world = false;
+
                         std::shared_lock sg1(vmbase::_alive_vm_list_mx);
 
                         for (auto* vmimpl : vmbase::_alive_vm_list)
                             if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                                vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
-
-                        for (auto* vmimpl : vmbase::_alive_vm_list)
-                            if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                                vmimpl->wait_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT);
+                                if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
+                                    vmimpl->wakeup();
+                        continue;
                     }
 
-                    gcbase::gc_new_count -= _gc_stop_the_world_edge;
-
-                    _gc_fullgc_stopping_the_world = true;
-
-                    continue;
-                }
-
-                if (_gc_fullgc_stopping_the_world)
-                {
-                    _gc_fullgc_stopping_the_world = false;
-
-                    std::shared_lock sg1(vmbase::_alive_vm_list_mx);
-
-                    for (auto* vmimpl : vmbase::_alive_vm_list)
-                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
-                                vmimpl->wakeup();
-                    continue;
-                }
-
-                if (gcbase::gc_new_count < _gc_immediately_edge
-                    && vmbase::_alive_vm_count_for_gc_vm_destruct < _gc_immediately_vm_count_edge)
-                {
-                    std::unique_lock ug1(_gc_mx);
-
-                    for (int i = 0; i < 100; i++)
+                    if (gcbase::gc_new_count < _gc_immediately_edge
+                        && vmbase::_alive_vm_count_for_gc_vm_destruct < _gc_immediately_vm_count_edge)
                     {
-                        _gc_cv.wait_for(ug1, 0.1s);
-                        if (gcbase::gc_new_count >= _gc_immediately_edge
-                            || vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge)
-                            goto gc_immediately;
+                        std::unique_lock ug1(_gc_mx);
+
+                        for (int i = 0; i < 100; i++)
+                        {
+                            _gc_cv.wait_for(ug1, 0.1s);
+                            if (gcbase::gc_new_count >= _gc_immediately_edge
+                                || vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge
+                                || !_gc_immediately_manually_flag.test_and_set())
+                                goto gc_immediately;
+                        }
                     }
-                }
-                else
-                {
-                gc_immediately:
-                    if (gcbase::gc_new_count >= _gc_immediately_edge)
-                        gcbase::gc_new_count -= _gc_immediately_edge;
-                    if (vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge)
-                        vmbase::_alive_vm_count_for_gc_vm_destruct -= _gc_immediately_vm_count_edge;
+                    else
+                    {
+                    gc_immediately:
+                        if (gcbase::gc_new_count >= _gc_immediately_edge)
+                            gcbase::gc_new_count -= _gc_immediately_edge;
+                        if (vmbase::_alive_vm_count_for_gc_vm_destruct >= _gc_immediately_vm_count_edge)
+                            vmbase::_alive_vm_count_for_gc_vm_destruct -= _gc_immediately_vm_count_edge;
+                    }
                 }
 
             } while (true);
@@ -446,4 +449,10 @@ namespace rs
         }
 
     }// namespace gc
+}
+
+
+void rs_gc_immediately()
+{
+    rs::gc::_gc_immediately_manually_flag.clear();
 }

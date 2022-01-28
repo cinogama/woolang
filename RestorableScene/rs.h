@@ -92,7 +92,9 @@ RS_API rs_integer_t rs_version_int(void);
 
 RS_API void         rs_init(int argc, char** argv);
 #define rs_init(argc, argv) do{rs_init(argc, argv); setlocale(LC_CTYPE, rs_locale_name());}while(0)
+RS_API void         rs_finish();
 
+RS_API void         rs_gc_immediately();
 
 RS_API rs_type      rs_valuetype(const rs_value value);
 
