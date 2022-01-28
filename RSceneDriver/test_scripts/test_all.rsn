@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -20,57 +20,13 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+namespace mini_test
+{
+	
+}
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
-
-/*
-import rscene.std;
-import rscene.co;
-import rscene.thread;
-
-var co_list = []:array<typeof(std::co(......))>;
-
-for(var i = 0; i< 100; i+=1)
-{
-	for(var i=0; i<1; i+=1)
-		co_list->add(std::co(func(){
-			var beg_tm = std::time();
-			for(var i=0; i<1'0000'0; i+=1)
-				;
-			var end_tm = std::time();
-
-			std::println("cost:", end_tm - beg_tm);
-
-		}));
-}
-
-while(true)
-	std::sleep(1);
-*/
-
-import rscene.std;
-import rscene.co;
-import rscene.thread;
-
-using std;
-
-func cost_tm_func()
-{
-	var beg_tm = time();
-	for(var i=0;i<1'0000'0000;i+=1)
-	{
-	}
-	var end_tm = time();
-	println("cost:", end_tm - beg_tm);
-}
-
-for(var i=0;i<4;i+=1)
-	std::co(cost_tm_func);
-
-while(true)
-	std::sleep(1);
-

@@ -1038,6 +1038,8 @@ namespace rs
         template<int/* rs::platform_info::ArchType */ ARCH = rs::platform_info::ARCH_TYPE>
         void run_impl()
         {
+            block_interrupt(GC_INTERRUPT);
+
             struct auto_leave
             {
                 vmbase* vm;

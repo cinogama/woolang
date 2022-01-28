@@ -5,8 +5,44 @@ import test_tool;
 
 namespace test_coroutine
 {
+	func finish_co()
+	{
+		var co_list = []:array<std::co>;
+
+		for(var i=0;i<1000;i+=1)
+		{
+			co_list->add(std::co(func(){
+				for(var i=0;i<3;i+=1)
+				{
+					std::co::sleep(1);
+				}
+			}));
+		}
+		for(var co : co_list)
+			while(!co->completed())
+				std::sleep(1);
+
+		co_list->clear();
+
+		for(var i=0;i<4;i+=1)
+			co_list->add(std::co(
+				func()
+				{
+					for(var i=0;i<1'000'000;i+=1)
+						std::co::yield();
+				}
+			));
+		for(var co : co_list)
+		{
+			while(!co->completed())
+				std::sleep(1);
+		}
+	}
+
 	func main()
 	{
+		finish_co();
+
 		var vm = std::vm();
 
 		vm->load_source(

@@ -11,6 +11,7 @@
 
 #include <thread>
 #include <atomic>
+#include <list>
 
 using namespace std::chrono_literals;
 
@@ -59,16 +60,7 @@ namespace rs
 
             m_fthread = new fthread(
                 [=]() {
-                    do
-                    {
-                        m_virtualmachine->run();
-
-                        if (m_virtualmachine->sp != return_sp
-                            && !(m_virtualmachine->vm_interrupt & vmbase::ABORT_INTERRUPT))
-                            fthread::yield();
-                        else
-                            break;
-                    } while (true);
+                    m_virtualmachine->run();
 
                     if (_waitter)
                     {
@@ -438,7 +430,7 @@ namespace rs
         std::condition_variable_any _timer_cv;
         std::condition_variable_any _timer_list_cv;
         std::map<std::chrono::steady_clock::time_point,
-            fvmscheduler_waitfortime*> _hr_listening_awakeup_time_point;
+            std::list<fvmscheduler_waitfortime*>> _hr_listening_awakeup_time_point;
 
         static void _fvmscheduler_timer_work(fvmscheduler* _this)
         {
@@ -480,7 +472,8 @@ namespace rs
                     {
                         if (idx->first - 2 * PRE_ACTIVE_TIME > _this->_hr_current_time_point)
                             break;
-                        idx->second->awake();
+                        for (auto& waitter : idx->second)
+                            waitter->awake();
                     }
                     _this->_hr_listening_awakeup_time_point.erase(
                         _this->_hr_listening_awakeup_time_point.begin(), idx);
@@ -623,7 +616,7 @@ namespace rs
             this->awake_time_point < _scheduler_instance->_hr_listening_awakeup_time_point.begin()->first)
             need_update_timer_flag = true;
 
-        _scheduler_instance->_hr_listening_awakeup_time_point[this->awake_time_point] = this;
+        _scheduler_instance->_hr_listening_awakeup_time_point[this->awake_time_point].push_back(this);
 
         if (_scheduler_instance->_hr_listening_awakeup_time_point.size() > 1)
             _scheduler_instance->_timer_list_cv.notify_all();
