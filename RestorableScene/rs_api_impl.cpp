@@ -192,6 +192,8 @@ void rs_finish()
             break;
 
     } while (true);
+
+    rs_gc_stop();
 }
 
 void rs_init(int argc, char** argv)

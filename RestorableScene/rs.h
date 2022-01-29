@@ -205,6 +205,7 @@ typedef struct _rs_debuggee_handle
 *rs_debuggee;
 typedef void(*rs_debuggee_handler_func)(rs_debuggee, rs_vm, void*);
 
+RS_API void         rs_gc_stop();
 RS_API void         rs_gc_pause();
 RS_API void         rs_gc_resume();
 

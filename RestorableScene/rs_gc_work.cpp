@@ -27,6 +27,9 @@ namespace rs
         volatile bool               _gc_fullgc_stopping_the_world = false;
         std::atomic_flag            _gc_immediately_manually_flag = {};
 
+        std::atomic_flag            _gc_stop_flag = {};
+        std::thread                 _gc_scheduler_thread;
+
         void deep_in_to_mark_unit(gcbase* unit)
         {
             if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::full_mark)
@@ -73,8 +76,12 @@ namespace rs
             std::thread _gc_mark_work_thread;
             std::vector<rs::vmbase*> _gc_working_vm;
 
+            std::atomic_flag _gcwork_stop_flag = {};
+
             static void _gc_work_func(gc_mark_thread* gmt)
             {
+                gmt->_gcwork_stop_flag.test_and_set();
+
 #ifdef RS_PLATRORM_OS_WINDOWS
                 SetThreadDescription(GetCurrentThread(), L"rs_gc_worker_thread");
 #endif
@@ -83,6 +90,9 @@ namespace rs
                     std::unique_lock ug1(gmt->_gc_mark_fence_mx);
                     gmt->_gc_mark_fence_cv.wait(ug1, [gmt]() {gmt->_gc_ready = true; return gmt->_gc_start_working_flag; });
                     gmt->_gc_start_working_flag = false;
+
+                    if (!gmt->_gcwork_stop_flag.test_and_set())
+                        break;
 
                     for (auto* vmimpl : gmt->_gc_working_vm)
                     {
@@ -194,6 +204,12 @@ namespace rs
                 _gc_working_end_flag = false;
             }
 
+            inline void stop()
+            {
+                _gcwork_stop_flag.clear();
+                start();
+                _gc_mark_work_thread.join();
+            }
         };
 
         void check_and_move_edge_to_edge(gcbase* picked_list,
@@ -254,6 +270,9 @@ namespace rs
 
             do
             {
+                if (!_gc_stop_flag.test_and_set())
+                    break;  // BREAK TO STOP GC WORK THREAD
+
                 _gc_round_count++;
 
                 int vm_distribute_index = 0;
@@ -431,11 +450,16 @@ namespace rs
                 }
 
             } while (true);
+
+            for (auto& gcwork_thread : _gc_work_threads)
+                gcwork_thread.stop();
+            
         }
 
         void gc_start()
         {
-            std::thread(gc_work_thread).detach();
+            _gc_stop_flag.test_and_set();
+            _gc_scheduler_thread = std::move(std::thread(gc_work_thread));
         }
 
         uint16_t gc_work_round_count()
@@ -455,4 +479,11 @@ namespace rs
 void rs_gc_immediately()
 {
     rs::gc::_gc_immediately_manually_flag.clear();
+}
+
+void rs_gc_stop()
+{
+    rs::gc::_gc_stop_flag.clear();
+    rs_gc_immediately();
+    rs::gc::_gc_scheduler_thread.join();
 }

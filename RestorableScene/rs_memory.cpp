@@ -4,7 +4,6 @@
 
 void* _rs_aligned_alloc(size_t allocsz, size_t allign)
 {
-#if 0
 	size_t offset = allign - 1 + sizeof(void*);
 	void* originalP = malloc(allocsz + offset);
 	size_t originalLocation = reinterpret_cast<size_t>(originalP);
@@ -13,15 +12,9 @@ void* _rs_aligned_alloc(size_t allocsz, size_t allign)
 	size_t originalPStorage = realLocation - sizeof(void*);
 	*reinterpret_cast<void**>(originalPStorage) = originalP;
 	return realP;
-#endif
-	return malloc(allocsz);
 }
 void _rs_aligned_free(void* memptr)
 {
-#if 0
 	size_t originalPStorage = reinterpret_cast<size_t>(memptr) - sizeof(void*);
 	free(*reinterpret_cast<void**>(originalPStorage));
-#endif
-
-	free(memptr);
 }
