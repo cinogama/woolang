@@ -804,6 +804,29 @@ namespace std
 // roroutine APIs
 ///////////////////////////////////////////////////////////////////////////////////////
 
+struct rs_co_waitable_base
+{
+    virtual ~rs_co_waitable_base() = default;
+    virtual void wait_at_current_fthread() = 0;
+};
+
+template<typename T>
+struct rs_co_waitable : rs_co_waitable_base
+{
+    rs::shared_pointer<T> sp_waitable;
+
+    rs_co_waitable(const rs::shared_pointer<T>& sp)
+        :sp_waitable(sp)
+    {
+        static_assert(std::is_base_of<rs::fwaitable, T>::value);
+    }
+
+    virtual void wait_at_current_fthread() override
+    {
+        rs::fthread::wait(sp_waitable);
+    }
+};
+
 RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
 {
     // rslib_std_roroutine_launch(...)   
@@ -813,36 +836,38 @@ RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
         rs_push_valref(reinterpret_cast<rs_vm>(_nvm), args + i);
     }
 
-    rs::shared_pointer<rs::RSCO_Waitter>* gchandle_roroutine = new rs::shared_pointer<rs::RSCO_Waitter>;
+    rs::shared_pointer<rs::RSCO_Waitter> gchandle_roroutine;
 
     if (RS_INTEGER_TYPE == rs_valuetype(args + 0))
-        *gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_int(args + 0), argc - 1);
+        gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_int(args + 0), argc - 1);
     else
-        *gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_handle(args + 0), argc - 1);
+        gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_handle(args + 0), argc - 1);
+
+
 
     return rs_ret_gchandle(vm,
-        gchandle_roroutine,
+        new rs_co_waitable<rs::RSCO_Waitter>(gchandle_roroutine),
         nullptr,
         [](void* gchandle_roroutine_ptr)
         {
-            delete (rs::shared_pointer<rs::RSCO_Waitter>*)gchandle_roroutine_ptr;
+            delete (rs_co_waitable_base*)gchandle_roroutine_ptr;
         });
 }
 
 RS_API rs_api rslib_std_roroutine_abort(rs_vm vm, rs_value args, size_t argc)
 {
-    auto* gchandle_roroutine = (rs::shared_pointer<rs::RSCO_Waitter>*) rs_pointer(args);
-    if ((*gchandle_roroutine))
-        (*gchandle_roroutine)->abort();
+    auto* gchandle_roroutine = (rs_co_waitable<rs::RSCO_Waitter>*) rs_pointer(args);
+    if (gchandle_roroutine->sp_waitable)
+        gchandle_roroutine->sp_waitable->abort();
 
     return rs_ret_nil(vm);
 }
 
 RS_API rs_api rslib_std_roroutine_completed(rs_vm vm, rs_value args, size_t argc)
 {
-    auto* gchandle_roroutine = (rs::shared_pointer<rs::RSCO_Waitter>*) rs_pointer(args);
-    if ((*gchandle_roroutine))
-        return rs_ret_bool(vm, (*gchandle_roroutine)->complete_flag);
+    auto* gchandle_roroutine = (rs_co_waitable<rs::RSCO_Waitter>*) rs_pointer(args);
+    if (gchandle_roroutine->sp_waitable)
+        return rs_ret_bool(vm, gchandle_roroutine->sp_waitable->complete_flag);
     else
         return rs_ret_bool(vm, true);
 }
@@ -879,6 +904,14 @@ RS_API rs_api rslib_std_roroutine_yield(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_roroutine_wait(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_co_waitable_base* waitable = (rs_co_waitable_base*)rs_pointer(args);
+
+    waitable->wait_at_current_fthread();
+    return rs_ret_nil(vm);
+}
+
 const char* rs_stdlib_roroutine_src_path = u8"rscene/co.rsn";
 const char* rs_stdlib_roroutine_src_data = {
 u8R"(
@@ -887,6 +920,9 @@ import rscene.basic;
 namespace std
 {
     using co = gchandle;
+
+    using waitable = gchandle;
+
     namespace co
     {
         extern("rslib_std_roroutine_launch")
@@ -914,6 +950,12 @@ namespace std
 
         extern("rslib_std_thread_yield")
                 func yield():bool;
+
+        extern("rslib_std_roroutine_wait")
+                func wait(var condi:waitable):void;
+
+        extern("rslib_std_roroutine_wait")
+                func wait(var condi:co):void;
     }
 }
 

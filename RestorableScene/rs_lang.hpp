@@ -1721,7 +1721,7 @@ namespace rs
                                                     ;
                                                 else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
                                                     break;
-                                                else if (real_arg->value_type->is_same(form_arg->value_type))
+                                                else if (real_arg->value_type->is_same(form_arg->value_type, false))
                                                     ;// do nothing..
                                                 else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type, false))
                                                     best_match = false;

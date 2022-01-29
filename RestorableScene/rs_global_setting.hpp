@@ -42,15 +42,22 @@ namespace rs
         };
 
         constexpr auto ARCH_TYPE =
-#if defined(_M_IX86) || defined(_M_X64) || defined(__i386__) || defined(__x86_64__)
-            ArchType::X86
-#elif  defined(_M_ARM) ||defined(_M_ARM64) ||defined(__arm__) || defined(__aarch64__)
-            ArchType::ARM
+#if defined(_M_IX86) || defined(__i386__)
+            ArchType::X86 | 0;
+#           define RS_PLATFORM_32 
+#elif  defined(__x86_64__) || defined(_M_X64) 
+            ArchType::X86 | ArchType::BIT64;
+#           define RS_PLATFORM_64
+#elif  defined(_M_ARM)||defined(__arm__)
+            ArchType::ARM | 0;
+#           define RS_PLATFORM_32 
+#elif  defined(__aarch64__) ||defined(_M_ARM64) 
+            ArchType::ARM | ArchType::BIT64;
+#           define RS_PLATFORM_64
 #else
-            ArchType::UNKNOWN
+            ArchType::UNKNOWN | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
 #endif
-            | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
-
+            
         constexpr size_t CPU_CACHELINE_SIZE =
 #ifdef __cpp_lib_hardware_interference_size
             std::hardware_constructive_interference_size

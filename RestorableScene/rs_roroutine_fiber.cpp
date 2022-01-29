@@ -23,10 +23,34 @@ namespace rs
         m_pure_fiber = false;
         rs_assert(m_context);
     }
+#if defined(RS_PLATFORM_32)
+
+    struct fiber_invoke_pack
+    {
+        void(*entry)(void*);
+        void* argn;
+    };
+
+    void __stdcall _stdcall_pack_invoker(void* _pack)
+    {
+        fiber_invoke_pack* pack = (fiber_invoke_pack*)_pack;
+        pack->entry(pack->argn);
+        delete pack;
+    }
+
+#endif
     fiber::fiber(void(*fiber_entry)(void*), void* argn)
     {
         // Create a new fiber
+#if defined(RS_PLATFORM_32)
+        // The damm windows like prefer __stdcall, and in x64 there is only one call convention
+        // So we need pack it.. fxxxxxk!
+
+        m_context = CreateFiber(FIBER_DEFAULT_STACK_SZ, _stdcall_pack_invoker, new fiber_invoke_pack{ fiber_entry,argn });
+
+#else
         m_context = CreateFiber(FIBER_DEFAULT_STACK_SZ, fiber_entry, argn);
+#endif
         m_pure_fiber = true;
 
         rs_assert(m_context);

@@ -22,6 +22,7 @@
 
 int main(int argc, char** argv)
 {
+    begin:
     rs_init(argc, argv);
 
     if (argc >= 2)
@@ -41,7 +42,7 @@ int main(int argc, char** argv)
         rs_close_vm(vmm);
 
         rs_finish();
-
+        goto begin;
         if (return_state)
             return 0;
         if (!compile_successful_flag)

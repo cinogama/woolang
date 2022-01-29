@@ -22,26 +22,11 @@ import test_thread;
 
 namespace mini_test
 {
-	using std;
 
-	func main()
-	{
-		while (true)
-		{
-			println("Helloworld");
-
-			co::sleep(1);
-		}
-	}
-	
-	var main_co = co(main);
-
-	while(!main_co->completed())
-		sleep(1);
 }
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */

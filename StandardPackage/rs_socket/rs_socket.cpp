@@ -16,18 +16,34 @@
 #   endif
 #endif
 
+#include "wepoll.h"
+
+static size_t _entry_count = 0;
+
+struct epoll_holder
+{
+    bool _stop_thread_flag = false;
+    static void _epoll_listen_and_awake_thread_work(epoll_holder* _this)
+    {
+        while (!_this->_stop_thread_flag)
+        {
+
+        }
+    }
+};
+
+
 
 RS_API void entry()
 {
+    if (_entry_count++ == 0)
+    {
+        // First entry, create a thread to do epoll
 
+    }
 }
 
 RS_API void exit()
 {
 
-}
-
-RS_API rs_result_t test_helloworld(rs_vm vm, rs_value args, size_t argc)
-{
-    return rs_ret_string(vm, "Helloworld");
 }

@@ -21,7 +21,17 @@ namespace rs
 {
     class vmthread;
 
-    struct RSCO_Waitter
+    class fvmscheduler;
+
+    class fvmscheduler_fwaitable_base : public rs::fwaitable
+    {
+        friend class fvmscheduler;
+
+        void be_awake()final;
+    };
+
+
+    struct RSCO_Waitter : public fvmscheduler_fwaitable_base
     {
         vmthread* working_vmthread = nullptr;
         rs::vmbase* working_vm = nullptr;
@@ -30,6 +40,24 @@ namespace rs
         bool complete_flag = false;
 
         void abort();
+        void complete()
+        {
+            while (_completed.test_and_set())
+                ;
+            complete_flag = true;
+
+            awake();
+        }
+
+        bool be_pending()override final
+        {
+            /* There is no need to do any thing */
+
+            if (complete_flag)
+                return false;
+
+            return true;
+        }
     };
 
     class vmthread
@@ -64,9 +92,7 @@ namespace rs
 
                     if (_waitter)
                     {
-                        while (_waitter->_completed.test_and_set())
-                            ;
-                        _waitter->complete_flag = true;
+                        _waitter->complete();
                     }
                     m_finish_flag = true;
                 }
@@ -81,9 +107,7 @@ namespace rs
 
                     if (_waitter)
                     {
-                        while (_waitter->_completed.test_and_set())
-                            ;
-                        _waitter->complete_flag = true;
+                        _waitter->complete();
                     }
                     m_finish_flag = true;
                 }
@@ -151,18 +175,6 @@ namespace rs
             _completed.clear();
         }
     }
-
-    class fvmscheduler;
-
-    class fvmscheduler_fwaitable_base : public rs::fwaitable
-    {
-        friend class fvmscheduler;
-
-        void be_awake()final;
-    protected:
-        fvmscheduler* _scheduler_instance;
-
-    };
 
     class fvmscheduler_waitfortime : public fvmscheduler_fwaitable_base
     {
@@ -521,11 +533,15 @@ namespace rs
             using namespace std;
 
             fvmscheduler_waitfortime* wtime = new fvmscheduler_waitfortime;
-            wtime->_scheduler_instance = _scheduler;
             wtime->awake_time_point = _scheduler->_hr_clock.now();
             wtime->awake_time_point += (int64_t(_tm * 1000000000.)) * 1ns;
 
             return wtime;
+        }
+
+        inline static fvmscheduler* current_scheduler()
+        {
+            return _scheduler;
         }
 
         static void init(size_t working_thread_count = 4)
@@ -626,28 +642,32 @@ namespace rs
     };
     inline bool fvmscheduler_waitfortime::be_pending()
     {
-        std::lock_guard g1(_scheduler_instance->_timer_mx);
+        auto* _scheduler = fvmscheduler::current_scheduler();
 
-        if (this->awake_time_point <= _scheduler_instance->_hr_current_time_point)
+        std::lock_guard g1(_scheduler->_timer_mx);
+
+        if (this->awake_time_point <= _scheduler->_hr_current_time_point)
             return false;
 
         bool need_update_timer_flag = false;
-        if (_scheduler_instance->_hr_listening_awakeup_time_point.empty() ||
-            this->awake_time_point < _scheduler_instance->_hr_listening_awakeup_time_point.begin()->first)
+        if (_scheduler->_hr_listening_awakeup_time_point.empty() ||
+            this->awake_time_point < _scheduler->_hr_listening_awakeup_time_point.begin()->first)
             need_update_timer_flag = true;
 
-        _scheduler_instance->_hr_listening_awakeup_time_point[this->awake_time_point].push_back(this);
+        _scheduler->_hr_listening_awakeup_time_point[this->awake_time_point].push_back(this);
 
         if (need_update_timer_flag)
         {
-            _scheduler_instance->_timer_list_cv.notify_all();
-            _scheduler_instance->_timer_cv.notify_all();
+            _scheduler->_timer_list_cv.notify_all();
+            _scheduler->_timer_cv.notify_all();
         }
         return true;
     }
     inline void fvmscheduler_fwaitable_base::be_awake()
     {
-        _scheduler_instance->_awaking_flag.clear();
-        _scheduler_instance->_schedule_cv.notify_all();
+        auto* _scheduler = fvmscheduler::current_scheduler();
+
+        _scheduler->_awaking_flag.clear();
+        _scheduler->_schedule_cv.notify_all();
     }
 }

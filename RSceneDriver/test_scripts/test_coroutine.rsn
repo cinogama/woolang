@@ -5,6 +5,31 @@ import test_tool;
 
 namespace test_coroutine
 {
+	func waitable_test()
+	{
+		using std;
+
+		var co1 = co(func(){
+			for(var i=0;i<3;i+=1)
+			{
+				co::sleep(1);
+				println("Helloworld");
+			}
+		});
+
+		var co2 = co(func(var pre_co:co){
+
+			co::wait(pre_co);
+			println("OK");
+
+		},co1);
+
+		sleep(4);
+		co1->abort();
+
+		while(!co2->completed())
+			sleep(1);
+	}
 	func finish_co()
 	{
 		var co_list = []:array<std::co>;
@@ -41,6 +66,7 @@ namespace test_coroutine
 
 	func main()
 	{
+		waitable_test();
 		finish_co();
 
 		var vm = std::vm();
@@ -52,7 +78,7 @@ namespace test_coroutine
 
 		var co_list = []:array<std::co>;
 
-		for(var i = 0; i < 10000; i += 1)
+		for(var i = 0; i < 1000; i += 1)
 			co_list->add(std::co(
 				func()
 				{
