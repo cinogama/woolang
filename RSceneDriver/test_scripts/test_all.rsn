@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -20,13 +20,46 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-namespace mini_test
-{
+import rscene.std;
+import rscene.co;
 
+using std;
+
+var ival = [0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0,];
+
+func co_work_func(var id:int)
+{
+	ref i = ival[id*4];
+
+	var beg_tm = time();
+	for(i=0;i<1'0000'0000;i+=1);
+	var end_tm = time();
+
+	println("loop", id, "finished, cost:", end_tm-beg_tm);
 }
 
+func main()
+{
+	while(true)
+	{
+		var co_list = []:array<co>;
+
+		for(var i=0;i<4;i+=1)
+			co_list->add(co(co_work_func, i));
+
+		for(var co_work : co_list)
+			co::wait(co_work);
+		println("================================");
+	}
+}
+
+ var main_co = co(main);       // Create main coroutine
+ while(!main_co->completed())  // Wait main coroutine until end
+ 	sleep(1);
+
+
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 execute_all_test();
 /*                                       */
