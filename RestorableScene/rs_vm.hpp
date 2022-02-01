@@ -1164,10 +1164,6 @@ namespace rs
 #define RS_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(*(uint32_t*)((rt_ip += 4) - 4)):((uint32_t)RS_SAFE_READ_MOVE_4))
 #define RS_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)RS_SAFE_READ_MOVE_8))
 
-//#define RS_IPVAL_MOVE_2 ((*(uint16_t*)((rt_ip += 2) - 2)))
-//#define RS_IPVAL_MOVE_4 ((*(uint32_t*)((rt_ip += 4) - 4)))
-//#define RS_IPVAL_MOVE_8 ((*(uint64_t*)((rt_ip += 8) - 8)))
-
 #define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
