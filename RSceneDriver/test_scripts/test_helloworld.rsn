@@ -3,12 +3,38 @@ import test_tool;
 
 namespace test_helloworld
 {
+    var _should_not_be_set_flag = false;
+    var _should_be_set_flag = false;
+
+    func execute_func()
+    {
+        std::println("You should see this.");
+        return _should_be_set_flag = true;
+    }
+    func non_execute_func()
+    {
+        std::println("You should not see this.");
+        return _should_not_be_set_flag = true;
+    }
+
     func main()
     {
         using std;
 
         const var n = "Helloworld~";
         println(n);
+
+        execute_func() || non_execute_func();
+        test_assure(_should_be_set_flag && !_should_not_be_set_flag);
+        _should_be_set_flag = _should_not_be_set_flag = false;
+
+        !execute_func() && non_execute_func();
+        test_assure(_should_be_set_flag && !_should_not_be_set_flag);
+        _should_be_set_flag = _should_not_be_set_flag = false;
+
+        (execute_func() || non_execute_func()) && (!execute_func() && non_execute_func());
+        test_assure(_should_be_set_flag && !_should_not_be_set_flag);
+        _should_be_set_flag = _should_not_be_set_flag = false;
     }
 }
 

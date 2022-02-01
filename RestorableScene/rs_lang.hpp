@@ -710,7 +710,7 @@ namespace rs
                         arg_child = arg_child->sibling;
                     }
 
-                    fully_update_type(a_value_func->value_type, true);  
+                    fully_update_type(a_value_func->value_type, true);
                     // update return type info for
                     // func xxx(var x:int): typeof(x)
 
@@ -3660,11 +3660,38 @@ namespace rs
                 auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
                 auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
 
+                if ((is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr) &&
+                    (a_value_logical_binary->operate == +lex_type::l_lor ||
+                        a_value_logical_binary->operate == +lex_type::l_land))
+                {
+                    // Need make short cut
+
+                    complete_using_register(*_beoped_left_opnum);
+                    complete_using_register(*_op_right_opnum);
+                    compiler->revert_code_to(revert_pos);
+
+                    auto logic_short_cut_label = "logic_short_cut_" + compiler->get_unique_tag_based_command_ip();
+                    mov_value_to_cr(analyze_value(a_value_logical_binary->left, compiler), compiler);
+
+                    if (a_value_logical_binary->operate == +lex_type::l_lor)
+                        compiler->jt(tag(logic_short_cut_label));
+                    else  if (a_value_logical_binary->operate == +lex_type::l_land)
+                        compiler->jf(tag(logic_short_cut_label));
+                    else
+                        rs_error("Unknown operator.");
+
+                    mov_value_to_cr(analyze_value(a_value_logical_binary->right, compiler), compiler);
+
+                    compiler->tag(logic_short_cut_label);
+                    
+                    return RS_NEW_OPNUM(reg(reg::cr));
+                }
+
                 if (is_cr_reg(*_beoped_left_opnum)
                     && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*_beoped_left_opnum);
-                    complete_using_register(*_beoped_left_opnum);
+                    complete_using_register(*_op_right_opnum);
                     compiler->revert_code_to(revert_pos);
                     _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler, true);
                     _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
