@@ -3284,7 +3284,7 @@ namespace rs
                 case lex_type::l_assign:
                     if (is_need_dup_when_mov(a_value_assign->right))
                         // TODO Right may be 'nil', do not dup nil..
-                        compiler->movdup(beoped_left_opnum, op_right_opnum);
+                        compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
                     else if (optype == value::valuetype::invalid &&
                         !a_value_assign->left->value_type->is_dynamic()
                         && !a_value_assign->left->value_type->is_func()
@@ -3558,7 +3558,7 @@ namespace rs
                         else if (is_need_dup_when_mov(argv))
                         {
                             auto& tmpreg = analyze_value(argv, compiler, true);
-                            compiler->movdup(tmpreg, tmpreg);
+                            compiler->ext_movdup(tmpreg, tmpreg);
                             compiler->psh(complete_using_register(tmpreg));
                         }
                         else
@@ -4117,7 +4117,7 @@ namespace rs
                             if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
                             {
                                 if (is_need_dup_when_mov(varref_define.init_val))
-                                    compiler->movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                    compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
                                 else
                                     compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
                             }
@@ -4259,7 +4259,7 @@ namespace rs
                 if (a_return->return_value)
                 {
                     if (is_need_dup_when_mov(a_return->return_value))
-                        compiler->movdup(reg(reg::cr), auto_analyze_value(a_return->return_value, compiler));
+                        compiler->ext_movdup(reg(reg::cr), auto_analyze_value(a_return->return_value, compiler));
                     else if (a_return->return_value->is_mark_as_using_ref)
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else

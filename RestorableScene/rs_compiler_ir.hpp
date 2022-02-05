@@ -772,18 +772,6 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::movx, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-        template<typename OP1T, typename OP2T>
-        void movdup(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not mov value to immediate.");
-
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::movdup, RS_OPNUM(op1), RS_OPNUM(op2));
-        }
 
         template<typename OP1T, typename OP2T>
         void addx(const OP1T& op1, const OP2T& op2)
@@ -1329,7 +1317,7 @@ namespace rs
 
         void end()
         {
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::end);
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 1);
         }
 
         void tag(const string_t& tagname)
@@ -1401,32 +1389,19 @@ namespace rs
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::setref;
         }
 
-        template<typename OP1T>
-        void ext_mknilmap(const OP1T& op1)
+        template<typename OP1T, typename OP2T>
+        void ext_movdup(const OP1T& op1, const OP2T& op2)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set immediate as ref.");
+                "Can not mov value to immediate.");
 
-            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1));
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
             codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mknilmap;
-        }
-
-        template<typename OP1T>
-        void ext_mknilarr(const OP1T& op1)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set immediate as ref.");
-
-            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mknilarr;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::movdup;
         }
 
         template<typename OP1T, typename OP2T>
@@ -1687,11 +1662,6 @@ namespace rs
                     break;
                 case instruct::opcode::movx:
                     temp_this_command_code_buf.push_back(RS_OPCODE(movx));
-                    auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    break;
-                case instruct::opcode::movdup:
-                    temp_this_command_code_buf.push_back(RS_OPCODE(movdup));
                     auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
@@ -2040,14 +2010,14 @@ namespace rs
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
-                        case instruct::extern_opcode_page_0::mknilarr:
-                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilarr));
-                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                            break;
-                        case instruct::extern_opcode_page_0::mknilmap:
-                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilmap));
-                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                            break;
+                            /*case instruct::extern_opcode_page_0::mknilarr:
+                                temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilarr));
+                                auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                                break;
+                            case instruct::extern_opcode_page_0::mknilmap:
+                                temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilmap));
+                                auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                                break;*/
                         case instruct::extern_opcode_page_0::packargs:
                             temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(packargs));
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
@@ -2055,6 +2025,11 @@ namespace rs
                             break;
                         case instruct::extern_opcode_page_0::unpackargs:
                             temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(unpackargs));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            break;
+                        case instruct::extern_opcode_page_0::movdup:
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(movdup));
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
@@ -2086,11 +2061,10 @@ namespace rs
 
                     break;
                 case instruct::opcode::abrt:
-                    temp_this_command_code_buf.push_back(RS_OPCODE(abrt, 00));
-                    break;
-
-                case instruct::opcode::end:
-                    temp_this_command_code_buf.push_back(RS_OPCODE(end, 00));
+                    if (RS_IR.opinteger)
+                        temp_this_command_code_buf.push_back(RS_OPCODE(abrt, 10));
+                    else
+                        temp_this_command_code_buf.push_back(RS_OPCODE(abrt, 00));
                     break;
 
                 default:

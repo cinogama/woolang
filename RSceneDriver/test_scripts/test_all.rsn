@@ -20,6 +20,14 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+var tm_beg = std::time();
+
+for(var i=0;i<=40;i+=1)
+    std::println("fib(", i, ")=", test_while::fib(i));
+
+var tm_end = std::time();
+std::println("fib40 cost:", tm_end-tm_beg);
+
 ///////////////////////////////////////////
 /*                                       */
 std::println("Unit-test begin!");

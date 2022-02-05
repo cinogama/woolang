@@ -688,8 +688,6 @@ namespace rs
 
                 case instruct::movx:
                     tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::movdup:
-                    tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::veh:
                     tmpos << "veh ";
                     if (main_command & 0b10)
@@ -710,7 +708,11 @@ namespace rs
                         break;
                     }
                 case instruct::abrt:
-                    tmpos << "abrt\t"; break;
+                    if (main_command & 0b10)
+                        tmpos << "end\t";
+                    else
+                        tmpos << "abrt\t";
+                    break;
 
                 case instruct::equx:
                     tmpos << "equx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
@@ -789,14 +791,16 @@ namespace rs
                         {
                         case instruct::extern_opcode_page_0::setref:
                             tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::mknilarr:
-                            tmpos << "mknilarr\t"; print_opnum1(); break;
-                        case instruct::extern_opcode_page_0::mknilmap:
-                            tmpos << "mknilmap\t"; print_opnum1();  break;
+                            /*case instruct::extern_opcode_page_0::mknilarr:
+                                tmpos << "mknilarr\t"; print_opnum1(); break;
+                            case instruct::extern_opcode_page_0::mknilmap:
+                                tmpos << "mknilmap\t"; print_opnum1();  break;*/
                         case instruct::extern_opcode_page_0::packargs:
                             tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                        case instruct::extern_opcode_page_0::movdup:
+                            tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         default:
                             tmpos << "??\t";
                             break;
@@ -808,8 +812,6 @@ namespace rs
                     }
                     break;
                 }
-                case instruct::end:
-                    tmpos << "end\t"; break;
                 default:
                     tmpos << "??\t"; break;
                 }
@@ -2896,14 +2898,6 @@ namespace rs
                         }
                         break;
                     }
-                    case instruct::opcode::movdup:
-                    {
-                        RS_ADDRESSING_N1_REF;
-                        RS_ADDRESSING_N2_REF;
-
-                        rt_cr->set_ref(opnum1->set_dup(opnum2));
-                        break;
-                    }
                     case instruct::opcode::ext:
                     {
                         // extern code page:
@@ -2925,7 +2919,7 @@ namespace rs
                                 rt_cr->set_ref(opnum1->set_ref(opnum2));
                                 break;
                             }
-                            case instruct::extern_opcode_page_0::mknilarr:
+                            /*case instruct::extern_opcode_page_0::mknilarr:
                             {
                                 RS_ADDRESSING_N1_REF;
                                 opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
@@ -2938,7 +2932,7 @@ namespace rs
                                 opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
                                 rt_cr->set_ref(opnum1);
                                 break;
-                            }
+                            }*/
                             case instruct::extern_opcode_page_0::packargs:
                             {
                                 RS_ADDRESSING_N1_REF;
@@ -2991,6 +2985,14 @@ namespace rs
                                 }
                                 break;
                             }
+                            case instruct::extern_opcode_page_0::movdup:
+                            {
+                                RS_ADDRESSING_N1_REF;
+                                RS_ADDRESSING_N2_REF;
+
+                                rt_cr->set_ref(opnum1->set_dup(opnum2));
+                                break;
+                            }
                             default:
                                 rs_error("Unknown instruct.");
                                 break;
@@ -3002,17 +3004,18 @@ namespace rs
 
                         break;
                     }
-                    case instruct::opcode::end:
-                    {
-                        return;
-                    }
                     case instruct::opcode::nop:
                     {
                         rt_ip += dr; // may need take place, skip them
                         break;
                     }
                     case instruct::opcode::abrt:
-                        rs_error("executed 'abrt'.");
+                    {
+                        if (dr & 0b10)
+                            return;
+                        else
+                            rs_error("executed 'abrt'.");
+                    }
                     default:
                     {
                         --rt_ip;    // Move back one command.

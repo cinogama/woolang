@@ -97,7 +97,8 @@ namespace rs
 
             ext = 50 RS_OPCODE_SPACE,       // ext(PAGECODE)     extern code, it used for extern command of vm,
 
-            abrt = 51 RS_OPCODE_SPACE,  // abrt()  (0xcc 0xcd can use it to abort)     
+            abrt = 51 RS_OPCODE_SPACE,  // abrt(0_1/0)  (0xcc 0xcd can use it to abort)     
+                                        // end(1_1/0)   1 byte
 
             equx = 52 RS_OPCODE_SPACE,   // equx(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
             nequx = 53 RS_OPCODE_SPACE,  // nequx
@@ -106,15 +107,14 @@ namespace rs
             mkmap = 55 RS_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             idx = 56 RS_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
-            movdup = 57 RS_OPCODE_SPACE,    //  
+            addx = 57 RS_OPCODE_SPACE,      // addx(dr)         CHANGE_TYPE(1B) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+            subx = 58 RS_OPCODE_SPACE,      // subx
+            mulx = 59 RS_OPCODE_SPACE,      // mulx
+            divx = 60 RS_OPCODE_SPACE,      // divx
+            modx = 61 RS_OPCODE_SPACE,      // modx
 
-            addx = 58 RS_OPCODE_SPACE,      // addx(dr)         CHANGE_TYPE(1B) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
-            subx = 59 RS_OPCODE_SPACE,      // subx
-            mulx = 60 RS_OPCODE_SPACE,      // mulx
-            divx = 61 RS_OPCODE_SPACE,      // divx
-            modx = 62 RS_OPCODE_SPACE,      // modx
-
-            end = 63 RS_OPCODE_SPACE,   // end()                                        1 byte
+            RESERVED_0 = 62 RS_OPCODE_SPACE,    //  
+            RESERVED_1 = 63 RS_OPCODE_SPACE,   //                                     
 
         };
 
@@ -126,10 +126,12 @@ namespace rs
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
 
             setref = 0 RS_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            mknilarr = 1 RS_OPCODE_SPACE,   // ext(00) mknilarr(dr_0) REGID(1BYTE)/DIFF(4BYTE)
-            mknilmap = 2 RS_OPCODE_SPACE,   // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
+            // mknilarr = 1 RS_OPCODE_SPACE,   // ext(00) mknilarr(dr_0) REGID(1BYTE)/DIFF(4BYTE)
+            // mknilmap = 2 RS_OPCODE_SPACE,   // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
             packargs = 3 RS_OPCODE_SPACE,   // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 RS_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            movdup = 5 RS_OPCODE_SPACE,     // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+
         };
         enum extern_opcode_page_1 : uint8_t
         {
