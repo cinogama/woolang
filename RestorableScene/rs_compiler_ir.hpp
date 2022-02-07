@@ -1305,6 +1305,11 @@ namespace rs
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
         }
 
+        void calljit()
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::calljit);
+        }
+
         void nop()
         {
             RS_PUT_IR_TO_BUFFER(instruct::opcode::nop);
@@ -1950,6 +1955,14 @@ namespace rs
                         temp_this_command_code_buf.push_back(readptr[2]);
                         temp_this_command_code_buf.push_back(readptr[3]);
                     }
+                    break;
+                case instruct::opcode::calljit:
+                    temp_this_command_code_buf.push_back(RS_OPCODE(calljit, 00));
+                    temp_this_command_code_buf.push_back(0);
+                    auto_check_mem_allign(2, 8);
+                    for (size_t i = 0; i < 8; i++)
+                        temp_this_command_code_buf.push_back(0);
+
                     break;
                 case instruct::opcode::ret:
                     if (RS_IR.opinteger)

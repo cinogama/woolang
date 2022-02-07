@@ -3683,7 +3683,7 @@ namespace rs
                     mov_value_to_cr(analyze_value(a_value_logical_binary->right, compiler), compiler);
 
                     compiler->tag(logic_short_cut_label);
-                    
+
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
 
@@ -4424,6 +4424,10 @@ namespace rs
                     compiler->tag(funcdef->get_ir_func_signature_tag());
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
 
+                    // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
+                    if (config::ENABLE_JUST_IN_TIME)
+                        compiler->nop();
+
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 
                     // apply args.
@@ -4470,7 +4474,10 @@ namespace rs
 
                     compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
 
-                    compiler->nop();
+                    if (config::ENABLE_JUST_IN_TIME)
+                        compiler->nop(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
+                    else
+                        compiler->nop();
 
                     for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
                         compiler->pdb_info->add_func_variable(funcdef, funcvar->name, funcvar->variable_value->row_no, funcvar->stackvalue_index_in_funcs);

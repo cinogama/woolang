@@ -113,7 +113,11 @@ namespace rs
             divx = 60 RS_OPCODE_SPACE,      // divx
             modx = 61 RS_OPCODE_SPACE,      // modx
 
-            RESERVED_0 = 62 RS_OPCODE_SPACE,    //  
+            calljit = 62 RS_OPCODE_SPACE,    //  calljit(00) JIT_STATE(1B) NATIVE_ADDRESS(8B)       10 byte
+                                            //               NONE       0
+                                            //               GENERATING 1
+                                            //               FAIL       2
+                                            //               READY      3
             RESERVED_1 = 63 RS_OPCODE_SPACE,   //                                     
 
         };
