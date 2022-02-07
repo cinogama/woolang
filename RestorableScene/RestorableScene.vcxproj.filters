@@ -231,6 +231,9 @@
     <ClCompile Include="asmjit\x86\x86rapass.cpp">
       <Filter>3rd\asmjit\x86</Filter>
     </ClCompile>
+    <ClCompile Include="rs_compiler_jit.cpp">
+      <Filter>compiler</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_vm.hpp">
@@ -547,6 +550,9 @@
     </ClInclude>
     <ClInclude Include="asmjit\x86\x86rapass_p.h">
       <Filter>3rd\asmjit\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="rs_compiler_jit.hpp">
+      <Filter>compiler</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

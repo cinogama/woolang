@@ -3657,6 +3657,7 @@ namespace rs
                     optype = a_value_logical_binary->left->value_type->value_type;
 
                 size_t revert_pos = compiler->get_now_ip();
+
                 auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
                 auto* _op_right_opnum = &analyze_value(a_value_logical_binary->right, compiler);
 
@@ -3665,12 +3666,12 @@ namespace rs
                         a_value_logical_binary->operate == +lex_type::l_land))
                 {
                     // Need make short cut
-
                     complete_using_register(*_beoped_left_opnum);
                     complete_using_register(*_op_right_opnum);
                     compiler->revert_code_to(revert_pos);
 
                     auto logic_short_cut_label = "logic_short_cut_" + compiler->get_unique_tag_based_command_ip();
+
                     mov_value_to_cr(analyze_value(a_value_logical_binary->left, compiler), compiler);
 
                     if (a_value_logical_binary->operate == +lex_type::l_lor)
@@ -4426,7 +4427,7 @@ namespace rs
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
                     if (config::ENABLE_JUST_IN_TIME)
-                        compiler->nop();
+                        compiler->calljit();
 
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 

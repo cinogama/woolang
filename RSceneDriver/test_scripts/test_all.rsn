@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -20,16 +20,25 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-var tm_beg = std::time();
+import rscene.std;
+func loop_test()
+{
+	var tm_beg = std::time();
 
-for(var i=0;i<=40;i+=1)
-    std::println("fib(", i, ")=", test_while::fib(i));
+	for(var i=0;i<1'0000'0000;i+=1);
 
-var tm_end = std::time();
-std::println("fib40 cost:", tm_end-tm_beg);
+	var tm_end = std::time();
+	std::println("cost time:", tm_end-tm_beg);
+
+	while(true);
+}
+
+loop_test();
+
+
 
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 
 std::sleep(1);

@@ -221,6 +221,7 @@
     <ClCompile Include="asmjit\x86\x86operand.cpp" />
     <ClCompile Include="asmjit\x86\x86rapass.cpp" />
     <ClCompile Include="rs_api_impl.cpp" />
+    <ClCompile Include="rs_compiler_jit.cpp" />
     <ClCompile Include="rs_lang_ast_builder.cpp" />
     <ClCompile Include="rs_memory.cpp" />
     <ClCompile Include="rs_roroutine_fiber.cpp" />
@@ -306,6 +307,7 @@
     <ClInclude Include="asmjit\x86\x86rapass_p.h" />
     <ClInclude Include="enum.h" />
     <ClInclude Include="rs.h" />
+    <ClInclude Include="rs_compiler_jit.hpp" />
     <ClInclude Include="rs_compiler_lexer.hpp" />
     <ClInclude Include="rs_compiler_parser.hpp" />
     <ClInclude Include="rs_crc_64.hpp" />

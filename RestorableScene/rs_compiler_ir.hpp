@@ -471,9 +471,11 @@ namespace rs
             return ir_command_buffer.size();
         }
 
+        mutable unsigned int _unique_id = 0;
+
         std::string get_unique_tag_based_command_ip()const
         {
-            return "ip_" + std::to_string(get_now_ip());
+            return "ip_" + std::to_string(get_now_ip()) + "_" + std::to_string(_unique_id++);
         }
 
         void revert_code_to(size_t ip)

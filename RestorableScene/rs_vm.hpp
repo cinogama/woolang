@@ -5,6 +5,7 @@
 #include "rs_utf8.hpp"
 #include "rs_global_setting.hpp"
 #include "rs_memory.hpp"
+#include "rs_compiler_jit.hpp"
 
 #include <csetjmp>
 #include <shared_mutex>
@@ -60,6 +61,13 @@ namespace rs
         inline static cxx_set_t<vmbase*> _alive_vm_list;
         inline thread_local static vmbase* _this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
+
+        enum class jit_state : byte_t
+        {
+            NONE = 0,
+            PREPARING = 1,
+            READY = 2,
+        };
 
         enum class vm_type
         {
@@ -590,6 +598,10 @@ namespace rs
                         tmpos << *(void**)((this_command_ptr += 8) - 8);
                     else
                         tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+                case instruct::calljit:
+                    tmpos << "calljit\t";
+                    this_command_ptr += 9;
                     break;
 
                 case instruct::ret:
@@ -2631,6 +2643,59 @@ namespace rs
                         else
                             rt_cr->integer = opnum1->type >= opnum2->type;
                         break;
+                    }
+                    case instruct::opcode::calljit:
+                    {
+                        std::atomic<jit_state>* state_ptr =
+                            (std::atomic<jit_state>*)
+                            (const_cast<byte_t*>(rt_ip++));
+
+                        if (*state_ptr == jit_state::NONE)
+                        {
+                            // IF jit_state::NONE, Try to be jit-generator, or just break.
+
+                            if (auto jit_state = state_ptr->exchange(jit_state::PREPARING);
+                                jit_state == jit_state::NONE)
+                            {
+                                if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8))
+                                {
+                                    uint64_t storeb = (uint64_t)jit_native_func;
+                                    byte_t* storeb_ptr = (byte_t*)&storeb;
+                                    byte_t* be_store_ptr = const_cast<byte_t*>(rt_ip);
+                                    for (size_t i = 0; i < sizeof(uint64_t); i++)
+                                    {
+                                        static_assert(sizeof(uint64_t) == 8);
+                                        be_store_ptr[i] = storeb_ptr[i];
+                                    }
+
+                                    state_ptr->store(jit_state::READY);
+                                }
+                                else
+                                {
+                                    rs_warning("JIT-Compile failed..");
+                                }
+
+                            }
+                            else if (jit_state == jit_state::READY)
+                            {
+                                state_ptr->store(jit_state);
+                            }
+                        }
+
+                        if (*state_ptr == jit_state::READY)
+                        {
+                            auto native_func = RS_IPVAL_MOVE_8;
+
+                            /* AFTER INVOKE JIT CODE, FALL THROW TO RETURN */
+                        }
+                        else
+                        {
+                            rt_ip += 8; // skip function_addr
+
+                            /* NOT INVOKE JIT CODE, JUST BREAK AND READ NEXT COMMAND */
+                            break;
+                        }
+                        // ATTENTION: AFTER INVOKE JIT, JUST FALL THROW TO ret, DO NOT BREAK!
                     }
                     case instruct::opcode::ret:
                     {

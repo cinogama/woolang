@@ -332,6 +332,8 @@ namespace rs
     static_assert(sizeof(value) == 16);
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
+    static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
+    static_assert(std::atomic<byte_t>::is_always_lock_free);
     using rs_extern_native_func_t = rs_native_func;
 
     inline bool value_compare::operator()(const value& lhs, const value& rhs) const
