@@ -38,10 +38,17 @@ loop_test();
 
 func get_1()
 {
+	return 233;
 }
-get_1();
-var x =0;
-while(1);
+
+func main()
+{
+	var p = get_1();
+	while(1);
+}
+main();
+
+
 
 
 

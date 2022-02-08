@@ -8,10 +8,10 @@ namespace rs
 
     struct jit_compiler_x86
     {
-        using jit_packed_function = void(*)(vmbase*, value*, value*, value*);
-                                    //       vmptr     bp      reg    const_global
+        using jit_packed_function = void(*)(vmbase*, value*, value*);
+                                    //       vmptr     bp      reg
 
-        static jit_packed_function compile_jit(const byte_t* rt_ip);
+        static jit_packed_function compile_jit(const byte_t* rt_ip, vmbase* compile_vmptr);
     };
 
 }

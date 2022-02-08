@@ -2667,7 +2667,7 @@ namespace rs
                             if (auto jit_state = state_ptr->exchange(jit_state::PREPARING);
                                 jit_state == jit_state::NONE)
                             {
-                                if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8))
+                                if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8, this))
                                 {
                                     uint64_t storeb = (uint64_t)jit_native_func;
                                     byte_t* storeb_ptr = (byte_t*)&storeb;
@@ -2694,8 +2694,8 @@ namespace rs
 
                         if (*state_ptr == jit_state::READY)
                         {
-                            auto native_func = RS_IPVAL_MOVE_8;
-
+                            auto native_func = (jit_compiler_x86::jit_packed_function)RS_IPVAL_MOVE_8;
+                            native_func(this, rt_bp, reg_begin);
                             /* AFTER INVOKE JIT CODE, FALL THROW TO RETURN */
                         }
                         else

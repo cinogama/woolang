@@ -83,7 +83,7 @@ namespace rs
         bool dr,
         asmjit::x86::Gp stack_bp,
         asmjit::x86::Gp reg,
-        asmjit::x86::Gp const_global)
+        vmbase* vmptr)
     {
         /*
         #define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
@@ -105,14 +105,14 @@ namespace rs
             {
                 // from bp-offset
                 auto result = x86compiler.newUIntPtr();
-                rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
+                rs_asure(!x86compiler.lea(result, asmjit::x86::byte_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
                 return result;
             }
             else
             {
                 // from reg
                 auto result = x86compiler.newUIntPtr();
-                rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
+                rs_asure(!x86compiler.lea(result, asmjit::x86::byte_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
                 return result;
             }
         }
@@ -120,7 +120,7 @@ namespace rs
         {
             // opnum from global_const
             auto result = x86compiler.newUIntPtr();
-            rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(const_global, RS_SAFE_READ_MOVE_4 * sizeof(value))));
+            rs_asure(!x86compiler.mov(result, vmptr->env->constant_global_reg_rtstack + RS_SAFE_READ_MOVE_4));
             return result;
         }
 
@@ -176,15 +176,16 @@ namespace rs
         vm->co_pre_invoke((rs_integer_t)call_aim_vm_func, vm->tc->integer);
         vm->run();
     }
+   
     asmjit::x86::Gp get_opnum_ptr_ref(
         asmjit::x86::Compiler& x86compiler,
         const byte_t*& rt_ip,
         bool dr,
         asmjit::x86::Gp stack_bp,
         asmjit::x86::Gp reg,
-        asmjit::x86::Gp const_global)
+        vmbase* vmptr)
     {
-        auto opnum = get_opnum_ptr(x86compiler, rt_ip, dr, stack_bp, reg, const_global);
+        auto opnum = get_opnum_ptr(x86compiler, rt_ip, dr, stack_bp, reg, vmptr);
         // if opnum->type is ref, get it's ref
 
         asmjit::InvokeNode* inode = nullptr;
@@ -266,7 +267,7 @@ namespace rs
         inode->setArg(4, rt_bp);
     }
 
-    jit_compiler_x86::jit_packed_function jit_compiler_x86::compile_jit(const byte_t* rt_ip)
+    jit_compiler_x86::jit_packed_function jit_compiler_x86::compile_jit(const byte_t* rt_ip, vmbase* compile_vmptr)
     {
         // Prepare asmjit;
         using namespace asmjit;
@@ -276,18 +277,16 @@ namespace rs
         x86::Compiler x86compiler(&code_buffer);
 
         // Generate function declear
-        auto jit_func_node = x86compiler.newFunc(FuncSignatureT<void, vmbase*, value*, value*, value*>());
+        auto jit_func_node = x86compiler.addFunc(FuncSignatureT<void, vmbase*, value*, value*, value*>());
         // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
         // 0. Get vmptr reg stack base global ptr.
         auto jit_vm_ptr = x86compiler.newUIntPtr();
         auto jit_stack_bp_ptr = x86compiler.newUIntPtr();
         auto jit_reg_ptr = x86compiler.newUIntPtr();
-        auto jit_const_global_ptr = x86compiler.newUIntPtr();
         jit_func_node->setArg(0, jit_vm_ptr);
         jit_func_node->setArg(1, jit_stack_bp_ptr);
         jit_func_node->setArg(2, jit_reg_ptr);
-        jit_func_node->setArg(3, jit_const_global_ptr);
         auto jit_stack_sp_ptr = x86compiler.newUIntPtr();
 
         rs_asure(!x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr));                    // let sp = bp;
@@ -302,10 +301,10 @@ namespace rs
             opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             dr = opcode_dr & 0b00000011u;
 
-#define RS_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
+#define RS_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
+#define RS_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
+#define RS_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
+#define RS_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
 
             switch (opcode)
             {
@@ -400,12 +399,7 @@ namespace rs
 
                         jit_packed_function result;
 
-                        auto error = get_jit_runtime().add(&result, &code_buffer);
-                        if (error)
-                        {
-                            rs_error("编译时异常 N1001 Native编译时编译器报告的错误");
-                        }
-
+                        rs_asure(!get_jit_runtime().add(&result, &code_buffer));
                         return result;
                     }
                     default:
