@@ -4476,7 +4476,7 @@ namespace rs
                     compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
 
                     if (config::ENABLE_JUST_IN_TIME)
-                        compiler->nop(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
+                        compiler->ext_endjit(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
                     else
                         compiler->nop();
 

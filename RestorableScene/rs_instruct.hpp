@@ -143,6 +143,7 @@ namespace rs
             // Here is no nop in extern code page.
 
             // THIS PAGE USED FOR STORING DEBUG OPCODE
+            endjit = 0 RS_OPCODE_SPACE,     // ext(01) endjit(--)  notify jit compiler stop work.
         };
         enum extern_opcode_page_2 : uint8_t
         {

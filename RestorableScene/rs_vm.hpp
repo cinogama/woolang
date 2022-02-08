@@ -818,6 +818,16 @@ namespace rs
                             break;
                         }
                         break;
+                    case 1:
+                        switch (main_command & 0b11111100)
+                        {
+                        case instruct::extern_opcode_page_1::endjit:
+                            tmpos << "endjit\t"; break;
+                        default:
+                            tmpos << "??\t";
+                            break;
+                        }
+                        break;
                     default:
                         tmpos << "??\t";
                         break;
@@ -3056,6 +3066,19 @@ namespace rs
                                 RS_ADDRESSING_N2_REF;
 
                                 rt_cr->set_ref(opnum1->set_dup(opnum2));
+                                break;
+                            }
+                            default:
+                                rs_error("Unknown instruct.");
+                                break;
+                            }
+                            break;
+                        case 1:     // extern-opcode-page-1
+                            switch ((instruct::extern_opcode_page_1)(opcode))
+                            {
+                            case instruct::extern_opcode_page_1::endjit:
+                            {
+                                rs_error("Invalid instruct: 'endjit'.");
                                 break;
                             }
                             default:

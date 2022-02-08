@@ -105,14 +105,14 @@ namespace rs
             {
                 // from bp-offset
                 auto result = x86compiler.newUIntPtr();
-                x86compiler.mov(result, asmjit::x86::byte_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value)));
+                rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
                 return result;
             }
             else
             {
                 // from reg
                 auto result = x86compiler.newUIntPtr();
-                x86compiler.mov(result, asmjit::x86::byte_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value)));
+                rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
                 return result;
             }
         }
@@ -120,7 +120,7 @@ namespace rs
         {
             // opnum from global_const
             auto result = x86compiler.newUIntPtr();
-            x86compiler.mov(result, asmjit::x86::byte_ptr(const_global, RS_SAFE_READ_MOVE_4 * sizeof(value)));
+            rs_asure(!x86compiler.mov(result, asmjit::x86::byte_ptr(const_global, RS_SAFE_READ_MOVE_4 * sizeof(value))));
             return result;
         }
 
@@ -143,7 +143,39 @@ namespace rs
     {
         return origin_val->set_nil();
     }
+    void native_do_calln_nativefunc(vmbase* vm, rs_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+    {
+        rt_sp->type = value::valuetype::callstack;
+        rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+        rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+        rt_bp = --rt_sp;
+        vm->bp = vm->sp = rt_sp;
 
+        // May be useless?
+        vm->cr->set_nil();
+
+        vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+        rs_asure(vm->interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+        call_aim_native_func(reinterpret_cast<rs_vm>(vm), reinterpret_cast<rs_value>(rt_sp + 2), vm->tc->integer);
+        rs_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+
+        rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
+        //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
+        //rt_sp = rt_bp;
+        //rt_bp = stored_bp;
+    }
+    void native_do_calln_vmfunc(vmbase* vm, uint32_t call_aim_vm_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+    {
+        rt_sp->type = value::valuetype::callstack;
+        rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+        rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+        rt_bp = --rt_sp;
+        vm->bp = vm->sp = rt_sp;
+
+        vm->co_pre_invoke((rs_integer_t)call_aim_vm_func, vm->tc->integer);
+        vm->run();
+    }
     asmjit::x86::Gp get_opnum_ptr_ref(
         asmjit::x86::Compiler& x86compiler,
         const byte_t*& rt_ip,
@@ -156,9 +188,9 @@ namespace rs
         // if opnum->type is ref, get it's ref
 
         asmjit::InvokeNode* inode = nullptr;
-        auto fc = x86compiler.invoke(&inode, (uint64_t)&native_abi_get_ref,
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_get_ref,
             asmjit::FuncSignatureT<value*, value*>()
-        );
+        ));
         inode->setArg(0, opnum);
 
         return inode->ret().as<asmjit::x86::Gp>();
@@ -167,9 +199,9 @@ namespace rs
     asmjit::x86::Gp x86_set_val(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
     {
         asmjit::InvokeNode* inode = nullptr;
-        auto fc = x86compiler.invoke(&inode, (uint64_t)&native_abi_set_val,
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_val,
             asmjit::FuncSignatureT<value*, value*, value*>()
-        );
+        ));
         inode->setArg(0, val);
         inode->setArg(1, val2);
 
@@ -178,9 +210,9 @@ namespace rs
     asmjit::x86::Gp x86_set_ref(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
     {
         asmjit::InvokeNode* inode = nullptr;
-        auto fc = x86compiler.invoke(&inode, (uint64_t)&native_abi_set_ref,
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_ref,
             asmjit::FuncSignatureT<value*, value*, value*>()
-        );
+        ));
         inode->setArg(0, val);
         inode->setArg(1, val2);
 
@@ -190,12 +222,48 @@ namespace rs
     asmjit::x86::Gp x86_set_nil(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val)
     {
         asmjit::InvokeNode* inode = nullptr;
-        auto fc = x86compiler.invoke(&inode, (uint64_t)&native_abi_set_nil,
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_nil,
             asmjit::FuncSignatureT<value*, value*>()
-        );
+        ));
         inode->setArg(0, val);
 
         return inode->ret().as<asmjit::x86::Gp>();
+    }
+
+    void x86_do_calln_native_func(asmjit::x86::Compiler& x86compiler,
+        asmjit::x86::Gp vm,
+        rs_extern_native_func_t call_aim_native_func,
+        const byte_t* rt_ip,
+        asmjit::x86::Gp rt_sp,
+        asmjit::x86::Gp rt_bp)
+    {
+        asmjit::InvokeNode* inode = nullptr;
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_do_calln_nativefunc,
+            asmjit::FuncSignatureT<void, vmbase*, rs_extern_native_func_t, const byte_t*, value*, value*>()
+        ));
+        inode->setArg(0, vm);
+        inode->setArg(1, call_aim_native_func);
+        inode->setArg(2, rt_ip);
+        inode->setArg(3, rt_sp);
+        inode->setArg(4, rt_bp);
+    }
+
+    void x86_do_calln_vm_func(asmjit::x86::Compiler& x86compiler,
+        asmjit::x86::Gp vm,
+        uint32_t call_aim_vm_func,
+        const byte_t* rt_ip,
+        asmjit::x86::Gp rt_sp,
+        asmjit::x86::Gp rt_bp)
+    {
+        asmjit::InvokeNode* inode = nullptr;
+        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_do_calln_vmfunc,
+            asmjit::FuncSignatureT<void, vmbase*, uint32_t, const byte_t*, value*, value*>()
+        ));
+        inode->setArg(0, vm);
+        inode->setArg(1, call_aim_vm_func);
+        inode->setArg(2, rt_ip);
+        inode->setArg(3, rt_sp);
+        inode->setArg(4, rt_bp);
     }
 
     jit_compiler_x86::jit_packed_function jit_compiler_x86::compile_jit(const byte_t* rt_ip)
@@ -222,7 +290,7 @@ namespace rs
         jit_func_node->setArg(3, jit_const_global_ptr);
         auto jit_stack_sp_ptr = x86compiler.newUIntPtr();
 
-        x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr);                    // let sp = bp;
+        rs_asure(!x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr));                    // let sp = bp;
 
         byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
         instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -234,10 +302,10 @@ namespace rs
             opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             dr = opcode_dr & 0b00000011u;
 
-#define RS_JIT_ADDRESSING_N1 get_opnum_ptr(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N2 get_opnum_ptr(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N1_REF get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
-#define RS_JIT_ADDRESSING_N2_REF get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
+#define RS_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
+#define RS_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
+#define RS_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
+#define RS_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, jit_const_global_ptr)
 
             switch (opcode)
             {
@@ -247,10 +315,11 @@ namespace rs
                 {
                     // RS_ADDRESSING_N1_REF;
                     // (rt_sp--)->set_val(opnum1);
-                    x86_set_val(
-                        x86compiler,
-                        jit_stack_sp_ptr, RS_JIT_ADDRESSING_N1_REF);
-                    x86compiler.sub(jit_stack_sp_ptr, sizeof(value));
+
+                    RS_JIT_ADDRESSING_N1_REF;
+
+                    x86_set_val(x86compiler, jit_stack_sp_ptr, opnum1);
+                    rs_asure(!x86compiler.sub(jit_stack_sp_ptr, sizeof(value)));
                 }
                 else
                 {
@@ -263,9 +332,23 @@ namespace rs
                     {
                         x86_set_nil(x86compiler,
                             jit_stack_sp_ptr);
-                        x86compiler.sub(jit_stack_sp_ptr, sizeof(value));
+                        rs_asure(!x86compiler.sub(jit_stack_sp_ptr, sizeof(value)));
                     }
                 }
+                break;
+            }
+            case instruct::set:
+            {
+                RS_JIT_ADDRESSING_N1;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                x86_set_val(x86compiler, opnum1, opnum2);
+
+                break;
+            }
+            case instruct::ret:
+            {
+                rs_asure(!x86compiler.ret());
                 break;
             }
             case instruct::calln:
@@ -274,39 +357,70 @@ namespace rs
                 {
                     // Call native
                     rs_extern_native_func_t call_aim_native_func = (rs_extern_native_func_t)(RS_IPVAL_MOVE_8);
-
-                    rt_sp->type = value::valuetype::callstack;
-                    rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                    rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
-                    rt_bp = --rt_sp;
-                    bp = sp = rt_sp;
-                    rt_cr->set_nil();
-
-                    ip = reinterpret_cast<byte_t*>(call_aim_native_func);
-
-                    rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                    call_aim_native_func(reinterpret_cast<rs_vm>(this), reinterpret_cast<rs_value>(rt_sp + 2), tc->integer);
-                    rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-
-                    rs_assert((rt_bp + 1)->type == value::valuetype::callstack);
-                    value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                    rt_sp = rt_bp;
-                    rt_bp = stored_bp;
+                    x86_do_calln_native_func(x86compiler, jit_vm_ptr, call_aim_native_func, rt_ip, jit_stack_sp_ptr, jit_stack_bp_ptr);
                 }
                 else
                 {
-                    const byte_t* aimplace = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                    uint32_t call_aim_vm_func = RS_IPVAL_MOVE_4;
 
-                    rt_sp->type = value::valuetype::callstack;
-                    rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                    rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
-                    rt_bp = --rt_sp;
-
-                    rt_ip = aimplace;
+                    x86_do_calln_vm_func(x86compiler, jit_vm_ptr, call_aim_vm_func, rt_ip, jit_stack_sp_ptr, jit_stack_bp_ptr);
 
                 }
                 break;
             }
+
+            case instruct::opcode::ext:
+            {
+                // extern code page:
+                int page_index = dr;
+
+                opcode_dr = *(rt_ip++);
+                opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+                dr = opcode_dr & 0b00000011u;
+
+                switch (page_index)
+                {
+                case 0:     // extern-opcode-page-0
+                    switch ((instruct::extern_opcode_page_0)(opcode))
+                    {
+                    default:
+                        rs_warning("Unknown ext 0 instruct.");
+                        return nullptr;
+                    }
+                    break;
+                case 1:     // extern-opcode-page-1
+                    switch ((instruct::extern_opcode_page_1)(opcode))
+                    {
+                    case instruct::extern_opcode_page_1::endjit:
+                    {
+                        // This function work end!
+                        rs_asure(!x86compiler.ret());
+                        rs_asure(!x86compiler.endFunc());
+                        rs_asure(!x86compiler.finalize());
+
+                        jit_packed_function result;
+
+                        auto error = get_jit_runtime().add(&result, &code_buffer);
+                        if (error)
+                        {
+                            rs_error("±‡“Î ±“Ï≥£ N1001 Native±‡“Î ±±‡“Î∆˜±®∏Êµƒ¥ÌŒÛ");
+                        }
+
+                        return result;
+                    }
+                    default:
+                        rs_warning("Unknown ext 1 instruct.");
+                        return nullptr;
+                    }
+                    break;
+                default:
+                    rs_warning("Unknown extern-opcode-page.");
+                    return nullptr;
+                }
+
+                break;
+            }
+
             default:
                 // Unknown opcode, return nullptr.
                 rs_warning("Unknown instruct in jit-compiling.");

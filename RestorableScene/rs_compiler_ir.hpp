@@ -1411,6 +1411,13 @@ namespace rs
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::movdup;
         }
 
+        void ext_endjit()
+        {
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext);
+            codeb.ext_page_id = 1;
+            codeb.ext_opcode_p1 = instruct::extern_opcode_page_1::endjit;
+        }
+
         template<typename OP1T, typename OP2T>
         void ext_packargs(const OP1T& op1, const OP2T& op2)
         {
@@ -1514,6 +1521,10 @@ namespace rs
 #define RS_OPCODE_EXT0(...) rs_macro_overload(RS_OPCODE_EXT0,__VA_ARGS__)
 #define RS_OPCODE_EXT0_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, RS_IR.dr()).opcode_dr)
 #define RS_OPCODE_EXT0_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, 0b000000##DR).opcode_dr)
+
+#define RS_OPCODE_EXT1(...) rs_macro_overload(RS_OPCODE_EXT1,__VA_ARGS__)
+#define RS_OPCODE_EXT1_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_1::OPCODE, RS_IR.dr()).opcode_dr)
+#define RS_OPCODE_EXT1_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_1::OPCODE, 0b000000##DR).opcode_dr)
 
                 cxx_vec_t<byte_t> temp_this_command_code_buf; // one command will be store here tempery for coding allign
                 size_t already_allign_tmp_sz = 0; // temp store the written sz for allign check, will be reset 0 at each command loop;
@@ -2057,6 +2068,15 @@ namespace rs
                     case 1:
                     {
                         temp_this_command_code_buf.push_back(RS_OPCODE(ext, 01));
+                        switch (RS_IR.ext_opcode_p1)
+                        {
+                        case instruct::extern_opcode_page_1::endjit:
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT1(endjit));
+                            break;
+                        default:
+                            rs_error("Unknown instruct.");
+                            break;
+                        }
                         break;
                     }
                     case 2:

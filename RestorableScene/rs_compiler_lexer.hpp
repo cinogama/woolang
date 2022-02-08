@@ -414,7 +414,6 @@ namespace rs
         template<typename ... TS>
         lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
         {
-
             if (!lex_enable_error_warn)
                 return lex_type::l_error;
 
