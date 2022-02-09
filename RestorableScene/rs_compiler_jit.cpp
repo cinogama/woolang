@@ -77,12 +77,12 @@ namespace rs
     }
 
 
-    asmjit::x86::Gp get_opnum_ptr(
-        asmjit::x86::Compiler& x86compiler,
+    asmjit::X86Gp get_opnum_ptr(
+        asmjit::X86Compiler& x86compiler,
         const byte_t*& rt_ip,
         bool dr,
-        asmjit::x86::Gp stack_bp,
-        asmjit::x86::Gp reg,
+        asmjit::X86Gp stack_bp,
+        asmjit::X86Gp reg,
         vmbase* vmptr)
     {
         /*
@@ -120,7 +120,7 @@ namespace rs
         {
             // opnum from global_const
             auto result = x86compiler.newUIntPtr();
-            rs_asure(!x86compiler.mov(result, vmptr->env->constant_global_reg_rtstack + RS_SAFE_READ_MOVE_4));
+            rs_asure(!x86compiler.mov(result, (size_t)(vmptr->env->constant_global_reg_rtstack + RS_SAFE_READ_MOVE_4)));
             return result;
         }
 
@@ -176,95 +176,92 @@ namespace rs
         vm->co_pre_invoke((rs_integer_t)call_aim_vm_func, vm->tc->integer);
         vm->run();
     }
-   
-    asmjit::x86::Gp get_opnum_ptr_ref(
-        asmjit::x86::Compiler& x86compiler,
+
+    asmjit::X86Gp get_opnum_ptr_ref(
+        asmjit::X86Compiler& x86compiler,
         const byte_t*& rt_ip,
         bool dr,
-        asmjit::x86::Gp stack_bp,
-        asmjit::x86::Gp reg,
+        asmjit::X86Gp stack_bp,
+        asmjit::X86Gp reg,
         vmbase* vmptr)
     {
         auto opnum = get_opnum_ptr(x86compiler, rt_ip, dr, stack_bp, reg, vmptr);
         // if opnum->type is ref, get it's ref
 
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_get_ref,
-            asmjit::FuncSignatureT<value*, value*>()
-        ));
-        inode->setArg(0, opnum);
+        auto invoke_node =
+            x86compiler.call((size_t)&native_abi_get_ref, asmjit::FuncSignatureT<value*, value*>());
 
-        return inode->ret().as<asmjit::x86::Gp>();
+        invoke_node->setArg(0, opnum);
+
+        return invoke_node->getRet().as<asmjit::X86Gp>();
     }
 
-    asmjit::x86::Gp x86_set_val(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
+    asmjit::X86Gp x86_set_val(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
     {
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_val,
-            asmjit::FuncSignatureT<value*, value*, value*>()
-        ));
-        inode->setArg(0, val);
-        inode->setArg(1, val2);
+        auto invoke_node =
+            x86compiler.call((size_t)&native_abi_set_val, asmjit::FuncSignatureT<value*, value*, value*>());
 
-        return inode->ret().as<asmjit::x86::Gp>();
+        invoke_node->setArg(0, val);
+        invoke_node->setArg(1, val2);
+
+        return invoke_node->getRet().as<asmjit::X86Gp>();
     }
-    asmjit::x86::Gp x86_set_ref(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val, asmjit::x86::Gp val2)
+    asmjit::X86Gp x86_set_ref(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
     {
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_ref,
-            asmjit::FuncSignatureT<value*, value*, value*>()
-        ));
-        inode->setArg(0, val);
-        inode->setArg(1, val2);
+        auto invoke_node =
+            x86compiler.call((size_t)&native_abi_set_ref, asmjit::FuncSignatureT<value*, value*, value*>());
 
-        return inode->ret().as<asmjit::x86::Gp>();
+        invoke_node->setArg(0, val);
+        invoke_node->setArg(1, val2);
+
+        return invoke_node->getRet().as<asmjit::X86Gp>();
     }
 
-    asmjit::x86::Gp x86_set_nil(asmjit::x86::Compiler& x86compiler, asmjit::x86::Gp val)
+    asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
     {
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_abi_set_nil,
-            asmjit::FuncSignatureT<value*, value*>()
-        ));
-        inode->setArg(0, val);
+        auto invoke_node =
+            x86compiler.call((size_t)&native_abi_set_nil, asmjit::FuncSignatureT<value*, value*>());
 
-        return inode->ret().as<asmjit::x86::Gp>();
+        invoke_node->setArg(0, val);
+
+        return invoke_node->getRet().as<asmjit::X86Gp>();
     }
 
-    void x86_do_calln_native_func(asmjit::x86::Compiler& x86compiler,
-        asmjit::x86::Gp vm,
+    void x86_do_calln_native_func(asmjit::X86Compiler& x86compiler,
+        asmjit::X86Gp vm,
         rs_extern_native_func_t call_aim_native_func,
         const byte_t* rt_ip,
-        asmjit::x86::Gp rt_sp,
-        asmjit::x86::Gp rt_bp)
+        asmjit::X86Gp rt_sp,
+        asmjit::X86Gp rt_bp)
     {
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_do_calln_nativefunc,
-            asmjit::FuncSignatureT<void, vmbase*, rs_extern_native_func_t, const byte_t*, value*, value*>()
-        ));
-        inode->setArg(0, vm);
-        inode->setArg(1, call_aim_native_func);
-        inode->setArg(2, rt_ip);
-        inode->setArg(3, rt_sp);
-        inode->setArg(4, rt_bp);
+        auto invoke_node =
+            x86compiler.call((size_t)&native_do_calln_nativefunc,
+                asmjit::FuncSignatureT<void, vmbase*, rs_extern_native_func_t, const byte_t*, value*, value*>());
+
+        invoke_node->setArg(0, vm);
+        invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
+        invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+        invoke_node->setArg(3, rt_sp);
+        invoke_node->setArg(4, rt_bp);
     }
 
-    void x86_do_calln_vm_func(asmjit::x86::Compiler& x86compiler,
-        asmjit::x86::Gp vm,
+    void x86_do_calln_vm_func(asmjit::X86Compiler& x86compiler,
+        asmjit::X86Gp vm,
         uint32_t call_aim_vm_func,
         const byte_t* rt_ip,
-        asmjit::x86::Gp rt_sp,
-        asmjit::x86::Gp rt_bp)
+        asmjit::X86Gp rt_sp,
+        asmjit::X86Gp rt_bp)
     {
-        asmjit::InvokeNode* inode = nullptr;
-        rs_asure(!x86compiler.invoke(&inode, (uint64_t)&native_do_calln_vmfunc,
-            asmjit::FuncSignatureT<void, vmbase*, uint32_t, const byte_t*, value*, value*>()
-        ));
-        inode->setArg(0, vm);
-        inode->setArg(1, call_aim_vm_func);
-        inode->setArg(2, rt_ip);
-        inode->setArg(3, rt_sp);
-        inode->setArg(4, rt_bp);
+
+        auto invoke_node =
+            x86compiler.call((size_t)&native_do_calln_vmfunc,
+                asmjit::FuncSignatureT<void, vmbase*, uint32_t, const byte_t*, value*, value*>());
+
+        invoke_node->setArg(0, vm);
+        invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_vm_func));
+        invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+        invoke_node->setArg(3, rt_sp);
+        invoke_node->setArg(4, rt_bp);
     }
 
     jit_compiler_x86::jit_packed_function jit_compiler_x86::compile_jit(const byte_t* rt_ip, vmbase* compile_vmptr)
@@ -273,8 +270,8 @@ namespace rs
         using namespace asmjit;
 
         CodeHolder code_buffer;
-        code_buffer.init(get_jit_runtime().environment());
-        x86::Compiler x86compiler(&code_buffer);
+        code_buffer.init(get_jit_runtime().getCodeInfo());
+        X86Compiler x86compiler(&code_buffer);
 
         // Generate function declear
         auto jit_func_node = x86compiler.addFunc(FuncSignatureT<void, vmbase*, value*, value*, value*>());
@@ -284,9 +281,11 @@ namespace rs
         auto jit_vm_ptr = x86compiler.newUIntPtr();
         auto jit_stack_bp_ptr = x86compiler.newUIntPtr();
         auto jit_reg_ptr = x86compiler.newUIntPtr();
-        jit_func_node->setArg(0, jit_vm_ptr);
-        jit_func_node->setArg(1, jit_stack_bp_ptr);
-        jit_func_node->setArg(2, jit_reg_ptr);
+
+        x86compiler.setArg(0, jit_vm_ptr);
+        x86compiler.setArg(1, jit_stack_bp_ptr);
+        x86compiler.setArg(2, jit_reg_ptr);
+
         auto jit_stack_sp_ptr = x86compiler.newUIntPtr();
 
         rs_asure(!x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr));                    // let sp = bp;
@@ -347,7 +346,7 @@ namespace rs
             }
             case instruct::ret:
             {
-                rs_asure(!x86compiler.ret());
+                rs_asure(x86compiler.ret());
                 break;
             }
             case instruct::calln:
@@ -393,8 +392,8 @@ namespace rs
                     case instruct::extern_opcode_page_1::endjit:
                     {
                         // This function work end!
-                        rs_asure(!x86compiler.ret());
-                        rs_asure(!x86compiler.endFunc());
+                        rs_asure(x86compiler.ret());
+                        rs_asure(x86compiler.endFunc());
                         rs_asure(!x86compiler.finalize());
 
                         jit_packed_function result;
