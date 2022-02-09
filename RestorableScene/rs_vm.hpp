@@ -1003,6 +1003,90 @@ namespace rs
             }
             return cr;
         }
+
+
+#define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
+#define RS_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
+#define RS_SAFE_READ_OFFSET_GET_WORD (*(uint16_t*)(rt_ip-2))
+
+        // FOR BigEndian
+#define RS_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
+#define RS_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
+
+#define RS_SAFE_READ_MOVE_2 (rt_ip+=2,RS_IS_ODD_IRPTR(2)?\
+                                    (RS_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
+                                    RS_SAFE_READ_OFFSET_GET_WORD)
+#define RS_SAFE_READ_MOVE_4 (rt_ip+=4,RS_IS_ODD_IRPTR(4)?\
+                                    (RS_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
+                                    |RS_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
+                                    RS_SAFE_READ_OFFSET_GET_DWORD)
+#define RS_SAFE_READ_MOVE_8 (rt_ip+=8,RS_IS_ODD_IRPTR(8)?\
+                                    (RS_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
+                                    RS_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
+                                    RS_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
+                                    RS_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
+                                    RS_SAFE_READ_OFFSET_GET_QWORD)
+#define RS_IPVAL (*(rt_ip))
+#define RS_IPVAL_MOVE_1 (*(rt_ip++))
+
+            // X86 support non-alligned addressing, so just do it!
+
+#define RS_IPVAL_MOVE_2 ((ARCH & platform_info::ArchType::X86)?(*(uint16_t*)((rt_ip += 2) - 2)):((uint16_t)RS_SAFE_READ_MOVE_2))
+#define RS_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(*(uint32_t*)((rt_ip += 4) - 4)):((uint32_t)RS_SAFE_READ_MOVE_4))
+#define RS_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)RS_SAFE_READ_MOVE_8))
+
+        template<int/* rs::platform_info::ArchType */ ARCH = rs::platform_info::ARCH_TYPE>
+        bool try_invoke_jit_in_vm_run(const byte_t*& rt_ip, value* rt_bp, value* reg_begin, value* rt_cr)
+        {
+            std::atomic<jit_state>* state_ptr =
+                (std::atomic<jit_state>*)
+                (const_cast<byte_t*>(rt_ip++));
+
+            if (*state_ptr == jit_state::NONE)
+            {
+                // IF jit_state::NONE, Try to be jit-generator, or just break.
+
+                if (auto jit_state = state_ptr->exchange(jit_state::PREPARING);
+                    jit_state == jit_state::NONE)
+                {
+                    if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8, this))
+                    {
+                        uint64_t storeb = (uint64_t)jit_native_func;
+                        byte_t* storeb_ptr = (byte_t*)&storeb;
+                        byte_t* be_store_ptr = const_cast<byte_t*>(rt_ip);
+                        for (size_t i = 0; i < sizeof(uint64_t); i++)
+                        {
+                            static_assert(sizeof(uint64_t) == 8);
+                            be_store_ptr[i] = storeb_ptr[i];
+                        }
+
+                        state_ptr->store(jit_state::READY);
+                    }
+                    else
+                    {
+                        rs_warning("JIT-Compile failed..");
+                    }
+
+                }
+                else if (jit_state == jit_state::READY)
+                {
+                    state_ptr->store(jit_state);
+                }
+            }
+
+            if (*state_ptr == jit_state::READY)
+            {
+                auto native_func = (jit_compiler_x86::jit_packed_function)RS_IPVAL_MOVE_8;
+                native_func(this, rt_bp, reg_begin, rt_cr);
+               
+                return true;
+            }
+            else
+            {
+                rt_ip += 8; // skip function_addr
+                return false;
+            }
+        }
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
@@ -1059,6 +1143,7 @@ namespace rs
         }
 
     public:
+
         template<int/* rs::platform_info::ArchType */ ARCH = rs::platform_info::ARCH_TYPE>
         void run_impl()
         {
@@ -1156,38 +1241,6 @@ namespace rs
 
                 }
             }
-
-
-#define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
-#define RS_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
-#define RS_SAFE_READ_OFFSET_GET_WORD (*(uint16_t*)(rt_ip-2))
-
-            // FOR BigEndian
-#define RS_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
-#define RS_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
-
-#define RS_SAFE_READ_MOVE_2 (rt_ip+=2,RS_IS_ODD_IRPTR(2)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_WORD)
-#define RS_SAFE_READ_MOVE_4 (rt_ip+=4,RS_IS_ODD_IRPTR(4)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
-                                    |RS_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_DWORD)
-#define RS_SAFE_READ_MOVE_8 (rt_ip+=8,RS_IS_ODD_IRPTR(8)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_QWORD)
-#define RS_IPVAL (*(rt_ip))
-#define RS_IPVAL_MOVE_1 (*(rt_ip++))
-
-            // X86 support non-alligned addressing, so just do it!
-
-#define RS_IPVAL_MOVE_2 ((ARCH & platform_info::ArchType::X86)?(*(uint16_t*)((rt_ip += 2) - 2)):((uint16_t)RS_SAFE_READ_MOVE_2))
-#define RS_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(*(uint32_t*)((rt_ip += 4) - 4)):((uint32_t)RS_SAFE_READ_MOVE_4))
-#define RS_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)RS_SAFE_READ_MOVE_8))
-
 #define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
@@ -2656,56 +2709,10 @@ namespace rs
                     }
                     case instruct::opcode::calljit:
                     {
-                        std::atomic<jit_state>* state_ptr =
-                            (std::atomic<jit_state>*)
-                            (const_cast<byte_t*>(rt_ip++));
-
-                        if (*state_ptr == jit_state::NONE)
-                        {
-                            // IF jit_state::NONE, Try to be jit-generator, or just break.
-
-                            if (auto jit_state = state_ptr->exchange(jit_state::PREPARING);
-                                jit_state == jit_state::NONE)
-                            {
-                                if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8, this))
-                                {
-                                    uint64_t storeb = (uint64_t)jit_native_func;
-                                    byte_t* storeb_ptr = (byte_t*)&storeb;
-                                    byte_t* be_store_ptr = const_cast<byte_t*>(rt_ip);
-                                    for (size_t i = 0; i < sizeof(uint64_t); i++)
-                                    {
-                                        static_assert(sizeof(uint64_t) == 8);
-                                        be_store_ptr[i] = storeb_ptr[i];
-                                    }
-
-                                    state_ptr->store(jit_state::READY);
-                                }
-                                else
-                                {
-                                    rs_warning("JIT-Compile failed..");
-                                }
-
-                            }
-                            else if (jit_state == jit_state::READY)
-                            {
-                                state_ptr->store(jit_state);
-                            }
-                        }
-
-                        if (*state_ptr == jit_state::READY)
-                        {
-                            auto native_func = (jit_compiler_x86::jit_packed_function)RS_IPVAL_MOVE_8;
-                            native_func(this, rt_bp, reg_begin);
-                            /* AFTER INVOKE JIT CODE, FALL THROW TO RETURN */
-                        }
-                        else
-                        {
-                            rt_ip += 8; // skip function_addr
-
-                            /* NOT INVOKE JIT CODE, JUST BREAK AND READ NEXT COMMAND */
+                        if (!try_invoke_jit_in_vm_run(rt_ip, rt_bp, reg_begin, rt_cr))
                             break;
-                        }
-                        // ATTENTION: AFTER INVOKE JIT, JUST FALL THROW TO ret, DO NOT BREAK!
+
+                        // If Call Jit success, just fall throw to ret..
                     }
                     case instruct::opcode::ret:
                     {

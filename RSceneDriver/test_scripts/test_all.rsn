@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -36,24 +36,8 @@ func loop_test()
 loop_test();
 */
 
-func get_1()
-{
-	return 233;
-}
-
-func main()
-{
-	var p = get_1();
-	while(1);
-}
-main();
-
-
-
-
-
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 
 std::sleep(1);
