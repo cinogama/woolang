@@ -110,6 +110,16 @@ namespace rs
         }
     };
 
+    template<typename T>
+    asmjit::X86Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
+    {
+#ifdef RS_PLATFORM_64
+        return asmjit::x86::qword_ptr(opgreg, offset);
+#else
+        return asmjit::x86::dword_ptr(opgreg, offset);
+#endif
+    }
+
     may_constant_x86Gp get_opnum_ptr(
         asmjit::X86Compiler& x86compiler,
         const byte_t*& rt_ip,
@@ -138,14 +148,14 @@ namespace rs
             {
                 // from bp-offset
                 auto result = x86compiler.newUIntPtr();
-                rs_asure(!x86compiler.lea(result, asmjit::x86::byte_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
+                rs_asure(!x86compiler.lea(result, intptr_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
                 return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
             }
             else
             {
                 // from reg
                 auto result = x86compiler.newUIntPtr();
-                rs_asure(!x86compiler.lea(result, asmjit::x86::byte_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
+                rs_asure(!x86compiler.lea(result, intptr_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
                 return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
             }
         }
@@ -171,22 +181,11 @@ namespace rs
 
     }
 
-    value* native_abi_get_ref(value* origin_val)
-    {
-        return origin_val->get();
-    }
-    value* native_abi_set_val(value* origin_val, value* set_val)
-    {
-        return origin_val->set_val(set_val);
-    }
     //value* native_abi_set_ref(value* origin_val, value* set_val)
     //{
     //    return origin_val->set_ref(set_val);
     //}
-    value* native_abi_set_nil(value* origin_val)
-    {
-        return origin_val->set_nil();
-    }
+
     void native_do_calln_nativefunc(vmbase* vm, rs_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
     {
         rt_sp->type = value::valuetype::callstack;
@@ -240,32 +239,34 @@ namespace rs
         auto opnum = get_opnum_ptr(x86compiler, rt_ip, dr, stack_bp, reg, vmptr);
         // if opnum->type is ref, get it's ref
 
-        if (opnum.is_constant())
+        if (!opnum.is_constant())
         {
-            return opnum;
+            auto is_no_ref_label = x86compiler.newLabel();
+
+            x86compiler.cmp(asmjit::x86::byte_ptr(opnum.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::is_ref);
+            x86compiler.jne(is_no_ref_label);
+
+            x86compiler.mov(opnum.gp_value(), intptr_ptr(opnum.gp_value(), offsetof(value, ref)));
+
+            x86compiler.bind(is_no_ref_label);
+
         }
-
-        auto invoke_node =
-            x86compiler.call((size_t)&native_abi_get_ref, asmjit::FuncSignatureT<value*, value*>());
-
-        invoke_node->setArg(0, opnum.gp_value());
-
-        auto result = x86compiler.newUIntPtr();
-        invoke_node->setRet(0, result);
-        return may_constant_x86Gp{ &x86compiler, false, nullptr,result };
+        return opnum;
     }
 
     asmjit::X86Gp x86_set_val(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
     {
-        auto invoke_node =
-            x86compiler.call((size_t)&native_abi_set_val, asmjit::FuncSignatureT<value*, value*, value*>());
+        // ATTENTION:
+        //  Here will no thread safe and mem-branch prevent.
+        auto type_of_val2 = x86compiler.newUInt8();
+        x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type)));
+        x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2);
 
-        invoke_node->setArg(0, val);
-        invoke_node->setArg(1, val2);
+        auto data_of_val2 = x86compiler.newUInt64();
+        x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, handle)));
+        x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2);
 
-        auto result = x86compiler.newUIntPtr();
-        invoke_node->setRet(0, result);
-        return result;
+        return val;
     }
     asmjit::X86Gp x86_set_ref(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
     {
@@ -274,7 +275,7 @@ namespace rs
         x86compiler.cmp(val, val2);
         x86compiler.je(skip_self_ref_label);
         x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::is_ref);
-        rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, ref)), val2));
+        rs_asure(!x86compiler.mov(intptr_ptr(val, offsetof(value, ref)), val2));
 
         rs_asure(!x86compiler.bind(skip_self_ref_label));
         return val2;
@@ -282,14 +283,9 @@ namespace rs
 
     asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
     {
-        auto invoke_node =
-            x86compiler.call((size_t)&native_abi_set_nil, asmjit::FuncSignatureT<value*, value*>());
-
-        invoke_node->setArg(0, val);
-
-        auto result = x86compiler.newUIntPtr();
-        invoke_node->setRet(0, result);
-        return result;
+        x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid);
+        x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0);
+        return val;
     }
 
     void x86_do_calln_native_func(asmjit::X86Compiler& x86compiler,
@@ -459,13 +455,13 @@ namespace rs
 
                 if (opnum2.is_constant())
                 {
-                    rs_asure(!x86compiler.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
+                    rs_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 }
                 else
                 {
                     auto int_of_op2 = x86compiler.newInt64();
-                    rs_asure(!x86compiler.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    rs_asure(!x86compiler.add(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    rs_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
                 }
                 x86_set_ref(x86compiler, jit_cr_ptr, opnum1.gp_value());
                 break;
@@ -477,13 +473,13 @@ namespace rs
 
                 if (opnum2.is_constant())
                 {
-                    rs_asure(!x86compiler.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
+                    rs_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.const_value()->integer));
                 }
                 else
                 {
                     auto int_of_op2 = x86compiler.newInt64();
-                    rs_asure(!x86compiler.mov(int_of_op2, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    rs_asure(!x86compiler.sub(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    rs_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
                 }
                 x86_set_ref(x86compiler, jit_cr_ptr, opnum1.gp_value());
 
@@ -503,14 +499,14 @@ namespace rs
 
 
                 auto int_of_op1 = x86compiler.newInt64();
-                rs_asure(!x86compiler.mov(int_of_op1, asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                rs_asure(!x86compiler.cmp(int_of_op1, asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                 x86compiler.jg(x86_greater_jmp_label);
 
-                rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
                 x86compiler.jmp(x86_lesseql_jmp_label);
                 x86compiler.bind(x86_greater_jmp_label);
-                rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
                 x86compiler.bind(x86_lesseql_jmp_label);
 
                 break;
@@ -539,7 +535,7 @@ namespace rs
             }
             case instruct::jf:
             {
-                rs_asure(!x86compiler.cmp(asmjit::x86::qword_ptr(jit_cr_ptr, offsetof(value, handle)), 0));
+                rs_asure(!x86compiler.cmp(x86::qword_ptr(jit_cr_ptr, offsetof(value, handle)), 0));
 
                 uint32_t jmp_place = RS_IPVAL_MOVE_4;
 

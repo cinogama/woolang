@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -20,24 +20,22 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-/*
 import rscene.std;
+
 func loop_test()
 {
-	var tm_beg = std::time();
-
-	for(var i=0;i<1'0000'0000;i+=1);
-
-	var tm_end = std::time();
-	std::println("cost time:", tm_end-tm_beg);
-
-	while(true);
+	for(var i=0;i<=1'0000'0000;i+=1);
 }
+
+var tm_beg = std::time();
 loop_test();
-*/
+var tm_end = std::time();
+std::println("cost time:", tm_end-tm_beg);
+
+while(true);
 
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 
 std::sleep(1);
