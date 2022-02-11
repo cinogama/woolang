@@ -243,12 +243,12 @@ namespace rs
         {
             auto is_no_ref_label = x86compiler.newLabel();
 
-            x86compiler.cmp(asmjit::x86::byte_ptr(opnum.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::is_ref);
-            x86compiler.jne(is_no_ref_label);
+            rs_asure(!x86compiler.cmp(asmjit::x86::byte_ptr(opnum.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::is_ref));
+            rs_asure(!x86compiler.jne(is_no_ref_label));
 
-            x86compiler.mov(opnum.gp_value(), intptr_ptr(opnum.gp_value(), offsetof(value, ref)));
+            rs_asure(!x86compiler.mov(opnum.gp_value(), intptr_ptr(opnum.gp_value(), offsetof(value, ref))));
 
-            x86compiler.bind(is_no_ref_label);
+            rs_asure(!x86compiler.bind(is_no_ref_label));
 
         }
         return opnum;
@@ -259,12 +259,12 @@ namespace rs
         // ATTENTION:
         //  Here will no thread safe and mem-branch prevent.
         auto type_of_val2 = x86compiler.newUInt8();
-        x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type)));
-        x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2);
+        rs_asure(!x86compiler.mov(type_of_val2, asmjit::x86::byte_ptr(val2, offsetof(value, type))));
+        rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), type_of_val2));
 
         auto data_of_val2 = x86compiler.newUInt64();
-        x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, handle)));
-        x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2);
+        rs_asure(!x86compiler.mov(data_of_val2, asmjit::x86::qword_ptr(val2, offsetof(value, handle))));
+        rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2));
 
         return val;
     }
@@ -272,9 +272,9 @@ namespace rs
     {
         auto skip_self_ref_label = x86compiler.newLabel();
 
-        x86compiler.cmp(val, val2);
-        x86compiler.je(skip_self_ref_label);
-        x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::is_ref);
+        rs_asure(!x86compiler.cmp(val, val2));
+        rs_asure(!x86compiler.je(skip_self_ref_label));
+        rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::is_ref));
         rs_asure(!x86compiler.mov(intptr_ptr(val, offsetof(value, ref)), val2));
 
         rs_asure(!x86compiler.bind(skip_self_ref_label));
@@ -283,8 +283,8 @@ namespace rs
 
     asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
     {
-        x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid);
-        x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0);
+        rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
+        rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0));
         return val;
     }
 
@@ -523,12 +523,12 @@ namespace rs
                 if (auto fnd = x86_label_table.find(jmp_place);
                     fnd != x86_label_table.end())
                 {
-                    x86compiler.jmp(fnd->second);
+                    rs_asure(!x86compiler.jmp(fnd->second));
                 }
                 else
                 {
                     x86_label_table[jmp_place] = x86compiler.newLabel();
-                    x86compiler.jmp(x86_label_table[jmp_place]);
+                    rs_asure(!x86compiler.jmp(x86_label_table[jmp_place]));
                 }
 
                 break;
@@ -542,12 +542,12 @@ namespace rs
                 if (auto fnd = x86_label_table.find(jmp_place);
                     fnd != x86_label_table.end())
                 {
-                    x86compiler.je(fnd->second);
+                    rs_asure(!x86compiler.je(fnd->second));
                 }
                 else
                 {
                     x86_label_table[jmp_place] = x86compiler.newLabel();
-                    x86compiler.je(x86_label_table[jmp_place]);
+                    rs_asure(!x86compiler.je(x86_label_table[jmp_place]));
                 }
 
                 break;
