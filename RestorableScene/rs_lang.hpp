@@ -3245,7 +3245,6 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr_flag.write_to_cr();
                 return beoped_left_opnum;
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
@@ -3398,7 +3397,6 @@ namespace rs
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr_flag.write_to_cr();
                 return beoped_left_opnum;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
@@ -3422,7 +3420,6 @@ namespace rs
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->value_type->value_type);
-                last_value_stored_to_cr_flag.write_to_cr();
                 return treg;
 
             }
@@ -3772,7 +3769,6 @@ namespace rs
                 }
 
                 complete_using_register(op_right_opnum);
-                last_value_stored_to_cr_flag.write_to_cr();
 
                 if (!get_pure_value)
                     return RS_NEW_OPNUM(reg(reg::cr));
@@ -3996,7 +3992,7 @@ namespace rs
                     rs_error("Do not support this operator..");
                     break;
                 }
-                last_value_stored_to_cr_flag.write_to_cr();
+
                 if (!get_pure_value)
                     return RS_NEW_OPNUM(reg(reg::cr));
                 else

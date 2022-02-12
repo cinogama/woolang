@@ -435,7 +435,7 @@ namespace rs
                 RS_JIT_ADDRESSING_N1;
                 RS_JIT_ADDRESSING_N2_REF;
 
-                x86_set_ref(x86compiler, jit_cr_ptr, x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value()));
+                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
 
                 break;
             }
@@ -444,7 +444,7 @@ namespace rs
                 RS_JIT_ADDRESSING_N1_REF;
                 RS_JIT_ADDRESSING_N2_REF;
 
-                x86_set_ref(x86compiler, jit_cr_ptr, x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value()));
+                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
 
                 break;
             }
@@ -463,7 +463,6 @@ namespace rs
                     rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                     rs_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
                 }
-                x86_set_ref(x86compiler, jit_cr_ptr, opnum1.gp_value());
                 break;
             }
             case instruct::subi:
@@ -481,7 +480,6 @@ namespace rs
                     rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
                     rs_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
                 }
-                x86_set_ref(x86compiler, jit_cr_ptr, opnum1.gp_value());
 
                 break;
             }

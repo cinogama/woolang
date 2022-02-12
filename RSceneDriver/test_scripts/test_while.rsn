@@ -24,7 +24,7 @@ namespace test_while
 
         var tm_beg = std::time();
 
-        for(var i=0;i<=39;i+=1)
+        for(var i=0;i<=40;i+=1)
             std::println("fib(", i, ")=", fib(i));
 
         var tm_end = std::time();

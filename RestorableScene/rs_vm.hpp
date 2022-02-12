@@ -1078,7 +1078,7 @@ namespace rs
             {
                 auto native_func = (jit_compiler_x86::jit_packed_function)RS_IPVAL_MOVE_8;
                 native_func(this, rt_bp, reg_begin, rt_cr);
-               
+
                 return true;
             }
             else
@@ -1348,7 +1348,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
 
-                        rt_cr->set_ref((opnum1->integer += opnum2->integer, opnum1));
+                        opnum1->integer += opnum2->integer;
                         break;
                     }
                     case instruct::opcode::subi:
@@ -1359,7 +1359,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
 
-                        rt_cr->set_ref((opnum1->integer -= opnum2->integer, opnum1));
+                        opnum1->integer -= opnum2->integer;
                         break;
                     }
                     case instruct::opcode::muli:
@@ -1370,7 +1370,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
 
-                        rt_cr->set_ref((opnum1->integer *= opnum2->integer, opnum1));
+                        opnum1->integer *= opnum2->integer;
                         break;
                     }
                     case instruct::opcode::divi:
@@ -1381,7 +1381,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
 
-                        rt_cr->set_ref((opnum1->integer /= opnum2->integer, opnum1));
+                        opnum1->integer /= opnum2->integer;
                         break;
                     }
                     case instruct::opcode::modi:
@@ -1392,7 +1392,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
 
-                        rt_cr->set_ref((opnum1->integer %= opnum2->integer, opnum1));
+                        opnum1->integer %= opnum2->integer;
                         break;
                     }
 
@@ -1404,7 +1404,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
 
-                        rt_cr->set_ref((opnum1->real += opnum2->real, opnum1));
+                        opnum1->real += opnum2->real;
                         break;
                     }
                     case instruct::opcode::subr:
@@ -1415,7 +1415,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
 
-                        rt_cr->set_ref((opnum1->real -= opnum2->real, opnum1));
+                        opnum1->real -= opnum2->real;
                         break;
                     }
                     case instruct::opcode::mulr:
@@ -1426,7 +1426,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
 
-                        rt_cr->set_ref((opnum1->real *= opnum2->real, opnum1));
+                        opnum1->real *= opnum2->real;
                         break;
                     }
                     case instruct::opcode::divr:
@@ -1437,7 +1437,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
 
-                        rt_cr->set_ref((opnum1->real /= opnum2->real, opnum1));
+                        opnum1->real /= opnum2->real;
                         break;
                     }
                     case instruct::opcode::modr:
@@ -1448,7 +1448,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
 
-                        rt_cr->set_ref((opnum1->real = fmod(opnum1->real, opnum2->real), opnum1));
+                        opnum1->real = fmod(opnum1->real, opnum2->real);
                         break;
                     }
 
@@ -1460,7 +1460,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::handle_type);
 
-                        rt_cr->set_ref((opnum1->handle += opnum2->handle, opnum1));
+                        opnum1->handle += opnum2->handle;
                         break;
                     }
                     case instruct::opcode::subh:
@@ -1471,7 +1471,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::handle_type);
 
-                        rt_cr->set_ref((opnum1->handle -= opnum2->handle, opnum1));
+                        opnum1->handle -= opnum2->handle;
                         break;
                     }
 
@@ -1483,7 +1483,7 @@ namespace rs
                         rs_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::string_type);
 
-                        rt_cr->set_ref((string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string), opnum1));
+                        string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
                         break;
                     }
 
@@ -1641,8 +1641,6 @@ namespace rs
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
 
@@ -1761,8 +1759,6 @@ namespace rs
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
 
@@ -1847,8 +1843,6 @@ namespace rs
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
 
@@ -1934,8 +1928,6 @@ namespace rs
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
 
@@ -2021,8 +2013,6 @@ namespace rs
                                 RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
                         }
-
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
 
@@ -2034,7 +2024,7 @@ namespace rs
                         RS_ADDRESSING_N1;
                         RS_ADDRESSING_N2_REF;
 
-                        rt_cr->set_ref(opnum1->set_val(opnum2));
+                        opnum1->set_val(opnum2);
                         break;
                     }
                     case instruct::opcode::mov:
@@ -2042,7 +2032,7 @@ namespace rs
                         RS_ADDRESSING_N1_REF;
                         RS_ADDRESSING_N2_REF;
 
-                        rt_cr->set_ref(opnum1->set_val(opnum2));
+                        opnum1->set_val(opnum2);
                         break;
                     }
                     case instruct::opcode::movx:
@@ -2111,7 +2101,6 @@ namespace rs
                                 break;
                             }
                         }
-                        rt_cr->set_ref(opnum1);
                         break;
                     }
                     case instruct::opcode::movcast:
@@ -2121,7 +2110,7 @@ namespace rs
 
                         value::valuetype aim_type = static_cast<value::valuetype>(RS_IPVAL_MOVE_1);
                         if (aim_type == opnum2->type)
-                            rt_cr->set_ref(opnum1->set_val(opnum2));
+                            opnum1->set_val(opnum2);
                         else
                             switch (aim_type)
                             {
@@ -2129,11 +2118,11 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::real_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->real)); break;
+                                    opnum1->set_integer((rs_integer_t)opnum2->real); break;
                                 case value::valuetype::handle_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->handle)); break;
+                                    opnum1->set_integer((rs_integer_t)opnum2->handle); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)std::stoll(*opnum2->string))); break;
+                                    opnum1->set_integer((rs_integer_t)std::stoll(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
                                     break;
@@ -2143,11 +2132,11 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::integer_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)opnum2->integer)); break;
+                                    opnum1->set_real((rs_real_t)opnum2->integer); break;
                                 case value::valuetype::handle_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)opnum2->handle)); break;
+                                    opnum1->set_real((rs_real_t)opnum2->handle); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)std::stod(*opnum2->string))); break;
+                                    opnum1->set_real((rs_real_t)std::stod(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
                                     break;
@@ -2157,34 +2146,34 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::integer_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)opnum2->integer)); break;
+                                    opnum1->set_handle((rs_handle_t)opnum2->integer); break;
                                 case value::valuetype::real_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)opnum2->real)); break;
+                                    opnum1->set_handle((rs_handle_t)opnum2->real); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)std::stoull(*opnum2->string))); break;
+                                    opnum1->set_handle((rs_handle_t)std::stoull(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
                                     break;
                                 }
                                 break;
                             case value::valuetype::string_type:
-                                rt_cr->set_ref(opnum1->set_string(rs_cast_string(reinterpret_cast<rs_value>(opnum2)))); break;
+                                opnum1->set_string(rs_cast_string(reinterpret_cast<rs_value>(opnum2))); break;
 
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                                 break;
@@ -2201,7 +2190,7 @@ namespace rs
 
                         value::valuetype aim_type = static_cast<value::valuetype>(RS_IPVAL_MOVE_1);
                         if (aim_type == opnum2->type)
-                            rt_cr->set_ref(opnum1->set_val(opnum2));
+                            opnum1->set_val(opnum2);
                         else
                             switch (aim_type)
                             {
@@ -2209,11 +2198,11 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::real_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->real)); break;
+                                    opnum1->set_integer((rs_integer_t)opnum2->real); break;
                                 case value::valuetype::handle_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)opnum2->handle)); break;
+                                    opnum1->set_integer((rs_integer_t)opnum2->handle); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_integer((rs_integer_t)std::stoll(*opnum2->string))); break;
+                                    opnum1->set_integer((rs_integer_t)std::stoll(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
                                     break;
@@ -2223,11 +2212,11 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::integer_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)opnum2->integer)); break;
+                                    opnum1->set_real((rs_real_t)opnum2->integer); break;
                                 case value::valuetype::handle_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)opnum2->handle)); break;
+                                    opnum1->set_real((rs_real_t)opnum2->handle); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_real((rs_real_t)std::stod(*opnum2->string))); break;
+                                    opnum1->set_real((rs_real_t)std::stod(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
                                     break;
@@ -2237,34 +2226,34 @@ namespace rs
                                 switch (opnum2->type)
                                 {
                                 case value::valuetype::integer_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)opnum2->integer)); break;
+                                    opnum1->set_handle((rs_handle_t)opnum2->integer); break;
                                 case value::valuetype::real_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)opnum2->real)); break;
+                                    opnum1->set_handle((rs_handle_t)opnum2->real); break;
                                 case value::valuetype::string_type:
-                                    rt_cr->set_ref(opnum1->set_handle((rs_handle_t)std::stoull(*opnum2->string))); break;
+                                    opnum1->set_handle((rs_handle_t)std::stoull(*opnum2->string)); break;
                                 default:
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
                                     break;
                                 }
                                 break;
                             case value::valuetype::string_type:
-                                rt_cr->set_ref(opnum1->set_string(rs_cast_string(reinterpret_cast<rs_value>(opnum2)))); break;
+                                opnum1->set_string(rs_cast_string(reinterpret_cast<rs_value>(opnum2))); break;
 
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
                                 if (opnum2->is_nil())
-                                    rt_cr->set_ref(opnum1->set_nil());
+                                    opnum1->set_nil();
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                                 break;
@@ -2998,7 +2987,7 @@ namespace rs
                             {
                                 RS_ADDRESSING_N1;
                                 RS_ADDRESSING_N2_REF;
-                                rt_cr->set_ref(opnum1->set_ref(opnum2));
+                                opnum1->set_ref(opnum2);
                                 break;
                             }
                             /*case instruct::extern_opcode_page_0::mknilarr:
@@ -3072,7 +3061,7 @@ namespace rs
                                 RS_ADDRESSING_N1_REF;
                                 RS_ADDRESSING_N2_REF;
 
-                                rt_cr->set_ref(opnum1->set_dup(opnum2));
+                                opnum1->set_dup(opnum2);
                                 break;
                             }
                             default:
