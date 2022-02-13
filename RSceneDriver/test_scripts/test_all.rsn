@@ -20,6 +20,7 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
+/*
 import rscene.std;
 
 func loop_test()
@@ -36,7 +37,7 @@ while(true)
 }
 
 while(true);
-
+*/
 
 ///////////////////////////////////////////
 /*                                       */
