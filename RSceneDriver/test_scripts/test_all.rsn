@@ -20,24 +20,19 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-/*
-import rscene.std;
+//import library.socket;
 
-func loop_test()
-{
-	for(var i=0;i<=1'0000'0000;i+=1);
-}
+//var so = socket::create(socket::protocol::TCP,
+//						socket::ip_protocol::IPV4);
 
-while(true)
+func example_func<T>(var i:string)
 {
-	var tm_beg = std::time();
-	loop_test();
-	var tm_end = std::time();
-	std::println("cost time:", tm_end-tm_beg);
+	return i:T;
 }
+var x = example_func:<int>(233:string) + 666;
+std::println(x);
 
 while(true);
-*/
 
 ///////////////////////////////////////////
 /*                                       */

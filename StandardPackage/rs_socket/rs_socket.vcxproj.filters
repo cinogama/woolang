@@ -21,6 +21,9 @@
     <ClCompile Include="wepoll.c">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="rs_socket_impl.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="wepoll.h">

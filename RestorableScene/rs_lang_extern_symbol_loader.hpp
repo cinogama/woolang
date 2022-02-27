@@ -71,7 +71,7 @@ namespace rs
             {
                 if (extern_lib)
                 {
-                    if (auto* entry = (void(*)(void))load_func("exit"))
+                    if (auto* entry = (void(*)(void))load_func("rslib_exit"))
                         entry();
                     osapi::freelib(extern_lib);
                 }
@@ -101,7 +101,7 @@ namespace rs
                 extern_lib elib = new extern_lib_guard(libpath);
                 srcloadedlibs[libpath] = elib;
 
-                if (auto * entry = (void(*)(void))elib->load_func("entry"))
+                if (auto * entry = (void(*)(void))elib->load_func("rslib_entry"))
                     entry();
                 return elib->load_func(funcname);
 

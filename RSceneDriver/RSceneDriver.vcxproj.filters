@@ -16,6 +16,9 @@
     <Filter Include="test_scripts">
       <UniqueIdentifier>{8f33f189-9c93-4f30-b3e0-eeb9d8cc1491}</UniqueIdentifier>
     </Filter>
+    <Filter Include="test_scripts\library">
+      <UniqueIdentifier>{f2e30c20-6f64-4b7e-8ce7-37217c922dd3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_driver.cpp">
@@ -61,6 +64,9 @@
     </None>
     <None Include="test_scripts\test_coroutine.rsn">
       <Filter>test_scripts</Filter>
+    </None>
+    <None Include="test_scripts\library\socket.rsn">
+      <Filter>test_scripts\library</Filter>
     </None>
   </ItemGroup>
 </Project>

@@ -67,6 +67,9 @@ gm::nt(L"PROGRAM_AUGMENTED") >> gm::symlist{gm::nt(L"PROGRAM")}
 gm::nt(L"PROGRAM") >> gm::symlist{gm::te(gm::ttype::l_empty)}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"USELESS_TOKEN")}
+>> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
 gm::nt(L"PROGRAM") >> gm::symlist{gm::nt(L"PARAGRAPH")}
 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -855,6 +858,9 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
     gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"TYPE") }
         >> RS_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+    gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_double_index_point)}
+                    >> RS_ASTBUILDER_INDEX(ast::pass_token),
                 }
             );
 

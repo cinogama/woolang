@@ -146,6 +146,7 @@
     <ClCompile Include="rs_driver.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="test_scripts\library\socket.rsn" />
     <None Include="test_scripts\test_all.rsn" />
     <None Include="test_scripts\test_debug_invoke.rsn" />
     <None Include="test_scripts\test_dup.rsn" />
