@@ -185,14 +185,14 @@
     <ClInclude Include="rs_roroutine_simulate_mgr.hpp">
       <Filter>roroutine</Filter>
     </ClInclude>
-    <ClInclude Include="rs.h">
-      <Filter>源文件</Filter>
-    </ClInclude>
     <ClInclude Include="rs_memory.hpp">
       <Filter>basic</Filter>
     </ClInclude>
     <ClInclude Include="rs_compiler_jit.hpp">
       <Filter>compiler</Filter>
+    </ClInclude>
+    <ClInclude Include="rs.h">
+      <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
