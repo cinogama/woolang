@@ -67,12 +67,13 @@ typedef enum _rs_value_type
 
     RS_IS_REF,
     RS_CALLSTACK_TYPE,
+    RS_NATIVE_CALLSTACK_TYPE,
 
     RS_NEED_GC_FLAG = 0xF0,
 
     RS_STRING_TYPE,
-    RS_ARRAY_TYPE,
     RS_MAPPING_TYPE,
+    RS_ARRAY_TYPE,
     RS_GCHANDLE_TYPE,
 }
 rs_type;

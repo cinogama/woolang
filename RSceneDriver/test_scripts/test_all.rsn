@@ -1,4 +1,4 @@
-/*                                       */
+/*                                       
 import test_tool;
 
 import test_helloworld;
@@ -20,22 +20,26 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-//import library.socket;
+import rscene.std;
 
-//var so = socket::create(socket::protocol::TCP,
-//						socket::ip_protocol::IPV4);
-
-func example_func<T>(var i:string)
+func example()
 {
-	return i:T;
-}
-var x = example_func:<int>(233:string) + 666;
-std::println(x);
+	var a = []:array<int>;
+	a->add(12.5);
 
-while(true);
+	var m = {}:map<string, int>;
+	var val = m->get("key", 12);
+
+	std::println(val);
+}
+
+while(true)
+	example();
+
+
 
 ///////////////////////////////////////////
-/*                                       */
+/*                                       
 std::println("Unit-test begin!");
 
 std::sleep(1);

@@ -357,6 +357,18 @@ namespace rs
         }
         return lhs.type < rhs.type;
     }
+    static_assert((int)value::valuetype::invalid == RS_INVALID_TYPE);
+    static_assert((int)value::valuetype::integer_type == RS_INTEGER_TYPE);
+    static_assert((int)value::valuetype::real_type == RS_REAL_TYPE);
+    static_assert((int)value::valuetype::handle_type == RS_HANDLE_TYPE);
+    static_assert((int)value::valuetype::is_ref == RS_IS_REF);
+    static_assert((int)value::valuetype::callstack == RS_CALLSTACK_TYPE);
+    static_assert((int)value::valuetype::nativecallstack == RS_NATIVE_CALLSTACK_TYPE);
+    static_assert((int)value::valuetype::need_gc == RS_NEED_GC_FLAG);
+    static_assert((int)value::valuetype::string_type == RS_STRING_TYPE);
+    static_assert((int)value::valuetype::mapping_type == RS_MAPPING_TYPE);
+    static_assert((int)value::valuetype::array_type == RS_ARRAY_TYPE);
+    static_assert((int)value::valuetype::gchandle_type == RS_GCHANDLE_TYPE);
 
     struct gc_handle_base_t
     {
