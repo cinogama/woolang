@@ -33,8 +33,8 @@ namespace rs
             clear();
         }
 
-        shared_pointer() = default;
-        shared_pointer(T* v, void(*f)(T*) = nullptr) :
+        shared_pointer() noexcept = default;
+        shared_pointer(T* v, void(*f)(T*) = nullptr) noexcept :
             ptr(v),
             release_func(f ? f : DEFAULT_DESTROY_FUNCTION),
             ref_count(new COUNTT(1))
@@ -42,7 +42,7 @@ namespace rs
 
         }
 
-        shared_pointer(const shared_pointer& v)
+        shared_pointer(const shared_pointer& v) noexcept
         {
             ptr = v.ptr;
             release_func = v.release_func;
@@ -50,7 +50,7 @@ namespace rs
                 ++* ref_count;
         }
 
-        shared_pointer(shared_pointer&& v)
+        shared_pointer(shared_pointer&& v) noexcept
         {
             ptr = v.ptr;
             release_func = v.release_func;
@@ -58,7 +58,7 @@ namespace rs
             v.ptr = nullptr;
         }
 
-        shared_pointer& operator =(const shared_pointer& v)
+        shared_pointer& operator =(const shared_pointer& v) noexcept
         {
             clear();
 
@@ -82,49 +82,49 @@ namespace rs
             return *this;
         }
 
-        T* get() const
+        T* get() const noexcept
         {
             return ptr;
         }
-        operator T& ()const
+        operator T& ()const noexcept
         {
             return *ptr;
         }
-        T& operator * ()const
+        T& operator * ()const noexcept
         {
             return *ptr;
         }
-        operator T* ()const
+        operator T* ()const noexcept
         {
             return ptr;
         }
-        operator bool()const
+        operator bool()const noexcept
         {
             return ptr;
         }
-        T* operator -> ()const
+        T* operator -> ()const noexcept
         {
             return ptr;
         }
 
-        bool operator ==(const T* pointer)const
+        bool operator ==(const T* pointer)const noexcept
         {
             return ptr == pointer;
         }
-        bool operator !=(const T* pointer)const
+        bool operator !=(const T* pointer)const noexcept
         {
             return ptr != pointer;
         }
-        bool operator ==(const shared_pointer& pointer)const
+        bool operator ==(const shared_pointer& pointer)const noexcept
         {
             return ptr == pointer.ptr;
         }
-        bool operator !=(const shared_pointer& pointer)const
+        bool operator !=(const shared_pointer& pointer)const noexcept
         {
             return ptr != pointer.ptr;
         }
 
-        size_t used_count() const
+        size_t used_count() const noexcept
         {
             return *ref_count;
         }

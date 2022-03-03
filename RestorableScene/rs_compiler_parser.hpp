@@ -85,14 +85,14 @@ namespace rs
             }
         };
 
-        using te = terminal;//终结符
+        using te = terminal;
         struct nonterminal;
-        using nt = nonterminal;//非终结符
+        using nt = nonterminal;
         using symbol = std::variant<te, nt>;
         using sym = symbol;
         using rule = std::pair< nonterminal, std::vector<sym>>;
         using symlist = std::vector<sym>;
-        using ttype = lex_type;//token类型 简记法
+        using ttype = lex_type;//just token
 
         class ast_base
         {
@@ -115,7 +115,7 @@ namespace rs
 
                 for (auto astnode : *list)
                     delete astnode;
-                
+
                 delete list;
                 list = nullptr;
             }
@@ -359,9 +359,9 @@ namespace rs
             }
         };
 
-        std::map< nonterminal, std::vector<symlist>>P;//产生式规则
-        std::vector<rule>ORGIN_P;//原始形式的产生式规则
-        nonterminal S;//起始符号
+        std::map< nonterminal, std::vector<symlist>>P;//produce rules
+        std::vector<rule>ORGIN_P;//origin produce rules
+        nonterminal S;//begin nt, or final nt
 
         struct sym_less {
             constexpr bool operator()(const sym& _Left, const sym& _Right) const {
@@ -369,7 +369,7 @@ namespace rs
                 bool left_is_te = std::holds_alternative<te>(_Left);
                 if (left_is_te == std::holds_alternative<te>(_Right))
                 {
-                    //两者符号相同
+                    // both te or non-te
                     if (left_is_te)
                     {
                         return  std::get<te>(_Left) < std::get<te>(_Right);
@@ -380,9 +380,7 @@ namespace rs
                     }
                 }
 
-                //无聊的规定 认定te<nt
-
-
+                //te < nt
                 return !left_is_te;
             }
         };
@@ -391,7 +389,7 @@ namespace rs
         sym_nts_t FIRST_SET;
         sym_nts_t FOLLOW_SET;
 
-        struct lr_item//lr分析项目
+        struct lr_item
         {
             rule item_rule;
             size_t next_sign = 0;//		
@@ -440,7 +438,7 @@ namespace rs
             friend inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
         };
 
-        struct lr0_item//lr分析项目
+        struct lr0_item
         {
             rule item_rule;
             size_t next_sign = 0;//		
@@ -487,11 +485,11 @@ namespace rs
 
         std::set< te>& FIRST(const sym& _sym)
         {
-            if (std::holds_alternative<te>(_sym))//_sym是终结符
+            if (std::holds_alternative<te>(_sym))//_sym is te
             {
                 if (FIRST_SET.find(_sym) == FIRST_SET.end())
                 {
-                    //te首次被获取 应当给予设置
+                    // first time for getting te, record it
                     FIRST_SET[_sym] = { std::get<te>(_sym) };
                 }
                 return FIRST_SET[_sym];
@@ -533,7 +531,7 @@ namespace rs
                     {
                         if (std::holds_alternative<nt>(item.item_rule.second[item.next_sign]))
                         {
-                            //非终结符才继续
+                            //only for non-te
                             auto& ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
                             auto& prules = P[ntv];
                             for (auto& prule : prules)
@@ -680,7 +678,7 @@ namespace rs
 
             }
             P_TERMINAL_SET.insert(te(ttype::l_eof));
-            //计算FIRST集合
+            //FIRST SET
 
 
             auto CALC_FIRST_SET_COUNT = [this] {
@@ -704,25 +702,25 @@ namespace rs
                     for (size_t pindex = 0; pindex < single_rule.second.size(); pindex++)
                     {
                         auto& cFIRST = FIRST(single_rule.second[pindex]);
-                        /*FIRST[single_rule.first].insert(cFIRST.begin(), cFIRST.end());*///由于包含E 所以不能直接加入集合
+                        /*FIRST[single_rule.first].insert(cFIRST.begin(), cFIRST.end());*///HAS E-PRODUCER DONOT ADD IT TO SETS
 
                         bool e_prd = false;
 
                         for (auto& sy : cFIRST)
                         {
                             if (sy.t_type != +ttype::l_empty)
-                                FIRST_SET[single_rule.first].insert(sy);//只要不是空产生式 就把符号塞进FIRST集合中
+                                FIRST_SET[single_rule.first].insert(sy);//NON-E-PRODUCER, ADD IT 
                             else
                                 e_prd = true;
                         }
 
-                        if (!e_prd)//如果当前项目没有空产生式 则结束
+                        if (!e_prd)// NO E-PRODUCER END
                             break;
 
 
                         if (pindex + 1 == single_rule.second.size())
                         {
-                            //如果整个符号串全都可推导空产生式，那么空产生式被添加到FIRST
+                            //IF ALL PRODUCER-RULES CAN BEGIN WITH E-PRODUCER, ADD E TO FIRST-SET
                             FIRST_SET[single_rule.first].insert(te(ttype::l_empty));
                         }
                     }
@@ -733,11 +731,8 @@ namespace rs
                 FIRST_SIZE = CALC_FIRST_SET_COUNT();
             } while (LAST_FIRST_SIZE != FIRST_SIZE);
 
-
-            //计算FOLLOW集合
-
-            //
-            FOLLOW_SET[S].insert(te(ttype::l_eof));//开始符号的FOLLOW集中添加eof
+            //GET FOLLOW-SET
+            FOLLOW_SET[S].insert(te(ttype::l_eof));//ADD EOF TO FINAL-AIM
             auto CALC_FOLLOW_SET_COUNT = [this] {
 
                 size_t SUM = 0;
@@ -767,7 +762,7 @@ namespace rs
                             }
                             else
                             {
-                                //非终结符才有计算FOLLOW集合的意义
+                                //NON-TE CAN HAVE FOLLOW SET
                                 auto& first_set = FIRST(single_rule.second[pindex + 1]);
 
                                 bool have_e_prud = false;
@@ -793,11 +788,8 @@ namespace rs
                 FOLLOW_SIZE = CALC_FOLLOW_SET_COUNT();
             } while (LAST_FOLLOW_SIZE != FOLLOW_SIZE);
 
-
-            //LR0分析表构建
-
-
-            //1.构建LR 项集族
+            //LR0
+            //1. BUILD LR-ITEM-COLLECTION
             auto LR_ITEM_SET_EQULE = [](const std::set<lr_item>& A, const std::set<lr_item>& B)
             {
                 if (A.size() == B.size())
@@ -856,26 +848,26 @@ namespace rs
             } while (LAST_C_SIZE != C.size());
             C_SET = C;
 
-            //2. 构建LR0 语法分析动作表
+            //2. BUILD LR0
             /*
 
             std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr0_table = LR0_TABLE;
 
             for (size_t statei = 0; statei < C.size(); statei++)
             {
-                for (auto& prod : C[statei])//状态i
+                for (auto& prod : C[statei])//STATE i
                 {
 
                     if (prod.next_sign >= prod.item_rule.second.size())
                     {
                         if (prod.item_rule.first == p[0].first)
                         {
-                            //收工
+                            //JOB DONE~
                             lr0_table[statei][te(ttype::l_eof)].insert(action{ action::act_type::accept });
                         }
                         else
                         {
-                            //此时是归约项目
+                            //USING THE RULE TO GENERATE NON-TE
                             size_t orgin_index = (size_t)(std::find(ORGIN_P.begin(), ORGIN_P.end(), prod.item_rule) - ORGIN_P.begin());
                             for (auto& p_te : P_TERMINAL_SET)
                                 lr0_table[statei][p_te].insert(action{ action::act_type::reduction,orgin_index });
@@ -886,7 +878,7 @@ namespace rs
                     }
                     else if (std::holds_alternative<nt>(prod.item_rule.second[prod.next_sign]))
                     {
-                        //GOTO 表
+                        //GOTO
                         auto& next_state = GOTO({ prod }, prod.item_rule.second[prod.next_sign]);
                         for (size_t j = 0; j < C.size(); j++)
                         {
@@ -899,7 +891,7 @@ namespace rs
                     }
                     else
                     {
-                        //SATCK 表
+                        //SATCK
                         auto& next_state = GOTO({ prod }, prod.item_rule.second[prod.next_sign]);
                         for (size_t j = 0; j < C.size(); j++)
                         {
@@ -915,26 +907,26 @@ namespace rs
             */
 
 
-            //3. 构建LR1 语法分析动作表
+            //3. BUILD LR1
 
             std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr1_table = LR1_TABLE;
             for (size_t statei = 0; statei < C.size(); statei++)
             {
                 std::set<sym>next_set;
 
-                for (auto& CSTATE_I : C[statei])//状态i
+                for (auto& CSTATE_I : C[statei])//STATEi
                 {
                     if (CSTATE_I.next_sign >= CSTATE_I.item_rule.second.size())
                     {
-                        //归约或者接收项目
+                        // REDUCE OR FINISH~
                         if (CSTATE_I.item_rule.first == p[0].first)
                         {
-                            //收工
+                            // DONE~
                             lr1_table[statei][te(ttype::l_eof)].insert(action{ action::act_type::accept ,CSTATE_I.prospect });
                         }
                         else
                         {
-                            //此时是归约项目
+                            // REDUCE
                             size_t orgin_index = (size_t)(std::find(ORGIN_P.begin(), ORGIN_P.end(), CSTATE_I.item_rule) - ORGIN_P.begin());
                             for (auto& p_te : P_TERMINAL_SET)
                             {
@@ -944,7 +936,7 @@ namespace rs
                         }
                     }
                     else
-                        next_set.insert(CSTATE_I.item_rule.second[CSTATE_I.next_sign]);//进入GOTO 或者STACK
+                        next_set.insert(CSTATE_I.item_rule.second[CSTATE_I.next_sign]); // GOTO/STACK
                 }
 
                 for (auto& next_symb : next_set)
@@ -1177,7 +1169,7 @@ namespace rs
 
         bool check(lexer& tkr)
         {
-            //读取token_reader，检查是否符合语法
+            // READ FROM token_reader，CHECK IT
 
             std::stack<size_t> state_stack;
             std::stack<sym> sym_stack;
@@ -1252,7 +1244,7 @@ namespace rs
                         {
                             size_t index = i - 1;
 
-                            //需要验证？
+                            //NEED VERIFY?
                             /*if (sym_stack.top() != red_rule.second[index])
                             {
                                 return false;
@@ -1288,7 +1280,7 @@ namespace rs
                 else
                 {
                     std::wcout << "fail: no action can be take." << std::endl;
-                    return false;//没有找到
+                    return false;//NOT FOUND
                 }
 
             } while (true);
@@ -1400,7 +1392,7 @@ namespace rs
                             }
 
                             return false;
-                            }) != bnodes.end())//bnodes包含拒绝表达式
+                            }) != bnodes.end())//bnodes CONTAIN L_ERROR
                         {
                             node_stack.push(token{ +lex_type::l_error });
                             // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
@@ -1526,7 +1518,7 @@ namespace rs
                             (L"'" + (out_indentifier)+L"'") + advise;
                     }
 
-                    // 如果刚刚发生了相同的错误， 结束处理
+                    // IF SAME ERROR HAPPEND, JUST STOP COMPILE
                     if (tkr.just_have_err ||
                         (last_error_rowno == tkr.now_file_rowno &&
                             last_error_colno == tkr.now_file_colno))
@@ -1548,9 +1540,8 @@ namespace rs
 
 
 
-                    //tokens_queue.front();//当前错误符号
-                    //恐慌模式，查找可能的状态A
-
+                    //tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND
+                    // FIND USABLE STATE A TO REDUCE.
                     while (!state_stack.empty())
                     {
                         size_t stateid = state_stack.top();
@@ -1564,9 +1555,7 @@ namespace rs
                                     {
                                         if (act.second.begin()->act == action::act_type::reduction)
                                         {
-                                            //找到对应的非终结符
-                                            //找到这个非终结符的FOLLOW集
-
+                                            // FIND NON-TE AND IT'S FOLLOW
                                             auto& follow_set = FOLLOW_READ(std::get<nt>(act.first));
 
                                             rs::lex_type out_lex = lex_type::l_empty;
@@ -1586,7 +1575,7 @@ namespace rs
                                                     });
                                                 if (place != follow_set.end())
                                                 {
-                                                    //开始处理归约
+                                                    // FAKE REDUCE
 
                                                     auto& red_rule = RT_PRODUCTION[act.second.begin()->state];
 
@@ -1595,7 +1584,6 @@ namespace rs
                                                     node_stack.push(token{ +lex_type::l_error });
 
                                                     goto error_progress_end;
-                                                    //完成假归约
                                                 }
                                             }
 
@@ -1656,8 +1644,6 @@ namespace rs
                             goto error_handle_fail;
                         }
                     }
-
-                    //此处进行错误例程，恢复错误状态，检测可能的错误可能，然后继续
                 error_handle_fail:
                     tkr.parser_error(0x0000, RS_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;

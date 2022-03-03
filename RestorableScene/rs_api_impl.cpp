@@ -1147,7 +1147,7 @@ void rs_arr_remove(rs_value arr, rs_int_t index)
 
         if (index < 0)
             ;// do nothing..
-        else if (index <= _arr->array->size())
+        else if ((size_t)index <= _arr->array->size())
             _arr->array->erase(_arr->array->begin() + index);
         else
             rs_fail(RS_FAIL_INDEX_FAIL, "Index out of range.");

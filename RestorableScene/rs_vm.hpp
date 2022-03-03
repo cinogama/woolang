@@ -3031,7 +3031,7 @@ namespace rs
                                 else if (opnum2->integer > 0)
                                 {
                                     auto* arg_array = opnum1->array;
-                                    if (opnum2->integer > arg_array->size())
+                                    if ((size_t)opnum2->integer > arg_array->size())
                                     {
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                                     }
@@ -3046,7 +3046,7 @@ namespace rs
                                 else
                                 {
                                     auto* arg_array = opnum1->array;
-                                    if (arg_array->size() < (-opnum2->integer))
+                                    if (arg_array->size() < (size_t)(-opnum2->integer))
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
 
                                     for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)

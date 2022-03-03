@@ -2561,8 +2561,8 @@ namespace rs
                             ->value_type;
                     }
 
-                    int need_takeplace_count = _next_executer_type->argument_types.size();
-                    need_takeplace_count -= a_foreach->foreach_var.size();
+                    int need_takeplace_count = (int)_next_executer_type->argument_types.size();
+                    need_takeplace_count -= (int)a_foreach->foreach_var.size();
                     need_takeplace_count -= 1;//iter
 
                     lang_anylizer->lex_enable_error_warn = true;
@@ -2597,7 +2597,7 @@ namespace rs
                     }
                     lang_anylizer->lex_enable_error_warn = false;
 
-                    int rndidx = a_foreach->foreach_var.size() - 1;
+                    int rndidx = (int)a_foreach->foreach_var.size() - 1;
                     for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
                         ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
                         ridx++)
@@ -2816,7 +2816,7 @@ namespace rs
                 if (!assigned_t_register_list[i])
                 {
                     assigned_t_register_list[i] = true;
-                    return RS_NEW_OPNUM(reg(reg::t0 + i));
+                    return RS_NEW_OPNUM(reg(reg::t0 + (uint8_t)i));
                 }
             }
             rs_error("cannot get a useable register..");
@@ -2863,7 +2863,7 @@ namespace rs
                 if (!assigned_r_register_list[i])
                 {
                     assigned_r_register_list[i] = true;
-                    return RS_NEW_OPNUM(reg(reg::r0 + i));
+                    return RS_NEW_OPNUM(reg(reg::r0 + (uint8_t)i));
                 }
             }
             rs_error("cannot get a useable register..");
@@ -2981,11 +2981,11 @@ namespace rs
                 if (symb->static_symbol)
                 {
                     if (!get_pure_value)
-                        return RS_NEW_OPNUM(global(symb->global_index_in_lang));
+                        return RS_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
                     else
                     {
                         auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                        compiler->set(loaded_pure_glb_opnum, global(symb->global_index_in_lang));
+                        compiler->set(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
                         return loaded_pure_glb_opnum;
                     }
                 }
@@ -3899,8 +3899,8 @@ namespace rs
                     {
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
                         if (_cv.integer <= 63 - 2)
-                            return RS_NEW_OPNUM(reg(reg::bp_offset(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size())));
+                            return RS_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size()))));
                         else
                         {
                             auto& result = get_useable_register_for_ref_value();
@@ -3930,8 +3930,8 @@ namespace rs
                         if (_cv.integer <= 63 - 2)
                         {
                             last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->set(result, reg(reg::bp_offset(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size())));
+                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + 2
+                                + now_function_in_final_anylize->value_type->argument_types.size()))));
                         }
                         else
                         {
@@ -4460,7 +4460,7 @@ namespace rs
                         funcdef->this_func_scope->max_used_stack_size_in_func
                         + temp_reg_to_stack_count;
 
-                    compiler->reserved_stackvalue(res_ip, reserved_stack_size); // set reserved size
+                    compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size); // set reserved size
 
                     compiler->pdb_info->generate_debug_info_at_funcend(funcdef, compiler);
 
