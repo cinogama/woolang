@@ -1038,6 +1038,7 @@ namespace rs
         template<int/* rs::platform_info::ArchType */ ARCH = rs::platform_info::ARCH_TYPE>
         bool try_invoke_jit_in_vm_run(const byte_t*& rt_ip, value* rt_bp, value* reg_begin, value* rt_cr)
         {
+#ifdef RS_ENABLE_ASMJIT
             std::atomic<jit_state>* state_ptr =
                 (std::atomic<jit_state>*)
                 (const_cast<byte_t*>(rt_ip++));
@@ -1085,9 +1086,13 @@ namespace rs
             {
                 rt_ip += 8; // skip function_addr
                 return false;
-            }
         }
-    };
+#else
+            rs_error("JIT DISABLED");
+            return false;
+#endif
+    }
+};
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
         : vm(_vm)

@@ -40,15 +40,6 @@
     <Filter Include="roroutine\context">
       <UniqueIdentifier>{0adbda23-2d57-4470-9cfc-afbbfdb86e7b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="3rd\asmjit">
-      <UniqueIdentifier>{5730aaf4-a4c1-4400-ad60-ed1ae2320983}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="3rd\asmjit\base">
-      <UniqueIdentifier>{0ae4ab11-0800-4892-aaed-87770cf15fe8}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="3rd\asmjit\x86">
-      <UniqueIdentifier>{335d0534-2d42-4bdd-ab39-15719e44022a}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="rs_main.cpp">
@@ -93,96 +84,6 @@
     <ClCompile Include="rs_compiler_jit.cpp">
       <Filter>compiler</Filter>
     </ClCompile>
-    <ClCompile Include="asmjit\base\arch.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\assembler.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\codebuilder.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\codecompiler.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\codeemitter.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\codeholder.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\constpool.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\cpuinfo.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\func.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\globals.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\inst.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\logging.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\operand.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\osutils.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\regalloc.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\runtime.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\string.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\utils.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\vmem.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\base\zone.cpp">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86assembler.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86builder.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86compiler.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86inst.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86instimpl.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86internal.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86logging.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86operand.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86operand_regs.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="asmjit\x86\x86regalloc.cpp">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="rs_vm.hpp">
@@ -217,9 +118,6 @@
     </ClInclude>
     <ClInclude Include="rs_compiler_parser.hpp">
       <Filter>compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="enum.h">
-      <Filter>3rd</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang_grammar_loader.hpp">
       <Filter>lang</Filter>
@@ -295,129 +193,6 @@
     </ClInclude>
     <ClInclude Include="rs_compiler_jit.hpp">
       <Filter>compiler</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\arm.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\asmjit.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\asmjit_apibegin.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\asmjit_apiend.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\asmjit_build.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86.h">
-      <Filter>3rd\asmjit</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\arch.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\assembler.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\codebuilder.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\codecompiler.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\codeemitter.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\codeholder.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\constpool.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\cpuinfo.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\func.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\globals.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\inst.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\logging.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\misc_p.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\operand.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\osutils.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\regalloc_p.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\runtime.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\simdtypes.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\string.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\utils.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\vmem.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\base\zone.h">
-      <Filter>3rd\asmjit\base</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86assembler.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86builder.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86compiler.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86emitter.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86globals.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86inst.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86instimpl_p.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86internal_p.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86logging_p.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86misc.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86operand.h">
-      <Filter>3rd\asmjit\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="asmjit\x86\x86regalloc_p.h">
-      <Filter>3rd\asmjit\x86</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

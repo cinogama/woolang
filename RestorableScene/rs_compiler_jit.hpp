@@ -2,6 +2,8 @@
 
 #include "rs_basic_type.hpp"
 
+#if RS_ENABLE_ASMJIT
+
 namespace rs
 {
     struct vmbase;
@@ -15,3 +17,5 @@ namespace rs
     };
 
 }
+
+#endif

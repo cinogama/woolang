@@ -1,5 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
+#if RS_ENABLE_ASMJIT
+
 #include "rs_compiler_jit.hpp"
 #include "rs_instruct.hpp"
 #include "rs_vm.hpp"
@@ -626,3 +628,5 @@ namespace rs
         return nullptr;
     }
 }
+
+#endif
