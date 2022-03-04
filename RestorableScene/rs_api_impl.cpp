@@ -1248,3 +1248,12 @@ void rs_break_immediately(rs_vm vm)
         rs_fail(RS_FAIL_DEBUGGEE_FAIL, "'rs_break_immediately' can only break the vm attached default debuggee.");
 
 }
+
+rs_integer_t rs_extern_symb(rs_vm vm, rs_string_t fullname)
+{
+    const auto& extern_table = RS_VM(vm)->env->program_debug_info->extern_function_map;
+    auto fnd = extern_table.find(fullname);
+    if (fnd != extern_table.end())
+        return fnd->second;
+    return 0;
+}

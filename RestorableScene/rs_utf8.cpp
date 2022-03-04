@@ -13,7 +13,10 @@ namespace rs
         if (std::mbrlen(chidx, 1, &mb) == -2)
         {
             if (strlength)
-                return std::mbrlen(chidx + 1, strlength - 1, &mb) + 1;
+            {
+                uint8_t strsz = strlength > UINT8_MAX ? UINT8_MAX : (uint8_t)strlength;
+                return (uint8_t)std::mbrlen(chidx + 1, strsz - 1, &mb) + 1;
+            }
 
         }
         return 1;

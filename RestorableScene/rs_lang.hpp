@@ -4419,6 +4419,22 @@ namespace rs
                     now_function_in_final_anylize = funcdef;
 
                     compiler->tag(funcdef->get_ir_func_signature_tag());
+                    if (funcdef->declear_attribute->is_extern_attr())
+                    {
+                        // this function is externed, put it into extern-table and update the value in ir-compiler
+                        auto&& fname = funcdef->get_namespace_chain() + "::" + wstr_to_str(funcdef->function_name);
+                        if (compiler->pdb_info->extern_function_map.find(fname)
+                            != compiler->pdb_info->extern_function_map.end())
+                        {
+                            this->lang_anylizer->lang_error(0x0000, funcdef,
+                                L"函数符号 '%ws' 此前已经被导出，导出同一命名空间下的同名函数是不允许的，继续",
+                                str_to_wstr(fname).c_str());
+                        }
+                        else
+                            compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
+                        
+                    }
+
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE

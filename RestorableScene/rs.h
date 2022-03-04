@@ -137,6 +137,7 @@ RS_API void         rs_coroutine_resumeall();
 RS_API void         rs_coroutine_stopall();
 RS_API void         rs_co_yield();
 
+RS_API rs_integer_t rs_extern_symb(rs_vm vm, rs_string_t fullname);
 
 RS_API void         rs_abort_all_vm_to_exit();
 

@@ -316,11 +316,13 @@ namespace rs
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
+        using extern_function_map_t = std::map<std::string, size_t>;
 
         filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
         ip_src_location_info_t          _general_src_data_buf_b;
         function_signature_ip_info_t    _function_ip_data_buf;
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
+        extern_function_map_t           extern_function_map;
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
@@ -2163,7 +2165,6 @@ namespace rs
             for (auto& [tag, offsets] : jmp_record_table)
             {
                 uint32_t offset_val = tag_offset_vector_table[tag];
-
                 for (auto offset : offsets)
                 {
                     *(uint32_t*)(generated_runtime_code_buf.data() + offset) = offset_val;
@@ -2173,7 +2174,6 @@ namespace rs
             for (auto& [tag, imm_values] : jmp_record_table_for_immtag)
             {
                 uint32_t offset_val = tag_offset_vector_table[tag];
-
                 for (auto imm_value : imm_values)
                 {
                     rs_assert(imm_value->type == value::valuetype::integer_type);
@@ -2194,24 +2194,22 @@ namespace rs
                 + env->constant_and_global_value_takeplace_count;
 
             env->stack_begin = env->constant_global_reg_rtstack + (preserve_memory_size - 1);
-
             env->real_register_count = real_register_count;
-
             env->runtime_stack_count = runtime_stack_count;
-
             env->rt_code_len = generated_runtime_code_buf.size();
-
             env->rt_codes = pdb_info->runtime_codes_base = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
 
             rs_test(reinterpret_cast<size_t>(env->rt_codes) % 8 == 0);
-
             pdb_info->runtime_codes_length = env->rt_code_len;
 
             rs_assert(env->rt_codes, "Alloc memory fail.");
-
             memcpy((byte_t*)env->rt_codes, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
-
             env->program_debug_info = pdb_info;
+
+            for (auto& extern_func_info : pdb_info->extern_function_map)
+            {
+                extern_func_info.second = pdb_info->get_runtime_ip_by_ip(extern_func_info.second);
+            }
 
             return env;
         }
