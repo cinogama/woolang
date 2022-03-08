@@ -37,7 +37,7 @@
     <Filter Include="roroutine\context">
       <UniqueIdentifier>{0adbda23-2d57-4470-9cfc-afbbfdb86e7b}</UniqueIdentifier>
     </Filter>
-    <Filter Include="源文件\stdlib">
+    <Filter Include="stdlib">
       <UniqueIdentifier>{117ab175-6ff0-4183-a15a-3eb3498061b0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
@@ -61,7 +61,7 @@
       <Filter>environment</Filter>
     </ClCompile>
     <ClCompile Include="rs_stdlib_extern_functions.cpp">
-      <Filter>源文件\stdlib</Filter>
+      <Filter>stdlib</Filter>
     </ClCompile>
     <ClCompile Include="rs_lang_grammar.cpp">
       <Filter>lang</Filter>
@@ -153,7 +153,7 @@
       <Filter>lang</Filter>
     </ClInclude>
     <ClInclude Include="rs_stdlib.hpp">
-      <Filter>源文件\stdlib</Filter>
+      <Filter>stdlib</Filter>
     </ClInclude>
     <ClInclude Include="rs_lang_compiler_information.hpp">
       <Filter>lang</Filter>
