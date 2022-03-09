@@ -7,9 +7,9 @@ include_directories("../include")
 file(GLOB_RECURSE rscene_src_cpp *.cpp)
 
 if (WIN32)
-	set(rscene_system_libs "")
+	list(APPEND rscene_system_libs "")
 else()
-	set(rscene_system_libs "pthread dl")
+	list(APPEND rscene_system_libs pthread dl)
 endif()
 
 if (BUILD_SHARED_LIBS)
