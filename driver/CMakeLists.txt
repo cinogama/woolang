@@ -1,5 +1,6 @@
-﻿# CMakeList.txt: 
+﻿# rscenedriver
 #
+
 cmake_minimum_required (VERSION 3.8)
 
 include_directories("../include")
