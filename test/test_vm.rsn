@@ -1,0 +1,71 @@
+import rscene.std;
+import rscene.vm;
+
+import test_tool;
+
+namespace test_vm
+{
+    func load_and_create_vmm(var src:string)
+    {
+        var vmm = std::vm::create();
+        vmm->load_source("test_vm/test_tmp_script.rsn", src);
+        return vmm;
+    }
+
+    func main()
+    {
+       var vmm = load_and_create_vmm(
+            @"
+            import rscene.std;
+            func main()
+            {
+                std::println("Hey! This inform come from another vm!~");
+            }
+            main();
+            "@
+        );
+
+        test_equal(vmm->has_error(), false);
+
+        vmm->run();
+        vmm->close();
+
+        // Test memmory leak
+        var i = 0;
+        while (i<1000)
+        {
+            i += 1;
+            var vmm = load_and_create_vmm(
+                @"
+                import rscene.std;
+                func test_template<T>(var n:T)
+                {
+                    return n;
+                }
+                func main()
+                {
+                    var a = [1,2,3,4,5];
+                    a->get(0) = 233;
+
+                    if (a[0] != 233)
+                        std::panic("Unexcepted reason fail.");
+
+                    test_template(233);
+                    test_template("My world!");
+                }
+                main();
+                "@
+            );
+            test_equal(vmm->has_error(), false);
+            if (vmm->has_error())
+            {
+                std::println(vmm->error_msg());
+            }
+            vmm->run();
+
+            vmm->close();
+        }
+    }
+}
+
+test_function("test_vm.main", test_vm::main);

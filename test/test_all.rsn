@@ -1,0 +1,48 @@
+/*                                       
+import test_tool;
+
+import test_helloworld;
+import test_coroutine;
+import test_string_u8;
+import test_while;
+import test_debug_invoke;
+import test_gc;
+import test_template;
+import test_dup;
+import test_static;
+import test_enum;
+import test_vm;
+import test_thread;
+/*                                       */
+///////////////////////////////////////////
+/*	TODO-LIST
+ *
+ */
+///////////////////////////////////////////
+
+import rscene.std;
+
+func example()
+{
+	var a = []:array<int>;
+	a->add(12.5);
+
+	var m = {}:map<string, int>;
+	var val = m->get("key", 12);
+
+	std::println(val);
+}
+
+while(true)
+	example();
+
+
+
+///////////////////////////////////////////
+/*                                       
+std::println("Unit-test begin!");
+
+std::sleep(1);
+
+execute_all_test();
+/*                                       */

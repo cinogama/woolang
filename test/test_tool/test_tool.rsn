@@ -1,0 +1,56 @@
+import rscene.std;
+
+var test_function_set = []:array<map<string, dynamic>>;
+var test_success_count = 0, test_failed_count = 0;
+
+func test_function(var func_name:string, var test_func:void())
+{
+    test_function_set->add({
+            {"funcname", func_name}, 
+            {"function", test_func},
+        });
+}
+
+func execute_all_test()
+{
+    var i = 0;
+    while (i < test_function_set->len())
+    {
+        test_success_count = 0;
+        test_failed_count = 0;
+        std::println("Testing:", test_function_set[i].funcname, "...");
+
+        (test_function_set[i].function:void())();
+
+        std::println("Passed:", test_success_count);
+        if (test_failed_count)
+        {
+            std::println("Failed:", test_failed_count);
+            std::panic("This test case has been failed...");
+        }
+
+        i+=1;
+    }
+}
+
+func test_equal(var a, var b)
+{
+    if (a == b)
+        test_success_count += 1;
+    else
+    {
+        test_failed_count += 1;
+        std::println("Test fail:", a, " != ", b, ",but it should be equal.");
+    }
+}
+
+func test_assure(var a)
+{
+    if (a)
+        test_success_count += 1;
+    else
+    {
+        test_failed_count += 1;
+        std::println("Test fail:", a, " is not true..");
+    }
+}

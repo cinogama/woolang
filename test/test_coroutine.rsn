@@ -1,0 +1,149 @@
+import rscene.std;
+import rscene.co;
+
+import test_tool;
+
+namespace test_coroutine
+{
+	func waitable_test()
+	{
+		using std;
+
+		var co1 = co(func(){
+			for(var i=0;i<3;i+=1)
+			{
+				co::sleep(1);
+				println("Helloworld");
+			}
+		});
+
+		var co2 = co(func(var pre_co:co){
+
+			co::wait(pre_co);
+			println("OK");
+
+		},co1);
+
+		sleep(4);
+		co1->abort();
+
+		while(!co2->completed())
+			sleep(1);
+	}
+	func finish_co()
+	{
+		var co_list = []:array<std::co>;
+
+		for(var i=0;i<1000;i+=1)
+		{
+			co_list->add(std::co(func(){
+				for(var i=0;i<3;i+=1)
+				{
+					std::co::sleep(1);
+				}
+			}));
+		}
+		for(var co : co_list)
+			while(!co->completed())
+				std::sleep(1);
+
+		co_list->clear();
+
+		for(var i=0;i<4;i+=1)
+			co_list->add(std::co(
+				func()
+				{
+					for(var i=0;i<1'000'000;i+=1)
+						std::co::yield();
+				}
+			));
+		for(var co : co_list)
+		{
+			while(!co->completed())
+				std::sleep(1);
+		}
+	}
+
+	func main()
+	{
+		waitable_test();
+		finish_co();
+
+		var vm = std::vm();
+
+		vm->load_source(
+		@"
+		import rscene.std;
+		import rscene.co;
+
+		var co_list = []:array<std::co>;
+
+		for(var i = 0; i < 1000; i += 1)
+			co_list->add(std::co(
+				func()
+				{
+					while(true)
+						std::co::yield();
+				}
+			));
+
+		std::println("co ready!");
+		std::sleep(3);
+		std::println("shutting down coroutines!");
+
+		for(var co : co_list)
+		{
+			co->abort();
+		}
+		std::println("over!");
+		std::sleep(3);
+		"@
+		);
+
+		vm->run();
+		std::println("vm over!");
+		std::sleep(3);
+		std::println("close vm!");
+		vm->close();
+
+
+		var co1 = std::co(func(){
+			for (var i = 0; i < 10; i += 1)
+			{
+				std::println("co working:", i);
+				std::co::yield();
+			}
+		});
+
+		while(!co1->completed())
+			std::sleep(0.1);
+
+		co1 = std::co(func(){
+			for (;;)
+			{
+				std::println("co working 1...");
+			}
+		});
+		var co2 = std::co(func(){
+			for (;;)
+			{
+				std::println("co working 2...");
+			}
+		});
+
+		std::co::stop_all();
+
+		co1 = std::co(func(){
+			for (var i = 0; i < 10; i += 1)
+			{
+				std::println("co working:", i);
+				std::co::yield();
+			}
+		});
+
+		while(!co1->completed())
+			std::sleep(0.1);
+	}
+}
+
+test_function("test_coroutine.main", test_coroutine::main);
