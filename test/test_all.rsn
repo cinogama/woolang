@@ -1,4 +1,4 @@
-/*                                       
+/*                                       */
 import test_tool;
 
 import test_helloworld;
@@ -20,26 +20,9 @@ import test_thread;
  */
 ///////////////////////////////////////////
 
-import rscene.std;
-
-func example()
-{
-	var a = []:array<int>;
-	a->add(12.5);
-
-	var m = {}:map<string, int>;
-	var val = m->get("key", 12);
-
-	std::println(val);
-}
-
-while(true)
-	example();
-
-
 
 ///////////////////////////////////////////
-/*                                       
+/*                                       */
 std::println("Unit-test begin!");
 
 std::sleep(1);
