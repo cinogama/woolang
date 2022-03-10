@@ -12,7 +12,7 @@ else()
 	list(APPEND rscene_system_libs pthread dl)
 endif()
 
-if (BUILD_SHARED_LIBS)
+if (${BUILD_SHARED_LIBS} OR ${RSCENE_BUILD_SHARED_LIBS})
 	add_definitions(-DRS_SHARED_LIB)
 	add_library (rscene SHARED ${rscene_src_cpp})
 else()
