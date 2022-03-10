@@ -1016,11 +1016,6 @@ rs_value rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc)
     return nullptr;
 }
 
-RS_API rs_value     rs_invoke_rsfunc(rs_vm vm, rs_int_t rsfunc, rs_int_t argc);
-RS_API rs_value     rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc);
-RS_API rs_value     rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc);
-
-
 rs_bool_t rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
 {
     if (!virtual_src_path)
