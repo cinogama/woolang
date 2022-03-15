@@ -4509,6 +4509,7 @@ namespace rs
 
                 afor->iter_next_judge_expr = iter_dir_next_call;
                 afor->iterator_var = new ast_value_variable(L"_iter");
+                afor->iterator_var->is_mark_as_using_ref = true;
 
                 afor->execute_sentences = RS_NEED_AST(8);
 
