@@ -246,15 +246,18 @@ namespace rs
         }
         virtual ~vmbase()
         {
-            std::lock_guard g1(_alive_vm_list_mx);
+            do
+            {
+                std::lock_guard g1(_alive_vm_list_mx);
 
-            if (_self_stack_reg_mem_buf)
-                free64(_self_stack_reg_mem_buf);
+                if (_self_stack_reg_mem_buf)
+                    free64(_self_stack_reg_mem_buf);
 
-            rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
-                "This vm not exists in _alive_vm_list, that is illegal.");
+                rs_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
+                    "This vm not exists in _alive_vm_list, that is illegal.");
 
-            _alive_vm_list.erase(this);
+                _alive_vm_list.erase(this);
+            } while (0);
 
             if (veh)
                 exception_recovery::ok(this);

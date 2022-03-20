@@ -716,7 +716,16 @@ namespace rs
             {
                 rs_handle_t base = 10;
                 rs_handle_t sum = 0;
+
                 const wchar_t* wstr = str.c_str();
+
+                bool neg = false;
+                if (wstr[0] == L'-')
+                {
+                    neg = true, ++wstr;
+                }
+                else if (wstr[0] == L'+')
+                    ++wstr;
 
                 if (wstr[0] == L'0')
                 {
@@ -746,6 +755,8 @@ namespace rs
                     sum = base * sum + lexer::lex_hextonum(*wstr);
                     ++wstr;
                 }
+                if (neg)
+                    return (rs_handle_t)(-(rs_integer_t)sum);
                 return sum;
             }
             static rs_integer_t wstr_to_integer(const std::wstring& str)
@@ -753,6 +764,14 @@ namespace rs
                 rs_integer_t base = 10;
                 rs_integer_t sum = 0;
                 const wchar_t* wstr = str.c_str();
+
+                bool neg = false;
+                if (wstr[0] == L'-')
+                {
+                    neg = true, ++wstr;
+                }
+                else if (wstr[0] == L'+')
+                    ++wstr;
 
                 if (wstr[0] == L'0')
                 {
@@ -780,6 +799,8 @@ namespace rs
                     sum = base * sum + lexer::lex_hextonum(*wstr);
                     ++wstr;
                 }
+                if (neg)
+                    return -sum;
                 return sum;
             }
             static rs_real_t wstr_to_real(const std::wstring& str)
@@ -3231,6 +3252,17 @@ namespace rs
                     auto fxxk = RS_NEED_TOKEN(2);
                     item->enum_val = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(2).identifier);
                 }
+                else if (input.size() == 4)
+                {
+                    item->need_assign_val = false;
+                    auto fxxk = RS_NEED_TOKEN(3);
+                    if (RS_NEED_TOKEN(2).type == +lex_type::l_add)
+                        item->enum_val = ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(3).identifier);
+                    else if (RS_NEED_TOKEN(2).type == +lex_type::l_sub)
+                        item->enum_val = -ast_value_literal::wstr_to_integer(RS_NEED_TOKEN(3).identifier);
+                    else
+                        rs_error("Enum item should be +/- integer");
+                }
                 return (ast_basic*)item;
             }
         };
@@ -3400,6 +3432,7 @@ namespace rs
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
+                    new_lex.used_macro_list = lex.used_macro_list;
 
                     auto* imported_ast = rs::get_rs_grammar()->gen(new_lex);
 

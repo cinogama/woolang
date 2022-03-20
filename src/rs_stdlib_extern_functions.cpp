@@ -960,3 +960,183 @@ namespace std
 }
 
 )" };
+
+RS_API rs_api rslib_std_macro_lexer_lex(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    rs::lexer tmp_lex(rs::str_to_wstr(
+        rs_string(args + 1)
+    ), "macro" + lex->source_file + "_impl.rsn");
+
+    std::vector<std::pair<rs::lex_type, std::wstring>> lex_tokens;
+
+    for (;;)
+    {
+        std::wstring result;
+        auto token = tmp_lex.next(&result);
+
+        if (token == +rs::lex_type::l_eof)
+            break;
+
+        lex_tokens.push_back({ token , result });
+    }
+
+    for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
+        lex->push_temp_for_error_recover(ri->first, ri->second);
+
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_macro_lexer_warning(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    lex->lex_warning(0x0000, rs::str_to_wstr(rs_string(args + 1)).c_str());
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_macro_lexer_error(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    lex->lex_error(0x0000, rs::str_to_wstr(rs_string(args + 1)).c_str());
+    return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_macro_lexer_peek(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    std::wstring out_result;
+    auto token_type = lex->peek(&out_result);
+
+    rs_set_string(args + 1, rs::wstr_to_str(out_result).c_str());
+
+    return rs_ret_int(vm, (rs_integer_t)token_type);
+}
+
+RS_API rs_api rslib_std_macro_lexer_next(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    std::wstring out_result;
+    auto token_type = lex->next(&out_result);
+
+    rs_set_string(args + 1, rs::wstr_to_str(out_result).c_str());
+
+    return rs_ret_int(vm, (rs_integer_t)token_type);
+}
+
+const char* rs_stdlib_macro_src_path = u8"rscene/macro.rsn";
+const char* rs_stdlib_macro_src_data = {
+u8R"(
+import rscene.std;
+
+namespace std
+{
+    enum token_type
+    {
+        l_eof = -1,
+        l_error = 0,
+
+        l_empty,          // [empty]
+
+        l_identifier,           // identifier.
+        l_literal_integer,      // 1 233 0x123456 0b1101001 032
+        l_literal_handle,       // 0L 256L 0xFFL
+        l_literal_real,         // 0.2  0.  .235
+        l_literal_string,       // "STR"
+        l_semicolon,            // ;
+
+        l_comma,                // ,
+        l_add,                  // +
+        l_sub,                  // - 
+        l_mul,                  // * 
+        l_div,                  // / 
+        l_mod,                  // % 
+        l_assign,               // =
+        l_add_assign,           // +=
+        l_sub_assign,           // -= 
+        l_mul_assign,           // *=
+        l_div_assign,           // /= 
+        l_mod_assign,           // %= 
+        l_equal,                // ==
+        l_not_equal,            // !=
+        l_larg_or_equal,        // >=
+        l_less_or_equal,        // <=
+        l_less,                 // <
+        l_larg,                 // >
+        l_land,                 // &&
+        l_lor,                  // ||
+        l_lnot,                  // !
+        l_scopeing,             // ::
+        l_template_using_begin,             // ::<
+        l_typecast,              // :
+        l_index_point,          // .
+        l_double_index_point,          // ..  may be used? hey..
+        l_variadic_sign,          // ...
+        l_index_begin,          // '['
+        l_index_end,            // ']'
+        l_direct,               // '->'
+
+        l_left_brackets,        // (
+        l_right_brackets,       // )
+        l_left_curly_braces,    // {
+        l_right_curly_braces,   // }
+
+        l_import,               // import
+
+        l_inf,
+        l_nil,
+        l_while,
+        l_if,
+        l_else,
+        l_namespace,
+        l_for,
+        l_extern,
+
+        l_var,
+        l_ref,
+        l_func,
+        l_return,
+        l_using,
+        l_enum,
+        l_as,
+        l_is,
+        l_typeof,
+
+        l_private,
+        l_public,
+        l_protected,
+        l_const,
+        l_static,
+
+        l_break,
+        l_continue,
+        l_goto,
+        l_at,
+        l_naming
+    }
+
+    using lexer = handle;
+    namespace lexer
+    {
+        extern("rslib_std_macro_lexer_lex")
+            func lex(var lex:lexer, var src:string):void;
+
+        extern("rslib_std_macro_lexer_warning")
+            func warning(var lex:lexer, var msg:string):void;
+
+        extern("rslib_std_macro_lexer_error")
+            func error(var lex:lexer, var msg:string):void;
+
+        extern("rslib_std_macro_lexer_peek")
+            func peek(var lex:lexer, ref out_token:string):token_type;
+
+        extern("rslib_std_macro_lexer_next")
+            func next(var lex:lexer, ref out_token:string):token_type;
+    }
+}
+
+)" };

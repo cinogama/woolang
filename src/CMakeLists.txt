@@ -12,6 +12,8 @@ else()
 	list(APPEND rscene_system_libs pthread dl)
 endif()
 
+add_definitions(-DRS_SRC_PATH="${PROJECT_SOURCE_DIR}")
+
 if (${BUILD_SHARED_LIBS})
 	add_definitions(-DRS_SHARED_LIB)
 	add_library (rscene SHARED ${rscene_src_cpp})

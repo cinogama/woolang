@@ -3700,7 +3700,7 @@ namespace rs
                 switch (a_value_logical_binary->operate)
                 {
                 case lex_type::l_equal:
-                    if (a_value_logical_binary->left->value_type->is_nil()
+                    if ((a_value_logical_binary->left->value_type->is_nil()
                         || a_value_logical_binary->right->value_type->is_nil()
                         || a_value_logical_binary->left->value_type->is_func()
                         || a_value_logical_binary->right->value_type->is_func()
@@ -3708,12 +3708,14 @@ namespace rs
                         || a_value_logical_binary->right->value_type->is_gc_type()
                         || optype == value::valuetype::integer_type
                         || optype == value::valuetype::handle_type)
+                        && (!a_value_logical_binary->left->value_type->is_string()
+                            && !a_value_logical_binary->right->value_type->is_string()))
                         compiler->equb(beoped_left_opnum, op_right_opnum);
                     else
                         compiler->equx(beoped_left_opnum, op_right_opnum);
                     break;
                 case lex_type::l_not_equal:
-                    if (a_value_logical_binary->left->value_type->is_nil()
+                    if ((a_value_logical_binary->left->value_type->is_nil()
                         || a_value_logical_binary->right->value_type->is_nil()
                         || a_value_logical_binary->left->value_type->is_func()
                         || a_value_logical_binary->right->value_type->is_func()
@@ -3721,6 +3723,8 @@ namespace rs
                         || a_value_logical_binary->right->value_type->is_gc_type()
                         || optype == value::valuetype::integer_type
                         || optype == value::valuetype::handle_type)
+                        && (!a_value_logical_binary->left->value_type->is_string()
+                            && !a_value_logical_binary->right->value_type->is_string()))
                         compiler->nequb(beoped_left_opnum, op_right_opnum);
                     else
                         compiler->nequx(beoped_left_opnum, op_right_opnum);
@@ -4432,7 +4436,7 @@ namespace rs
                         }
                         else
                             compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
-                        
+
                     }
 
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
@@ -4501,7 +4505,7 @@ namespace rs
             compiler->pdb_info->loaded_libs = extern_libs;
             compiler->pdb_info->finalize_generate_debug_info();
 
-            rs::grammar::ast_base::pickout_this_thread_ast(generated_ast_nodes_buffers);
+            rs::grammar::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);
         }
 
         lang_scope* begin_namespace(const std::wstring& scope_namespace)

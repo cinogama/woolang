@@ -119,12 +119,16 @@ namespace rs
                 delete list;
                 list = nullptr;
             }
-            static void pickout_this_thread_ast(std::forward_list<ast_base*>& out_list)
+            static bool exchange_this_thread_ast(std::forward_list<ast_base*>& out_list)
             {
-                rs_assert(out_list.empty());
+                rs_assert(out_list.empty() || nullptr == list || list->empty());
 
                 if (list)
+                {
                     out_list.swap(*list);
+                    return true;
+                }
+                return false;
             }
 
             ast_base* parent;

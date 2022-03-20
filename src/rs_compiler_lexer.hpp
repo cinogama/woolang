@@ -7,6 +7,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <unordered_map>
 
 #include <cwctype>
 #include <cwchar>
@@ -105,7 +106,24 @@ namespace rs
         l_goto,
         l_at,
         l_naming
-        );
+    );
+
+    class lexer;
+
+    class macro
+    {
+    public:
+        std::wstring macro_name;
+        rs_vm _macro_action_vm;
+
+        macro(lexer& lex);
+
+        ~macro()
+        {
+            if (_macro_action_vm)
+                rs_close_vm(_macro_action_vm);
+        }
+    };
 
     class lexer
     {
@@ -120,10 +138,10 @@ namespace rs
             lex_type in_lexer_type;
         };
 
-    private:
+    public:
         std::wstring  reading_buffer;  // use wide char-code.
         size_t        next_reading_index;
-    public:
+
         size_t        now_file_rowno;
         size_t        now_file_colno;
 
@@ -131,6 +149,8 @@ namespace rs
         size_t        next_file_colno;
 
         std::set<std::wstring> imported_file_list;
+        std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
+
         bool has_been_imported(const std::wstring& full_path)
         {
             if (imported_file_list.find(full_path) == imported_file_list.end())
@@ -351,6 +371,7 @@ namespace rs
             , next_file_rowno(1)
             , next_file_colno(1)
             , source_file(_source_file)
+            , used_macro_list(nullptr)
         {
             // read_stream.peek
         }
@@ -361,6 +382,7 @@ namespace rs
             , next_file_rowno(1)
             , next_file_colno(1)
             , source_file(_source_file)
+            , used_macro_list(nullptr)
         {
             // read_stream.peek
             std::wstring readed_real_path;
@@ -585,6 +607,10 @@ namespace rs
         lex_type peek_result_type = lex_type::l_error;
         std::wstring peek_result_str;
         bool peeked_flag = false;
+        size_t after_pick_now_file_rowno;
+        size_t after_pick_now_file_colno;
+        size_t after_pick_next_file_rowno;
+        size_t after_pick_next_file_colno;
 
         lex_type peek(std::wstring* out_literal)
         {
@@ -606,14 +632,10 @@ namespace rs
                 return temp_token_buff_stack.top().first;
             }
 
-            lex_enable_error_warn = false;
-
-            auto old_index = next_reading_index;
             auto old_now_file_rowno = now_file_rowno;
             auto old_now_file_colno = now_file_colno;
             auto old_next_file_rowno = next_file_rowno;
             auto old_next_file_colno = next_file_colno;
-
 
             peek_result_type = next(&peek_result_str);
             if (out_literal)
@@ -621,13 +643,15 @@ namespace rs
 
             peeked_flag = true;
 
-            next_reading_index = old_index;
+            after_pick_now_file_rowno = now_file_rowno;
+            after_pick_now_file_colno = now_file_colno;
+            after_pick_next_file_rowno = next_file_rowno;
+            after_pick_next_file_colno = next_file_colno;
+
             now_file_rowno = old_now_file_rowno;
             now_file_colno = old_now_file_colno;
             next_file_rowno = old_next_file_rowno;
             next_file_colno = old_next_file_colno;
-
-            lex_enable_error_warn = true;
 
             return peek_result_type;
         }
@@ -729,7 +753,21 @@ namespace rs
         lex_type next(std::wstring* out_literal)
         {
             just_have_err = false;
-            peeked_flag = false;
+
+            if (peeked_flag)
+            {
+                peeked_flag = false;
+
+                now_file_rowno = after_pick_now_file_rowno;
+                now_file_colno = after_pick_now_file_colno;
+                next_file_rowno = after_pick_next_file_rowno;
+                next_file_colno = after_pick_next_file_colno;
+
+                if (out_literal)
+                    *out_literal = peek_result_str;
+
+                return peek_result_type;
+            }
 
             if (!temp_token_buff_stack.empty())
             {
@@ -783,13 +821,12 @@ namespace rs
                         }
                         if (readed_ch == EOF)
                         {
-                            lex_enable_error_warn = true;
                             now_file_colno = fcol_begin;
                             now_file_rowno = frow_begin;
                             lex_error(0x0005, RS_ERR_MISMATCH_ANNO_SYM);
                             fcol_begin = now_file_colno;
                             frow_begin = now_file_rowno;
-                            lex_enable_error_warn = false;// This error only caused once in peek, force error.
+
                             goto re_try_read_next_one;
                         }
 
@@ -956,7 +993,7 @@ namespace rs
                 }
                 else
                     goto checking_valid_operator;
-                    /*return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');*/
+                /*return lex_error(0x0001, RS_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');*/
             }
             else if (readed_ch == L'"')
             {
@@ -1060,7 +1097,24 @@ namespace rs
                 // TODO: Check it, does this str is a keyword?
 
                 if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+                {
+                    if (used_macro_list)
+                    {
+                        auto fnd = used_macro_list->find(read_result());
+                        if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
+                        {
+                            auto symb = rs_extern_symb(fnd->second->_macro_action_vm,
+                                wstr_to_str(L"::" + fnd->second->macro_name).c_str());
+                            rs_assert(symb);
+
+                            rs_push_pointer(fnd->second->_macro_action_vm, this);
+                            rs_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+
+                            return next(out_literal);
+                        }
+                    }
                     return lex_type::l_identifier;
+                }
                 else
                     return keyword_type;
             }
@@ -1123,6 +1177,42 @@ namespace rs
 
                 return lex_type::l_right_curly_braces;
             }
+            else if (readed_ch == L'#')
+            {
+                // Read sharp
+                // #macro
+
+                std::wstring pragma_name;
+
+                if (lex_isidentbeg(peek_one()))
+                {
+                    pragma_name += next_one();
+                    while (lex_isident(peek_one()))
+                        pragma_name += next_one();
+                }
+
+                if (pragma_name == L"macro")
+                {
+                    // OK FINISH PRAGMA, CONTINUE
+
+                    std::shared_ptr<macro> p = std::make_shared<macro>(*this);
+                    if (this->used_macro_list == nullptr)
+                        this->used_macro_list = std::make_shared<std::unordered_map<std::wstring, std::shared_ptr<macro>>>();
+
+                    if (this->used_macro_list->find(p->macro_name) != this->used_macro_list->end())
+                        lex_error(0x0000, L"未知pragma指令，继续");
+                    else
+                        (*this->used_macro_list)[p->macro_name] = p;
+
+                    goto re_try_read_next_one;
+                }
+                else
+                {
+                    lex_error(0x0000, L"未知pragma指令，继续");
+                }
+
+                goto re_try_read_next_one;
+            }
             else if (readed_ch == EOF)
             {
                 return lex_type::l_eof;
@@ -1136,7 +1226,66 @@ namespace rs
             temp_token_buff_stack.push({ type ,out_literal });
         }
     };
-}
+
+    inline macro::macro(lexer& lex)
+        : _macro_action_vm(nullptr)
+    {
+        /*
+        #macro PRINT_HELLOWORLD
+        {
+            lexer->lex(@"std::println("Helloworld")"@);
+        }
+
+        PRINT_HELLOWORLD;
+
+        */
+        if (lex.next(&macro_name) == +lex_type::l_identifier)
+        {
+            size_t scope_count = 1;
+            if (lex.next(nullptr) == +lex_type::l_left_curly_braces)
+            {
+                std::wstring macro_anylzing_src =
+                    L"import rscene.macro; extern func " +
+                    macro_name + L"(var lexer:std::lexer) {";
+                ;
+                size_t index = lex.next_reading_index;
+                do
+                {
+                    auto type = lex.next(nullptr);
+                    if (type == +lex_type::l_right_curly_braces)
+                        scope_count--;
+                    else if (type == +lex_type::l_left_curly_braces)
+                        scope_count++;
+                } while (scope_count);
+
+                size_t end_index = lex.next_reading_index;
+
+                _macro_action_vm = rs_create_vm();
+                if (!rs_load_source(_macro_action_vm,
+                    ("macro_" + wstr_to_str(macro_name) + ".rsn").c_str(),
+                    wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
+                {
+                    lex.lex_error(0x0000, L"宏控制器编译失败，继续：\n%ls",
+                        str_to_wstr(rs_get_compile_error(_macro_action_vm, RS_NOTHING)).c_str());
+
+                    rs_close_vm(_macro_action_vm);
+                    _macro_action_vm = nullptr;
+                }
+                else
+                {
+                    if (rs_has_compile_warning(_macro_action_vm))
+                        lex.lex_warning(0x0000, L"宏控制器代码报告了一个警告，继续：\n%ls",
+                            str_to_wstr(rs_get_compile_warning(_macro_action_vm, RS_NOTHING)).c_str());
+                }
+
+            }
+            else
+                lex.lex_error(0x0000, L"缺少'{'，继续");
+            }
+        else
+            lex.lex_error(0x0000, L"#grammar 之后应该是'标识符'，继续");
+        }
+    }
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN

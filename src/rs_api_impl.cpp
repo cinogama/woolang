@@ -244,6 +244,7 @@ void rs_init(int argc, char** argv)
         rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);
         rs_virtual_source(rs_stdlib_thread_src_path, rs_stdlib_thread_src_data, false);
         rs_virtual_source(rs_stdlib_roroutine_src_path, rs_stdlib_roroutine_src_data, false);
+        rs_virtual_source(rs_stdlib_macro_src_path, rs_stdlib_macro_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -808,6 +809,8 @@ rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t sr
 
     lex->has_been_imported(rs::str_to_wstr(lex->source_file));
 
+    std::forward_list<rs::grammar::ast_base*> m_last_context;
+    bool need_exchange_back = rs::grammar::ast_base::exchange_this_thread_ast(m_last_context);
     if (!lex->has_error())
     {
         // 2. Lexer will create ast_tree;
@@ -839,6 +842,9 @@ rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t sr
     }
 
     rs::grammar::ast_base::clean_this_thread_ast();
+
+    if (need_exchange_back)
+        rs::grammar::ast_base::exchange_this_thread_ast(m_last_context);
 
     bool compile_has_err = lex->has_error();
     if (compile_has_err || lex->has_warning())

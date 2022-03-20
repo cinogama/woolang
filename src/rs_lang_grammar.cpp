@@ -23,8 +23,10 @@ namespace rs
             return rs_grammar;
 
         ast::init_builder();
-        
-        std::ifstream this_grammar_file(__FILE__);
+
+        const char* GRAMMAR_SRC_FILE = RS_SRC_PATH "/src/rs_lang_grammar.cpp";
+
+        std::ifstream this_grammar_file(GRAMMAR_SRC_FILE);
         uint64_t rs_lang_grammar_crc64 = 0;
 
         if (this_grammar_file.fail())
@@ -192,6 +194,10 @@ gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm:
                  >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
                 gm::nt(L"ENUM_ITEM") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_literal_integer)}
                  >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
+                gm::nt(L"ENUM_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_add), gm::te(gm::ttype::l_literal_integer) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
+                gm::nt(L"ENUM_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_sub), gm::te(gm::ttype::l_literal_integer) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_enum_item_create),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
                  >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -863,7 +869,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 const wchar_t* tab = L"    ";
 
                 // Do expe
-                std::string cur_path = __FILE__;
+                std::string cur_path = GRAMMAR_SRC_FILE;
                 if (auto pos = cur_path.find_last_of("/\\"); pos >= 0 && pos < cur_path.size())
                     cur_path = cur_path.substr(0, pos) + "/rs_lang_grammar_lr1_autogen.hpp";
                 else
