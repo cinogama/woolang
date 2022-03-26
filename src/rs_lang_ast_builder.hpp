@@ -1400,12 +1400,16 @@ namespace rs
             }
         };
 
+        struct ast_value_funccall;
+
         struct ast_value_binary : virtual public ast_value
         {
             // used for storing binary-operate;
             ast_value* left = nullptr;
             lex_type operate = +lex_type::l_error;
             ast_value* right = nullptr;
+
+            ast_value_funccall* overrided_operation_call = nullptr;
 
             ast_value_binary()
             {
@@ -1620,8 +1624,11 @@ namespace rs
                 {
                     if (nullptr == (value_type = binary_upper_type(left->value_type, right->value_type)))
                     {
-                        lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        // Donot give error here.
+
+                        // lex->lang_error(0x0000, this, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                         value_type = new ast_type(L"pending");
+                        
                         return;
                     }
                 }
@@ -2620,6 +2627,8 @@ namespace rs
         {
             lex_type operate = +lex_type::l_error;
             ast_value* val;
+
+            ast_value_funccall* overrided_operation_call = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3635,28 +3644,48 @@ namespace rs
                     ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(7))->sentence_list;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(6));
                 }
-                else
+                else if (input.size() == 10)
                 {
-                    // function with name.. export func
-                    ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(1));
-                    rs_assert(ast_func->declear_attribute);
-
-                    ast_func->function_name = RS_NEED_TOKEN(3).identifier;
-
-                    if (!ast_empty::is_empty(input[4]))
+                    if (RS_IS_TOKEN(2) && RS_NEED_TOKEN(2).type == +lex_type::l_operator)
                     {
-                        template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                        // operator function
+                        ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(0));
+                        rs_assert(ast_func->declear_attribute);
+
+                        ast_func->function_name = L"operator " + dynamic_cast<ast_token*>(RS_NEED_AST(3))->tokens.identifier;
+
+                        if (!ast_empty::is_empty(input[4]))
+                            template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+
+                        ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+                        ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(9))->sentence_list;
+                        return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
                     }
+                    else
+                    {
+                        // function with name.. export func
+                        ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(RS_NEED_AST(1));
+                        rs_assert(ast_func->declear_attribute);
 
-                    ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
-                    ast_func->in_function_sentence = nullptr;
-                    return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
+                        ast_func->function_name = RS_NEED_TOKEN(3).identifier;
+
+                        if (!ast_empty::is_empty(input[4]))
+                        {
+                            template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
+                        }
+
+                        ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+                        ast_func->in_function_sentence = nullptr;
+                        return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
 
 
-                    ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0));
-                    if (ast_func->externed_func_info->externed_func)
-                        ast_func->is_constant = true;
+                        ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0));
+                        if (ast_func->externed_func_info->externed_func)
+                            ast_func->is_constant = true;
+                    }
                 }
+                else
+                    rs_error("Unknown ast type.");
                 // many things to do..
 
                 if (return_type)

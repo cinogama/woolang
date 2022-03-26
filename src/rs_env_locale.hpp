@@ -104,7 +104,14 @@ namespace rs
         if (!_exe_path[0])
         {
 #ifdef _WIN32
-            GetModuleFileNameA(NULL, _exe_path, MAX_PATH_LEN);
+            wchar_t _w_exe_path[MAX_PATH_LEN / 2] = {};
+            GetModuleFileNameW(NULL, _w_exe_path, MAX_PATH_LEN / 2);
+            auto&& parsed_path = wstr_to_str(_w_exe_path);
+
+            rs_assert(parsed_path.size() < MAX_PATH_LEN);
+
+            strcpy(_exe_path, parsed_path.c_str());
+
 #else
             readlink("/proc/self/exe", _exe_path, MAX_PATH_LEN);
 #endif
@@ -128,6 +135,6 @@ namespace rs
         memcpy(_work_path, _only_file_loc.c_str(), _only_file_loc.size() + 1);
 
         return _work_path;
-    }
+}
 
 }

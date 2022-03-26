@@ -556,6 +556,29 @@ namespace rs
 
                 if (nullptr == a_value_bin->value_type)
                     a_value_bin->value_type = new ast_type(L"pending");
+
+                ast_value_funccall* try_func_override = new ast_value_funccall();
+                try_func_override->arguments = new ast_list();
+                try_func_override->value_type = new ast_type(L"pending");
+                try_func_override->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
+                try_func_override->directed_value_from = a_value_bin->left;
+
+                try_func_override->arguments->add_child(a_value_bin->left->instance());
+                try_func_override->arguments->add_child(a_value_bin->right->instance());
+
+                try_func_override->called_func->source_file = a_value_bin->source_file;
+                try_func_override->called_func->row_no = a_value_bin->row_no;
+                try_func_override->called_func->col_no = a_value_bin->col_no;
+
+                try_func_override->source_file = a_value_bin->source_file;
+                try_func_override->row_no = a_value_bin->row_no;
+                try_func_override->col_no = a_value_bin->col_no;
+
+                a_value_bin->overrided_operation_call = try_func_override;
+                analyze_pass1(a_value_bin->overrided_operation_call);
+
+                if (!a_value_bin->overrided_operation_call->value_type->is_pending())
+                    a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
             }
             else if (ast_value_index* a_value_idx = dynamic_cast<ast_value_index*>(ast_node))
             {
@@ -1376,10 +1399,37 @@ namespace rs
                             analyze_pass2(a_value_bin->left);
                             analyze_pass2(a_value_bin->right);
 
-                            a_value_bin->value_type = ast_value_binary::binary_upper_type(
-                                a_value_bin->left->value_type,
-                                a_value_bin->right->value_type
-                            );
+                            if (a_value_bin->overrided_operation_call)
+                            {
+                                auto state = lang_anylizer->lex_enable_error_warn;
+                                lang_anylizer->lex_enable_error_warn = false;
+
+                                analyze_pass2(a_value_bin->overrided_operation_call);
+
+                                lang_anylizer->lex_enable_error_warn = state;
+
+                                if (a_value_bin->overrided_operation_call->value_type->is_pending())
+                                {
+                                    // Failed to call override func
+                                    a_value_bin->overrided_operation_call = nullptr;
+
+                                    a_value_bin->value_type = ast_value_binary::binary_upper_type(
+                                        a_value_bin->left->value_type,
+                                        a_value_bin->right->value_type
+                                    );
+                                }
+                                else
+                                {
+                                    // Apply this type to func
+                                    if (nullptr == a_value_bin->value_type)
+                                        a_value_bin->value_type = a_value_bin->overrided_operation_call->value_type;
+                                    else if (a_value_bin->value_type->is_pending())
+                                        a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
+                                    else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type))
+                                        lang_anylizer->lang_warning(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
+                                }
+
+                            }
 
                             if (nullptr == a_value_bin->value_type)
                             {
@@ -1480,9 +1530,10 @@ namespace rs
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
                                         (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
 
+                                        auto state = lang_anylizer->lex_enable_error_warn;
                                         lang_anylizer->lex_enable_error_warn = false;
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                        lang_anylizer->lex_enable_error_warn = true;
+                                        lang_anylizer->lex_enable_error_warn = state;
 
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                             || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
@@ -1498,9 +1549,10 @@ namespace rs
                                     a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
                                     (a_value_funccall->directed_value_from->value_type->type_name);
 
+                                    auto state = lang_anylizer->lex_enable_error_warn;
                                     lang_anylizer->lex_enable_error_warn = false;
                                     analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                    lang_anylizer->lex_enable_error_warn = true;
+                                    lang_anylizer->lex_enable_error_warn = state;
 
                                     if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                         || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
@@ -1516,9 +1568,10 @@ namespace rs
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back(L"dynamic");
 
+                                        auto state = lang_anylizer->lex_enable_error_warn;
                                         lang_anylizer->lex_enable_error_warn = false;
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                        lang_anylizer->lex_enable_error_warn = true;
+                                        lang_anylizer->lex_enable_error_warn = state;
 
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                             || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function())
@@ -2536,6 +2589,7 @@ namespace rs
                     analyze_pass2(variable);
                 */
 
+                auto state = lang_anylizer->lex_enable_error_warn;
                 lang_anylizer->lex_enable_error_warn = false;
 
                 analyze_pass2(a_foreach->iterator_var);
@@ -2621,7 +2675,7 @@ namespace rs
                 {
                     // Do not find symbol, but do nothing.. error has been reported by analyze_pass2
                 }
-                lang_anylizer->lex_enable_error_warn = true;
+                lang_anylizer->lex_enable_error_warn = state;
 
                 analyze_pass2(a_foreach->iter_next_judge_expr);
                 analyze_pass2(a_foreach->execute_sentences);
@@ -3134,6 +3188,9 @@ namespace rs
             }
             else if (auto* a_value_binary = dynamic_cast<ast_value_binary*>(value))
             {
+                if (a_value_binary->overrided_operation_call)
+                    return analyze_value(a_value_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
+
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
                 if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type)

@@ -340,6 +340,11 @@ RS_API rs_api rslib_std_thread_yield(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_get_exe_path(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_string(vm, rs::exe_path());
+}
+
 const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
 const char* rs_stdlib_basic_src_data = { u8R"(
 using bool = int;
@@ -374,6 +379,9 @@ namespace std
 
     extern("rslib_std_thread_sleep")
         func sleep(var tm:real):void;
+   
+    extern("rslib_std_get_exe_path")
+        func exepath():string;
 }
 
 namespace string

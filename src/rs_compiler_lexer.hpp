@@ -105,7 +105,8 @@ namespace rs
         l_continue,
         l_goto,
         l_at,
-        l_naming
+        l_naming,
+        l_operator
     );
 
     class lexer;
@@ -227,6 +228,7 @@ namespace rs
             {L"continue", {lex_type::l_continue}},
             {L"goto", {lex_type::l_goto}},
             {L"naming", {lex_type::l_naming}},
+            {L"operator", {lex_type::l_operator}},
         };
 
 
