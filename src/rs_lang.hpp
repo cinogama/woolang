@@ -557,24 +557,31 @@ namespace rs
                 if (nullptr == a_value_bin->value_type)
                     a_value_bin->value_type = new ast_type(L"pending");
 
-                ast_value_funccall* try_func_override = new ast_value_funccall();
-                try_func_override->arguments = new ast_list();
-                try_func_override->value_type = new ast_type(L"pending");
-                try_func_override->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
-                try_func_override->directed_value_from = a_value_bin->left;
+                ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+                a_value_bin->add_child(try_operator_func_overload);
 
-                try_func_override->arguments->add_child(a_value_bin->left->instance());
-                try_func_override->arguments->add_child(a_value_bin->right->instance());
+                try_operator_func_overload->arguments = new ast_list();
+                try_operator_func_overload->value_type = new ast_type(L"pending");
+                try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
+                try_operator_func_overload->directed_value_from = a_value_bin->left;
 
-                try_func_override->called_func->source_file = a_value_bin->source_file;
-                try_func_override->called_func->row_no = a_value_bin->row_no;
-                try_func_override->called_func->col_no = a_value_bin->col_no;
+                ast_value* arg1 = dynamic_cast<ast_value*>(a_value_bin->left->instance());
+                arg1->is_mark_as_using_ref = true;
+                try_operator_func_overload->arguments->add_child(arg1);
 
-                try_func_override->source_file = a_value_bin->source_file;
-                try_func_override->row_no = a_value_bin->row_no;
-                try_func_override->col_no = a_value_bin->col_no;
+                ast_value* arg2 = dynamic_cast<ast_value*>(a_value_bin->right->instance());
+                arg2->is_mark_as_using_ref = true;
+                try_operator_func_overload->arguments->add_child(arg2);
 
-                a_value_bin->overrided_operation_call = try_func_override;
+                try_operator_func_overload->called_func->source_file = a_value_bin->source_file;
+                try_operator_func_overload->called_func->row_no = a_value_bin->row_no;
+                try_operator_func_overload->called_func->col_no = a_value_bin->col_no;
+
+                try_operator_func_overload->source_file = a_value_bin->source_file;
+                try_operator_func_overload->row_no = a_value_bin->row_no;
+                try_operator_func_overload->col_no = a_value_bin->col_no;
+
+                a_value_bin->overrided_operation_call = try_operator_func_overload;
                 analyze_pass1(a_value_bin->overrided_operation_call);
 
                 if (!a_value_bin->overrided_operation_call->value_type->is_pending())
@@ -655,6 +662,36 @@ namespace rs
 
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
+
+                ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+                a_value_logic_bin->add_child(try_operator_func_overload);
+
+                try_operator_func_overload->arguments = new ast_list();
+                try_operator_func_overload->value_type = new ast_type(L"pending");
+                try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
+                try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
+
+                ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
+                arg1->is_mark_as_using_ref = true;
+                try_operator_func_overload->arguments->add_child(arg1);
+
+                ast_value* arg2 = dynamic_cast<ast_value*>(a_value_logic_bin->right->instance());
+                arg2->is_mark_as_using_ref = true;
+                try_operator_func_overload->arguments->add_child(arg2);
+
+                try_operator_func_overload->called_func->source_file = a_value_logic_bin->source_file;
+                try_operator_func_overload->called_func->row_no = a_value_logic_bin->row_no;
+                try_operator_func_overload->called_func->col_no = a_value_logic_bin->col_no;
+
+                try_operator_func_overload->source_file = a_value_logic_bin->source_file;
+                try_operator_func_overload->row_no = a_value_logic_bin->row_no;
+                try_operator_func_overload->col_no = a_value_logic_bin->col_no;
+
+                a_value_logic_bin->overrided_operation_call = try_operator_func_overload;
+                analyze_pass1(a_value_logic_bin->overrided_operation_call);
+
+                if (!a_value_logic_bin->overrided_operation_call->value_type->is_pending())
+                    a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
@@ -2346,6 +2383,33 @@ namespace rs
             {
                 analyze_pass2(a_value_logic_bin->left);
                 analyze_pass2(a_value_logic_bin->right);
+
+                if (a_value_logic_bin->overrided_operation_call)
+                {
+                    auto state = lang_anylizer->lex_enable_error_warn;
+                    lang_anylizer->lex_enable_error_warn = false;
+
+                    analyze_pass2(a_value_logic_bin->overrided_operation_call);
+
+                    lang_anylizer->lex_enable_error_warn = state;
+
+                    if (a_value_logic_bin->overrided_operation_call->value_type->is_pending())
+                    {
+                        // Failed to call override func
+                        a_value_logic_bin->overrided_operation_call = nullptr;
+                    }
+                    else
+                    {
+                        // Apply this type to func
+                        if (nullptr == a_value_logic_bin->value_type)
+                            a_value_logic_bin->value_type = a_value_logic_bin->overrided_operation_call->value_type;
+                        else if (a_value_logic_bin->value_type->is_pending())
+                            a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
+                        else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type))
+                            lang_anylizer->lang_warning(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
+                    }
+
+                }
             }
             else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
             {
@@ -2469,6 +2533,8 @@ namespace rs
                     if (a_ret->return_value->value_type->is_pending())
                     {
                         // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
+                        a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
+                        a_ret->located_function->auto_adjust_return_type = false;
                     }
                     else
                     {
@@ -3703,7 +3769,8 @@ namespace rs
             }
             else if (auto* a_value_logical_binary = dynamic_cast<ast_value_logical_binary*>(value))
             {
-                // TODO: SHORTCUT..
+                if (a_value_logical_binary->overrided_operation_call)
+                    return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
 
                 value::valuetype optype = value::valuetype::invalid;
                 if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type)

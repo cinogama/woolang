@@ -330,6 +330,18 @@ gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot) }
                 }
                 >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
 
+                    gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
+                        gm::nt(L"EXTERN_FROM"),
+                                             gm::nt(L"DECL_ATTRIBUTE"),
+                                            gm::te(gm::ttype::l_func),
+                                             gm::te(gm::ttype::l_operator),
+                                             gm::nt(L"OVERLOADINGABLE_OPERATOR"),
+                                            gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                                            gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
+                                            gm::nt(L"TYPE_DECLEAR"),
+                                             gm::te(gm::ttype::l_semicolon) }
+                        >> RS_ASTBUILDER_INDEX(ast::pass_function_define),
+
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"WHILE") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"WHILE") >> gm::symlist{

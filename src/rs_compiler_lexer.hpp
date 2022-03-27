@@ -1097,26 +1097,23 @@ namespace rs
                         break;
                 }
                 // TODO: Check it, does this str is a keyword?
-
-                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+                if (used_macro_list)
                 {
-                    if (used_macro_list)
+                    auto fnd = used_macro_list->find(read_result());
+                    if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
                     {
-                        auto fnd = used_macro_list->find(read_result());
-                        if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
-                        {
-                            auto symb = rs_extern_symb(fnd->second->_macro_action_vm,
-                                wstr_to_str(L"::" + fnd->second->macro_name).c_str());
-                            rs_assert(symb);
+                        auto symb = rs_extern_symb(fnd->second->_macro_action_vm,
+                            wstr_to_str(L"::macro_" + fnd->second->macro_name).c_str());
+                        rs_assert(symb);
 
-                            rs_push_pointer(fnd->second->_macro_action_vm, this);
-                            rs_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+                        rs_push_pointer(fnd->second->_macro_action_vm, this);
+                        rs_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
 
-                            return next(out_literal);
-                        }
+                        return next(out_literal);
                     }
-                    return lex_type::l_identifier;
                 }
+                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+                    return lex_type::l_identifier;  
                 else
                     return keyword_type;
             }
@@ -1241,53 +1238,51 @@ namespace rs
         PRINT_HELLOWORLD;
 
         */
-        if (lex.next(&macro_name) == +lex_type::l_identifier)
+        lex.next(&macro_name);
+
+        size_t scope_count = 1;
+        if (lex.next(nullptr) == +lex_type::l_left_curly_braces)
         {
-            size_t scope_count = 1;
-            if (lex.next(nullptr) == +lex_type::l_left_curly_braces)
+            std::wstring macro_anylzing_src =
+                L"import rscene.macro; extern func macro_" +
+                macro_name + L"(var lexer:std::lexer) {";
+            ;
+            size_t index = lex.next_reading_index;
+            do
             {
-                std::wstring macro_anylzing_src =
-                    L"import rscene.macro; extern func " +
-                    macro_name + L"(var lexer:std::lexer) {";
-                ;
-                size_t index = lex.next_reading_index;
-                do
-                {
-                    auto type = lex.next(nullptr);
-                    if (type == +lex_type::l_right_curly_braces)
-                        scope_count--;
-                    else if (type == +lex_type::l_left_curly_braces)
-                        scope_count++;
-                } while (scope_count);
+                auto type = lex.next(nullptr);
+                if (type == +lex_type::l_right_curly_braces)
+                    scope_count--;
+                else if (type == +lex_type::l_left_curly_braces)
+                    scope_count++;
+            } while (scope_count);
 
-                size_t end_index = lex.next_reading_index;
+            size_t end_index = lex.next_reading_index;
 
-                _macro_action_vm = rs_create_vm();
-                if (!rs_load_source(_macro_action_vm,
-                    ("macro_" + wstr_to_str(macro_name) + ".rsn").c_str(),
-                    wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
-                {
-                    lex.lex_error(0x0000, L"宏控制器编译失败，继续：\n%ls",
-                        str_to_wstr(rs_get_compile_error(_macro_action_vm, RS_NOTHING)).c_str());
+            _macro_action_vm = rs_create_vm();
+            if (!rs_load_source(_macro_action_vm,
+                ("macro_" + wstr_to_str(macro_name) + ".rsn").c_str(),
+                wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
+            {
+                lex.lex_error(0x0000, L"宏控制器编译失败，继续：\n%ls",
+                    str_to_wstr(rs_get_compile_error(_macro_action_vm, RS_NOTHING)).c_str());
 
-                    rs_close_vm(_macro_action_vm);
-                    _macro_action_vm = nullptr;
-                }
-                else
-                {
-                    if (rs_has_compile_warning(_macro_action_vm))
-                        lex.lex_warning(0x0000, L"宏控制器代码报告了一个警告，继续：\n%ls",
-                            str_to_wstr(rs_get_compile_warning(_macro_action_vm, RS_NOTHING)).c_str());
-                }
-
+                rs_close_vm(_macro_action_vm);
+                _macro_action_vm = nullptr;
             }
             else
-                lex.lex_error(0x0000, L"缺少'{'，继续");
+            {
+                if (rs_has_compile_warning(_macro_action_vm))
+                    lex.lex_warning(0x0000, L"宏控制器代码报告了一个警告，继续：\n%ls",
+                        str_to_wstr(rs_get_compile_warning(_macro_action_vm, RS_NOTHING)).c_str());
             }
-        else
-            lex.lex_error(0x0000, L"#grammar 之后应该是'标识符'，继续");
+
         }
+        else
+            lex.lex_error(0x0000, L"缺少'{'，继续");
+
     }
+}
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN
