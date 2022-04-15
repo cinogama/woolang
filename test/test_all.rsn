@@ -2,6 +2,8 @@
 import test_tool;
 
 import test_helloworld;
+import test_operator_overload;
+import test_return;
 import test_coroutine;
 import test_string_u8;
 import test_while;
@@ -29,3 +31,4 @@ std::sleep(1);
 
 execute_all_test();
 /*                                       */
+

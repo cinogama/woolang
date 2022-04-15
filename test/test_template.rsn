@@ -117,6 +117,11 @@ namespace test_template
         {
             return typename_of:<T>();
         }
+        func CheckForType<SP, T>(var self:MyTemplate<T>)
+        {
+            // do check:
+            func():SP{}() as T;
+        }
     }
 
     using MySecTemplate<T> = int;
@@ -268,6 +273,10 @@ namespace test_template
 
         test_equal(mt_int->MyTemplateTName(), "int");
         test_equal(mt_real->MyTemplateTName(), "real");
+        test_equal(mt_real->MyTemplateTName(), "real");
+
+        mt_int->CheckForType:<int>();
+        mt_real->CheckForType:<real>();
 
         var n0 = []:array<real>;
         var n1 = 0:MyTemplate<real>;

@@ -1,0 +1,22 @@
+import rscene.std;
+import test_tool;
+
+namespace test_return
+{
+	var a = 0;
+
+	func ret_ref_a()
+	{
+		return ref a;
+	}
+
+	func main()
+	{
+		ref b = ret_ref_a();
+		b = 256;
+
+		test_equal(a, 256);
+	}
+}
+
+test_function("test_return.main", test_return::main);

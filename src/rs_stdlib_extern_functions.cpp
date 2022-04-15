@@ -420,7 +420,7 @@ namespace array
         func remove<T>(var val:array<T>, var index:int):void;
 
     extern("rslib_std_array_find")
-        func find<T>(var val:array<T>, var elem:dynamic):int;
+        func find<T>(var val:array<T>, var elem:T):int;
 
     extern("rslib_std_array_clear")
         func clear<T>(var val:array<T>):void;
