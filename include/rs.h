@@ -142,6 +142,11 @@ RS_API void         rs_coroutine_resumeall();
 RS_API void         rs_coroutine_stopall();
 RS_API void         rs_co_yield();
 
+typedef void* rs_waitter_t;
+RS_API rs_waitter_t        rs_co_create_waitter();
+RS_API void                rs_co_awake_waitter(rs_waitter_t waitter, void* val);
+RS_API void*               rs_co_wait_for(rs_waitter_t waitter);
+
 RS_API rs_integer_t rs_extern_symb(rs_vm vm, rs_string_t fullname);
 
 RS_API void         rs_abort_all_vm_to_exit();

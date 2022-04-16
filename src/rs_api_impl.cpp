@@ -798,6 +798,40 @@ void rs_co_yield()
     rs::fthread::yield();
 }
 
+struct rs_custom_waitter : public rs::fvmscheduler_fwaitable_base
+{
+    void* m_custom_data;
+
+    bool be_pending()override
+    {
+        return true;
+    }
+};
+
+rs_waitter_t rs_co_create_waitter()
+{
+    rs::shared_pointer<rs_custom_waitter>* cwaitter
+        = new rs::shared_pointer<rs_custom_waitter>(new rs_custom_waitter);
+    return cwaitter;
+}
+
+void rs_co_awake_waitter(rs_waitter_t waitter, void* val)
+{
+    (*(rs::shared_pointer<rs_custom_waitter>*)waitter)->m_custom_data = val;
+    (*(rs::shared_pointer<rs_custom_waitter>*)waitter)->awake();
+}
+
+void* rs_co_wait_for(rs_waitter_t waitter)
+{
+    rs::fthread::wait(*(rs::shared_pointer<rs_custom_waitter>*)waitter);
+
+    auto result = (*(rs::shared_pointer<rs_custom_waitter>*)waitter)->m_custom_data;
+    delete (rs::shared_pointer<rs_custom_waitter>*)waitter;
+
+    return result;
+}
+
+
 rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
 {
     // 1. Prepare lexer..

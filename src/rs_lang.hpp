@@ -4568,7 +4568,9 @@ namespace rs
                     if (funcdef->declear_attribute->is_extern_attr())
                     {
                         // this function is externed, put it into extern-table and update the value in ir-compiler
-                        auto&& fname = funcdef->get_namespace_chain() + "::" + wstr_to_str(funcdef->function_name);
+                        auto&& spacename = funcdef->get_namespace_chain();
+
+                        auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(funcdef->function_name);
                         if (compiler->pdb_info->extern_function_map.find(fname)
                             != compiler->pdb_info->extern_function_map.end())
                         {
