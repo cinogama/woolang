@@ -27,6 +27,7 @@ endif()
 
 target_link_libraries(rscene ${rscene_system_libs})
 set_target_properties(rscene PROPERTIES OUTPUT_NAME librscene)
+set_target_properties(rscene PROPERTIES PREFIX "")
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
 	set_target_properties(rscene PROPERTIES RELEASE_POSTFIX "")
