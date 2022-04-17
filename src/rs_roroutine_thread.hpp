@@ -61,7 +61,7 @@ namespace rs
             YIELD,      // Take a break~
         };
 
-        fthread_state state = fthread_state::NORMAL;
+        std::atomic<fthread_state> state = fthread_state::NORMAL;
 
     public:
         template<typename FT, typename ... ARGTs>
