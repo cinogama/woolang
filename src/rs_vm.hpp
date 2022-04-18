@@ -230,6 +230,12 @@ namespace rs
             _vm_hang_cv.notify_one();
         }
 
+        inline void finish_veh()
+        {
+            while (veh)
+                exception_recovery::ok(this);
+        }
+
         vmbase()
         {
             ++_alive_vm_count_for_gc_vm_destruct;
@@ -259,8 +265,7 @@ namespace rs
                 _alive_vm_list.erase(this);
             } while (0);
 
-            if (veh)
-                exception_recovery::ok(this);
+            finish_veh();
 
             if (compile_info)
                 delete compile_info;
