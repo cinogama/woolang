@@ -228,6 +228,8 @@ RS_API void         rs_disattach_and_free_debuggee(rs_vm vm);
 RS_API void         rs_break_immediately(rs_vm vm);
 RS_API void         rs_handle_ctrl_c(void(*handler)(int));
 
+RS_API rs_string_t  rs_debug_trace_callstack(rs_vm vm, size_t layer);
+
 #if defined(RS_IMPL)
 #define RS_NEED_RTERROR_CODES 1
 #define RS_NEED_ANSI_CONTROL 1

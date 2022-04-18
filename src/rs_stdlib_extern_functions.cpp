@@ -30,6 +30,23 @@ RS_API rs_api rslib_std_lengthof(rs_vm vm, rs_value args, size_t argc)
 {
     return rs_ret_int(vm, rs_lengthof(args));
 }
+
+RS_API rs_api rslib_std_string_toupper(rs_vm vm, rs_value args, size_t argc)
+{
+    std::string str = rs_string(args + 0);
+    for (auto& ch : str)
+        ch = (char)toupper((int)(unsigned char)ch);
+    return rs_ret_string(vm, str.c_str());
+}
+
+RS_API rs_api rslib_std_string_tolower(rs_vm vm, rs_value args, size_t argc)
+{
+    std::string str = rs_string(args + 0);
+    for (auto& ch : str)
+        ch = (char)tolower((int)(unsigned char)ch);
+    return rs_ret_string(vm, str.c_str());
+}
+
 RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args, size_t argc)
 {
     static std::chrono::system_clock _sys_clock;
@@ -156,6 +173,13 @@ RS_API rs_api rslib_std_map_only_get(rs_vm vm, rs_value args, size_t argc)
         return rs_ret_ref(vm, rs_map_get(args + 0, args + 1));
 
     return rs_ret_nil(vm);
+}
+
+RS_API rs_api rslib_std_map_contain(rs_vm vm, rs_value args, size_t argc)
+{
+    bool _map_has_indexed_val = rs_map_find(args + 0, args + 1);
+
+    return rs_ret_int(vm, _map_has_indexed_val ? 1 : 0);
 }
 
 RS_API rs_api rslib_std_map_get_by_default(rs_vm vm, rs_value args, size_t argc)
@@ -345,6 +369,11 @@ RS_API rs_api rslib_std_get_exe_path(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_string(vm, rs::exe_path());
 }
 
+RS_API rs_api rslib_std_get_extern_symb(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_int(vm, rs_extern_symb(vm, rs_string(args + 0)));
+}
+
 const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
 const char* rs_stdlib_basic_src_data = { u8R"(
 using bool = int;
@@ -382,6 +411,9 @@ namespace std
    
     extern("rslib_std_get_exe_path")
         func exepath():string;
+
+    extern("rslib_std_get_extern_symb")
+        func extern_symbol<T>(var fullname:string):T;
 }
 
 namespace string
@@ -392,6 +424,10 @@ namespace string
         func sub(var val:string, var begin:int):string;
     extern("rslib_std_sub")
         func sub(var val:string, var begin:int, var length:int):string;
+    extern("rslib_std_string_toupper")
+        func upper(var val:string):string;
+     extern("rslib_std_string_tolower")
+        func lower(var val:string):string;
 }
 
 namespace array
@@ -444,6 +480,8 @@ namespace map
         func find<KT, VT>(var val:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_only_get") 
         func get<KT, VT>(var m:map<KT, VT>, var index:KT):VT;
+    extern("rslib_std_map_contain") 
+        func contain<KT, VT>(var m:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_get_by_default") 
         func get<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
     func dup<KT, VT>(var val:map<KT, VT>)
@@ -488,6 +526,11 @@ RS_API rs_api rslib_std_debug_disattach_default_debuggee(rs_vm vm, rs_value args
     return rs_ret_nil(vm);
 }
 
+RS_API rs_api rslib_std_debug_callstack_trace(rs_vm vm, rs_value args, size_t argc)
+{
+    return rs_ret_string(vm, rs_debug_trace_callstack(vm, (size_t)rs_int(args + 0)));
+}
+
 RS_API rs_api rslib_std_debug_breakpoint(rs_vm vm, rs_value args, size_t argc)
 {
     rs_break_immediately(vm);
@@ -515,6 +558,9 @@ namespace std
             func attach_debuggee():void;
         extern("rslib_std_debug_disattach_default_debuggee")
             func disattach_debuggee():void;
+
+        extern("rslib_std_debug_callstack_trace")
+            func callstack(var layer:int) : string;
 
         func run(var foo, ...)
         {

@@ -1371,6 +1371,9 @@ namespace rs
                 }
                 else
                 {
+                    // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
+                    //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
+
                     if (a_value->value_type->is_pending())
                     {
                         // ready for update..
@@ -1378,7 +1381,7 @@ namespace rs
 
                         if (a_value->value_type->is_custom())
                             lang_anylizer->lang_error(0x0000, a_value, RS_ERR_UNKNOWN_TYPE
-                                , a_value->value_type->get_return_type()->get_type_name().c_str());
+                                , a_value->value_type->get_type_name().c_str());
                     }
                     if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
                     {
@@ -1387,7 +1390,7 @@ namespace rs
 
                         if (ast_value_check->aim_type->is_custom())
                             lang_anylizer->lang_error(0x0000, ast_value_check, RS_ERR_UNKNOWN_TYPE
-                                , ast_value_check->aim_type->get_return_type()->get_type_name().c_str());
+                                , ast_value_check->aim_type->get_type_name().c_str());
 
                         ast_value_check->update_constant_value(lang_anylizer);
                     }

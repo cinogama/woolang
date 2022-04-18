@@ -15,6 +15,7 @@
 #include "rs_roroutine_thread_mgr.hpp"
 
 #include <csignal>
+#include <sstream>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -1291,4 +1292,16 @@ rs_integer_t rs_extern_symb(rs_vm vm, rs_string_t fullname)
     if (fnd != extern_table.end())
         return fnd->second;
     return 0;
+}
+
+rs_string_t rs_debug_trace_callstack(rs_vm vm,size_t layer)
+{
+    std::stringstream sstream;
+    RS_VM(vm)->dump_call_stack(layer, false, sstream);
+
+    rs_set_string(CS_VAL(RS_VM(vm)->er), "");   
+    rs_assert(RS_VM(vm)->er->type == rs::value::valuetype::string_type);
+
+    *(RS_VM(vm)->er->string) = sstream.str();
+    return RS_VM(vm)->er->string->c_str();
 }
