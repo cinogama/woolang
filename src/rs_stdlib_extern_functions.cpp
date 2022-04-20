@@ -47,6 +47,129 @@ RS_API rs_api rslib_std_string_tolower(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_string(vm, str.c_str());
 }
 
+RS_API rs_api rslib_std_string_isspace(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isspace(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_isalpha(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isalpha(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_isalnum(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isalnum(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_isnumber(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isdigit(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_ishex(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isxdigit(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_isoct(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+
+    if (*str)
+    {
+        auto&& wstr = rs::str_to_wstr(str);
+        for (auto& wch : wstr)
+            if (!rs::lexer::lex_isodigit(wch))
+                return rs_ret_bool(vm, false);
+        return rs_ret_bool(vm, true);
+    }
+    return rs_ret_bool(vm, false);
+}
+
+RS_API rs_api rslib_std_string_enstring(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+    std::string result;
+    while (*str)
+    {
+        unsigned char uch = *str;
+        if (iscntrl(uch))
+        {
+            char encode[5] = {};
+            sprintf(encode, "\\x%02x", (unsigned int)uch);
+
+            result += encode;
+        }
+        else
+        {
+            switch (uch)
+            {
+            case '"':
+                result += R"(\")"; break;
+            case '\'':
+                result += R"(\')"; break;
+            case '\\':
+                result += R"(\\)"; break;
+            default:
+                result += *str; break;
+            }
+        }
+        ++str;
+    }
+    return rs_ret_string(vm, result.c_str());
+}
+
 RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args, size_t argc)
 {
     static std::chrono::system_clock _sys_clock;
@@ -420,14 +543,39 @@ namespace string
 {
     extern("rslib_std_lengthof") 
         func len(var val:string):int;
+
     extern("rslib_std_sub")
         func sub(var val:string, var begin:int):string;
+
     extern("rslib_std_sub")
         func sub(var val:string, var begin:int, var length:int):string;
+    
     extern("rslib_std_string_toupper")
         func upper(var val:string):string;
-     extern("rslib_std_string_tolower")
+
+    extern("rslib_std_string_tolower")
         func lower(var val:string):string;
+
+    extern("rslib_std_string_isspace")
+        func isspace(var val:string):bool;
+
+    extern("rslib_std_string_isalpha")
+        func isalpha(var val:string):bool;
+
+    extern("rslib_std_string_isalnum")
+        func isalnum(var val:string):bool;
+
+    extern("rslib_std_string_isnumber")
+        func isnumber(var val:string):bool;
+
+    extern("rslib_std_string_ishex")
+        func ishex(var val:string):bool;
+
+    extern("rslib_std_string_isoct")
+        func isoct(var val:string):bool;
+
+    extern("rslib_std_string_enstring")
+        func enstring(var val:string):string;
 }
 
 namespace array
@@ -1082,6 +1230,36 @@ RS_API rs_api rslib_std_macro_lexer_next(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_int(vm, (rs_integer_t)token_type);
 }
 
+RS_API rs_api rslib_std_macro_lexer_nextch(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    wchar_t ch[2] = {};
+
+    int readch = lex->next_one();
+
+    if (readch == EOF)
+        return rs_ret_string(vm, "");
+
+    ch[0] = (wchar_t)readch;
+    return rs_ret_string(vm, rs::wstr_to_str(ch).c_str());
+}
+
+RS_API rs_api rslib_std_macro_lexer_peekch(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+
+    wchar_t ch[2] = {};
+
+    int readch = lex->peek_one();
+
+    if (readch == EOF)
+        return rs_ret_string(vm, "");
+
+    ch[0] = (wchar_t)readch;
+    return rs_ret_string(vm, rs::wstr_to_str(ch).c_str());
+}
+
 const char* rs_stdlib_macro_src_path = u8"rscene/macro.rsn";
 const char* rs_stdlib_macro_src_data = {
 u8R"(
@@ -1190,6 +1368,12 @@ namespace std
 
         extern("rslib_std_macro_lexer_next")
             func next(var lex:lexer, ref out_token:string):token_type;
+
+        extern("rslib_std_macro_lexer_nextch")
+            func nextch(var lex:lexer) : string;
+
+        extern("rslib_std_macro_lexer_peekch")
+            func peekch(var lex:lexer) : string;
     }
 }
 

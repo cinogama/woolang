@@ -868,8 +868,8 @@ namespace rs
 
                     if (following_chs == '_' || following_chs == '\'')
                     {
-                        // this behavior is learn from rust
-                        // You can freely use the _ mark in the number literal, except for the leading mark (0 0x 0b) 
+                        // this behavior is learn from rust and c++
+                        // You can freely use the _/' mark in the number literal, except for the leading mark (0 0x 0b) 
                         next_one();
                         continue;
                     }
