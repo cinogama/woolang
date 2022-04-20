@@ -1103,7 +1103,7 @@ namespace rs
                     if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
                     {
                         auto symb = rs_extern_symb(fnd->second->_macro_action_vm,
-                            wstr_to_str(L"::macro_" + fnd->second->macro_name).c_str());
+                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
                         rs_assert(symb);
 
                         rs_push_pointer(fnd->second->_macro_action_vm, this);
