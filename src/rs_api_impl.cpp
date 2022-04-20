@@ -276,6 +276,11 @@ rs_string_t rs_locale_name()
     return rs::rs_global_locale_name.c_str();
 }
 
+rs_string_t rs_exe_path()
+{
+    return rs::exe_path();
+}
+
 rs_ptr_t rs_safety_pointer_ignore_fail(rs::gchandle_t* gchandle)
 {
     if (gchandle->has_been_closed)

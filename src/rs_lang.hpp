@@ -2815,7 +2815,7 @@ namespace rs
 
                 if (a_value_base->is_mark_as_using_ref)
                 {
-                    if (a_value_base->can_be_assign)
+                    if (a_value_base->symbol && a_value_base->can_be_assign)
                         a_value_base->symbol->has_been_assigned = true;
                     else
                         lang_anylizer->lang_error(0x0000, a_value_base, RS_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);

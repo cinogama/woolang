@@ -161,6 +161,7 @@ enum _rs_inform_style
 };
 
 RS_API rs_string_t  rs_locale_name();
+RS_API rs_string_t  rs_exe_path();
 
 RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 RS_API rs_vm        rs_create_vm();
