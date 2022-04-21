@@ -2,6 +2,7 @@
 #include "rs_global_setting.hpp"
 
 #include <cstdlib>
+#include <cstddef>
 #include <new>
 
 void* _rs_aligned_alloc(size_t allocsz, size_t allign);
