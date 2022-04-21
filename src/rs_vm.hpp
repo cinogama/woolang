@@ -10,6 +10,8 @@
 #include <csetjmp>
 #include <shared_mutex>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 #include <string>
 #include <cmath>
 #include <sstream>
