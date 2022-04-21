@@ -170,6 +170,118 @@ RS_API rs_api rslib_std_string_enstring(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_string(vm, result.c_str());
 }
 
+RS_API rs_api rslib_std_string_beginwith(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t aim = rs_string(args + 0);
+    rs_string_t begin = rs_string(args + 1);
+
+    while ((*aim) && (*begin))
+    {
+        if (*aim != *begin)
+            return rs_ret_bool(vm, false);
+        ++aim;
+        ++begin;
+    }
+
+    return rs_ret_bool(vm, true);
+}
+
+RS_API rs_api rslib_std_string_endwith(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t aim = rs_string(args + 0);
+    rs_string_t end = rs_string(args + 1);
+
+    size_t aimlen = strlen(aim);
+    size_t endlen = strlen(end);
+
+    if (endlen > aimlen)
+        return rs_ret_bool(vm, false);
+
+    aim += (aimlen - endlen);
+    while ((*aim) && (*end))
+    {
+        if (*aim != *end)
+            return rs_ret_bool(vm, false);
+        ++aim;
+        ++end;
+    }
+    return rs_ret_bool(vm, true);
+}
+
+RS_API rs_api rslib_std_string_replace(rs_vm vm, rs_value args, size_t argc)
+{
+    std::string aim = rs_string(args + 0);
+    rs_string_t match = rs_string(args + 1);
+    rs_string_t replace = rs_string(args + 2);
+
+    size_t matchlen = strlen(match);
+    size_t replacelen = strlen(replace);
+    size_t replace_begin = 0;
+    do
+    {
+        size_t fnd_place = aim.find(match, replace_begin);
+        if (fnd_place< replace_begin || fnd_place>aim.size())
+            break;
+
+        aim.replace(fnd_place, matchlen, replace);
+        replace_begin += replacelen;
+
+    } while (true);
+
+    return rs_ret_string(vm, aim.c_str());
+}
+
+RS_API rs_api rslib_std_string_trim(rs_vm vm, rs_value args, size_t argc)
+{
+    std::string aim = rs_string(args + 0);
+
+    size_t ibeg = 0;
+    size_t iend = aim.size();
+    for (; ibeg != iend; iend++)
+    {
+        auto uch = (unsigned char)aim[ibeg];
+        if (isspace(uch) || iscntrl(uch))
+            continue;
+        break;
+    }
+
+    for (; iend != ibeg; iend--)
+    {
+        auto uch = (unsigned char)aim[iend - 1];
+        if (isspace(uch) || iscntrl(uch))
+            continue;
+        break;
+    }
+
+    return rs_ret_string(vm, aim.substr(ibeg, iend - ibeg).c_str());
+}
+
+RS_API rs_api rslib_std_string_split(rs_vm vm, rs_value args, size_t argc)
+{
+    std::string aim = rs_string(args + 0);
+    rs_string_t match = rs_string(args + 1);
+    rs_value arr = args + 2;
+
+    size_t matchlen = strlen(match);
+    size_t split_begin = 0;
+
+    while (true)
+    {
+        size_t fnd_place = aim.find(match, split_begin);
+        if (fnd_place< split_begin || fnd_place>aim.size())
+        {
+            rs_value v = rs_arr_add(arr, nullptr);
+            rs_set_string(v, aim.substr(split_begin).c_str());
+            break;
+        }
+        rs_value v = rs_arr_add(arr, nullptr);
+        rs_set_string(v, aim.substr(split_begin, fnd_place- split_begin).c_str());
+        
+        split_begin = fnd_place + matchlen;
+    }
+    return rs_ret_nil(vm);
+}
+
 RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args, size_t argc)
 {
     static std::chrono::system_clock _sys_clock;
@@ -576,6 +688,28 @@ namespace string
 
     extern("rslib_std_string_enstring")
         func enstring(var val:string):string;
+
+    extern("rslib_std_string_beginwith")
+        func beginwith(var val:string, var str:string):bool;
+
+    extern("rslib_std_string_endwith")
+        func endwith(var val:string, var str:string):bool;
+
+    extern("rslib_std_string_replace")
+        func replace(var val:string, var match:string, var str:string):string;
+
+    extern("rslib_std_string_trim")
+        func trim(var val:string):string;
+
+    extern("rslib_std_string_split")
+        func _split(var val:string, var spliter:string, var out_result:array<string>):void;
+
+    func split(var val:string, var spliter:string)
+    {
+        var arr = []:array<string>;
+        _split(val, spliter, arr);
+        return arr;
+    }
 }
 
 namespace array
@@ -1260,6 +1394,12 @@ RS_API rs_api rslib_std_macro_lexer_peekch(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_string(vm, rs::wstr_to_str(ch).c_str());
 }
 
+RS_API rs_api rslib_std_macro_lexer_current_path(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::lexer* lex = (rs::lexer*)rs_pointer(args + 0);
+    return rs_ret_string(vm, lex->source_file.c_str());
+}
+
 const char* rs_stdlib_macro_src_path = u8"rscene/macro.rsn";
 const char* rs_stdlib_macro_src_data = {
 u8R"(
@@ -1374,6 +1514,9 @@ namespace std
 
         extern("rslib_std_macro_lexer_peekch")
             func peekch(var lex:lexer) : string;
+
+        extern("rslib_std_macro_lexer_current_path")
+            func path(var lex:lexer) : string;
     }
 }
 
