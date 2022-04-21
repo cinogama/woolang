@@ -1,6 +1,6 @@
 #pragma once
 // Here to place some global variable for config..
-
+#include <cstddef>
 #include <new>
 
 namespace rs
