@@ -649,6 +649,20 @@ namespace std
 
     extern("rslib_std_get_extern_symb")
         func extern_symbol<T>(var fullname:string):T;
+
+    func max<T>(var a:T, var b:T) : bool
+    {
+        if (a >= b)
+            return a;
+        return b;
+    }
+
+    func min<T>(var a:T, var b:T) : bool
+    {
+        if (a <= b)
+            return a;
+        return b;
+    }
 }
 
 namespace string
@@ -702,7 +716,7 @@ namespace string
         func trim(var val:string):string;
 
     extern("rslib_std_string_split")
-        func _split(var val:string, var spliter:string, var out_result:array<string>):void;
+        private func _split(var val:string, var spliter:string, var out_result:array<string>):void;
 
     func split(var val:string, var spliter:string)
     {
