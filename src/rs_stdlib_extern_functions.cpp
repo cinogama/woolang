@@ -1181,7 +1181,7 @@ RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
 {
     // rslib_std_roroutine_launch(...)   
     auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<rs::vmbase*>(vm));
-    for (size_t i = 1; i < argc; i++)
+    for (size_t i = argc - 1; i > 0; i--)
     {
         rs_push_valref(reinterpret_cast<rs_vm>(_nvm), args + i);
     }

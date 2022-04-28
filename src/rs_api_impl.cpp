@@ -1005,6 +1005,19 @@ rs_value rs_push_pointer(rs_vm vm, rs_ptr_t val)
 {
     return CS_VAL((RS_VM(vm)->sp--)->set_handle((rs_handle_t)val));
 }
+rs_value rs_push_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t))
+{
+    auto* csp = RS_VM(vm)->sp--;
+
+    csp->set_gcunit_with_barrier(rs::value::valuetype::gchandle_type);
+    auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(csp->gcunit);
+    handle_ptr->holding_handle = resource_ptr;
+    if (holding_val)
+        handle_ptr->holding_value.set_val(RS_VAL(holding_val));
+    handle_ptr->destructor = destruct_func;
+
+    return CS_VAL(csp);
+}
 rs_value rs_push_string(rs_vm vm, rs_string_t val)
 {
     return CS_VAL((RS_VM(vm)->sp--)->set_string(val));

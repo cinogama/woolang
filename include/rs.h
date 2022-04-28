@@ -180,6 +180,7 @@ RS_API rs_value     rs_push_int(rs_vm vm, rs_int_t val);
 RS_API rs_value     rs_push_real(rs_vm vm, rs_real_t val);
 RS_API rs_value     rs_push_handle(rs_vm vm, rs_handle_t val);
 RS_API rs_value     rs_push_pointer(rs_vm vm, rs_ptr_t val);
+RS_API rs_value     rs_push_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t));
 RS_API rs_value     rs_push_string(rs_vm vm, rs_string_t val);
 RS_API rs_value     rs_push_nil(rs_vm vm);
 RS_API rs_value     rs_push_val(rs_vm vm, rs_value val);
