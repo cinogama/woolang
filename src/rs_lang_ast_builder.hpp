@@ -231,6 +231,17 @@ namespace rs
                             || from->value_type == value::valuetype::string_type)
                             return true;
                     }
+
+                    if (from->value_type == value::valuetype::string_type)
+                    {
+                        if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
+                            return true;
+                        if (to->is_map() && ((!to->has_template()) || (
+                                to->template_arguments[0]->is_dynamic()
+                                && to->template_arguments[1]->is_dynamic()
+                            )))
+                            return true;
+                    }
                 }
                 else
                 {
@@ -990,8 +1001,9 @@ namespace rs
                                 constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
                                 break;
                             }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
+                            if (last_value.type != value::valuetype::string_type)
+                                goto try_cast_nil_to_int_handle_real_str;
+                            return; // cast it in runtime
                         case value::valuetype::gchandle_type:
                             if (last_value.is_nil())
                             {
@@ -1006,8 +1018,9 @@ namespace rs
                                 constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
                                 break;
                             }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
+                            if (last_value.type != value::valuetype::string_type)
+                                goto try_cast_nil_to_int_handle_real_str;
+                            return; // cast it in runtime
                         default:
                         try_cast_nil_to_int_handle_real_str:
                             if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))

@@ -167,6 +167,96 @@ RS_API rs_api rslib_std_string_enstring(rs_vm vm, rs_value args, size_t argc)
         }
         ++str;
     }
+    result = "\"" + result + "\"";
+    return rs_ret_string(vm, result.c_str());
+}
+
+RS_API rs_api rslib_std_string_destring(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_string_t str = rs_string(args + 0);
+    std::string result;
+    if (*str == '"')
+        ++str;
+    while (*str)
+    {
+        char uch = *str;
+        if (uch == '\\')
+        {
+            // Escape character 
+            char escape_ch = *++str;
+            switch (escape_ch)
+            {
+            case '\'':
+            case '"':
+            case '?':
+            case '\\':
+                result += escape_ch; break;
+            case 'a':
+                result += '\a'; break;
+            case 'b':
+                result += '\b'; break;
+            case 'f':
+                result += '\f'; break;
+            case 'n':
+                result += '\n'; break;
+            case 'r':
+                result += '\r'; break;
+            case 't':
+                result += '\t'; break;
+            case 'v':
+                result += '\v'; break;
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+            {
+                // oct 1byte 
+                unsigned char oct_ascii = escape_ch - '0';
+                for (int i = 0; i < 2; i++)
+                {
+                    unsigned char nextch = (unsigned char)*++str;
+                    if (rs::lexer::lex_isodigit(nextch))
+                    {
+                        oct_ascii *= 8;
+                        oct_ascii += rs::lexer::lex_hextonum(nextch);
+                    }
+                    else
+                        break;
+                }
+                result += oct_ascii;
+                break;
+            }
+            case 'X':
+            case 'x':
+            {
+                // hex 1byte 
+                unsigned char hex_ascii = 0;
+                for (int i = 0; i < 2; i++)
+                {
+                    unsigned char nextch = (unsigned char)*++str;
+                    if (rs::lexer::lex_isxdigit(nextch))
+                    {
+                        hex_ascii *= 16;
+                        hex_ascii += rs::lexer::lex_hextonum(nextch);
+                    }
+                    else if (i == 0)
+                        goto str_escape_sequences_fail;
+                    else
+                        break;
+                }
+                result += (char)hex_ascii;
+                break;
+            }
+            default:
+            str_escape_sequences_fail:
+                result += escape_ch;
+                break;
+            }
+        }
+        else if (uch == '"')
+            break;
+        else
+            result += uch;
+        ++str;
+    }
     return rs_ret_string(vm, result.c_str());
 }
 
@@ -275,8 +365,8 @@ RS_API rs_api rslib_std_string_split(rs_vm vm, rs_value args, size_t argc)
             break;
         }
         rs_value v = rs_arr_add(arr, nullptr);
-        rs_set_string(v, aim.substr(split_begin, fnd_place- split_begin).c_str());
-        
+        rs_set_string(v, aim.substr(split_begin, fnd_place - split_begin).c_str());
+
         split_begin = fnd_place + matchlen;
     }
     return rs_ret_nil(vm);
@@ -702,6 +792,9 @@ namespace string
 
     extern("rslib_std_string_enstring")
         func enstring(var val:string):string;
+
+    extern("rslib_std_string_destring")
+        func destring(var val:string):string;
 
     extern("rslib_std_string_beginwith")
         func beginwith(var val:string, var str:string):bool;

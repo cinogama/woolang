@@ -124,6 +124,7 @@ RS_API rs_handle_t  rs_cast_handle(const rs_value value);
 RS_API rs_ptr_t     rs_cast_pointer(const rs_value value);
 RS_API rs_string_t  rs_cast_string(const rs_value value);
 RS_API rs_string_t  rs_type_name(const rs_value value);
+RS_API void         rs_cast_value_from_str(rs_value value, rs_string_t str, rs_type except_type);
 RS_API rs_integer_t rs_argc(rs_vm vm);
 
 RS_API rs_result_t  rs_ret_int(rs_vm vm, rs_integer_t result);

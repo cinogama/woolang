@@ -482,7 +482,218 @@ rs_ptr_t rs_cast_pointer(rs_value value)
 {
     return (rs_ptr_t)rs_cast_handle(value);
 }
-void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
+
+std::string _enstring(const std::string& sstr, bool need_wrap)
+{
+    if (need_wrap)
+    {
+        const char* str = sstr.c_str();
+        std::string result;
+        while (*str)
+        {
+            unsigned char uch = *str;
+            if (iscntrl(uch))
+            {
+                char encode[5] = {};
+                sprintf(encode, "\\x%02x", (unsigned int)uch);
+
+                result += encode;
+            }
+            else
+            {
+                switch (uch)
+                {
+                case '"':
+                    result += R"(\")"; break;
+                case '\'':
+                    result += R"(\')"; break;
+                case '\\':
+                    result += R"(\\)"; break;
+                default:
+                    result += *str; break;
+                }
+            }
+            ++str;
+        }
+        return "\"" + result + "\"";
+    }
+    else
+        return sstr;
+}
+std::string _destring(const std::string& dstr)
+{
+    const char* str = dstr.c_str();
+    std::string result;
+    if (*str == '"')
+        ++str;
+    while (*str)
+    {
+        char uch = *str;
+        if (uch == '\\')
+        {
+            // Escape character 
+            char escape_ch = *++str;
+            switch (escape_ch)
+            {
+            case '\'':
+            case '"':
+            case '?':
+            case '\\':
+                result += escape_ch; break;
+            case 'a':
+                result += '\a'; break;
+            case 'b':
+                result += '\b'; break;
+            case 'f':
+                result += '\f'; break;
+            case 'n':
+                result += '\n'; break;
+            case 'r':
+                result += '\r'; break;
+            case 't':
+                result += L'\t'; break;
+            case 'v':
+                result += '\v'; break;
+            case '0': case '1': case '2': case '3': case '4':
+            case '5': case '6': case '7': case '8': case '9':
+            {
+                // oct 1byte 
+                unsigned char oct_ascii = escape_ch - '0';
+                for (int i = 0; i < 2; i++)
+                {
+                    unsigned char nextch = (unsigned char)*++str;
+                    if (rs::lexer::lex_isodigit(nextch))
+                    {
+                        oct_ascii *= 8;
+                        oct_ascii += rs::lexer::lex_hextonum(nextch);
+                    }
+                    else
+                        break;
+                }
+                result += oct_ascii;
+                break;
+            }
+            case 'X':
+            case 'x':
+            {
+                // hex 1byte 
+                unsigned char hex_ascii = 0;
+                for (int i = 0; i < 2; i++)
+                {
+                    unsigned char nextch = (unsigned char)*++str;
+                    if (rs::lexer::lex_isxdigit(nextch))
+                    {
+                        hex_ascii *= 16;
+                        hex_ascii += rs::lexer::lex_hextonum(nextch);
+                    }
+                    else if (i == 0)
+                        goto str_escape_sequences_fail;
+                    else
+                        break;
+                }
+                result += (char)hex_ascii;
+                break;
+            }
+            default:
+            str_escape_sequences_fail:
+                result += escape_ch;
+                break;
+            }
+        }
+        else if (uch == '"')
+            break;
+        else
+            result += uch;
+        ++str;
+    }
+    return result;
+}
+void _rs_cast_value(rs::value* value, rs::lexer* lex, rs::value::valuetype except_type);
+void _rs_cast_array(rs::value* value, rs::lexer* lex)
+{
+    rs::array_t* rsarr;
+    rs::array_t::gc_new<rs::gcbase::gctype::eden>((rs::gcbase*&)rsarr);
+
+    while (true)
+    {
+        auto lex_type = lex->peek(nullptr);
+        if (lex_type == +rs::lex_type::l_index_end)
+            // end
+            break;
+
+        _rs_cast_value(value, lex, rs::value::valuetype::invalid); // key!
+        rsarr->push_back(*value);
+
+        if (lex->peek(nullptr) == +rs::lex_type::l_comma)
+            lex->next(nullptr);
+    }
+
+    value->set_gcunit_with_barrier(rs::value::valuetype::mapping_type, rsarr);
+}
+void _rs_cast_map(rs::value* value, rs::lexer* lex)
+{
+    rs::mapping_t* rsmap;
+    rs::mapping_t::gc_new<rs::gcbase::gctype::eden>((rs::gcbase*&)rsmap);
+
+    while (true)
+    {
+        auto lex_type = lex->peek(nullptr);
+        if (lex_type == +rs::lex_type::l_right_curly_braces)
+            // end
+            break;
+
+        _rs_cast_value(value, lex, rs::value::valuetype::invalid); // key!
+        auto& val_place = (*rsmap)[*value];
+
+        lex_type = lex->next(nullptr);
+        if (lex_type != +rs::lex_type::l_typecast)
+            rs_fail(RS_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
+
+        _rs_cast_value(&val_place, lex, rs::value::valuetype::invalid); // value!
+
+        if (lex->peek(nullptr) == +rs::lex_type::l_comma)
+            lex->next(nullptr);
+    }
+
+    value->set_gcunit_with_barrier(rs::value::valuetype::mapping_type, rsmap);
+}
+void _rs_cast_value(rs::value* value, rs::lexer* lex, rs::value::valuetype except_type)
+{
+    std::wstring wstr;
+    auto lex_type = lex->next(&wstr);
+    if (lex_type == +rs::lex_type::l_left_curly_braces) // is map
+        _rs_cast_map(value, lex);
+    else if (lex_type == +rs::lex_type::l_index_begin) // is array
+        _rs_cast_array(value, lex);
+    else if (lex_type == +rs::lex_type::l_literal_string) // is string
+        value->set_string(rs::wstr_to_str(wstr).c_str());
+    else if (lex_type == +rs::lex_type::l_literal_integer) // is integer
+        value->set_integer(std::stoll(rs::wstr_to_str(wstr).c_str()));
+    else if (lex_type == +rs::lex_type::l_literal_real) // is real
+        value->set_integer(std::stod(rs::wstr_to_str(wstr).c_str()));
+    else if (lex_type == +rs::lex_type::l_nil) // is nil
+        value->set_nil();
+    else if (wstr == L"true")
+        value->set_integer(1);// true
+    else if (wstr == L"false")
+        value->set_integer(2);// false
+    else if (wstr == L"null")
+        value->set_nil();// null
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+
+    if (except_type != rs::value::valuetype::invalid && except_type != value->type)
+        rs_fail(RS_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
+
+}
+void rs_cast_value_from_str(rs_value value, rs_string_t str, rs_type except_type)
+{
+    rs::lexer lex(rs::str_to_wstr(str), "json");
+
+    _rs_cast_value(RS_VAL(value), &lex, (rs::value::valuetype)except_type);
+}
+
+void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth, bool force_to_be_str)
 {
     auto _rsvalue = value->get();
 
@@ -492,21 +703,21 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
     switch (_rsvalue->type)
     {
     case rs::value::valuetype::integer_type:
-        *out_str += std::to_string(_rsvalue->integer);
+        *out_str += _enstring(std::to_string(_rsvalue->integer), force_to_be_str);
         return;
     case rs::value::valuetype::handle_type:
-        *out_str += std::to_string(_rsvalue->handle);
+        *out_str += _enstring(std::to_string(_rsvalue->handle), force_to_be_str);
         return;
     case rs::value::valuetype::real_type:
-        *out_str += std::to_string(_rsvalue->real);
+        *out_str += _enstring(std::to_string(_rsvalue->real), force_to_be_str);
         return;
     case rs::value::valuetype::gchandle_type:
-        *out_str += std::to_string((rs_handle_t)rs_safety_pointer(_rsvalue->gchandle));
+        *out_str += _enstring(std::to_string((rs_handle_t)rs_safety_pointer(_rsvalue->gchandle)), force_to_be_str);
         return;
     case rs::value::valuetype::string_type:
     {
         rs::gcbase::gc_read_guard rg1(_rsvalue->string);
-        *out_str += *_rsvalue->string;
+        *out_str += _enstring(*_rsvalue->string, true);
         return;
     }
     case rs::value::valuetype::mapping_type:
@@ -526,15 +737,22 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
             (*traveled_gcunit)[map]++;
 
             *out_str += _fit_layout ? "{" : "{\n";
+            bool first_kv_pair = true;
             for (auto& [v_key, v_val] : *map)
             {
+                if (!first_kv_pair)
+                    *out_str += _fit_layout ? ", " : ",\n";
+                first_kv_pair = false;
+
                 for (int i = 0; !_fit_layout && i <= depth; i++)
                     *out_str += "    ";
-                _rs_cast_string(const_cast<rs::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1);
+                _rs_cast_string(const_cast<rs::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1, true);
                 *out_str += _fit_layout ? ":" : " : ";
-                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
-                *out_str += _fit_layout ? ", " : ",\n";
+                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+
             }
+            if (!_fit_layout)
+                *out_str += "\n";
             for (int i = 0; !_fit_layout && i < depth; i++)
                 *out_str += "    ";
             *out_str += "}";
@@ -562,13 +780,19 @@ void _rs_cast_string(rs::value* value, std::map<rs::gcbase*, int>* traveled_gcun
             (*traveled_gcunit)[arr]++;
 
             *out_str += _fit_layout ? "[" : "[\n";
+            bool first_value = true;
             for (auto& v_val : *arr)
             {
+                if (!first_value)
+                    *out_str += _fit_layout ? "," : ",\n";
+                first_value = false;
+
                 for (int i = 0; !_fit_layout && i <= depth; i++)
                     *out_str += "    ";
-                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
-                *out_str += _fit_layout ? "," : ",\n";
+                _rs_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
             }
+            if (!_fit_layout)
+                *out_str += "\n";
             for (int i = 0; !_fit_layout && i < depth; i++)
                 *out_str += "    ";
             *out_str += "]";
@@ -618,7 +842,7 @@ rs_string_t rs_cast_string(const rs_value value)
     }
 
     std::map<rs::gcbase*, int> _tved_gcunit;
-    _rs_cast_string(reinterpret_cast<rs::value*>(value), &_tved_gcunit, false, &_buf, 0);
+    _rs_cast_string(reinterpret_cast<rs::value*>(value), &_tved_gcunit, false, &_buf, 0, false);
 
     return _buf.c_str();
 }
@@ -1312,12 +1536,12 @@ rs_integer_t rs_extern_symb(rs_vm vm, rs_string_t fullname)
     return 0;
 }
 
-rs_string_t rs_debug_trace_callstack(rs_vm vm,size_t layer)
+rs_string_t rs_debug_trace_callstack(rs_vm vm, size_t layer)
 {
     std::stringstream sstream;
     RS_VM(vm)->dump_call_stack(layer, false, sstream);
 
-    rs_set_string(CS_VAL(RS_VM(vm)->er), "");   
+    rs_set_string(CS_VAL(RS_VM(vm)->er), "");
     rs_assert(RS_VM(vm)->er->type == rs::value::valuetype::string_type);
 
     *(RS_VM(vm)->er->string) = sstream.str();

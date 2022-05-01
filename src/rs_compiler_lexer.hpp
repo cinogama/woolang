@@ -1026,6 +1026,8 @@ namespace rs
                                 write_result(L'\f'); break;
                             case L'n':
                                 write_result(L'\n'); break;
+                            case L'r':
+                                write_result(L'\r'); break;
                             case L't':
                                 write_result(L'\t'); break;
                             case L'v':

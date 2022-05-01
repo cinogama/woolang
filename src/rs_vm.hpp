@@ -2177,12 +2177,16 @@ namespace rs
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
                                     opnum1->set_nil();
+                                else if (opnum2->type == value::valuetype::string_type)
+                                    rs_cast_value_from_str(reinterpret_cast<rs_value>(opnum1), opnum2->string->c_str(), rs_type::RS_ARRAY_TYPE);
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
                                     opnum1->set_nil();
+                                else if (opnum2->type == value::valuetype::string_type)
+                                    rs_cast_value_from_str(reinterpret_cast<rs_value>(opnum1), opnum2->string->c_str(), rs_type::RS_MAPPING_TYPE);
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
@@ -2257,12 +2261,16 @@ namespace rs
                             case value::valuetype::array_type:
                                 if (opnum2->is_nil())
                                     opnum1->set_nil();
+                                else if (opnum2->type == value::valuetype::string_type)
+                                    rs_cast_value_from_str(reinterpret_cast<rs_value>(opnum1), opnum2->string->c_str(), rs_type::RS_ARRAY_TYPE);
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
                                 if (opnum2->is_nil())
                                     opnum1->set_nil();
+                                else if (opnum2->type == value::valuetype::string_type)
+                                    rs_cast_value_from_str(reinterpret_cast<rs_value>(opnum1), opnum2->string->c_str(), rs_type::RS_MAPPING_TYPE);
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
