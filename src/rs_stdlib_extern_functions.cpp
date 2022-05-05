@@ -157,8 +157,6 @@ RS_API rs_api rslib_std_string_enstring(rs_vm vm, rs_value args, size_t argc)
             {
             case '"':
                 result += R"(\")"; break;
-            case '\'':
-                result += R"(\')"; break;
             case '\\':
                 result += R"(\\)"; break;
             default:

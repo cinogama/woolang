@@ -237,8 +237,8 @@ namespace rs
                         if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
                             return true;
                         if (to->is_map() && ((!to->has_template()) || (
-                                to->template_arguments[0]->is_dynamic()
-                                && to->template_arguments[1]->is_dynamic()
+                            to->template_arguments[0]->is_dynamic()
+                            && to->template_arguments[1]->is_dynamic()
                             )))
                             return true;
                     }
@@ -3960,18 +3960,18 @@ namespace rs
                 ast_type* type_node;
                 if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                 {
-
-                    if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
-                    {
-                        array_builder->value_type = type_node;
-                        return (ast_basic*)array_builder;
-                    }
-
-                    if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
-                    {
-                        map_builder->value_type = type_node;
-                        return (ast_basic*)map_builder;
-                    }
+                    if (type_node->is_array())
+                        if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
+                        {
+                            array_builder->value_type = type_node;
+                            return (ast_basic*)array_builder;
+                        }
+                    if (type_node->is_map())
+                        if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
+                        {
+                            map_builder->value_type = type_node;
+                            return (ast_basic*)map_builder;
+                        }
 
                     ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node, false);
                     typecast->update_constant_value(&lex);

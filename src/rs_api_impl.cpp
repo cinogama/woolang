@@ -505,8 +505,6 @@ std::string _enstring(const std::string& sstr, bool need_wrap)
                 {
                 case '"':
                     result += R"(\")"; break;
-                case '\'':
-                    result += R"(\')"; break;
                 case '\\':
                     result += R"(\\)"; break;
                 default:
