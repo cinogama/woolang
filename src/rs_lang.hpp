@@ -33,7 +33,7 @@ namespace rs
 
         union
         {
-            rs_integer_t stackvalue_index_in_funcs = 0;
+            rs_integer_t stackvalue_index_in_funcs = -99999999;
             size_t global_index_in_lang;
         };
 
@@ -753,14 +753,16 @@ namespace rs
                     {
                         if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                         {
-                            if (argdef->value_type->is_custom())
+                            if (!argdef->symbol)
                             {
-                                // ready for update..
-                                fully_update_type(argdef->value_type, true);
+                                if (argdef->value_type->is_custom())
+                                {
+                                    // ready for update..
+                                    fully_update_type(argdef->value_type, true);
+                                }
+                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
+                                argdef->symbol->is_ref = argdef->is_ref;
                             }
-
-                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
-                            argdef->symbol->is_ref = argdef->is_ref;
                         }
                         else
                         {
@@ -1399,7 +1401,6 @@ namespace rs
                         if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(a_value))
                         {
                             auto* sym = find_value_in_this_scope(a_value_var);
-
                             if (sym)
                             {
                                 if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
