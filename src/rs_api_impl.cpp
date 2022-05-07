@@ -365,7 +365,16 @@ rs_string_t rs_string(rs_value value)
     rs::gcbase::gc_read_guard rg1(_rsvalue->string);
     return _rsvalue->string->c_str();
 }
-
+rs_value rs_value_of_gchandle(rs_value value)
+{
+    auto _rsvalue = RS_VAL(value);
+    if (_rsvalue->type != rs::value::valuetype::gchandle_type)
+    {
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not a gchandle.");
+        return nullptr;
+    }
+    return CS_VAL(&_rsvalue->gchandle->holding_value);
+}
 void rs_set_int(rs_value value, rs_integer_t val)
 {
     auto _rsvalue = RS_VAL(value);

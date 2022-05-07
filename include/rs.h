@@ -109,6 +109,7 @@ RS_API rs_real_t    rs_real(const rs_value value);
 RS_API rs_handle_t  rs_handle(const rs_value value);
 RS_API rs_ptr_t     rs_pointer(const rs_value value);
 RS_API rs_string_t  rs_string(const rs_value value);
+RS_API rs_value     rs_value_of_gchandle(rs_value value);
 
 RS_API void rs_set_int(rs_value value, rs_integer_t val);
 RS_API void rs_set_real(rs_value value, rs_real_t val);

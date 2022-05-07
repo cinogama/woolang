@@ -233,21 +233,24 @@ namespace rs
                     free64(picked_list);
 
                 } // ~
-                else if ((picked_list->gc_type == gcbase::gctype::eden
-                    || picked_list->gc_mark_alive_count > max_count) && aim_edge)
-                {
-                    gcbase::gc_write_guard gcwg1(picked_list);
-
-                    // over count, move it to old_edge.
-                    aim_edge->add_one(picked_list);
-                    picked_list->gc_type = aim_gc_type;
-                }
                 else
                 {
-                    gcbase::gc_write_guard gcwg1(picked_list);
+                    if ((picked_list->gc_type == gcbase::gctype::eden
+                        || picked_list->gc_mark_alive_count > max_count) && aim_edge)
+                    {
+                        gcbase::gc_write_guard gcwg1(picked_list);
 
-                    // add it back
-                    origin_list->add_one(picked_list);
+                        // over count, move it to old_edge.
+                        aim_edge->add_one(picked_list);
+                        picked_list->gc_type = aim_gc_type;
+                    }
+                    else
+                    {
+                        gcbase::gc_write_guard gcwg1(picked_list);
+
+                        // add it back
+                        origin_list->add_one(picked_list);
+                    }
                 }
 
                 picked_list = last;
