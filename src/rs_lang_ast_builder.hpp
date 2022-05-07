@@ -557,6 +557,22 @@ namespace rs
             {
                 return value_type == value::valuetype::array_type && !is_func();
             }
+            bool is_complex_type() const
+            {
+                if (is_func() || using_type_name)
+                    return true;
+                if (is_array() || is_map())
+                {
+                    for (auto* temp : template_arguments)
+                    {
+                        if (!temp->is_dynamic())
+                            return true;
+                    }
+                    return false;
+                }
+
+                return has_template();
+            }
             bool is_map() const
             {
                 return value_type == value::valuetype::mapping_type && !is_func();

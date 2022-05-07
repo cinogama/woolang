@@ -3577,11 +3577,9 @@ namespace rs
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->value_type->is_func()
-                        || a_value_type_judge->value_type->using_type_name
-                        || a_value_type_judge->value_type->has_template())
+                    if (a_value_type_judge->value_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_judge, RS_ERR_CANNOT_TEST_COMPLEX_TYPE);
-
+                    
                     if (!a_value_type_judge->value_type->is_dynamic())
                     {
                         rs_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
@@ -3606,9 +3604,7 @@ namespace rs
                     return RS_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_check->value_type->is_func()
-                        || a_value_type_check->value_type->using_type_name
-                        || a_value_type_check->value_type->has_template())
+                    if (a_value_type_check->value_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_check, RS_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
                     if (!a_value_type_check->aim_type->is_dynamic())
