@@ -1475,15 +1475,9 @@ namespace rs
             }
 
             template <typename T>
-            static T binary_operate(lexer& lex, T left, T right, lex_type op_type)
+            static T binary_operate(lexer& lex, T left, T right, lex_type op_type, bool* out_result)
             {
-                if constexpr (std::is_same<T, rs_string_t>::value)
-                    if (op_type != +lex_type::l_add)
-                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_STR_WITH_THIS_OP);
-                if constexpr (std::is_same<T, rs_handle_t>::value)
-                    if (op_type == +lex_type::l_mul || op_type == +lex_type::l_div || op_type == +lex_type::l_mod || op_type == +lex_type::l_mul_assign || op_type == +lex_type::l_div_assign || op_type == +lex_type::l_mod_assign)
-                        lex.parser_error(0x0000, RS_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP);
-
+                *out_result = true;
                 switch (op_type)
                 {
                 case lex_type::l_add:
@@ -1500,13 +1494,16 @@ namespace rs
                     if constexpr (!std::is_same<T, rs_string_t>::value)
                         return left - right;
                 case lex_type::l_mul:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                    if constexpr (!std::is_same<T, rs_string_t>::value
+                        && !std::is_same<T, rs_handle_t>::value)
                         return left * right;
                 case lex_type::l_div:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                    if constexpr (!std::is_same<T, rs_string_t>::value
+                        && !std::is_same<T, rs_handle_t>::value)
                         return left / right;
                 case lex_type::l_mod:
-                    if constexpr (!std::is_same<T, rs_string_t>::value)
+                    if constexpr (!std::is_same<T, rs_string_t>::value
+                        && !std::is_same<T, rs_handle_t>::value)
                     {
                         if constexpr (std::is_same<T, rs_real_t>::value)
                         {
@@ -1516,9 +1513,9 @@ namespace rs
                             return left % right;
                     }
                 default:
-                    rs_error("Grammar error: cannot calculate by this funcion");
-                    break;
+                    *out_result = false;
                 }
+
                 return T{};
             }
 
@@ -1602,36 +1599,24 @@ namespace rs
                     }
                     break;
                 }
-                case value::valuetype::array_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::array_type:
-                        return new ast_type(L"array");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::mapping_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::array_type:
-                        return new ast_type(L"map");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
                 default:
                     return nullptr;
                     break;
                 }
+            }
+
+            static ast_type* binary_upper_type_with_operator(ast_type* left_v, ast_type* right_v, lex_type op)
+            {
+                if (left_v->is_custom() || right_v->is_custom())
+                    return nullptr;
+                if (left_v->is_func() || right_v->is_func())
+                    return nullptr;
+                if((left_v->is_string() || right_v->is_string()) && op != +lex_type::l_add && op != +lex_type::l_add_assign)
+                    return nullptr;
+                if (left_v->is_custom() || right_v->is_custom())
+                    return nullptr;
+
+                return binary_upper_type(left_v, right_v);
             }
 
             void update_constant_value(lexer* lex) override
@@ -1651,7 +1636,7 @@ namespace rs
                 }
                 else
                 {
-                    if (nullptr == (value_type = binary_upper_type(left->value_type, right->value_type)))
+                    if (nullptr == (value_type = binary_upper_type_with_operator(left->value_type, right->value_type, operate)))
                     {
                         // Donot give error here.
 
@@ -1676,31 +1661,32 @@ namespace rs
                             binary_operate(*lex,
                                 rs_cast_int((rs_value)&_left_val),
                                 rs_cast_int((rs_value)&_right_val),
-                                operate));
+                                operate, &is_constant));
                         break;
                     case value::valuetype::real_type:
                         constant_value.set_real(
                             binary_operate(*lex,
                                 rs_cast_real((rs_value)&_left_val),
                                 rs_cast_real((rs_value)&_right_val),
-                                operate));
+                                operate, &is_constant));
                         break;
                     case value::valuetype::handle_type:
                         constant_value.set_handle(
                             binary_operate(*lex,
                                 rs_cast_handle((rs_value)&_left_val),
                                 rs_cast_handle((rs_value)&_right_val),
-                                operate));
+                                operate, &is_constant));
                         break;
                     case value::valuetype::string_type:
                     {
                         std::string left_str = rs_cast_string((rs_value)&_left_val);
                         std::string right_str = rs_cast_string((rs_value)&_right_val);
-                        constant_value.set_string_nogc(
-                            binary_operate(*lex,
-                                (rs_string_t)left_str.c_str(),
-                                (rs_string_t)right_str.c_str(),
-                                operate));
+                        const char* val = binary_operate(*lex,
+                            (rs_string_t)left_str.c_str(),
+                            (rs_string_t)right_str.c_str(),
+                            operate, &is_constant);
+                        if (is_constant)
+                            constant_value.set_string_nogc(val);
                     }
                     break;
                     default:

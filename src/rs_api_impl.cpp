@@ -683,7 +683,7 @@ void _rs_cast_value(rs::value* value, rs::lexer* lex, rs::value::valuetype excep
     else if (wstr == L"true")
         value->set_integer(1);// true
     else if (wstr == L"false")
-        value->set_integer(2);// false
+        value->set_integer(0);// false
     else if (wstr == L"null")
         value->set_nil();// null
     else

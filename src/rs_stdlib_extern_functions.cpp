@@ -325,7 +325,7 @@ RS_API rs_api rslib_std_string_trim(rs_vm vm, rs_value args, size_t argc)
 
     size_t ibeg = 0;
     size_t iend = aim.size();
-    for (; ibeg != iend; iend++)
+    for (; ibeg != iend; ibeg++)
     {
         auto uch = (unsigned char)aim[ibeg];
         if (isspace(uch) || iscntrl(uch))

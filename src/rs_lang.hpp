@@ -549,9 +549,10 @@ namespace rs
                 a_value_bin->add_child(a_value_bin->left);
                 a_value_bin->add_child(a_value_bin->right);
 
-                a_value_bin->value_type = ast_value_binary::binary_upper_type(
+                a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
                     a_value_bin->left->value_type,
-                    a_value_bin->right->value_type
+                    a_value_bin->right->value_type,
+                    a_value_bin->operate
                 );
 
                 if (nullptr == a_value_bin->value_type)
@@ -2370,9 +2371,10 @@ namespace rs
                                 // Failed to call override func
                                 a_value_bin->overrided_operation_call = nullptr;
 
-                                a_value_bin->value_type = ast_value_binary::binary_upper_type(
+                                a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
                                     a_value_bin->left->value_type,
-                                    a_value_bin->right->value_type
+                                    a_value_bin->right->value_type,
+                                    a_value_bin->operate
                                 );
                             }
                             else
@@ -3308,7 +3310,7 @@ namespace rs
                         case rs::value::valuetype::mapping_type:
                             compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_binary, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3327,7 +3329,7 @@ namespace rs
                         case rs::value::valuetype::handle_type:
                             compiler->subh(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_binary, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3344,7 +3346,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->mulr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_binary, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3361,7 +3363,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->divr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_binary, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3378,7 +3380,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->modr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_binary, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3456,7 +3458,7 @@ namespace rs
                         case rs::value::valuetype::mapping_type:
                             compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_assign, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3476,7 +3478,7 @@ namespace rs
                         case rs::value::valuetype::handle_type:
                             compiler->subh(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_assign, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3494,7 +3496,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->mulr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_assign, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3512,7 +3514,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->divr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_assign, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3530,7 +3532,7 @@ namespace rs
                         case rs::value::valuetype::real_type:
                             compiler->modr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            rs_error("Do not support this type..");
+                            lang_anylizer->lang_error(0xC000, a_value_assign, RS_ERR_CANNOT_CALC_WITH_L_AND_R);
                             break;
                         }
                     }
@@ -3579,7 +3581,7 @@ namespace rs
                 {
                     if (a_value_type_judge->value_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_judge, RS_ERR_CANNOT_TEST_COMPLEX_TYPE);
-                    
+
                     if (!a_value_type_judge->value_type->is_dynamic())
                     {
                         rs_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
