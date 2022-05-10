@@ -677,7 +677,7 @@ void _rs_cast_value(rs::value* value, rs::lexer* lex, rs::value::valuetype excep
     else if (lex_type == +rs::lex_type::l_literal_integer) // is integer
         value->set_integer(std::stoll(rs::wstr_to_str(wstr).c_str()));
     else if (lex_type == +rs::lex_type::l_literal_real) // is real
-        value->set_integer(std::stod(rs::wstr_to_str(wstr).c_str()));
+        value->set_real(std::stod(rs::wstr_to_str(wstr).c_str()));
     else if (lex_type == +rs::lex_type::l_nil) // is nil
         value->set_nil();
     else if (wstr == L"true")
