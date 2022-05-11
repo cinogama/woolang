@@ -913,7 +913,11 @@ rs_result_t rs_ret_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_va
     auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(RS_VM(vm)->cr->gcunit);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
+    {
         handle_ptr->holding_value.set_val(RS_VAL(holding_val));
+        if (handle_ptr->holding_value.is_gcunit())
+            handle_ptr->holding_value.gcunit->gc_type = rs::gcbase::gctype::no_gc;
+    }
     handle_ptr->destructor = destruct_func;
 
     return reinterpret_cast<rs_result_t>(RS_VM(vm)->cr);
@@ -1249,7 +1253,11 @@ rs_value rs_push_gchandle(rs_vm vm, rs_ptr_t resource_ptr, rs_value holding_val,
     auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(csp->gcunit);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
+    {
         handle_ptr->holding_value.set_val(RS_VAL(holding_val));
+        if (handle_ptr->holding_value.is_gcunit())
+            handle_ptr->holding_value.gcunit->gc_type = rs::gcbase::gctype::no_gc;
+    }
     handle_ptr->destructor = destruct_func;
 
     return CS_VAL(csp);

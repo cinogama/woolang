@@ -388,6 +388,8 @@ namespace rs
                 has_been_closed = true;
                 if (destructor)
                     destructor(holding_handle);
+                if (holding_value.is_gcunit())
+                    holding_value.gcunit->gc_type = gcbase::gctype::eden;
                 return true;
             }
             return false;
