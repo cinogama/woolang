@@ -168,6 +168,7 @@ RS_API rs_string_t  rs_exe_path();
 RS_API rs_bool_t    rs_virtual_source(rs_string_t filepath, rs_string_t data, rs_bool_t enable_modify);
 RS_API rs_vm        rs_create_vm();
 RS_API rs_vm        rs_sub_vm(rs_vm vm);
+RS_API rs_vm        rs_gc_vm(rs_vm vm);
 RS_API rs_bool_t    rs_abort_vm(rs_vm vm);
 RS_API void         rs_close_vm(rs_vm vm);
 RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src);

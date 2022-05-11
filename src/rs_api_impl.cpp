@@ -1025,6 +1025,11 @@ rs_vm rs_sub_vm(rs_vm vm)
     return CS_VM(RS_VM(vm)->make_machine());
 }
 
+rs_vm rs_gc_vm(rs_vm vm)
+{
+    return CS_VM(RS_VM(vm)->gc_vm);
+}
+
 void rs_close_vm(rs_vm vm)
 {
     delete (rs::vmbase*)vm;
