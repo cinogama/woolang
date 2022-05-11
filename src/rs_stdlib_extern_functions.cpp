@@ -5,6 +5,7 @@
 #include "rs_roroutine_simulate_mgr.hpp"
 #include "rs_roroutine_thread_mgr.hpp"
 #include "rs_io.hpp"
+#include "rs_exceptions.hpp"
 
 #include <chrono>
 #include <random>
@@ -24,6 +25,16 @@ RS_API rs_api rslib_std_print(rs_vm vm, rs_value args, size_t argc)
 RS_API rs_api rslib_std_panic(rs_vm vm, rs_value args, size_t argc)
 {
     rs_fail(RS_FAIL_DEADLY, rs_string(args + 0));
+    return rs_ret_nil(vm);
+}
+RS_API rs_api rslib_std_throw(rs_vm vm, rs_value args, size_t argc)
+{
+    throw rs::rsruntime_exception(RS_FAIL_MEDIUM, rs_string(args + 0));
+    return rs_ret_nil(vm);
+}
+RS_API rs_api rslib_std_fail(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_fail(RS_FAIL_MEDIUM, rs_string(args + 0));
     return rs_ret_nil(vm);
 }
 RS_API rs_api rslib_std_lengthof(rs_vm vm, rs_value args, size_t argc)
@@ -712,7 +723,10 @@ import rscene.basic;
 
 namespace std
 {
+    extern("rslib_std_throw") func throw(var msg:string):void;
+    extern("rslib_std_fail") func fail(var msg:string):void;
     extern("rslib_std_panic") func panic(var msg:string):void;
+
     extern("rslib_std_print") func print(...):int;
     extern("rslib_std_time_sec") func time():real;
 

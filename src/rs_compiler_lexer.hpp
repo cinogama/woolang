@@ -106,7 +106,9 @@ namespace rs
         l_goto,
         l_at,
         l_naming,
-        l_operator
+        l_operator,
+
+        l_except
     );
 
     class lexer;
@@ -229,6 +231,7 @@ namespace rs
             {L"goto", {lex_type::l_goto}},
             {L"naming", {lex_type::l_naming}},
             {L"operator", {lex_type::l_operator}},
+            {L"except", {lex_type::l_except}},
         };
 
 

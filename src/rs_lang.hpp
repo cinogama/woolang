@@ -310,7 +310,7 @@ namespace rs
             return result;
         }
 
-        void fully_update_type(ast::ast_type* type, bool in_pass_1)
+        void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
         {
             if (type->typefrom)
             {
@@ -357,99 +357,104 @@ namespace rs
                 // ready for update..
                 if (ast::ast_type::is_custom_type(type->type_name))
                 {
-                    auto* type_sym = find_type_in_this_scope(type);
-
-                    if (traving_symbols.find(type_sym) != traving_symbols.end())
-                        return;
-
-                    struct traving_guard
+                    if (!type->scope_namespaces.empty() ||
+                        type->search_from_global_namespace ||
+                        template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
                     {
-                        lang* _lang;
-                        lang_symbol* _tving_node;
-                        traving_guard(lang* _lg, lang_symbol* ast_ndoe)
-                            :_tving_node(ast_ndoe)
-                            , _lang(_lg)
+                        auto* type_sym = find_type_in_this_scope(type);
+
+                        if (traving_symbols.find(type_sym) != traving_symbols.end())
+                            return;
+
+                        struct traving_guard
                         {
-                            _lang->traving_symbols.insert(_tving_node);
-                        }
-                        ~traving_guard()
-                        {
-                            _lang->traving_symbols.erase(_tving_node);
-                        }
-                    };
-
-                    traving_guard g1(this, type_sym);
-
-                    if (type_sym)
-                    {
-                        auto already_has_using_type_name = type->using_type_name;
-
-                        bool using_template = false;
-                        auto using_template_args = type->template_arguments;
-                        if (type->has_template())
-                            using_template = begin_template_scope(type_sym->define_node, type->template_arguments);
-
-                        auto* symboled_type = new ast::ast_type(L"pending");
-                        symboled_type->set_type(type_sym->type_informatiom);
-                        fully_update_type(symboled_type, in_pass_1);
-
-                        if (type->is_func())
-                            type->set_ret_type(symboled_type);
-                        else
-                            type->set_type(symboled_type);
-
-                        // Update member typing index;
-                        if (using_template)
-                            for (auto& [name, initval] : type->class_member_index)
-                                initval = dynamic_cast<ast::ast_value*>(initval->instance());
-
-                        if (already_has_using_type_name)
-                            type->using_type_name = already_has_using_type_name;
-                        else if (type_sym->type != lang_symbol::symbol_type::template_typing)
-                        {
-                            auto* using_type = new ast::ast_type(type_sym->name);
-                            using_type->template_arguments = type->template_arguments;
-
-                            type->using_type_name = using_type;
-                            type->using_type_name->template_arguments = using_template_args;
-
-                            // Gen namespace chain
-                            auto* inscopes = type_sym->defined_in_scope;
-                            while (inscopes && inscopes->belong_namespace)
+                            lang* _lang;
+                            lang_symbol* _tving_node;
+                            traving_guard(lang* _lg, lang_symbol* ast_ndoe)
+                                :_tving_node(ast_ndoe)
+                                , _lang(_lg)
                             {
-                                if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                                _lang->traving_symbols.insert(_tving_node);
+                            }
+                            ~traving_guard()
+                            {
+                                _lang->traving_symbols.erase(_tving_node);
+                            }
+                        };
+
+                        traving_guard g1(this, type_sym);
+
+                        if (type_sym)
+                        {
+                            auto already_has_using_type_name = type->using_type_name;
+
+                            bool using_template = false;
+                            auto using_template_args = type->template_arguments;
+                            if (type->has_template())
+                                using_template = begin_template_scope(type_sym->define_node, type->template_arguments);
+
+                            auto* symboled_type = new ast::ast_type(L"pending");
+                            symboled_type->set_type(type_sym->type_informatiom);
+                            fully_update_type(symboled_type, in_pass_1);
+
+                            if (type->is_func())
+                                type->set_ret_type(symboled_type);
+                            else
+                                type->set_type(symboled_type);
+
+                            // Update member typing index;
+                            if (using_template)
+                                for (auto& [name, initval] : type->class_member_index)
+                                    initval = dynamic_cast<ast::ast_value*>(initval->instance());
+
+                            if (already_has_using_type_name)
+                                type->using_type_name = already_has_using_type_name;
+                            else if (type_sym->type != lang_symbol::symbol_type::template_typing)
+                            {
+                                auto* using_type = new ast::ast_type(type_sym->name);
+                                using_type->template_arguments = type->template_arguments;
+
+                                type->using_type_name = using_type;
+                                type->using_type_name->template_arguments = using_template_args;
+
+                                // Gen namespace chain
+                                auto* inscopes = type_sym->defined_in_scope;
+                                while (inscopes && inscopes->belong_namespace)
                                 {
-                                    type->using_type_name->scope_namespaces.insert(
-                                        type->using_type_name->scope_namespaces.begin(),
-                                        inscopes->scope_namespace);
+                                    if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                                    {
+                                        type->using_type_name->scope_namespaces.insert(
+                                            type->using_type_name->scope_namespaces.begin(),
+                                            inscopes->scope_namespace);
+                                    }
+                                    inscopes = inscopes->belong_namespace;
                                 }
-                                inscopes = inscopes->belong_namespace;
+
+                                type->using_type_name->symbol = type_sym;
                             }
 
-                            type->using_type_name->symbol = type_sym;
-                        }
-
-                        if (!type->template_impl_naming_checking.empty())
-                        {
-                            for (ast::ast_type* naming_type : type->template_impl_naming_checking)
+                            if (!type->template_impl_naming_checking.empty())
                             {
-                                fully_update_type(naming_type, in_pass_1);
+                                for (ast::ast_type* naming_type : type->template_impl_naming_checking)
+                                {
+                                    fully_update_type(naming_type, in_pass_1);
 
-                                check_matching_naming(type, naming_type);
+                                    check_matching_naming(type, naming_type);
+                                }
                             }
-                        }
 
-                        for (auto& naming : type_sym->naming_list)
-                        {
-                            if (in_pass_1)
-                                analyze_pass1(type->typefrom);
-                            auto inpass2 = has_step_in_step2;
-                            analyze_pass2(naming);  // FORCE PASS2
-                            has_step_in_step2 = inpass2;
-                        }
+                            for (auto& naming : type_sym->naming_list)
+                            {
+                                if (in_pass_1)
+                                    analyze_pass1(type->typefrom);
+                                auto inpass2 = has_step_in_step2;
+                                analyze_pass2(naming);  // FORCE PASS2
+                                has_step_in_step2 = inpass2;
+                            }
 
-                        if (using_template)
-                            end_template_scope();
+                            if (using_template)
+                                end_template_scope();
+                        }
                     }
                 }
             }
@@ -1074,6 +1079,10 @@ namespace rs
                 analyze_pass1(ast_while_sentence->judgement_value);
                 analyze_pass1(ast_while_sentence->execute_sentence);
             }
+            else if (ast_except* ast_except_sent = dynamic_cast<ast_except*>(ast_node))
+            {
+                analyze_pass1(ast_except_sent->execute_sentence);
+            }
             else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
             {
                 begin_scope();
@@ -1677,6 +1686,11 @@ namespace rs
                                                             index < override_func->value_type->argument_types.size();
                                                             index++)
                                                         {
+
+                                                            fully_update_type(override_func->value_type->argument_types[index], false,
+                                                                override_func->template_type_name_list);
+                                                            //fully_update_type(real_argument_types[index], false); // USELESS
+
                                                             pending_template_arg = analyze_template_derivation(
                                                                 override_func->template_type_name_list[tempindex],
                                                                 override_func->template_type_name_list,
@@ -2654,6 +2668,10 @@ namespace rs
             {
                 analyze_pass2(ast_while_sentence->judgement_value);
                 analyze_pass2(ast_while_sentence->execute_sentence);
+            }
+            else if (ast_except* ast_except_sent = dynamic_cast<ast_except*>(ast_node))
+            {
+                analyze_pass2(ast_except_sent->execute_sentence);
             }
             else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
             {
@@ -4351,6 +4369,16 @@ namespace rs
                 compiler->tag(while_end_tag);                                                           // while_end_tag:
 
                 loop_stack_for_break_and_continue.pop_back();
+            }
+            else if (auto* a_except = dynamic_cast<ast_except*>(ast_node))
+            {
+                auto except_end_tag = "except_end_" + compiler->get_unique_tag_based_command_ip();
+
+                compiler->veh_begin(tag(except_end_tag));
+                real_analyze_finalize(a_except->execute_sentence, compiler);
+                compiler->veh_clean(tag(except_end_tag));
+
+                compiler->tag(except_end_tag);
             }
             else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
             {

@@ -107,7 +107,7 @@ namespace rs
             // 2) enter vm run()
             // 3) vm destructed.
             // ATTENTION: Each operate of setting or cleaning LEAVE_INTERRUPT must be
-            //            successful. (We use 'rs_asure' here)'
+            //            successful. (We use 'rs_asure' here)' (Except in case of exception restore)
 
             DEBUG_INTERRUPT = 1 << 10,
             // If virtual machine interrupt with DEBUG_INTERRUPT, it will stop at all opcode
@@ -1252,6 +1252,10 @@ namespace rs
 
                 RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
                 {
+                    // LEAVE_INTERRUPT may be setted by other place, and here must clear it.
+                    clear_interrupt(LEAVE_INTERRUPT);
+                    interrupt(ABORT_INTERRUPT);
+
                     // unhandled exception happend.
                     rs_stderr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << rs_endl;
                     dump_call_stack(32, true, std::cerr);
@@ -2831,6 +2835,7 @@ namespace rs
                             RS_READY_EXCEPTION_HANDLE(this, rt_ip, rt_env->rt_codes + RS_IPVAL_MOVE_4, rt_sp, rt_bp)
                             {
                                 // Maybe need something to solve exception?
+                                clear_interrupt(LEAVE_INTERRUPT);
                             }
                         }
                         else if (dr & 0b01)

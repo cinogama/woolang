@@ -352,6 +352,13 @@ gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{ gm::te(gm::ttype::l_lnot) }
                                         gm::nt(L"BLOCKED_SENTENCE")
                 } >> RS_ASTBUILDER_INDEX(ast::pass_while),
 
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXCEPTED") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"EXCEPTED") >> gm::symlist{
+                                            gm::te(gm::ttype::l_except),
+                                            gm::nt(L"BLOCKED_SENTENCE")
+                } >> RS_ASTBUILDER_INDEX(ast::pass_except),
+
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FORLOOP") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"FORLOOP") >> gm::symlist{
