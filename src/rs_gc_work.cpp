@@ -212,6 +212,18 @@ namespace rs
             }
         };
 
+        void mark_nogc_child(gcbase* picked_list)
+        {
+            while (picked_list)
+            {
+                if (picked_list->gc_type == gcbase::gctype::no_gc
+                    && gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
+                    deep_in_to_mark_unit(picked_list);
+
+                picked_list = picked_list->last;
+            }
+        }
+
         void check_and_move_edge_to_edge(gcbase* picked_list,
             rs::atomic_list<rs::gcbase>* origin_list,
             rs::atomic_list<rs::gcbase>* aim_edge,
@@ -327,12 +339,15 @@ namespace rs
 
                 } while (0);
 
-                // Mark end, do gc
-
                 // just full gc:
                 auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
                 auto* young_list = gcbase::young_age_gcunit_list.pick_all();
                 auto* old_list = gcbase::old_age_gcunit_list.pick_all();
+
+                // Mark all no_gc_object
+                mark_nogc_child(eden_list);
+                mark_nogc_child(young_list);
+                mark_nogc_child(old_list);
 
                 check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
                 check_and_move_edge_to_edge(young_list, &gcbase::young_age_gcunit_list, &gcbase::old_age_gcunit_list, gcbase::gctype::old, _gc_max_count_to_move_young_to_old);
