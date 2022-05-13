@@ -73,6 +73,7 @@ namespace rs
 
         enum class vm_type
         {
+            INVALID,
             NORMAL,
 
             // If vm's type is GC_DESTRUCTOR, GC_THREAD will not trying to pause it.
@@ -2943,7 +2944,12 @@ namespace rs
                                         rt_cr->set_nil();
                                     }
                                     else
-                                        rt_cr->set_ref((*rt_ths->array)[(size_t)real_idx].get());
+                                    {
+                                        auto* result = (*rt_ths->array)[(size_t)real_idx].get();
+                                        if (rs::gc::gc_is_marking())
+                                            rt_ths->array->add_memo(result);
+                                        rt_cr->set_ref(result);
+                                    }
                                 }
                                 else
                                     RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "Cannot index array without integer & handle.");
@@ -2956,12 +2962,18 @@ namespace rs
                                     auto fnd = rt_ths->mapping->find(*opnum2);
                                     if (fnd != rt_ths->mapping->end())
                                     {
-                                        rt_cr->set_ref(fnd->second.get());
+                                        auto* result = fnd->second.get();
+                                        if (rs::gc::gc_is_marking())
+                                            rt_ths->mapping->add_memo(result);
+                                        rt_cr->set_ref(result);
                                         break;
                                     }
                                 }
                                 gcbase::gc_write_guard gwg1(rt_ths->gcunit);
-                                rt_cr->set_ref(&(*rt_ths->mapping)[*opnum2]);
+                                auto* result = &(*rt_ths->mapping)[*opnum2];
+                                if (rs::gc::gc_is_marking())
+                                    rt_ths->mapping->add_memo(result);
+                                rt_cr->set_ref(result);
                                 break;
                             }
                             default:
@@ -3034,6 +3046,8 @@ namespace rs
                                 else if (opnum2->integer > 0)
                                 {
                                     auto* arg_array = opnum1->array;
+                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+
                                     if ((size_t)opnum2->integer > arg_array->size())
                                     {
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
@@ -3049,6 +3063,8 @@ namespace rs
                                 else
                                 {
                                     auto* arg_array = opnum1->array;
+                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+
                                     if (arg_array->size() < (size_t)(-opnum2->integer))
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
 

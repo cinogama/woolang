@@ -1,5 +1,6 @@
 #pragma once
 #include "rs_memory.hpp"
+#include "rs_assert.hpp"
 
 #include <shared_mutex>
 #include <atomic>
@@ -14,7 +15,7 @@ namespace rs
         void gc_start();
         void gc_begin(bool full_gc);
 
-        bool gc_need_stop_world();
+        bool gc_is_marking();
     }
 
     template<typename NodeT>
@@ -157,7 +158,7 @@ namespace rs
         }
 
         using rw_lock = _shared_spin;
-        rw_lock gc_read_write_mx ;
+        rw_lock gc_read_write_mx;
         inline void write()
         {
             gc_read_write_mx.lock();
@@ -178,8 +179,22 @@ namespace rs
         // used in linklist;
         gcbase* last = nullptr;
 
-        virtual ~gcbase() = default;
+        struct memo_unit
+        {
+            gcbase* gcunit;
+            memo_unit* last;
+        };
 
+        memo_unit* m_memo;
+        inline void add_memo(value* val)
+        {
+            rs_assert(gc::gc_is_marking());
+
+            if (auto* mem = val->get_gcunit_with_barrier())
+                m_memo = new memo_unit{ mem, m_memo };
+        }
+
+        virtual ~gcbase() = default;
 
         inline static std::atomic_uint32_t gc_new_count = 0;
     };
