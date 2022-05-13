@@ -3046,7 +3046,7 @@ namespace rs
                                 else if (opnum2->integer > 0)
                                 {
                                     auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+                                    gcbase::gc_read_guard gwg1(arg_array);
 
                                     if ((size_t)opnum2->integer > arg_array->size())
                                     {
@@ -3063,7 +3063,7 @@ namespace rs
                                 else
                                 {
                                     auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+                                    gcbase::gc_read_guard gwg1(arg_array);
 
                                     if (arg_array->size() < (size_t)(-opnum2->integer))
                                         RS_VM_FAIL(RS_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");

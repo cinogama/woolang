@@ -44,11 +44,15 @@ namespace rs
 
         std::atomic_flag            _gc_immediately = {};
 
+        uint32_t                    _gc_immediately_edge = 50000;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
+
         std::atomic_size_t _gc_scan_vm_index;
         volatile size_t _gc_scan_vm_count;
         vmbase** volatile _gc_vm_list;
 
         volatile bool _gc_is_marking = false;
+        volatile bool _gc_stopping_world_gc = false;
 
         bool gc_is_marking()
         {
@@ -67,25 +71,20 @@ namespace rs
             return nullptr;
         }
 
-        struct gray_gc_unit
-        {
-            gcbase* m_unit;
-            gray_gc_unit* last;
-        };
-        atomic_list<gray_gc_unit> _gc_gray_unit_lists;
+        std::list<gcbase*> _gc_gray_unit_lists[_gc_work_thread_count];
 
-        void gc_mark_unit_as_gray(gcbase* unit)
+        void gc_mark_unit_as_gray(size_t workerid, gcbase* unit)
         {
             if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::no_mark)
             {
                 unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
 
                 // TODO: Optmize here, donot use new.
-                _gc_gray_unit_lists.add_one(new gray_gc_unit{ unit });
+                _gc_gray_unit_lists[workerid].push_back(unit);
             }
         }
 
-        void gc_mark_unit_as_black(gcbase* unit)
+        void gc_mark_unit_as_black(size_t workerid, gcbase* unit)
         {
             // TODO: Make 'gc_mark' atomicable
             if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::full_mark)
@@ -102,7 +101,7 @@ namespace rs
                 auto* curmemo = memo;
                 memo = memo->last;
 
-                gc_mark_unit_as_gray(memo->gcunit);
+                gc_mark_unit_as_gray(workerid, curmemo->gcunit);
 
                 delete curmemo;
             }
@@ -112,7 +111,7 @@ namespace rs
                 for (auto& val : *rs_arr)
                 {
                     if (gcbase* gcunit_addr = val.get_gcunit_with_barrier())
-                        gc_mark_unit_as_gray(gcunit_addr);
+                        gc_mark_unit_as_gray(workerid, gcunit_addr);
                 }
             }
             else if (mapping_t* rs_map = dynamic_cast<mapping_t*>(unit))
@@ -120,15 +119,15 @@ namespace rs
                 for (auto& [key, val] : *rs_map)
                 {
                     if (gcbase* gcunit_addr = key.get_gcunit_with_barrier())
-                        gc_mark_unit_as_gray(gcunit_addr);
+                        gc_mark_unit_as_gray(workerid, gcunit_addr);
                     if (gcbase* gcunit_addr = val.get_gcunit_with_barrier())
-                        gc_mark_unit_as_gray(gcunit_addr);
+                        gc_mark_unit_as_gray(workerid, gcunit_addr);
                 }
             }
             else if (gchandle_t* rs_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
                 if (gcbase* gcunit_addr = rs_gchandle->holding_value.get_gcunit_with_barrier())
-                    gc_mark_unit_as_gray(gcunit_addr);
+                    gc_mark_unit_as_gray(workerid, gcunit_addr);
             }
         }
 
@@ -179,7 +178,7 @@ namespace rs
 
                                     gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
                                     if (gcunit_address)
-                                        gc_mark_unit_as_gray(gcunit_address);
+                                        gc_mark_unit_as_gray(worker_id, gcunit_address);
                                 }
                             }
                             else
@@ -196,7 +195,7 @@ namespace rs
 
                                     gcbase* gcunit_address = self_reg_walker->get_gcunit_with_barrier();
                                     if (gcunit_address)
-                                        gc_mark_unit_as_gray(gcunit_address);
+                                        gc_mark_unit_as_gray(worker_id, gcunit_address);
 
                                 }
 
@@ -209,9 +208,40 @@ namespace rs
 
                                     gcbase* gcunit_address = stack_val->get_gcunit_with_barrier();
                                     if (gcunit_address)
-                                        gc_mark_unit_as_gray(gcunit_address);
+                                        gc_mark_unit_as_gray(worker_id, gcunit_address);
                                 }
                             }
+                        }
+                    }
+
+                    if (_gc_work_thread_count == ++self->_m_gc_mark_end_count)
+                    {
+                        // All mark thread end, notify..
+                        std::lock_guard g1(self->_m_gc_end_mx);
+                        self->_m_gc_end_cv.notify_all();
+                    }
+                    ////////////////////////////////////////////////////////////////
+                    // Do gc fullmark here
+                    do
+                    {
+                        std::unique_lock ug1(self->_m_gc_begin_mx);
+                        self->_m_gc_begin_cv.wait(ug1, [&]()->bool {
+                            return !self->_m_gc_begin_flags[worker_id].test_and_set()
+                                || !self->_m_worker_enabled;
+                            });
+                        if (!self->_m_worker_enabled)
+                            return;
+
+                    } while (false);
+
+                    std::list<gcbase*> graylist;
+                    while (!_gc_gray_unit_lists[worker_id].empty())
+                    {
+                        graylist.clear();
+                        graylist.swap(_gc_gray_unit_lists[worker_id]);
+                        for (auto* markingunit : graylist)
+                        {
+                            gc_mark_unit_as_black(worker_id, markingunit);
                         }
                     }
 
@@ -285,13 +315,13 @@ namespace rs
             }
         };
 
-        void mark_nogc_child(gcbase* picked_list)
+        void mark_nogc_child(gcbase* picked_list, size_t worker_id)
         {
             while (picked_list)
             {
                 if (picked_list->gc_type == gcbase::gctype::no_gc
                     && gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
-                    gc_mark_unit_as_gray(picked_list);
+                    gc_mark_unit_as_gray(worker_id, picked_list);
 
                 picked_list = picked_list->last;
             }
@@ -375,10 +405,11 @@ namespace rs
                 // 3. Start GC Worker for first marking        
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
-                for (auto* vmimpl : vmbase::_alive_vm_list)
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                            vmimpl->wakeup();
+                if (!_gc_stopping_world_gc)
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                vmimpl->wakeup();
 
             } while (0);
             // just full gc:
@@ -387,24 +418,12 @@ namespace rs
             auto* old_list = gcbase::old_age_gcunit_list.pick_all();
 
             // Mark all no_gc_object
-            mark_nogc_child(eden_list);
-            mark_nogc_child(young_list);
-            mark_nogc_child(old_list);
+            mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
+            mark_nogc_child(young_list, 1 % _gc_work_thread_count);
+            mark_nogc_child(old_list, 2 % _gc_work_thread_count);
 
             // 4. OK, Continue mark gray to black
-            gray_gc_unit* gray_units = nullptr;
-            while (gray_units = _gc_gray_unit_lists.pick_all())
-            {
-                while (gray_units)
-                {
-                    auto* cur_unit = gray_units;
-                    gray_units = gray_units->last;
-
-                    gc_mark_unit_as_black(cur_unit->m_unit);
-
-                    delete cur_unit;
-                }
-            }
+            _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
             // Marking finished.
             _gc_is_marking = false;
@@ -435,6 +454,13 @@ namespace rs
                             need_destruct_gc_destructor_list.push_back(vmimpl);
                     }
                 }
+
+                if (_gc_stopping_world_gc)
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                                vmimpl->wakeup();
+
             } while (0);
 
 
@@ -442,6 +468,7 @@ namespace rs
                 delete destruct_vm;
 
             // All jobs done.
+            _gc_stopping_world_gc = false;
         }
 
         void _gc_main_thread()
@@ -453,17 +480,34 @@ namespace rs
                 do
                 {
                     std::unique_lock ug1(_gc_work_mx);
-                    for (size_t i = 0; i < 100; +i)
+                    for (size_t i = 0; i < 100; ++i)
                     {
                         using namespace std;
-
-                        _gc_work_cv.wait_for(ug1, 0.1s, []() {
-                            return _gc_stop_flag || !_gc_immediately.test_and_set();
+                        bool breakout = false;
+                        _gc_work_cv.wait_for(ug1, 0.1s, [&]() {
+                            if (_gc_stop_flag || !_gc_immediately.test_and_set())
+                                breakout = true;
+                            return breakout;
                             });
+
+                        if (breakout)
+                            break;
+
+                        if (gcbase::gc_new_count > _gc_immediately_edge)
+                        {
+                            if (gcbase::gc_new_count > _gc_stop_the_world_edge)
+                                gcbase::gc_new_count -= _gc_stop_the_world_edge;
+                            else
+                            {
+                                _gc_stopping_world_gc = true;
+                                gcbase::gc_new_count -= _gc_immediately_edge;
+                            }
+                            break;
+                        }
                     }
                 } while (false);
 
-            } while (_gc_stop_flag);
+            } while (!_gc_stop_flag);
         }
 
         void gc_start()
