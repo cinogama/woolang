@@ -1359,6 +1359,12 @@ void rs_arr_resize(rs_value arr, rs_int_t newsz, rs_value init_val)
     else if (_arr->type == rs::value::valuetype::array_type)
     {
         rs::gcbase::gc_write_guard g1(_arr->array);
+        size_t arrsz = _arr->array->size();
+        if ((size_t)newsz < arrsz && rs::gc::gc_is_marking())
+        {
+            for (size_t i = newsz; i < arrsz; ++i)
+                _arr->array->add_memo(&(*_arr->array)[i]);
+        }
         _arr->array->resize((size_t)newsz, *RS_VAL(init_val));
     }
     else
@@ -1446,7 +1452,11 @@ void rs_arr_remove(rs_value arr, rs_int_t index)
         if (index < 0)
             ;// do nothing..
         else if ((size_t)index <= _arr->array->size())
+        {
+            if (rs::gc::gc_is_marking())
+                _arr->array->add_memo(&(*_arr->array)[index]);
             _arr->array->erase(_arr->array->begin() + index);
+        }
         else
             rs_fail(RS_FAIL_INDEX_FAIL, "Index out of range.");
     }
@@ -1460,10 +1470,11 @@ void rs_arr_clear(rs_value arr)
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
     else if (_arr->type == rs::value::valuetype::array_type)
     {
-
         rs::gcbase::gc_write_guard g1(_arr->array);
+        if (rs::gc::gc_is_marking())
+            for (auto& val : *_arr->array)
+                _arr->array->add_memo(&val);
         _arr->array->clear();
-
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not an array.");
@@ -1495,9 +1506,17 @@ rs_value rs_map_get(rs_value map, rs_value index)
     else if (_map->type == rs::value::valuetype::mapping_type)
     {
         rs::gcbase::gc_write_guard g1(_map->mapping);
+
+        rs::value* result = nullptr;
         if (index)
-            return reinterpret_cast<rs_value>(&((*_map->mapping)[*RS_VAL(index)]));
-        return reinterpret_cast<rs_value>(&((*_map->mapping)[rs::value()]));
+            result = &((*_map->mapping)[*RS_VAL(index)]);
+        else
+            result = &((*_map->mapping)[rs::value()]);
+
+        if (rs::gc::gc_is_marking())
+            _map->mapping->add_memo(result);
+        
+        return CS_VAL(result);
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
