@@ -12,8 +12,9 @@ namespace rs
         uint16_t gc_work_round_count();
 
         void gc_start();
-
         void gc_begin(bool full_gc);
+
+        bool gc_need_stop_world();
     }
 
     template<typename NodeT>

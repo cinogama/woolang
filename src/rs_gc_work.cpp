@@ -6,8 +6,53 @@
 #include <chrono>
 #include<list>
 
+// PARALLEL-GC SUPPORT:
+/*
+GC will do following work to instead of old-gc:
+0. Get all vm(s) for GC.
+1. Stop the world;
+2. for all vm, mark their root object, for global-space, only mark once.
+3. Mark a sign to let all gc-unit know that now is continuing marking, any new and read gc-unit will make gc-unit gray,
+4. Resume the world;
+5. Do Tri-colors GC.
+6. All markable unit is marked now, Clear sign (which marked in stage 3).
+7. Recycle all white unit.
+*/
+
 namespace rs
 {
+    namespace gc
+    {
+        volatile bool _gc_stop_the_world_flag = false;
+        bool gc_need_stop_world() { return _gc_stop_the_world_flag; }
+
+        std::atomic_size_t _gc_scan_vm_index;
+        volatile size_t _gc_scan_vm_count;
+
+        void _gc_work_list()
+        {
+            // 0. get current vm list, set stop world flag to TRUE:
+            std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
+            _gc_stop_the_world_flag = true;
+
+            // 1. Interrupt all vm as GC_INTERRUPT, let thread-vm hangup & coroutine-vm yield;
+            for (auto* vmimpl : vmbase::_alive_vm_list)
+                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                    vmimpl->interrupt(vmbase::GC_INTERRUPT);
+
+            for (auto* vmimpl : vmbase::_alive_vm_list)
+                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                    vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+
+            // 2. Mark all unit in vm's stack, register, global(only once)
+            _gc_scan_vm_count = vmbase::_alive_vm_list.size();
+            _gc_scan_vm_index = 0;
+
+
+        }
+    }
+
+
     // A very simply GC system, just stop the vm, then collect inform
 // #define RS_GC_DEBUG
     namespace gc
