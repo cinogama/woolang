@@ -378,9 +378,7 @@ namespace rs
                 for (auto* vmimpl : vmbase::_alive_vm_list)
                     if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
-                        {
                             vmimpl->wakeup();
-                        }
 
             } while (0);
             // just full gc:
@@ -494,6 +492,6 @@ void rs_gc_stop()
         rs::gc::_gc_stop_flag = true;
         rs::gc::_gc_work_cv.notify_one();
     } while (false);
-    
+
     rs::gc::_gc_scheduler_thread.join();
 }
