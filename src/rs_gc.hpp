@@ -10,11 +10,7 @@ namespace rs
 {
     namespace gc
     {
-        uint16_t gc_work_round_count();
-
         void gc_start();
-        void gc_begin(bool full_gc);
-
         bool gc_is_marking();
     }
 
@@ -194,7 +190,16 @@ namespace rs
                 m_memo = new memo_unit{ mem, m_memo };
         }
 
-        virtual ~gcbase() = default;
+        virtual ~gcbase() 
+        {
+            while (m_memo)
+            {
+                auto* curmemo = m_memo;
+                m_memo = m_memo->last;
+
+                delete curmemo;
+            }
+        };
 
         inline static std::atomic_uint32_t gc_new_count = 0;
     };
