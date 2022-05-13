@@ -549,8 +549,12 @@ namespace rs
         static void init(size_t working_thread_count = 4)
         {
             if (working_thread_count)
-                if (nullptr == _scheduler)
-                    _scheduler = new fvmscheduler(working_thread_count);
+            {
+                rs_assert(_scheduler == nullptr, "_scheduler should be nullptr here.");
+                _scheduler = new fvmscheduler(working_thread_count);
+            }
+            else
+                rs_warning("_scheduler disabled!");
         }
 
         static void shutdown()
