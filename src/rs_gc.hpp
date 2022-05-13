@@ -37,6 +37,8 @@ namespace rs
         }
     };
 
+    struct value;
+
     struct gcbase
     {
         inline static atomic_list<gcbase> eden_age_gcunit_list;
@@ -181,14 +183,8 @@ namespace rs
             memo_unit* last;
         };
 
-        memo_unit* m_memo;
-        inline void add_memo(value* val)
-        {
-            rs_assert(gc::gc_is_marking());
-
-            if (auto* mem = val->get_gcunit_with_barrier())
-                m_memo = new memo_unit{ mem, m_memo };
-        }
+        memo_unit* m_memo = nullptr;
+        void add_memo(value* val);
 
         virtual ~gcbase() 
         {

@@ -21,6 +21,14 @@ GC will do following work to instead of old-gc:
 
 namespace rs
 {
+    void gcbase::add_memo(value* val)
+    {
+        rs_assert(gc::gc_is_marking());
+
+        if (auto* mem = val->get_gcunit_with_barrier())
+            m_memo = new memo_unit{ mem, m_memo };
+    }
+
     // A very simply GC system, just stop the vm, then collect inform
 // #define RS_GC_DEBUG
     namespace gc
@@ -29,9 +37,13 @@ namespace rs
         constexpr uint16_t          _gc_work_thread_count = 4;
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
 
-        std::atomic_flag            _gc_stop_flag = {};
+        std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
-        
+        std::condition_variable     _gc_work_cv;
+        std::mutex                  _gc_work_mx;
+
+        std::atomic_flag            _gc_immediately = {};
+
         std::atomic_size_t _gc_scan_vm_index;
         volatile size_t _gc_scan_vm_count;
         vmbase** volatile _gc_vm_list;
@@ -333,34 +345,44 @@ namespace rs
         void _gc_work_list()
         {
             // 0. get current vm list, set stop world flag to TRUE:
-            std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
-            _gc_round_count++;
+            do
+            {
+                std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
+                _gc_round_count++;
 
-            _gc_is_marking = true;
+                _gc_is_marking = true;
 
-            // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
-            for (auto* vmimpl : vmbase::_alive_vm_list)
-                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                    vmimpl->interrupt(vmbase::GC_INTERRUPT);
+                // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
+                for (auto* vmimpl : vmbase::_alive_vm_list)
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        vmimpl->interrupt(vmbase::GC_INTERRUPT);
 
-            for (auto* vmimpl : vmbase::_alive_vm_list)
-                if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                    vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                for (auto* vmimpl : vmbase::_alive_vm_list)
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
 
-            // 2. Mark all unit in vm's stack, register, global(only once)
-            _gc_scan_vm_count = vmbase::_alive_vm_list.size();
+                // 2. Mark all unit in vm's stack, register, global(only once)
+                _gc_scan_vm_count = vmbase::_alive_vm_list.size();
 
-            std::vector<vmbase*> vmlist(_gc_scan_vm_count);
+                std::vector<vmbase*> vmlist(_gc_scan_vm_count);
 
-            auto vm_index = vmbase::_alive_vm_list.begin();
-            for (size_t i = 0; i < _gc_scan_vm_count; ++i)
-                vmlist[i] = *(vm_index++);
-            _gc_vm_list = vmlist.data();
-            _gc_scan_vm_index = 0;
+                auto vm_index = vmbase::_alive_vm_list.begin();
+                for (size_t i = 0; i < _gc_scan_vm_count; ++i)
+                    vmlist[i] = *(vm_index++);
+                _gc_vm_list = vmlist.data();
+                _gc_scan_vm_index = 0;
 
-            // 3. Start GC Worker for first marking        
-            _gc_mark_thread_groups::instancce().launch_round_of_mark();
+                // 3. Start GC Worker for first marking        
+                _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
+                for (auto* vmimpl : vmbase::_alive_vm_list)
+                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                        {
+                            vmimpl->wakeup();
+                        }
+
+            } while (0);
             // just full gc:
             auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
             auto* young_list = gcbase::young_age_gcunit_list.pick_all();
@@ -426,13 +448,31 @@ namespace rs
 
         void _gc_main_thread()
         {
+            do
+            {
+                _gc_work_list();
 
+                do
+                {
+                    std::unique_lock ug1(_gc_work_mx);
+                    for (size_t i = 0; i < 100; +i)
+                    {
+                        using namespace std;
+
+                        _gc_work_cv.wait_for(ug1, 0.1s, []() {
+                            return _gc_stop_flag || !_gc_immediately.test_and_set();
+                            });
+                    }
+                } while (false);
+
+            } while (_gc_stop_flag);
         }
 
         void gc_start()
         {
-           // TODO:
-            AAAA;
+            _gc_stop_flag = false;
+            _gc_immediately.test_and_set();
+            _gc_scheduler_thread = std::move(std::thread(_gc_main_thread));
         }
 
     } // END NAME SPACE gc
@@ -441,12 +481,19 @@ namespace rs
 
 void rs_gc_immediately()
 {
-    rs::gc::_gc_immediately_manually_flag.clear();
+    std::lock_guard g1(rs::gc::_gc_work_mx);
+    rs::gc::_gc_immediately.clear();
+    rs::gc::_gc_work_cv.notify_one();
 }
 
 void rs_gc_stop()
 {
-    rs::gc::_gc_stop_flag.clear();
-    rs_gc_immediately();
+    do
+    {
+        std::lock_guard g1(rs::gc::_gc_work_mx);
+        rs::gc::_gc_stop_flag = true;
+        rs::gc::_gc_work_cv.notify_one();
+    } while (false);
+    
     rs::gc::_gc_scheduler_thread.join();
 }

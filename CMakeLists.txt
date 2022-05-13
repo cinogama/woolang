@@ -11,7 +11,7 @@ if(MSVC)
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/source-charset:utf-8>")
 endif()
 
-option(BUILD_SHARED_LIBS "Build rscene as shared lib" ON)
+option(BUILD_SHARED_LIBS "Build rscene as shared lib" OFF)
 
 add_subdirectory ("src")
 add_subdirectory ("driver")
