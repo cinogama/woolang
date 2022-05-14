@@ -503,8 +503,8 @@ std::string _enstring(const std::string& sstr, bool need_wrap)
             unsigned char uch = *str;
             if (iscntrl(uch))
             {
-                char encode[5] = {};
-                sprintf(encode, "\\x%02x", (unsigned int)uch);
+                char encode[8] = {};
+                sprintf(encode, "\\u00%02x", (unsigned int)uch);
 
                 result += encode;
             }
@@ -601,6 +601,27 @@ std::string _destring(const std::string& dstr)
                 result += (char)hex_ascii;
                 break;
             }
+            case 'U':
+            case 'u':
+            {
+                // hex 1byte 
+                unsigned char hex_ascii = 0;
+                for (int i = 0; i < 4; i++)
+                {
+                    unsigned char nextch = (unsigned char)*++str;
+                    if (rs::lexer::lex_isxdigit(nextch))
+                    {
+                        hex_ascii *= 16;
+                        hex_ascii += rs::lexer::lex_hextonum(nextch);
+                    }
+                    else if (i == 0)
+                        goto str_escape_sequences_fail;
+                    else
+                        break;
+                }
+                result += (char)hex_ascii;
+                break;
+            }
             default:
             str_escape_sequences_fail:
                 result += escape_ch;
@@ -625,8 +646,10 @@ void _rs_cast_array(rs::value* value, rs::lexer* lex)
     {
         auto lex_type = lex->peek(nullptr);
         if (lex_type == +rs::lex_type::l_index_end)
-            // end
+        {
+            lex->next(nullptr);
             break;
+        }
 
         _rs_cast_value(value, lex, rs::value::valuetype::invalid); // key!
         rsarr->push_back(*value);
@@ -635,7 +658,7 @@ void _rs_cast_array(rs::value* value, rs::lexer* lex)
             lex->next(nullptr);
     }
 
-    value->set_gcunit_with_barrier(rs::value::valuetype::mapping_type, rsarr);
+    value->set_gcunit_with_barrier(rs::value::valuetype::array_type, rsarr);
 }
 void _rs_cast_map(rs::value* value, rs::lexer* lex)
 {
@@ -646,8 +669,11 @@ void _rs_cast_map(rs::value* value, rs::lexer* lex)
     {
         auto lex_type = lex->peek(nullptr);
         if (lex_type == +rs::lex_type::l_right_curly_braces)
+        {
             // end
+            lex->next(nullptr);
             break;
+        }
 
         _rs_cast_value(value, lex, rs::value::valuetype::invalid); // key!
         auto& val_place = (*rsmap)[*value];
@@ -1515,7 +1541,7 @@ rs_value rs_map_get(rs_value map, rs_value index)
 
         if (rs::gc::gc_is_marking())
             _map->mapping->add_memo(result);
-        
+
         return CS_VAL(result);
     }
     else
