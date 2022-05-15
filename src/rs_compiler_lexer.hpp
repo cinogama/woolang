@@ -36,6 +36,10 @@ namespace rs
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
         l_literal_string,       // "" "helloworld" @"(println("hello");)"
+
+        l_format_string,        // f"..{  /  }..{ 
+        l_format_string_end,    // }.."
+
         l_semicolon,            // ;
 
         l_comma,                // ,
@@ -150,6 +154,9 @@ namespace rs
 
         size_t        next_file_rowno;
         size_t        next_file_colno;
+
+        int         format_string_count;
+        int         curly_count;
 
         std::set<std::wstring> imported_file_list;
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
@@ -375,6 +382,8 @@ namespace rs
             , now_file_colno(0)
             , next_file_rowno(1)
             , next_file_colno(1)
+            , format_string_count(0)
+            , curly_count(0)
             , source_file(_source_file)
             , used_macro_list(nullptr)
         {
@@ -386,6 +395,8 @@ namespace rs
             , now_file_colno(0)
             , next_file_rowno(1)
             , next_file_colno(1)
+            , format_string_count(0)
+            , curly_count(0)
             , source_file(_source_file)
             , used_macro_list(nullptr)
         {
@@ -591,6 +602,8 @@ namespace rs
             now_file_colno = (0);
             next_file_rowno = (1);
             next_file_colno = (1);
+            format_string_count = (0);
+            curly_count = (0);
 
             lex_error_list.clear();
             lex_warn_list.clear();
@@ -666,7 +679,7 @@ namespace rs
             if (next_reading_index >= reading_buffer.size())
                 return EOF;
 
-            return reading_buffer[next_reading_index + 1];
+            return reading_buffer[next_reading_index];
         }
         int next_ch()
         {
@@ -837,6 +850,213 @@ namespace rs
 
                     } while (true);
                 }
+            }
+
+            if (/*readed_ch == L'f' || */readed_ch == L'F')
+            {
+                if (peek_ch() == L'"')
+                {
+                    // Is f"..."
+                    if (format_string_count)
+                        return lex_error(0x0006, L"不允许嵌套格式化字符串，继续");
+
+                    next_one();
+
+                    int following_ch;
+                    while (true)
+                    {
+                        following_ch = next_one();
+                        if (following_ch == L'"')
+                            return lex_type::l_literal_string;
+                        if (following_ch == L'{')
+                        {
+                            curly_count = 0;
+                            format_string_count++;
+                            return lex_type::l_format_string;
+                        }
+                        if (following_ch != EOF && following_ch != '\n')
+                        {
+                            if (following_ch == L'\\')
+                            {
+                                // Escape character 
+                                int escape_ch = next_one();
+                                switch (escape_ch)
+                                {
+                                case L'\'':
+                                case L'"':
+                                case L'?':
+                                case L'\\':
+                                case L'{':
+                                case L'}':
+                                    write_result(escape_ch); break;
+                                case L'a':
+                                    write_result(L'\a'); break;
+                                case L'b':
+                                    write_result(L'\b'); break;
+                                case L'f':
+                                    write_result(L'\f'); break;
+                                case L'n':
+                                    write_result(L'\n'); break;
+                                case L'r':
+                                    write_result(L'\r'); break;
+                                case L't':
+                                    write_result(L'\t'); break;
+                                case L'v':
+                                    write_result(L'\v'); break;
+                                case L'0': case L'1': case L'2': case L'3': case L'4':
+                                case L'5': case L'6': case L'7': case L'8': case L'9':
+                                {
+                                    // oct 1byte 
+                                    int oct_ascii = escape_ch - L'0';
+                                    for (int i = 0; i < 2; i++)
+                                    {
+                                        if (lex_isodigit(peek_one()))
+                                        {
+                                            oct_ascii *= 8;
+                                            oct_ascii += lex_hextonum(next_one());
+                                        }
+                                        else
+                                            break;
+                                    }
+                                    write_result(oct_ascii);
+                                    break;
+                                }
+                                case L'X':
+                                case L'x':
+                                {
+                                    // hex 1byte 
+                                    int hex_ascii = 0;
+                                    for (int i = 0; i < 2; i++)
+                                    {
+                                        if (lex_isxdigit(peek_one()))
+                                        {
+                                            hex_ascii *= 16;
+                                            hex_ascii += lex_hextonum(next_one());
+                                        }
+                                        else if (i == 0)
+                                            goto str_escape_sequences_fail_in_format_begin;
+                                        else
+                                            break;
+                                    }
+                                    write_result(hex_ascii);
+                                    break;
+                                }
+                                default:
+                                str_escape_sequences_fail_in_format_begin:
+                                    lex_warning(0x0001, RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                    write_result(escape_ch);
+                                    break;
+                                }
+                            }
+                            else
+                                write_result(following_ch);
+                        }
+                        else
+                            return lex_error(0x0002, RS_ERR_UNEXCEPTED_EOL_IN_STRING);
+                    }
+                }
+                //else if (peek_ch() == L'@')
+                //{
+                //    // Is f@"..."@
+                //}
+            }
+            if (format_string_count && readed_ch == L'}' && curly_count == 0)
+            {
+                int following_ch;
+                while (true)
+                {
+                    following_ch = next_one();
+                    if (following_ch == L'"')
+                    {
+                        --format_string_count;
+                        return lex_type::l_format_string_end;
+                    }
+                    if (following_ch == L'{')
+                    {
+                        curly_count = 0;
+                        return lex_type::l_format_string;
+                    }
+                    if (following_ch != EOF && following_ch != '\n')
+                    {
+                        if (following_ch == L'\\')
+                        {
+                            // Escape character 
+                            int escape_ch = next_one();
+                            switch (escape_ch)
+                            {
+                            case L'\'':
+                            case L'"':
+                            case L'?':
+                            case L'\\':
+                            case L'{':
+                            case L'}':
+                                write_result(escape_ch); break;
+                            case L'a':
+                                write_result(L'\a'); break;
+                            case L'b':
+                                write_result(L'\b'); break;
+                            case L'f':
+                                write_result(L'\f'); break;
+                            case L'n':
+                                write_result(L'\n'); break;
+                            case L'r':
+                                write_result(L'\r'); break;
+                            case L't':
+                                write_result(L'\t'); break;
+                            case L'v':
+                                write_result(L'\v'); break;
+                            case L'0': case L'1': case L'2': case L'3': case L'4':
+                            case L'5': case L'6': case L'7': case L'8': case L'9':
+                            {
+                                // oct 1byte 
+                                int oct_ascii = escape_ch - L'0';
+                                for (int i = 0; i < 2; i++)
+                                {
+                                    if (lex_isodigit(peek_one()))
+                                    {
+                                        oct_ascii *= 8;
+                                        oct_ascii += lex_hextonum(next_one());
+                                    }
+                                    else
+                                        break;
+                                }
+                                write_result(oct_ascii);
+                                break;
+                            }
+                            case L'X':
+                            case L'x':
+                            {
+                                // hex 1byte 
+                                int hex_ascii = 0;
+                                for (int i = 0; i < 2; i++)
+                                {
+                                    if (lex_isxdigit(peek_one()))
+                                    {
+                                        hex_ascii *= 16;
+                                        hex_ascii += lex_hextonum(next_one());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail_in_format_string;
+                                    else
+                                        break;
+                                }
+                                write_result(hex_ascii);
+                                break;
+                            }
+                            default:
+                            str_escape_sequences_fail_in_format_string:
+                                lex_warning(0x0001, RS_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                write_result(escape_ch);
+                                break;
+                            }
+                        }
+                        else
+                            write_result(following_ch);
+                    }
+                    else
+                        return lex_error(0x0002, RS_ERR_UNEXCEPTED_EOL_IN_STRING);
+                }
+
             }
 
             if (lex_isdigit(readed_ch))
@@ -1118,7 +1338,7 @@ namespace rs
                     }
                 }
                 if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
-                    return lex_type::l_identifier;  
+                    return lex_type::l_identifier;
                 else
                     return keyword_type;
             }
@@ -1172,13 +1392,13 @@ namespace rs
             else if (readed_ch == L'{')
             {
                 write_result(readed_ch);
-
+                ++curly_count;
                 return lex_type::l_left_curly_braces;
             }
             else if (readed_ch == L'}')
             {
                 write_result(readed_ch);
-
+                --curly_count;
                 return lex_type::l_right_curly_braces;
             }
             else if (readed_ch == L'#')

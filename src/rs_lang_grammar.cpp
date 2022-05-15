@@ -723,6 +723,15 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_inf) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_literal),
 
+                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"FORMAT_STRING") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"FORMAT_STRING") >> gm::symlist{ gm::nt(L"FORMAT_STRING_LIST"), gm::te(gm::ttype::l_format_string_end) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_finish_format_string),
+                gm::nt(L"FORMAT_STRING_LIST") >> gm::symlist{gm::te(gm::ttype::l_format_string), gm::nt(L"RIGHT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_format_string),
+                gm::nt(L"FORMAT_STRING_LIST") >> gm::symlist{ gm::nt(L"FORMAT_STRING_LIST"),gm::te(gm::ttype::l_format_string), gm::nt(L"RIGHT") }
+                >> RS_ASTBUILDER_INDEX(ast::pass_format_string),
+
                 gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_MAP") }
                 >> RS_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

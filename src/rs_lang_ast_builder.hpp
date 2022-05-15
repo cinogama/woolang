@@ -857,6 +857,8 @@ namespace rs
                     constant_value.set_real(wstr_to_real(te.identifier));
                     break;
                 case lex_type::l_literal_string:
+                case lex_type::l_format_string:
+                case lex_type::l_format_string_end:
                     constant_value.set_string_nogc(wstr_to_str(te.identifier).c_str());
                     break;
                 case lex_type::l_nil:
@@ -4728,6 +4730,83 @@ namespace rs
                 return (ast_basic*)atn;
             }
         };
+
+        struct pass_format_string : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                //if(input.size() == )
+                rs_assert(input.size() == 2 || input.size() == 3);
+                if (input.size() == 2)
+                {
+                    auto* left = new ast_value_literal(RS_NEED_TOKEN(0));
+                    auto* right = dynamic_cast<ast_value*>(RS_NEED_AST(1));
+
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"), false);
+
+                    cast_right->row_no = left->row_no = right->row_no;
+                    cast_right->col_no = left->col_no = right->col_no;
+                    cast_right->source_file = left->source_file = right->source_file;
+
+                    ast_value_binary* vbin = new ast_value_binary();
+                    vbin->left = left;
+                    vbin->operate = lex_type::l_add;
+                    vbin->right = cast_right;
+                    vbin->update_constant_value(&lex);
+                    return (ast_basic*)vbin;
+                }
+                else
+                {
+                    auto* left = new ast_value_literal(RS_NEED_TOKEN(1));
+                    auto* right = dynamic_cast<ast_value*>(RS_NEED_AST(2));
+
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"), false);
+
+                    cast_right->row_no = left->row_no = right->row_no;
+                    cast_right->col_no = left->col_no = right->col_no;
+                    cast_right->source_file = left->source_file = right->source_file;
+
+                    ast_value_binary* vbin = new ast_value_binary();
+                    vbin->left = left;
+                    vbin->operate = lex_type::l_add;
+                    vbin->right = cast_right;
+                    vbin->update_constant_value(&lex);
+
+                    auto* origin_list = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+
+                    vbin->row_no = origin_list->row_no;
+                    vbin->col_no = origin_list->col_no;
+                    vbin->source_file = origin_list->source_file;
+
+                    ast_value_binary* vbinresult = new ast_value_binary();
+                    vbinresult->left = origin_list;
+                    vbinresult->operate = lex_type::l_add;
+                    vbinresult->right = vbin;
+                    vbinresult->update_constant_value(&lex);
+                    return (ast_basic*)vbinresult;
+                }
+            }
+        };
+
+        struct pass_finish_format_string : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                rs_assert(input.size() == 2);
+
+                auto* left = dynamic_cast<ast_value*>(RS_NEED_AST(0));
+                auto* right = new ast_value_literal(RS_NEED_TOKEN(1));
+
+                ast_value_binary* vbin = new ast_value_binary();
+                vbin->left = left;
+                vbin->operate = lex_type::l_add;
+                vbin->right = right;
+
+                vbin->update_constant_value(&lex);
+                return (ast_basic*)vbin;
+            }
+        }; 
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -4858,6 +4937,10 @@ namespace rs
 
             _registed_builder_function_id_list[meta::type_hash<pass_literal>] = _register_builder<pass_literal>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
+            
+            _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
+             
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<2>>] = _register_builder<pass_direct<2>>();
