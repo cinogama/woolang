@@ -390,6 +390,18 @@ RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args, size_t argc)
         / std::chrono::system_clock::period::den;
     return rs_ret_real(vm, _time_ms);
 }
+
+RS_API rs_api rslib_std_atomic_cas(rs_vm vm, rs_value args, size_t argc)
+{
+    rs::value* aim = reinterpret_cast<rs::value*>(args + 0);
+    rs::value* excepted = reinterpret_cast<rs::value*>(args + 1);
+    rs::value* swapval = reinterpret_cast<rs::value*>(args + 2);
+
+    rs_assert(aim->type == excepted->type && excepted->type == swapval->type);
+
+    return rs_ret_bool(vm, ((std::atomic<rs_handle_t>*) & aim->handle)->compare_exchange_weak(excepted->handle, swapval->handle));
+}
+
 RS_API rs_api rslib_std_randomint(rs_vm vm, rs_value args, size_t argc)
 {
     static std::random_device rd;
@@ -729,6 +741,9 @@ namespace std
 
     extern("rslib_std_print") func print(...):int;
     extern("rslib_std_time_sec") func time():real;
+
+    extern("rslib_std_atomic_cas") 
+        func atomic_cas<T>(ref val:T, ref excepted:T, var swapval:T):T;
 
     func println(...)
     {
