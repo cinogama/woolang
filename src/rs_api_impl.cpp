@@ -1524,7 +1524,7 @@ rs_bool_t rs_map_find(rs_value map, rs_value index)
     return false;
 }
 
-rs_value rs_map_get(rs_value map, rs_value index, rs_value default_value)
+rs_value rs_map_get_by_default(rs_value map, rs_value index, rs_value default_value)
 {
     auto _map = RS_VAL(map);
     if (_map->is_nil())
@@ -1542,17 +1542,40 @@ rs_value rs_map_get(rs_value map, rs_value index, rs_value default_value)
         if (!result)
         {
             if (default_value)
-            {
-                result = RS_VAL(default_value);
-                (*_map->mapping)[*RS_VAL(index)] = *result;
-            }
+                result = &((*_map->mapping)[*RS_VAL(index)] = *RS_VAL(default_value));
             else
-                return nullptr;
+            {
+                result = &((*_map->mapping)[*RS_VAL(index)]);
+                result->set_nil();
+            }
         }
         if (rs::gc::gc_is_marking())
             _map->mapping->add_memo(result);
 
         return CS_VAL(result);
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return nullptr;
+}
+
+rs_value rs_map_get(rs_value map, rs_value index)
+{
+    auto _map = RS_VAL(map);
+    if (_map->is_nil())
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == rs::value::valuetype::mapping_type)
+    {
+        rs::gcbase::gc_read_guard g1(_map->mapping);
+        auto fnd = _map->mapping->find(*RS_VAL(index));
+        if (fnd != _map->mapping->end())
+        {
+            if (rs::gc::gc_is_marking())
+                _map->mapping->add_memo(&fnd->second);
+            return CS_VAL(&fnd->second);
+        }
+        return nullptr;
     }
     else
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
@@ -1568,6 +1591,15 @@ rs_bool_t rs_map_remove(rs_value map, rs_value index)
     else if (_map->type == rs::value::valuetype::mapping_type)
     {
         rs::gcbase::gc_write_guard g1(_map->mapping);
+        if (rs::gc::gc_is_marking())
+        {
+            auto fnd = _map->mapping->find(*RS_VAL(index));
+            if (fnd != _map->mapping->end())
+            {
+                _map->mapping->add_memo(&fnd->first);
+                _map->mapping->add_memo(&fnd->second);
+            }
+        }
         return 0 != _map->mapping->erase(*RS_VAL(index));
     }
     else
@@ -1583,6 +1615,14 @@ void rs_map_clear(rs_value map)
     else if (_map->type == rs::value::valuetype::mapping_type)
     {
         rs::gcbase::gc_write_guard g1(_map->mapping);
+        if (rs::gc::gc_is_marking())
+        {
+            for (auto& kvpair : *_map->mapping)
+            {
+                _map->mapping->add_memo(&kvpair.first);
+                _map->mapping->add_memo(&kvpair.second);
+            }
+        }
         _map->mapping->clear();
     }
     else

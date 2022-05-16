@@ -184,7 +184,7 @@ namespace rs
         };
 
         memo_unit* m_memo = nullptr;
-        void add_memo(value* val);
+        void add_memo(const value* val);
 
         virtual ~gcbase() 
         {

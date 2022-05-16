@@ -205,7 +205,8 @@ RS_API void         rs_arr_remove(rs_value arr, rs_int_t index);
 RS_API void         rs_arr_clear(rs_value arr);
 
 RS_API rs_bool_t    rs_map_find(rs_value map, rs_value index);
-RS_API rs_value     rs_map_get(rs_value map, rs_value index, rs_value default_value);
+RS_API rs_value     rs_map_get_by_default(rs_value map, rs_value index, rs_value default_value);
+RS_API rs_value     rs_map_get(rs_value map, rs_value index);
 RS_API rs_bool_t    rs_map_remove(rs_value map, rs_value index);
 RS_API void         rs_map_clear(rs_value map);
 

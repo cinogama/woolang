@@ -513,7 +513,7 @@ RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_map_only_get(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_value result = rs_map_get(args + 0, args + 1, nullptr);
+    rs_value result = rs_map_get(args + 0, args + 1);
 
     if (result)
         return rs_ret_ref(vm, result);
@@ -530,7 +530,7 @@ RS_API rs_api rslib_std_map_contain(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_map_get_by_default(rs_vm vm, rs_value args, size_t argc)
 {
-    return rs_ret_ref(vm, rs_map_get(args + 0, args + 1, args + 2));
+    return rs_ret_ref(vm, rs_map_get_by_default(args + 0, args + 1, args + 2));
 }
 
 RS_API rs_api rslib_std_map_remove(rs_vm vm, rs_value args, size_t argc)

@@ -245,6 +245,7 @@ namespace rs
 
         inline value* set_val(const value* _val)
         {
+            // PARALLEL GC FIX: Value to be set need check is gcunit, too;
             if (_val->is_gcunit())
                 set_gcunit_with_barrier(_val->type, _val->gcunit);
             else

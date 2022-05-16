@@ -21,7 +21,7 @@ GC will do following work to instead of old-gc:
 
 namespace rs
 {
-    void gcbase::add_memo(value* val)
+    void gcbase::add_memo(const value* val)
     {
         rs_assert(gc::gc_is_marking());
 
