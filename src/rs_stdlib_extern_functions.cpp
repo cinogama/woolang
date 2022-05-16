@@ -513,10 +513,10 @@ RS_API rs_api rslib_std_map_find(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_map_only_get(rs_vm vm, rs_value args, size_t argc)
 {
-    bool _map_has_indexed_val = rs_map_find(args + 0, args + 1);
+    rs_value result = rs_map_get(args + 0, args + 1, nullptr);
 
-    if (_map_has_indexed_val)
-        return rs_ret_ref(vm, rs_map_get(args + 0, args + 1));
+    if (result)
+        return rs_ret_ref(vm, result);
 
     return rs_ret_nil(vm);
 }
@@ -530,26 +530,17 @@ RS_API rs_api rslib_std_map_contain(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_map_get_by_default(rs_vm vm, rs_value args, size_t argc)
 {
-    bool _map_has_indexed_val = rs_map_find(args + 0, args + 1);
-
-    if (_map_has_indexed_val)
-        return rs_ret_ref(vm, rs_map_get(args + 0, args + 1));
-
-    rs_value mapping_indexed = rs_map_get(args + 0, args + 1);
-    rs_set_val(mapping_indexed, args + 2);
-
-    return rs_ret_ref(vm, mapping_indexed);
+    return rs_ret_ref(vm, rs_map_get(args + 0, args + 1, args + 2));
 }
 
 RS_API rs_api rslib_std_map_remove(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
-    return rs_ret_nil(vm);
+    return rs_ret_bool(vm, rs_map_remove(args + 0, args + 1));
 }
 
 RS_API rs_api rslib_std_map_clear(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_fail(RS_FAIL_NOT_SUPPORT, "This function not support yet.");
+    rs_map_clear(args + 0);
     return rs_ret_nil(vm);
 }
 

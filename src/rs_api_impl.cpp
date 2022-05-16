@@ -1513,7 +1513,7 @@ rs_bool_t rs_map_find(rs_value map, rs_value index)
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
     else if (_map->type == rs::value::valuetype::mapping_type)
     {
-        rs::gcbase::gc_write_guard g1(_map->mapping);
+        rs::gcbase::gc_read_guard g1(_map->mapping);
         if (index)
             return _map->mapping->find(*RS_VAL(index)) != _map->mapping->end();
         return  _map->mapping->find(rs::value()) != _map->mapping->end();
@@ -1524,21 +1524,31 @@ rs_bool_t rs_map_find(rs_value map, rs_value index)
     return false;
 }
 
-rs_value rs_map_get(rs_value map, rs_value index)
+rs_value rs_map_get(rs_value map, rs_value index, rs_value default_value)
 {
     auto _map = RS_VAL(map);
     if (_map->is_nil())
         rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
     else if (_map->type == rs::value::valuetype::mapping_type)
     {
-        rs::gcbase::gc_write_guard g1(_map->mapping);
-
         rs::value* result = nullptr;
-        if (index)
-            result = &((*_map->mapping)[*RS_VAL(index)]);
-        else
-            result = &((*_map->mapping)[rs::value()]);
-
+        rs::gcbase::gc_write_guard g1(_map->mapping);
+        do
+        {
+            auto fnd = _map->mapping->find(*RS_VAL(index));
+            if (fnd != _map->mapping->end())
+                result = &fnd->second;
+        } while (false);
+        if (!result)
+        {
+            if (default_value)
+            {
+                result = RS_VAL(default_value);
+                (*_map->mapping)[*RS_VAL(index)] = *result;
+            }
+            else
+                return nullptr;
+        }
         if (rs::gc::gc_is_marking())
             _map->mapping->add_memo(result);
 
@@ -1549,6 +1559,36 @@ rs_value rs_map_get(rs_value map, rs_value index)
 
     return nullptr;
 }
+
+rs_bool_t rs_map_remove(rs_value map, rs_value index)
+{
+    auto _map = RS_VAL(map);
+    if (_map->is_nil())
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == rs::value::valuetype::mapping_type)
+    {
+        rs::gcbase::gc_write_guard g1(_map->mapping);
+        return 0 != _map->mapping->erase(*RS_VAL(index));
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return false;
+}
+void rs_map_clear(rs_value map)
+{
+    auto _map = RS_VAL(map);
+    if (_map->is_nil())
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == rs::value::valuetype::mapping_type)
+    {
+        rs::gcbase::gc_write_guard g1(_map->mapping);
+        _map->mapping->clear();
+    }
+    else
+        rs_fail(RS_FAIL_TYPE_FAIL, "Value is not a map.");
+}
+
 
 rs_bool_t rs_gchandle_close(rs_value gchandle)
 {
