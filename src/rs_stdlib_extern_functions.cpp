@@ -393,9 +393,9 @@ RS_API rs_api rslib_std_time_sec(rs_vm vm, rs_value args, size_t argc)
 
 RS_API rs_api rslib_std_atomic_cas(rs_vm vm, rs_value args, size_t argc)
 {
-    rs::value* aim = reinterpret_cast<rs::value*>(args + 0);
-    rs::value* excepted = reinterpret_cast<rs::value*>(args + 1);
-    rs::value* swapval = reinterpret_cast<rs::value*>(args + 2);
+    rs::value* aim = reinterpret_cast<rs::value*>(args + 0)->get();
+    rs::value* excepted = reinterpret_cast<rs::value*>(args + 1)->get();
+    rs::value* swapval = reinterpret_cast<rs::value*>(args + 2)->get();
 
     rs_assert(aim->type == excepted->type && excepted->type == swapval->type);
 
