@@ -1214,6 +1214,11 @@ namespace rs
                 return attributes.find(+lex_type::l_static) != attributes.end();
             }
 
+            bool is_private_attr() const
+            {
+                return attributes.find(+lex_type::l_private) != attributes.end();
+            }
+
             bool is_extern_attr() const
             {
                 return attributes.find(+lex_type::l_extern) != attributes.end();
@@ -3171,7 +3176,7 @@ namespace rs
                     avfd_new->value_type->set_as_function_type();
                     avfd_new->auto_adjust_return_type = true;
                     avfd_new->declear_attribute = new ast_decl_attribute();
-
+                    avfd_new->declear_attribute->add_attribute(&lex, +lex_type::l_private);
                     if (using_type->is_template_define)
                     {
                         avfd_new->is_template_define = true;

@@ -1288,6 +1288,9 @@ namespace rs
                                 rs_assert(sym->function_overload_sets.size());
                                 for (auto& func_overload : sym->function_overload_sets)
                                 {
+                                    if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var, false))
+                                        continue; // In template function, not accessable function will be skip!
+
                                     if (func_overload->is_template_define
                                         && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
                                     {
@@ -1432,7 +1435,9 @@ namespace rs
                                         && a_value_var->template_reification_args.empty())
                                     {
                                         // only you~
-                                        a_value_var->value_type = sym->function_overload_sets.front()->value_type;
+                                        auto* result = sym->function_overload_sets.front();
+                                        check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
+                                        a_value_var->value_type = result->value_type;
                                     }
                                 }
 
@@ -1639,6 +1644,9 @@ namespace rs
 
                                         for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
                                         {
+                                            if (!check_symbol_is_accessable(_override_func, _override_func->symbol, called_funcsymb->searching_begin_namespace_in_pass2, called_funcsymb, false))
+                                                continue; // In function override judge, not accessable function will be skip!
+
                                             auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
                                             rs_test(override_func);
 
@@ -2237,6 +2245,9 @@ namespace rs
                                 {
                                     for (auto func_overload : func_symbol)
                                     {
+                                        if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_variable_sym->searching_begin_namespace_in_pass2, a_variable_sym, false))
+                                            continue; // In function override judge, not accessable function will be skip!
+
                                         auto* overload_func = dynamic_cast<ast_value_function_define*>(func_overload);
                                         if (overload_func->value_type->is_same(a_value_typecast->value_type))
                                         {
@@ -2716,9 +2727,12 @@ namespace rs
 
                     if (!next_func_symb_getter->symbol->function_overload_sets.empty())
                     {
+                        auto* next_function = next_func_symb_getter->symbol->function_overload_sets.front();
+
+                        // TODO: Check if private 'next' function?
+
                         _next_executer_type =
-                            next_func_symb_getter->symbol->function_overload_sets.front()
-                            ->value_type;
+                            next_function->value_type;
                     }
 
                     int need_takeplace_count = (int)_next_executer_type->argument_types.size();
@@ -4940,6 +4954,41 @@ namespace rs
             }
         }
 
+        bool check_symbol_is_accessable(ast::ast_defines* astdefine, lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error = true)
+        {
+            if (astdefine->declear_attribute && astdefine->declear_attribute->is_private_attr())
+            {
+                auto* symbol_defined_space = symbol->defined_in_scope;
+                while (current_scope)
+                {
+                    if (current_scope == symbol_defined_space)
+                        return true;
+                    current_scope = current_scope->parent_scope;
+                }
+                if (give_error)
+                    lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                return false;
+            }
+            return true;
+        }
+        bool check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error = true)
+        {
+            if (symbol->attribute && symbol->attribute->is_private_attr())
+            {
+                auto* symbol_defined_space = symbol->defined_in_scope;
+                while (current_scope)
+                {
+                    if (current_scope == symbol_defined_space)
+                        return true;
+                    current_scope = current_scope->parent_scope;
+                }
+                if (give_error)
+                    lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                return true;
+            }
+            return true;
+        }
+
         lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, const std::wstring& ident_str)
         {
             rs_assert(lang_scopes.size());
@@ -4950,6 +4999,8 @@ namespace rs
                     if (auto fnd = rind->find(ident_str); fnd != rind->end())
                         return fnd->second;
                 }
+
+            auto* searching_from_scope = var_ident->searching_begin_namespace_in_pass2;
 
             if (var_ident->searching_from_type)
             {
@@ -5135,8 +5186,10 @@ namespace rs
 
                 lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str.c_str());
             }
-
-            return *searching_result.begin();
+            // Check symbol is accessable?
+            auto* result = *searching_result.begin();
+            check_symbol_is_accessable(result, searching_from_scope, var_ident);
+            return result;
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {

@@ -9,11 +9,27 @@ namespace test_gc
     {
         global_list = [1,2,3,4,5]:array<dynamic>;
         var i = 0;
-        while (i < 1000_0000)
+        var tmp = []:array<array<int>>;
+        var arr_a = [[12345678],], arr_b = []:array<array<int>>;
+        while (i < 1000_000)
         {
                 global_list->add({});
                 global_list[-1]["Hello"] = "world";
                 i+=1;
+
+                tmp->add(arr_a[0]);
+                arr_a->remove(0);
+                arr_b->add(tmp[0]);
+                tmp->remove(0);
+
+                test_assure(arr_b[0][0] == 12345678);
+
+                tmp->add(arr_b[0]);
+                arr_b->remove(0);
+                arr_a->add(tmp[0]);
+                tmp->remove(0);
+
+                test_assure(arr_a[0][0] == 12345678);
         }
         global_list = nil;
     }
