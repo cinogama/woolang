@@ -3,6 +3,40 @@ import test_tool;
 
 namespace test_template
 {
+    using wraped_iterator<IType, EType>
+    {
+        var iter = nil:IType<EType>;
+        var pred = nil:dynamic;
+
+        func create<IType, EType, PredType>(var iter:IType<EType>, var pred:PredType)
+        {
+            var self = new:<IType, EType, PredType>();
+            self.iter = iter;
+            self.pred = pred;
+            return self;
+        }
+
+        func iter<WIType>(var self:WIType)
+        {
+            return self;
+        }
+
+        func next<IType, EType>(
+                        var self:wraped_iterator<IType, EType>, 
+                        ref out_index:int, 
+                        ref out_val:EType) : bool
+        {
+            while(true)
+            {
+                var idxable = self.iter->next(ref out_index, ref out_val);
+
+                if (!idxable) return false;
+                if ((self.pred:dynamic(EType))(out_val))
+                    return true;
+            }
+        }
+    }
+
     func invokable<T>(var foo:T(T), var n:T)
     {
         return foo(n);
@@ -287,6 +321,15 @@ namespace test_template
 
         test_equal(make_instance:<A::xxtype>(), "success");
         test_equal(make_instance:<gchandle_type>(), "gchandle_type success");
+
+        var p = []:array<int>;
+        var q = [1,2,3,4,5,6,7,8,9];
+        for(var v : wraped_iterator(q->iter(), func(var e:int){return e==5;}))
+        {
+            p->add(v);
+        }
+        test_equal(p->len(), 1);
+        test_equal(p[0], 5);
     }
 }
 
