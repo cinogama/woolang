@@ -1,12 +1,12 @@
 #define _CRT_SECURE_NO_WARNINGS
-
 #if RS_ENABLE_ASMJIT
 
 #include "rs_compiler_jit.hpp"
 #include "rs_instruct.hpp"
 #include "rs_vm.hpp"
 
-#include "asmjit/asmjit.h"
+#define ASMJIT_STATIC
+#include <asmjit/asmjit.h>
 
 
 #define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))

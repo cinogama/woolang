@@ -3,6 +3,7 @@
 cmake_minimum_required (VERSION 3.8)
 
 include_directories("../include")
+include_directories("../3rd/asmjit/src")
 
 file(GLOB_RECURSE rscene_src_cpp *.cpp)
 file(GLOB_RECURSE rscene_src_hpp *.hpp)
@@ -15,7 +16,7 @@ endif()
 
 add_definitions(-DRS_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
-if (${BUILD_SHARED_LIBS})
+if (BUILD_SHARED_LIBS)
 	add_definitions(-DRS_SHARED_LIB)
 	add_library (rscene SHARED ${rscene_src_cpp} ${rscene_src_hpp} enum.h)
 else()
@@ -26,7 +27,7 @@ else()
 	add_library(rscene STATIC ${rscene_src_cpp} ${rscene_src_hpp} enum.h)
 endif()
 
-target_link_libraries(rscene ${rscene_system_libs})
+target_link_libraries(rscene asmjit ${rscene_system_libs})
 set_target_properties(rscene PROPERTIES OUTPUT_NAME librscene)
 set_target_properties(rscene PROPERTIES PREFIX "")
 

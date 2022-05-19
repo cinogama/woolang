@@ -100,7 +100,7 @@ namespace rs
         inline bool ENABLE_AVOIDING_FALSE_SHARED = false;
 
         /*
-        * ENABLE_JUST_IN_TIME = false
+        * ENABLE_JUST_IN_TIME = true
         * --------------------------------------------------------------------
         *   RScene will use asmjit to generate code in runtime.
         * --------------------------------------------------------------------
@@ -108,6 +108,6 @@ namespace rs
         * and 'ext0_jitend' in ir to notify jit work.
         * --------------------------------------------------------------------
         */
-        inline bool ENABLE_JUST_IN_TIME = false;
+        inline bool ENABLE_JUST_IN_TIME = true;
     }
 }

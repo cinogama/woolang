@@ -6,6 +6,7 @@ project ("RestorableScene")
 
 set(CMAKE_CXX_STANDARD 17)
 
+    add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/source-charset:utf-8>")
 if(MSVC) 
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/source-charset:utf-8>")
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/source-charset:utf-8>")
@@ -26,7 +27,10 @@ else()
 endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
-option(BUILD_SHARED_LIBS "Build rscene as shared lib" OFF)
+set(ASMJIT_STATIC ON CACHE BOOL "Build static-linked asmjit" FORCE)
+add_subdirectory("3rd/asmjit")
+add_definitions("-DRS_ENABLE_ASMJIT")
 
+option(BUILD_SHARED_LIBS "Build rscene as shared lib" OFF)
 add_subdirectory ("src")
 add_subdirectory ("driver")
