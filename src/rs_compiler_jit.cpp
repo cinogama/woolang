@@ -8,67 +8,55 @@
 #define ASMJIT_STATIC
 #include <asmjit/asmjit.h>
 
-
-#define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
-#define RS_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
-#define RS_SAFE_READ_OFFSET_GET_WORD (*(uint16_t*)(rt_ip-2))
+#define RS_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t *)(rt_ip - 8))
+#define RS_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t *)(rt_ip - 4))
+#define RS_SAFE_READ_OFFSET_GET_WORD (*(uint16_t *)(rt_ip - 2))
 
 // FOR BigEndian
-#define RS_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip-OFFSET)))<<((sizeof(TYPE)-OFFSET)*8))
+#define RS_SAFE_READ_OFFSET_PER_BYTE(OFFSET, TYPE) (((TYPE)(*(rt_ip - OFFSET))) << ((sizeof(TYPE) - OFFSET) * 8))
 #define RS_IS_ODD_IRPTR(ALLIGN) 1 //(reinterpret_cast<size_t>(rt_ip)%ALLIGN)
 
-#define RS_SAFE_READ_MOVE_2 (rt_ip+=2,RS_IS_ODD_IRPTR(2)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(2,uint16_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint16_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_WORD)
-#define RS_SAFE_READ_MOVE_4 (rt_ip+=4,RS_IS_ODD_IRPTR(4)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(4,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint32_t)\
-                                    |RS_SAFE_READ_OFFSET_PER_BYTE(2,uint32_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint32_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_DWORD)
-#define RS_SAFE_READ_MOVE_8 (rt_ip+=8,RS_IS_ODD_IRPTR(8)?\
-                                    (RS_SAFE_READ_OFFSET_PER_BYTE(8,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(7,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(6,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(5,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(4,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(3,uint64_t)|\
-                                    RS_SAFE_READ_OFFSET_PER_BYTE(2,uint64_t)|RS_SAFE_READ_OFFSET_PER_BYTE(1,uint64_t)):\
-                                    RS_SAFE_READ_OFFSET_GET_QWORD)
+#define RS_SAFE_READ_MOVE_2 (rt_ip += 2, RS_IS_ODD_IRPTR(2) ? (RS_SAFE_READ_OFFSET_PER_BYTE(2, uint16_t) | RS_SAFE_READ_OFFSET_PER_BYTE(1, uint16_t)) : RS_SAFE_READ_OFFSET_GET_WORD)
+#define RS_SAFE_READ_MOVE_4 (rt_ip += 4, RS_IS_ODD_IRPTR(4) ? (RS_SAFE_READ_OFFSET_PER_BYTE(4, uint32_t) | RS_SAFE_READ_OFFSET_PER_BYTE(3, uint32_t) | RS_SAFE_READ_OFFSET_PER_BYTE(2, uint32_t) | RS_SAFE_READ_OFFSET_PER_BYTE(1, uint32_t)) : RS_SAFE_READ_OFFSET_GET_DWORD)
+#define RS_SAFE_READ_MOVE_8 (rt_ip += 8, RS_IS_ODD_IRPTR(8) ? (RS_SAFE_READ_OFFSET_PER_BYTE(8, uint64_t) | RS_SAFE_READ_OFFSET_PER_BYTE(7, uint64_t) | \
+                                                               RS_SAFE_READ_OFFSET_PER_BYTE(6, uint64_t) | RS_SAFE_READ_OFFSET_PER_BYTE(5, uint64_t) | \
+                                                               RS_SAFE_READ_OFFSET_PER_BYTE(4, uint64_t) | RS_SAFE_READ_OFFSET_PER_BYTE(3, uint64_t) | \
+                                                               RS_SAFE_READ_OFFSET_PER_BYTE(2, uint64_t) | RS_SAFE_READ_OFFSET_PER_BYTE(1, uint64_t))  \
+                                                            : RS_SAFE_READ_OFFSET_GET_QWORD)
 #define RS_IPVAL (*(rt_ip))
 #define RS_IPVAL_MOVE_1 (*(rt_ip++))
 
-            // X86 support non-alligned addressing, so just do it!
+// X86 support non-alligned addressing, so just do it!
 
 #define RS_IPVAL_MOVE_2 RS_SAFE_READ_MOVE_2
 #define RS_IPVAL_MOVE_4 RS_SAFE_READ_MOVE_4
 #define RS_IPVAL_MOVE_8 RS_SAFE_READ_MOVE_8
 
-#define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+#define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL)) << 1))) >> 1)
 
-#define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
-                        (\
-                            (RS_IPVAL & (1 << 7)) ?\
-                            (rt_bp + RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1))\
-                            :\
-                            (RS_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            RS_IPVAL_MOVE_4 + const_global_begin\
-                        ))
+#define RS_ADDRESSING_N1 value *opnum1 = ((dr >> 1) ? (                                                                      \
+                                                          (RS_IPVAL & (1 << 7)) ? (rt_bp + RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1)) \
+                                                                                : (RS_IPVAL_MOVE_1 + reg_begin))             \
+                                                    : (                                                                      \
+                                                          RS_IPVAL_MOVE_4 + const_global_begin))
 
-#define RS_ADDRESSING_N2 value * opnum2 = ((dr & 0b01) ?\
-                        (\
-                            (RS_IPVAL & (1 << 7)) ?\
-                            (rt_bp + RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1))\
-                            :\
-                            (RS_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            RS_IPVAL_MOVE_4 + const_global_begin\
-                        ))
+#define RS_ADDRESSING_N2 value *opnum2 = ((dr & 0b01) ? (                                                                      \
+                                                            (RS_IPVAL & (1 << 7)) ? (rt_bp + RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1)) \
+                                                                                  : (RS_IPVAL_MOVE_1 + reg_begin))             \
+                                                      : (                                                                      \
+                                                            RS_IPVAL_MOVE_4 + const_global_begin))
 
-#define RS_ADDRESSING_N1_REF RS_ADDRESSING_N1 -> get()
-#define RS_ADDRESSING_N2_REF RS_ADDRESSING_N2 -> get()
+#define RS_ADDRESSING_N1_REF RS_ADDRESSING_N1->get()
+#define RS_ADDRESSING_N2_REF RS_ADDRESSING_N2->get()
 
-#define RS_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;rs_fail(ERRNO,ERRINFO);continue;}
+#define RS_VM_FAIL(ERRNO, ERRINFO) x86_do_call_custom_func(x86compiler, jit_vm_ptr,\
+[](vmbase* vm, const byte_t* ip, value* sp, value* bp)\
+{\
+    vm->ip = ip;\
+    vm->sp = sp;\
+    vm->bp = bp;\
+    rs_fail(ERRNO, ERRINFO);\
+}, rt_ip, jit_stack_sp_ptr, jit_stack_bp_ptr);
 
 namespace rs
 {
@@ -81,9 +69,9 @@ namespace rs
     struct may_constant_x86Gp
     {
         asmjit::X86Compiler* compiler;
-        bool            m_is_constant;
+        bool m_is_constant;
         value* m_constant;
-        asmjit::X86Gp   m_value;
+        asmjit::X86Gp m_value;
 
         // ---------------------------------
         bool already_valued = false;
@@ -112,7 +100,7 @@ namespace rs
         }
     };
 
-    template<typename T>
+    template <typename T>
     asmjit::X86Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
     {
 #ifdef RS_PLATFORM_64
@@ -151,14 +139,14 @@ namespace rs
                 // from bp-offset
                 auto result = x86compiler.newUIntPtr();
                 rs_asure(!x86compiler.lea(result, intptr_ptr(stack_bp, RS_SIGNED_SHIFT(RS_IPVAL_MOVE_1) * sizeof(value))));
-                return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
+                return may_constant_x86Gp{ &x86compiler, false, nullptr, result };
             }
             else
             {
                 // from reg
                 auto result = x86compiler.newUIntPtr();
                 rs_asure(!x86compiler.lea(result, intptr_ptr(reg, RS_IPVAL_MOVE_1 * sizeof(value))));
-                return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
+                return may_constant_x86Gp{ &x86compiler, false, nullptr, result };
             }
         }
         else
@@ -170,17 +158,15 @@ namespace rs
             if (const_global_index < vmptr->env->constant_value_count)
             {
                 //Is constant
-                return may_constant_x86Gp{ &x86compiler, true,vmptr->env->constant_global_reg_rtstack + const_global_index };
+                return may_constant_x86Gp{ &x86compiler, true, vmptr->env->constant_global_reg_rtstack + const_global_index };
             }
             else
             {
                 auto result = x86compiler.newUIntPtr();
                 rs_asure(!x86compiler.mov(result, (size_t)(vmptr->env->constant_global_reg_rtstack + const_global_index)));
-                return may_constant_x86Gp{ &x86compiler,false,nullptr,result };
+                return may_constant_x86Gp{ &x86compiler, false, nullptr, result };
             }
         }
-
-
     }
 
     //value* native_abi_set_ref(value* origin_val, value* set_val)
@@ -251,7 +237,6 @@ namespace rs
             rs_asure(!x86compiler.mov(opnum.gp_value(), intptr_ptr(opnum.gp_value(), offsetof(value, ref))));
 
             rs_asure(!x86compiler.bind(is_no_ref_label));
-
         }
         return opnum;
     }
@@ -288,6 +273,25 @@ namespace rs
         rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
         rs_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0));
         return val;
+    }
+
+    using custom_func_t = void(*)(vmbase* vm, const byte_t* ip, value* sp, value* bp);
+
+    void x86_do_call_custom_func(asmjit::X86Compiler& x86compiler,
+        asmjit::X86Gp vm,
+        custom_func_t call_aim_native_func,
+        const byte_t* rt_ip,
+        asmjit::X86Gp rt_sp,
+        asmjit::X86Gp rt_bp)
+    {
+        auto invoke_node =
+            x86compiler.call((size_t)&call_aim_native_func,
+                asmjit::FuncSignatureT<void, vmbase*, const byte_t*, value*, value*>());
+
+        invoke_node->setArg(0, vm);
+        invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+        invoke_node->setArg(3, rt_sp);
+        invoke_node->setArg(4, rt_bp);
     }
 
     void x86_do_calln_native_func(asmjit::X86Compiler& x86compiler,
@@ -353,7 +357,7 @@ namespace rs
 
         auto jit_stack_sp_ptr = x86compiler.newUIntPtr();
 
-        rs_asure(!x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr));                    // let sp = bp;
+        rs_asure(!x86compiler.mov(jit_stack_sp_ptr, jit_stack_bp_ptr)); // let sp = bp;
 
         byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
         instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -381,9 +385,9 @@ namespace rs
             dr = opcode_dr & 0b00000011u;
 
 #define RS_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
-#define RS_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
+#define RS_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr & 0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
 #define RS_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
-#define RS_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
+#define RS_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr & 0b01, jit_stack_bp_ptr, jit_reg_ptr, compile_vmptr)
 
             switch (opcode)
             {
@@ -415,13 +419,18 @@ namespace rs
                 }
                 break;
             }
+            case instruct::pshr:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
 
+                x86_set_ref(x86compiler, jit_stack_sp_ptr, opnum1.gp_value());
+                rs_asure(!x86compiler.sub(jit_stack_sp_ptr, sizeof(value)));
+                break;
+            }
             case instruct::opcode::pop:
             {
                 if (dr & 0b01)
                 {
-                    // RS_ADDRESSING_N1_REF;
-                    // opnum1->set_val((++rt_sp));
                     RS_JIT_ADDRESSING_N1_REF;
 
                     rs_asure(!x86compiler.add(jit_stack_sp_ptr, sizeof(value)));
@@ -431,23 +440,12 @@ namespace rs
                     rs_asure(!x86compiler.add(jit_stack_sp_ptr, RS_IPVAL_MOVE_2 * sizeof(value)));
                 break;
             }
-
-            case instruct::set:
-            {
-                RS_JIT_ADDRESSING_N1;
-                RS_JIT_ADDRESSING_N2_REF;
-
-                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
-
-                break;
-            }
-            case instruct::mov:
+            case instruct::opcode::popr:
             {
                 RS_JIT_ADDRESSING_N1_REF;
-                RS_JIT_ADDRESSING_N2_REF;
 
-                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
-
+                rs_asure(!x86compiler.add(jit_stack_sp_ptr, sizeof(value)));
+                x86_set_ref(x86compiler, opnum1.gp_value(), jit_stack_sp_ptr);
                 break;
             }
             case instruct::addi:
@@ -485,6 +483,317 @@ namespace rs
 
                 break;
             }
+            case instruct::muli:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto int_of_op2 = x86compiler.newInt64();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                else
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                rs_asure(!x86compiler.imul(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+
+                break;
+            }
+            case instruct::divi:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto int_of_op2 = x86compiler.newInt64();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                else
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                rs_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+
+                break;
+            }
+            case instruct::modi:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto int_of_op2 = x86compiler.newInt64();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                else
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                rs_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), x86::rdx));
+
+                break;
+            }
+            case instruct::addr:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto real_of_op2 = x86compiler.newXmmSd();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.movsd(real_of_op2, opnum2.const_value()->real));
+                else
+                    rs_asure(!x86compiler.movsd(real_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, real))));
+
+                rs_asure(!x86compiler.addsd(real_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, real))));
+                rs_asure(!x86compiler.movsd(x86::qword_ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                break;
+            }
+            case instruct::subr:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto real_of_op2 = x86compiler.newXmmSd();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.movsd(real_of_op2, opnum2.const_value()->real));
+                else
+                    rs_asure(!x86compiler.movsd(real_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, real))));
+
+                rs_asure(!x86compiler.subsd(real_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, real))));
+                rs_asure(!x86compiler.movsd(x86::qword_ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                break;
+            }
+            case instruct::mulr:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto real_of_op2 = x86compiler.newXmmSd();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.movsd(real_of_op2, opnum2.const_value()->real));
+                else
+                    rs_asure(!x86compiler.movsd(real_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, real))));
+
+                rs_asure(!x86compiler.mulsd(real_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, real))));
+                rs_asure(!x86compiler.movsd(x86::qword_ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                break;
+            }
+            case instruct::divr:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                auto real_of_op2 = x86compiler.newXmmSd();
+                if (opnum2.is_constant())
+                    rs_asure(!x86compiler.movsd(real_of_op2, opnum2.const_value()->real));
+                else
+                    rs_asure(!x86compiler.movsd(real_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, real))));
+
+                rs_asure(!x86compiler.divsd(real_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, real))));
+                rs_asure(!x86compiler.movsd(x86::qword_ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                break;
+            }
+            case instruct::modr:
+            {
+                // TODO: NOT SUPPORT NOW
+                return nullptr;
+            }
+            case instruct::addh:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                if (opnum2.is_constant())
+                {
+                    rs_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                }
+                else
+                {
+                    auto int_of_op2 = x86compiler.newInt64();
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                    rs_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), int_of_op2));
+                }
+                break;
+            }
+            case instruct::subh:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                if (opnum2.is_constant())
+                {
+                    rs_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                }
+                else
+                {
+                    auto int_of_op2 = x86compiler.newInt64();
+                    rs_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                    rs_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), int_of_op2));
+                }
+
+                break;
+            }
+            case instruct::opcode::adds:
+            {
+                // TODO: NOT SUPPORT NOW
+                return nullptr;
+            }
+            case instruct::opcode::addx:
+            case instruct::opcode::subx:
+            case instruct::opcode::mulx:
+            case instruct::opcode::divx:
+            case instruct::opcode::modx:
+            {
+                // TODO: NOT SUPPORT NOW
+                return nullptr;
+            }
+            case instruct::set:
+            {
+                RS_JIT_ADDRESSING_N1;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
+
+                break;
+            }
+            case instruct::mov:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
+
+                break;
+            }
+            case instruct::opcode::movx:
+            case instruct::opcode::movcast:
+            case instruct::opcode::setcast:
+            {
+                // TODO: NOT SUPPORT NOW
+                return nullptr;
+            }
+            case instruct::opcode::typeas:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                auto type = RS_IPVAL_MOVE_1;
+                if (dr & 0b01)
+                {
+                    auto x86_typesame_label = x86compiler.newLabel();
+                    auto x86_typenotsame_label = x86compiler.newLabel();
+
+                    rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(jit_cr_ptr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+                    rs_asure(!x86compiler.cmp(x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), type));
+                    rs_asure(!x86compiler.jne(x86_typenotsame_label));
+                    rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
+                    rs_asure(!x86compiler.jmp(x86_typesame_label));
+
+                    rs_asure(!x86compiler.bind(x86_typenotsame_label));
+                    rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
+                    rs_asure(!x86compiler.bind(x86_typesame_label));
+                }
+                else
+                {
+                    auto x86_typesame_label = x86compiler.newLabel();
+
+                    rs_asure(!x86compiler.cmp(x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), type));
+                    rs_asure(!x86compiler.je(x86_typesame_label));
+                    RS_VM_FAIL(RS_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
+                    rs_asure(!x86compiler.bind(x86_typesame_label));
+                }
+                break;
+            }
+            case instruct::opcode::lds:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                if (opnum2.is_constant())
+                {
+                    auto bpoffset = x86compiler.newUIntPtr();
+                    rs_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(jit_stack_bp_ptr, opnum2.const_value()->integer * sizeof(value))));
+                    x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
+                }
+                else
+                {
+                    auto bpoffset = x86compiler.newUIntPtr();
+                    rs_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(jit_stack_bp_ptr, opnum2.gp_value(), sizeof(value))));
+                    x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
+                }
+                break;
+            }
+            case instruct::opcode::ldsr:
+            {
+                RS_JIT_ADDRESSING_N1;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                if (opnum2.is_constant())
+                {
+                    auto bpoffset = x86compiler.newUIntPtr();
+                    rs_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(jit_stack_bp_ptr, opnum2.const_value()->integer * sizeof(value))));
+                    x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                }
+                else
+                {
+                    auto bpoffset = x86compiler.newUIntPtr();
+                    rs_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(jit_stack_bp_ptr, opnum2.gp_value(), sizeof(value))));
+                    x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                }
+                break;
+            }
+            case instruct::equb:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                // <=
+
+                auto x86_equ_jmp_label = x86compiler.newLabel();
+                auto x86_nequ_jmp_label = x86compiler.newLabel();
+
+                rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(jit_cr_ptr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+
+                auto int_of_op1 = x86compiler.newInt64();
+                rs_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.jne(x86_nequ_jmp_label));
+
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
+                rs_asure(!x86compiler.jmp(x86_equ_jmp_label));
+                rs_asure(!x86compiler.bind(x86_nequ_jmp_label));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
+                rs_asure(!x86compiler.bind(x86_equ_jmp_label));
+
+                break;
+            }
+            case instruct::nequb:
+            {
+                RS_JIT_ADDRESSING_N1_REF;
+                RS_JIT_ADDRESSING_N2_REF;
+
+                // <=
+
+                auto x86_equ_jmp_label = x86compiler.newLabel();
+                auto x86_nequ_jmp_label = x86compiler.newLabel();
+
+                rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(jit_cr_ptr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+
+                auto int_of_op1 = x86compiler.newInt64();
+                rs_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                rs_asure(!x86compiler.jne(x86_nequ_jmp_label));
+
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
+                rs_asure(!x86compiler.jmp(x86_equ_jmp_label));
+                rs_asure(!x86compiler.bind(x86_nequ_jmp_label));
+                rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
+                rs_asure(!x86compiler.bind(x86_equ_jmp_label));
+
+                break;
+            }
+            case instruct::opcode::equx:
+            case instruct::opcode::nequx:
+            {
+                // TODO: NOT SUPPORT NOW
+                return nullptr;
+            }
             case instruct::elti:
             {
                 RS_JIT_ADDRESSING_N1_REF;
@@ -495,19 +804,18 @@ namespace rs
                 auto x86_greater_jmp_label = x86compiler.newLabel();
                 auto x86_lesseql_jmp_label = x86compiler.newLabel();
 
-                x86compiler.mov(asmjit::x86::byte_ptr(jit_cr_ptr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
-
+                rs_asure(!x86compiler.mov(asmjit::x86::byte_ptr(jit_cr_ptr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
 
                 auto int_of_op1 = x86compiler.newInt64();
                 rs_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
                 rs_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                x86compiler.jg(x86_greater_jmp_label);
+                rs_asure(!x86compiler.jg(x86_greater_jmp_label));
 
                 rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 1));
-                x86compiler.jmp(x86_lesseql_jmp_label);
-                x86compiler.bind(x86_greater_jmp_label);
+                rs_asure(!x86compiler.jmp(x86_lesseql_jmp_label));
+                rs_asure(!x86compiler.bind(x86_greater_jmp_label));
                 rs_asure(!x86compiler.mov(x86::qword_ptr(jit_cr_ptr, offsetof(value, integer)), 0));
-                x86compiler.bind(x86_lesseql_jmp_label);
+                rs_asure(!x86compiler.bind(x86_lesseql_jmp_label));
 
                 break;
             }
@@ -579,7 +887,7 @@ namespace rs
 
                 switch (page_index)
                 {
-                case 0:     // extern-opcode-page-0
+                case 0: // extern-opcode-page-0
                     switch ((instruct::extern_opcode_page_0)(opcode))
                     {
                     default:
@@ -587,7 +895,7 @@ namespace rs
                         return nullptr;
                     }
                     break;
-                case 1:     // extern-opcode-page-1
+                case 1: // extern-opcode-page-1
                     switch ((instruct::extern_opcode_page_1)(opcode))
                     {
                     case instruct::extern_opcode_page_1::endjit:
@@ -624,7 +932,7 @@ namespace rs
 
         /////////////////
 
-         // There is something wrong happend.
+        // There is something wrong happend.
         return nullptr;
     }
 }

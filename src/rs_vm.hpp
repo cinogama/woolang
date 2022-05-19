@@ -3249,6 +3249,13 @@ namespace rs
 #undef RS_IPVAL_MOVE_2
 #undef RS_IPVAL_MOVE_1
 #undef RS_IPVAL
+#undef RS_SAFE_READ_OFFSET_GET_QWORD
+#undef RS_SAFE_READ_OFFSET_GET_DWORD
+#undef RS_SAFE_READ_OFFSET_GET_WORD
+#undef RS_SAFE_READ_OFFSET_PER_BYTE
+#undef RS_SAFE_READ_MOVE_2
+#undef RS_SAFE_READ_MOVE_4
+#undef RS_SAFE_READ_MOVE_8
 
             }
             catch (const rs::rsruntime_exception& any_excep)

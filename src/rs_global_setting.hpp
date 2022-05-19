@@ -57,7 +57,7 @@ namespace rs
 #else
             ArchType::UNKNOWN | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
 #endif
-            
+
         constexpr size_t CPU_CACHELINE_SIZE =
 #ifdef __cpp_lib_hardware_interference_size
             std::hardware_constructive_interference_size
@@ -100,14 +100,16 @@ namespace rs
         inline bool ENABLE_AVOIDING_FALSE_SHARED = false;
 
         /*
-        * ENABLE_JUST_IN_TIME = true
+        * ENABLE_JUST_IN_TIME = true (Only in x86_64 now)
         * --------------------------------------------------------------------
         *   RScene will use asmjit to generate code in runtime.
         * --------------------------------------------------------------------
-        *   if ENABLE_JUST_IN_TIME is true, compiler will generate 'jitcall' 
+        *   if ENABLE_JUST_IN_TIME is true, compiler will generate 'jitcall'
         * and 'ext0_jitend' in ir to notify jit work.
         * --------------------------------------------------------------------
         */
-        inline bool ENABLE_JUST_IN_TIME = true;
+        inline bool ENABLE_JUST_IN_TIME =
+            (platform_info::ARCH_TYPE & (platform_info::ArchType::X86 | platform_info::ArchType::BIT64))
+            == (platform_info::ArchType::X86 | platform_info::ArchType::BIT64);
     }
 }
