@@ -391,7 +391,9 @@ namespace rs
                             bool using_template = false;
                             auto using_template_args = type->template_arguments;
                             if (type->has_template())
-                                using_template = begin_template_scope(type_sym->define_node, type->template_arguments);
+                                using_template = type_sym->define_node ?
+                                begin_template_scope(type_sym->define_node, type->template_arguments)
+                                : begin_template_scope(type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments);
 
                             auto* symboled_type = new ast::ast_type(L"pending");
                             symboled_type->set_type(type_sym->type_informatiom);
