@@ -4,7 +4,7 @@
 #include "rs_compiler_parser.hpp"
 
 #define RS_LANG_GRAMMAR_LR1_AUTO_GENED
-#define RS_LANG_GRAMMAR_CRC64 0x529a2a1e88b0e851ull
+#define RS_LANG_GRAMMAR_CRC64 0xd1785ef252c17a69ull
 
 
 namespace rs
