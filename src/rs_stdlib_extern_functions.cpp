@@ -27,6 +27,11 @@ RS_API rs_api rslib_std_panic(rs_vm vm, rs_value args, size_t argc)
     rs_fail(RS_FAIL_DEADLY, rs_string(args + 0));
     return rs_ret_nil(vm);
 }
+RS_API rs_api rslib_std_halt(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_fail(RS_FAIL_HEAVY, rs_string(args + 0));
+    return rs_ret_nil(vm);
+}
 RS_API rs_api rslib_std_throw(rs_vm vm, rs_value args, size_t argc)
 {
     throw rs::rsruntime_exception(RS_FAIL_MEDIUM, rs_string(args + 0));
@@ -728,6 +733,7 @@ namespace std
 {
     extern("rslib_std_throw") func throw(var msg:string):void;
     extern("rslib_std_fail") func fail(var msg:string):void;
+    extern("rslib_std_halt") func halt(var msg:string):void;
     extern("rslib_std_panic") func panic(var msg:string):void;
 
     extern("rslib_std_print") func print(...):int;

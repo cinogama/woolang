@@ -267,6 +267,9 @@ RS_API rs_string_t  rs_debug_trace_callstack(rs_vm vm, size_t layer);
 #define RS_FAIL_MEDIUM 0xB000
 
 #define RS_FAIL_TYPE_FAIL 0xB001
+#define RS_FAIL_ACCESS_NIL 0xB001
+#define RS_FAIL_INDEX_FAIL 0xB002
+#define RS_FAIL_CALL_FAIL 0xB003
 
 // Heavy error:
 // Such errors will make it difficult for the program to continue running.
@@ -274,12 +277,9 @@ RS_API rs_string_t  rs_debug_trace_callstack(rs_vm vm, size_t layer);
 // usually lead to other errors and even the program may crash.
 //
 // * If you are re-write fail-handler-function, you may need throw it(or fallback).
-//
+// * HEAVY_FAIL WILL ABORT VIRTUALMACHINE BY DEFAULT
 #define RS_FAIL_HEAVY 0xC000
 
-#define RS_FAIL_ACCESS_NIL 0xC001
-#define RS_FAIL_INDEX_FAIL 0xC002
-#define RS_FAIL_CALL_FAIL 0xC003
 
 // Deadly error:
 // This type of error is caused by complex reasons, any default solutions are useless,

@@ -74,7 +74,7 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
     else if ((rterrcode & RS_FAIL_TYPE_MASK) == RS_FAIL_HEAVY)
     {
         // Just throw it..
-        rs::rs_stderr << ANSI_HIY "This is a heavy failure, it will be throw." ANSI_RST << rs::rs_endl;
+        rs::rs_stderr << ANSI_HIY "This is a heavy failure, abort." ANSI_RST << rs::rs_endl;
         throw rs::rsruntime_exception(rterrcode, reason);
     }
     else
@@ -83,7 +83,8 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
         rs::rs_stderr << "1) Abort program.(You can attatch debuggee.)" << rs::rs_endl;
         rs::rs_stderr << "2) Continue.(May cause unknown errors.)" << rs::rs_endl;
         rs::rs_stderr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << rs::rs_endl;
-        rs::rs_stderr << "4) Throw exception.(Not exactly safe.)" << rs::rs_endl;
+        rs::rs_stderr << "4) Halt (Not exactly safe, this vm will be abort.)" << rs::rs_endl;
+        rs::rs_stderr << "5) Throw exception.(Not exactly safe)" << rs::rs_endl;
         do
         {
             int choice;
@@ -108,13 +109,20 @@ void _default_fail_handler(rs_string_t src_file, uint32_t lineno, rs_string_t fu
 
                 break;
             case 4:
+                rs::rs_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << rs::rs_endl;
                 throw rs::rsruntime_exception(rterrcode, reason);
 
                 // in debug, if there is no catcher for rs_runtime_error, 
                 // the program may continue working.
                 // Abort here.
                 rs_error(reason);
+            case 5:
+                throw rs::rsruntime_exception(RS_FAIL_MEDIUM, reason);
 
+                // in debug, if there is no catcher for rs_runtime_error, 
+                // the program may continue working.
+                // Abort here.
+                rs_error(reason);
             default:
                 rs::rs_stderr << ANSI_HIR "Invalid choice" ANSI_RST << rs::rs_endl;
             }

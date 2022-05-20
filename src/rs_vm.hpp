@@ -6,6 +6,7 @@
 #include "rs_global_setting.hpp"
 #include "rs_memory.hpp"
 #include "rs_compiler_jit.hpp"
+#include "rs_exceptions.hpp"
 
 #include <csetjmp>
 #include <shared_mutex>
@@ -3191,6 +3192,14 @@ namespace rs
 #undef RS_IPVAL_MOVE_1
 #undef RS_IPVAL
 
+            }
+            catch (const rs::rsruntime_exception& any_excep)
+            {
+                if (any_excep.rsexception_code >= RS_FAIL_HEAVY)
+                    interrupt(ABORT_INTERRUPT);
+
+                er->set_string(any_excep.what());
+                rs::exception_recovery::rollback(this);
             }
             catch (const std::exception& any_excep)
             {
