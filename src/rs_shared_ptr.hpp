@@ -46,7 +46,7 @@ namespace rs
         {
             ptr = v.ptr;
             release_func = v.release_func;
-            if (ref_count = v.ref_count)
+            if ((ref_count = v.ref_count))
                 ++* ref_count;
         }
 

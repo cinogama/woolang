@@ -2814,8 +2814,11 @@ namespace rs
                         break;
                     }
                     case instruct::opcode::jmp:
-                        rt_ip = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                    {
+                        auto* restore_ip = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                        rt_ip = restore_ip;
                         break;
+                    }
                     case instruct::opcode::jt:
                     {
                         uint32_t aimplace = RS_IPVAL_MOVE_4;
@@ -2850,7 +2853,8 @@ namespace rs
                         {
                             // clean
                             rs::exception_recovery::ok(this);
-                            rt_ip = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                            auto* restore_ip = rt_env->rt_codes + RS_IPVAL_MOVE_4;
+                            rt_ip = restore_ip;
                         }
                         break;
                     }
