@@ -10,7 +10,7 @@ namespace rs
 
         auto strlength = strlen(chidx);
 
-        if (std::mbrlen(chidx, 1, &mb) == -2)
+        if (std::mbrlen(chidx, 1, &mb) == (size_t)-2)
         {
             if (strlength)
             {

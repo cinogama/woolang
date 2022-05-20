@@ -163,14 +163,14 @@ namespace rs
 
                     vmbase* marking_vm = nullptr;
                     vmbase::vm_type vm_type;
-                    while (marking_vm = _get_next_mark_vm(&vm_type))
+                    while ((marking_vm = _get_next_mark_vm(&vm_type)))
                     {
                         if (auto env = marking_vm->env)
                         {
                             if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
                             {
                                 // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                for (int cgr_index = 0;
+                                for (size_t cgr_index = 0;
                                     cgr_index < env->constant_and_global_value_takeplace_count;
                                     cgr_index++)
                                 {
@@ -187,7 +187,7 @@ namespace rs
                                 // Mark stack, reg, 
 
                                 // walk thorgh regs.
-                                for (int reg_index = 0;
+                                for (size_t reg_index = 0;
                                     reg_index < env->real_register_count;
                                     reg_index++)
                                 {

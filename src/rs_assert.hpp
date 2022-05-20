@@ -11,7 +11,7 @@
 #define rs_static_assert_size(VAR, SIZE) \
 static_assert(sizeof(VAR) == SIZE, "'" #VAR "' should be " #SIZE " byte.")
 
-static void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
+inline void _rs_assert(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     rs::rs_stderr << ANSI_HIR "Assert failed: " ANSI_RST << judgement << rs::rs_endl;
     if (reason)
@@ -23,7 +23,7 @@ static void _rs_assert(const char* file, uint32_t line, const char* function, co
     abort();
 }
 
-static void _rs_warning(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
+inline void _rs_warning(const char* file, uint32_t line, const char* function, const char* judgement, const char* reason = nullptr)
 {
     rs::rs_stderr << ANSI_HIY "Warning: " ANSI_RST << judgement << rs::rs_endl;
     if (reason)

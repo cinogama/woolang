@@ -86,11 +86,6 @@ namespace rs
         if (result == FAIL_INDEX)
             return FAIL_LOC;
 
-        auto maxvidx = _general_src_data_buf_b.end();
-        maxvidx--;
-
-        auto maxval = maxvidx->first;
-
         while (_general_src_data_buf_b.find(result) == _general_src_data_buf_b.end())
         {
             if (!result)
