@@ -4066,9 +4066,9 @@ namespace rs
 
                 ast_value* value_node;
                 ast_type* type_node;
-                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
+                if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0))))
                 {
-                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                    if ((type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                     {
                         ast_value_type_check* checking_node = new ast_value_type_check(value_node, type_node);
                         checking_node->update_constant_value(&lex);

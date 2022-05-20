@@ -1286,7 +1286,6 @@ namespace rs
                             else
                             {
                                 ast_value_function_define* dumpped_template_func_define = nullptr;
-                                ast_value_function_define* origin_template_func_define = nullptr;
 
                                 rs_assert(sym->function_overload_sets.size());
                                 for (auto& func_overload : sym->function_overload_sets)

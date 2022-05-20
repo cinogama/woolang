@@ -183,7 +183,7 @@ stepir          si                            Execute next command.
 
         void display_variable(rs::vmbase* vmm, rs::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
-            auto real_offset = -varinfo.bp_offset;
+            // auto real_offset = -varinfo.bp_offset;
             auto value_in_stack = current_frame_bp - varinfo.bp_offset;
             rs_stdout << varinfo.name << " define at line: " << varinfo.define_place << rs_endl;
             if (varinfo.bp_offset >= 0)
