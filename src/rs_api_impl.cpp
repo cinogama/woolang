@@ -880,6 +880,8 @@ rs_string_t rs_cast_string(const rs_value value)
     }
     case rs::value::valuetype::invalid:
         return "nil";
+    default:
+        break;
     }
 
     std::map<rs::gcbase*, int> _tved_gcunit;

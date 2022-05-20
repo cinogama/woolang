@@ -36,8 +36,8 @@ namespace rs
         shared_pointer() noexcept = default;
         shared_pointer(T* v, void(*f)(T*) = nullptr) noexcept :
             ptr(v),
-            release_func(f ? f : DEFAULT_DESTROY_FUNCTION),
-            ref_count(new COUNTT(1))
+            ref_count(new COUNTT(1)),
+            release_func(f ? f : DEFAULT_DESTROY_FUNCTION)
         {
 
         }

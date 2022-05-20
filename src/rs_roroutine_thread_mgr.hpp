@@ -86,19 +86,20 @@ namespace rs
         vmthread(rs::vmbase* _vm, rs_int_t vm_funcaddr, size_t argc, rs::shared_pointer<RSCO_Waitter> _waitter = nullptr)
         {
             m_virtualmachine = _vm;
-            value* return_sp = _vm->co_pre_invoke(vm_funcaddr, argc);
+            if (_vm->co_pre_invoke(vm_funcaddr, argc))
+            {
+                m_fthread = new fthread(
+                    [=]() {
+                        m_virtualmachine->run();
 
-            m_fthread = new fthread(
-                [=]() {
-                    m_virtualmachine->run();
-
-                    if (_waitter)
-                    {
-                        _waitter->complete();
+                        if (_waitter)
+                        {
+                            _waitter->complete();
+                        }
+                        m_finish_flag = true;
                     }
-                    m_finish_flag = true;
-                }
-            );
+                );
+            }
         }
         vmthread(rs::vmbase* _vm, rs_handle_t native_funcaddr, size_t argc, rs::shared_pointer<RSCO_Waitter> _waitter = nullptr)
         {
@@ -518,8 +519,8 @@ namespace rs
             m_working_thread.clear();
         }
         fvmscheduler(size_t working_thread_count)
-            :_hr_current_time_point(_hr_clock.now())
-            , m_working_thread(working_thread_count)
+            : m_working_thread(working_thread_count)
+            , _hr_current_time_point(_hr_clock.now())
         {
             _schedule_thread = std::move(std::thread(_fvmscheduler_thread_work, this));
             _schedule_timer_thread = std::move(std::thread(_fvmscheduler_timer_work, this));

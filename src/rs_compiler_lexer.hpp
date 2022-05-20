@@ -158,7 +158,10 @@ namespace rs
         int         format_string_count;
         int         curly_count;
 
+        std::string   source_file;
+
         std::set<std::wstring> imported_file_list;
+
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
 
         bool has_been_imported(const std::wstring& full_path)
@@ -170,7 +173,6 @@ namespace rs
             return false;
         }
 
-        std::string   source_file;
     private:
 
         inline const static std::map<std::wstring, lex_operator_info> lex_operator_list =
@@ -460,7 +462,7 @@ namespace rs
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg& msg = lex_error_list.emplace_back(
+            lex_error_list.emplace_back(
                 lex_error_msg
                 {
                     false,
@@ -484,7 +486,7 @@ namespace rs
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg& msg = lex_warn_list.emplace_back(
+            lex_warn_list.emplace_back(
                 lex_error_msg
                 {
                     true,
@@ -508,7 +510,7 @@ namespace rs
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg& msg = lex_error_list.emplace_back(
+            lex_error_list.emplace_back(
                 lex_error_msg
                 {
                     false,
@@ -530,7 +532,7 @@ namespace rs
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg& msg = lex_warn_list.emplace_back(
+            lex_warn_list.emplace_back(
                 lex_error_msg
                 {
                     true,
@@ -557,7 +559,7 @@ namespace rs
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_msg& msg = lex_error_list.emplace_back(
+            lex_error_list.emplace_back(
                 lex_error_msg
                 {
                     false,
@@ -582,7 +584,7 @@ namespace rs
             size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
             size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
 
-            lex_error_msg& msg = lex_warn_list.emplace_back(
+            lex_warn_list.emplace_back(
                 lex_error_msg
                 {
                     true,

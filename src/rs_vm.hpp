@@ -879,7 +879,7 @@ namespace rs
             // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
             // So we do a move of 1BYTE here, for getting correct debuginfo.
 
-            int call_trace_count = 0;
+            size_t call_trace_count = 0;
 
             os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
             os << "\t--at " << src_location_info->source_file << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
@@ -913,7 +913,6 @@ namespace rs
         }
         inline size_t callstack_layer() const
         {
-            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - 1);
             // NOTE: When vm running, rt_ip may point to:
             // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
             //                                     ^1                     ^2                     ^3
@@ -1137,7 +1136,7 @@ namespace rs
     }
     inline void exception_recovery::_ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
     {
-        exception_recovery* _er = new exception_recovery(_vm, _ip, _sp, _bp);
+        new exception_recovery(_vm, _ip, _sp, _bp);
     }
 
 

@@ -1248,10 +1248,10 @@ namespace rs
                         auto& red_rule = ORGIN_P[take_action.state];
                         for (size_t i = red_rule.second.size(); i > 0; i--)
                         {
-                            size_t index = i - 1;
-
                             //NEED VERIFY?
-                            /*if (sym_stack.top() != red_rule.second[index])
+                            /*
+                            size_t index = i - 1;
+                            if (sym_stack.top() != red_rule.second[index])
                             {
                                 return false;
                             }*/

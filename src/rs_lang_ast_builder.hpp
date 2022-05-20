@@ -3464,7 +3464,6 @@ namespace rs
                 rs_test(input.size() == 3);
                 std::wstring path;
                 std::wstring filename;
-                auto* fx = RS_NEED_AST(1);
 
                 ast_token* importfilepaths = dynamic_cast<ast_token*>(
                     dynamic_cast<ast_list*>(RS_NEED_AST(1))->children);
@@ -3793,7 +3792,7 @@ namespace rs
 
                         ast_func->value_type->append_function_argument_type(arg_node->value_type);
                     }
-                    else if (auto* arg_variadic = dynamic_cast<ast_token*>(argchild))
+                    else if (dynamic_cast<ast_token*>(argchild))
                         ast_func->value_type->set_as_variadic_arg_func();
                     argchild = argchild->sibling;
                 }
@@ -3846,7 +3845,6 @@ namespace rs
 
                 result->arguments = dynamic_cast<ast_list*>(RS_NEED_AST(2));
 
-                auto* callee = RS_NEED_AST(0);
                 if (ast_directed_values* adv = dynamic_cast<ast_directed_values*>(RS_NEED_AST(0)))
                 {
                     result->called_func = adv->direct_val;
@@ -4048,9 +4046,9 @@ namespace rs
 
                 ast_value* value_node;
                 ast_type* type_node;
-                if (value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0)))
+                if ((value_node = dynamic_cast<ast_value*>(RS_NEED_AST(0))))
                 {
-                    if (type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1)))
+                    if ((type_node = dynamic_cast<ast_type*>(RS_NEED_AST(1))))
                         return (ast_basic*)do_judge(lex, value_node, type_node);
                     return (ast_basic*)value_node;
                 }
@@ -4346,7 +4344,7 @@ namespace rs
                     ast_value* right_v = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                     rs_test(left_v && right_v);
 
-                    if (auto* apcked_varg = dynamic_cast<ast_value_packed_variadic_args*>(left_v))
+                    if (dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
                         return (grammar::ast_base*)new ast_value_indexed_variadic_args(right_v);
                     }
@@ -4586,8 +4584,6 @@ namespace rs
 
                 //{{{{
                     // var _iter = XXXXXX->iter();
-                ast_varref_defines* used_variables = new ast_varref_defines();
-
                 ast_value* be_iter_value = dynamic_cast<ast_value*>(RS_NEED_AST(6));
 
                 ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();

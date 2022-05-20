@@ -1482,8 +1482,6 @@ namespace rs
                 + real_register_count
                 + runtime_stack_count;
 
-            const auto v = sizeof(value);
-
             value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
 
             cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
@@ -1498,7 +1496,7 @@ namespace rs
             //  // Fill constant
             for (auto constant_record : constant_record_list)
             {
-                rs_assert(constant_record->constant_index < constant_value_count,
+                rs_assert((size_t)constant_record->constant_index < constant_value_count,
                     "Constant index out of range.");
 
                 constant_record->apply(&preserved_memory[constant_record->constant_index]);

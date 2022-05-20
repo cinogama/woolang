@@ -49,7 +49,8 @@ namespace rs
 
         void apply_template_setting(ast::ast_defines* defs)
         {
-            if (is_template_symbol = defs->is_template_define)
+            is_template_symbol = defs->is_template_define;
+            if (is_template_symbol)
             {
                 template_types = defs->template_type_name_list;
             }
@@ -371,8 +372,8 @@ namespace rs
                             lang* _lang;
                             lang_symbol* _tving_node;
                             traving_guard(lang* _lg, lang_symbol* ast_ndoe)
-                                :_tving_node(ast_ndoe)
-                                , _lang(_lg)
+                                : _lang(_lg)
+                                , _tving_node(ast_ndoe)
                             {
                                 _lang->traving_symbols.insert(_tving_node);
                             }
@@ -499,8 +500,8 @@ namespace rs
                 lang* _lang;
                 grammar::ast_base* _tving_node;
                 traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                    :_tving_node(ast_ndoe)
-                    , _lang(_lg)
+                    : _lang(_lg)
+                    , _tving_node(ast_ndoe)  
                 {
                     _lang->traving_node.insert(_tving_node);
                 }
@@ -1359,8 +1360,8 @@ namespace rs
                 lang* _lang;
                 grammar::ast_base* _tving_node;
                 traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                    :_tving_node(ast_ndoe)
-                    , _lang(_lg)
+                    : _lang(_lg)
+                    , _tving_node(ast_ndoe)
                 {
                     _lang->traving_node.insert(_tving_node);
                 }
@@ -2044,7 +2045,7 @@ namespace rs
                                 }
                                 if (real_args)
                                 {
-                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
+                                    if (dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
                                     {
                                         // TODO MARK NOT NEED EXPAND HERE
                                     }
@@ -2238,8 +2239,6 @@ namespace rs
                             a_variable_sym && a_variable_sym->value_type->is_pending_function())
                         {
                             // this function is in adjust..
-
-                            ast_value* final_adjust_func_overload = nullptr;
                             if (a_value_typecast->value_type->is_func())
                             {
                                 auto& func_symbol = a_variable_sym->symbol->function_overload_sets;
@@ -2753,7 +2752,7 @@ namespace rs
 
                     // Make it fast over..
                     a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
-                    for (int i = 1; i < _next_executer_type->argument_types.size(); i++)
+                    for (size_t i = 1; i < _next_executer_type->argument_types.size(); i++)
                     {
                         a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
                     }
@@ -3301,7 +3300,7 @@ namespace rs
                     break;
                 }
             }
-            else if (auto* a_value_literal = dynamic_cast<ast_value_literal*>(value))
+            else if (dynamic_cast<ast_value_literal*>(value))
             {
                 if (force_value)
                     return analyze_value(value, compiler, get_pure_value);
@@ -4233,8 +4232,8 @@ namespace rs
                 lang* _lang;
                 grammar::ast_base* _tving_node;
                 traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                    :_tving_node(ast_ndoe)
-                    , _lang(_lg)
+                    : _lang(_lg)
+                    , _tving_node(ast_ndoe)
                 {
                     _lang->traving_node.insert(_tving_node);
                 }
@@ -4462,15 +4461,15 @@ namespace rs
             {
                 real_analyze_finalize(a_namespace->in_scope_sentence, compiler);
             }
-            else if (ast_using_namespace* a_using_namespace = dynamic_cast<ast_using_namespace*>(ast_node))
+            else if (dynamic_cast<ast_using_namespace*>(ast_node))
             {
                 // do nothing
             }
-            else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
+            else if (dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // do nothing
             }
-            else if (ast_nop* a_nop = dynamic_cast<ast_nop*>(ast_node))
+            else if (dynamic_cast<ast_nop*>(ast_node))
             {
                 compiler->nop();
             }
@@ -5128,7 +5127,6 @@ namespace rs
                     if (var_ident->scope_namespaces.size())
                     {
                         size_t namespace_index = 0;
-                        lang_scope* begin_namespace = nullptr;
                         if (_searching->type != lang_scope::scope_type::namespace_scope)
                             _searching = _searching->belong_namespace;
 
