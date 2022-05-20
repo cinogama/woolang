@@ -912,9 +912,8 @@ rs_string_t rs_type_name(const rs_value value)
     case rs::value::valuetype::invalid:
         return "nil";
     default:
-        break;
+        return "unknown";
     }
-    return "unknown";
 }
 
 rs_integer_t rs_argc(const rs_vm vm)

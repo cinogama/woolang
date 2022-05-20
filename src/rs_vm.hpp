@@ -1253,6 +1253,8 @@ namespace rs
 
                 RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
                 {
+                    ((void)_uselessip); // avoid compiler warning
+
                     // LEAVE_INTERRUPT may be setted by other place, and here must clear it.
                     clear_interrupt(LEAVE_INTERRUPT);
                     interrupt(ABORT_INTERRUPT);
