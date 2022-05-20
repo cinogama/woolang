@@ -105,6 +105,7 @@ namespace rs
                 // do nothing
                 return *this;
             }
+            ast_base& operator = (ast_base&& another) = delete;
 
             bool completed_in_pass2 = false;
 
@@ -143,6 +144,7 @@ namespace rs
             std::wstring marking_label;
 
             virtual ~ast_base() = default;
+            ast_base(const ast_base&) = default;
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)
