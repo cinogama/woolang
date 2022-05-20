@@ -57,15 +57,15 @@ namespace rs
 
             // 1) Try get dll from script_path
             if (scriptpath)
-                if (result = dlopen((get_file_loc(scriptpath) + std::string(dllpath) + ".so").c_str(), RTLD_LAZY))
+                if ((result = dlopen((get_file_loc(scriptpath) + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
                     return result;
 
             // 2) Try get dll from exe_path
-            if (result = dlopen((exe_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY))
+            if ((result = dlopen((exe_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
                 return result;
 
             // 3) Try get dll from work_path
-            if (result = dlopen((work_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY))
+            if ((result = dlopen((work_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
                 return result;
 
             return nullptr;

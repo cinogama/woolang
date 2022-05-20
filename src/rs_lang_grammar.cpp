@@ -966,7 +966,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
 
                 // Generate StateID - NontermName Pair & StateID - TermInt Pair
                 ///////////////////////////////////////////////////////////////////////
-                int max_length_producer = 0;
+                size_t max_length_producer = 0;
                 std::map < std::wstring, int> nonte_list;
                 std::map < lex_type, int> te_list;
                 {
@@ -975,7 +975,7 @@ gm::nt(L"FUNC_DEFINE") >> gm::symlist{
                     for (auto& [op_nt, sym_list] : rs_grammar->ORGIN_P)
                     {
                         if (sym_list.size() > max_length_producer)
-                            max_length_producer = (int)sym_list.size();
+                            max_length_producer = sym_list.size();
 
                         if (nonte_list.find(op_nt.nt_name) == nonte_list.end())
                             nonte_list[op_nt.nt_name] = ++nt_count;

@@ -13,7 +13,7 @@ namespace rs
         // READ GOTO
         for (auto& goto_act : rslang_lr1_act_goto)
         {
-            for (int i = 1; i < sizeof(goto_act) / sizeof(goto_act[0]); i++)
+            for (size_t i = 1; i < sizeof(goto_act) / sizeof(goto_act[0]); i++)
             {
                 if (goto_act[i] != -1)
                     out_lr1table[goto_act[0]][grammar::nt(rslang_id_nonterm_list[i])]
@@ -26,7 +26,7 @@ namespace rs
         // READ R-S
         for (auto& red_sta_act : rslang_lr1_act_stack_reduce)
         {
-            for (int i = 1; i < sizeof(red_sta_act) / sizeof(red_sta_act[0]); i++)
+            for (size_t i = 1; i < sizeof(red_sta_act) / sizeof(red_sta_act[0]); i++)
             {
                 if (red_sta_act[i] != 0)
                 {
@@ -61,7 +61,7 @@ namespace rs
     {
         for (auto& followset : rslang_follow_sets)
         {
-            for (int i = 1; i < sizeof(followset) / sizeof(followset[0]) && followset[i] != 0; i++)
+            for (size_t i = 1; i < sizeof(followset) / sizeof(followset[0]) && followset[i] != 0; i++)
             {
                 out_followset[grammar::nt(rslang_id_nonterm_list[followset[0]])].insert(
                     grammar::te(rslang_id_term_list[followset[i]])
