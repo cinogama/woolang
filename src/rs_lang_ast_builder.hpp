@@ -685,6 +685,9 @@ namespace rs
             bool is_constant = false;
             rs::value constant_value;
 
+            ast_value& operator = (ast_value&&) = delete;
+            ast_value& operator = (const ast_value&) = default;
+
             virtual rs::value& get_constant_value()
             {
                 if (!this->is_constant)
