@@ -145,6 +145,16 @@ void rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionna
     _rs_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
+void rs_throw(rs_string_t reason)
+{
+    throw rs::rsruntime_exception(RS_FAIL_MEDIUM, reason);
+}
+
+void rs_halt(rs_string_t reason)
+{
+    throw rs::rsruntime_exception(RS_FAIL_HEAVY, reason);
+}
+
 void _rs_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
@@ -1068,7 +1078,7 @@ rs_vm rs_sub_vm(rs_vm vm, size_t stacksz)
 
 rs_vm rs_gc_vm(rs_vm vm)
 {
-    return CS_VM(RS_VM(vm)->gc_vm);
+    return CS_VM(RS_VM(vm)->get_or_alloc_gcvm());
 }
 
 void rs_close_vm(rs_vm vm)

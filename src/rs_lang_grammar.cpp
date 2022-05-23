@@ -242,7 +242,7 @@ gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm:
                 >> RS_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_protected) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_static) }
                 >> RS_ASTBUILDER_INDEX(ast::pass_token),

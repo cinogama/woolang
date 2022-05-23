@@ -254,6 +254,53 @@ namespace rs
 
             _alive_vm_list.insert(this);
         }
+
+        vmbase* get_or_alloc_gcvm() const
+        {
+            // TODO: GC will mark globle space when current vm is gc vm, we cannot do it now!
+
+            return gc_vm;
+#if 0
+            static_assert(std::atomic<vmbase*>::is_always_lock_free);
+
+            std::atomic<vmbase*>* vmbase_atomic = reinterpret_cast<std::atomic<vmbase*>*>(const_cast<vmbase**>(&gc_vm));
+            vmbase* const INVALID_VM_PTR = (vmbase*)(intptr_t)-1;
+
+        retry_to_fetch_gcvm:
+            if (vmbase_atomic->load())
+            {
+                vmbase* loaded_gcvm;
+                do
+                    loaded_gcvm = vmbase_atomic->load();
+                while (loaded_gcvm == INVALID_VM_PTR);
+
+                return loaded_gcvm;
+            }
+
+            vmbase* excepted = nullptr;
+            bool exchange_result = false;
+            do
+            {
+                exchange_result = vmbase_atomic->compare_exchange_weak(excepted, INVALID_VM_PTR);
+                if (!exchange_result && excepted)
+                {
+                    if (excepted == INVALID_VM_PTR)
+                        goto retry_to_fetch_gcvm;
+                    return excepted;
+                }
+            } while (!exchange_result);
+
+            rs_assert(vmbase_atomic->load() == INVALID_VM_PTR);
+            // Create a new VM using for GC destruct
+            auto * created_subvm_for_gc = make_machine(1024);
+            // gc_thread will be destructed by gc_work..
+            created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+
+            vmbase_atomic->store(created_subvm_for_gc);
+            return created_subvm_for_gc;
+#endif
+        }
+
         virtual ~vmbase()
         {
             do
@@ -329,9 +376,10 @@ namespace rs
             rs_asure(interrupt(LEAVE_INTERRUPT));
 
             // Create a new VM using for GC destruct
-            gc_vm = make_machine(1024);
+            auto* created_subvm_for_gc = make_machine(1024);
             // gc_thread will be destructed by gc_work..
-            gc_vm->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+            created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+            gc_vm = created_subvm_for_gc;
         }
         virtual vmbase* create_machine() const = 0;
         vmbase* make_machine(size_t stack_sz = 0) const
@@ -340,7 +388,7 @@ namespace rs
 
             vmbase* new_vm = create_machine();
 
-            new_vm->gc_vm = gc_vm;
+            new_vm->gc_vm = get_or_alloc_gcvm();
 
             // using LEAVE_INTERRUPT to stop GC
             new_vm->block_interrupt(GC_INTERRUPT);  // must not working when gc'
@@ -1095,7 +1143,7 @@ namespace rs
                 native_func(this, rt_bp, reg_begin, rt_cr);
 
                 return true;
-            }
+    }
             else
             {
                 rt_ip += 8; // skip function_addr
@@ -1105,8 +1153,8 @@ namespace rs
             rs_error("JIT DISABLED");
             return false;
 #endif
-        }
-    };
+}
+};
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
         : vm(_vm)

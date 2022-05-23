@@ -89,6 +89,8 @@ typedef void(*rs_fail_handler)(rs_string_t src_file, uint32_t lineno, rs_string_
 
 RS_API rs_fail_handler rs_regist_fail_handler(rs_fail_handler new_handler);
 RS_API void         rs_cause_fail(rs_string_t src_file, uint32_t lineno, rs_string_t functionname, uint32_t rterrcode, rs_string_t reason);
+RS_API void         rs_throw(rs_string_t reason);
+RS_API void         rs_halt(rs_string_t reason);
 
 #define rs_fail(ERRID, REASON) ((void)rs_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
 
