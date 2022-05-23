@@ -46,7 +46,7 @@ public:
             } while (0);
 
             std::lock_guard g1(m_vm_list_mx);
-            rs::vmbase* vmm = origin->make_machine(16384);
+            rs::vmbase* vmm = origin->make_machine(1024);
             return m_vm_list.emplace_back(vmm);
         }
         rs::shared_pointer<rs::runtime_env> get_one_env()

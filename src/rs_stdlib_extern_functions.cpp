@@ -1054,7 +1054,7 @@ struct rs_thread_pack
 
 RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_vm new_thread_vm = rs_sub_vm(vm);
+    rs_vm new_thread_vm = rs_sub_vm(vm, reinterpret_cast<rs::vmbase*>(vm)->stack_size);
 
     rs_int_t funcaddr_vm = 0;
     rs_handle_t funcaddr_native = 0;

@@ -5,6 +5,7 @@ cmake_minimum_required (VERSION 3.8)
 include_directories("../include")
 
 file(GLOB_RECURSE rscene_src_cpp *.cpp)
+file(GLOB_RECURSE rscene_src_hpp *.hpp)
 
 if (WIN32)
 	list(APPEND rscene_system_libs "")
@@ -16,13 +17,13 @@ add_definitions(-DRS_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
 if (${BUILD_SHARED_LIBS})
 	add_definitions(-DRS_SHARED_LIB)
-	add_library (rscene SHARED ${rscene_src_cpp})
+	add_library (rscene SHARED ${rscene_src_cpp} ${rscene_src_hpp} enum.h)
 else()
 	add_definitions(-DRS_STATIC_LIB)
 	if(UNIX)
 		add_compile_options(-Wall -rdynamic)
 	endif()
-	add_library(rscene STATIC ${rscene_src_cpp})
+	add_library(rscene STATIC ${rscene_src_cpp} ${rscene_src_hpp} enum.h)
 endif()
 
 target_link_libraries(rscene ${rscene_system_libs})

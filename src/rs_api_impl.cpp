@@ -1061,9 +1061,9 @@ rs_vm rs_create_vm()
     return (rs_vm)new rs::vm;
 }
 
-rs_vm rs_sub_vm(rs_vm vm)
+rs_vm rs_sub_vm(rs_vm vm, size_t stacksz)
 {
-    return CS_VM(RS_VM(vm)->make_machine());
+    return CS_VM(RS_VM(vm)->make_machine(stacksz));
 }
 
 rs_vm rs_gc_vm(rs_vm vm)
@@ -1115,7 +1115,7 @@ void* rs_co_wait_for(rs_waitter_t waitter)
 }
 
 
-rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
+rs_bool_t _rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src, size_t stacksz)
 {
     // 1. Prepare lexer..
     rs::lexer* lex = nullptr;
@@ -1356,19 +1356,29 @@ rs_value rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc)
     return nullptr;
 }
 
-rs_bool_t rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
+rs_bool_t rs_load_source_with_stacksz(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src, size_t stacksz)
 {
     if (!virtual_src_path)
         virtual_src_path = "__runtime_script__";
 
     rs_virtual_source(virtual_src_path, src, true);
 
-    return _rs_load_source(vm, virtual_src_path, src);
+    return _rs_load_source(vm, virtual_src_path, src, stacksz);
+}
+
+rs_bool_t rs_load_file_with_stacksz(rs_vm vm, rs_string_t virtual_src_path, size_t stacksz)
+{
+    return _rs_load_source(vm, virtual_src_path, nullptr, stacksz);
+}
+
+rs_bool_t rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src)
+{
+    return rs_load_source_with_stacksz(vm, virtual_src_path, src, 0);
 }
 
 rs_bool_t rs_load_file(rs_vm vm, rs_string_t virtual_src_path)
 {
-    return _rs_load_source(vm, virtual_src_path, nullptr);
+    return rs_load_file_with_stacksz(vm, virtual_src_path, 0);
 }
 
 rs_value rs_run(rs_vm vm)

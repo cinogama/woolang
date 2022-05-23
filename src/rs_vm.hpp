@@ -304,7 +304,7 @@ namespace rs
         vmbase* gc_vm;
 
         shared_pointer<runtime_env> env;
-        void set_runtime(ir_compiler& _compiler)
+        void set_runtime(ir_compiler& _compiler, size_t stacksz = 0)
         {
             // using LEAVE_INTERRUPT to stop GC
             block_interrupt(GC_INTERRUPT);  // must not working when gc
@@ -312,7 +312,7 @@ namespace rs
 
             rs_assert(nullptr == _self_stack_reg_mem_buf);
 
-            env = _compiler.finalize();
+            env = _compiler.finalize(stacksz);
             ++env->_running_on_vm_count;
 
             stack_mem_begin = env->stack_begin;
@@ -329,7 +329,7 @@ namespace rs
             rs_asure(interrupt(LEAVE_INTERRUPT));
 
             // Create a new VM using for GC destruct
-            gc_vm = make_machine();
+            gc_vm = make_machine(1024);
             // gc_thread will be destructed by gc_work..
             gc_vm->virtual_machine_type = vm_type::GC_DESTRUCTOR;
         }

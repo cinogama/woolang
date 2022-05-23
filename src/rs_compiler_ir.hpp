@@ -1449,7 +1449,7 @@ namespace rs
 #undef RS_PUT_IR_TO_BUFFER
 
     private:
-        shared_pointer<runtime_env> finalize()
+        shared_pointer<runtime_env> finalize(size_t stacksz = 0)
         {
             // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
@@ -1472,7 +1472,7 @@ namespace rs
             }
 
             size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-            size_t runtime_stack_count = 65536;  // by default
+            size_t runtime_stack_count = stacksz ? stacksz : 1024;  // by default
 
             size_t preserve_memory_size =
                 constant_value_count
