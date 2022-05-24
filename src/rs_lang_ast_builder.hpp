@@ -1051,11 +1051,11 @@ namespace rs
                             else
                             {
                                 if (implicit)
-                                    lex->lang_error(0x0000, this, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                    lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                         ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                         value_type->get_type_name().c_str());
                                 else
-                                    lex->lang_error(0x0000, this, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                    lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                                         ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                         value_type->get_type_name().c_str());
 
@@ -1291,6 +1291,7 @@ namespace rs
             std::wstring var_name;
 
             std::vector<ast_type*> template_reification_args;
+            bool directed_function_call = false;
 
             ast_value_variable(const std::wstring& _var_name)
             {
@@ -3733,7 +3734,6 @@ namespace rs
                         ast_func->in_function_sentence = nullptr;
                         return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
 
-
                         ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(RS_NEED_AST(0));
                         if (ast_func->externed_func_info->externed_func)
                             ast_func->is_constant = true;
@@ -4809,7 +4809,7 @@ namespace rs
                 vbin->update_constant_value(&lex);
                 return (ast_basic*)vbin;
             }
-        }; 
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
@@ -4942,9 +4942,9 @@ namespace rs
             _registed_builder_function_id_list[meta::type_hash<pass_literal>] = _register_builder<pass_literal>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
-             
+
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<2>>] = _register_builder<pass_direct<2>>();

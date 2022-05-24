@@ -501,7 +501,7 @@ namespace rs
                 grammar::ast_base* _tving_node;
                 traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
                     : _lang(_lg)
-                    , _tving_node(ast_ndoe)  
+                    , _tving_node(ast_ndoe)
                 {
                     _lang->traving_node.insert(_tving_node);
                 }
@@ -709,7 +709,9 @@ namespace rs
                 if (sym)
                 {
                     a_value_var->value_type = sym->variable_value->value_type;
-                    if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
+                    if (sym->type == lang_symbol::symbol_type::variable
+                        && !a_value_var->directed_function_call
+                        && !a_value_var->template_reification_args.empty())
                     {
                         lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
                     }
@@ -791,23 +793,28 @@ namespace rs
                         a_value_func->add_child(a_value_func->in_function_sentence);
                     }
 
-                    if (a_value_func->externed_func_info && !a_value_func->externed_func_info->externed_func)
+                    if (a_value_func->externed_func_info)
                     {
                         if (a_value_func->externed_func_info->load_from_lib != L"")
                         {
-                            // Load lib,
-                            a_value_func->externed_func_info->externed_func =
-                                rslib_extern_symbols::get_lib_symbol(
-                                    a_value_func->source_file.c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                    extern_libs);
-                            if (a_value_func->externed_func_info->externed_func)
-                                a_value_func->is_constant = true;
+                            if (!a_value_func->externed_func_info->externed_func)
+                            {
+                                // Load lib,
+                                a_value_func->externed_func_info->externed_func =
+                                    rslib_extern_symbols::get_lib_symbol(
+                                        a_value_func->source_file.c_str(),
+                                        wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                                        wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                                        extern_libs);
+                                if (a_value_func->externed_func_info->externed_func)
+                                    a_value_func->is_constant = true;
+                                else
+                                    lang_anylizer->lang_error(0x0000, a_value_func, RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                        a_value_func->externed_func_info->symbol_name.c_str(),
+                                        a_value_func->externed_func_info->load_from_lib.c_str());
+                            }
                             else
-                                lang_anylizer->lang_error(0x0000, a_value_func, RS_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                    a_value_func->externed_func_info->symbol_name.c_str(),
-                                    a_value_func->externed_func_info->load_from_lib.c_str());
+                                a_value_func->is_constant = true;
                         }
                     }
 
@@ -838,6 +845,8 @@ namespace rs
                             && symb_callee->scope_namespaces.empty())
                         {
                             analyze_pass1(a_value_funccall->directed_value_from);
+
+                            symb_callee->directed_function_call = true;
 
                             a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
                             a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
@@ -1281,33 +1290,36 @@ namespace rs
                     {
                         if (!a_value_var->template_reification_args.empty())
                         {
-                            if (sym->type != lang_symbol::symbol_type::function)
-                                lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
-                            else
+                            if (!a_value_var->directed_function_call)
                             {
-                                ast_value_function_define* dumpped_template_func_define = nullptr;
-
-                                rs_assert(sym->function_overload_sets.size());
-                                for (auto& func_overload : sym->function_overload_sets)
-                                {
-                                    if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var, false))
-                                        continue; // In template function, not accessable function will be skip!
-
-                                    if (func_overload->is_template_define
-                                        && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
-                                    {
-                                        // TODO: finding repeated template? goon
-
-                                        dumpped_template_func_define = analyze_pass_template_reification(func_overload, a_value_var->template_reification_args);
-
-                                        break;
-                                    }
-                                }
-
-                                if (!dumpped_template_func_define)
-                                    lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                if (sym->type != lang_symbol::symbol_type::function)
+                                    lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
                                 else
-                                    a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
+                                {
+                                    ast_value_function_define* dumpped_template_func_define = nullptr;
+
+                                    rs_assert(sym->function_overload_sets.size());
+                                    for (auto& func_overload : sym->function_overload_sets)
+                                    {
+                                        if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var, false))
+                                            continue; // In template function, not accessable function will be skip!
+
+                                        if (func_overload->is_template_define
+                                            && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
+                                        {
+                                            // TODO: finding repeated template? goon
+
+                                            dumpped_template_func_define = analyze_pass_template_reification(func_overload, a_value_var->template_reification_args);
+
+                                            break;
+                                        }
+                                    }
+
+                                    if (!dumpped_template_func_define)
+                                        lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                    else
+                                        a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
+                                }
                             }
                         }
                         else
@@ -3659,12 +3671,18 @@ namespace rs
             else if (auto* a_value_function_define = dynamic_cast<ast_value_function_define*>(value))
             {
                 // function defination
-                if (a_value_function_define->ir_func_has_been_generated == false)
+                if (nullptr == a_value_function_define->externed_func_info)
                 {
-                    in_used_functions.push_back(a_value_function_define);
-                    a_value_function_define->ir_func_has_been_generated = true;
+                    if (a_value_function_define->ir_func_has_been_generated == false)
+                    {
+                        in_used_functions.push_back(a_value_function_define);
+                        a_value_function_define->ir_func_has_been_generated = true;
+                    }
+                    return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
                 }
-                return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+                else
+                    // Extern template function in define, skip it.
+                    return reg(reg::ni);
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
@@ -3704,7 +3722,6 @@ namespace rs
                 bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
                     || a_value_funccall->called_func->value_type->is_variadic_function_type
                     || (fdef && fdef->is_different_arg_count_in_same_extern_symbol);
-
 
                 for (auto* argv : arg_list)
                 {
@@ -4660,7 +4677,6 @@ namespace rs
                         arg_count++;
                         arg_index = arg_index->sibling;
                     }
-
                     real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
                     auto temp_reg_to_stack_count = compiler->update_all_temp_regist_to_stack(funcbegin_ip);
