@@ -3682,7 +3682,7 @@ namespace rs
                 }
                 else
                     // Extern template function in define, skip it.
-                    return reg(reg::ni);
+                    return RS_NEW_OPNUM(reg(reg::ni));
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
