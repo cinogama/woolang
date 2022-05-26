@@ -29,6 +29,6 @@ build:
 test:
   stage: test
   script:
-    - ./build/rscenedriver test/test_all.rsn
+    - ./build/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
