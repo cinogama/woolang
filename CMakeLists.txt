@@ -1,4 +1,4 @@
-﻿# RestorableScene
+# RestorableScene
 #
 cmake_minimum_required (VERSION 3.8)
 
@@ -18,6 +18,13 @@ if (RS_MAKE_OUTPUT_IN_SAME_PATH)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
     set(LIBRARY_OUTPUT_PATH "${CMAKE_CURRENT_SOURCE_DIR}/build")
 endif()
+
+if(APPLE)
+    set(CMAKE_INSTALL_RPATH "@executable_path")
+else()
+    set(CMAKE_INSTALL_RPATH "$ORIGIN")
+endif()
+set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
 option(BUILD_SHARED_LIBS "Build rscene as shared lib" OFF)
 
