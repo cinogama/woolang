@@ -628,6 +628,7 @@ namespace rs
 
         static void stop_all()
         {
+            
             if (!_scheduler)
             {
                 rs_fail(RS_FAIL_NOT_SUPPORT, "Coroutine scheduler not supported.");
@@ -635,6 +636,7 @@ namespace rs
             }
             std::lock_guard g1(_scheduler->_schedule_mx);
 
+            // TODO: Here is not thread safe, some thread can't be pause, review!
             for (auto& wthread : _scheduler->m_working_thread)
                 wthread.pause_immediately();
             for (auto& wthread : _scheduler->m_working_thread)

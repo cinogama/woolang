@@ -10,7 +10,7 @@ namespace test_template
 
         func create<IType, EType, PredType>(var iter:IType<EType>, var pred:PredType)
         {
-            var self = new:<IType, EType, PredType>();
+            var self = new:<IType, EType>();
             self.iter = iter;
             self.pred = pred;
             return self;

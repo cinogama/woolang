@@ -1678,6 +1678,8 @@ namespace rs
 
                                                 if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
                                                 {
+                                                    if (variable->template_reification_args.size() > template_args.size())
+                                                        continue; // Give too many template arguments
                                                     for (size_t index = 0; index < variable->template_reification_args.size(); index++)
                                                     {
                                                         template_args[index] = variable->template_reification_args[index];
