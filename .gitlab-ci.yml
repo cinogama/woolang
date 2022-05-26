@@ -2,7 +2,7 @@
 variables:
   CACHE_FALLBACK_KEY: rs-build-master
 
-build:
+build_release:
   stage: build
   script:
     - if [ ! -d build ]; then mkdir build; fi
@@ -11,7 +11,7 @@ build:
     - make
     - cd ..
   artifacts:
-    name: ubuntu-rs-build-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    name: ubuntu-rs-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
       - build/rscenedriver
       - build/librscene.so
@@ -19,16 +19,50 @@ build:
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
     when: on_success
-    key: rs-build-$CI_COMMIT_REF_SLUG
+    key: rs-build-release-$CI_COMMIT_REF_SLUG
+    paths:
+        - "build/*"
+  tags:
+    - ubuntu1804_cicd
+
+build_debug:
+  stage: build
+  script:
+    - if [ ! -d build ]; then mkdir build; fi
+    - cd build
+    - cmake .. -DRS_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
+    - make
+    - cd ..
+  artifacts:
+    name: ubuntu-rs-build-debug-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    paths:
+      - build/rscenedriver
+      - build/librscene.so
+    expire_in: 1 week
+  # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
+  cache:
+    when: on_success
+    key: rs-build-debug-$CI_COMMIT_REF_SLUG
     paths:
         - "build/*"
   tags:
     - ubuntu1804_cicd
 
 # run tests using the binary built before
-test:
+test_debug:
   stage: test
   script:
-    - ./build/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/debug/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
+  dependencies:
+    - build_debug
+
+test_release:
+  stage: test
+  script:
+    - ./build/release/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+  tags:
+    - ubuntu1804_cicd
+  dependencies:
+    - build_release
