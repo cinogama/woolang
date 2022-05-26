@@ -52,7 +52,7 @@ build_debug:
 test_debug:
   stage: test
   script:
-    - ./build/debug/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/rscenedriver_debug test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
   dependencies:
@@ -61,7 +61,7 @@ test_debug:
 test_release:
   stage: test
   script:
-    - ./build/release/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
   dependencies:
