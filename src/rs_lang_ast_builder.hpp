@@ -3462,7 +3462,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 3);
+                rs_test(input.size() == 2);
                 std::wstring path;
                 std::wstring filename;
 
@@ -3941,7 +3941,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 4);
+                rs_test(input.size() == 3);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
                 rs_test(result);
 
@@ -3960,7 +3960,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                rs_test(input.size() == 4);
+                rs_test(input.size() == 3);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(RS_NEED_AST(2));
                 rs_test(result);
 
@@ -4536,14 +4536,14 @@ namespace rs
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_return* result = new ast_return();
-                if (input.size() == 3)
+                if (input.size() == 2)
                 {
                     if (!ast_empty::is_empty(input[1]))
                     {
                         result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(1));
                     }
                 }
-                else // ==4
+                else // ==3
                 {
                     result->return_value = dynamic_cast<ast_value*>(RS_NEED_AST(2));
                     result->return_value->is_mark_as_using_ref = true;
@@ -4703,7 +4703,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                if (input.size() == 2)
+                if (input.size() == 1)
                     return (ast_basic*)new ast_break;
                 auto result = new ast_break;
                 result->label = RS_NEED_TOKEN(1).identifier;
@@ -4714,7 +4714,7 @@ namespace rs
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                if (input.size() == 2)
+                if (input.size() == 1)
                     return (ast_basic*)new ast_continue;
                 auto result = new ast_continue;
                 result->label = RS_NEED_TOKEN(1).identifier;
