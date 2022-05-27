@@ -496,10 +496,12 @@ namespace rs
                         if (gcbase::gc_new_count > _gc_immediately_edge)
                         {
                             if (gcbase::gc_new_count > _gc_stop_the_world_edge)
-                                gcbase::gc_new_count -= _gc_stop_the_world_edge;
-                            else
                             {
                                 _gc_stopping_world_gc = true;
+                                gcbase::gc_new_count -= _gc_stop_the_world_edge;
+                            }
+                            else
+                            {
                                 gcbase::gc_new_count -= _gc_immediately_edge;
                             }
                             break;

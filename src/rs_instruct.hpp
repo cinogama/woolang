@@ -130,7 +130,7 @@ namespace rs
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
 
             setref = 0 RS_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // mknilarr = 1 RS_OPCODE_SPACE,   // ext(00) mknilarr(dr_0) REGID(1BYTE)/DIFF(4BYTE)
+            trans = 1 RS_OPCODE_SPACE,   // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             // mknilmap = 2 RS_OPCODE_SPACE,   // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
             packargs = 3 RS_OPCODE_SPACE,   // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 RS_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF

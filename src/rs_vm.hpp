@@ -292,7 +292,7 @@ namespace rs
 
             rs_assert(vmbase_atomic->load() == INVALID_VM_PTR);
             // Create a new VM using for GC destruct
-            auto * created_subvm_for_gc = make_machine(1024);
+            auto* created_subvm_for_gc = make_machine(1024);
             // gc_thread will be destructed by gc_work..
             created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
 
@@ -866,10 +866,11 @@ namespace rs
                         {
                         case instruct::extern_opcode_page_0::setref:
                             tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                            /*case instruct::extern_opcode_page_0::mknilarr:
-                                tmpos << "mknilarr\t"; print_opnum1(); break;
-                            case instruct::extern_opcode_page_0::mknilmap:
-                                tmpos << "mknilmap\t"; print_opnum1();  break;*/
+                        case instruct::extern_opcode_page_0::trans:
+                            tmpos << "trans\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                            /*
+                        case instruct::extern_opcode_page_0::mknilmap:
+                            tmpos << "mknilmap\t"; print_opnum1();  break; */
                         case instruct::extern_opcode_page_0::packargs:
                             tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::unpackargs:
@@ -1143,7 +1144,7 @@ namespace rs
                 native_func(this, rt_bp, reg_begin, rt_cr);
 
                 return true;
-    }
+            }
             else
             {
                 rt_ip += 8; // skip function_addr
@@ -1153,8 +1154,8 @@ namespace rs
             rs_error("JIT DISABLED");
             return false;
 #endif
-}
-};
+        }
+    };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
         : vm(_vm)
@@ -3059,14 +3060,14 @@ namespace rs
                                 opnum1->set_ref(opnum2);
                                 break;
                             }
-                            /*case instruct::extern_opcode_page_0::mknilarr:
+                            case instruct::extern_opcode_page_0::trans:
                             {
-                                RS_ADDRESSING_N1_REF;
-                                opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                                rt_cr->set_ref(opnum1);
+                                RS_ADDRESSING_N1;
+                                RS_ADDRESSING_N2_REF;
+                                opnum1->set_trans(opnum2);
                                 break;
                             }
-                            case instruct::extern_opcode_page_0::mknilmap:
+                            /*case instruct::extern_opcode_page_0::mknilmap:
                             {
                                 RS_ADDRESSING_N1_REF;
                                 opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);

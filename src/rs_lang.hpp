@@ -3743,7 +3743,22 @@ namespace rs
                     else
                     {
                         if (argv->is_mark_as_using_ref)
-                            compiler->pshr(complete_using_register(analyze_value(argv, compiler)));
+                        {
+                            auto& val = analyze_value(argv, compiler);
+                            if (is_cr_reg(val))
+                            {
+                                auto& refreg = get_useable_register_for_ref_value();
+                                // Cr may be modified in other calculated argument, such as:
+                                //  foo(ref f1(), ref f2())
+                                // So here need store the ref.
+                                compiler->ext_trans(refreg, reg(reg::cr));
+                                compiler->pshr(refreg);
+                            }
+                            else
+                                // Do not complete refreg, it might be used in other expr
+                                // TODO: Finish using reg after function call.
+                                compiler->pshr(val);
+                        }
                         else if (is_need_dup_when_mov(argv))
                         {
                             auto& tmpreg = analyze_value(argv, compiler, true);

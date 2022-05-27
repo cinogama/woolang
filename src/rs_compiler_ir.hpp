@@ -1399,6 +1399,21 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
+        void ext_trans(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set immediate as ref.");
+
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::trans;
+        }
+
+        template<typename OP1T, typename OP2T>
         void ext_movdup(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -2036,11 +2051,12 @@ namespace rs
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
-                            /*case instruct::extern_opcode_page_0::mknilarr:
-                                temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilarr));
-                                auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                                break;
-                            case instruct::extern_opcode_page_0::mknilmap:
+                        case instruct::extern_opcode_page_0::trans:
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(trans));
+                            auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            break;
+                            /*case instruct::extern_opcode_page_0::mknilmap:
                                 temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mknilmap));
                                 auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                                 break;*/
