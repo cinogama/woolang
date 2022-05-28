@@ -26,7 +26,15 @@ namespace rs
         rs_assert(gc::gc_is_marking());
 
         if (auto* mem = val->get_gcunit_with_barrier())
-            m_memo = new memo_unit{ mem, m_memo };
+        {
+            memo_unit* last_memo = m_memo;
+            memo_unit* new_memo = new memo_unit{ mem, nullptr };
+            do
+            {
+                new_memo->last = last_memo;
+
+            } while (!m_memo.compare_exchange_weak(last_memo, new_memo));
+        }
     }
 
     // A very simply GC system, just stop the vm, then collect inform
@@ -94,8 +102,7 @@ namespace rs
 
             rs::gcbase::gc_read_guard g1(unit);
 
-            gcbase::memo_unit* memo = unit->m_memo;
-            unit->m_memo = nullptr;
+            gcbase::memo_unit* memo = unit->pick_memo();
             while (memo)
             {
                 auto* curmemo = memo;

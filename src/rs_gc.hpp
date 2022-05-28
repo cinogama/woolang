@@ -183,15 +183,21 @@ namespace rs
             memo_unit* last;
         };
 
-        memo_unit* m_memo = nullptr;
+        std::atomic<memo_unit*> m_memo = nullptr;
+
+        memo_unit* pick_memo()
+        {
+            return m_memo.exchange(nullptr);
+        }
         void add_memo(const value* val);
 
         virtual ~gcbase() 
         {
-            while (m_memo)
+            auto memoptr = pick_memo();
+            while (memoptr)
             {
-                auto* curmemo = m_memo;
-                m_memo = m_memo->last;
+                auto* curmemo = memoptr;
+                memoptr = memoptr->last;
 
                 delete curmemo;
             }
