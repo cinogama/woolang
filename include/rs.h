@@ -145,6 +145,7 @@ RS_API void         rs_coroutine_pauseall();
 RS_API void         rs_coroutine_resumeall();
 RS_API void         rs_coroutine_stopall();
 RS_API void         rs_co_yield();
+RS_API void         rs_co_sleep(double time);
 
 typedef void* rs_waitter_t;
 RS_API rs_waitter_t        rs_co_create_waitter();

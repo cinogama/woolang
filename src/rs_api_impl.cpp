@@ -1091,6 +1091,11 @@ void rs_co_yield()
     rs::fthread::yield();
 }
 
+void rs_co_sleep(double time)
+{
+    rs::fvmscheduler::wait(time);
+}
+
 struct rs_custom_waitter : public rs::fvmscheduler_fwaitable_base
 {
     void* m_custom_data;
