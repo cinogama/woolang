@@ -383,6 +383,11 @@ rs_string_t rs_string(rs_value value)
     rs::gcbase::gc_read_guard rg1(_rsvalue->string);
     return _rsvalue->string->c_str();
 }
+rs_bool_t rs_bool(const rs_value value)
+{
+    auto _rsvalue = RS_VAL(value);
+    return _rsvalue->handle != 0;
+}
 rs_value rs_value_of_gchandle(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
@@ -1268,6 +1273,11 @@ rs_string_t rs_get_compile_warning(rs_vm vm, _rs_inform_style style)
         }*/
     }
     return _vm_compile_errors.c_str();
+}
+
+rs_string_t rs_get_runtime_error(rs_vm vm)
+{
+    return rs_cast_string(CS_VAL(RS_VM(vm)->er));
 }
 
 rs_bool_t rs_abort_vm(rs_vm vm)

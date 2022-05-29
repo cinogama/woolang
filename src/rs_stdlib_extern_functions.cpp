@@ -29,7 +29,7 @@ RS_API rs_api rslib_std_panic(rs_vm vm, rs_value args, size_t argc)
 }
 RS_API rs_api rslib_std_halt(rs_vm vm, rs_value args, size_t argc)
 {
-    rs_fail(RS_FAIL_HEAVY, rs_string(args + 0));
+    throw rs::rsruntime_exception(RS_FAIL_HEAVY, rs_string(args + 0));
     return rs_ret_nil(vm);
 }
 RS_API rs_api rslib_std_throw(rs_vm vm, rs_value args, size_t argc)

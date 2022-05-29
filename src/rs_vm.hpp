@@ -1035,7 +1035,9 @@ namespace rs
                 sp = return_sp;
                 bp = return_bp;
             }
-            return cr;
+            if(veh)
+                return cr;
+            return nullptr;
         }
         value* invoke(rs_handle_t rs_func_addr, rs_int_t argc)
         {
@@ -1064,7 +1066,9 @@ namespace rs
                 sp = return_sp;
                 bp = return_bp;
             }
-            return cr;
+            if (veh)
+                return cr;
+            return nullptr;
         }
 
 

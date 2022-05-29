@@ -111,6 +111,7 @@ RS_API rs_real_t    rs_real(const rs_value value);
 RS_API rs_handle_t  rs_handle(const rs_value value);
 RS_API rs_ptr_t     rs_pointer(const rs_value value);
 RS_API rs_string_t  rs_string(const rs_value value);
+RS_API rs_bool_t    rs_bool(const rs_value value);
 RS_API rs_value     rs_value_of_gchandle(rs_value value);
 
 RS_API void rs_set_int(rs_value value, rs_integer_t val);
@@ -183,6 +184,8 @@ RS_API rs_bool_t    rs_has_compile_error(rs_vm vm);
 RS_API rs_bool_t    rs_has_compile_warning(rs_vm vm);
 RS_API rs_string_t  rs_get_compile_error(rs_vm vm, _rs_inform_style style);
 RS_API rs_string_t  rs_get_compile_warning(rs_vm vm, _rs_inform_style style);
+
+RS_API rs_string_t  rs_get_runtime_error(rs_vm vm);
 
 RS_API rs_value     rs_push_int(rs_vm vm, rs_int_t val);
 RS_API rs_value     rs_push_real(rs_vm vm, rs_real_t val);
