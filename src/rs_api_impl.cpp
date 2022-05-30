@@ -344,6 +344,16 @@ rs_real_t rs_real(rs_value value)
     }
     return _rsvalue->real;
 }
+float rs_float(rs_value value)
+{
+    auto _rsvalue = RS_VAL(value);
+    if (_rsvalue->type != rs::value::valuetype::real_type)
+    {
+        rs_fail(RS_FAIL_TYPE_FAIL, "This value is not an real.");
+        return rs_cast_float(value);
+    }
+    return (float)_rsvalue->real;
+}
 rs_handle_t rs_handle(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
@@ -485,6 +495,12 @@ rs_real_t rs_cast_real(rs_value value)
         break;
     }
 }
+
+float rs_cast_float(rs_value value)
+{
+    return (float)rs_cast_real(value);
+}
+
 rs_handle_t rs_cast_handle(rs_value value)
 {
     auto _rsvalue = RS_VAL(value);
