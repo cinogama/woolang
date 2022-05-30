@@ -1381,6 +1381,37 @@ rs_value rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc)
     return nullptr;
 }
 
+rs_value rs_dispatch_rsfunc(rs_vm vm, rs_int_t vmfunc, rs_int_t argc)
+{
+    auto* vmm = RS_VM(vm);
+    vmm->set_br_yieldable(true);
+    return CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
+}
+
+rs_value rs_dispatch(rs_vm vm)
+{
+    if (RS_VM(vm)->env)
+    {
+        RS_VM(vm)->run();
+        
+        if (RS_VM(vm)->veh)
+        {
+            if (RS_VM(vm)->get_and_clear_br_yield_flag())
+                return RS_CONTINUE;
+
+            return reinterpret_cast<rs_value>(RS_VM(vm)->cr);
+        }
+        else
+            return nullptr;
+    }
+    return nullptr;
+}
+
+void rs_break_yield(rs_vm vm)
+{
+    RS_VM(vm)->interrupt(rs::vmbase::BR_YIELD_INTERRUPT);
+}
+
 rs_bool_t rs_load_source_with_stacksz(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src, size_t stacksz)
 {
     if (!virtual_src_path)

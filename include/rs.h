@@ -179,7 +179,9 @@ RS_API rs_bool_t    rs_load_source(rs_vm vm, rs_string_t virtual_src_path, rs_st
 RS_API rs_bool_t    rs_load_file(rs_vm vm, rs_string_t virtual_src_path);
 RS_API rs_bool_t    rs_load_source_with_stacksz(rs_vm vm, rs_string_t virtual_src_path, rs_string_t src, size_t stacksz);
 RS_API rs_bool_t    rs_load_file_with_stacksz(rs_vm vm, rs_string_t virtual_src_path, size_t stacksz);
+
 RS_API rs_value     rs_run(rs_vm vm);
+
 RS_API rs_bool_t    rs_has_compile_error(rs_vm vm);
 RS_API rs_bool_t    rs_has_compile_warning(rs_vm vm);
 RS_API rs_string_t  rs_get_compile_error(rs_vm vm, _rs_inform_style style);
@@ -203,6 +205,13 @@ RS_API void         rs_pop_stack(rs_vm vm);
 RS_API rs_value     rs_invoke_rsfunc(rs_vm vm, rs_int_t rsfunc, rs_int_t argc);
 RS_API rs_value     rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc);
 RS_API rs_value     rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc);
+
+RS_API rs_value     rs_dispatch_rsfunc(rs_vm vm, rs_int_t rsfunc, rs_int_t argc);
+
+#define RS_HAPPEND_ERR ((rs_value)nullptr)
+#define RS_CONTINUE    ((rs_value)(void*)-1)
+RS_API rs_value     rs_dispatch(rs_vm vm);
+RS_API void         rs_break_yield(rs_vm vm);
 
 RS_API rs_int_t     rs_lengthof(rs_value value);
 RS_API void         rs_arr_resize(rs_value arr, rs_int_t newsz, rs_value init_val);

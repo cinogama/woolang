@@ -437,6 +437,12 @@ RS_API rs_api rslib_std_randomreal(rs_vm vm, rs_value args)
     return rs_ret_real(vm, dis(mt64));
 }
 
+RS_API rs_api rslib_std_break_yield(rs_vm vm, rs_value args, size_t argc)
+{
+    rs_break_yield(vm);
+    return rs_ret_nil(vm);
+}
+
 RS_API rs_api rslib_std_array_resize(rs_vm vm, rs_value args, size_t argc)
 {
     rs_arr_resize(args + 0, rs_int(args + 1), args + 2);
@@ -754,6 +760,9 @@ namespace std
 
     extern("rslib_std_randomreal") 
         func rand(var from:real, var to:real):real;
+
+    extern("rslib_std_break_yield") 
+        func break_yield():void;
 
     extern("rslib_std_thread_sleep")
         func sleep(var tm:real):void;

@@ -119,14 +119,17 @@ namespace rs
             ABORT_INTERRUPT = 1 << 11,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            YIELD_INTERRUPT = 1 << 12,
-            // If virtual machine interrupt with YIELD_INTERRUPT, vm will stop immediately.
-            //  * Unlike ABORT_INTERRUPT, VM will clear YIELD_INTERRUPT flag after detective.
+            CO_YIELD_INTERRUPT = 1 << 12,
+            // If virtual machine interrupt with CO_YIELD_INTERRUPT, vm will stop immediately.
+            //  * Unlike ABORT_INTERRUPT, VM will clear CO_YIELD_INTERRUPT flag after detective.
             //  * This flag used for rs_coroutine
 
             PENDING_INTERRUPT = 1 << 13,
             // VM will be pending when roroutine_mgr finish using pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
+
+            BR_YIELD_INTERRUPT = 1 << 14,
+            // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
         };
 
         vmbase(const vmbase&) = delete;
@@ -156,10 +159,32 @@ namespace rs
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
 
+        bool _vm_br_yieldable = false;
+        bool _vm_br_yield_flag = false;
+
     protected:
         debuggee_base* attaching_debuggee = nullptr;
 
     public:
+        void set_br_yieldable(bool able) noexcept
+        {
+            _vm_br_yieldable = able;
+        }
+        bool get_br_yieldable() noexcept
+        {
+            return _vm_br_yieldable;
+        }
+        bool get_and_clear_br_yield_flag() noexcept
+        {
+            bool result = _vm_br_yield_flag;
+            _vm_br_yield_flag = false;
+            return result;
+        }
+        void mark_br_yield() noexcept
+        {
+            _vm_br_yield_flag = true;
+        }
+
         inline debuggee_base* attach_debuggee(debuggee_base* dbg)
         {
             if (dbg)
@@ -3194,13 +3219,24 @@ namespace rs
                             // CLEAR ABORT_INTERRUPT
                             return;
                         }
-                        else if (vm_interrupt & vm_interrupt_type::YIELD_INTERRUPT)
+                        else if (vm_interrupt & vm_interrupt_type::CO_YIELD_INTERRUPT)
                         {
-                            rs_asure(clear_interrupt(vm_interrupt_type::YIELD_INTERRUPT));
+                            rs_asure(clear_interrupt(vm_interrupt_type::CO_YIELD_INTERRUPT));
 
                             rs_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                             rs_co_yield();
                             rs_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                        }
+                        else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
+                        {
+                            rs_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
+                            if (get_br_yieldable())
+                            {
+                                mark_br_yield();
+                                return;
+                            }
+                            else
+                                rs_fail(RS_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
                         }
                         else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
                         {

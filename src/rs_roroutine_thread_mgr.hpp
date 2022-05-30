@@ -161,7 +161,7 @@ namespace rs
 
         void schedule_yield()
         {
-            m_virtualmachine->interrupt(vmbase::YIELD_INTERRUPT);
+            m_virtualmachine->interrupt(vmbase::CO_YIELD_INTERRUPT);
         }
 
         void schedule_abort()
