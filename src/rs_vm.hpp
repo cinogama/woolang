@@ -3092,7 +3092,7 @@ namespace rs
                             case instruct::extern_opcode_page_0::trans:
                             {
                                 RS_ADDRESSING_N1;
-                                RS_ADDRESSING_N2_REF;
+                                RS_ADDRESSING_N2;
                                 opnum1->set_trans(opnum2);
                                 break;
                             }
