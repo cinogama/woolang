@@ -52,10 +52,10 @@ namespace rs
         value* sp;
         value* bp;
         exception_recovery* last;
-        std::jmp_buf native_env;
+
         inline static void rollback(vmbase* _vm);
         inline static void ok(vmbase* _vm);
-        inline static void _ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
+        inline static void ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
     };
 
     struct vmbase
@@ -130,6 +130,8 @@ namespace rs
 
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
+
+            EXCEPTION_ROLLBACK_INTERRUPT = 1 << 15,
         };
 
         vmbase(const vmbase&) = delete;
@@ -1060,7 +1062,7 @@ namespace rs
                 sp = return_sp;
                 bp = return_bp;
             }
-            if(veh)
+            if (veh)
                 return cr;
             return nullptr;
         }
@@ -1200,7 +1202,24 @@ namespace rs
     {
         _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
         if (_vm->veh)
-            longjmp(_vm->veh->native_env, 1);
+        {
+            if (!_vm->veh->ip)
+            {
+                // Reached non-except handler, abort this vm and print call-stack
+                _vm->interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+                // unhandled exception happend.
+                rs_stderr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)_vm->er) << rs_endl;
+                _vm->dump_call_stack(32, true, std::cerr);
+            }
+            else
+            {
+                _vm->interrupt(vmbase::vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT);
+                _vm->ip = _vm->veh->ip;
+                _vm->sp = _vm->veh->sp;
+                _vm->bp = _vm->veh->bp;
+            }
+            ok(_vm);
+        }
         else
         {
             rs_error("No 'veh' in this vm.");
@@ -1212,23 +1231,10 @@ namespace rs
         _vm->veh = veh->last;
         delete veh;
     }
-    inline void exception_recovery::_ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
+    inline void exception_recovery::ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
     {
         new exception_recovery(_vm, _ip, _sp, _bp);
     }
-
-
-#define RS_READY_EXCEPTION_HANDLE(VM,IP,ROLLBACKIP,SP,BP)\
-    bool _rs_restore_from_exception = false;\
-    exception_recovery::_ready((VM),(ROLLBACKIP),(SP),(BP));\
-    if (setjmp((VM)->veh->native_env))\
-    {\
-        _rs_restore_from_exception = true;\
-        (IP) = (VM)->veh->ip;\
-        (SP) = (VM)->veh->sp;\
-        (BP) = (VM)->veh->bp;\
-        exception_recovery::ok((VM));\
-    }if(_rs_restore_from_exception)
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1324,26 +1330,9 @@ namespace rs
             );
 
             if (!veh)
-            {
-                const byte_t* _uselessip = nullptr;
-                value* _uselesssp = nullptr;
-                value* _uselessbp = nullptr;
+                exception_recovery::ready(this, nullptr, nullptr, nullptr);
 
-                RS_READY_EXCEPTION_HANDLE(this, _uselessip, 0, _uselesssp, _uselessbp)
-                {
-                    ((void)_uselessip); // avoid compiler warning
 
-                    // LEAVE_INTERRUPT may be setted by other place, and here must clear it.
-                    clear_interrupt(LEAVE_INTERRUPT);
-                    interrupt(ABORT_INTERRUPT);
-
-                    // unhandled exception happend.
-                    rs_stderr << ANSI_HIR "Unexpected exception: " ANSI_RST << rs_cast_string((rs_value)er) << rs_endl;
-                    dump_call_stack(32, true, std::cerr);
-                    return;
-
-                }
-            }
 #define RS_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define RS_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
@@ -1378,6 +1367,7 @@ namespace rs
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
+        VM_SIM_BEGIN:
             try
             {
                 for (;;)
@@ -2916,11 +2906,7 @@ namespace rs
                         if (dr & 0b10)
                         {
                             //begin
-                            RS_READY_EXCEPTION_HANDLE(this, rt_ip, rt_env->rt_codes + RS_IPVAL_MOVE_4, rt_sp, rt_bp)
-                            {
-                                // Maybe need something to solve exception?
-                                clear_interrupt(LEAVE_INTERRUPT);
-                            }
+                            rs::exception_recovery::ready(this, rt_env->rt_codes + RS_IPVAL_MOVE_4, rt_sp, rt_bp);
                         }
                         else if (dr & 0b01)
                         {
@@ -3213,6 +3199,13 @@ namespace rs
                             if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
                                 hangup();   // SLEEP UNTIL WAKE UP
                         }
+                        else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
+                        {
+                            rs_asure(clear_interrupt(vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT));
+                            rt_ip = ip;
+                            rt_sp = sp;
+                            rt_bp = bp;
+                        }
                         else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
                         {
                             // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
@@ -3294,11 +3287,13 @@ namespace rs
 
                 er->set_string(any_excep.what());
                 rs::exception_recovery::rollback(this);
+                goto VM_SIM_BEGIN;
             }
             catch (const std::exception& any_excep)
             {
                 er->set_string(any_excep.what());
                 rs::exception_recovery::rollback(this);
+                goto VM_SIM_BEGIN;
             }
         }
 
