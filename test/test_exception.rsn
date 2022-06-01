@@ -12,7 +12,11 @@ namespace test_exception
 	}
 	func main()
 	{
-		except foo();
+		except
+		{
+			foo();
+			std::halt("This cannot be shown.");
+		}
 		var vmm = std::vm::create();
         vmm->load_source("test_vm/test_exception.rsn", @"
 import rscene.std;
@@ -29,6 +33,8 @@ test();
 "@);
         vmm->run();
 		std::debug::invoke(std::vm::run, vmm);
+		std::debug::invoke(std::vm::run, vmm);
+		vmm->run();
 	}
 }
 
