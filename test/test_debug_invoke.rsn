@@ -33,7 +33,7 @@ namespace test_debug_invoke
         std::debug::invoke(cause_minor_fail);
 
         var i = 0:dynamic;
-        while (i<10)
+        while (i < 10)
         {
             test_equal(variadic_func_call("h", "e", "l", "l", "o", "w", "o", "r", "l", "d"),
                             std::debug::invoke(variadic_func_call, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d"));

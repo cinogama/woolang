@@ -32,13 +32,13 @@ namespace test_vm
 
         // Test memmory leak
         var i = 0;
-        while (i<1000)
+        while (i < 1000)
         {
             i += 1;
             var vmm = load_and_create_vmm(
                 @"
                 import rscene.std;
-                func test_template<T>(var n:T)
+                func test_template< T >(var n:T)
                 {
                     return n;
                 }

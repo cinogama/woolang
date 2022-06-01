@@ -1,0 +1,34 @@
+import rscene.std;
+import rscene.vm;
+import rscene.debug;
+
+import test_tool;
+
+namespace test_exception
+{
+	func foo()
+	{
+		std::throw("an exception~");
+	}
+	func main()
+	{
+		except foo();
+		var vmm = std::vm::create();
+        vmm->load_source("test_vm/test_exception.rsn", @"
+import rscene.std;
+func test()
+{
+	static var n = 0;
+	if (n == 1)
+		std::throw("");
+	else
+		std::println("ok!");
+}
+test();
+"@);
+        vmm->run();
+		std::debug::invoke(std::vm::run, vmm);
+	}
+}
+
+test_function("test_exception.main", test_exception::main);
