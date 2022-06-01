@@ -1367,10 +1367,9 @@ namespace rs
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
+        VM_SIM_BEGIN:
             try
             {
-            VM_SIM_BEGIN:
-
                 for (;;)
                 {
                     opcode_dr = *(rt_ip++);
