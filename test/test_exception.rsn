@@ -23,6 +23,7 @@ func test()
 		std::throw("");
 	else
 		std::println("ok!");
+	n += 1;
 }
 test();
 "@);
