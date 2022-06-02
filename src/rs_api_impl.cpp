@@ -433,6 +433,11 @@ void rs_set_string(rs_value value, rs_string_t val)
     auto _rsvalue = RS_VAL(value);
     _rsvalue->set_string(val);
 }
+void rs_set_bool(rs_value value, rs_bool_t val)
+{
+    auto _rsvalue = RS_VAL(value);
+    _rsvalue->set_integer(val ? 1 : 0);
+}
 void rs_set_val(rs_value value, rs_value val)
 {
     auto _rsvalue = RS_VAL(value);
@@ -1409,7 +1414,7 @@ rs_value rs_dispatch(rs_vm vm)
     if (RS_VM(vm)->env)
     {
         RS_VM(vm)->run();
-        
+
         if (RS_VM(vm)->veh)
         {
             if (RS_VM(vm)->get_and_clear_br_yield_flag())

@@ -120,6 +120,7 @@ RS_API void rs_set_real(rs_value value, rs_real_t val);
 RS_API void rs_set_handle(rs_value value, rs_handle_t val);
 RS_API void rs_set_pointer(rs_value value, rs_ptr_t val);
 RS_API void rs_set_string(rs_value value, rs_string_t val);
+RS_API void rs_set_bool(rs_value value, rs_bool_t val);
 RS_API void rs_set_val(rs_value value, rs_value val);
 RS_API void rs_set_ref(rs_value value, rs_value val);
 
