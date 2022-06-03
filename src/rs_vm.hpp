@@ -657,8 +657,8 @@ namespace rs
                     tmpos << "land\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::lor:
                     tmpos << "lor\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::lnot:
-                    tmpos << "lnot\t"; print_opnum1(); break;
+                case instruct::lmov:
+                    tmpos << "lmov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
                 case instruct::ltx:
                     tmpos << "ltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
@@ -2515,11 +2515,12 @@ namespace rs
 
                         break;
                     }
-                    case instruct::opcode::lnot:
+                    case instruct::opcode::lmov:
                     {
                         RS_ADDRESSING_N1_REF;
+                        RS_ADDRESSING_N2_REF;
 
-                        rt_cr->set_integer(!opnum1->integer);
+                        opnum1->set_integer(opnum2->integer ? 1 : 0);
 
                         break;
                     }

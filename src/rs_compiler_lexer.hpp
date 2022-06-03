@@ -78,6 +78,8 @@ namespace rs
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
 
+        l_question,   // ?
+
         l_import,               // import
 
         l_inf,
@@ -208,6 +210,7 @@ namespace rs
             {L"]",      {lex_type::l_index_end}},
             {L"->",      {lex_type::l_direct }},
             {L"@",      {lex_type::l_at }},
+            {L"?",      {lex_type::l_question }},
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =

@@ -257,7 +257,6 @@ void rs_init(int argc, char** argv)
 
     if (enable_std_package)
     {
-        rs_virtual_source(rs_stdlib_basic_src_path, rs_stdlib_basic_src_data, false);
         rs_virtual_source(rs_stdlib_src_path, rs_stdlib_src_data, false);
         rs_virtual_source(rs_stdlib_debug_src_path, rs_stdlib_debug_src_data, false);
         rs_virtual_source(rs_stdlib_vm_src_path, rs_stdlib_vm_src_data, false);

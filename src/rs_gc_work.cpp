@@ -23,8 +23,7 @@ namespace rs
 {
     void gcbase::add_memo(const value* val)
     {
-        rs_assert(gc::gc_is_marking());
-
+        // TODO: IF HAS BEEN FULL-MAKRED, SKIP MEMORY OPERATION
         if (auto* mem = val->get_gcunit_with_barrier())
         {
             memo_unit* last_memo = m_memo;

@@ -209,6 +209,8 @@ namespace rs
             std::atomic_bool   _shutdown_flag = false;
             std::atomic_bool   _pause_flag = false;
 
+            std::atomic_bool   _paused_flag = false;
+
             static void _queue_thread_work(fvmshcedule_queue_thread* _this)
             {
 #ifdef RS_PLATRORM_OS_WINDOWS
@@ -237,6 +239,7 @@ namespace rs
 
                     if (_this->_pause_flag)
                     {
+                        _this->_paused_flag = true;
                         _this->_current_vmthread = nullptr;
                         continue;
                     }
@@ -251,6 +254,7 @@ namespace rs
                     _this->_current_vmthread = working_thread;
                     working_thread->invoke_from(&_queue_main);
                     _this->_current_vmthread = nullptr;
+
                     if (working_thread->waitting())
                     {
                         std::lock_guard g1(_this->_jobs_queue_mx);
@@ -342,13 +346,13 @@ namespace rs
 
             void wait_until_paused()
             {
-                while (_current_vmthread)
+                while (_paused_flag)
                     std::this_thread::yield();
             }
 
             void resume()
             {
-                _pause_flag = false;
+                _paused_flag = _pause_flag = false;
                 _jobs_cv.notify_one();
             }
 
@@ -628,7 +632,7 @@ namespace rs
 
         static void stop_all()
         {
-            
+
             if (!_scheduler)
             {
                 rs_fail(RS_FAIL_NOT_SUPPORT, "Coroutine scheduler not supported.");

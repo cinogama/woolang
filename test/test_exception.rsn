@@ -24,17 +24,21 @@ func test()
 {
 	static var n = 0;
 	if (n == 1)
-		std::throw("");
+		std::throw("This exception should be throw.");
 	else
 		std::println("ok!");
 	n += 1;
+
+	return n;
 }
 test();
 "@);
-        vmm->run();
-		std::debug::invoke(std::vm::run, vmm);
-		std::debug::invoke(std::vm::run, vmm);
-		vmm->run();
+        test_assure(vmm->run() == 1);
+		test_assure(std::debug::invoke(std::vm::run, vmm) == nil);
+		
+		// This two function will not run.
+		test_assure(std::debug::invoke(std::vm::run, vmm) == nil);
+		test_assure(vmm->run() == nil);
 	}
 }
 

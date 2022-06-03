@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_bool;
 import test_exception;
 import test_operator_overload;
 import test_return;

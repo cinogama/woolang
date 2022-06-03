@@ -238,6 +238,13 @@ namespace rs
         {
             _this_thread_lang_context = this;
             begin_namespace(L"");   // global namespace
+
+            // Define 'bool' as built-in type
+            ast::ast_using_type_as* using_type_def_bool = new ast::ast_using_type_as();
+            using_type_def_bool->new_type_identifier = L"bool";
+            using_type_def_bool->old_type = new ast::ast_type(L"int");
+            using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
+            define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
         }
         ~lang()
         {
@@ -1112,7 +1119,7 @@ namespace rs
                 a_value_unary->add_child(a_value_unary->val);
 
                 if (a_value_unary->operate == +lex_type::l_lnot)
-                    a_value_unary->value_type = new ast_type(L"int");
+                    a_value_unary->value_type = new ast_type(L"bool");
                 else if (!a_value_unary->val->value_type->is_pending())
                 {
                     a_value_unary->value_type = a_value_unary->val->value_type;
@@ -3480,11 +3487,15 @@ namespace rs
                     if (is_need_dup_when_mov(a_value_assign->right))
                         // TODO Right may be 'nil', do not dup nil..
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_assign->left->value_type->is_bool())
+                        compiler->lmov(beoped_left_opnum, op_right_opnum);
                     else if (optype == value::valuetype::invalid &&
                         !a_value_assign->left->value_type->is_dynamic()
                         && !a_value_assign->left->value_type->is_func()
                         && !a_value_assign->right->value_type->is_func())
+                    {
                         compiler->movx(beoped_left_opnum, op_right_opnum);
+                    }
                     else
                         compiler->mov(beoped_left_opnum, op_right_opnum);
                     break;
@@ -3605,6 +3616,20 @@ namespace rs
             {
                 if (force_value)
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
+
+                if (a_value_type_cast->implicit && a_value_type_cast->_be_cast_value_node->is_mark_as_using_ref)
+                {
+                    // NOTE: ref value cannot be implicit casted. give error.
+                    lang_anylizer->lang_error(0x0000, a_value_type_cast->_be_cast_value_node, RS_ERR_CANNOT_IMPLCAST_REF);
+                }
+
+                if (a_value_type_cast->value_type->is_bool())
+                {
+                    auto& treg = get_useable_register_for_pure_value();
+                    compiler->lmov(treg,
+                        analyze_value(a_value_type_cast->_be_cast_value_node, compiler));
+                    return treg;
+                }
 
                 if (a_value_type_cast->value_type->is_dynamic()
                     || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type)
@@ -4178,7 +4203,7 @@ namespace rs
                 switch (a_value_unary->operate)
                 {
                 case lex_type::l_lnot:
-                    compiler->lnot(analyze_value(a_value_unary->val, compiler));
+                    compiler->equb(analyze_value(a_value_unary->val, compiler), reg(reg::ni));
                     break;
                 case lex_type::l_sub:
                     if (a_value_unary->val->value_type->is_dynamic())

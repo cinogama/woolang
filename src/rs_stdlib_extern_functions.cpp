@@ -722,19 +722,11 @@ RS_API rs_api rslib_std_get_extern_symb(rs_vm vm, rs_value args, size_t argc)
     return rs_ret_int(vm, rs_extern_symb(vm, rs_string(args + 0)));
 }
 
-const char* rs_stdlib_basic_src_path = u8"rscene/basic.rsn";
-const char* rs_stdlib_basic_src_data = { u8R"(
-using bool = int;
-
-const var true = 1:bool;
-const var false = 0:bool;
-)" };
-
 const char* rs_stdlib_src_path = u8"rscene/std.rsn";
 const char* rs_stdlib_src_data = {
 u8R"(
-import rscene.basic;
-
+const var true = 1 : bool;
+const var false = 0 : bool;
 namespace std
 {
     extern("rslib_std_throw") func throw(var msg:string):void;
@@ -1002,8 +994,6 @@ namespace std
 const char* rs_stdlib_vm_src_path = u8"rscene/vm.rsn";
 const char* rs_stdlib_vm_src_data = {
 u8R"(
-import rscene.basic;
-
 namespace std
 {
     using vm = gchandle;
@@ -1217,8 +1207,6 @@ RS_API rs_api rslib_std_thread_spin_write_end(rs_vm vm, rs_value args, size_t ar
 const char* rs_stdlib_thread_src_path = u8"rscene/thread.rsn";
 const char* rs_stdlib_thread_src_data = {
 u8R"(
-import rscene.basic;
-
 namespace std
 {
     using thread = gchandle;
@@ -1391,8 +1379,6 @@ RS_API rs_api rslib_std_roroutine_wait(rs_vm vm, rs_value args, size_t argc)
 const char* rs_stdlib_roroutine_src_path = u8"rscene/co.rsn";
 const char* rs_stdlib_roroutine_src_data = {
 u8R"(
-import rscene.basic;
-
 namespace std
 {
     using co = gchandle;
