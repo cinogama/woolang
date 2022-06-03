@@ -3100,7 +3100,7 @@ namespace rs
                                 packed_array->resize(tc->integer - opnum2->integer);
                                 for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                                 {
-                                    (*packed_array)[argindex - opnum2->integer].set_trans((rt_bp + 2 + argindex)->get());
+                                    (*packed_array)[argindex - opnum2->integer].set_trans(rt_bp + 2 + argindex);
                                 }
 
                                 break;
