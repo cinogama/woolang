@@ -3157,6 +3157,11 @@ namespace rs
 
         std::vector<ast::ast_value_function_define* > in_used_functions;
 
+        opnum::opnumbase& get_new_global_variable()
+        {
+            using namespace opnum;
+            return RS_NEW_OPNUM(global((int32_t)global_symbol_index++));
+        }
         opnum::opnumbase& get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
         {
             using namespace opnum;
@@ -4295,8 +4300,10 @@ namespace rs
                         {
                             init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
 
-                            compiler->equb(ref_ob, reg(reg::ni));
+                            auto& static_inited_flag = get_new_global_variable();
+                            compiler->equb(static_inited_flag, reg(reg::ni));
                             compiler->jf(tag(init_static_flag_check_tag));
+                            compiler->set(static_inited_flag, imm(1));
                         }
                         auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
 
@@ -4319,8 +4326,10 @@ namespace rs
                             {
                                 init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
 
-                                compiler->equb(ref_ob, reg(reg::ni));
+                                auto& static_inited_flag = get_new_global_variable();
+                                compiler->equb(static_inited_flag, reg(reg::ni));
                                 compiler->jf(tag(init_static_flag_check_tag));
+                                compiler->set(static_inited_flag, imm(1));
                             }
 
                             if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
