@@ -1,0 +1,37 @@
+import rscene.std;
+import test_tool;
+
+namespace test_bool
+{
+	func foo_true(var val:bool)
+	{
+		test_assure(val== true);
+	}
+	func foo_false(var val:bool)
+	{
+		test_assure(val == false);
+	}
+	func main()
+	{
+		var a = 5:bool;
+		test_assure(a == true);
+		test_assure(a != false);
+
+		test_assure(!(12:bool) == false);
+		test_assure(!a == false);
+		test_assure(!256 == false);
+
+		a = "";
+		test_assure(a == true);
+		test_assure(a != false);
+
+		a = nil;
+		test_assure(a == false);
+		test_assure(a != true);
+
+		foo_true({});
+		foo_false(nil);
+	}
+}
+
+test_function("test_bool.main", test_bool::main);

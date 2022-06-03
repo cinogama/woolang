@@ -64,7 +64,7 @@ namespace rs
 
             land = 28 RS_OPCODE_SPACE,  // land             
             lor = 29 RS_OPCODE_SPACE,   // lor
-            lnot = 30 RS_OPCODE_SPACE,   // lnot(dr_0)                REGID(1BYTE)/DIFF(4BYTE)
+            lmov = 30 RS_OPCODE_SPACE,   // lmov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
 
             ltx = 31 RS_OPCODE_SPACE,    // lt
             gtx = 32 RS_OPCODE_SPACE,    // gt

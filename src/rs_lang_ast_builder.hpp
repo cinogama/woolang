@@ -169,6 +169,10 @@ namespace rs
 
                 if (to->is_dynamic())
                     return true;
+
+                if (to->is_bool())
+                    return true;
+
                 if (from->is_dynamic())
                 {
                     // Not allowed cast template type from dynamic
@@ -540,6 +544,10 @@ namespace rs
             bool is_func() const
             {
                 return is_function_type;
+            }
+            bool is_bool() const
+            {
+                return type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool");
             }
             bool has_template() const
             {
@@ -984,87 +992,92 @@ namespace rs
                         // just cast the value!
                         value last_value = _be_cast_value_node->get_constant_value();
 
-                        value::valuetype aim_real_type = value_type->value_type;
-                        if (value_type->is_dynamic())
+                        if (value_type->is_bool())
+                            // Set bool (1 or 0)
+                            constant_value.set_integer(last_value.integer ? 1 : 0);
+                        else
                         {
-                            aim_real_type = last_value.type;
-                        }
-                        else if (_be_cast_value_node->value_type->is_dynamic())
-                        {
-                            lex->lang_warning(0x0000, value_type, RS_WARN_OVERRIDDEN_DYNAMIC_TYPE);
-                        }
+                            value::valuetype aim_real_type = value_type->value_type;
+                            if (value_type->is_dynamic())
+                            {
+                                aim_real_type = last_value.type;
+                            }
+                            else if (_be_cast_value_node->value_type->is_dynamic())
+                            {
+                                lex->lang_warning(0x0000, value_type, RS_WARN_OVERRIDDEN_DYNAMIC_TYPE);
+                            }
 
-                        switch (aim_real_type)
-                        {
-                        case value::valuetype::real_type:
-                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_real(rs_cast_real((rs_value)&last_value));
-                            break;
-                        case value::valuetype::integer_type:
-                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_integer(rs_cast_int((rs_value)&last_value));
-                            break;
-                        case value::valuetype::string_type:
-                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
-                            break;
-                        case value::valuetype::handle_type:
-                            if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
-                            break;
-                        case value::valuetype::mapping_type:
-                            if (last_value.is_nil())
+                            switch (aim_real_type)
                             {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                            case value::valuetype::real_type:
+                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                constant_value.set_real(rs_cast_real((rs_value)&last_value));
                                 break;
-                            }
-                            if (last_value.type != value::valuetype::string_type)
-                                goto try_cast_nil_to_int_handle_real_str;
-                            return; // cast it in runtime
-                        case value::valuetype::gchandle_type:
-                            if (last_value.is_nil())
-                            {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::gchandle_type);
+                            case value::valuetype::integer_type:
+                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                constant_value.set_integer(rs_cast_int((rs_value)&last_value));
                                 break;
-                            }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
-                        case value::valuetype::array_type:
-                            if (last_value.is_nil())
-                            {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
+                            case value::valuetype::string_type:
+                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                constant_value.set_string_nogc(rs_cast_string((rs_value)&last_value));
                                 break;
-                            }
-                            if (last_value.type != value::valuetype::string_type)
+                            case value::valuetype::handle_type:
+                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                constant_value.set_handle(rs_cast_handle((rs_value)&last_value));
+                                break;
+                            case value::valuetype::mapping_type:
+                                if (last_value.is_nil())
+                                {
+                                    constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                    break;
+                                }
+                                if (last_value.type != value::valuetype::string_type)
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                return; // cast it in runtime
+                            case value::valuetype::gchandle_type:
+                                if (last_value.is_nil())
+                                {
+                                    constant_value.set_gcunit_with_barrier(value::valuetype::gchandle_type);
+                                    break;
+                                }
                                 goto try_cast_nil_to_int_handle_real_str;
-                            return; // cast it in runtime
-                        default:
-                        try_cast_nil_to_int_handle_real_str:
-                            if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
-                            {
-                                constant_value.set_val(&last_value);
-                            }
-                            else
-                            {
-                                if (implicit)
-                                    lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                        ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
-                                        value_type->get_type_name().c_str());
+                                break;
+                            case value::valuetype::array_type:
+                                if (last_value.is_nil())
+                                {
+                                    constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
+                                    break;
+                                }
+                                if (last_value.type != value::valuetype::string_type)
+                                    goto try_cast_nil_to_int_handle_real_str;
+                                return; // cast it in runtime
+                            default:
+                            try_cast_nil_to_int_handle_real_str:
+                                if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
+                                {
+                                    constant_value.set_val(&last_value);
+                                }
                                 else
-                                    lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                        ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
-                                        value_type->get_type_name().c_str());
+                                {
+                                    if (implicit)
+                                        lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                            ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
+                                            value_type->get_type_name().c_str());
+                                    else
+                                        lex->lang_error(0x0000, this->value_type, RS_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                            ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
+                                            value_type->get_type_name().c_str());
 
-                                constant_value.set_nil();
-                                value_type = new ast_type(constant_value);
+                                    constant_value.set_nil();
+                                    value_type = new ast_type(constant_value);
+                                }
+                                break;
                             }
-                            break;
                         }
-
                         is_constant = true;
                     }
                 }
@@ -2331,7 +2344,7 @@ namespace rs
 
             ast_value_logical_binary()
             {
-                value_type = new ast_type(L"int");
+                value_type = new ast_type(L"bool");
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override

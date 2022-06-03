@@ -1054,13 +1054,17 @@ namespace rs
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::lor, RS_OPNUM(op1), RS_OPNUM(op2));
         }
-        template<typename OP1T>
-        void lnot(const OP1T& op1)
+        template<typename OP1T, typename OP2T>
+        void lmov(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                , "Argument(s) should be opnum.");
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::lnot, RS_OPNUM(op1));
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not move value to immediate.");
+
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::lmov, RS_OPNUM(op1), RS_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
         void gti(const OP1T& op1, const OP2T& op2)
@@ -1805,9 +1809,10 @@ namespace rs
                     auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
-                case instruct::opcode::lnot:
-                    temp_this_command_code_buf.push_back(RS_OPCODE(lnot));
+                case instruct::opcode::lmov:
+                    temp_this_command_code_buf.push_back(RS_OPCODE(lmov));
                     auto_check_mem_allign(1, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
 
                 case instruct::opcode::gti:

@@ -85,7 +85,7 @@ namespace rs
 
                     gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE_LIST"),gm::nt(L"LABELED_SENTENCE")}
                     >> RS_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
-                    
+
                     gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"LABELED_SENTENCE")}
                     >> RS_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
@@ -920,6 +920,8 @@ namespace rs
 
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_double_index_point)}
                 >> RS_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_question) }
+                >> RS_ASTBUILDER_INDEX(ast::pass_token),
                 }
             );
 
@@ -1044,7 +1046,7 @@ namespace rs
                             if (actions.size())
                             {
                                 rs_test(actions.begin()->act == grammar::action::act_type::state_goto);
-                                nt_goto_state[nonte_list[std::get<grammar::nt>(sym).nt_name]] = (int)actions.begin()->state;
+                                nt_goto_state[nonte_list.at(std::get<grammar::nt>(sym).nt_name)] = (int)actions.begin()->state;
                                 has_action = true;
                             }
                         }
