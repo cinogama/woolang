@@ -407,6 +407,12 @@ rs_value rs_value_of_gchandle(rs_value value)
     }
     return CS_VAL(&_rsvalue->gchandle->holding_value);
 }
+
+rs_bool_t rs_is_ref(rs_value value)
+{
+    return RS_ORIGIN_VAL(value)->is_ref();
+}
+
 void rs_set_int(rs_value value, rs_integer_t val)
 {
     auto _rsvalue = RS_VAL(value);

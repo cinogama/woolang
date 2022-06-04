@@ -115,6 +115,8 @@ RS_API rs_bool_t    rs_bool(const rs_value value);
 RS_API rs_value     rs_value_of_gchandle(rs_value value);
 RS_API float        rs_float(const rs_value value);
 
+RS_API rs_bool_t rs_is_ref(rs_value value);
+
 RS_API void rs_set_int(rs_value value, rs_integer_t val);
 RS_API void rs_set_real(rs_value value, rs_real_t val);
 RS_API void rs_set_handle(rs_value value, rs_handle_t val);
