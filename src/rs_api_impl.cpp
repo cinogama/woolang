@@ -443,6 +443,19 @@ void rs_set_bool(rs_value value, rs_bool_t val)
     auto _rsvalue = RS_VAL(value);
     _rsvalue->set_integer(val ? 1 : 0);
 }
+void rs_set_gchandle(rs_value value, rs_ptr_t resource_ptr, rs_value holding_val, void(*destruct_func)(rs_ptr_t))
+{
+    RS_VAL(value)->set_gcunit_with_barrier(rs::value::valuetype::gchandle_type);
+    auto handle_ptr = rs::gchandle_t::gc_new<rs::gcbase::gctype::eden>(RS_VAL(value)->gcunit);
+    handle_ptr->holding_handle = resource_ptr;
+    if (holding_val)
+    {
+        handle_ptr->holding_value.set_val(RS_VAL(holding_val));
+        if (handle_ptr->holding_value.is_gcunit())
+            handle_ptr->holding_value.gcunit->gc_type = rs::gcbase::gctype::no_gc;
+    }
+    handle_ptr->destructor = destruct_func;
+}
 void rs_set_val(rs_value value, rs_value val)
 {
     auto _rsvalue = RS_VAL(value);
