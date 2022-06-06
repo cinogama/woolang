@@ -3193,29 +3193,35 @@ namespace rs
                 }
                 else
                 {
+                    rs_integer_t stackoffset = 0;
+
+                    if (symb->is_captured_variable)
+                        stackoffset = -2 - symb->captured_index;
+                    else
+                        stackoffset = symb->stackvalue_index_in_funcs;
                     if (!get_pure_value)
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
-                            return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                        if (stackoffset <= 64 || stackoffset >= -63)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
                         else
                         {
                             auto& ldr_aim = get_useable_register_for_ref_value();
-                            compiler->ldsr(ldr_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            compiler->ldsr(ldr_aim, imm(-(int16_t)stackoffset));
                             return ldr_aim;
                         }
                     }
                     else
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
+                        if (stackoffset <= 64 || stackoffset >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
                             return loaded_pure_glb_opnum;
                         }
                         else
                         {
                             auto& lds_aim = get_useable_register_for_ref_value();
-                            compiler->lds(lds_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
                             return lds_aim;
                         }
                     }
@@ -3713,7 +3719,7 @@ namespace rs
                         a_value_function_define->ir_func_has_been_generated = true;
                     }
 
-                    if(!a_value_function_define->is_closure_function())
+                    if (!a_value_function_define->is_closure_function())
                         return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
                     else
                     {
@@ -3722,7 +3728,7 @@ namespace rs
                             idx != a_value_function_define->capture_variables.rend();
                             ++idx)
                             compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
-                        
+
                         compiler->ext_mkclos((uint16_t)a_value_function_define->capture_variables.size(),
                             opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
 
@@ -4139,7 +4145,7 @@ namespace rs
 
                     compiler->ext_packargs(packed, imm(
                         now_function_in_final_anylize->value_type->argument_types.size()
-                    ));
+                    ), (uint16_t)now_function_in_final_anylize->capture_variables.size());
                     return packed;
                 }
             }
@@ -4152,19 +4158,22 @@ namespace rs
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
 
+                auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
+                auto function_arg_count = now_function_in_final_anylize->value_type->argument_types.size();
                 if (!get_pure_value)
                 {
+
                     if (a_value_indexed_variadic_args->argindex->is_constant)
                     {
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer <= 63 - 2)
-                            return RS_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()))));
+                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
                         else
                         {
                             auto& result = get_useable_register_for_ref_value();
-                            compiler->ldsr(result, imm(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                            compiler->ldsr(result, imm(_cv.integer + capture_count + 2
+                                + function_arg_count));
                             return result;
                         }
                     }
@@ -4172,7 +4181,7 @@ namespace rs
                     {
                         auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
                         compiler->addi(index, imm(2
-                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                            + capture_count + function_arg_count));
                         complete_using_register(index);
                         auto& result = get_useable_register_for_ref_value();
                         compiler->ldsr(result, index);
@@ -4186,23 +4195,23 @@ namespace rs
                     if (a_value_indexed_variadic_args->argindex->is_constant)
                     {
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer <= 63 - 2)
+                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                         {
                             last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()))));
+                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
                         }
                         else
                         {
-                            compiler->lds(result, imm(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                            compiler->lds(result, imm(_cv.integer + capture_count + 2
+                                + function_arg_count));
                         }
                     }
                     else
                     {
                         auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2
-                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                        compiler->addi(index, imm(2 + capture_count
+                            + function_arg_count));
                         complete_using_register(index);
                         compiler->lds(result, index);
 
@@ -4536,7 +4545,11 @@ namespace rs
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
-                    compiler->ret();
+
+                    if (a_return->located_function->is_closure_function())
+                        compiler->ret((uint16_t)a_return->located_function->capture_variables.size());
+                    else
+                        compiler->ret();
                 }
                 else
                     compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
@@ -4733,12 +4746,21 @@ namespace rs
                                     reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
                                 rs_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count;
+                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (rs_integer_t)funcdef->capture_variables.size();
 
                             }
                             else
-                                compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                    opnum::reg(opnum::reg::bp_offset(+2 + arg_count)));
+                            {
+                                rs_integer_t stoffset = +2 + arg_count + (int8_t)funcdef->capture_variables.size();
+                                if (stoffset >= -64 && stoffset <= 63)
+                                {
+                                    compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
+                                        opnum::reg(opnum::reg::bp_offset((int8_t)stoffset)));
+                                }
+                                else
+                                    compiler->lds(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
+                                        opnum::imm(stoffset));
+                            }
                         }
                         else//variadic
                             break;
@@ -4759,7 +4781,10 @@ namespace rs
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
                     // compiler->pop(reserved_stack_size);
-                    compiler->ret();                                            // do return
+                    if (funcdef->is_closure_function())
+                        compiler->ret((uint16_t)funcdef->capture_variables.size());
+                    else
+                        compiler->ret();                                            // do return
 
                     compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
 
@@ -4991,7 +5016,7 @@ namespace rs
                 }
                 else
                 {
-                    rs_assert(captureindex != (size_t)-1);
+                    rs_assert(captureindex == (size_t)-1);
 
                     if (func)
                         sym->define_in_function = true;
@@ -5361,12 +5386,11 @@ namespace rs
                     {
                         capture_list.push_back(result);
                         // Define a closure symbol instead of current one.
-                        auto* closure_symbol = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
+                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
                     }
 
                 }
             }
-
             return result;
         }
         bool has_compile_error()const

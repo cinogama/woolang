@@ -902,7 +902,14 @@ namespace rs
                         case instruct::extern_opcode_page_0::mknilmap:
                             tmpos << "mknilmap\t"; print_opnum1();  break; */
                         case instruct::extern_opcode_page_0::packargs:
-                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                        {
+                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
+                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+
+                            if (skip_closure)
+                                tmpos << ": skip " << skip_closure;
+                            break;
+                        }
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::movdup:
@@ -910,7 +917,7 @@ namespace rs
                         case instruct::extern_opcode_page_0::mkclos:
                             tmpos << "mkclos\t";
                             tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
-                            tmpos << ",\t+"; print_opnum2();
+                            tmpos << ",\t+";
                             tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
                             break;
                         default:
@@ -1189,12 +1196,12 @@ namespace rs
             {
                 rt_ip += 8; // skip function_addr
                 return false;
-    }
+            }
 #else
             rs_error("JIT DISABLED");
             return false;
 #endif
-}
+        }
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
@@ -2795,6 +2802,8 @@ namespace rs
                         rs_assert((rt_bp + 1)->type == value::valuetype::callstack
                             || (rt_bp + 1)->type == value::valuetype::nativecallstack);
 
+                        uint16_t pop_count = dr ? RS_IPVAL_MOVE_2 : 0;
+
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
                         {
                             rs_assert(dr == 0);
@@ -2807,11 +2816,7 @@ namespace rs
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
 
-                        if (dr) // ret pop 2BYTE
-                        {
-                            uint16_t pop_count = RS_IPVAL_MOVE_2;
-                            rt_sp += pop_count;
-                        }
+                        rt_sp += pop_count;
                         // TODO If rt_ip is outof range, return...
 
                         break;
@@ -2824,6 +2829,19 @@ namespace rs
                         {
                             RS_VM_FAIL(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                             break;
+                        }
+
+                        if (opnum1->type == value::valuetype::closure_type)
+                        {
+                            gcbase::gc_read_guard gwg1(opnum1->closure);
+                            // Call closure, unpack closure captured arguments.
+                            // 
+                            // NOTE: Closure arguments should be poped by closure function it self.
+                            //       Can use ret(n) to pop arguments when call.
+                            for (auto res = opnum1->closure->m_closure_args.rbegin();
+                                res != opnum1->closure->m_closure_args.rend();
+                                ++res)
+                                (rt_sp--)->set_trans(&*res);
                         }
 
                         rt_sp->type = value::valuetype::callstack;
@@ -2855,19 +2873,7 @@ namespace rs
                         else
                         {
                             rs_assert(opnum1->type == value::valuetype::closure_type);
-
-                            gcbase::gc_read_guard gwg1(opnum1->closure);
-                            // Call closure, unpack closure captured arguments.
-                            // 
-                            // NOTE: Closure arguments should be poped by closure function it self.
-                            //       Can use ret(n) to pop arguments when call.
-                            for (auto res = opnum1->closure->m_closure_args.rbegin();
-                                res != opnum1->closure->m_closure_args.rend();
-                                ++res)
-                                (rt_sp--)->set_trans(&*res);
-
-
-                            rt_ip = rt_env->rt_codes + opnum1->integer;
+                            rt_ip = rt_env->rt_codes + opnum1->closure->m_function_addr;
                         }
                         break;
                     }
@@ -3122,6 +3128,8 @@ namespace rs
                             }*/
                             case instruct::extern_opcode_page_0::packargs:
                             {
+                                uint16_t skip_closure_arg_count = RS_IPVAL_MOVE_2;
+
                                 RS_ADDRESSING_N1_REF;
                                 RS_ADDRESSING_N2_REF;
 
@@ -3130,7 +3138,7 @@ namespace rs
                                 packed_array->resize(tc->integer - opnum2->integer);
                                 for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                                 {
-                                    (*packed_array)[argindex - opnum2->integer].set_trans(rt_bp + 2 + argindex);
+                                    (*packed_array)[argindex - opnum2->integer].set_trans(rt_bp + 2 + argindex + skip_closure_arg_count);
                                 }
 
                                 break;

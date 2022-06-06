@@ -1319,12 +1319,12 @@ namespace rs
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkclos;
         }
 
-       /* void retval()
-        {
-            rs_error("'retval' is not able now...");
+        /* void retval()
+         {
+             rs_error("'retval' is not able now...");
 
-            RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
-        }*/
+             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
+         }*/
 
         void calljit()
         {
@@ -1453,13 +1453,13 @@ namespace rs
         }
 
         template<typename OP1T, typename OP2T>
-        void ext_packargs(const OP1T& op1, const OP2T& op2)
+        void ext_packargs(const OP1T& op1, const OP2T& op2, uint16_t skipclosure)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
                 std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2));
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(op1), RS_OPNUM(op2), skipclosure);
             codeb.ext_page_id = 0;
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::packargs;
         }
@@ -2018,7 +2018,8 @@ namespace rs
 
                         auto_check_mem_allign(1, 2);
 
-                        byte_t* readptr = (byte_t*)&RS_IR.opinteger;
+                        uint16_t pop_count = (uint16_t)RS_IR.opinteger;
+                        byte_t* readptr = (byte_t*)&pop_count;
                         temp_this_command_code_buf.push_back(readptr[0]);
                         temp_this_command_code_buf.push_back(readptr[1]);
                     }
@@ -2033,7 +2034,7 @@ namespace rs
 
                         temp_this_command_code_buf.push_back(RS_OPCODE(veh, 10));
                         auto_check_mem_allign(1, 4);
-   
+
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
                             .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
                         temp_this_command_code_buf.push_back(0x00);
@@ -2089,10 +2090,19 @@ namespace rs
                                 auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                                 break;*/
                         case instruct::extern_opcode_page_0::packargs:
+                        {
                             temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(packargs));
+
+                            auto_check_mem_allign(2, 2);
+                            uint16_t skip_count = (uint16_t)RS_IR.opinteger;
+                            byte_t* readptr = (byte_t*)&skip_count;
+                            temp_this_command_code_buf.push_back(readptr[0]);
+                            temp_this_command_code_buf.push_back(readptr[1]);
+
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
+                        }
                         case instruct::extern_opcode_page_0::unpackargs:
                             temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(unpackargs));
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
@@ -2107,12 +2117,13 @@ namespace rs
                         {
                             temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mkclos));
                             auto_check_mem_allign(2, 2);
-                            byte_t* readptr = (byte_t*)&RS_IR.opinteger;
+                            uint16_t capture_count = (uint16_t)RS_IR.opinteger;
+                            byte_t* readptr = (byte_t*)&capture_count;
                             temp_this_command_code_buf.push_back(readptr[0]);
                             temp_this_command_code_buf.push_back(readptr[1]);
                             auto_check_mem_allign(4, 4);
                             jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
-                                .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+                                .push_back(generated_runtime_code_buf.size() + need_fill_count + 2 + 2);
                             temp_this_command_code_buf.push_back(0x00);
                             temp_this_command_code_buf.push_back(0x00);
                             temp_this_command_code_buf.push_back(0x00);
