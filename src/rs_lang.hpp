@@ -5372,7 +5372,8 @@ namespace rs
                 if (current_function &&
                     result->define_in_function
                     && !result->static_symbol
-                    && symb_defined_in_func != in_function())
+                    && symb_defined_in_func != current_function
+                    && symb_defined_in_func->function_node != current_function->function_node)
                 {
                     // The variable is not static and define outside the function. ready to capture it!
                     if (current_function->function_node->function_name != L"")
