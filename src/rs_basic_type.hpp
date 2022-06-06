@@ -37,8 +37,10 @@ namespace rs
     using cxx_map_t = std::map<TS...>;
 
     struct gc_handle_base_t;
+    struct closure_function;
 
     using gchandle_t = gcunit<gc_handle_base_t>;
+    using closure_t = gcunit<closure_function>;
 
     struct value
     {
@@ -64,6 +66,7 @@ namespace rs
             mapping_type,
             array_type,
             gchandle_type,
+            closure_type,
 
         };
 
@@ -78,6 +81,7 @@ namespace rs
             array_t* array;
             mapping_t* mapping;
             gchandle_t* gchandle;
+            closure_t* closure;
 
             struct
             {
@@ -370,6 +374,12 @@ namespace rs
     static_assert((int)value::valuetype::mapping_type == RS_MAPPING_TYPE);
     static_assert((int)value::valuetype::array_type == RS_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == RS_GCHANDLE_TYPE);
+
+    struct closure_function
+    {
+        rs_integer_t m_function_addr;
+        std::vector<value> m_closure_args;
+    };
 
     struct gc_handle_base_t
     {

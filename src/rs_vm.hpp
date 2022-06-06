@@ -695,7 +695,10 @@ namespace rs
                     break;
 
                 case instruct::ret:
-                    tmpos << "ret\t"; break;
+                    tmpos << "ret\t";
+                    if (main_command & 0b10)
+                        tmpos << "pop " << *(uint16_t*)((this_command_ptr += 2) - 2);
+                    break;
 
                 case instruct::jt:
                     tmpos << "jt\t";
@@ -904,6 +907,12 @@ namespace rs
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::movdup:
                             tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                        case instruct::extern_opcode_page_0::mkclos:
+                            tmpos << "mkclos\t";
+                            tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
+                            tmpos << ",\t+"; print_opnum2();
+                            tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
+                            break;
                         default:
                             tmpos << "??\t";
                             break;
@@ -1180,12 +1189,12 @@ namespace rs
             {
                 rt_ip += 8; // skip function_addr
                 return false;
-            }
+    }
 #else
             rs_error("JIT DISABLED");
             return false;
 #endif
-        }
+}
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
@@ -1198,7 +1207,7 @@ namespace rs
         _vm->veh = this;
     }
 
-    inline void  exception_recovery::rollback(vmbase* _vm)
+    inline void exception_recovery::rollback(vmbase* _vm)
     {
         _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
         if (_vm->veh)
@@ -2788,6 +2797,7 @@ namespace rs
 
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
                         {
+                            rs_assert(dr == 0);
                             rt_sp = rt_bp;
                             return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                         }
@@ -2797,6 +2807,11 @@ namespace rs
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
 
+                        if (dr) // ret pop 2BYTE
+                        {
+                            uint16_t pop_count = RS_IPVAL_MOVE_2;
+                            rt_sp += pop_count;
+                        }
                         // TODO If rt_ip is outof range, return...
 
                         break;
@@ -2833,11 +2848,26 @@ namespace rs
                             rt_sp = rt_bp;
                             rt_bp = stored_bp;
                         }
+                        else if (opnum1->type == value::valuetype::integer_type)
+                        {
+                            rt_ip = rt_env->rt_codes + opnum1->integer;
+                        }
                         else
                         {
-                            rs_assert(opnum1->type == value::valuetype::integer_type);
-                            rt_ip = rt_env->rt_codes + opnum1->integer;
+                            rs_assert(opnum1->type == value::valuetype::closure_type);
 
+                            gcbase::gc_read_guard gwg1(opnum1->closure);
+                            // Call closure, unpack closure captured arguments.
+                            // 
+                            // NOTE: Closure arguments should be poped by closure function it self.
+                            //       Can use ret(n) to pop arguments when call.
+                            for (auto res = opnum1->closure->m_closure_args.rbegin();
+                                res != opnum1->closure->m_closure_args.rend();
+                                ++res)
+                                (rt_sp--)->set_trans(&*res);
+
+
+                            rt_ip = rt_env->rt_codes + opnum1->integer;
                         }
                         break;
                     }
@@ -3152,6 +3182,24 @@ namespace rs
                                 RS_ADDRESSING_N2_REF;
 
                                 opnum1->set_dup(opnum2);
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::mkclos:
+                            {
+                                uint16_t closure_arg_count = RS_IPVAL_MOVE_2;
+                                uint32_t function_address = RS_IPVAL_MOVE_4;
+
+                                rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
+                                auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
+
+                                gcbase::gc_write_guard gwg1(created_closure);
+                                created_closure->m_function_addr = function_address;
+                                created_closure->m_closure_args.resize(closure_arg_count);
+                                for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+                                {
+                                    auto* arr_val = ++rt_sp;
+                                    created_closure->m_closure_args[i].set_trans(arr_val->get());
+                                }
                                 break;
                             }
                             default:

@@ -1306,12 +1306,18 @@ namespace rs
         {
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret);
         }
-        void retval()
+
+        void ret(uint16_t popcount)
+        {
+            RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, popcount);
+        }
+
+       /* void retval()
         {
             rs_error("'retval' is not able now...");
 
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
-        }
+        }*/
 
         void calljit()
         {
@@ -1999,7 +2005,15 @@ namespace rs
                     break;
                 case instruct::opcode::ret:
                     if (RS_IR.opinteger)
-                        temp_this_command_code_buf.push_back(RS_OPCODE(ret, 01));
+                    {
+                        // ret pop n
+                        temp_this_command_code_buf.push_back(RS_OPCODE(ret, 10));
+                        uint64_t addr = (uint64_t)(RS_IR.op1);
+
+                        byte_t* readptr = (byte_t*)&RS_IR.opinteger;
+                        temp_this_command_code_buf.push_back(readptr[0]);
+                        temp_this_command_code_buf.push_back(readptr[1]);
+                    }
                     else
                         temp_this_command_code_buf.push_back(RS_OPCODE(ret, 00));
                     break;

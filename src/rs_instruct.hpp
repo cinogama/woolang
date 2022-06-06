@@ -78,7 +78,7 @@ namespace rs
 
             call = 39 RS_OPCODE_SPACE,  // call(dr_0)  REGID(1BYTE)/DIFF(4BYTE) 
             calln = 40 RS_OPCODE_SPACE,  // calln(0_ISNATIVE)  VM_IR_DIFF(4BYTE)/NATIVE_FUNC(8BYTE)
-            ret = 41 RS_OPCODE_SPACE,   // ret
+            ret = 41 RS_OPCODE_SPACE,   // ret(dr_0)        POP_SIZE(2 BYTE if dr)
             jt = 42 RS_OPCODE_SPACE,    // jt               DIFF(4BYTE)
             jf = 43 RS_OPCODE_SPACE,    // jf               DIFF(4BYTE)
             jmp = 44 RS_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
@@ -135,6 +135,7 @@ namespace rs
             packargs = 3 RS_OPCODE_SPACE,   // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 RS_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             movdup = 5 RS_OPCODE_SPACE,     // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            mkclos = 6 RS_OPCODE_SPACE,     // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
 
         };
         enum extern_opcode_page_1 : uint8_t
