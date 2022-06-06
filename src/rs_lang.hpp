@@ -30,11 +30,13 @@ namespace rs
         bool is_constexpr = false;
         bool has_been_assigned = false;
         bool is_ref = false;
+        bool is_captured_variable = false;
 
         union
         {
             rs_integer_t stackvalue_index_in_funcs = -99999999;
             size_t global_index_in_lang;
+            rs_integer_t captured_index;
         };
 
         union
@@ -3710,7 +3712,22 @@ namespace rs
                         in_used_functions.push_back(a_value_function_define);
                         a_value_function_define->ir_func_has_been_generated = true;
                     }
-                    return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+
+                    if(!a_value_function_define->is_closure_function())
+                        return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+                    else
+                    {
+                        // make closure
+                        for (auto idx = a_value_function_define->capture_variables.rbegin();
+                            idx != a_value_function_define->capture_variables.rend();
+                            ++idx)
+                            compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
+                        
+                        compiler->ext_mkclos((uint16_t)a_value_function_define->capture_variables.size(),
+                            opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+
+                        return RS_NEW_OPNUM(reg(reg::cr));  // return cr~
+                    }
                 }
                 else
                     // Extern template function in define, skip it.
@@ -4870,7 +4887,7 @@ namespace rs
 
         size_t global_symbol_index = 0;
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr)
+        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, size_t captureindex = (size_t)-1)
         {
             rs_assert(lang_scopes.size());
 
@@ -4951,21 +4968,31 @@ namespace rs
                     sym->define_in_function = true;
                     sym->static_symbol = false;
 
-                    // TODO: following should generate same const things, 
-                    // const var xxx = 0;
-                    // const var ddd = xxx;
-
-                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                    if (captureindex == (size_t)-1)
                     {
-                        sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
-                        lang_scopes.back()->this_block_used_stackvalue_count++;
+                        // TODO: following should generate same const things, 
+                        // const var xxx = 0;
+                        // const var ddd = xxx;
+
+                        if (!attr->is_constant_attr() || !init_val->is_constant)
+                        {
+                            sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
+                            lang_scopes.back()->this_block_used_stackvalue_count++;
+                        }
+                        else
+                            sym->is_constexpr = true;
                     }
                     else
-                        sym->is_constexpr = true;
-
+                    {
+                        // Is capture symbol;
+                        sym->is_captured_variable = true;
+                        sym->captured_index = captureindex;
+                    }
                 }
                 else
                 {
+                    rs_assert(captureindex != (size_t)-1);
+
                     if (func)
                         sym->define_in_function = true;
                     else
@@ -5304,14 +5331,42 @@ namespace rs
                 var_ident->var_name = L"create";
 
                 result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
-                if (result)
-                    return result;
-
-                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE,
-                    used_template_impl_typing_name.c_str()
-                );
-                return nullptr;
+                if (!result)
+                    lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE,
+                        used_template_impl_typing_name.c_str()
+                    );
             }
+            if (result)
+            {
+                auto* current_function = in_function();
+                if (current_function &&
+                    result->define_in_function
+                    && !result->static_symbol
+                    && result->defined_in_scope != in_function())
+                {
+                    // The variable is not static and define outside the function. ready to capture it!
+                    if (current_function->function_node->function_name != L"")
+                        // Only anonymous can capture variablel;
+                        lang_anylizer->lang_error(0x0000, var_ident, L"不能在非匿名函数中捕获变量'%ls'，继续",
+                            result->name.c_str());
+
+                    if (current_function->parent_scope != result->defined_in_scope)
+                        // Only capture 1 layer
+                        lang_anylizer->lang_error(0x0000, var_ident, L"闭包捕获的变量只能来自闭包定义所在的函数，继续",
+                            result->name.c_str());
+
+                    // Add symbol to capture list.
+                    auto& capture_list = current_function->function_node->capture_variables;
+                    if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
+                    {
+                        capture_list.push_back(result);
+                        // Define a closure symbol instead of current one.
+                        auto* closure_symbol = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
+                    }
+
+                }
+            }
+
             return result;
         }
         bool has_compile_error()const

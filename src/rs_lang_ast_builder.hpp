@@ -12,6 +12,7 @@
 #include <any>
 #include <type_traits>
 #include <cmath>
+#include <unordered_map>
 
 namespace rs
 {
@@ -1854,6 +1855,12 @@ namespace rs
             ast_extern_info* externed_func_info = nullptr;
 
             bool is_different_arg_count_in_same_extern_symbol = false;
+
+            std::vector<lang_symbol*> capture_variables;
+            bool is_closure_function()const noexcept
+            {
+                return capture_variables.size();
+            }
 
             const std::string& get_ir_func_signature_tag()
             {

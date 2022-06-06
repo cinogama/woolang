@@ -1312,6 +1312,13 @@ namespace rs
             RS_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, popcount);
         }
 
+        void ext_mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
+        {
+            auto& codeb = RS_PUT_IR_TO_BUFFER(instruct::opcode::ext, RS_OPNUM(wrapped_func), nullptr, (int32_t)capture_count);
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkclos;
+        }
+
        /* void retval()
         {
             rs_error("'retval' is not able now...");
@@ -2008,7 +2015,8 @@ namespace rs
                     {
                         // ret pop n
                         temp_this_command_code_buf.push_back(RS_OPCODE(ret, 10));
-                        uint64_t addr = (uint64_t)(RS_IR.op1);
+
+                        auto_check_mem_allign(1, 2);
 
                         byte_t* readptr = (byte_t*)&RS_IR.opinteger;
                         temp_this_command_code_buf.push_back(readptr[0]);
@@ -2022,9 +2030,10 @@ namespace rs
                     {
                         // begin
                         rs_assert(dynamic_cast<opnum::tag*>(RS_IR.op1) != nullptr, "Operator num should be a tag.");
-                        auto_check_mem_allign(1, 4);
 
                         temp_this_command_code_buf.push_back(RS_OPCODE(veh, 10));
+                        auto_check_mem_allign(1, 4);
+   
                         jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
                             .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
                         temp_this_command_code_buf.push_back(0x00);
@@ -2094,6 +2103,22 @@ namespace rs
                             auto_check_mem_allign(2, RS_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, RS_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
+                        case instruct::extern_opcode_page_0::mkclos:
+                        {
+                            temp_this_command_code_buf.push_back(RS_OPCODE_EXT0(mkclos));
+                            auto_check_mem_allign(2, 2);
+                            byte_t* readptr = (byte_t*)&RS_IR.opinteger;
+                            temp_this_command_code_buf.push_back(readptr[0]);
+                            temp_this_command_code_buf.push_back(readptr[1]);
+                            auto_check_mem_allign(4, 4);
+                            jmp_record_table[dynamic_cast<opnum::tag*>(RS_IR.op1)->name]
+                                .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+                            temp_this_command_code_buf.push_back(0x00);
+                            temp_this_command_code_buf.push_back(0x00);
+                            temp_this_command_code_buf.push_back(0x00);
+                            temp_this_command_code_buf.push_back(0x00);
+                            break;
+                        }
                         default:
                             rs_error("Unknown instruct.");
                             break;
