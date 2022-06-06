@@ -5363,11 +5363,16 @@ namespace rs
             }
             if (result)
             {
+                auto symb_defined_in_func = result->defined_in_scope;
+                while (symb_defined_in_func->parent_scope && 
+                    symb_defined_in_func->type != rs::lang_scope::scope_type::function_scope)
+                    symb_defined_in_func = symb_defined_in_func->parent_scope;
+
                 auto* current_function = in_function();
                 if (current_function &&
                     result->define_in_function
                     && !result->static_symbol
-                    && result->defined_in_scope != in_function())
+                    && symb_defined_in_func != in_function())
                 {
                     // The variable is not static and define outside the function. ready to capture it!
                     if (current_function->function_node->function_name != L"")
@@ -5375,7 +5380,12 @@ namespace rs
                         lang_anylizer->lang_error(0x0000, var_ident, L"不能在非匿名函数中捕获变量'%ls'，继续",
                             result->name.c_str());
 
-                    if (current_function->parent_scope != result->defined_in_scope)
+                    auto* current_func_defined_in_function = current_function->parent_scope;
+                    while (current_func_defined_in_function->parent_scope &&
+                        current_func_defined_in_function->type != rs::lang_scope::scope_type::function_scope)
+                        current_func_defined_in_function = current_func_defined_in_function->parent_scope;
+
+                    if (current_func_defined_in_function != symb_defined_in_func)
                         // Only capture 1 layer
                         lang_anylizer->lang_error(0x0000, var_ident, L"闭包捕获的变量只能来自闭包定义所在的函数，继续",
                             result->name.c_str());
