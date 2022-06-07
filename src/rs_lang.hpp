@@ -574,11 +574,18 @@ namespace rs
                 a_value_bin->add_child(a_value_bin->left);
                 a_value_bin->add_child(a_value_bin->right);
 
-                a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
-                    a_value_bin->left->value_type,
-                    a_value_bin->right->value_type,
-                    a_value_bin->operate
-                );
+                if (a_value_bin->left->value_type->is_custom()
+                    || a_value_bin->left->value_type->using_type_name
+                    || a_value_bin->right->value_type->is_custom()
+                    || a_value_bin->right->value_type->using_type_name)
+                    // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+                    a_value_bin->value_type = nullptr;
+                else
+                    a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
+                        a_value_bin->left->value_type,
+                        a_value_bin->right->value_type,
+                        a_value_bin->operate
+                    );
 
                 if (nullptr == a_value_bin->value_type)
                 {
@@ -687,6 +694,13 @@ namespace rs
 
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
+
+                if (a_value_logic_bin->left->value_type->is_custom()
+                    || a_value_logic_bin->left->value_type->using_type_name
+                    || a_value_logic_bin->right->value_type->is_custom()
+                    || a_value_logic_bin->right->value_type->using_type_name)
+                    // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+                    a_value_logic_bin->value_type = new ast_type(L"pending");
 
                 ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
                 try_operator_func_overload->try_invoke_operator_override_function = true;
@@ -1557,7 +1571,7 @@ namespace rs
                                     !a_value_funccall->directed_value_from->value_type->is_func())
                                 {
                                     // trying finding type_function
-                                    rs_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
+                                    // rs_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
                                     // TODO : CUSTOM TYPE INFORM..
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
@@ -2479,6 +2493,12 @@ namespace rs
                             }
 
                         }
+                        if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
+                        {
+                            a_value_logic_bin->value_type = new ast_type(L"bool");
+                            fully_update_type(a_value_logic_bin->value_type, false);
+                        }
+
                     }
                     else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
                     {
@@ -4874,21 +4894,26 @@ namespace rs
 
         lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef)
         {
-            lang_scope* scope = new lang_scope;
-            lang_scopes_buffers.push_back(scope);
+            bool already_created_func_scope = ast_value_funcdef->this_func_scope;
+            lang_scope* scope =
+                already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
 
-            scope->stop_searching_in_last_scope_flag = false;
-            scope->type = lang_scope::scope_type::function_scope;
-            scope->belong_namespace = now_namespace;
-            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-            scope->function_node = ast_value_funcdef;
-
-            if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
+            if (!already_created_func_scope)
             {
-                // Not anymous function or template_reification , define func-symbol..
-                define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
-            }
+                lang_scopes_buffers.push_back(scope);
 
+                scope->stop_searching_in_last_scope_flag = false;
+                scope->type = lang_scope::scope_type::function_scope;
+                scope->belong_namespace = now_namespace;
+                scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
+                scope->function_node = ast_value_funcdef;
+
+                if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
+                {
+                    // Not anymous function or template_reification , define func-symbol..
+                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
+                }
+            }
             lang_scopes.push_back(scope);
             return scope;
         }

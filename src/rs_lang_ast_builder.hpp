@@ -1651,6 +1651,14 @@ namespace rs
 
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
+
+                // if left/right is custom, donot calculate them 
+                if (left->value_type->is_custom() 
+                    || left->value_type->using_type_name
+                    || right->value_type->is_custom()
+                    || right->value_type->using_type_name)
+                    return;
+
                 if (left->value_type->is_dynamic() || right->value_type->is_dynamic())
                 {
                     value_type = new ast_type(L"dynamic");
@@ -1938,6 +1946,7 @@ namespace rs
 
                 RS_REINSTANCE(dumm->argument_list);
                 RS_REINSTANCE(dumm->in_function_sentence);
+                dumm->this_func_scope = nullptr;
 
                 return dumm;
             }
@@ -2394,10 +2403,18 @@ namespace rs
 
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
+
+                // if left/right is custom, donot calculate them 
+                if (left->value_type->is_custom()
+                    || left->value_type->using_type_name
+                    || right->value_type->is_custom()
+                    || right->value_type->using_type_name)
+                    return;
+
                 if (left->is_constant && right->is_constant)
                 {
                     is_constant = true;
-                    value_type = new ast_type(L"int");
+                    value_type = new ast_type(L"bool");
 
                     switch (operate)
                     {
@@ -2580,6 +2597,14 @@ namespace rs
 
                 from->update_constant_value(lex);
                 index->update_constant_value(lex);
+
+                // if left/right is custom, donot calculate them 
+                if (from->value_type->is_custom()
+                    || from->value_type->using_type_name
+                    || index->value_type->is_custom()
+                    || index->value_type->using_type_name)
+                    return;
+
                 if (from->is_constant && index->is_constant)
                 {
                     if (from->value_type->is_string())
