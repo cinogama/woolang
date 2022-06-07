@@ -549,8 +549,16 @@ namespace rs
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    analyze_pass1(varref.init_val);
+                    // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
+                    //            symbol first, it can make variable capture correctly.
+                    //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
+                    bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
+                    if (!init_value_is_lambda)
+                        analyze_pass1(varref.init_val);
                     varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
+                    if (init_value_is_lambda)
+                        analyze_pass1(varref.init_val);
+
                     varref.symbol->is_ref = varref.is_ref;
                     a_varref_defs->add_child(varref.init_val);
 
@@ -3633,6 +3641,7 @@ namespace rs
 
                 if (a_value_type_cast->value_type->is_bool())
                 {
+                    // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
                     auto& treg = get_useable_register_for_pure_value();
                     compiler->lmov(treg,
                         analyze_value(a_value_type_cast->_be_cast_value_node, compiler));
@@ -5364,11 +5373,23 @@ namespace rs
             if (result)
             {
                 auto symb_defined_in_func = result->defined_in_scope;
-                while (symb_defined_in_func->parent_scope && 
+                while (symb_defined_in_func->parent_scope &&
                     symb_defined_in_func->type != rs::lang_scope::scope_type::function_scope)
                     symb_defined_in_func = symb_defined_in_func->parent_scope;
 
                 auto* current_function = in_function();
+
+                /*
+                if (!current_function)
+                {
+                    current_function = var_ident->searching_begin_namespace_in_pass2;
+                    while (current_function && current_function->parent_scope && current_function->type != lang_scope::scope_type::function_scope)
+                        current_function = current_function->parent_scope;
+                    if (current_function->type != lang_scope::scope_type::function_scope)
+                        current_function = nullptr;
+                }
+                */
+
                 if (current_function &&
                     result->define_in_function
                     && !result->static_symbol
@@ -5387,9 +5408,12 @@ namespace rs
                         current_func_defined_in_function = current_func_defined_in_function->parent_scope;
 
                     if (current_func_defined_in_function != symb_defined_in_func)
+                    {
+                        // TODO: Enable capture from outside function more than 1 layers
                         // Only capture 1 layer
                         lang_anylizer->lang_error(0x0000, var_ident, L"闭包捕获的变量只能来自闭包定义所在的函数，继续",
                             result->name.c_str());
+                    }
 
                     // Add symbol to capture list.
                     auto& capture_list = current_function->function_node->capture_variables;
