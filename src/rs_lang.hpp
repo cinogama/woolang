@@ -768,12 +768,7 @@ namespace rs
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
-                bool first_analyze_function = (!a_value_func->this_func_scope);
-
-                if (first_analyze_function)
-                    a_value_func->this_func_scope = begin_function(a_value_func);
-                else
-                    temporary_entry_scope_in_pass1(a_value_func->this_func_scope);
+                a_value_func->this_func_scope = begin_function(a_value_func);
 
                 if (!a_value_func->is_template_define)
                 {
@@ -847,11 +842,7 @@ namespace rs
                     }
                 }
 
-                if (first_analyze_function)
-                    end_function();
-                else
-                    temporary_leave_scope_in_pass1();
-
+                end_function();
             }
             else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
             {
@@ -4883,21 +4874,26 @@ namespace rs
 
         lang_scope* begin_function(ast::ast_value_function_define* ast_value_funcdef)
         {
-            lang_scope* scope = new lang_scope;
-            lang_scopes_buffers.push_back(scope);
+            bool already_created_func_scope = ast_value_funcdef->this_func_scope;
+            lang_scope* scope =
+                already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
 
-            scope->stop_searching_in_last_scope_flag = false;
-            scope->type = lang_scope::scope_type::function_scope;
-            scope->belong_namespace = now_namespace;
-            scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-            scope->function_node = ast_value_funcdef;
-
-            if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
+            if (!already_created_func_scope)
             {
-                // Not anymous function or template_reification , define func-symbol..
-                define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
-            }
+                lang_scopes_buffers.push_back(scope);
 
+                scope->stop_searching_in_last_scope_flag = false;
+                scope->type = lang_scope::scope_type::function_scope;
+                scope->belong_namespace = now_namespace;
+                scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
+                scope->function_node = ast_value_funcdef;
+
+                if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
+                {
+                    // Not anymous function or template_reification , define func-symbol..
+                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
+                }
+            }
             lang_scopes.push_back(scope);
             return scope;
         }

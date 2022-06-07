@@ -1938,6 +1938,7 @@ namespace rs
 
                 RS_REINSTANCE(dumm->argument_list);
                 RS_REINSTANCE(dumm->in_function_sentence);
+                dumm->this_func_scope = nullptr;
 
                 return dumm;
             }
