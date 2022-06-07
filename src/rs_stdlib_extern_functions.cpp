@@ -880,6 +880,8 @@ namespace array
     {
         extern("rslib_std_array_iter_next")
             func next<T>(var iter:iterator<T>, ref out_key:int, ref out_val:T):bool;
+    
+        func iter<T>(var iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
@@ -914,6 +916,8 @@ namespace map
     {
         extern("rslib_std_map_iter_next")
             func next<KT, VT>(var iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT):bool;
+
+        func iter<KT, VT>(var iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
