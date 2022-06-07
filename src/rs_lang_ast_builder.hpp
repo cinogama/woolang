@@ -2009,6 +2009,9 @@ namespace rs
             ast_value* directed_value_from = nullptr;
             ast_value_variable* callee_symbol_in_type_namespace = nullptr;
 
+            // Will be setting in pass1, do more check and modify in apply..
+            bool try_invoke_operator_override_function = false;
+
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
@@ -3734,6 +3737,17 @@ namespace rs
                             template_types = dynamic_cast<ast_list*>(RS_NEED_AST(4));
 
                         ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(6));
+                        // Check argument list, do not allowed operator overload function have 'ref' arguments
+                        auto arguments = ast_func->argument_list->children;
+                        while (arguments)
+                        {
+                            auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
+                            if (argdef->is_ref)
+                                lex.lex_error(0x0000, L"运算符'%ls'的重载函数不允许有引用参数，继续",
+                                    dynamic_cast<ast_token*>(RS_NEED_AST(3))->tokens.identifier.c_str());
+                            arguments = arguments->sibling;
+                        }
+
                         ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(RS_NEED_AST(9))->sentence_list;
                         return_type = dynamic_cast<ast_type*>(RS_NEED_AST(8));
                     }
@@ -3773,6 +3787,17 @@ namespace rs
                     }
 
                     ast_func->argument_list = dynamic_cast<ast_list*>(RS_NEED_AST(7));
+                    // Check argument list, do not allowed operator overload function have 'ref' arguments
+                    auto arguments = ast_func->argument_list->children;
+                    while (arguments)
+                    {
+                        auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
+                        if (argdef->is_ref)
+                            lex.lex_error(0x0000, L"运算符'%ls'的重载函数不允许有引用参数，继续",
+                                dynamic_cast<ast_token*>(RS_NEED_AST(4))->tokens.identifier.c_str());
+                        arguments = arguments->sibling;
+                    }
+
                     ast_func->in_function_sentence = nullptr;
                     return_type = dynamic_cast<ast_type*>(RS_NEED_AST(9));
 

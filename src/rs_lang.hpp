@@ -585,18 +585,16 @@ namespace rs
                     a_value_bin->value_type = new ast_type(L"pending");
 
                     ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
-
+                    try_operator_func_overload->try_invoke_operator_override_function = true;
                     try_operator_func_overload->arguments = new ast_list();
                     try_operator_func_overload->value_type = new ast_type(L"pending");
                     try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
                     try_operator_func_overload->directed_value_from = a_value_bin->left;
 
                     ast_value* arg1 = dynamic_cast<ast_value*>(a_value_bin->left->instance());
-                    arg1->is_mark_as_using_ref = true;
                     try_operator_func_overload->arguments->add_child(arg1);
 
                     ast_value* arg2 = dynamic_cast<ast_value*>(a_value_bin->right->instance());
-                    arg2->is_mark_as_using_ref = true;
                     try_operator_func_overload->arguments->add_child(arg2);
 
                     try_operator_func_overload->called_func->source_file = a_value_bin->source_file;
@@ -691,18 +689,16 @@ namespace rs
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
 
                 ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
-
+                try_operator_func_overload->try_invoke_operator_override_function = true;
                 try_operator_func_overload->arguments = new ast_list();
                 try_operator_func_overload->value_type = new ast_type(L"pending");
                 try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
                 try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
 
                 ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
-                arg1->is_mark_as_using_ref = true;
                 try_operator_func_overload->arguments->add_child(arg1);
 
                 ast_value* arg2 = dynamic_cast<ast_value*>(a_value_logic_bin->right->instance());
-                arg2->is_mark_as_using_ref = true;
                 try_operator_func_overload->arguments->add_child(arg2);
 
                 try_operator_func_overload->called_func->source_file = a_value_logic_bin->source_file;
@@ -1450,7 +1446,7 @@ namespace rs
                                 if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
                                     lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_NO_TEMPLATE_VARIABLE);
 
-                                if (sym->define_in_function && !sym->has_been_defined_in_pass2)
+                                if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, RS_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
                                 analyze_pass2(sym->variable_value);
