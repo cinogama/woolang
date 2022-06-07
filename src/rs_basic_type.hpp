@@ -351,6 +351,8 @@ namespace rs
                 return lhs.handle < rhs.handle;
             case value::valuetype::string_type:
                 return (*lhs.string) < (*rhs.string);
+            case value::valuetype::gchandle_type:
+                return ((intptr_t)lhs.gchandle) < ((intptr_t)rhs.gchandle);
             default:
                 rs_fail(RS_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                 return false;
