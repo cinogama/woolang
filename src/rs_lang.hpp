@@ -574,11 +574,18 @@ namespace rs
                 a_value_bin->add_child(a_value_bin->left);
                 a_value_bin->add_child(a_value_bin->right);
 
-                a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
-                    a_value_bin->left->value_type,
-                    a_value_bin->right->value_type,
-                    a_value_bin->operate
-                );
+                if (a_value_bin->left->value_type->is_custom()
+                    || a_value_bin->left->value_type->using_type_name
+                    || a_value_bin->right->value_type->is_custom()
+                    || a_value_bin->right->value_type->using_type_name)
+                    // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+                    a_value_bin->value_type = nullptr;
+                else
+                    a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
+                        a_value_bin->left->value_type,
+                        a_value_bin->right->value_type,
+                        a_value_bin->operate
+                    );
 
                 if (nullptr == a_value_bin->value_type)
                 {
@@ -687,6 +694,13 @@ namespace rs
 
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
+
+                if (a_value_bin->left->value_type->is_custom()
+                    || a_value_bin->left->value_type->using_type_name
+                    || a_value_bin->right->value_type->is_custom()
+                    || a_value_bin->right->value_type->using_type_name)
+                    // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+                    a_value_logic_bin->value_type = new ast_type(L"pending");
 
                 ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
                 try_operator_func_overload->try_invoke_operator_override_function = true;
