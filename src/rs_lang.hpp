@@ -695,10 +695,10 @@ namespace rs
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
 
-                if (a_value_bin->left->value_type->is_custom()
-                    || a_value_bin->left->value_type->using_type_name
-                    || a_value_bin->right->value_type->is_custom()
-                    || a_value_bin->right->value_type->using_type_name)
+                if (a_value_logic_bin->left->value_type->is_custom()
+                    || a_value_logic_bin->left->value_type->using_type_name
+                    || a_value_logic_bin->right->value_type->is_custom()
+                    || a_value_logic_bin->right->value_type->using_type_name)
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
                     a_value_logic_bin->value_type = new ast_type(L"pending");
 
@@ -2493,6 +2493,12 @@ namespace rs
                             }
 
                         }
+                        if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
+                        {
+                            a_value_logic_bin->value_type = new ast_type(L"bool");
+                            fully_update_type(a_value_logic_bin->value_type, false);
+                        }
+
                     }
                     else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
                     {
