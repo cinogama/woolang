@@ -30,11 +30,13 @@ namespace rs
         bool is_constexpr = false;
         bool has_been_assigned = false;
         bool is_ref = false;
+        bool is_captured_variable = false;
 
         union
         {
             rs_integer_t stackvalue_index_in_funcs = -99999999;
             size_t global_index_in_lang;
+            rs_integer_t captured_index;
         };
 
         union
@@ -3191,29 +3193,35 @@ namespace rs
                 }
                 else
                 {
+                    rs_integer_t stackoffset = 0;
+
+                    if (symb->is_captured_variable)
+                        stackoffset = -2 - symb->captured_index;
+                    else
+                        stackoffset = symb->stackvalue_index_in_funcs;
                     if (!get_pure_value)
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
-                            return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                        if (stackoffset <= 64 || stackoffset >= -63)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
                         else
                         {
                             auto& ldr_aim = get_useable_register_for_ref_value();
-                            compiler->ldsr(ldr_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            compiler->ldsr(ldr_aim, imm(-(int16_t)stackoffset));
                             return ldr_aim;
                         }
                     }
                     else
                     {
-                        if (symb->stackvalue_index_in_funcs <= 64 || symb->stackvalue_index_in_funcs >= -63)
+                        if (stackoffset <= 64 || stackoffset >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)symb->stackvalue_index_in_funcs)));
+                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
                             return loaded_pure_glb_opnum;
                         }
                         else
                         {
                             auto& lds_aim = get_useable_register_for_ref_value();
-                            compiler->lds(lds_aim, imm(-(int16_t)symb->stackvalue_index_in_funcs));
+                            compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
                             return lds_aim;
                         }
                     }
@@ -3710,7 +3718,22 @@ namespace rs
                         in_used_functions.push_back(a_value_function_define);
                         a_value_function_define->ir_func_has_been_generated = true;
                     }
-                    return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+
+                    if (!a_value_function_define->is_closure_function())
+                        return RS_NEW_OPNUM(opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+                    else
+                    {
+                        // make closure
+                        for (auto idx = a_value_function_define->capture_variables.rbegin();
+                            idx != a_value_function_define->capture_variables.rend();
+                            ++idx)
+                            compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
+
+                        compiler->ext_mkclos((uint16_t)a_value_function_define->capture_variables.size(),
+                            opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
+
+                        return RS_NEW_OPNUM(reg(reg::cr));  // return cr~
+                    }
                 }
                 else
                     // Extern template function in define, skip it.
@@ -4122,7 +4145,7 @@ namespace rs
 
                     compiler->ext_packargs(packed, imm(
                         now_function_in_final_anylize->value_type->argument_types.size()
-                    ));
+                    ), (uint16_t)now_function_in_final_anylize->capture_variables.size());
                     return packed;
                 }
             }
@@ -4135,19 +4158,22 @@ namespace rs
                     return RS_NEW_OPNUM(reg(reg::cr));
                 }
 
+                auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
+                auto function_arg_count = now_function_in_final_anylize->value_type->argument_types.size();
                 if (!get_pure_value)
                 {
+
                     if (a_value_indexed_variadic_args->argindex->is_constant)
                     {
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer <= 63 - 2)
-                            return RS_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()))));
+                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
+                            return RS_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
                         else
                         {
                             auto& result = get_useable_register_for_ref_value();
-                            compiler->ldsr(result, imm(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                            compiler->ldsr(result, imm(_cv.integer + capture_count + 2
+                                + function_arg_count));
                             return result;
                         }
                     }
@@ -4155,7 +4181,7 @@ namespace rs
                     {
                         auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
                         compiler->addi(index, imm(2
-                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                            + capture_count + function_arg_count));
                         complete_using_register(index);
                         auto& result = get_useable_register_for_ref_value();
                         compiler->ldsr(result, index);
@@ -4169,23 +4195,23 @@ namespace rs
                     if (a_value_indexed_variadic_args->argindex->is_constant)
                     {
                         auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer <= 63 - 2)
+                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                         {
                             last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()))));
+                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
                         }
                         else
                         {
-                            compiler->lds(result, imm(_cv.integer + 2
-                                + now_function_in_final_anylize->value_type->argument_types.size()));
+                            compiler->lds(result, imm(_cv.integer + capture_count + 2
+                                + function_arg_count));
                         }
                     }
                     else
                     {
                         auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2
-                            + now_function_in_final_anylize->value_type->argument_types.size()));
+                        compiler->addi(index, imm(2 + capture_count
+                            + function_arg_count));
                         complete_using_register(index);
                         compiler->lds(result, index);
 
@@ -4519,7 +4545,11 @@ namespace rs
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
-                    compiler->ret();
+
+                    if (a_return->located_function->is_closure_function())
+                        compiler->ret((uint16_t)a_return->located_function->capture_variables.size());
+                    else
+                        compiler->ret();
                 }
                 else
                     compiler->jmp(tag(a_return->located_function->get_ir_func_signature_tag() + "_do_ret"));
@@ -4716,12 +4746,21 @@ namespace rs
                                     reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
                                 rs_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count;
+                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (rs_integer_t)funcdef->capture_variables.size();
 
                             }
                             else
-                                compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                    opnum::reg(opnum::reg::bp_offset(+2 + arg_count)));
+                            {
+                                rs_integer_t stoffset = +2 + arg_count + (int8_t)funcdef->capture_variables.size();
+                                if (stoffset >= -64 && stoffset <= 63)
+                                {
+                                    compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
+                                        opnum::reg(opnum::reg::bp_offset((int8_t)stoffset)));
+                                }
+                                else
+                                    compiler->lds(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
+                                        opnum::imm(stoffset));
+                            }
                         }
                         else//variadic
                             break;
@@ -4742,7 +4781,10 @@ namespace rs
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
                     compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
                     // compiler->pop(reserved_stack_size);
-                    compiler->ret();                                            // do return
+                    if (funcdef->is_closure_function())
+                        compiler->ret((uint16_t)funcdef->capture_variables.size());
+                    else
+                        compiler->ret();                                            // do return
 
                     compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
 
@@ -4870,7 +4912,7 @@ namespace rs
 
         size_t global_symbol_index = 0;
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr)
+        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, size_t captureindex = (size_t)-1)
         {
             rs_assert(lang_scopes.size());
 
@@ -4951,21 +4993,31 @@ namespace rs
                     sym->define_in_function = true;
                     sym->static_symbol = false;
 
-                    // TODO: following should generate same const things, 
-                    // const var xxx = 0;
-                    // const var ddd = xxx;
-
-                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                    if (captureindex == (size_t)-1)
                     {
-                        sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
-                        lang_scopes.back()->this_block_used_stackvalue_count++;
+                        // TODO: following should generate same const things, 
+                        // const var xxx = 0;
+                        // const var ddd = xxx;
+
+                        if (!attr->is_constant_attr() || !init_val->is_constant)
+                        {
+                            sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
+                            lang_scopes.back()->this_block_used_stackvalue_count++;
+                        }
+                        else
+                            sym->is_constexpr = true;
                     }
                     else
-                        sym->is_constexpr = true;
-
+                    {
+                        // Is capture symbol;
+                        sym->is_captured_variable = true;
+                        sym->captured_index = captureindex;
+                    }
                 }
                 else
                 {
+                    rs_assert(captureindex == (size_t)-1);
+
                     if (func)
                         sym->define_in_function = true;
                     else
@@ -5304,13 +5356,51 @@ namespace rs
                 var_ident->var_name = L"create";
 
                 result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
-                if (result)
-                    return result;
+                if (!result)
+                    lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE,
+                        used_template_impl_typing_name.c_str()
+                    );
+            }
+            if (result)
+            {
+                auto symb_defined_in_func = result->defined_in_scope;
+                while (symb_defined_in_func->parent_scope && 
+                    symb_defined_in_func->type != rs::lang_scope::scope_type::function_scope)
+                    symb_defined_in_func = symb_defined_in_func->parent_scope;
 
-                lang_anylizer->lang_error(0x0000, var_ident, RS_ERR_IS_A_TYPE,
-                    used_template_impl_typing_name.c_str()
-                );
-                return nullptr;
+                auto* current_function = in_function();
+                if (current_function &&
+                    result->define_in_function
+                    && !result->static_symbol
+                    && symb_defined_in_func != current_function
+                    && symb_defined_in_func->function_node != current_function->function_node)
+                {
+                    // The variable is not static and define outside the function. ready to capture it!
+                    if (current_function->function_node->function_name != L"")
+                        // Only anonymous can capture variablel;
+                        lang_anylizer->lang_error(0x0000, var_ident, L"不能在非匿名函数中捕获变量'%ls'，继续",
+                            result->name.c_str());
+
+                    auto* current_func_defined_in_function = current_function->parent_scope;
+                    while (current_func_defined_in_function->parent_scope &&
+                        current_func_defined_in_function->type != rs::lang_scope::scope_type::function_scope)
+                        current_func_defined_in_function = current_func_defined_in_function->parent_scope;
+
+                    if (current_func_defined_in_function != symb_defined_in_func)
+                        // Only capture 1 layer
+                        lang_anylizer->lang_error(0x0000, var_ident, L"闭包捕获的变量只能来自闭包定义所在的函数，继续",
+                            result->name.c_str());
+
+                    // Add symbol to capture list.
+                    auto& capture_list = current_function->function_node->capture_variables;
+                    if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
+                    {
+                        capture_list.push_back(result);
+                        // Define a closure symbol instead of current one.
+                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
+                    }
+
+                }
             }
             return result;
         }

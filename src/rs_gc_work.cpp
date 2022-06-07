@@ -135,6 +135,14 @@ namespace rs
                 if (gcbase* gcunit_addr = rs_gchandle->holding_value.get_gcunit_with_barrier())
                     gc_mark_unit_as_gray(workerid, gcunit_addr);
             }
+            else if (closure_t* rs_closure = dynamic_cast<closure_t*>(unit))
+            {
+                for (auto& captured : rs_closure->m_closure_args)
+                {
+                    if (gcbase* gcunit_addr = captured.get_gcunit_with_barrier())
+                        gc_mark_unit_as_gray(workerid, gcunit_addr);
+                }
+            }
         }
 
         class _gc_mark_thread_groups

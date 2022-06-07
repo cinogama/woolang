@@ -932,6 +932,8 @@ rs_string_t rs_cast_string(const rs_value value)
         rs::gcbase::gc_read_guard rg1(_rsvalue->string);
         return _rsvalue->string->c_str();
     }
+    case rs::value::valuetype::closure_type:
+        return "<closure function>";
     case rs::value::valuetype::invalid:
         return "nil";
     default:
