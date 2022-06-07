@@ -768,7 +768,12 @@ namespace rs
             }
             else if (ast_value_function_define* a_value_func = dynamic_cast<ast_value_function_define*>(ast_node))
             {
-                a_value_func->this_func_scope = begin_function(a_value_func);
+                bool first_analyze_function = (!a_value_func->this_func_scope);
+
+                if (first_analyze_function)
+                    a_value_func->this_func_scope = begin_function(a_value_func);
+                else
+                    temporary_entry_scope_in_pass1(a_value_func->this_func_scope);
 
                 if (!a_value_func->is_template_define)
                 {
@@ -842,7 +847,11 @@ namespace rs
                     }
                 }
 
-                end_function();
+                if (first_analyze_function)
+                    end_function();
+                else
+                    temporary_leave_scope_in_pass1();
+
             }
             else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
             {
@@ -1557,7 +1566,7 @@ namespace rs
                                     !a_value_funccall->directed_value_from->value_type->is_func())
                                 {
                                     // trying finding type_function
-                                    rs_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
+                                    // rs_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
                                     // TODO : CUSTOM TYPE INFORM..
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
