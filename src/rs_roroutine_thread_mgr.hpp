@@ -101,6 +101,24 @@ namespace rs
                 );
             }
         }
+        vmthread(rs::vmbase* _vm, closure_t* vm_funcaddr, size_t argc, rs::shared_pointer<RSCO_Waitter> _waitter = nullptr)
+        {
+            m_virtualmachine = _vm;
+            if (_vm->co_pre_invoke(vm_funcaddr, argc))
+            {
+                m_fthread = new fthread(
+                    [=]() {
+                        m_virtualmachine->run();
+
+                        if (_waitter)
+                        {
+                            _waitter->complete();
+                        }
+                        m_finish_flag = true;
+                    }
+                );
+            }
+        }
         vmthread(rs::vmbase* _vm, rs_handle_t native_funcaddr, size_t argc, rs::shared_pointer<RSCO_Waitter> _waitter = nullptr)
         {
             m_virtualmachine = _vm;
@@ -223,11 +241,11 @@ namespace rs
                     {
                         std::unique_lock ug1(_this->_jobs_queue_mx);
                         _this->_jobs_cv.wait(ug1,
-                            [=]() {
-
+                            [&]() {
                                 bool enable_execute_flag =
                                     (!_this->_jobs_queue.empty() && !_this->_pause_flag)
                                     || _this->_shutdown_flag;
+                                _this->_paused_flag = !enable_execute_flag;
                                 return enable_execute_flag;
                             });
 
@@ -346,7 +364,7 @@ namespace rs
 
             void wait_until_paused()
             {
-                while (_paused_flag)
+                while (!_paused_flag || _current_vmthread)
                     std::this_thread::yield();
             }
 
@@ -358,7 +376,7 @@ namespace rs
 
             void stop_after_paused()
             {
-                rs_assert(_pause_flag && !_current_vmthread);
+                rs_assert(_paused_flag && !_current_vmthread);
                 fiber _stoppine_fiber;
 
                 _clear_all_works(&_stoppine_fiber);

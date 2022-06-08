@@ -1055,6 +1055,38 @@ namespace rs
             return nullptr;
         }
 
+        value* co_pre_invoke(closure_t* rs_func_addr, rs_int_t argc)
+        {
+            rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+
+            if (!rs_func_addr)
+                rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                rs::gcbase::gc_read_guard rg1(rs_func_addr);
+                if (!rs_func_addr->m_function_addr)
+                    rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+                else
+                {
+                    auto* return_sp = sp;
+
+                    for (auto idx = rs_func_addr->m_closure_args.rbegin();
+                        idx != rs_func_addr->m_closure_args.rend();
+                        ++idx)
+                        (sp--)->set_trans(&*idx);
+
+                    (sp--)->set_native_callstack(ip);
+                    ip = env->rt_codes + rs_func_addr->m_function_addr;
+                    tc->set_integer(argc);
+                    bp = sp;
+
+
+                    return return_sp;
+                }
+            }
+            return nullptr;
+        }
+
         value* invoke(rs_int_t rs_func_addr, rs_int_t argc)
         {
             rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
@@ -1077,9 +1109,10 @@ namespace rs
                 ip = return_ip;
                 sp = return_sp;
                 bp = return_bp;
+
+                if (veh)
+                    return cr;
             }
-            if (veh)
-                return cr;
             return nullptr;
         }
         value* invoke(rs_handle_t rs_func_addr, rs_int_t argc)
@@ -1108,9 +1141,49 @@ namespace rs
                 ip = return_ip;
                 sp = return_sp;
                 bp = return_bp;
+
+                if (veh)
+                    return cr;
             }
-            if (veh)
-                return cr;
+            return nullptr;
+        }
+        value* invoke(closure_t* rs_func_closure, rs_int_t argc)
+        {
+            rs_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+
+            if (!rs_func_closure)
+                rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+            else
+            {
+                rs::gcbase::gc_read_guard rg1(rs_func_closure);
+                if (!rs_func_closure->m_function_addr)
+                    rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+                else
+                {
+                    auto* return_ip = ip;
+                    auto* return_sp = sp + argc;
+                    auto* return_bp = bp;
+
+                    for (auto idx = rs_func_closure->m_closure_args.rbegin();
+                        idx != rs_func_closure->m_closure_args.rend();
+                        ++idx)
+                        (sp--)->set_trans(&*idx);
+
+                    (sp--)->set_native_callstack(ip);
+                    ip = env->rt_codes + rs_func_closure->m_function_addr;
+                    tc->set_integer(argc);
+                    bp = sp;
+
+                    run();
+
+                    ip = return_ip;
+                    sp = return_sp;
+                    bp = return_bp;
+
+                    if (veh)
+                        return cr;
+                }
+            }
             return nullptr;
         }
 
@@ -2806,8 +2879,8 @@ namespace rs
 
                         if ((++rt_bp)->type == value::valuetype::nativecallstack)
                         {
-                            rs_assert(dr == 0);
                             rt_sp = rt_bp;
+                            rt_sp += pop_count;
                             return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                         }
 
@@ -2976,10 +3049,7 @@ namespace rs
                         for (size_t i = 0; i < (size_t)opnum2->integer; i++)
                         {
                             auto* arr_val = ++rt_sp;
-                            if (arr_val->is_ref())
-                                (*created_array)[i].set_ref(arr_val->get());
-                            else
-                                (*created_array)[i].set_val(arr_val->get());
+                            (*created_array)[i].set_trans(arr_val);
                         }
                         break;
                     }
@@ -3000,10 +3070,7 @@ namespace rs
                         {
                             value* val = ++rt_sp;
                             value* key = ++rt_sp;
-                            if (val->is_ref())
-                                (*created_map)[*(key->get())].set_ref(val->get());
-                            else
-                                (*created_map)[*(key->get())].set_val(val->get());
+                            (*created_map)[*(key->get())].set_trans(val);
                         }
                         break;
                     }

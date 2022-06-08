@@ -1411,12 +1411,16 @@ rs_value rs_invoke_exfunc(rs_vm vm, rs_handle_t exfunc, rs_int_t argc)
 }
 rs_value rs_invoke_value(rs_vm vm, rs_value vmfunc, rs_int_t argc)
 {
+    rs::value* valfunc = RS_VAL(vmfunc);
+
     if (!vmfunc)
         rs_fail(RS_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-    else if (RS_VAL(vmfunc)->type == rs::value::valuetype::integer_type)
-        return CS_VAL(RS_VM(vm)->invoke(RS_VAL(vmfunc)->integer, argc));
-    else if (RS_VAL(vmfunc)->type == rs::value::valuetype::handle_type)
-        return CS_VAL(RS_VM(vm)->invoke(RS_VAL(vmfunc)->handle, argc));
+    else if (valfunc->type == rs::value::valuetype::integer_type)
+        return CS_VAL(RS_VM(vm)->invoke(valfunc->integer, argc));
+    else if (valfunc->type == rs::value::valuetype::handle_type)
+        return CS_VAL(RS_VM(vm)->invoke(valfunc->handle, argc));
+    else if (valfunc->type == rs::value::valuetype::closure_type)
+        return CS_VAL(RS_VM(vm)->invoke(valfunc->closure, argc));
     else
         rs_fail(RS_FAIL_CALL_FAIL, "Not callable type.");
     return nullptr;

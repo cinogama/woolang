@@ -49,9 +49,12 @@ namespace test_thread
 
 		// Thread should be abort-able..
 		summ = 0;
+		var this_should_be_true = false;
+		var __pack = [ref this_should_be_true];
 		var th = std::thread::create(
 			func(ref i)
 			{
+				__pack[0] = true;
 				while (i <= 1_0000_0000)
 				{
 					i+=1;
@@ -61,7 +64,7 @@ namespace test_thread
 		th->abort();
 		th->wait();
 
-		test_assure(summ!=0 && summ<1_0000_0000);
+		test_assure(this_should_be_true && summ!=0 && summ<1_0000_0000);
 
     }
 }

@@ -1059,28 +1059,17 @@ RS_API rs_api rslib_std_thread_create(rs_vm vm, rs_value args, size_t argc)
 {
     rs_vm new_thread_vm = rs_sub_vm(vm, reinterpret_cast<rs::vmbase*>(vm)->stack_size);
 
-    rs_int_t funcaddr_vm = 0;
-    rs_handle_t funcaddr_native = 0;
-
-    if (rs_valuetype(args) == RS_INTEGER_TYPE)
-        funcaddr_vm = rs_int(args);
-    else if (rs_valuetype(args) == RS_HANDLE_TYPE)
-        funcaddr_native = rs_handle(args);
-    else
-        rs_fail(RS_FAIL_TYPE_FAIL, "Cannot invoke this type of value.");
+    rs_value rs_calling_function = rs_push_valref(new_thread_vm, args);
 
     for (size_t argidx = argc - 1; argidx > 0; argidx--)
-    {
         rs_push_valref(new_thread_vm, args + argidx);
-    }
+    
 
     auto* _vmthread = new std::thread([=]() {
         try
         {
-            if (funcaddr_vm)
-                rs_invoke_rsfunc((rs_vm)new_thread_vm, funcaddr_vm, argc - 1);
-            else
-                rs_invoke_exfunc((rs_vm)new_thread_vm, funcaddr_native, argc - 1);
+            rs_invoke_value((rs_vm)new_thread_vm, rs_calling_function, argc - 1);
+            rs_pop_stack((rs_vm)new_thread_vm);
         }
         catch (...)
         {
@@ -1300,17 +1289,22 @@ RS_API rs_api rslib_std_roroutine_launch(rs_vm vm, rs_value args, size_t argc)
     // rslib_std_roroutine_launch(...)   
     auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<rs::vmbase*>(vm));
     for (size_t i = argc - 1; i > 0; i--)
-    {
         rs_push_valref(reinterpret_cast<rs_vm>(_nvm), args + i);
-    }
 
     rs::shared_pointer<rs::RSCO_Waitter> gchandle_roroutine;
 
-    if (RS_INTEGER_TYPE == rs_valuetype(args + 0))
+    auto functype = rs_valuetype(args + 0);
+    if (RS_INTEGER_TYPE == functype)
         gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_int(args + 0), argc - 1);
-    else
+    else if (RS_HANDLE_TYPE == functype)
         gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, rs_handle(args + 0), argc - 1);
-
+    else if (RS_CLOSURE_TYPE == functype)
+        gchandle_roroutine = rs::fvmscheduler::new_work(_nvm, reinterpret_cast<rs::value*>(args + 0)->get()->closure, argc - 1);
+    else
+    {
+        rs_fail(RS_FAIL_CALL_FAIL, "Unknown type to call.");
+        return rs_ret_nil(vm);
+    }
 
 
     return rs_ret_gchandle(vm,

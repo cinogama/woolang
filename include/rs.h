@@ -80,6 +80,7 @@ typedef enum _rs_value_type
     RS_MAPPING_TYPE,
     RS_ARRAY_TYPE,
     RS_GCHANDLE_TYPE,
+    RS_CLOSURE_TYPE
 }
 rs_type;
 

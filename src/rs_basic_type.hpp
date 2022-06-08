@@ -376,7 +376,7 @@ namespace rs
     static_assert((int)value::valuetype::mapping_type == RS_MAPPING_TYPE);
     static_assert((int)value::valuetype::array_type == RS_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == RS_GCHANDLE_TYPE);
-
+    static_assert((int)value::valuetype::closure_type == RS_CLOSURE_TYPE);
     struct closure_function
     {
         rs_integer_t m_function_addr;
