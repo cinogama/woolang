@@ -1919,7 +1919,7 @@ namespace rs
                                                 for (size_t index = 0; index < judge_sets->size(); index++)
                                                 {
                                                     acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
-                                                        + judge_sets->at(index)->value_type->get_type_name()
+                                                        + judge_sets->at(index)->value_type->get_type_name(false)
                                                         + L"' " RS_TERM_AT L" ("
                                                         + std::to_wstring(judge_sets->at(index)->row_no)
                                                         + L","
@@ -1997,7 +1997,7 @@ namespace rs
                                     if (!real_args)
                                     {
                                         // default arg mgr here, now just kill
-                                        lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                        lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                     }
                                     else
                                     {
@@ -2039,7 +2039,7 @@ namespace rs
                                                 }
                                                 else
                                                 {
-                                                    lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                                    lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                                     break;
                                                 }
                                                 ecount--;
@@ -2090,7 +2090,7 @@ namespace rs
                                         // TODO MARK NOT NEED EXPAND HERE
                                     }
                                     else
-                                        lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name().c_str());
+                                        lang_anylizer->lang_error(0x0000, a_value_funccall, RS_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                 }
                             }
                             else if (!a_value_funccall->called_func->value_type->is_pending())
