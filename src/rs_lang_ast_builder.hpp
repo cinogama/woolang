@@ -548,7 +548,8 @@ namespace rs
             }
             bool is_bool() const
             {
-                return type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool");
+                return !is_func()&&
+                    (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
             }
             bool has_template() const
             {
