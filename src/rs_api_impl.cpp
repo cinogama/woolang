@@ -16,6 +16,7 @@
 
 #include <csignal>
 #include <sstream>
+#include <new>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -702,7 +703,7 @@ void _rs_cast_value(rs::value* value, rs::lexer* lex, rs::value::valuetype excep
 void _rs_cast_array(rs::value* value, rs::lexer* lex)
 {
     rs::array_t* rsarr;
-    rs::array_t::gc_new<rs::gcbase::gctype::eden>((rs::gcbase*&)rsarr);
+    rs::array_t::gc_new<rs::gcbase::gctype::eden>(*std::launder((rs::gcbase**)&rsarr));
 
     while (true)
     {
@@ -725,7 +726,7 @@ void _rs_cast_array(rs::value* value, rs::lexer* lex)
 void _rs_cast_map(rs::value* value, rs::lexer* lex)
 {
     rs::mapping_t* rsmap;
-    rs::mapping_t::gc_new<rs::gcbase::gctype::eden>((rs::gcbase*&)rsmap);
+    rs::mapping_t::gc_new<rs::gcbase::gctype::eden>(*std::launder((rs::gcbase**)&rsmap));
 
     while (true)
     {

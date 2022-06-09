@@ -113,7 +113,7 @@ namespace rs
             strcpy(_exe_path, parsed_path.c_str());
 
 #else
-            readlink("/proc/self/exe", _exe_path, MAX_PATH_LEN);
+            [[maybe_unused]] auto reuslt = readlink("/proc/self/exe", _exe_path, MAX_PATH_LEN);
 #endif
             auto _only_file_loc = get_file_loc(_exe_path);
             memcpy(_exe_path, _only_file_loc.c_str(), _only_file_loc.size() + 1);
@@ -128,7 +128,7 @@ namespace rs
 #ifdef _WIN32
         _work_path[GetCurrentDirectoryA(MAX_PATH_LEN, _work_path)] = '/';
 #else
-        getcwd(_work_path, MAX_PATH_LEN);
+        [[maybe_unused]] auto reuslt = getcwd(_work_path, MAX_PATH_LEN);
         _work_path[strlen(_work_path)] = '/';
 #endif
         auto _only_file_loc = get_file_loc(_work_path);

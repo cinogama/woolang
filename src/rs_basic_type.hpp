@@ -13,6 +13,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <new>
 
 namespace rs
 {
@@ -93,14 +94,17 @@ namespace rs
             value* ref;
 
             // std::atomic<gcbase*> atomic_gcunit_ptr;
+            uint64_t value_space;
         };
 
         union
         {
+
             valuetype type;
             // uint32_t type_hash;
 
             // std::atomic_uint64_t atomic_type;
+            uint64_t type_space;
         };
 
         inline value* get() const
@@ -116,17 +120,17 @@ namespace rs
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            *reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle) = nullptr;
-            *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
+            *std::launder(reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle)) = nullptr;
+            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
 
             return this;
         }
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            *reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle) = nullptr;
-            *reinterpret_cast<std::atomic_uint8_t*>(&type) = (uint8_t)gcunit_type;
-            *reinterpret_cast<std::atomic<gcbase*>*>(&gcunit) = gcunit_ptr;
+            *std::launder(reinterpret_cast<std::atomic<rs_handle_t*>*>(&handle)) = nullptr;
+            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
+            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
 
             return this;
         }
@@ -187,10 +191,10 @@ namespace rs
         {
             do
             {
-                gcbase* gcunit_addr = *reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit);
-                if (*reinterpret_cast<const std::atomic_uint8_t*>(&type) & (uint8_t)valuetype::need_gc)
+                gcbase* gcunit_addr = *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit));
+                if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
                 {
-                    if (gcunit_addr == *reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit))
+                    if (gcunit_addr == *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)))
                         return gcunit_addr;
 
                     continue;
@@ -205,9 +209,9 @@ namespace rs
         {
             do
             {
-                rs_handle_t data = *reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle);
-                valuetype type = *reinterpret_cast<const std::atomic<valuetype>*>(&type);
-                if (data == *reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle))
+                rs_handle_t data = *std::launder(reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle));
+                valuetype type = *std::launder(reinterpret_cast<const std::atomic<valuetype>*>(&type));
+                if (data == *std::launder(reinterpret_cast<const std::atomic<rs_handle_t>*>(&handle)))
                 {
                     out_put_val->handle = data;
                     out_put_val->type = type;
