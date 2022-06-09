@@ -57,6 +57,10 @@ namespace gameObject
     func destroy(var self:gameObject):void;
 }
 
+// ...
+var obj = nil:gameObject;
+obj->destroy();
+// ...
 using vector2
 {
     var x = .0;
@@ -74,6 +78,9 @@ using vector2
         return create(a.x+b.x, a.y+b.y);
     }
 };
+var a = vector2(1, 2);
+var b = vector2(3, 4);
+var c = a + b;
 ```
 
 作为强类型/静态类型语言，RestorableScene提供了泛型机制。编译器会做力所能及的类型推导，大多数情况下不需要手动额外填写模板参数。
