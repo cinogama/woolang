@@ -642,7 +642,7 @@ WO_API wo_api rslib_std_vm_load_src(wo_vm vm, wo_value args, size_t argc)
 
     bool compile_result;
     if (argc < 3)
-        compile_result = wo_load_source(vmm, "_temp_source.rsn", wo_string(args + 1));
+        compile_result = wo_load_source(vmm, "_temp_source.wo", wo_string(args + 1));
     else
         compile_result = wo_load_source(vmm, wo_string(args + 1), wo_string(args + 2));
 
@@ -722,7 +722,7 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, wo_extern_symb(vm, wo_string(args + 0)));
 }
 
-const char* wo_stdlib_src_path = u8"woo/std.rsn";
+const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
 const var true = 1 : bool;
@@ -963,7 +963,7 @@ WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, wo_invoke_value(vm, args, argc - 1));
 }
 
-const char* wo_stdlib_debug_src_path = u8"woo/debug.rsn";
+const char* wo_stdlib_debug_src_path = u8"woo/debug.wo";
 const char* wo_stdlib_debug_src_data = {
 u8R"(
 namespace std
@@ -995,7 +995,7 @@ namespace std
 }
 )" };
 
-const char* wo_stdlib_vm_src_path = u8"woo/vm.rsn";
+const char* wo_stdlib_vm_src_path = u8"woo/vm.wo";
 const char* wo_stdlib_vm_src_data = {
 u8R"(
 namespace std
@@ -1197,7 +1197,7 @@ WO_API wo_api rslib_std_thread_spin_write_end(wo_vm vm, wo_value args, size_t ar
 
 
 
-const char* wo_stdlib_thread_src_path = u8"woo/thread.rsn";
+const char* wo_stdlib_thread_src_path = u8"woo/thread.wo";
 const char* wo_stdlib_thread_src_data = {
 u8R"(
 namespace std
@@ -1374,7 +1374,7 @@ WO_API wo_api rslib_std_roroutine_wait(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_nil(vm);
 }
 
-const char* wo_stdlib_roroutine_src_path = u8"woo/co.rsn";
+const char* wo_stdlib_roroutine_src_path = u8"woo/co.wo";
 const char* wo_stdlib_roroutine_src_data = {
 u8R"(
 namespace std
@@ -1427,7 +1427,7 @@ WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
 
     wo::lexer tmp_lex(wo::str_to_wstr(
         wo_string(args + 1)
-    ), "macro" + lex->source_file + "_impl.rsn");
+    ), "macro" + lex->source_file + "_impl.wo");
 
     std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
 
@@ -1524,7 +1524,7 @@ WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t
     return wo_ret_string(vm, lex->source_file.c_str());
 }
 
-const char* wo_stdlib_macro_src_path = u8"woo/macro.rsn";
+const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
 const char* wo_stdlib_macro_src_data = {
 u8R"(
 import woo.std;

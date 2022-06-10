@@ -1491,7 +1491,7 @@ namespace wo
 
             _macro_action_vm = wo_create_vm();
             if (!wo_load_source(_macro_action_vm,
-                ("macro_" + wstr_to_str(macro_name) + ".rsn").c_str(),
+                ("macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
                 wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
             {
                 lex.lex_error(0x0000, L"宏控制器编译失败，继续：\n%ls",

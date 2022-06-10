@@ -3525,12 +3525,12 @@ namespace wo
                         path += L"/";
                 } while (importfilepaths);
 
-                // path += L".rsn";
+                // path += L".wo";
                 std::wstring srcfile, src_full_path;
-                if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L".rsn", &lex))
+                if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L".wo", &lex))
                 {
-                    // import a.b; cannot open a/b.rsn, trying a/b/b.rsn
-                    if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".rsn", &lex))
+                    // import a.b; cannot open a/b.wo, trying a/b/b.wo
+                    if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", &lex))
                         return lex.parser_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
                 }
 
