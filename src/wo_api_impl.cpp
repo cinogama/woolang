@@ -47,7 +47,7 @@ constexpr char         version_str[] = WO_VERSION_STR(de, 0, 0, 1) WO_DEBUG_SFX;
 
 void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
-    wo::wo_stderr << ANSI_HIR "RS Runtime happend a failure: "
+    wo::wo_stderr << ANSI_HIR "WooLang Runtime happend a failure: "
         << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
     wo::wo_stderr << "\tAt source: \t" << src_file << wo::wo_endl;
     wo::wo_stderr << "\tAt line: \t" << lineno << wo::wo_endl;
@@ -83,7 +83,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
         wo::wo_stderr << "This failure may cause a crash or nothing happens." << wo::wo_endl;
         wo::wo_stderr << "1) Abort program.(You can attatch debuggee.)" << wo::wo_endl;
         wo::wo_stderr << "2) Continue.(May cause unknown errors.)" << wo::wo_endl;
-        wo::wo_stderr << "3) Roll back to last RS-EXCEPTION-RECOVERY.(Safe, but may cause memory leak and dead-lock.)" << wo::wo_endl;
+        wo::wo_stderr << "3) Roll back to last WO-EXCEPTION-RECOVERY.(Not immediatily)" << wo::wo_endl;
         wo::wo_stderr << "4) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
         wo::wo_stderr << "5) Throw exception.(Not exactly safe)" << wo::wo_endl;
         do
@@ -104,6 +104,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
                     wo::vmbase::_this_thread_vm->er->set_gcunit_with_barrier(wo::value::valuetype::string_type);
                     wo::string_t::gc_new<wo::gcbase::gctype::eden>(wo::vmbase::_this_thread_vm->er->gcunit, reason);
                     wo::exception_recovery::rollback(wo::vmbase::_this_thread_vm);
+                    return;
                 }
                 else
                     wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
