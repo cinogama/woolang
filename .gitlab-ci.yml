@@ -55,8 +55,8 @@ build_debug:
 test_debug_and_release:
   stage: test
   script:
-    - ./build/woodriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
-    - ./build/woodriver_debug test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
   artifacts:
