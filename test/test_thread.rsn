@@ -1,7 +1,7 @@
-import rscene.std;
+import woo.std;
 import test_tool;
 
-import rscene.thread;
+import woo.thread;
 
 namespace test_thread
 {

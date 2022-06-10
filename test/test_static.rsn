@@ -1,4 +1,4 @@
-import rscene.std;
+import woo.std;
 import test_tool;
 
 namespace test_static

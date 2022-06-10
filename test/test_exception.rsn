@@ -1,6 +1,6 @@
-import rscene.std;
-import rscene.vm;
-import rscene.debug;
+import woo.std;
+import woo.vm;
+import woo.debug;
 
 import test_tool;
 
@@ -19,7 +19,7 @@ namespace test_exception
 		}
 		var vmm = std::vm::create();
         vmm->load_source("test_vm/test_exception.rsn", @"
-import rscene.std;
+import woo.std;
 func test()
 {
 	static var n = 0;

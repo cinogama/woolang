@@ -14,6 +14,6 @@ namespace socket
 		UDP = 1,
 	}
 
-	extern("rs_socket", "rssocket_create_sock")
+	extern("wo_socket", "rssocket_create_sock")
 		func create(var proto : protocol, var ip_proto : ip_protocol) : socket;
 }

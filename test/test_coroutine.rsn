@@ -1,5 +1,5 @@
-import rscene.std;
-import rscene.co;
+import woo.std;
+import woo.co;
 
 import test_tool;
 
@@ -10,7 +10,7 @@ namespace test_coroutine
 		using std;
 
 		var co1 = co(func(){
-			for(var i=0;i<3;i+=1)
+			for(var i = 0;i < 3;i += 1)
 			{
 				co::sleep(1);
 				println("Helloworld");
@@ -32,12 +32,12 @@ namespace test_coroutine
 	}
 	func finish_co()
 	{
-		var co_list = []:array<std::co>;
+		var co_list = []:array< std::co >;
 
-		for(var i=0;i<1000;i+=1)
+		for(var i = 0;i < 1000;i += 1)
 		{
 			co_list->add(std::co(func(){
-				for(var i=0;i<3;i+=1)
+				for(var i = 0;i < 3;i += 1)
 				{
 					std::co::sleep(1);
 				}
@@ -49,11 +49,11 @@ namespace test_coroutine
 
 		co_list->clear();
 
-		for(var i=0;i<4;i+=1)
+		for(var i = 0;i < 4;i += 1)
 			co_list->add(std::co(
 				func()
 				{
-					for(var i=0;i<1'000'000;i+=1)
+					for(var i = 0;i < 1'000'000;i += 1)
 						std::co::yield();
 				}
 			));
@@ -73,8 +73,8 @@ namespace test_coroutine
 
 		vm->load_source(
 		@"
-		import rscene.std;
-		import rscene.co;
+		import woo.std;
+		import woo.co;
 
 		var co_list = []:array<std::co>;
 

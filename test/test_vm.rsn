@@ -1,5 +1,5 @@
-import rscene.std;
-import rscene.vm;
+import woo.std;
+import woo.vm;
 
 import test_tool;
 
@@ -16,7 +16,7 @@ namespace test_vm
     {
        var vmm = load_and_create_vmm(
             @"
-            import rscene.std;
+            import woo.std;
             func main()
             {
                 std::println("Hey! This inform come from another vm!~");
@@ -37,7 +37,7 @@ namespace test_vm
             i += 1;
             var vmm = load_and_create_vmm(
                 @"
-                import rscene.std;
+                import woo.std;
                 func test_template< T >(var n:T)
                 {
                     return n;

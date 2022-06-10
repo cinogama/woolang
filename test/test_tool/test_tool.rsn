@@ -1,4 +1,4 @@
-import rscene.std;
+import woo.std;
 
 var test_function_set = []:array<map<string, dynamic>>;
 var test_success_count = 0, test_failed_count = 0;

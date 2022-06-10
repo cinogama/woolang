@@ -1,5 +1,5 @@
-import rscene.std;
-import rscene.debug;
+import woo.std;
+import woo.debug;
 
 import test_tool;
 

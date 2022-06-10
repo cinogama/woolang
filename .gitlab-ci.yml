@@ -1,6 +1,6 @@
-# In 'build', we will use cmake & make to build rscene..
+# In 'build', we will use cmake & make to build woo..
 variables:
-  CACHE_FALLBACK_KEY: rs-build-master
+  CACHE_FALLBACK_KEY: wo-build-master
 
 build_release:
   stage: build
@@ -8,19 +8,19 @@ build_release:
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
     - rm -f CMakeCache.txt
-    - cmake .. -DRS_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
+    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - make
     - cd ..
   artifacts:
-    name: ubuntu-rs-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    name: ubuntu-wo-build-release-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
-      - build/rscenedriver
-      - build/librscene.so
+      - build/woodriver
+      - build/libwoo.so
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
     when: on_success
-    key: rs-build-release-$CI_COMMIT_REF_SLUG
+    key: wo-build-release-$CI_COMMIT_REF_SLUG
     paths:
         - "build/*"
   tags:
@@ -32,19 +32,19 @@ build_debug:
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
     - rm -f CMakeCache.txt
-    - cmake .. -DRS_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
+    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON
     - make
     - cd ..
   artifacts:
-    name: ubuntu-rs-build-debug-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    name: ubuntu-wo-build-debug-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
-      - build/rscenedriver_debug
-      - build/librscene_debug.so
+      - build/woodriver_debug
+      - build/libwoo_debug.so
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
     when: on_success
-    key: rs-build-debug-$CI_COMMIT_REF_SLUG
+    key: wo-build-debug-$CI_COMMIT_REF_SLUG
     paths:
         - "build/*"
   tags:
@@ -55,8 +55,8 @@ build_debug:
 test_debug_and_release:
   stage: test
   script:
-    - ./build/rscenedriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
-    - ./build/rscenedriver_debug test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/woodriver test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/woodriver_debug test/test_all.rsn --coroutine-thread-count 2 --enable-ctrlc-debug 0
   tags:
     - ubuntu1804_cicd
   artifacts:
