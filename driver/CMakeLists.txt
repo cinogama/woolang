@@ -15,4 +15,4 @@ add_executable(woodriver wo_driver.cpp)
 
 set_target_properties(woodriver PROPERTIES RELEASE_POSTFIX "")
 set_target_properties(woodriver PROPERTIES DEBUG_POSTFIX "_debug")
-target_link_libraries(woodriver woo)
+target_link_libraries(woodriver woolang)
