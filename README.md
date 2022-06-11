@@ -44,7 +44,7 @@ func work(var val:int)
 }
 
 for (var i=0; i<1000; i+=1)
-    std::co(work);      // Launch a coroutine.
+    std::co(work, i);      // Launch a coroutine.
 ```
 
 作为脚本语言，Woolang 允许用户基于基本类型定义新的“自定义类型”，配合`指向调用`语法糖和`运算符重载`功能，让Woolang能够更好地配合宿主完成工作。
