@@ -406,7 +406,7 @@ namespace wo
                 if (destructor)
                     destructor(holding_handle);
                 if (holding_value.is_gcunit())
-                    holding_value.gcunit->gc_type = gcbase::gctype::eden;
+                    holding_value.gcunit->gc_type = gcbase::gctype::young;
                 return true;
             }
             return false;

@@ -161,6 +161,9 @@ namespace wo
 
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
+#ifdef WO_PLATRORM_OS_WINDOWS
+                SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
+#endif
                 do
                 {
                     do
@@ -367,7 +370,7 @@ namespace wo
                     if (!origin_list || ((picked_list->gc_type == gcbase::gctype::eden
                         || picked_list->gc_mark_alive_count > max_count) && aim_edge))
                     {
-                        gcbase::gc_write_guard gcwg1(picked_list);
+                        // gcbase::gc_write_guard gcwg1(picked_list);
 
                         // over count, move it to old_edge.
                         aim_edge->add_one(picked_list);
@@ -375,10 +378,11 @@ namespace wo
                     }
                     else
                     {
-                        gcbase::gc_write_guard gcwg1(picked_list);
+                        // gcbase::gc_write_guard gcwg1(picked_list);
 
                         // add it back
                         origin_list->add_one(picked_list);
+                        picked_list->gc_type = aim_gc_type;
                     }
                 }
 
@@ -388,6 +392,10 @@ namespace wo
 
         void _gc_work_list()
         {
+#ifdef WO_PLATRORM_OS_WINDOWS
+            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
+#endif
+
             // 0. get current vm list, set stop world flag to TRUE:
             do
             {
@@ -432,9 +440,9 @@ namespace wo
             auto* old_list = gcbase::old_age_gcunit_list.pick_all();
 
             // Mark all no_gc_object
-            mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
-            mark_nogc_child(young_list, 1 % _gc_work_thread_count);
-            mark_nogc_child(old_list, 2 % _gc_work_thread_count);
+            // mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
+            // mark_nogc_child(young_list, 1 % _gc_work_thread_count);
+            // mark_nogc_child(old_list, 2 % _gc_work_thread_count);
 
             // 4. OK, Continue mark gray to black
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
