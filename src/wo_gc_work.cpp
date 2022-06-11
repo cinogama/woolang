@@ -498,14 +498,6 @@ namespace wo
                     {
                         using namespace std;
                         bool breakout = false;
-                        _gc_work_cv.wait_for(ug1, 0.1s, [&]() {
-                            if (_gc_stop_flag || !_gc_immediately.test_and_set())
-                                breakout = true;
-                            return breakout;
-                            });
-
-                        if (breakout)
-                            break;
 
                         if (gcbase::gc_new_count > _gc_immediately_edge)
                         {
@@ -515,11 +507,18 @@ namespace wo
                                 gcbase::gc_new_count -= _gc_stop_the_world_edge;
                             }
                             else
-                            {
                                 gcbase::gc_new_count -= _gc_immediately_edge;
-                            }
                             break;
                         }
+
+                        _gc_work_cv.wait_for(ug1, 0.1s, [&]() {
+                            if (_gc_stop_flag || !_gc_immediately.test_and_set())
+                                breakout = true;
+                            return breakout;
+                            });
+
+                        if (breakout)
+                            break;
                     }
                 } while (false);
 
