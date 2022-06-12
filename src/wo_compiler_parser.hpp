@@ -102,7 +102,8 @@ namespace wo
 
             ast_base& operator = (const ast_base& another)
             {
-                // do nothing
+                // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
+                //            IN 'MAKE_INSTANCE'
                 return *this;
             }
             ast_base& operator = (ast_base&& another) = delete;
@@ -224,6 +225,18 @@ namespace wo
                 }
 
                 wo_error("There is no such a child node.");
+            }
+            void copy_source_info(const ast_base* ast_node)
+            {
+                row_no = ast_node->row_no;
+                col_no = ast_node->col_no;
+                source_file = ast_node->source_file;
+            }
+            void copy_source_info(const lexer* lex)
+            {
+                row_no = lex->now_file_rowno;
+                col_no = lex->now_file_colno;
+                source_file = lex->source_file;
             }
         public:
             static void space(std::wostream& os, size_t layer)

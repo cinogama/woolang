@@ -57,6 +57,18 @@ namespace wo
                 template_types = defs->template_type_name_list;
             }
         }
+
+        bool is_type_decl() const noexcept
+        {
+            return type == symbol_type::template_typing || type == symbol_type::typing;
+        }
+        std::string& defined_source() const noexcept
+        {
+            if (is_type_decl())
+                return type_informatiom->source_file;
+            else
+                return variable_value->source_file;
+        }
     };
 
     struct lang_scope
@@ -1685,7 +1697,7 @@ namespace wo
 
                                         for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
                                         {
-                                            if (!check_symbol_is_accessable(_override_func, _override_func->symbol, called_funcsymb->searching_begin_namespace_in_pass2, called_funcsymb, false))
+                                            if (!check_symbol_is_accessable(_override_func, _override_func->symbol, called_funcsymb->searching_begin_namespace_in_pass2, a_value_funccall, false))
                                                 continue; // In function override judge, not accessable function will be skip!
 
                                             auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
@@ -5105,35 +5117,57 @@ namespace wo
 
         bool check_symbol_is_accessable(ast::ast_defines* astdefine, lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error = true)
         {
-            if (astdefine->declear_attribute && astdefine->declear_attribute->is_private_attr())
+            if (astdefine->declear_attribute)
             {
-                auto* symbol_defined_space = symbol->defined_in_scope;
-                while (current_scope)
+                if (astdefine->declear_attribute->is_protected_attr())
                 {
-                    if (current_scope == symbol_defined_space)
-                        return true;
-                    current_scope = current_scope->parent_scope;
+                    auto* symbol_defined_space = symbol->defined_in_scope;
+                    while (current_scope)
+                    {
+                        if (current_scope == symbol_defined_space)
+                            return true;
+                        current_scope = current_scope->parent_scope;
+                    }
+                    if (give_error)
+                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个保护对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                    return false;
                 }
-                if (give_error)
-                    lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
-                return false;
+                if (astdefine->declear_attribute->is_private_attr())
+                {
+                    if (ast->source_file == astdefine->source_file)
+                        return true;
+                    if (give_error)
+                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的源文件内访问，继续", symbol->name.c_str());
+                    return false;
+                }
             }
             return true;
         }
         bool check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error = true)
         {
-            if (symbol->attribute && symbol->attribute->is_private_attr())
+            if (symbol->attribute)
             {
-                auto* symbol_defined_space = symbol->defined_in_scope;
-                while (current_scope)
+                if (symbol->attribute->is_protected_attr())
                 {
-                    if (current_scope == symbol_defined_space)
-                        return true;
-                    current_scope = current_scope->parent_scope;
+                    auto* symbol_defined_space = symbol->defined_in_scope;
+                    while (current_scope)
+                    {
+                        if (current_scope == symbol_defined_space)
+                            return true;
+                        current_scope = current_scope->parent_scope;
+                    }
+                    if (give_error)
+                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个保护对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                    return true;
                 }
-                if (give_error)
-                    lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
-                return true;
+                if (symbol->attribute->is_private_attr())
+                {
+                    if (ast->source_file == symbol->defined_source())
+                        return true;
+                    if (give_error)
+                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的源文件内访问，继续", symbol->name.c_str());
+                    return false;
+                }
             }
             return true;
         }

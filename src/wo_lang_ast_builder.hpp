@@ -1237,6 +1237,11 @@ namespace wo
                 return attributes.find(+lex_type::l_private) != attributes.end();
             }
 
+            bool is_protected_attr() const
+            {
+                return attributes.find(+lex_type::l_protected) != attributes.end();
+            }
+
             bool is_extern_attr() const
             {
                 return attributes.find(+lex_type::l_extern) != attributes.end();
@@ -1939,6 +1944,10 @@ namespace wo
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
+
+                if (function_name == L"in")
+                    printf("");
+
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
                 ast_value_symbolable_base::instance(dumm);
@@ -3189,7 +3198,7 @@ namespace wo
 
                     avfd_create->auto_adjust_return_type = true;
                     avfd_create->declear_attribute = new ast_decl_attribute();
-
+                    avfd_create->copy_source_info(&lex);
                     if (using_type->is_template_define)
                     {
                         avfd_create->is_template_define = true;
@@ -3229,7 +3238,8 @@ namespace wo
                     avfd_new->value_type->set_as_function_type();
                     avfd_new->auto_adjust_return_type = true;
                     avfd_new->declear_attribute = new ast_decl_attribute();
-                    avfd_new->declear_attribute->add_attribute(&lex, +lex_type::l_private);
+                    avfd_new->declear_attribute->add_attribute(&lex, +lex_type::l_protected);
+                    avfd_new->copy_source_info(&lex);
                     if (using_type->is_template_define)
                     {
                         avfd_new->is_template_define = true;
@@ -3237,7 +3247,6 @@ namespace wo
                     }
 
                     avfd_new->in_function_sentence = new ast_list;
-
 
                     // return {...}:CLASS_TYPE_NAME
                     ast_list* in_instance_pairs = new ast_list();
