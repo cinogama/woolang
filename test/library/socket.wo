@@ -1,4 +1,4 @@
-// socket.rsn
+// socket.wo
 
 using socket = gchandle;
 namespace socket

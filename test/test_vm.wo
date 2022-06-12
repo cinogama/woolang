@@ -8,7 +8,7 @@ namespace test_vm
     func load_and_create_vmm(var src:string)
     {
         var vmm = std::vm::create();
-        vmm->load_source("test_vm/test_tmp_script.rsn", src);
+        vmm->load_source("test_vm/test_tmp_script.wo", src);
         return vmm;
     }
 
