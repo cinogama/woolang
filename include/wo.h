@@ -215,6 +215,7 @@ WO_API wo_value     wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc
 WO_API wo_value     wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 
 WO_API wo_value     wo_dispatch_rsfunc(wo_vm vm, wo_int_t rsfunc, wo_int_t argc);
+WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 
 #define WO_HAPPEND_ERR ((wo_value)nullptr)
 #define WO_CONTINUE    ((wo_value)(void*)-1)
