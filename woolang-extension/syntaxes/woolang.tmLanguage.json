@@ -1,0 +1,41 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Woolang",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [{
+				"name": "keyword.control.woolang",
+				"match": "\\b(if|else|while|for|return)\\b"
+			},
+			{
+				"name": "keyword.declear.woolang",
+				"match": "\\b(func|var|ref)\\b"
+			}]
+		},
+		"strings": {
+			"name": "string.quoted.double.woolang",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.woolang",
+					"match": "\\\\."
+				}
+			]
+		},
+		"multiLineStrings": {
+			"name": "multi_line_string.quoted.double.woolang",
+			"begin": "@\"",
+			"end": "\"@"
+		}
+	},
+	"scopeName": "source.woolang"
+}
