@@ -1945,9 +1945,6 @@ namespace wo
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
 
-                if (function_name == L"in")
-                    printf("");
-
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
                 ast_value_symbolable_base::instance(dumm);
