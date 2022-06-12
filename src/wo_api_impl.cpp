@@ -1435,6 +1435,13 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
     return CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
 }
 
+wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+{
+    auto* vmm = WO_VM(vm);
+    vmm->set_br_yieldable(true);
+    return CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+}
+
 wo_value wo_dispatch(wo_vm vm)
 {
     if (WO_VM(vm)->env)
