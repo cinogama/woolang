@@ -53,7 +53,7 @@ namespace wo
         value* bp;
         exception_recovery* last;
 
-        inline static void rollback(vmbase* _vm);
+        inline static void rollback(vmbase* _vm, bool force_unexpect = false);
         inline static void ok(vmbase* _vm);
         inline static void ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
     };
@@ -1287,12 +1287,12 @@ namespace wo
         _vm->veh = this;
     }
 
-    inline void exception_recovery::rollback(vmbase* _vm)
+    inline void exception_recovery::rollback(vmbase* _vm, bool force_unexpect)
     {
         _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
         if (_vm->veh)
         {
-            if (!_vm->veh->ip)
+            if (!_vm->veh->ip || force_unexpect)
             {
                 // Reached non-except handler, abort this vm and print call-stack
                 _vm->interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
@@ -3406,11 +3406,15 @@ namespace wo
             }
             catch (const wo::rsruntime_exception& any_excep)
             {
+                bool force_unexcept = false;
                 if (any_excep.rsexception_code >= WO_FAIL_HEAVY)
+                {
                     interrupt(ABORT_INTERRUPT);
+                    force_unexcept = true;
+                }
 
                 er->set_string(any_excep.what());
-                wo::exception_recovery::rollback(this);
+                wo::exception_recovery::rollback(this, force_unexcept);
                 goto VM_SIM_BEGIN;
             }
             catch (const std::exception& any_excep)
