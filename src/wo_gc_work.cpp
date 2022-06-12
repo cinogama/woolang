@@ -367,6 +367,15 @@ namespace wo
                 } // ~
                 else
                 {
+                    //ATTENTION: A BUG CAUSED BY OVERWRITE NO_GC FLAG
+                    //
+                    // In gchandle, guard_value will be set aas 'no_gc' to make sure it destruct after
+                    // gchandle, but in here, we overwrite gc_type, it will make guard_value destruct before
+                    // gchandle in once gc-work.
+                    // in this situation, gchandle destruct, and reset guard_value's gc-type. but memory has
+                    // been reused. this written operation will write to wrong place.
+                    //
+
                     if (!origin_list || ((picked_list->gc_type == gcbase::gctype::eden
                         || picked_list->gc_mark_alive_count > max_count) && aim_edge))
                     {
@@ -374,7 +383,10 @@ namespace wo
 
                         // over count, move it to old_edge.
                         aim_edge->add_one(picked_list);
-                        picked_list->gc_type = aim_gc_type;
+
+                        // DONOT OVERWRITE NO_GC FLAG!
+                        if (picked_list->gc_type != gcbase::gctype::no_gc)
+                            picked_list->gc_type = aim_gc_type;
                     }
                     else
                     {
@@ -382,7 +394,10 @@ namespace wo
 
                         // add it back
                         origin_list->add_one(picked_list);
-                        picked_list->gc_type = aim_gc_type;
+
+                        // DONOT OVERWRITE NO_GC FLAG!
+                        if (picked_list->gc_type != gcbase::gctype::no_gc)
+                            picked_list->gc_type = aim_gc_type;
                     }
                 }
 
