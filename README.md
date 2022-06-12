@@ -1,6 +1,10 @@
 # Woolang
 
-[![pipeline status](https://gitlab.cinogama.com/cinogamaproject/woolang/badges/master/pipeline.svg)](https://gitlab.cinogama.com/cinogamaproject/woolang/-/commits/master) 
+![logo](image/woolang.png)
+
+|平台|master分支测试结果|
+|------|------|
+|ubuntu 18.04 x64|[![pipeline status](https://gitlab.cinogama.com/cinogamaproject/woolang/badges/master/pipeline.svg)](https://gitlab.cinogama.com/cinogamaproject/woolang/-/commits/master)|
 
 Woolang (原名RestorableScene) 是 Scene 系列脚本语言的第四序列，与前几代相比拥有更完善的编译时和运行时机制，性能表现也有很大提升。
 
