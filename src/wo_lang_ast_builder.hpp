@@ -352,6 +352,14 @@ namespace wo
                 complex_type = _val;
             }
 
+            template<typename ... ArgTs>
+            static ast_type* create_type_at(ast_base* base, ArgTs&&... args)
+            {
+                ast_type* ty = new ast_type(args...);
+                ty->copy_source_info(base);
+                return ty;
+            }
+
             void set_as_function_type()
             {
                 is_function_type = true;

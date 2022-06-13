@@ -228,9 +228,17 @@ namespace wo
             }
             void copy_source_info(const ast_base* ast_node)
             {
-                row_no = ast_node->row_no;
-                col_no = ast_node->col_no;
-                source_file = ast_node->source_file;
+                if (ast_node->row_no)
+                {
+                    row_no = ast_node->row_no;
+                    col_no = ast_node->col_no;
+                    source_file = ast_node->source_file;
+                }
+                else if (ast_node->parent)
+                    copy_source_info(ast_node->parent);
+                else
+                    wo_assert(0, "Failed to copy source info.");
+                
             }
             void copy_source_info(const lexer* lex)
             {

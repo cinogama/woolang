@@ -601,13 +601,18 @@ namespace wo
 
                 if (nullptr == a_value_bin->value_type)
                 {
-                    a_value_bin->value_type = new ast_type(L"pending");
+                    a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
 
                     ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+                    try_operator_func_overload->copy_source_info(a_value_bin);
+
                     try_operator_func_overload->try_invoke_operator_override_function = true;
                     try_operator_func_overload->arguments = new ast_list();
-                    try_operator_func_overload->value_type = new ast_type(L"pending");
+                    try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
+
                     try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
+                    try_operator_func_overload->called_func->copy_source_info(a_value_bin);
+
                     try_operator_func_overload->directed_value_from = a_value_bin->left;
 
                     ast_value* arg1 = dynamic_cast<ast_value*>(a_value_bin->left->instance());
@@ -615,14 +620,6 @@ namespace wo
 
                     ast_value* arg2 = dynamic_cast<ast_value*>(a_value_bin->right->instance());
                     try_operator_func_overload->arguments->add_child(arg2);
-
-                    try_operator_func_overload->called_func->source_file = a_value_bin->source_file;
-                    try_operator_func_overload->called_func->row_no = a_value_bin->row_no;
-                    try_operator_func_overload->called_func->col_no = a_value_bin->col_no;
-
-                    try_operator_func_overload->source_file = a_value_bin->source_file;
-                    try_operator_func_overload->row_no = a_value_bin->row_no;
-                    try_operator_func_overload->col_no = a_value_bin->col_no;
 
                     a_value_bin->overrided_operation_call = try_operator_func_overload;
                     analyze_pass1(a_value_bin->overrided_operation_call);
@@ -654,7 +651,7 @@ namespace wo
                 }
                 else if (a_value_idx->from->value_type->is_string())
                 {
-                    a_value_idx->value_type = new ast_type(L"string");
+                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
                 }
                 else if (!a_value_idx->from->value_type->is_pending())
                 {
@@ -668,7 +665,7 @@ namespace wo
                     }
                     else
                     {
-                        a_value_idx->value_type = new ast_type(L"dynamic");
+                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
                     }
                     a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
                 }
@@ -686,7 +683,7 @@ namespace wo
                     ; lsymb && lsymb->symbol)
                     lsymb->symbol->has_been_assigned = true;
 
-                a_value_assi->value_type = new ast_type(L"pending");
+                a_value_assi->value_type = ast_type::create_type_at(a_value_assi, L"pending");
                 a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
                 /*if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
@@ -712,13 +709,18 @@ namespace wo
                     || a_value_logic_bin->right->value_type->is_custom()
                     || a_value_logic_bin->right->value_type->using_type_name)
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
-                    a_value_logic_bin->value_type = new ast_type(L"pending");
+                    a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"pending");
 
                 ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+                try_operator_func_overload->copy_source_info(a_value_logic_bin);
+
                 try_operator_func_overload->try_invoke_operator_override_function = true;
                 try_operator_func_overload->arguments = new ast_list();
-                try_operator_func_overload->value_type = new ast_type(L"pending");
+                try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
+
                 try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
+                try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
+                
                 try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
 
                 ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
@@ -726,14 +728,6 @@ namespace wo
 
                 ast_value* arg2 = dynamic_cast<ast_value*>(a_value_logic_bin->right->instance());
                 try_operator_func_overload->arguments->add_child(arg2);
-
-                try_operator_func_overload->called_func->source_file = a_value_logic_bin->source_file;
-                try_operator_func_overload->called_func->row_no = a_value_logic_bin->row_no;
-                try_operator_func_overload->called_func->col_no = a_value_logic_bin->col_no;
-
-                try_operator_func_overload->source_file = a_value_logic_bin->source_file;
-                try_operator_func_overload->row_no = a_value_logic_bin->row_no;
-                try_operator_func_overload->col_no = a_value_logic_bin->col_no;
 
                 a_value_logic_bin->overrided_operation_call = try_operator_func_overload;
                 analyze_pass1(a_value_logic_bin->overrided_operation_call);
@@ -888,6 +882,7 @@ namespace wo
                             symb_callee->directed_function_call = true;
 
                             a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
+                            a_value_funccall->callee_symbol_in_type_namespace->copy_source_info(a_value_funccall);
                             a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
                             a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = symb_callee->scope_namespaces;
@@ -916,7 +911,7 @@ namespace wo
                 if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
                 {
                     // 
-                    ast_type* decide_array_item_type = new ast_type(L"dynamic");
+                    ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"dynamic");
 
                     ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
                     if (val)
@@ -964,8 +959,8 @@ namespace wo
 
                 if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
                 {
-                    ast_type* decide_map_key_type = new ast_type(L"dynamic");
-                    ast_type* decide_map_val_type = new ast_type(L"dynamic");
+                    ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"dynamic");
+                    ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"dynamic");
 
                     ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
                     if (map_pair)
@@ -1152,7 +1147,7 @@ namespace wo
                 a_value_unary->add_child(a_value_unary->val);
 
                 if (a_value_unary->operate == +lex_type::l_lnot)
-                    a_value_unary->value_type = new ast_type(L"bool");
+                    a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
                 else if (!a_value_unary->val->value_type->is_pending())
                 {
                     a_value_unary->value_type = a_value_unary->val->value_type;
@@ -1499,7 +1494,7 @@ namespace wo
                             else
                             {
                                 lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
-                                a_value_var->value_type = new ast_type(L"pending");
+                                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
                             }
                         }
                         else if (ast_value_index* a_value_idx = dynamic_cast<ast_value_index*>(ast_node))
@@ -1535,7 +1530,7 @@ namespace wo
                             }
                             else if (a_value_idx->from->value_type->is_string())
                             {
-                                a_value_idx->value_type = new ast_type(L"string");
+                                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
                             }
                             else if (!a_value_idx->from->value_type->is_pending())
                             {
@@ -1549,7 +1544,7 @@ namespace wo
                                 }
                                 else
                                 {
-                                    a_value_idx->value_type = new ast_type(L"dynamic");
+                                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
                                 }
                                 a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
                             }
@@ -2007,7 +2002,7 @@ namespace wo
                                     if (funcsymb->has_return_value)
                                         lang_anylizer->lang_error(0x0000, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
-                                    funcsymb->value_type->set_ret_type(new ast_type(L"void"));
+                                    funcsymb->value_type->set_ret_type(ast_type::create_type_at(funcsymb, L"void"));
                                     funcsymb->auto_adjust_return_type = false;
                                 }
 
@@ -2134,7 +2129,7 @@ namespace wo
                             analyze_pass2(a_value_unary->val);
 
                             if (a_value_unary->operate == +lex_type::l_lnot)
-                                a_value_unary->value_type = new ast_type(L"int");
+                                a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"int");
                             else if (!a_value_unary->val->value_type->is_pending())
                                 a_value_unary->value_type = a_value_unary->val->value_type;
                             // else
@@ -2144,7 +2139,7 @@ namespace wo
                         {
                             analyze_pass2(a_value_arr->array_items);
                             // 
-                            ast_type* decide_array_item_type = new ast_type(L"dynamic");
+                            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"dynamic");
 
                             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
                             if (val)
@@ -2188,8 +2183,8 @@ namespace wo
                         {
                             analyze_pass2(a_value_map->mapping_pairs);
 
-                            ast_type* decide_map_key_type = new ast_type(L"dynamic");
-                            ast_type* decide_map_val_type = new ast_type(L"dynamic");
+                            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"dynamic");
+                            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"dynamic");
 
                             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
                             if (map_pair)
@@ -2388,7 +2383,7 @@ namespace wo
                         {
                             if (!a_value_index->index->value_type->is_integer() && !a_value_index->index->value_type->is_handle())
                             {
-                                auto* index_val = new ast_value_type_cast(a_value_index->index, new ast_type(L"int"), true);
+                                auto* index_val = new ast_value_type_cast(a_value_index->index, ast_type::create_type_at(a_value_index, L"int"), true);
                                 index_val->col_no = a_value_index->index->col_no;
                                 index_val->row_no = a_value_index->index->row_no;
                                 index_val->source_file = a_value_index->index->source_file;
@@ -2427,8 +2422,8 @@ namespace wo
 
                         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                         {
-                            auto* cast_return_type = new ast_value_type_cast(a_value_variadic_args_idx->argindex, new ast_type(L"int"), true);
-                            //pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, new ast_type(L"int"));
+                            auto* cast_return_type = new ast_value_type_cast(a_value_variadic_args_idx->argindex, ast_type::create_type_at(a_value_variadic_args_idx, L"int"), true);
+                            //pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, ast_type::create_type_at(L"int"));
                             cast_return_type->col_no = a_value_variadic_args_idx->col_no;
                             cast_return_type->row_no = a_value_variadic_args_idx->row_no;
                             cast_return_type->source_file = a_value_variadic_args_idx->source_file;
@@ -2489,7 +2484,7 @@ namespace wo
                         if (nullptr == a_value_bin->value_type)
                         {
                             lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
-                            a_value_bin->value_type = new ast_type(L"pending");
+                            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
                         }
                     }
                     else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
@@ -2525,7 +2520,7 @@ namespace wo
                         }
                         if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
                         {
-                            a_value_logic_bin->value_type = new ast_type(L"bool");
+                            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
                             fully_update_type(a_value_logic_bin->value_type, false);
                         }
 
@@ -5267,7 +5262,20 @@ namespace wo
 
             std::vector<lang_scope*> searching_namespace;
             searching_namespace.push_back(searching);
+            // ATTENTION: IF SYMBOL WITH SAME NAME, IT MAY BE DUP HERE BECAUSE BY USING-NAMESPACE,
+            //            WE NEED CHOOSE NEAREST SYMBOL
+            //            So we should search in scope chain, if found, return it immediately.
+            auto* _first_searching = searching;
+            while (_first_searching)
+            {
+                if (auto fnd = _first_searching->symbols.find(ident_str);
+                    fnd != _first_searching->symbols.end())
+                    return var_ident->symbol = fnd->second;
+                
+                _first_searching = _first_searching->parent_scope;
+            }
 
+            // Not found in current scope, trying to find it in using-namespace/root namespace
             auto* _searching_in_all = searching;
             while (_searching_in_all)
             {
