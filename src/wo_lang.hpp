@@ -880,8 +880,8 @@ namespace wo
                 {
                     if (a_value_funccall->directed_value_from)
                     {
-                        if (!symb_callee->search_from_global_namespace
-                            && symb_callee->scope_namespaces.empty())
+                        if (!symb_callee->search_from_global_namespace/*
+                            && symb_callee->scope_namespaces.empty()*/)
                         {
                             analyze_pass1(a_value_funccall->directed_value_from);
 
@@ -890,6 +890,7 @@ namespace wo
                             a_value_funccall->callee_symbol_in_type_namespace = new ast_value_variable(symb_callee->var_name);
                             a_value_funccall->callee_symbol_in_type_namespace->search_from_global_namespace = true;
                             a_value_funccall->callee_symbol_in_type_namespace->searching_begin_namespace_in_pass2 = now_scope();
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = symb_callee->scope_namespaces;
                             // a_value_funccall->callee_symbol_in_type_namespace wiil search in pass2..
                         }
                     }
@@ -1586,6 +1587,7 @@ namespace wo
                                     // wo_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
                                     // TODO : CUSTOM TYPE INFORM..
+                                    auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
@@ -1593,6 +1595,12 @@ namespace wo
 
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
                                         (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                            origin_namespace.begin(),
+                                            origin_namespace.end()
+                                        );
 
                                         auto state = lang_anylizer->lex_enable_error_warn;
                                         lang_anylizer->lex_enable_error_warn = false;
@@ -1618,6 +1626,11 @@ namespace wo
                                     a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
                                     a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
                                     (a_value_funccall->directed_value_from->value_type->type_name);
+                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                        origin_namespace.begin(),
+                                        origin_namespace.end()
+                                    );
 
                                     auto state = lang_anylizer->lex_enable_error_warn;
                                     lang_anylizer->lex_enable_error_warn = false;
@@ -1643,6 +1656,11 @@ namespace wo
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back(L"dynamic");
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                            origin_namespace.begin(),
+                                            origin_namespace.end()
+                                        );
 
                                         auto state = lang_anylizer->lex_enable_error_warn;
                                         lang_anylizer->lex_enable_error_warn = false;
