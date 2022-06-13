@@ -720,7 +720,7 @@ namespace wo
 
                 try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
                 try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
-                
+
                 try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
 
                 ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
@@ -5271,7 +5271,7 @@ namespace wo
                 if (auto fnd = _first_searching->symbols.find(ident_str);
                     fnd != _first_searching->symbols.end())
                     return var_ident->symbol = fnd->second;
-                
+
                 _first_searching = _first_searching->parent_scope;
             }
 
@@ -5327,8 +5327,10 @@ namespace wo
             }
             std::set<lang_symbol*> searching_result;
             std::set<lang_scope*> searched_scopes;
+
             for (auto _searching : searching_namespace)
             {
+                bool deepin_search = _searching == searching;
                 while (_searching)
                 {
                     // search_in 
@@ -5365,7 +5367,10 @@ namespace wo
                     }
 
                 there_is_no_such_namespace:
-                    _searching = _searching->parent_scope;
+                    if (deepin_search)
+                        _searching = _searching->parent_scope;
+                    else
+                        _searching = nullptr;
                 }
 
             next_searching_point:;
