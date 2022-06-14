@@ -27,6 +27,14 @@ endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
 option(BUILD_SHARED_LIBS "Build woo as shared lib" OFF)
+option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
+
+if(UNIX)
+    if(WO_BUILD_FOR_COVERAGE_TEST)
+        add_compile_options("-fprofile-arcs")
+        add_compile_options("-ftest-coverage")
+    endif()
+endif()
 
 add_subdirectory ("src")
 add_subdirectory ("driver")

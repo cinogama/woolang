@@ -13,6 +13,13 @@ else()
 	list(APPEND woo_system_libs pthread dl)
 endif()
 
+if(UNIX)
+    if(WO_BUILD_FOR_COVERAGE_TEST)
+        list(APPEND woo_system_libs gcov)
+    endif()
+endif()
+
+
 add_definitions(-DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
 
 if (${BUILD_SHARED_LIBS})
