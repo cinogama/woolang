@@ -5268,10 +5268,26 @@ namespace wo
             auto* _first_searching = searching;
             while (_first_searching)
             {
-                if (auto fnd = _first_searching->symbols.find(ident_str);
-                    fnd != _first_searching->symbols.end())
+                size_t namespace_index = 0;
+
+                auto* indet_finding_namespace = _first_searching;
+                while (namespace_index < var_ident->scope_namespaces.size())
+                {
+                    if (auto fnd = indet_finding_namespace->sub_namespaces.find(var_ident->scope_namespaces[namespace_index]);
+                        fnd != indet_finding_namespace->sub_namespaces.end())
+                    {
+                        namespace_index++;
+                        indet_finding_namespace = fnd->second;
+                    }
+                    else
+                        goto TRY_UPPER_SCOPE;
+                }
+
+                if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
+                    fnd != indet_finding_namespace->symbols.end())
                     return var_ident->symbol = fnd->second;
 
+            TRY_UPPER_SCOPE:
                 _first_searching = _first_searching->parent_scope;
             }
 
