@@ -59,13 +59,14 @@ test_debug_and_release:
   script:
     - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
     - ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - gcov build/src/CMakeFiles/woolang.dir/*.gcda
   tags:
     - ubuntu1804_cicd
   artifacts:
-    name: "test-crash-core-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
+    name: "test-report-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
     paths:
       - core
-    when: on_failure
+      - build/src/CMakeFiles/woolang.dir/*.gcda
     expire_in: 1 week
   dependencies:
     - build_release
