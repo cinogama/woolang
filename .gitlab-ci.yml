@@ -41,12 +41,15 @@ test_coverage_debug:
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
     - pwd
+    - sudo sudo gcovr . -r ./src -g -k
+    - sudo gcovr . -r ./src -g -k --html --html-details -o report.html
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
       - build/woodriver_debug
       - build/libwoo_debug.so
       - build/*.gcov
+      - "*.html"
       - core
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
