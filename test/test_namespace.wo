@@ -1,0 +1,43 @@
+import woo.std;
+import test_tool;
+
+namespace test_namespace
+{
+    namespace a
+    {
+        namespace x
+        {
+            var a = 147;
+        }
+        var a = 123;
+        namespace b
+        {
+            var a = 456;
+            func foo()
+            {
+                using x;
+                
+                var a = 789;
+                return a;
+            }
+        }
+    }
+
+    namespace a
+    {
+        func create(){ return 111 }
+    }
+    namespace b
+    {
+        func create(){ return 222 }
+        func foo(){ return a::create() }
+    }
+
+    func main()
+    {
+        test_equal(a::b::foo(), 789);
+        test_equal(b::foo(), 111);
+    }
+}
+
+test_function("test_namespace.main", test_namespace::main);

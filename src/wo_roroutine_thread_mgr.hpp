@@ -364,7 +364,7 @@ namespace wo
 
             void wait_until_paused()
             {
-                while (!_paused_flag || _current_vmthread)
+                while (!_paused_flag || _current_vmthread.load())
                     std::this_thread::yield();
             }
 
