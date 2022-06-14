@@ -26,8 +26,8 @@ build_release:
   tags:
     - ubuntu1804_cicd
 
-build_debug:
-  stage: build
+test_coverage_debug:
+  stage: test
   script:
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -35,18 +35,24 @@ build_debug:
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=DEBUG -DBUILD_SHARED_LIBS=ON -DWO_BUILD_FOR_COVERAGE_TEST=ON
     - make
     - cd ..
+    # Begin coverage test
+    - sudo ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - cd build/src/CMakeFiles/woolang.dir
+    - sudo gcov -b -l -p -c *.gcno
+    - cd ../../../../
+    - pwd
   artifacts:
-    name: ubuntu-wo-build-debug-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
+    name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
       - build/woodriver_debug
       - build/libwoo_debug.so
-      - build/src/CMakeFiles/woolang.dir/*.gcda
-      - build/src/CMakeFiles/woolang.dir/*.gcno
+      - build/*.gcov
+      - core
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
     when: on_success
-    key: wo-build-debug-$CI_COMMIT_REF_SLUG
+    key: wo-build-coverage-$CI_COMMIT_REF_SLUG
     paths:
         - "build/*"
   tags:
@@ -54,20 +60,22 @@ build_debug:
 
 # run tests using the binary built before
 
-test_debug_and_release:
+test_release:
   stage: test
   script:
     - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
-    - ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
-    - gcov build/src/CMakeFiles/woolang.dir/*.gcda
   tags:
     - ubuntu1804_cicd
   artifacts:
     name: "test-report-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA"
     paths:
       - core
-      - build/src/CMakeFiles/woolang.dir/*.gcda
+    when: on_failure
     expire_in: 1 week
+  # cache:
+  #   key: wo-build-debug-$CI_COMMIT_REF_SLUG
+  #   policy: pull
+  #   paths:
+  #       - "build/*"
   dependencies:
     - build_release
-    - build_debug
