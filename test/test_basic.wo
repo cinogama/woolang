@@ -1,0 +1,56 @@
+import woo.std;
+import test_tool;
+
+namespace test_basic
+{
+	func main()
+	{
+        var a = 15;
+		test_equal(a/3, 5);
+        test_equal(a/4, 3);
+        test_equal(a/5, 3);
+        test_equal(a/6, 2);
+        test_equal(a/7, 2);
+        test_equal(a/8, 1);
+
+        test_equal(a%3, 0);
+        test_equal(a%4, 3);
+        test_equal(a%5, 0);
+        test_equal(a%6, 3);
+        test_equal(a%7, 1);
+        test_equal(a%8, 7);
+
+        test_assure(1.2 * 5 - 6.0 < 0.0000000001);
+        test_assure(1.2 / 0.6 - 2.0 < 0.0000000001);
+        test_assure(1.2 % 0.6 < 0.0000000001);
+
+        var b = 15:dynamic;
+        var h1 = 1230H :dynamic;
+        var h2 = 7890H :dynamic;
+        test_equal(a+b, 15);
+        test_equal(h1+h2, 9120H);
+        test_equal(h1+1.0, 1231H);
+        test_equal(h1+5, 1235H);
+
+        test_equal(h2-h1, 6660H);
+        test_equal(h1-1.0, 1229H);
+        test_equal(h1-5, 1225H);
+
+        test_assure(a*0.2-3 < 0.0000000001);
+        test_assure(a/0.2-75 < 0.0000000001);
+    
+        var p = 1;
+        var q = 1.0;
+
+        q = 75;
+        q += 0.62;
+        p = q
+        test_equal(p, 75);
+
+        test_equal(q>1.0, true);
+        test_equal(q==1.0, false);
+        test_equal(h1>q, true);
+	}
+}
+
+test_function("test_basic.main", test_basic::main);

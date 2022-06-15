@@ -1735,43 +1735,6 @@ namespace wo
                                 opnum1->handle += opnum2->handle; break;
                             case value::valuetype::string_type:
                                 string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string); break;
-                            case value::valuetype::array_type:
-                            {
-                                if (opnum1->array)
-                                {
-                                    // WARNING: MAY CAUSE DEAD LOCK
-                                    gcbase::gc_read_guard mx(opnum1->array);
-                                    array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->array);
-                                    if (opnum2->array)
-                                    {
-                                        gcbase::gc_read_guard mx(opnum2->array);
-                                        opnum1->array->insert(opnum1->array->end(),
-                                            opnum2->array->begin(),
-                                            opnum2->array->end());
-                                    }
-                                    else
-                                        WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to access is 'nil'."); break;
-                                }
-                                else
-                                    WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to access is 'nil'."); break;
-                                break;
-                            }
-                            case value::valuetype::mapping_type:
-                            {
-                                if (opnum1->mapping)
-                                {
-                                    // WARNING: MAY CAUSE DEAD LOCK
-                                    gcbase::gc_read_guard mx(opnum1->mapping);
-                                    mapping_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->mapping);
-                                    if (opnum2->mapping)
-                                    {
-                                        gcbase::gc_read_guard mx(opnum2->mapping);
-                                        opnum1->mapping->insert(opnum2->mapping->begin(),
-                                            opnum2->mapping->end());
-                                    }
-                                }
-                                break;
-                            }
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
                             }
