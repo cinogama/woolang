@@ -1823,3 +1823,15 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
     *(WO_VM(vm)->er->string) = sstream.str();
     return WO_VM(vm)->er->string->c_str();
 }
+
+wo_string_t wo_debug_dump_stackframe(wo_vm vm, size_t layer)
+{
+    std::stringstream sstream;
+    WO_VM(vm)->dump_call_stack(layer, false, sstream);
+
+    wo_set_string(CS_VAL(WO_VM(vm)->er), "");
+    wo_assert(WO_VM(vm)->er->type == wo::value::valuetype::string_type);
+
+    *(WO_VM(vm)->er->string) = sstream.str();
+    return WO_VM(vm)->er->string->c_str();
+}

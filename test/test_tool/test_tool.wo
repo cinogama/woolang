@@ -1,4 +1,5 @@
 import woo.std;
+import woo.debug;
 
 var test_function_set = []:array<map<string, dynamic>>;
 var test_success_count = 0, test_failed_count = 0;
@@ -41,6 +42,7 @@ func test_equal(var a, var b)
     {
         test_failed_count += 1;
         std::println("Test fail:", a, " != ", b, ",but it should be equal.");
+        std::println(std::debug::callstack(8));
     }
 }
 
@@ -52,5 +54,6 @@ func test_assure(var a)
     {
         test_failed_count += 1;
         std::println("Test fail:", a, " is not true..");
+        std::println(std::debug::callstack(8));
     }
 }
