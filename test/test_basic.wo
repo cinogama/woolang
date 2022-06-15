@@ -44,7 +44,7 @@ namespace test_basic
 
         q = 75;
         q += 0.62;
-        p = q
+        p = q;
         test_equal(p, 75);
 
         test_equal(q>1.0, true);
