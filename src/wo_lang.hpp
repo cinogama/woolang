@@ -1497,7 +1497,7 @@ namespace wo
                                         a_value_var->value_type = result->value_type;
 
                                         if (a_value_var->value_type->is_pending())
-                                            lang_anylizer->lang_error(0x0000, a_value_var, L"函数 '%ls' 的类型信息无效，继续", a_value_var->var_name);
+                                            lang_anylizer->lang_error(0x0000, a_value_var, L"函数 '%ls' 的类型信息无效，继续", a_value_var->var_name.c_str());
                                     }
                                     else
                                     {

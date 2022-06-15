@@ -147,14 +147,24 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
     _wo_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
-void wo_throw(wo_string_t reason)
+void _cpp_wo_throw(wo_string_t reason)
 {
     throw wo::rsruntime_exception(WO_FAIL_MEDIUM, reason);
 }
 
-void wo_halt(wo_string_t reason)
+void wo_throw(wo_string_t reason)
+{
+    _cpp_wo_throw(reason);
+}
+
+void _cpp_wo_halt(wo_string_t reason)
 {
     throw wo::rsruntime_exception(WO_FAIL_HEAVY, reason);
+}
+
+void wo_halt(wo_string_t reason)
+{
+    _cpp_wo_halt(reason);
 }
 
 void _wo_ctrl_c_signal_handler(int sig)
