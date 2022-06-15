@@ -27,7 +27,7 @@ namespace test_basic
         var b = 15:dynamic;
         var h1 = 1230H :dynamic;
         var h2 = 7890H :dynamic;
-        test_equal(a+b, 15);
+        test_equal(a+b, 30);
         test_equal(h1+h2, 9120H);
         test_equal(h1+1.0, 1231H);
         test_equal(h1+5, 1235H);

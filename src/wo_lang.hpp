@@ -1260,7 +1260,14 @@ namespace wo
 
             std::vector<uint32_t> template_args_hashtypes;
             for (auto temtype : template_args_types)
+            {
+                auto step_in_pass2 = has_step_in_step2;
+                has_step_in_step2 = true;
+                fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
+                has_step_in_step2 = step_in_pass2;
+
                 template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+            }
 
             ast_value_function_define* dumpped_template_func_define = nullptr;
 
@@ -1486,7 +1493,19 @@ namespace wo
                                         // only you~
                                         auto* result = sym->function_overload_sets.front();
                                         check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
+                                        analyze_pass2(result);
                                         a_value_var->value_type = result->value_type;
+
+                                        if (a_value_var->value_type->is_pending())
+                                            lang_anylizer->lang_error(0x0000, a_value_var, L"函数 '%ls' 的类型信息无效，继续", a_value_var->var_name);
+                                    }
+                                    else
+                                    {
+                                        // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
+                                        /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
+                                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
                                     }
                                 }
 

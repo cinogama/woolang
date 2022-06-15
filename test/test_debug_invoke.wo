@@ -48,7 +48,7 @@ namespace test_debug_invoke
         std::debug::invoke(swap, ref i, 123);
         test_equal(i, 123);
 
-        var vinvoke = std::debug::invoke;
+        var vinvoke = std::debug::invoke:<typeof(swap)>;
         vinvoke(swap, ref i, 777);
         test_equal(i, 777);
     }
