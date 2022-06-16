@@ -1524,6 +1524,19 @@ WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t
     return wo_ret_string(vm, lex->source_file.c_str());
 }
 
+WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+    return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
+}
+
+WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+    return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
+}
+
+
 const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
 const char* wo_stdlib_macro_src_data = {
 u8R"(
@@ -1641,6 +1654,12 @@ namespace std
 
         extern("rslib_std_macro_lexer_current_path")
             func path(var lex:lexer) : string;
+
+        extern("rslib_std_macro_lexer_current_rowno")
+            func row(var lex:lexer) : int;
+
+        extern("rslib_std_macro_lexer_current_colno")
+            func col(var lex:lexer) : int;
     }
 }
 
