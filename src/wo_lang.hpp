@@ -334,6 +334,9 @@ namespace wo
 
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
         {
+            if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
+                type->searching_begin_namespace_in_pass2 = now_scope();
+
             if (type->typefrom)
             {
                 auto used_type_info = type->using_type_name;
@@ -757,7 +760,6 @@ namespace wo
                         // ready for update..
                         fully_update_type(a_type, true);
                     }
-                    a_type->searching_begin_namespace_in_pass2 = now_scope();
                 }
 
                 template_variable_list_for_pass_template.insert(a_value_var);
@@ -1244,7 +1246,6 @@ namespace wo
                         // ready for update..
                         fully_update_type(a_val->value_type, true);
                     }
-                    a_val->value_type->searching_begin_namespace_in_pass2 = now_scope();
                     // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
                     a_val->update_constant_value(lang_anylizer);
