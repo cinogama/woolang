@@ -395,7 +395,7 @@ namespace wo
                     if ((*p2)->waitting_ready())
                     {
                         has_ready_work = true;
-                        _jobs_queue.push_front(*p2);
+                        _jobs_queue.push_back(*p2);
 
                         _pending_jobs_queue.erase(p2);
                     }
