@@ -1196,14 +1196,22 @@ namespace wo
             {
                 begin_scope();
 
+                a_foreach->used_vawo_defines->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->used_vawo_defines);
 
                 for (auto& variable : a_foreach->foreach_var)
+                {
+                    variable->copy_source_info(a_foreach);
                     analyze_pass1(variable);
+                }
+
+                a_foreach->iterator_var->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->iterator_var);
 
+                a_foreach->iter_next_judge_expr->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->iter_next_judge_expr);
 
+                a_foreach->execute_sentences->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->execute_sentences);
 
                 end_scope();
@@ -2807,6 +2815,7 @@ namespace wo
                 // Try Getting next Function
 
                 ast_value_variable* next_func_symb_getter = new ast_value_variable(L"next");
+                next_func_symb_getter->copy_source_info(a_foreach);
                 next_func_symb_getter->searching_from_type = a_foreach->iter_next_judge_expr->directed_value_from->value_type;
                 analyze_pass2(next_func_symb_getter);
 
@@ -3801,8 +3810,14 @@ namespace wo
 
                         compiler->ext_mkclos((uint16_t)a_value_function_define->capture_variables.size(),
                             opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
-
-                        return WO_NEW_OPNUM(reg(reg::cr));  // return cr~
+                        if (get_pure_value)
+                        {
+                            auto& treg = get_useable_register_for_pure_value();
+                            compiler->set(treg, reg(reg::cr));
+                            return treg;
+                        }
+                        else
+                            return WO_NEW_OPNUM(reg(reg::cr));  // return cr~
                     }
                 }
                 else

@@ -910,6 +910,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
             *out_str += "nil";
         return;
     }
+    case wo::value::valuetype::closure_type:
+        *out_str += "<closure function>";
+        return;
     case wo::value::valuetype::invalid:
         *out_str += "nil";
         return;
@@ -977,6 +980,8 @@ wo_string_t wo_type_name(const wo_value value)
         return "map";
     case wo::value::valuetype::gchandle_type:
         return "gchandle";
+    case wo::value::valuetype::closure_type:
+        return "closure";
     case wo::value::valuetype::invalid:
         return "nil";
     default:

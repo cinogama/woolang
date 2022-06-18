@@ -727,6 +727,7 @@ const char* wo_stdlib_src_data = {
 u8R"(
 const var true = 1 : bool;
 const var false = 0 : bool;
+
 namespace std
 {
     extern("rslib_std_throw") func throw(var msg:string):void;
@@ -928,6 +929,17 @@ namespace gchandle
 {
     extern("rslib_std_gchandle_close")
         func close(var handle:gchandle):void;
+}
+
+func assert(var val: bool)
+{
+    if (!val)
+        std::panic("Assert failed.");
+}
+func assert(var val: bool, var msg: string)
+{
+    if (!val)
+        std::panic(F"Assert failed: {msg}");
 }
 
 )" };
