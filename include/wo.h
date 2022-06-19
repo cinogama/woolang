@@ -92,6 +92,7 @@ WO_API wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
 WO_API void         wo_throw(wo_string_t reason);
 WO_API void         wo_halt(wo_string_t reason);
+WO_API void         wo_panic(wo_string_t reason);
 
 #define wo_fail(ERRID, REASON) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
 
@@ -120,6 +121,7 @@ WO_API wo_bool_t wo_is_ref(wo_value value);
 
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
 WO_API void wo_set_real(wo_value value, wo_real_t val);
+WO_API void wo_set_float(wo_value value, float val);
 WO_API void wo_set_handle(wo_value value, wo_handle_t val);
 WO_API void wo_set_pointer(wo_value value, wo_ptr_t val);
 WO_API void wo_set_string(wo_value value, wo_string_t val);
@@ -141,6 +143,7 @@ WO_API wo_integer_t wo_argc(wo_vm vm);
 
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_real(wo_vm vm, wo_real_t result);
+WO_API wo_result_t  wo_ret_float(wo_vm vm, float result);
 WO_API wo_result_t  wo_ret_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);

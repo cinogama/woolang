@@ -167,6 +167,11 @@ void wo_halt(wo_string_t reason)
     _cpp_wo_halt(reason);
 }
 
+void wo_panic(wo_string_t reason)
+{
+    wo_fail(WO_FAIL_DEADLY, reason);
+}
+
 void _wo_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
@@ -434,6 +439,11 @@ void wo_set_real(wo_value value, wo_real_t val)
 {
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_real(val);
+}
+void wo_set_float(wo_value value, float val)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_real((wo_real_t)val);
 }
 void wo_set_handle(wo_value value, wo_handle_t val)
 {
@@ -1004,6 +1014,10 @@ wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
 wo_result_t wo_ret_real(wo_vm vm, wo_real_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_real(result));
+}
+wo_result_t wo_ret_float(wo_vm vm, float result)
+{
+    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_real((wo_real_t)result));
 }
 wo_result_t wo_ret_handle(wo_vm vm, wo_handle_t result)
 {
