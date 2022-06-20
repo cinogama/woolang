@@ -99,7 +99,7 @@ namespace wo
                 return dumm;
             }
         };
-
+        struct ast_enum_decl;
         struct ast_type : virtual public ast_symbolable_base
         {
             bool is_function_type = false;
@@ -122,6 +122,9 @@ namespace wo
             ast_type* using_type_name = nullptr;
 
             ast_value* typefrom = nullptr;
+
+            ast_enum_decl* belong_enum;
+            int32_t enumid = 0;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
             {
@@ -168,6 +171,16 @@ namespace wo
                 if (to->is_pending() || (to->is_void() && !to->is_func()))
                     return false;
 
+                if (from->is_enum_type())
+                    return false;
+
+                if (to->is_enum_type())
+                {
+                    if (from->is_enum_item_type())
+                        return true;
+                    return false;
+                }
+
                 if (to->is_dynamic())
                     return true;
 
@@ -203,18 +216,8 @@ namespace wo
                         return true;
                 }
 
-                if (from->is_nil())
-                {
-                    if (to->value_type == value::valuetype::array_type
-                        || to->value_type == value::valuetype::mapping_type
-                        || to->value_type == value::valuetype::gchandle_type
-                        || to->is_func()
-                        || to->is_nil())
-                        return true;
-                    return false;
-                }
-
-                if (to->is_nil())
+                // ISSUE-16: Type safe, forbid 'nil' cast to any other type.
+                if (from->is_nil() || to->is_nil())
                     return false;
 
                 if (from->is_func() || to->is_func())
@@ -607,7 +610,11 @@ namespace wo
             {
                 return value_type == value::valuetype::handle_type && !is_func();
             }
-
+            bool is_enum_type() const;
+            bool is_enum_item_type() const
+            {
+                return enumid != 0;
+            }
             std::wstring get_type_name(bool ignore_using_type = true) const
             {
                 std::wstring result;
@@ -738,6 +745,18 @@ namespace wo
             ast_value_takeplace()
             {
                 value_type = new ast_type(L"pending");
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // do nothing..
+            }
+        };
+
+        struct ast_value_fake : virtual public ast_value
+        {
+            ast_value_fake(ast_type* type)
+            {
+                value_type = type;
             }
             void update_constant_value(lexer* lex) override
             {
@@ -994,6 +1013,9 @@ namespace wo
                     return;
 
                 _be_cast_value_node->update_constant_value(lex);
+
+                if (value_type->is_enum_item_type())
+                    return;
 
                 if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
                 {
@@ -1774,11 +1796,14 @@ namespace wo
             struct varref_define
             {
                 bool is_ref;
+                bool is_enum_item;
                 std::wstring ident_name;
                 ast_value* init_val;
                 lang_symbol* symbol = nullptr;
             };
             std::vector<varref_define> var_refs;
+            int32_t enum_item_define_id = 0;
+
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
@@ -2838,46 +2863,6 @@ namespace wo
             }
         };
 
-        struct ast_enum_item : virtual public grammar::ast_base
-        {
-            std::wstring enum_ident;
-            wo_integer_t enum_val;
-            bool need_assign_val = true;
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
-
-                return dumm;
-            }
-        };
-
-        struct ast_enum_items_list : virtual public grammar::ast_base
-        {
-            wo_integer_t next_enum_val = 0;
-            std::vector<ast_enum_item*> enum_items;
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
-
-                for (auto& enumitem : dumm->enum_items)
-                {
-                    WO_REINSTANCE(enumitem);
-                }
-
-                return dumm;
-            }
-        };
-
         struct ast_check_type_with_naming_in_pass2 : virtual public grammar::ast_base
         {
             ast_type* template_type;
@@ -2898,12 +2883,12 @@ namespace wo
             }
         };
 
-
         struct ast_using_type_as : virtual public ast_defines
         {
             std::wstring new_type_identifier;
             ast_type* old_type;
 
+            bool is_enum_type = false;
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
             std::map<std::wstring, std::vector<ast::ast_value_function_define*>> class_methods_list;
 
@@ -3065,6 +3050,12 @@ namespace wo
             }
         };
 
+        struct ast_enum_decl : virtual public ast_defines
+        {
+            std::wstring enum_identifier;
+            ast_list* enum_items;
+            ast_using_type_as* enum_type_define;
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -3336,6 +3327,16 @@ namespace wo
 
         };
 
+        struct pass_nil_type : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* att = new ast_type(L"nil");
+                return (ast_basic*)att;
+            }
+
+        };
+
         struct pass_template_reification : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -3365,67 +3366,6 @@ namespace wo
             }
         };
 
-        struct pass_enum_item_create : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                ast_enum_item* item = new ast_enum_item;
-                item->enum_ident = WO_NEED_TOKEN(0).identifier;
-                if (input.size() == 3)
-                {
-                    item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(2);
-                    item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(2).identifier);
-                }
-                else if (input.size() == 4)
-                {
-                    item->need_assign_val = false;
-                    auto fxxk = WO_NEED_TOKEN(3);
-                    if (WO_NEED_TOKEN(2).type == +lex_type::l_add)
-                        item->enum_val = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
-                    else if (WO_NEED_TOKEN(2).type == +lex_type::l_sub)
-                        item->enum_val = -ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(3).identifier);
-                    else
-                        wo_error("Enum item should be +/- integer");
-                }
-                return (ast_basic*)item;
-            }
-        };
-
-        struct pass_enum_declear_begin : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                ast_enum_items_list* items = new ast_enum_items_list;
-                auto* enum_item = dynamic_cast<ast_enum_item*>(WO_NEED_AST(0));
-                items->enum_items.push_back(enum_item);
-                if (enum_item->need_assign_val)
-                {
-                    enum_item->enum_val = items->next_enum_val;
-                    enum_item->need_assign_val = false;
-                }
-                items->next_enum_val = enum_item->enum_val + 1;
-                return (ast_basic*)items;
-            }
-        };
-
-        struct pass_enum_declear_append : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                ast_enum_items_list* items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(0));
-                auto* enum_item = dynamic_cast<ast_enum_item*>(WO_NEED_AST(2));
-                items->enum_items.push_back(enum_item);
-                if (enum_item->need_assign_val)
-                {
-                    enum_item->enum_val = items->next_enum_val;
-                    enum_item->need_assign_val = false;
-                }
-                items->next_enum_val = enum_item->enum_val + 1;
-                return (ast_basic*)items;
-            }
-        };
-
         struct pass_mark_value_as_ref : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -3440,48 +3380,6 @@ namespace wo
 
                 val->is_mark_as_using_ref = true;
                 return (ast_basic*)val;
-            }
-        };
-
-        struct pass_enum_finalize : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                wo_assert(input.size() == 5);
-
-                ast_list* bind_type_and_decl_list = new ast_list;
-
-                ast_namespace* enum_scope = new ast_namespace;
-                ast_list* decl_list = new ast_list;
-
-                enum_scope->scope_name = WO_NEED_TOKEN(1).identifier;
-
-                auto* using_enum_as_int = new ast_using_type_as;
-                using_enum_as_int->new_type_identifier = enum_scope->scope_name;
-                using_enum_as_int->old_type = new ast_type(L"int");
-                bind_type_and_decl_list->append_at_end(using_enum_as_int);
-
-                enum_scope->in_scope_sentence = decl_list;
-                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(3));
-
-                ast_varref_defines* vardefs = new ast_varref_defines;
-                vardefs->declear_attribute = new ast_decl_attribute;
-                vardefs->declear_attribute->add_attribute(&lex, +lex_type::l_const);
-                for (auto& enumitem : enum_items->enum_items)
-                {
-                    ast_value_literal* const_val = new ast_value_literal(
-                        token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
-
-                    vardefs->var_refs.push_back(
-                        { false, enumitem->enum_ident, const_val });
-
-                    // TODO: DATA TYPE SYSTEM..
-                    const_val->value_type = new ast_type(enum_scope->scope_name);
-                }
-
-                decl_list->append_at_end(vardefs);
-                bind_type_and_decl_list->append_at_end(enum_scope);
-                return (ast_basic*)bind_type_and_decl_list;
             }
         };
 
@@ -4005,7 +3903,7 @@ namespace wo
                 wo_test(init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(0).identifier, init_val });
+                    { false,false, WO_NEED_TOKEN(0).identifier, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4021,7 +3919,7 @@ namespace wo
                 wo_test(result && init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(2).identifier, init_val });
+                    { false,false, WO_NEED_TOKEN(2).identifier, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4695,7 +4593,7 @@ namespace wo
                 afor->used_vawo_defines = new ast_varref_defines;
                 afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
 
-                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", exp_dir_iter_call });
+                afor->used_vawo_defines->var_refs.push_back({ false, false,L"_iter", exp_dir_iter_call });
                 //}}}}
 
                     // var a= tkplace, b = tkplace...
@@ -4706,7 +4604,7 @@ namespace wo
                     foreachvar->is_mark_as_using_ref = true;
                     afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
                     afor->foreach_var.push_back(foreachvar);
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, new ast_value_takeplace() });
+                    afor->used_vawo_defines->var_refs.push_back({ false, false, a_var_defs->tokens.identifier, new ast_value_takeplace() });
 
                     a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
                 }
@@ -4900,6 +4798,97 @@ namespace wo
             }
         };
 
+        struct pass_enum_decl_with_template : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(input.size() == 7);
+                /*
+                *  DECL_ATTRIBUTE enum ENUM_NAME <TEMPLATE> { ITEMS }
+                *         0                2         3          5
+                */
+                ast_enum_decl* enumdecl = new ast_enum_decl();
+                enumdecl->enum_identifier = WO_NEED_TOKEN(2).identifier;
+                enumdecl->enum_items = dynamic_cast<ast_list*>(WO_NEED_AST(5));
+
+                ast_using_type_as* create_new_enum_typedef = new ast_using_type_as;
+                create_new_enum_typedef->new_type_identifier = enumdecl->enum_identifier;
+                create_new_enum_typedef->old_type = new ast_type(L"dynamic");
+                create_new_enum_typedef->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                create_new_enum_typedef->is_enum_type = true;
+
+                enumdecl->enum_type_define = create_new_enum_typedef;
+
+                if (!ast_empty::is_empty(input[3]))
+                {
+                    ast_list* template_defines = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                    wo_test(template_defines);
+                    enumdecl->is_template_define = true;
+                    create_new_enum_typedef->is_template_define = true;
+
+                    ast_list* template_const_list = new ast_list;
+                    ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
+                    wo_test(template_type);
+                    while (template_type)
+                    {
+                        enumdecl->template_type_name_list.push_back(template_type->template_ident);
+                        create_new_enum_typedef->template_type_name_list.push_back(template_type->template_ident);
+
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    }
+                    create_new_enum_typedef->naming_check_list = template_const_list;
+                }
+
+                return (ast_basic*)enumdecl;
+            }
+        };
+
+        struct pass_enum_item_with_init_value : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_varref_defines* result = new ast_varref_defines;
+
+                static std::atomic_int32_t _ENUM_ITEM_ID_FOR_RUNTIME_CHECK = 1;
+
+                result->enum_item_define_id = _ENUM_ITEM_ID_FOR_RUNTIME_CHECK++;
+
+                if (input.size() == 3)
+                {
+                    ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                    wo_test(init_val);
+                    result->var_refs.push_back(
+                        { false, true, WO_NEED_TOKEN(0).identifier, init_val });
+                }
+                else
+                {
+                    wo_assert(input.size() == 2);
+                    ast_type* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                    wo_assert(type);
+
+                    result->var_refs.push_back(
+                        { false, true, WO_NEED_TOKEN(0).identifier, new ast_value_fake(type) });
+                }
+
+                // result->declear_attribute = new ast_decl_attribute(); 
+                // result->declear_attribute->add_attribute(&lex, wo::lex_type::l_const); // Add const symbol later.
+
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -4920,6 +4909,8 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_nil_type>] = _register_builder<pass_nil_type>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();
@@ -4931,14 +4922,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_ref>] = _register_builder<pass_mark_value_as_ref>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_item_create>] = _register_builder<pass_enum_item_create>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_begin>] = _register_builder<pass_enum_declear_begin>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_declear_append>] = _register_builder<pass_enum_declear_append>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_enum_finalize>] = _register_builder<pass_enum_finalize>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_decl_attrib_begin>] = _register_builder<pass_decl_attrib_begin>();
 
@@ -5033,6 +5016,10 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_decl_with_template>] = _register_builder<pass_enum_decl_with_template>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_enum_item_with_init_value>] = _register_builder<pass_enum_item_with_init_value>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

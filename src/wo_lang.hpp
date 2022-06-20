@@ -20,7 +20,6 @@ namespace wo
         };
         symbol_type type;
         std::wstring name;
-
         ast::ast_defines* define_node = nullptr;
         ast::ast_decl_attribute* attribute;
         lang_scope* defined_in_scope;
@@ -31,6 +30,8 @@ namespace wo
         bool has_been_assigned = false;
         bool is_ref = false;
         bool is_captured_variable = false;
+        bool is_enum_type = false;
+        int32_t enumid = 0;
 
         union
         {
@@ -69,6 +70,10 @@ namespace wo
             else
                 return variable_value->source_file;
         }
+        bool is_enum_item() const noexcept
+        {
+            return enumid != 0;
+        }
     };
 
     struct lang_scope
@@ -94,7 +99,11 @@ namespace wo
         std::vector<ast::ast_using_namespace*> used_namespace;
         std::vector<lang_symbol*> in_function_symbols;
 
-        ast::ast_value_function_define* function_node;
+        union
+        {
+            ast::ast_value_function_define* function_node;
+            ast::ast_enum_decl* enum_node;
+        };
 
         size_t max_used_stack_size_in_func = 0; // only used in function_scope
         size_t used_stackvalue_index = 0; // only used in function_scope
@@ -387,7 +396,32 @@ namespace wo
                         template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
                     {
                         auto* type_sym = find_type_in_this_scope(type);
+                        if (!type_sym && type->symbol && type->symbol->is_enum_item())
+                        {
+                            type->set_type(type->symbol->variable_value->value_type);
+                            fully_update_type(type, in_pass_1, template_types);
 
+                            type->belong_enum->template_type_name_list
+
+                            if (type->is_pending())
+                            {
+                                // Try template-argument judge.
+                                // FUUUUUCK!
+                                type->symbol->variable_value;
+
+                                /*type->symbol->variable_value
+                                    for ()
+                                        auto* X = analyze_template_derivation(
+                                            override_func->template_type_name_list[tempindex],
+                                            override_func->template_type_name_list,
+                                            override_func->value_type->argument_types[index],
+                                            real_argument_types[index]
+                                        );*/
+                            }
+                            // TODO: Update enum template arguments here!
+
+                            return;
+                        }
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
                             return;
 
@@ -560,6 +594,26 @@ namespace wo
                 }
                 end_namespace();
             }
+            else if (ast_enum_decl* a_enum = dynamic_cast<ast_enum_decl*>(ast_node))
+            {
+                auto* typing_symb = define_type_in_this_scope(a_enum->enum_type_define, a_enum->enum_type_define->old_type, a_enum->enum_type_define->declear_attribute);
+                typing_symb->apply_template_setting(a_enum->enum_type_define);
+
+                auto scope = begin_namespace(a_enum->enum_identifier);
+                scope->enum_node = a_enum;
+
+                a_enum->add_child(a_enum->enum_items);
+                grammar::ast_base* child = a_enum->enum_items->children;
+                while (child)
+                {
+                    ast_varref_defines* defs = dynamic_cast<ast_varref_defines*>(child);
+                    defs->declear_attribute = typing_symb->attribute;
+                    analyze_pass1(child);
+                    child = child->sibling;
+                }
+                end_namespace();
+
+            }
             else if (ast_varref_defines* a_varref_defs = dynamic_cast<ast_varref_defines*>(ast_node))
             {
                 for (auto& varref : a_varref_defs->var_refs)
@@ -573,6 +627,18 @@ namespace wo
                     varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
                     if (init_value_is_lambda)
                         analyze_pass1(varref.init_val);
+
+                    if (a_varref_defs->enum_item_define_id)
+                    {
+                        // This variable define is in enum decl, mark it's type with enum;
+                        varref.symbol->enumid = a_varref_defs->enum_item_define_id;
+                        varref.init_val->value_type->enumid = varref.symbol->enumid;
+
+                        auto* now_enum_namespace = now_scope();
+                        wo_assert(now_enum_namespace->type == lang_scope::scope_type::namespace_scope
+                            && now_enum_namespace->enum_node);
+                        varref.init_val->value_type->belong_enum = now_enum_namespace->enum_node;
+                    }
 
                     varref.symbol->is_ref = varref.is_ref;
                     a_varref_defs->add_child(varref.init_val);
@@ -4740,6 +4806,10 @@ namespace wo
             {
                 // do nothing..
             }
+            else if (dynamic_cast<ast_enum_decl*>(ast_node))
+            {
+                // do nothing..
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -5146,7 +5216,7 @@ namespace wo
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
                 sym->define_node = def;
-
+                sym->is_enum_type = def->is_enum_type;
                 if (def->naming_check_list)
                 {
                     ast::ast_check_type_with_naming_in_pass2* naming =
@@ -5462,6 +5532,12 @@ namespace wo
                 && result->type != lang_symbol::symbol_type::typing
                 && result->type != lang_symbol::symbol_type::template_typing)
             {
+                if (result->type == lang_symbol::symbol_type::variable
+                    && result->is_enum_item())
+                {
+                    // Update the type by other way!
+                    return nullptr;
+                }
                 lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_NOT_A_TYPE, var_ident->type_name.c_str());
                 return nullptr;
             }

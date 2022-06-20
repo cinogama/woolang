@@ -34,4 +34,13 @@ namespace wo
         wo_assert(_this_thread_lang_context);
         return _this_thread_lang_context->find_type_in_this_scope(type);
     }
+
+    bool ast::ast_type::is_enum_type() const
+    {
+        if (symbol && symbol->is_enum_type)
+            return true;
+        if (using_type_name && using_type_name->symbol && using_type_name->symbol->is_enum_type)
+            return true;
+        return false;
+    }
 }

@@ -99,8 +99,11 @@ namespace wo
 
         union
         {
-
-            valuetype type;
+            struct
+            {
+                valuetype   type;
+                int32_t     enum_type;
+            };
             // uint32_t type_hash;
 
             // std::atomic_uint64_t atomic_type;
@@ -168,8 +171,8 @@ namespace wo
         }
         inline value* set_nil()
         {
-            type = valuetype::invalid;
-            handle = 0;
+            type_space = 0;
+            value_space = 0;
             return this;
         }
         inline value* set_native_callstack(const wo::byte_t* ipplace)
@@ -255,11 +258,14 @@ namespace wo
         {
             // PARALLEL GC FIX: Value to be set need check is gcunit, too;
             if (_val->is_gcunit())
+            {
                 set_gcunit_with_barrier(_val->type, _val->gcunit);
+                enum_type = _val->enum_type;
+            }
             else
             {
-                type = _val->type;
-                handle = _val->handle;
+                type_space = _val->type_space;
+                value_space = _val->value_space;
             }
 
             return this;
@@ -368,6 +374,7 @@ namespace wo
         }
         return lhs.type < rhs.type;
     }
+    static_assert((int)value::valuetype::invalid == 0);
     static_assert((int)value::valuetype::invalid == WO_INVALID_TYPE);
     static_assert((int)value::valuetype::integer_type == WO_INTEGER_TYPE);
     static_assert((int)value::valuetype::real_type == WO_REAL_TYPE);
@@ -381,6 +388,7 @@ namespace wo
     static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
+
     struct closure_function
     {
         wo_integer_t m_function_addr;
