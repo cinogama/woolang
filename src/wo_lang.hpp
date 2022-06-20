@@ -398,28 +398,11 @@ namespace wo
                         auto* type_sym = find_type_in_this_scope(type);
                         if (!type_sym && type->symbol && type->symbol->is_enum_item())
                         {
+                            // NOTE: Is enum value type.
                             type->set_type(type->symbol->variable_value->value_type);
                             fully_update_type(type, in_pass_1, template_types);
 
-                            type->belong_enum->template_type_name_list
-
-                            if (type->is_pending())
-                            {
-                                // Try template-argument judge.
-                                // FUUUUUCK!
-                                type->symbol->variable_value;
-
-                                /*type->symbol->variable_value
-                                    for ()
-                                        auto* X = analyze_template_derivation(
-                                            override_func->template_type_name_list[tempindex],
-                                            override_func->template_type_name_list,
-                                            override_func->value_type->argument_types[index],
-                                            real_argument_types[index]
-                                        );*/
-                            }
-                            // TODO: Update enum template arguments here!
-
+                            // Template judge in pass2
                             return;
                         }
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
@@ -442,6 +425,9 @@ namespace wo
                         };
 
                         traving_guard g1(this, type_sym);
+
+                        auto enumid = type->enumid;
+                        auto belong_enum = type->belong_enum;
 
                         if (type_sym)
                         {
@@ -516,6 +502,9 @@ namespace wo
                             if (using_template)
                                 end_template_scope();
                         }
+
+                        type->enumid = enumid;
+                        type->belong_enum = belong_enum;
                     }
                 }
             }
@@ -1525,7 +1514,8 @@ namespace wo
                         // ready for update..
                         fully_update_type(a_value->value_type, false);
 
-                        if (a_value->value_type->is_custom())
+                        // Enum item type need be calculated in ast_value_type_cast.
+                        if (a_value->value_type->is_custom() && !a_value->value_type->is_enum_item_type())
                             lang_anylizer->lang_error(0x0000, a_value, WO_ERR_UNKNOWN_TYPE
                                 , a_value->value_type->get_type_name().c_str());
                     }
@@ -2393,6 +2383,42 @@ namespace wo
                         ast_value* origin_value = a_value_typecast->_be_cast_value_node;
                         fully_update_type(a_value_typecast->value_type, false);
                         analyze_pass2(origin_value);
+
+                        if (a_value_typecast->value_type->is_enum_item_type()
+                            && a_value_typecast->value_type->is_pending())
+                        {
+                            // NOTE: Type is not finished! 
+                            // Try template-argument judge.
+                            // FUUUUUCK!
+
+                            fully_update_type(a_value_typecast->value_type, false,
+                                a_value_typecast->value_type->belong_enum->template_type_name_list);
+                            std::vector<ast::ast_type*> judge_type(a_value_typecast->value_type->belong_enum->template_type_name_list.size());
+
+                            for (size_t i = 0; i < judge_type.size(); i++)
+                            {
+                                judge_type[i] = analyze_template_derivation(
+                                    a_value_typecast->value_type->belong_enum->template_type_name_list[i],
+                                    a_value_typecast->value_type->belong_enum->template_type_name_list,
+                                    a_value_typecast->value_type,
+                                    a_value_typecast->_be_cast_value_node->value_type
+                                );
+                                if (!judge_type[i])
+                                    judge_type[i] = new ast_type(L"pending");
+                            }
+
+                            // Apply type here
+                            begin_template_scope(a_value_typecast->value_type->belong_enum, judge_type);
+                            fully_update_type(a_value_typecast->value_type, false);
+                            end_template_scope();
+
+                            a_value_typecast->value_type->enum_template_arguments = judge_type;
+                            /*type->symbol->variable_value
+                                for ()
+                                    */
+                        }
+                        // TODO: Update enum template arguments here!
+
 
                         if (auto* a_variable_sym = dynamic_cast<ast_value_variable*>(origin_value);
                             a_variable_sym && a_variable_sym->value_type->is_pending_function())

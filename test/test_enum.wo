@@ -5,18 +5,18 @@ namespace test_enum
 {
     enum EnumA
     {
-        ZERO,
-        ONE,
-        TWO,
-        THREE,
-        FOUR,
-        FIVE,
+        ZERO = 0,
+        ONE = 1,
+        TWO = 2,
+        THREE = 3,
+        FOUR = 4,
+        FIVE = 5,
     }
     enum EnumB
     {
-        ZERO,
+        ZERO = 0,
         SPECIAL_FIVE = 5,
-        SIX,
+        SIX = 6,
     }
 
     func main()

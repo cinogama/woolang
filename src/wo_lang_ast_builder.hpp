@@ -114,6 +114,7 @@ namespace wo
 
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
+            std::vector<ast_type*> enum_template_arguments;
 
             std::vector<ast_type*> template_impl_naming_checking;
 
@@ -123,7 +124,7 @@ namespace wo
 
             ast_value* typefrom = nullptr;
 
-            ast_enum_decl* belong_enum;
+            ast_enum_decl* belong_enum = nullptr;
             int32_t enumid = 0;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
@@ -176,8 +177,21 @@ namespace wo
 
                 if (to->is_enum_type())
                 {
+                    auto* enumtype = to->using_type_name ? to->using_type_name : to;
                     if (from->is_enum_item_type())
+                    {
+                        // Check template, from's template must be same as to's or be pending..
+                        if (from->enum_template_arguments.size() != enumtype->template_arguments.size())
+                            return false;
+                        for (size_t i = 0; i < from->enum_template_arguments.size(); i++)
+                        {
+                            if (from->enum_template_arguments[i]->is_pending())
+                                continue;
+                            if (!enumtype->template_arguments[i]->is_same(from->enum_template_arguments[i], false))
+                                return false;
+                        }
                         return true;
+                    }
                     return false;
                 }
 
