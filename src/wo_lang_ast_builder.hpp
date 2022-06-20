@@ -3233,8 +3233,10 @@ namespace wo
                     callnew->called_func = called_funcname;
                     callnew->arguments = new ast_list();
                     callnew->value_type = new ast_type(L"pending");
+                    callnew->copy_source_info(&lex);
 
                     ast_return* areturnsentence = new ast_return();
+                    areturnsentence->copy_source_info(&lex);
                     areturnsentence->return_value = callnew;
 
                     // all done ~ fuck!
@@ -3261,17 +3263,20 @@ namespace wo
                     }
 
                     avfd_new->in_function_sentence = new ast_list;
-
+                    avfd_new->in_function_sentence->copy_source_info(&lex);
                     // return {...}:CLASS_TYPE_NAME
                     ast_list* in_instance_pairs = new ast_list();
+                    in_instance_pairs->copy_source_info(&lex);
                     for (auto map_instance_val : init_mem_list)
                     {
                         ast_value_literal* vpair_key = new ast_value_literal(
                             token{ +lex_type::l_literal_string, map_instance_val->ident_name });
+                        vpair_key->copy_source_info(&lex);
 
                         ast_mapping_pair* vpair = new ast_mapping_pair(
                             vpair_key,
                             map_instance_val->init_val);
+                        vpair->copy_source_info(&lex);
 
                         map_instance_val->init_val->is_mark_as_using_ref = map_instance_val->is_ref;
 
@@ -3279,8 +3284,10 @@ namespace wo
 
                     }
                     ast_value_mapping* mkinstance_value = new ast_value_mapping(in_instance_pairs);
+                    mkinstance_value->copy_source_info(&lex);
 
                     ast_type* becasted_type = new ast_type(using_type->new_type_identifier);
+                    becasted_type->copy_source_info(&lex);
                     for (auto& template_impl_args : avfd_new->template_type_name_list)
                     {
                         becasted_type->template_arguments.push_back(new ast_type(template_impl_args));
@@ -3289,6 +3296,8 @@ namespace wo
                     mkinstance_value->value_type = becasted_type;
 
                     ast_return* areturnsentence = new ast_return();
+                    areturnsentence->copy_source_info(&lex);
+                    
                     areturnsentence->return_value = mkinstance_value;
 
                     // all done ~ fuck!

@@ -822,7 +822,6 @@ namespace wo
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
                 analyze_pass1(a_value_cast->_be_cast_value_node);
-                a_value_cast->add_child(a_value_cast->_be_cast_value_node);
             }
             else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(ast_node))
             {
@@ -1125,8 +1124,6 @@ namespace wo
                                 }
                             }
                         }
-
-                        a_ret->add_child(a_ret->return_value);
                     }
                     else
                     {
