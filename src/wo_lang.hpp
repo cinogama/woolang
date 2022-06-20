@@ -4804,14 +4804,15 @@ namespace wo
                     ;
                 }
             }
+            else if (ast_enum_decl* a_enum_decl = dynamic_cast<ast_enum_decl*>(ast_node))
+            {
+                real_analyze_finalize(a_enum_decl->enum_items, compiler);
+            }
             else if (dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
             {
                 // do nothing..
             }
-            else if (dynamic_cast<ast_enum_decl*>(ast_node))
-            {
-                // do nothing..
-            }
+
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
