@@ -172,16 +172,13 @@ namespace wo
                 if (to->is_pending() || (to->is_void() && !to->is_func()))
                     return false;
 
-                if (from->is_enum_type())
-                    return false;
-
                 if (to->is_enum_type())
                 {
                     auto* enumtype = to->using_type_name ? to->using_type_name : to;
                     if (from->is_enum_item_type())
                     {
                         // Check template, from's template must be same as to's or be pending..
-                        if (from->enum_template_arguments.size() != enumtype->template_arguments.size())
+                        if (from->enum_template_arguments.size() > enumtype->template_arguments.size())
                             return false;
                         for (size_t i = 0; i < from->enum_template_arguments.size(); i++)
                         {
@@ -197,6 +194,9 @@ namespace wo
 
                 if (to->is_dynamic())
                     return true;
+
+                if (from->is_enum_type())
+                    return false;
 
                 if (to->is_bool())
                     return true;

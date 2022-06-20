@@ -2162,10 +2162,8 @@ namespace wo
                                             if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index, false))
                                             {
                                                 auto* cast_arg_type = new ast_value_type_cast(arg_val, *a_type_index, true);
+                                                cast_arg_type->copy_source_info(arg_val);
 
-                                                cast_arg_type->col_no = arg_val->col_no;
-                                                cast_arg_type->row_no = arg_val->row_no;
-                                                cast_arg_type->source_file = arg_val->source_file;
                                                 analyze_pass2(cast_arg_type);
 
                                                 cast_arg_type->update_constant_value(lang_anylizer);
@@ -2355,9 +2353,7 @@ namespace wo
                         if (a_value_assi->right->value_type->is_pending_function())
                         {
                             auto* try_finding_override = new ast_value_type_cast(a_value_assi->right, a_value_assi->value_type, true);
-                            try_finding_override->col_no = a_value_assi->right->col_no;
-                            try_finding_override->row_no = a_value_assi->right->row_no;
-                            try_finding_override->source_file = a_value_assi->right->source_file;
+                            try_finding_override->copy_source_info(a_value_assi);
 
                             analyze_pass2(try_finding_override);
                             try_finding_override->update_constant_value(lang_anylizer);
@@ -2504,9 +2500,7 @@ namespace wo
                             if (!a_value_index->index->value_type->is_integer() && !a_value_index->index->value_type->is_handle())
                             {
                                 auto* index_val = new ast_value_type_cast(a_value_index->index, ast_type::create_type_at(a_value_index, L"int"), true);
-                                index_val->col_no = a_value_index->index->col_no;
-                                index_val->row_no = a_value_index->index->row_no;
-                                index_val->source_file = a_value_index->index->source_file;
+                                index_val->copy_source_info(a_value_index);
 
                                 analyze_pass2(index_val);
 
@@ -2520,10 +2514,7 @@ namespace wo
                             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0]))
                             {
                                 auto* index_val = new ast_value_type_cast(a_value_index->index, a_value_index->from->value_type->template_arguments[0], true);
-                                // pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, );
-                                index_val->col_no = a_value_index->index->col_no;
-                                index_val->row_no = a_value_index->index->row_no;
-                                index_val->source_file = a_value_index->index->source_file;
+                                index_val->copy_source_info(a_value_index);
 
                                 analyze_pass2(index_val);
 
@@ -2543,10 +2534,7 @@ namespace wo
                         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                         {
                             auto* cast_return_type = new ast_value_type_cast(a_value_variadic_args_idx->argindex, ast_type::create_type_at(a_value_variadic_args_idx, L"int"), true);
-                            //pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, ast_type::create_type_at(L"int"));
-                            cast_return_type->col_no = a_value_variadic_args_idx->col_no;
-                            cast_return_type->row_no = a_value_variadic_args_idx->row_no;
-                            cast_return_type->source_file = a_value_variadic_args_idx->source_file;
+                            cast_return_type->copy_source_info(a_value_variadic_args_idx);
 
                             analyze_pass2(cast_return_type);
 
@@ -2667,10 +2655,7 @@ namespace wo
                                 if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
                                 {
                                     auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], false);
-                                    //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
-                                    cast_array_item->col_no = val->col_no;
-                                    cast_array_item->row_no = val->row_no;
-                                    cast_array_item->source_file = val->source_file;
+                                    cast_array_item->copy_source_info(val);
 
                                     analyze_pass2(cast_array_item);
 
@@ -2723,10 +2708,7 @@ namespace wo
                                     if (!pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
                                     {
                                         auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], false);
-                                        //pass_type_cast::do_cast(*lang_anylizer, );
-                                        cast_key_item->col_no = pairs->key->col_no;
-                                        cast_key_item->row_no = pairs->key->row_no;
-                                        cast_key_item->source_file = pairs->key->source_file;
+                                        cast_key_item->copy_source_info(pairs);
 
                                         analyze_pass2(cast_key_item);
 
@@ -2737,10 +2719,7 @@ namespace wo
                                     if (!pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
                                     {
                                         auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], false);
-                                        //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
-                                        cast_val_item->col_no = pairs->key->col_no;
-                                        cast_val_item->row_no = pairs->key->row_no;
-                                        cast_val_item->source_file = pairs->key->source_file;
+                                        cast_val_item->copy_source_info(pairs);
 
                                         analyze_pass2(cast_val_item);
 
@@ -2807,10 +2786,7 @@ namespace wo
                                 && !func_return_type->is_same(a_ret->return_value->value_type))
                             {
                                 auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type, true);
-                                // pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
-                                cast_return_type->col_no = a_ret->col_no;
-                                cast_return_type->row_no = a_ret->row_no;
-                                cast_return_type->source_file = a_ret->source_file;
+                                cast_return_type->copy_source_info(a_ret);
 
                                 analyze_pass2(cast_return_type);
 
