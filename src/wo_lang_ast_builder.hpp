@@ -556,7 +556,7 @@ namespace wo
             }
             bool is_bool() const
             {
-                return !is_func()&&
+                return !is_func() &&
                     (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
             }
             bool has_template() const
@@ -1667,7 +1667,7 @@ namespace wo
                 right->update_constant_value(lex);
 
                 // if left/right is custom, donot calculate them 
-                if (left->value_type->is_custom() 
+                if (left->value_type->is_custom()
                     || left->value_type->using_type_name
                     || right->value_type->is_custom()
                     || right->value_type->using_type_name)
@@ -2060,7 +2060,11 @@ namespace wo
                 ast_value::instance(dumm);
                 // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->called_func);
+                ast_value_function_define* called_func_def = dynamic_cast<ast_value_function_define*>(dumm->called_func);
+                if (!called_func_def || called_func_def->function_name == L"")
+                {
+                    WO_REINSTANCE(dumm->called_func);
+                }
                 WO_REINSTANCE(dumm->arguments);
                 WO_REINSTANCE(dumm->directed_value_from);
                 WO_REINSTANCE(dumm->callee_symbol_in_type_namespace);

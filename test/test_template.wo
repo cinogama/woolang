@@ -244,8 +244,21 @@ namespace test_template
         return nil:typeof(a);
     }
 
+    func for_m_test_foo<T>(var x: int)
+    {
+        return x+1;
+    }
+
+    using mtest<T>
+    {
+        var c = for_m_test_foo:<T>(16);
+    }
+
     func main()
     {
+        var mins = mtest:<string>();
+        mins.c = 66;
+        
         var xfunc = test_typeof_in_template:<int>;
         xfunc = func(){return func(){};};
 
