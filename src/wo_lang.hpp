@@ -2912,7 +2912,7 @@ namespace wo
 
                         if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
                             (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                            || !varref.init_val->can_be_assign)
+                            || !varref.init_val->can_be_assign || varref.init_val->is_constant)
                         {
                             lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
                         }

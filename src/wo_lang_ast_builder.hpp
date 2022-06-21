@@ -2577,6 +2577,7 @@ namespace wo
             ast_value_index()
             {
                 value_type = new ast_type(L"pending");
+                can_be_assign = true;
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override

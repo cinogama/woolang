@@ -335,6 +335,32 @@ WO_API wo_api rslib_std_string_replace(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, aim.c_str());
 }
 
+WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string aim = wo_string(args + 0);
+    wo_string_t match = wo_string(args + 1);
+
+    size_t fnd_place = aim.find(match, 0);
+    if (fnd_place > 0 && fnd_place < aim.size())
+        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+
+    return wo_ret_int(vm, -1);
+}
+
+WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string aim = wo_string(args + 0);
+    wo_string_t match = wo_string(args + 1);
+    size_t from = (size_t)wo_string(args + 2);
+
+    size_t fnd_place = aim.find(match, from);
+    if (fnd_place > from && fnd_place < aim.size())
+        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+
+    return wo_ret_int(vm, -1);
+}
+
+
 WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
 {
     std::string aim = wo_string(args + 0);
@@ -802,34 +828,40 @@ namespace string
         func isspace(var val:string):bool;
 
     extern("rslib_std_string_isalpha")
-        func isalpha(var val:string):bool;
+        func isalpha(var val:string): bool;
 
     extern("rslib_std_string_isalnum")
-        func isalnum(var val:string):bool;
+        func isalnum(var val:string): bool;
 
     extern("rslib_std_string_isnumber")
-        func isnumber(var val:string):bool;
+        func isnumber(var val:string): bool;
 
     extern("rslib_std_string_ishex")
-        func ishex(var val:string):bool;
+        func ishex(var val:string): bool;
 
     extern("rslib_std_string_isoct")
-        func isoct(var val:string):bool;
+        func isoct(var val:string): bool;
 
     extern("rslib_std_string_enstring")
         func enstring(var val:string):string;
 
     extern("rslib_std_string_destring")
-        func destring(var val:string):string;
+        func destring(var val:string): string;
 
     extern("rslib_std_string_beginwith")
-        func beginwith(var val:string, var str:string):bool;
+        func beginwith(var val:string, var str:string): bool;
 
     extern("rslib_std_string_endwith")
-        func endwith(var val:string, var str:string):bool;
+        func endwith(var val:string, var str:string): bool;
 
     extern("rslib_std_string_replace")
-        func replace(var val:string, var match:string, var str:string):string;
+        func replace(var val:string, var match:string, var str:string): string;
+
+    extern("rslib_std_string_find")
+        func find(var val:string, var match:string): int;
+
+    extern("rslib_std_string_find_from")
+        func find(var val:string, var match:string, var from: int): int;
 
     extern("rslib_std_string_trim")
         func trim(var val:string):string;
@@ -1075,7 +1107,7 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
 
     for (size_t argidx = argc - 1; argidx > 0; argidx--)
         wo_push_valref(new_thread_vm, args + argidx);
-    
+
 
     auto* _vmthread = new std::thread([=]() {
         try
