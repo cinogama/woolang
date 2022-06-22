@@ -391,7 +391,7 @@ namespace wo
     struct optional_value
     {
         value m_value;
-        size_t m_id;
+        uint16_t m_id;
     };
 
     struct closure_function

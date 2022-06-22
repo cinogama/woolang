@@ -90,7 +90,7 @@ namespace wo
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
 
-            RESERVED_0 = 49 WO_OPCODE_SPACE,   
+            mkopt = 49 WO_OPCODE_SPACE,   // mkopt(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF ID(2BYTE)               5-11 byte
 
             ext = 50 WO_OPCODE_SPACE,       // ext(PAGECODE)     extern code, it used for extern command of vm,
 
@@ -115,7 +115,7 @@ namespace wo
                                             //               GENERATING 1
                                             //               FAIL       2
                                             //               READY      3
-            RESERVED_1 = 63 WO_OPCODE_SPACE,   //                                     
+            match = 63 WO_OPCODE_SPACE,     // match(dr) REGID(1BYTE)/DIFF(4BYTE) ID(2BYTE) ELSE_JMP(4BYTE) 8-11 byte
 
         };
 

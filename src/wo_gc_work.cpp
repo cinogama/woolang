@@ -143,6 +143,11 @@ namespace wo
                         gc_mark_unit_as_gray(workerid, gcunit_addr);
                 }
             }
+            else if (optional_t* wo_optional = dynamic_cast<optional_t*>(unit))
+            {
+                if (gcbase* gcunit_addr = wo_optional->m_value.get_gcunit_with_barrier())
+                    gc_mark_unit_as_gray(workerid, gcunit_addr);
+            }
         }
 
         class _gc_mark_thread_groups

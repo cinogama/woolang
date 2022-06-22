@@ -2974,6 +2974,38 @@ namespace wo
                             rt_ip = rt_env->rt_codes + aimplace;
                         break;
                     }
+                    case instruct::opcode::mkopt:
+                    {
+                        WO_ADDRESSING_N1_REF; // Aim
+                        WO_ADDRESSING_N2_REF; // Data from
+                        uint16_t id = WO_IPVAL_MOVE_2;
+
+                        opnum1->set_gcunit_with_barrier(value::valuetype::optional_type);
+                        auto* created_optional = optional_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+
+                        gcbase::gc_write_guard gwg1(created_optional);
+
+                        created_optional->m_value.set_val(opnum2);
+                        created_optional->m_id = id;
+
+                        break;
+                    }
+                    case instruct::opcode::match:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        uint32_t elsejmp = WO_IPVAL_MOVE_4;
+                        uint16_t id = WO_IPVAL_MOVE_2;
+
+                        wo_assert(opnum1->type == value::valuetype::optional_type && opnum1->optional);
+
+                        gcbase::gc_read_guard gwg1(opnum1->optional);
+                        if (opnum1->optional->m_id == id)
+                            rt_cr->set_ref(&opnum1->optional->m_value);
+                        else
+                            rt_ip = rt_env->rt_codes + elsejmp;
+
+                        break;
+                    }
                     case instruct::opcode::mkarr:
                     {
                         WO_ADDRESSING_N1_REF;

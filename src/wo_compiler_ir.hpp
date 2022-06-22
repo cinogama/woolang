@@ -1373,6 +1373,27 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
+        void mkopt(const OP1T& op1, const OP2T& op2, uint16_t id)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not set value to immediate.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkopt, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)id);
+        }
+        template<typename OP1T>
+        void match(const OP1T& op1, uint16_t id, const opnum::tag& elsejmp)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::match, WO_OPNUM(op1), WO_OPNUM(elsejmp), (int32_t)id);
+        }
+
+        template<typename OP1T, typename OP2T>
         void mkarr(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -1896,6 +1917,19 @@ namespace wo
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
+                case instruct::opcode::mkopt:
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(mkopt));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+
+                    auto_check_mem_allign(1, 2);
+                    uint16_t id = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&id;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+                    break;
+                }
                 case instruct::opcode::mkarr:
                     temp_this_command_code_buf.push_back(WO_OPCODE(mkarr));
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
@@ -2032,6 +2066,33 @@ namespace wo
                     else
                         temp_this_command_code_buf.push_back(WO_OPCODE(ret, 00));
                     break;
+                case instruct::opcode::match:
+                {
+                    wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
+
+                    temp_this_command_code_buf.push_back(WO_OPCODE(match));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+
+                    // Write else jmp
+                    auto_check_mem_allign(1, 4);
+
+                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+
+                    // Write id
+                    auto_check_mem_allign(1, 2);
+
+                    uint16_t id = (uint16_t)WO_IR.opinteger;
+                    byte_t* readptr = (byte_t*)&id;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+
+                    break;
+                }
                 case instruct::opcode::ext:
 
                     switch (WO_IR.ext_page_id)
@@ -2087,7 +2148,7 @@ namespace wo
                             byte_t* readptr = (byte_t*)&capture_count;
                             temp_this_command_code_buf.push_back(readptr[0]);
                             temp_this_command_code_buf.push_back(readptr[1]);
-                            auto_check_mem_allign(4, 4);
+                            auto_check_mem_allign(2, 4);
                             jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
                                 .push_back(generated_runtime_code_buf.size() + need_fill_count + 2 + 2);
                             temp_this_command_code_buf.push_back(0x00);
@@ -2117,9 +2178,9 @@ namespace wo
                             {
                                 // clean
                                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
+                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 00));
                                 auto_check_mem_allign(2, 4);
 
-                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 00));
                                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
                                     .push_back(generated_runtime_code_buf.size() + need_fill_count + 1 + 1);
 
@@ -2127,8 +2188,6 @@ namespace wo
                                 temp_this_command_code_buf.push_back(0x00);
                                 temp_this_command_code_buf.push_back(0x00);
                                 temp_this_command_code_buf.push_back(0x00);
-
-
                             }
                             else
                             {
