@@ -48,7 +48,7 @@ namespace test_helloworld
         test_assure(_should_be_set_flag && !_should_not_be_set_flag);
         _should_be_set_flag = _should_not_be_set_flag = false;
 
-        test_no_return_recursive() as void;
+        test_no_return_recursive(true) as void;
     }
 }
 
