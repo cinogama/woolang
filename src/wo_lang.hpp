@@ -851,13 +851,11 @@ namespace wo
                             else
                                 a_value_func->is_constant = true;
                         }
-                    }
 
-                    if (a_value_func->externed_func_info)
                         extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
-                        .push_back(a_value_func);
-
-                    if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
+                            .push_back(a_value_func);
+                    }
+                    else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
                     {
                         // This function has no return, set it as void
                         a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, L"void"));
