@@ -1,20 +1,14 @@
 import woo.std;
 import test_tool;
 
-optional option<T>
-{
-    value(T),
-    none
-}
-
-
 namespace test_optional
 {
 	func main()
 	{
-        var x<T> = 15;
+        var p<T> = 0: T;
 
-        x:<int> = 75;
+        p:<int> = 128;
+        p:<real> = 128;
 	}
 }
 

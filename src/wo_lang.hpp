@@ -599,13 +599,15 @@ namespace wo
                         auto* items = varref.template_arguments->children;
                         while (items)
                         {
-                            ast_template_define_with_naming * template_name = dynamic_cast<ast_template_define_with_naming*>(items);
+                            ast_template_define_with_naming* template_name = dynamic_cast<ast_template_define_with_naming*>(items);
                             // TODO: NEED CHECK NAMING HERE?
 
                             wo_assert(template_name);
                             symb->template_types.push_back(template_name->template_ident);
                             items = items->sibling;
                         }
+
+                        varref.symbol = symb;
                     }
                 }
             }
@@ -769,6 +771,10 @@ namespace wo
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
                 auto* sym = find_value_in_this_scope(a_value_var);
+                if (sym)
+                {
+                    a_value_var->value_type = sym->variable_value->value_type;
+                }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
                     if (a_type->is_pending())
@@ -1299,7 +1305,7 @@ namespace wo
                 return fnd->second;
             }
 
-            ast_value * dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
+            ast_value* dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
             wo_assert(dumpped_template_init_value);
 
             lang_symbol* template_reification_symb = nullptr;
@@ -1312,7 +1318,6 @@ namespace wo
                 template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
                 end_template_scope();
             }
-            else         
             temporary_leave_scope_in_pass1();
 
             origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
@@ -1404,7 +1409,7 @@ namespace wo
                             {
                                 if (sym->type == lang_symbol::symbol_type::variable)
                                 {
-                                    
+                                    analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                                 }
                                 else if (sym->type == lang_symbol::symbol_type::function)
                                 {
@@ -2967,16 +2972,37 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    varref.symbol->has_been_defined_in_pass2 = true;
-                    if (varref.is_ref)
+                    if (!varref.template_arguments)
                     {
-                        varref.init_val->is_mark_as_using_ref = true;
-
-                        if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
-                            (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                            || !varref.init_val->can_be_assign || varref.init_val->is_constant)
+                        varref.symbol->has_been_defined_in_pass2 = true;
+                        if (varref.is_ref)
                         {
-                            lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            varref.init_val->is_mark_as_using_ref = true;
+
+                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
+                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                                || !varref.init_val->can_be_assign || varref.init_val->is_constant)
+                            {
+                                lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (auto& [_, impl_symbol] : varref.symbol->template_typehashs_reification_instance_symbol_list)
+                        {
+                            impl_symbol->has_been_defined_in_pass2 = true;
+                            if (varref.is_ref)
+                            {
+                                impl_symbol->variable_value->is_mark_as_using_ref = true;
+
+                                if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
+                                    (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                                    || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
+                                {
+                                    lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                                }
+                            }
                         }
                     }
                 }
@@ -4488,35 +4514,11 @@ namespace wo
             {
                 for (auto& varref_define : a_varref_defines->var_refs)
                 {
-                    if (varref_define.is_ref)
+                    if (!varref_define.template_arguments)
                     {
-                        wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
-                        auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
-
-                        std::string init_static_flag_check_tag;
-                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                        if (varref_define.is_ref)
                         {
-                            init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                            auto& static_inited_flag = get_new_global_variable();
-                            compiler->equb(static_inited_flag, reg(reg::ni));
-                            compiler->jf(tag(init_static_flag_check_tag));
-                            compiler->set(static_inited_flag, imm(1));
-                        }
-                        auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
-
-                        if (is_non_ref_tem_reg(aim_ob))
-                            lang_anylizer->lang_error(0x0000, varref_define.init_val, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                        compiler->ext_setref(ref_ob, aim_ob);
-
-                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                            compiler->tag(init_static_flag_check_tag);
-                    }
-                    else
-                    {
-                        if (!varref_define.symbol->is_constexpr)
-                        {
+                            wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
                             auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
 
                             std::string init_static_flag_check_tag;
@@ -4529,17 +4531,48 @@ namespace wo
                                 compiler->jf(tag(init_static_flag_check_tag));
                                 compiler->set(static_inited_flag, imm(1));
                             }
+                            auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
 
-                            if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
-                            {
-                                if (is_need_dup_when_mov(varref_define.init_val))
-                                    compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                                else
-                                    compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                            }
+                            if (is_non_ref_tem_reg(aim_ob))
+                                lang_anylizer->lang_error(0x0000, varref_define.init_val, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                            compiler->ext_setref(ref_ob, aim_ob);
+
                             if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
                                 compiler->tag(init_static_flag_check_tag);
                         }
+                        else
+                        {
+                            if (!varref_define.symbol->is_constexpr)
+                            {
+                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
+
+                                std::string init_static_flag_check_tag;
+                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                                {
+                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                    auto& static_inited_flag = get_new_global_variable();
+                                    compiler->equb(static_inited_flag, reg(reg::ni));
+                                    compiler->jf(tag(init_static_flag_check_tag));
+                                    compiler->set(static_inited_flag, imm(1));
+                                }
+
+                                if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
+                                {
+                                    if (is_need_dup_when_mov(varref_define.init_val))
+                                        compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                    else
+                                        compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                }
+                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                                    compiler->tag(init_static_flag_check_tag);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // TODO:
                     }
                 }
             }
@@ -5128,7 +5161,7 @@ namespace wo
                 }
             }
 
-            if (is_template_value!= template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
+            if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
@@ -5137,7 +5170,7 @@ namespace wo
             }
             else
             {
-                lang_symbol* sym =  new lang_symbol;
+                lang_symbol* sym = new lang_symbol;
                 if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
                     lang_scopes.back()->symbols[names] = sym;
 
