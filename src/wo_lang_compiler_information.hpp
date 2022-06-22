@@ -146,7 +146,7 @@
 
 #define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数'%ls'的返回类型，需要手动标注"
 
-#define WO_ERR_NO_TEMPLATE_VARIABLE L"泛型不能用于修饰变量"
+#define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"此处泛型不能用于修饰非变量/函数对象"
 
 #define WO_ERR_NO_MATCHED_TEMPLATE_FUNC L"未找到符合模板参数的函数重载"
 
@@ -306,7 +306,7 @@
 
 #define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"Unable to deduce the return type of function '%ls', it needs to be marked manually."
 
-#define WO_ERR_NO_TEMPLATE_VARIABLE L"Templated variable is invalid."
+#define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"Templated items beside variable or function is invalid here."
 
 #define WO_ERR_NO_MATCHED_TEMPLATE_FUNC L"No matched template function."
 

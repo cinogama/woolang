@@ -114,7 +114,8 @@ namespace wo
         l_naming,
         l_operator,
 
-        l_except
+        l_expect,
+        l_optional
     );
 
     class lexer;
@@ -219,7 +220,7 @@ namespace wo
             {L"inf", {lex_type::l_inf}},
             {L"nil", {lex_type::l_nil}},
             {L"while", {lex_type::l_while}},
-             {L"for", {lex_type::l_for}},
+            {L"for", {lex_type::l_for}},
             {L"if", {lex_type::l_if}},
             {L"else", {lex_type::l_else}},
             {L"var", {lex_type::l_var}},
@@ -243,7 +244,8 @@ namespace wo
             {L"goto", {lex_type::l_goto}},
             {L"naming", {lex_type::l_naming}},
             {L"operator", {lex_type::l_operator}},
-            {L"except", {lex_type::l_except}},
+            {L"expect", {lex_type::l_expect}},
+            {L"optional", {lex_type::l_optional}},
         };
 
 

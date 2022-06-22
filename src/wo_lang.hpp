@@ -48,6 +48,7 @@ namespace wo
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
+        std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
 
         void apply_template_setting(ast::ast_defines* defs)
         {
@@ -204,10 +205,10 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
         {
             wo_test(template_args.size());
-            if (template_defines->template_type_name_list.size() != template_args.size())
+            if (template_defines_args.size() != template_args.size())
             {
                 lang_anylizer->lang_error(0x0000, template_args.back(), WO_ERR_TEMPLATE_ARG_NOT_MATCH);
                 return false;
@@ -215,18 +216,23 @@ namespace wo
 
             template_stack.push_back(template_type_map());
             auto& current_template = template_stack.back();
-            for (size_t index = 0; index < template_defines->template_type_name_list.size(); index++)
+            for (size_t index = 0; index < template_defines_args.size(); index++)
             {
                 lang_symbol* sym = new lang_symbol;
                 sym->attribute = new ast::ast_decl_attribute();
                 sym->type = lang_symbol::symbol_type::template_typing;
-                sym->name = template_defines->template_type_name_list[index];
+                sym->name = template_defines_args[index];
                 sym->type_informatiom = template_args[index];
                 sym->defined_in_scope = lang_scopes.back();
 
                 lang_symbols.push_back(current_template[sym->name] = sym);
             }
             return true;
+        }
+
+        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        {
+            return begin_template_scope(template_defines->template_type_name_list, template_args);
         }
 
         void end_template_scope()
@@ -564,21 +570,43 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
-                    //            symbol first, it can make variable capture correctly.
-                    //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
-                    bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
-                    if (!init_value_is_lambda)
-                        analyze_pass1(varref.init_val);
-                    varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
-                    if (init_value_is_lambda)
-                        analyze_pass1(varref.init_val);
+                    if (!varref.template_arguments)
+                    {
+                        // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
+                        //            symbol first, it can make variable capture correctly.
+                        //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
+                        bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
+                        if (!init_value_is_lambda)
+                            analyze_pass1(varref.init_val);
+                        varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::NORMAL);
+                        if (init_value_is_lambda)
+                            analyze_pass1(varref.init_val);
 
-                    varref.symbol->is_ref = varref.is_ref;
-                    a_varref_defs->add_child(varref.init_val);
+                        varref.symbol->is_ref = varref.is_ref;
+                        a_varref_defs->add_child(varref.init_val);
 
-                    if (varref.is_ref)
-                        varref.init_val->is_mark_as_using_ref = true;
+                        if (varref.is_ref)
+                            varref.init_val->is_mark_as_using_ref = true;
+                    }
+                    else
+                    {
+                        // Template variable!!! we just define symbol here.
+                        auto* symb = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                        symb->is_template_symbol = true;
+
+                        wo_assert(symb->template_types.empty());
+
+                        auto* items = varref.template_arguments->children;
+                        while (items)
+                        {
+                            ast_template_define_with_naming * template_name = dynamic_cast<ast_template_define_with_naming*>(items);
+                            // TODO: NEED CHECK NAMING HERE?
+
+                            wo_assert(template_name);
+                            symb->template_types.push_back(template_name->template_ident);
+                            items = items->sibling;
+                        }
+                    }
                 }
             }
             else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(ast_node))
@@ -741,18 +769,6 @@ namespace wo
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
                 auto* sym = find_value_in_this_scope(a_value_var);
-
-                if (sym)
-                {
-                    a_value_var->value_type = sym->variable_value->value_type;
-                    if (sym->type == lang_symbol::symbol_type::variable
-                        && !a_value_var->directed_function_call
-                        && !a_value_var->template_reification_args.empty())
-                    {
-                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
-                    }
-
-                }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
                     if (a_type->is_pending())
@@ -806,7 +822,8 @@ namespace wo
                                     // ready for update..
                                     fully_update_type(argdef->value_type, true);
                                 }
-                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
+
+                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
                                 argdef->symbol->is_ref = argdef->is_ref;
                             }
                         }
@@ -1261,6 +1278,49 @@ namespace wo
 
         }
 
+        lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
+        {
+            using namespace ast;
+
+            std::vector<uint32_t> template_args_hashtypes;
+            for (auto temtype : template_args_types)
+            {
+                auto step_in_pass2 = has_step_in_step2;
+                has_step_in_step2 = true;
+                fully_update_type(temtype, true, origin_variable->symbol->template_types);
+                has_step_in_step2 = step_in_pass2;
+
+                template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+            }
+
+            if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
+                fnd != origin_variable->symbol->template_typehashs_reification_instance_symbol_list.end())
+            {
+                return fnd->second;
+            }
+
+            ast_value * dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
+            wo_assert(dumpped_template_init_value);
+
+            lang_symbol* template_reification_symb = nullptr;
+
+            temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
+            if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
+            {
+                analyze_pass1(dumpped_template_init_value);
+
+                template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
+                end_template_scope();
+            }
+            else         
+            temporary_leave_scope_in_pass1();
+
+            origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
+            origin_variable->symbol = template_reification_symb;
+
+            return template_reification_symb;
+        }
+
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
         {
             using namespace ast;
@@ -1301,12 +1361,13 @@ namespace wo
                 dumpped_template_func_define;
 
             temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
-            begin_template_scope(origin_template_func_define, template_args_types);
+            if (begin_template_scope(origin_template_func_define, template_args_types))
+            {
+                analyze_pass1(dumpped_template_func_define);
 
-            analyze_pass1(dumpped_template_func_define);
-
-            // origin_template_func_define->parent->add_child(dumpped_template_func_define);
-            end_template_scope();
+                // origin_template_func_define->parent->add_child(dumpped_template_func_define);
+                end_template_scope();
+            }
             temporary_leave_scope_in_pass1();
 
             lang_symbol* template_reification_symb = new lang_symbol;
@@ -1341,9 +1402,11 @@ namespace wo
                         {
                             if (!a_value_var->directed_function_call)
                             {
-                                if (sym->type != lang_symbol::symbol_type::function)
-                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
-                                else
+                                if (sym->type == lang_symbol::symbol_type::variable)
+                                {
+                                    
+                                }
+                                else if (sym->type == lang_symbol::symbol_type::function)
                                 {
                                     ast_value_function_define* dumpped_template_func_define = nullptr;
 
@@ -1368,6 +1431,10 @@ namespace wo
                                         lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
                                     else
                                         a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION);
                                 }
                             }
                         }
@@ -1479,9 +1546,6 @@ namespace wo
                             auto* sym = find_value_in_this_scope(a_value_var);
                             if (sym)
                             {
-                                if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
-                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
-
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
@@ -4969,7 +5033,7 @@ namespace wo
                 if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
+                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
                 }
             }
             lang_scopes.push_back(scope);
@@ -5000,12 +5064,20 @@ namespace wo
 
         size_t global_symbol_index = 0;
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, size_t captureindex = (size_t)-1)
+        enum class template_style
+        {
+            NORMAL,
+            IS_TEMPLATE_VARIABLE_DEFINE,
+            IS_TEMPLATE_VARIABLE_IMPL
+        };
+
+        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, template_style is_template_value, size_t captureindex = (size_t)-1)
         {
             wo_assert(lang_scopes.size());
 
             if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
             {
+                wo_assert(template_style::NORMAL == is_template_value);
                 if (func_def->function_name != L"")
                 {
                     lang_symbol* sym;
@@ -5056,7 +5128,7 @@ namespace wo
                 }
             }
 
-            if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+            if (is_template_value!= template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
@@ -5065,7 +5137,10 @@ namespace wo
             }
             else
             {
-                lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                lang_symbol* sym =  new lang_symbol;
+                if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
+                    lang_scopes.back()->symbols[names] = sym;
+
                 sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::variable;
                 sym->name = names;
@@ -5089,8 +5164,11 @@ namespace wo
 
                         if (!attr->is_constant_attr() || !init_val->is_constant)
                         {
-                            sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
-                            lang_scopes.back()->this_block_used_stackvalue_count++;
+                            if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
+                            {
+                                sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
+                                lang_scopes.back()->this_block_used_stackvalue_count++;
+                            }
                         }
                         else
                             sym->is_constexpr = true;
@@ -5114,7 +5192,10 @@ namespace wo
                     sym->static_symbol = true;
 
                     if (!attr->is_constant_attr() || !init_val->is_constant)
-                        sym->global_index_in_lang = global_symbol_index++;
+                    {
+                        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
+                            sym->global_index_in_lang = global_symbol_index++;
+                    }
                     else
                         sym->is_constexpr = true;
 
@@ -5556,7 +5637,7 @@ namespace wo
                     {
                         capture_list.push_back(result);
                         // Define a closure symbol instead of current one.
-                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
+                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, capture_list.size() - 1);
                     }
 
                 }

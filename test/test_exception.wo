@@ -12,7 +12,7 @@ namespace test_exception
 	}
 	func main()
 	{
-		except
+		expect
 		{
 			foo();
 			std::halt("This cannot be shown.");

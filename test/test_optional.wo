@@ -1,0 +1,21 @@
+import woo.std;
+import test_tool;
+
+optional option<T>
+{
+    value(T),
+    none
+}
+
+
+namespace test_optional
+{
+	func main()
+	{
+        var x<T> = 15;
+
+        x:<int> = 75;
+	}
+}
+
+test_function("test_optional.main", test_optional::main);

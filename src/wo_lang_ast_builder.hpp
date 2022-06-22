@@ -135,6 +135,7 @@ namespace wo
                 {L"nil", value::valuetype::invalid},
 
                 // special type
+                {L"optional", value::valuetype::invalid},
                 {L"void", value::valuetype::invalid},
                 {L"pending", value::valuetype::invalid},
                 {L"dynamic", value::valuetype::invalid},
@@ -1775,6 +1776,7 @@ namespace wo
             {
                 bool is_ref;
                 std::wstring ident_name;
+                ast_list* template_arguments;
                 ast_value* init_val;
                 lang_symbol* symbol = nullptr;
             };
@@ -3474,7 +3476,7 @@ namespace wo
                         token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
 
                     vardefs->var_refs.push_back(
-                        { false, enumitem->enum_ident, const_val });
+                        { false, enumitem->enum_ident, nullptr, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -3999,14 +4001,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_test(input.size() == 4);
                 ast_varref_defines* result = new ast_varref_defines;
 
-                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_test(init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(0).identifier, init_val });
+                    { false, WO_NEED_TOKEN(0).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(1)), init_val });
 
                 return (ast_basic*)result;
             }
@@ -4015,14 +4017,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 5);
+                wo_test(input.size() == 6);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(0));
 
-                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(4));
+                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_test(result && init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(2).identifier, init_val });
+                    { false, WO_NEED_TOKEN(2).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(3)), init_val });
 
                 return (ast_basic*)result;
             }
@@ -4696,7 +4698,7 @@ namespace wo
                 afor->used_vawo_defines = new ast_varref_defines;
                 afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
 
-                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", exp_dir_iter_call });
+                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", nullptr, exp_dir_iter_call });
                 //}}}}
 
                     // var a= tkplace, b = tkplace...
@@ -4707,7 +4709,7 @@ namespace wo
                     foreachvar->is_mark_as_using_ref = true;
                     afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
                     afor->foreach_var.push_back(foreachvar);
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, new ast_value_takeplace() });
+                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, nullptr, new ast_value_takeplace() });
 
                     a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
                 }
