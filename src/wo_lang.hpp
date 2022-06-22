@@ -857,10 +857,10 @@ namespace wo
                         extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
                         .push_back(a_value_func);
 
-                    if (a_value_func->value_type->type_name == L"pending")
+                    if (!a_value_func->has_return_value)
                     {
-                        // NOTE: JUST CHECK RETURN TYPE;
-                        // type compute fail, delay them..
+                        // This function has no return, set it as void
+                        a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, L"void"));
                     }
                 }
 
@@ -1506,7 +1506,7 @@ namespace wo
                                         a_value_var->value_type = result->value_type;
 
                                         if (a_value_var->value_type->is_pending())
-                                            lang_anylizer->lang_error(0x0000, a_value_var, L"函数 '%ls' 的类型信息无效，继续", a_value_var->var_name.c_str());
+                                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
                                     }
                                     else
                                     {
