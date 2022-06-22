@@ -2071,20 +2071,18 @@ namespace wo
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                     temp_this_command_code_buf.push_back(WO_OPCODE(match));
-                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    auto_check_mem_allign(1, opcodelen);
 
                     // Write else jmp
                     auto_check_mem_allign(1, 4);
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1 + opcodelen);
                     temp_this_command_code_buf.push_back(0x00);
                     temp_this_command_code_buf.push_back(0x00);
                     temp_this_command_code_buf.push_back(0x00);
                     temp_this_command_code_buf.push_back(0x00);
-
-                    // Write id
-                    auto_check_mem_allign(1, 2);
 
                     uint16_t id = (uint16_t)WO_IR.opinteger;
                     byte_t* readptr = (byte_t*)&id;

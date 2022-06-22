@@ -813,13 +813,13 @@ namespace wo
                     tmpos << "nequb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::mkopt:
                     tmpos << "mkopt\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                    tmpos << " id=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                    tmpos << ", id=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::match:
                 {
                     tmpos << "match\t"; print_opnum1();
                     uint32_t elsejmp = *(uint32_t*)((this_command_ptr += 4) - 4);
                     uint16_t id = *(uint16_t*)((this_command_ptr += 2) - 2);
-                    tmpos << " as " << id << " else jmp +" << elsejmp;
+                    tmpos << " if id=" << id << ", else jmp +" << elsejmp;
                     break;
                 }
                 case instruct::mkarr:
