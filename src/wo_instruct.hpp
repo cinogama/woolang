@@ -89,11 +89,8 @@ namespace wo
 
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
-            // exception handler
-            veh = 49 WO_OPCODE_SPACE,   // excep(RAISE?_ROLLBACK?) 
-                                        //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
-                                        //  01 thorw
-                                        //  00 clean
+
+            RESERVED_0 = 49 WO_OPCODE_SPACE,   
 
             ext = 50 WO_OPCODE_SPACE,       // ext(PAGECODE)     extern code, it used for extern command of vm,
 
@@ -136,6 +133,11 @@ namespace wo
             unpackargs = 4 WO_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             movdup = 5 WO_OPCODE_SPACE,     // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             mkclos = 6 WO_OPCODE_SPACE,     // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
+
+            veh = 7 WO_OPCODE_SPACE,    // excep(RAISE?_ROLLBACK?) 
+                                        //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
+                                        //  01 thorw
+                                        //  00 clean
 
         };
         enum extern_opcode_page_1 : uint8_t

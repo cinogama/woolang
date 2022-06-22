@@ -4565,9 +4565,9 @@ namespace wo
             {
                 auto except_end_tag = "except_end_" + compiler->get_unique_tag_based_command_ip();
 
-                compiler->veh_begin(tag(except_end_tag));
+                compiler->ext_veh_begin(tag(except_end_tag));
                 real_analyze_finalize(a_except->execute_sentence, compiler);
-                compiler->veh_clean(tag(except_end_tag));
+                compiler->ext_veh_clean(tag(except_end_tag));
 
                 compiler->tag(except_end_tag);
             }

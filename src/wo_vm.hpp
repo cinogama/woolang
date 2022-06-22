@@ -793,25 +793,6 @@ namespace wo
 
                 case instruct::movx:
                     tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::veh:
-                    tmpos << "veh ";
-                    if (main_command & 0b10)
-                    {
-                        tmpos << "begin except jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
-                    else if (main_command & 0b01)
-                    {
-                        tmpos << "throw";
-                        break;
-                    }
-                    else
-                    {
-                        tmpos << "ok jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
                 case instruct::abrt:
                     if (main_command & 0b10)
                         tmpos << "end\t";
@@ -920,6 +901,25 @@ namespace wo
                             tmpos << ",\t+";
                             tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
                             break;
+                        case instruct::extern_opcode_page_0::veh:
+                            tmpos << "veh ";
+                            if (main_command & 0b10)
+                            {
+                                tmpos << "begin except jmp ";
+                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                                break;
+                            }
+                            else if (main_command & 0b01)
+                            {
+                                tmpos << "throw";
+                                break;
+                            }
+                            else
+                            {
+                                tmpos << "ok jmp ";
+                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                                break;
+                            }
                         default:
                             tmpos << "??\t";
                             break;
@@ -2974,27 +2974,6 @@ namespace wo
                             rt_ip = rt_env->rt_codes + aimplace;
                         break;
                     }
-                    case instruct::opcode::veh:
-                    {
-                        if (dr & 0b10)
-                        {
-                            //begin
-                            wo::exception_recovery::ready(this, rt_env->rt_codes + WO_IPVAL_MOVE_4, rt_sp, rt_bp);
-                        }
-                        else if (dr & 0b01)
-                        {
-                            // throw
-                            wo::exception_recovery::rollback(this);
-                        }
-                        else
-                        {
-                            // clean
-                            wo::exception_recovery::ok(this);
-                            auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
-                            rt_ip = restore_ip;
-                        }
-                        break;
-                    }
                     case instruct::opcode::mkarr:
                     {
                         WO_ADDRESSING_N1_REF;
@@ -3237,6 +3216,27 @@ namespace wo
                                 {
                                     auto* arr_val = ++rt_sp;
                                     created_closure->m_closure_args[i].set_trans(arr_val->get());
+                                }
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::veh:
+                            {
+                                if (dr & 0b10)
+                                {
+                                    //begin
+                                    wo::exception_recovery::ready(this, rt_env->rt_codes + WO_IPVAL_MOVE_4, rt_sp, rt_bp);
+                                }
+                                else if (dr & 0b01)
+                                {
+                                    // throw
+                                    wo::exception_recovery::rollback(this);
+                                }
+                                else
+                                {
+                                    // clean
+                                    wo::exception_recovery::ok(this);
+                                    auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                                    rt_ip = restore_ip;
                                 }
                                 break;
                             }

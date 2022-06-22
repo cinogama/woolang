@@ -39,9 +39,11 @@ namespace wo
 
     struct gc_handle_base_t;
     struct closure_function;
+    struct optional_value;
 
     using gchandle_t = gcunit<gc_handle_base_t>;
     using closure_t = gcunit<closure_function>;
+    using optional_t = gcunit<optional_value>;
 
     struct value
     {
@@ -69,6 +71,8 @@ namespace wo
             gchandle_type,
             closure_type,
 
+            // Special types
+            optional_type,
         };
 
         union
@@ -83,6 +87,7 @@ namespace wo
             mapping_t* mapping;
             gchandle_t* gchandle;
             closure_t* closure;
+            optional_t* optional;
 
             struct
             {
@@ -381,6 +386,14 @@ namespace wo
     static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
+
+    // optional_value used for store 1 value with a id(used for select or else)
+    struct optional_value
+    {
+        value m_value;
+        size_t m_id;
+    };
+
     struct closure_function
     {
         wo_integer_t m_function_addr;
