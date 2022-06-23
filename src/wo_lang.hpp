@@ -712,22 +712,15 @@ namespace wo
                 a_value_assi->add_child(a_value_assi->left);
                 a_value_assi->add_child(a_value_assi->right);
 
-                if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
-                    ; lsymb && lsymb->symbol)
-                    lsymb->symbol->has_been_assigned = true;
-
                 a_value_assi->value_type = ast_type::create_type_at(a_value_assi, L"pending");
-                a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
-                /*if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
+                auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
+                if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
                 {
-                    if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
-                    {
-                        lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
-                            a_value_assi->right->value_type->get_type_name().c_str(),
-                            a_value_assi->left->value_type->get_type_name().c_str());
-                    }
-                }*/
+                    // If symbol is template variable, delay the type calc.
+                    lsymb->symbol->has_been_assigned = true;
+                    a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+                }
             }
             else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
             {
@@ -773,7 +766,12 @@ namespace wo
                 auto* sym = find_value_in_this_scope(a_value_var);
                 if (sym)
                 {
-                    a_value_var->value_type = sym->variable_value->value_type;
+                    if (sym->type == lang_symbol::symbol_type::variable && sym->is_template_symbol)
+                    {
+                        // Here is template variable, delay it's type calc.
+                    }
+                    else
+                        a_value_var->value_type = sym->variable_value->value_type;
                 }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
@@ -1314,14 +1312,13 @@ namespace wo
             if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
             {
                 analyze_pass1(dumpped_template_init_value);
-
+                analyze_pass1(origin_variable);
                 template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
                 end_template_scope();
             }
             temporary_leave_scope_in_pass1();
 
             origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
-            origin_variable->symbol = template_reification_symb;
 
             return template_reification_symb;
         }
@@ -1409,7 +1406,7 @@ namespace wo
                             {
                                 if (sym->type == lang_symbol::symbol_type::variable)
                                 {
-                                    analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                    a_value_var->symbol = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                                 }
                                 else if (sym->type == lang_symbol::symbol_type::function)
                                 {
@@ -4572,7 +4569,66 @@ namespace wo
                     }
                     else
                     {
-                        // TODO:
+                        // Template variable impl here, give init value to correct place.
+                        const auto& all_template_impl_variable_symbol
+                            = varref_define.symbol->template_typehashs_reification_instance_symbol_list;
+                        for (auto& [_, symbol] : all_template_impl_variable_symbol)
+                        {
+                            if (varref_define.is_ref)
+                            {
+                                wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value));
+                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
+
+                                std::string init_static_flag_check_tag;
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                {
+                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                    auto& static_inited_flag = get_new_global_variable();
+                                    compiler->equb(static_inited_flag, reg(reg::ni));
+                                    compiler->jf(tag(init_static_flag_check_tag));
+                                    compiler->set(static_inited_flag, imm(1));
+                                }
+                                auto& aim_ob = auto_analyze_value(symbol->variable_value, compiler);
+
+                                if (is_non_ref_tem_reg(aim_ob))
+                                    lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                                compiler->ext_setref(ref_ob, aim_ob);
+
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                    compiler->tag(init_static_flag_check_tag);
+                            }
+                            else
+                            {
+                                if (!symbol->is_constexpr)
+                                {
+                                    auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
+
+                                    std::string init_static_flag_check_tag;
+                                    if (symbol->static_symbol && symbol->define_in_function)
+                                    {
+                                        init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                        auto& static_inited_flag = get_new_global_variable();
+                                        compiler->equb(static_inited_flag, reg(reg::ni));
+                                        compiler->jf(tag(init_static_flag_check_tag));
+                                        compiler->set(static_inited_flag, imm(1));
+                                    }
+
+                                    if (nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value))
+                                    {
+                                        if (is_need_dup_when_mov(symbol->variable_value))
+                                            compiler->ext_movdup(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                        else
+                                            compiler->mov(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                    }
+                                    if (symbol->static_symbol && symbol->define_in_function)
+                                        compiler->tag(init_static_flag_check_tag);
+                                }
+                            }
+                        }
+
                     }
                 }
             }

@@ -3,13 +3,31 @@ import test_tool;
 
 namespace test_optional
 {
-	func main()
-	{
+    var global_val<T> = []: array<T>;
+
+    func foo()
+    {
+        test_assure(global_val:<string>->len() == 1);
+        test_assure(global_val:<string>[0] == "Helloworld");
+    }
+
+    func main()
+    {
         var p<T> = 0: T;
 
-        p:<int> = 128;
-        p:<real> = 128;
-	}
+        p:<real> = 128; 
+        test_assure(p:<int> == 0);
+
+        p:<int> += 5;
+        test_assure(p:<real> == 128.0);
+
+        p:<handle> = 0x147H;
+        test_assure(p:<int> == 5);
+        test_assure(p:<handle> == 0x147H);
+
+        var g = global_val:<string> as array<string>;
+        g->add("Helloworld");
+    }
 }
 
 test_function("test_optional.main", test_optional::main);
