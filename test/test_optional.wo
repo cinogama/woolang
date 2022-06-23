@@ -5,6 +5,12 @@ namespace test_optional
 {
     var global_val<T> = []: array<T>;
 
+    optional option<T>
+    {
+        value(T),
+        none,
+    }
+
     func foo()
     {
         test_assure(global_val:<int>->len() == 0);
@@ -30,6 +36,9 @@ namespace test_optional
         g->add("Helloworld");
 
         foo();
+
+        var gval = option::none:<array<string>>;
+        gval = option::value([]: array<string>);
     }
 }
 
