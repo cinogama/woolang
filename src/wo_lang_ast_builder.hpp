@@ -3068,6 +3068,43 @@ namespace wo
             }
         };
 
+        struct ast_optional_item : virtual public grammar::ast_base
+        {
+            std::wstring identifier;
+            ast_type* type_may_nil = nullptr;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->type_may_nil);
+
+                return dumm;
+            }
+        };
+
+        struct ast_optional_make_option_ob_to_cr_and_ret : virtual public grammar::ast_base
+        {
+            uint16_t id;
+            ast_value_variable* argument_may_nil;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->argument_may_nil);
+
+                return dumm;
+            }
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -3450,14 +3487,17 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 5);
+                wo_assert(input.size() == 6);
 
                 ast_list* bind_type_and_decl_list = new ast_list;
 
                 ast_namespace* enum_scope = new ast_namespace;
                 ast_list* decl_list = new ast_list;
 
-                enum_scope->scope_name = WO_NEED_TOKEN(1).identifier;
+                // TODO: Enum attribute should be apply here!
+                //       WO_NEED_AST(0)
+
+                enum_scope->scope_name = WO_NEED_TOKEN(2).identifier;
 
                 auto* using_enum_as_int = new ast_using_type_as;
                 using_enum_as_int->new_type_identifier = enum_scope->scope_name;
@@ -3465,7 +3505,7 @@ namespace wo
                 bind_type_and_decl_list->append_at_end(using_enum_as_int);
 
                 enum_scope->in_scope_sentence = decl_list;
-                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(3));
+                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
                 vardefs->declear_attribute = new ast_decl_attribute;
@@ -4903,6 +4943,194 @@ namespace wo
             }
         };
 
+        struct pass_optional_item : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_optional_item* result = new ast_optional_item;
+                if (input.size() == 1)
+                {
+                    // identifier
+                    // => const var identifier<A...> = func(){...}();
+                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                }
+                else
+                {
+                    // identifier ( TYPE )
+                    // => func identifier<A...>(var v: TYPE){...}
+                    wo_assert(input.size() == 4);
+                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                    result->type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+
+                    wo_assert(result->type_may_nil);
+                }
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_optional_define : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(input.size() == 7);
+                // ATTRIBUTE optional IDENTIFIER <TEMPLATE_DEF> { ITEMS }
+                //    0                    2             3          5
+
+                // Create a namespace 
+                ast_decl_attribute* optional_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+
+                ast_list* bind_using_type_namespace_result = new ast_list;
+
+                ast_namespace* optional_scope = new ast_namespace;
+                optional_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                optional_scope->in_scope_sentence = new ast_list;
+
+                // Get templates here(If have?)
+                ast_template_define_with_naming* defined_template_args = nullptr;
+                ast_list* defined_template_arg_lists = nullptr;
+
+                if (!ast_empty::is_empty(input[3]))
+                {
+                    defined_template_arg_lists = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                    defined_template_args = dynamic_cast<ast_template_define_with_naming*>(
+                        defined_template_arg_lists->children);
+                }
+
+                // Then we decl a using-type here;
+                ast_using_type_as* using_type = new ast_using_type_as;
+                using_type->new_type_identifier = optional_scope->scope_name;
+                using_type->old_type = new ast_type(L"optional");
+                using_type->declear_attribute = optional_arttribute;
+
+                std::vector <std::wstring> template_arg_defines;
+                if (defined_template_args)
+                {
+                    ast_list* template_const_list = new ast_list;
+
+                    using_type->is_template_define = true;
+
+                    ast_template_define_with_naming* template_type = defined_template_args;
+                    wo_test(template_type);
+                    while (template_type)
+                    {
+                        using_type->template_type_name_list.push_back(template_type->template_ident);
+
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    }
+                    using_type->naming_check_list = template_const_list;
+                }
+                bind_using_type_namespace_result->append_at_head(using_type);
+
+                // OK, We need decl optional items/function here
+                ast_optional_item* items =
+                    dynamic_cast<ast_optional_item*>(dynamic_cast<ast_list*>(WO_NEED_AST(5))->children);
+
+                uint16_t optional_item_id = 0;
+
+                auto create_optional_type = [&]() {
+                    ast_type* optional_type_with_template = new ast_type(using_type->new_type_identifier);
+                    for (auto& ident : using_type->template_type_name_list)
+                    {
+                        optional_type_with_template->template_arguments.push_back(new ast_type(ident));
+                    }
+                    return optional_type_with_template;
+                };
+
+                while (items)
+                {
+                    if (items->type_may_nil)
+                    {
+                        // Generate func here!
+                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;           
+                        avfd_item_type_builder->function_name = items->identifier;
+                        avfd_item_type_builder->argument_list = new ast_list;
+                        avfd_item_type_builder->declear_attribute = optional_arttribute;
+
+                        ast_value_arg_define* argdef = new ast_value_arg_define;
+                        argdef->arg_name = L"_val";
+                        argdef->is_ref = false;
+                        argdef->value_type = items->type_may_nil;
+                        argdef->declear_attribute = new ast_decl_attribute;
+                        avfd_item_type_builder->argument_list->add_child(argdef);
+                        argdef->copy_source_info(items);
+
+                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->value_type->set_as_function_type();
+                        avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
+
+                        avfd_item_type_builder->auto_adjust_return_type = true;
+                        avfd_item_type_builder->copy_source_info(items);
+                        if (using_type->is_template_define)
+                        {
+                            avfd_item_type_builder->is_template_define = true;
+                            avfd_item_type_builder->template_type_name_list = using_type->template_type_name_list;
+                        }
+
+                        avfd_item_type_builder->in_function_sentence = new ast_list;
+
+                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        result->copy_source_info(items);
+                        result->argument_may_nil = new ast_value_variable(argdef->arg_name);
+                        result->id = ++optional_item_id;
+                        // all done ~ fuck!
+
+                        avfd_item_type_builder->in_function_sentence->append_at_end(result);
+                        optional_scope->in_scope_sentence->append_at_end(avfd_item_type_builder);
+                    }
+                    else
+                    {
+                        // Generate const here!
+                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
+                        avfd_item_type_builder->function_name = L""; // Is a lambda function!
+                        avfd_item_type_builder->argument_list = new ast_list;
+                        avfd_item_type_builder->declear_attribute = optional_arttribute;
+                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->value_type->set_as_function_type();
+
+                        avfd_item_type_builder->auto_adjust_return_type = true;
+                        avfd_item_type_builder->copy_source_info(items);
+
+                        avfd_item_type_builder->in_function_sentence = new ast_list;
+
+                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        result->copy_source_info(items);
+                        result->id = ++optional_item_id;
+                        // all done ~ fuck!
+                        avfd_item_type_builder->in_function_sentence->append_at_end(result);
+
+                        ast_value_funccall * funccall = new ast_value_funccall();
+                        funccall->copy_source_info(avfd_item_type_builder);
+                        funccall->called_func = avfd_item_type_builder;
+                        funccall->arguments = new ast_list();
+                        funccall->value_type = new ast_type(L"pending");
+
+                        ast_varref_defines* define_optional_item = new ast_varref_defines();
+                        define_optional_item->copy_source_info(items);
+                        define_optional_item->var_refs.push_back({ false, items->identifier,defined_template_arg_lists, funccall });
+                        define_optional_item->declear_attribute = new ast_decl_attribute();
+
+                        optional_scope->in_scope_sentence->append_at_end(define_optional_item);
+                    }
+
+                    items = dynamic_cast<ast_optional_item*>(items->sibling);
+                }
+                bind_using_type_namespace_result->append_at_end(optional_scope);
+                return (ast_basic*)bind_using_type_namespace_result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -5036,6 +5264,10 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_item>] = _register_builder<pass_optional_item>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_define>] = _register_builder<pass_optional_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

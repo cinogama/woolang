@@ -923,6 +923,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
     case wo::value::valuetype::closure_type:
         *out_str += "<closure function>";
         return;
+    case wo::value::valuetype::optional_type:
+        *out_str += "<optional value>";
+        return;
     case wo::value::valuetype::invalid:
         *out_str += "nil";
         return;
@@ -959,6 +962,12 @@ wo_string_t wo_cast_string(const wo_value value)
     }
     case wo::value::valuetype::closure_type:
         return "<closure function>";
+    case wo::value::valuetype::optional_type:
+    {
+        _buf = "optional " + std::to_string(_rsvalue->optional->m_id) + ": " 
+            + wo_cast_string(CS_VAL(&_rsvalue->optional->m_value));
+        return _buf.c_str();
+    }
     case wo::value::valuetype::invalid:
         return "nil";
     default:

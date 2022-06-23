@@ -186,7 +186,7 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DECL_ENUM") >> gm::symlist{gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
+                gm::nt(L"DECL_ENUM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
                                         gm::te(gm::ttype::l_left_curly_braces),
                                         gm::nt(L"ENUM_ITEMS"),
                                         gm::te(gm::ttype::l_right_curly_braces)}
@@ -921,23 +921,23 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_OPTIONAL") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DECL_OPTIONAL") >> gm::symlist{ gm::te(gm::ttype::l_optional),gm::te(gm::ttype::l_identifier),
+                gm::nt(L"DECL_OPTIONAL") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_optional),gm::te(gm::ttype::l_identifier),
                                         gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                         gm::te(gm::ttype::l_left_curly_braces),
                                         gm::nt(L"OPTIONAL_ITEMS"),
                                         gm::te(gm::ttype::l_right_curly_braces) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"OPTIONAL_ITEMS") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_define),
+                gm::nt(L"OPTIONAL_ITEMS") >> gm::symlist{gm::nt(L"OPTIONAL_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"OPTIONAL_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
                 gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
                 gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
                     gm::te(gm::ttype::l_left_brackets), gm::nt(L"TYPE"), gm::te(gm::ttype::l_right_brackets), }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
 
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_double_index_point)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),

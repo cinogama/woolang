@@ -1249,6 +1249,11 @@ namespace wo
                 }
             checking_naming_end:;
             }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass1(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -3020,6 +3025,11 @@ namespace wo
                     a_check_naming->template_type->get_type_name(false).c_str(),
                     a_check_naming->naming_const->get_type_name(false).c_str());
             checking_naming_end:;
+            }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass2(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
             }
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
@@ -4891,6 +4901,19 @@ namespace wo
             {
                 // do nothing..
             }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret
+                = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    compiler->mkopt(reg(reg::cr), auto_analyze_value(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
+                        a_optional_make_option_ob_to_cr_and_ret->id);
+                else
+                    compiler->mkopt(reg(reg::cr), reg(reg::ni), a_optional_make_option_ob_to_cr_and_ret->id);
+
+                // TODO: ast_optional_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
+                //       need check!
+                compiler->ret();
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -5166,9 +5189,10 @@ namespace wo
 
             if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
             {
-                wo_assert(template_style::NORMAL == is_template_value);
                 if (func_def->function_name != L"")
                 {
+                    wo_assert(template_style::NORMAL == is_template_value);
+
                     lang_symbol* sym;
                     if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
                     {
