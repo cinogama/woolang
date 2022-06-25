@@ -4905,10 +4905,10 @@ namespace wo
                 = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
             {
                 if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
-                    compiler->mkopt(reg(reg::cr), auto_analyze_value(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
+                    compiler->ext_mkopt(auto_analyze_value(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
                         a_optional_make_option_ob_to_cr_and_ret->id);
                 else
-                    compiler->mkopt(reg(reg::cr), reg(reg::ni), a_optional_make_option_ob_to_cr_and_ret->id);
+                    compiler->ext_mkopt(reg(reg::ni), a_optional_make_option_ob_to_cr_and_ret->id);
 
                 // TODO: ast_optional_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
                 //       need check!
@@ -4988,7 +4988,9 @@ namespace wo
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
                     if (config::ENABLE_JUST_IN_TIME)
-                        compiler->calljit();
+                    {
+                        wo_error("JIT-MODULE HAS BEEN REMOVED");
+                    }
 
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 

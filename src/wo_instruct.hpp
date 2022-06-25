@@ -90,7 +90,7 @@ namespace wo
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
 
-            mkopt = 49 WO_OPCODE_SPACE,   // mkopt(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF ID(2BYTE)               5-11 byte
+            mkstruct = 49 WO_OPCODE_SPACE,   // mkstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) SZ(2BYTE)               4-7 byte
 
             ext = 50 WO_OPCODE_SPACE,       // ext(PAGECODE)     extern code, it used for extern command of vm,
 
@@ -110,12 +110,8 @@ namespace wo
             divx = 60 WO_OPCODE_SPACE,      // divx
             modx = 61 WO_OPCODE_SPACE,      // modx
 
-            calljit = 62 WO_OPCODE_SPACE,    //  calljit(00) JIT_STATE(1B) NATIVE_ADDRESS(8B)       10 byte
-                                            //               NONE       0
-                                            //               GENERATING 1
-                                            //               FAIL       2
-                                            //               READY      3
-            match = 63 WO_OPCODE_SPACE,     // match(dr) REGID(1BYTE)/DIFF(4BYTE) ID(2BYTE) ELSE_JMP(4BYTE) 8-11 byte
+            jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
+            idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte
 
         };
 
@@ -138,6 +134,7 @@ namespace wo
                                         //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
                                         //  01 thorw
                                         //  00 clean
+            mkopt = 8 WO_OPCODE_SPACE   // mkopt(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
 
         };
         enum extern_opcode_page_1 : uint8_t

@@ -1319,16 +1319,29 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkclos;
         }
 
-        /* void retval()
-         {
-             wo_error("'retval' is not able now...");
-
-             WO_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, 1);
-         }*/
-
-        void calljit()
+        template<typename OP1T>
+        void mkstruct(const OP1T& op1, uint16_t size)
         {
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::calljit);
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkstruct, WO_OPNUM(op1), nullptr, (int32_t)size);
+        }
+        template<typename OP1T>
+        void idstruct(const OP1T& op1, uint16_t offset)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::idstruct, WO_OPNUM(op1), nullptr, (int32_t)offset);
+        }
+        template<typename OP1T>
+        void jnequb(const OP1T& op1, uint32_t offset)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::jnequb, WO_OPNUM(op1), nullptr, (int32_t)offset);
         }
 
         void nop()
@@ -1372,25 +1385,12 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::veh;
         }
 
-        template<typename OP1T, typename OP2T>
-        void mkopt(const OP1T& op1, const OP2T& op2, uint16_t id)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkopt, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)id);
-        }
         template<typename OP1T>
-        void match(const OP1T& op1, uint16_t id, const opnum::tag& elsejmp)
+        void ext_mkopt(const OP1T& op1, uint16_t id)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
-                "Argument(s) should be opnum.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::match, WO_OPNUM(op1), WO_OPNUM(elsejmp), (int32_t)id);
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), nullptr, (int32_t)id);
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkopt;
         }
 
         template<typename OP1T, typename OP2T>
@@ -1917,15 +1917,26 @@ namespace wo
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
-                case instruct::opcode::mkopt:
+                case instruct::opcode::mkstruct:
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(mkopt));
+                    temp_this_command_code_buf.push_back(WO_OPCODE(mkstruct));
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     auto_check_mem_allign(1, 2);
-                    uint16_t id = (uint16_t)(WO_IR.opinteger);
-                    byte_t* readptr = (byte_t*)&id;
+                    uint16_t size = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&size;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+                    break;
+                }
+                case instruct::opcode::idstruct:
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(idstruct));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+
+                    auto_check_mem_allign(1, 2);
+                    uint16_t size = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&size;
                     temp_this_command_code_buf.push_back(readptr[0]);
                     temp_this_command_code_buf.push_back(readptr[1]);
                     break;
@@ -2042,14 +2053,6 @@ namespace wo
                         temp_this_command_code_buf.push_back(readptr[3]);
                     }
                     break;
-                case instruct::opcode::calljit:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(calljit, 00));
-                    temp_this_command_code_buf.push_back(0);
-                    auto_check_mem_allign(2, 8);
-                    for (size_t i = 0; i < 8; i++)
-                        temp_this_command_code_buf.push_back(0);
-
-                    break;
                 case instruct::opcode::ret:
                     if (WO_IR.opinteger)
                     {
@@ -2066,15 +2069,15 @@ namespace wo
                     else
                         temp_this_command_code_buf.push_back(WO_OPCODE(ret, 00));
                     break;
-                case instruct::opcode::match:
+                case instruct::opcode::jnequb:
                 {
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
-                    temp_this_command_code_buf.push_back(WO_OPCODE(match));
+                    temp_this_command_code_buf.push_back(WO_OPCODE(jnequb));
                     size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     auto_check_mem_allign(1, opcodelen);
 
-                    // Write else jmp
+                    // Write jmp
                     auto_check_mem_allign(1, 4);
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
@@ -2083,11 +2086,6 @@ namespace wo
                     temp_this_command_code_buf.push_back(0x00);
                     temp_this_command_code_buf.push_back(0x00);
                     temp_this_command_code_buf.push_back(0x00);
-
-                    uint16_t id = (uint16_t)WO_IR.opinteger;
-                    byte_t* readptr = (byte_t*)&id;
-                    temp_this_command_code_buf.push_back(readptr[0]);
-                    temp_this_command_code_buf.push_back(readptr[1]);
 
                     break;
                 }
@@ -2193,6 +2191,17 @@ namespace wo
                                 temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 01));
                             }
                             break;
+                        case instruct::extern_opcode_page_0::mkopt:
+                        {
+                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mkopt));
+                            auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                            auto_check_mem_allign(2, 2);
+                            uint16_t id = (uint16_t)WO_IR.opinteger;
+                            byte_t* readptr = (byte_t*)&id;
+                            temp_this_command_code_buf.push_back(readptr[0]);
+                            temp_this_command_code_buf.push_back(readptr[1]);
+                            break;
+                        }
                         default:
                             wo_error("Unknown instruct.");
                             break;
