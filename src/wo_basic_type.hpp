@@ -392,14 +392,21 @@ namespace wo
         value* m_values;
         uint16_t m_count;
 
-        struct_values(uint16_t sz)
+        struct_values(const struct_values&) = delete;
+        struct_values(struct_values&&) = delete;
+        struct_values& operator=(const struct_values&) = delete;
+        struct_values& operator=(struct_values&&) = delete;
+
+        struct_values(uint16_t sz) noexcept
+            : m_count(sz)
         {
-            m_values = (value*)malloc((m_count = sz) * sizeof(value));
+            m_values = (value*)malloc(sz * sizeof(value));
             for (uint16_t i = 0; i < sz; ++i)
                 m_values[i].set_nil();
         }
         ~struct_values()
         {
+            wo_assert(m_values);
             free(m_values);
         }
     };

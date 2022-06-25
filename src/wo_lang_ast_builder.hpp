@@ -117,7 +117,12 @@ namespace wo
 
             std::vector<ast_type*> template_impl_naming_checking;
 
-            std::map<std::wstring, ast_value*> class_member_index;
+            struct struct_offset
+            {
+                ast_value* init_value_may_nil = nullptr;
+                uint16_t offset = (uint16_t)0xFFFF;
+            };
+            std::map<std::wstring, struct_offset> struct_member_index;
 
             ast_type* using_type_name = nullptr;
 
@@ -328,7 +333,7 @@ namespace wo
                     set_type_with_name(_type->type_name);
                     using_type_name = _type->using_type_name;
                     template_arguments = _type->template_arguments;
-                    class_member_index = _type->class_member_index;
+                    struct_member_index = _type->struct_member_index;
                     template_impl_naming_checking = _type->template_impl_naming_checking;
                 }
             }
@@ -373,7 +378,7 @@ namespace wo
                 auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
                 rett->template_arguments = template_arguments;
-                rett->class_member_index = class_member_index;
+                rett->struct_member_index = struct_member_index;
                 rett->template_impl_naming_checking = template_impl_naming_checking;
                 return rett;
             }
@@ -3332,11 +3337,12 @@ namespace wo
                     ast_cls_namespace->in_scope_sentence->append_at_head(avfd_new);
                 }
 
+                uint16_t id = 0;
                 for (auto* vdefinfo : init_mem_list)
                 {
-                    using_type->old_type->class_member_index[vdefinfo->ident_name]
-                        = using_type->class_const_index_typing[vdefinfo->ident_name]
-                        = vdefinfo->init_val;
+                    auto& memb = using_type->old_type->struct_member_index[vdefinfo->ident_name];
+                    memb.offset = id++;
+                    memb.init_value_may_nil = vdefinfo->init_val;
                 }
 
                 if (!ast_empty::is_empty(input[4]))
@@ -5053,7 +5059,7 @@ namespace wo
                     if (items->type_may_nil)
                     {
                         // Generate func here!
-                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;           
+                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
                         avfd_item_type_builder->function_name = items->identifier;
                         avfd_item_type_builder->argument_list = new ast_list;
                         avfd_item_type_builder->declear_attribute = optional_arttribute;
@@ -5110,7 +5116,7 @@ namespace wo
                         // all done ~ fuck!
                         avfd_item_type_builder->in_function_sentence->append_at_end(result);
 
-                        ast_value_funccall * funccall = new ast_value_funccall();
+                        ast_value_funccall* funccall = new ast_value_funccall();
                         funccall->copy_source_info(avfd_item_type_builder);
                         funccall->called_func = avfd_item_type_builder;
                         funccall->arguments = new ast_list();
@@ -5123,6 +5129,9 @@ namespace wo
 
                         optional_scope->in_scope_sentence->append_at_end(define_optional_item);
                     }
+
+                    auto& member = using_type->old_type->struct_member_index[items->identifier];
+                    member.offset = optional_item_id;
 
                     items = dynamic_cast<ast_optional_item*>(items->sibling);
                 }

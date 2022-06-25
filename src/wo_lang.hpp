@@ -310,14 +310,17 @@ namespace wo
             }
 
             // Check member
-            for (auto& [naming_memb_name, naming_memb_name_val] : naming->class_member_index)
+            for (auto& [naming_memb_name, naming_memb_name_val] : naming->struct_member_index)
             {
-                if (auto fnd = clstype->class_member_index.find(naming_memb_name); fnd != clstype->class_member_index.end())
+                wo_assert(naming_memb_name_val.init_value_may_nil);
+                if (auto fnd = clstype->struct_member_index.find(naming_memb_name); fnd != clstype->struct_member_index.end())
                 {
-                    if (naming_memb_name_val->value_type->is_pending())
+                    wo_assert(fnd->second.init_value_may_nil);
+
+                    if (naming_memb_name_val.init_value_may_nil->value_type->is_pending())
                         ; // member type not computed, just pass
-                    else if (fnd->second->value_type->is_pending()
-                        || !fnd->second->value_type->is_same(naming_memb_name_val->value_type))
+                    else if (fnd->second.init_value_may_nil->value_type->is_pending()
+                        || !fnd->second.init_value_may_nil->value_type->is_same(naming_memb_name_val.init_value_may_nil->value_type))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -437,8 +440,11 @@ namespace wo
 
                             // Update member typing index;
                             if (using_template)
-                                for (auto& [name, initval] : type->class_member_index)
-                                    initval = dynamic_cast<ast::ast_value*>(initval->instance());
+                                for (auto& [name, clsmember] : type->struct_member_index)
+                                {
+                                    if (clsmember.init_value_may_nil)
+                                        clsmember.init_value_may_nil = dynamic_cast<ast::ast_value*>(clsmember.init_value_may_nil->instance());
+                                }
 
                             if (already_has_using_type_name)
                                 type->using_type_name = already_has_using_type_name;
@@ -492,12 +498,15 @@ namespace wo
                 }
             }
 
-            for (auto& [name, initval] : type->class_member_index)
+            for (auto& [name, struct_info] : type->struct_member_index)
             {
-                if (in_pass_1)
-                    analyze_pass1(initval);
-                if (has_step_in_step2)
-                    analyze_pass2(initval);
+                if (struct_info.init_value_may_nil)
+                {
+                    if (in_pass_1)
+                        analyze_pass1(struct_info.init_value_may_nil);
+                    if (has_step_in_step2)
+                        analyze_pass2(struct_info.init_value_may_nil);
+                }
             }
 
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
@@ -666,18 +675,21 @@ namespace wo
                 analyze_pass1(a_value_idx->from);
                 analyze_pass1(a_value_idx->index);
 
-                if (!a_value_idx->from->value_type->class_member_index.empty())
+                if (!a_value_idx->from->value_type->struct_member_index.empty())
                 {
                     if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
                     {
                         if (auto fnd =
-                            a_value_idx->from->value_type->class_member_index.find(
+                            a_value_idx->from->value_type->struct_member_index.find(
                                 str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                            ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                            ); fnd != a_value_idx->from->value_type->struct_member_index.end())
                         {
-                            if (!fnd->second->value_type->is_pending())
+                            if (fnd->second.init_value_may_nil)
                             {
-                                a_value_idx->value_type = fnd->second->value_type;
+                                if (!fnd->second.init_value_may_nil->value_type->is_pending())
+                                {
+                                    a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                }
                             }
                         }
                     }
@@ -1599,19 +1611,25 @@ namespace wo
                             analyze_pass2(a_value_idx->from);
                             analyze_pass2(a_value_idx->index);
 
-                            if (!a_value_idx->from->value_type->class_member_index.empty())
+                            if (!a_value_idx->from->value_type->struct_member_index.empty())
                             {
                                 if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
                                 {
                                     if (auto fnd =
-                                        a_value_idx->from->value_type->class_member_index.find(
+                                        a_value_idx->from->value_type->struct_member_index.find(
                                             str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                                        ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                                        ); fnd != a_value_idx->from->value_type->struct_member_index.end())
                                     {
-                                        if (!fnd->second->value_type->is_pending())
+                                        if (fnd->second.init_value_may_nil)
                                         {
-                                            a_value_idx->value_type = fnd->second->value_type;
+                                            if (!fnd->second.init_value_may_nil->value_type->is_pending())
+                                            {
+                                                a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                            }
                                         }
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_UNDEFINED_MEMBER,
+                                                str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
                                     }
                                     else
                                     {
