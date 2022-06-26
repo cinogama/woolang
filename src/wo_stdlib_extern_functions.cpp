@@ -855,13 +855,13 @@ namespace string
         func endwith(var val:string, var str:string): bool;
 
     extern("rslib_std_string_replace")
-        func replace(var val:string, var match:string, var str:string): string;
+        func replace(var val:string, var match_aim:string, var str:string): string;
 
     extern("rslib_std_string_find")
-        func find(var val:string, var match:string): int;
+        func find(var val:string, var match_aim:string): int;
 
     extern("rslib_std_string_find_from")
-        func find(var val:string, var match:string, var from: int): int;
+        func find(var val:string, var match_aim:string, var from: int): int;
 
     extern("rslib_std_string_trim")
         func trim(var val:string):string;

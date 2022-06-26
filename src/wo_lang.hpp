@@ -376,20 +376,33 @@ namespace wo
             // todo: begin_template_scope here~
             if (type->is_custom())
             {
+                bool stop_update = false;
                 if (type->is_complex())
-                    fully_update_type(type->complex_type, in_pass_1);
+                {
+                    fully_update_type(type->complex_type, in_pass_1, template_types);
+                    if (type->complex_type->is_custom())
+                        stop_update = true;
+                }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
-                        fully_update_type(a_t, in_pass_1);
+                    {
+                        fully_update_type(a_t, in_pass_1, template_types);
+                        if (a_t->is_custom())
+                            stop_update = true;
+                    }
 
                 if (type->has_template())
                 {
                     for (auto* template_type : type->template_arguments)
-                        fully_update_type(template_type, in_pass_1);
+                    {
+                        fully_update_type(template_type, in_pass_1, template_types);
+                        if (template_type->is_custom())
+                            stop_update = true;
+                    }
                 }
 
                 // ready for update..
-                if (ast::ast_type::is_custom_type(type->type_name))
+                if (!stop_update && ast::ast_type::is_custom_type(type->type_name))
                 {
                     if (!type->scope_namespaces.empty() ||
                         type->search_from_global_namespace ||
@@ -431,7 +444,7 @@ namespace wo
 
                             auto* symboled_type = new ast::ast_type(L"pending");
                             symboled_type->set_type(type_sym->type_informatiom);
-                            fully_update_type(symboled_type, in_pass_1);
+                            fully_update_type(symboled_type, in_pass_1, template_types);
 
                             if (type->is_func())
                                 type->set_ret_type(symboled_type);
@@ -476,7 +489,7 @@ namespace wo
                             {
                                 for (ast::ast_type* naming_type : type->template_impl_naming_checking)
                                 {
-                                    fully_update_type(naming_type, in_pass_1);
+                                    fully_update_type(naming_type, in_pass_1, template_types);
 
                                     check_matching_naming(type, naming_type);
                                 }
@@ -1266,6 +1279,53 @@ namespace wo
                 if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
                     analyze_pass1(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
             }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                analyze_pass1(a_match->match_value);
+
+                auto* cases = a_match->cases->children;
+                while (cases)
+                {
+                    ast_match_case_base* match_case = dynamic_cast<ast_match_case_base*>(cases);
+                    wo_assert(match_case);
+
+                    match_case->in_match = a_match;
+
+                    cases = cases->sibling;
+                }
+
+                analyze_pass1(a_match->cases);
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                begin_scope();
+                wo_assert(a_match_optional_case->in_match);
+
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    // Cannot pass a_match_optional_case->optional_pattern by analyze_pass1, we will set template in pass2.
+                    if (!a_pattern_optional_value->optional_expr->search_from_global_namespace)
+                        a_pattern_optional_value->optional_expr->searching_begin_namespace_in_pass2 = now_scope();
+
+                    // Calc type in pass2, here just define the variable with ast_value_takeplace
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            a_pattern_identifier->symbol =
+                                define_variable_in_this_scope(a_pattern_identifier->identifier, new ast_value_takeplace, new ast_decl_attribute, template_style::NORMAL);
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                analyze_pass1(a_match_optional_case->in_case_sentence);
+
+                end_scope();
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -1537,7 +1597,6 @@ namespace wo
                 {
                     // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
                     //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-
                     if (a_value->value_type->is_pending())
                     {
                         // ready for update..
@@ -1567,6 +1626,12 @@ namespace wo
                             {
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+
+                                if (sym->is_template_symbol && sym->type == lang_symbol::symbol_type::variable)
+                                {
+                                    // Needm apply template.
+                                    sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                }
 
                                 analyze_pass2(sym->variable_value);
                                 a_value_var->value_type = sym->variable_value->value_type;
@@ -3049,6 +3114,71 @@ namespace wo
                 if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
                     analyze_pass2(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
             }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                analyze_pass2(a_match->match_value);
+                analyze_pass2(a_match->cases);
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                wo_assert(a_match_optional_case->in_match);
+
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+
+                    if (!a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
+                    {
+                        a_pattern_optional_value->optional_expr->template_reification_args = a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments;
+                        a_pattern_optional_value->optional_expr->symbol = find_value_in_this_scope(a_pattern_optional_value->optional_expr);
+
+                        if (a_pattern_optional_value->optional_expr->symbol->type == lang_symbol::symbol_type::variable)
+                            a_pattern_optional_value->optional_expr->symbol = analyze_pass_template_reification(a_pattern_optional_value->optional_expr, a_pattern_optional_value->optional_expr->template_reification_args);
+                        else
+                        {
+                            if (a_pattern_optional_value->optional_expr->symbol->function_overload_sets.size() == 1)
+                            {
+                                auto final_function = a_pattern_optional_value->optional_expr->symbol->function_overload_sets.front();
+
+                                auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
+                                    a_pattern_optional_value->optional_expr->template_reification_args);
+                                if (dumped_func)
+                                    a_pattern_optional_value->optional_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                else
+                                    lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                            }
+                            else
+                                lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                        }
+                    }
+                    analyze_pass2(a_pattern_optional_value->optional_expr);
+
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 1)
+                                lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                            else
+                            {
+                                a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_optional_value->optional_expr->value_type->argument_types.front());
+                            }
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                    else
+                    {
+                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                analyze_pass2(a_match_optional_case->in_case_sentence);
+            }
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
             ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
@@ -3691,7 +3821,9 @@ namespace wo
                     else if (optype == value::valuetype::invalid &&
                         !a_value_assign->left->value_type->is_dynamic()
                         && !a_value_assign->left->value_type->is_func()
-                        && !a_value_assign->right->value_type->is_func())
+                        && !a_value_assign->right->value_type->is_func()
+                        && !a_value_assign->left->value_type->is_optional()
+                        && !a_value_assign->right->value_type->is_optional())
                     {
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     }
@@ -4931,6 +5063,67 @@ namespace wo
                 // TODO: ast_optional_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
                 //       need check!
                 compiler->ret();
+            }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                a_match->match_end_tag_in_final_pass = compiler->get_unique_tag_based_command_ip() + "match_end";
+
+                compiler->set(reg(reg::ths), auto_analyze_value(a_match->match_value, compiler));
+                // 1. Get id in cr.
+                compiler->idstruct(reg(reg::cr), reg(reg::ths), 0);
+
+                real_analyze_finalize(a_match->cases, compiler);
+
+                compiler->tag(a_match->match_end_tag_in_final_pass);
+
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                wo_assert(a_match_optional_case->in_match);
+
+                auto current_case_end = compiler->get_unique_tag_based_command_ip() + "case_end";
+
+                // 0.Check id?
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+
+                    ast_value_variable* case_item = a_pattern_optional_value->optional_expr;
+                    auto fnd = a_match_optional_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
+                    if (fnd == a_match_optional_case->in_match->match_value->value_type->struct_member_index.end())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"无效的case项，此处应该是optional的项之一，继续");
+                    else
+                    {
+                        compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
+                    }
+
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            auto& valreg = get_useable_register_for_pure_value();
+                            compiler->idstruct(valreg, reg(reg::ths), 1);
+
+                            compiler->mov(get_opnum_by_symbol(a_pattern_identifier, a_pattern_identifier->symbol, compiler, false), valreg);
+                            complete_using_register(valreg);
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                    else
+                    {
+                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                real_analyze_finalize(a_match_optional_case->in_case_sentence, compiler);
+
+                compiler->jmp(tag(a_match_optional_case->in_match->match_end_tag_in_final_pass));
+                compiler->tag(current_case_end);
             }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");

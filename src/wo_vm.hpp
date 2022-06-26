@@ -809,7 +809,7 @@ namespace wo
                 case instruct::mkstruct:
                     tmpos << "mkstruct\t"; print_opnum1(); tmpos << " size=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::idstruct:
-                    tmpos << "idstruct\t"; print_opnum1(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                    tmpos << "idstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::jnequb:
                 {
                     tmpos << "jnequb\t"; print_opnum1();
@@ -2931,20 +2931,21 @@ namespace wo
                     }
                     case instruct::opcode::idstruct:
                     {
-                        WO_ADDRESSING_N1_REF; // Aim
+                        WO_ADDRESSING_N1; // Aim
+                        WO_ADDRESSING_N2_REF; // Struct
                         uint16_t offset = WO_IPVAL_MOVE_2;
 
-                        wo_assert(opnum1->type == value::valuetype::struct_type
-                            && nullptr != opnum1->structs
-                            && offset < opnum1->structs->m_count);
+                        wo_assert(opnum2->type == value::valuetype::struct_type
+                            && nullptr != opnum2->structs
+                            && offset < opnum2->structs->m_count);
 
                         // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
                         // gcbase::gc_read_guard gwg1(opnum1->optional);
 
-                        auto* result = opnum1->structs->m_values[offset].get();
+                        auto* result = opnum2->structs->m_values[offset].get();
                         if (wo::gc::gc_is_marking())
-                            opnum1->structs->add_memo(result);
-                        rt_cr->set_ref(result);
+                            opnum2->structs->add_memo(result);
+                        opnum1->set_ref(result);
 
                         break;
                     }

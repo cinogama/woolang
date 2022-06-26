@@ -565,6 +565,11 @@ namespace wo
                 return !is_func() &&
                     (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
             }
+            bool is_optional() const
+            {
+                return !is_func() &&
+                    (type_name == L"optional" || (using_type_name && using_type_name->type_name == L"optional"));
+            }
             bool has_template() const
             {
                 return !template_arguments.empty();
@@ -3128,6 +3133,8 @@ namespace wo
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
             std::wstring identifier;
+            lang_symbol* symbol;
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -3161,10 +3168,11 @@ namespace wo
             }
         };
 
+        struct ast_match;
         struct ast_match_case_base : virtual public grammar::ast_base
         {
-            ast_list* in_case_sentence;
-
+            ast_sentence_block* in_case_sentence;
+            ast_match* in_match;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -3200,6 +3208,8 @@ namespace wo
         {
             ast_value* match_value;
             ast_list* cases;
+
+            std::string match_end_tag_in_final_pass;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -5265,6 +5275,9 @@ namespace wo
                 auto* result = new ast_pattern_optional_value;
 
                 wo_assert(input.size() == 1 || input.size() == 4);
+
+                result->optional_expr= dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
+
                 if (input.size() == 4)
                     result->pattern_arg_in_optional_may_nil
                     = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
@@ -5283,7 +5296,9 @@ namespace wo
                 result->optional_pattern = dynamic_cast<ast_pattern_optional_value*>(WO_NEED_AST(0));
                 wo_assert(result->optional_pattern);
 
-                result->in_case_sentence = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+                auto* scope = WO_NEED_AST(2);
+                result->in_case_sentence = dynamic_cast<ast_sentence_block*>(scope);
+                wo_assert(result->in_case_sentence);
 
                 return (ast_basic*)result;
             }
