@@ -3111,6 +3111,111 @@ namespace wo
             }
         };
 
+        struct ast_pattern_base : virtual public grammar::ast_base
+        {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_pattern_identifier : virtual public ast_pattern_base
+        {
+            std::wstring identifier;
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_pattern_optional_value : virtual public ast_pattern_base
+        {
+            // TMP IMPL!
+            ast_value_variable* optional_expr = nullptr;
+            ast_pattern_base* pattern_arg_in_optional_may_nil = nullptr;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->optional_expr);
+                WO_REINSTANCE(dumm->pattern_arg_in_optional_may_nil);
+
+                return dumm;
+            }
+        };
+
+        struct ast_match_case_base : virtual public grammar::ast_base
+        {
+            ast_list* in_case_sentence;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_match_optional_case : virtual public ast_match_case_base
+        {
+            ast_pattern_optional_value* optional_pattern;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->optional_pattern);
+
+                return dumm;
+            }
+        };
+
+
+        struct ast_match : virtual public ast_pattern_base
+        {
+            ast_value* match_value;
+            ast_list* cases;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->match_value);
+                WO_REINSTANCE(dumm->cases);
+
+                return dumm;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define WO_NEED_TOKEN(ID) [&]() {             \
@@ -5140,6 +5245,64 @@ namespace wo
             }
         };
 
+        struct pass_identifier_pattern : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = new ast_pattern_identifier;
+                result->identifier = WO_NEED_TOKEN(0).identifier;
+                return (ast_basic*)result;
+            }
+        };
+
+
+        struct pass_optional_pattern : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // 1. CALLABLE_LEFT
+                // 2. CALLABLE_LEFT ( PATTERN )
+                auto* result = new ast_pattern_optional_value;
+
+                wo_assert(input.size() == 1 || input.size() == 4);
+                if (input.size() == 4)
+                    result->pattern_arg_in_optional_may_nil
+                    = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_match_case_for_optional : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // pattern_case? {sentence in list}
+                wo_assert(input.size() == 3);
+
+                auto* result = new ast_match_optional_case;
+                result->optional_pattern = dynamic_cast<ast_pattern_optional_value*>(WO_NEED_AST(0));
+                wo_assert(result->optional_pattern);
+
+                result->in_case_sentence = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_match : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // match ( value ){ case... }
+                wo_assert(input.size() == 7);
+
+                auto* result = new ast_match;
+                result->match_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                result->cases = dynamic_cast<ast_list*>(WO_NEED_AST(5));
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -5277,6 +5440,12 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_optional_item>] = _register_builder<pass_optional_item>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_optional_define>] = _register_builder<pass_optional_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_match>] = _register_builder<pass_match>();
+            _registed_builder_function_id_list[meta::type_hash<pass_match_case_for_optional>] = _register_builder<pass_match_case_for_optional>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_pattern>] = _register_builder<pass_optional_pattern>();
+            _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

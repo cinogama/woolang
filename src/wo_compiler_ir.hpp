@@ -84,11 +84,12 @@ namespace wo
                 r0, r1, r2, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13, r14, r15,
 
                 // special regist
-                op_trace_result = 0b00100000, cr = op_trace_result,
-                argument_count, tc = argument_count,
-                exception_inform, er = exception_inform,
-                nil_constant, ni = nil_constant,
-                index_from, ths = index_from,
+                op_trace_result = 0b00100000,   cr = op_trace_result,
+                argument_count,                 tc = argument_count,
+                exception_inform,               er = exception_inform,
+                nil_constant,                   ni = nil_constant,
+                index_from,                     ths = index_from,
+                pattern_match,                  pm = pattern_match,
 
                 last_special_register = 0b00111111,
             };

@@ -115,7 +115,8 @@ namespace wo
         l_operator,
 
         l_expect,
-        l_optional
+        l_optional,
+        l_match
     );
 
     class lexer;
@@ -246,6 +247,7 @@ namespace wo
             {L"operator", {lex_type::l_operator}},
             {L"expect", {lex_type::l_expect}},
             {L"optional", {lex_type::l_optional}},
+            {L"match", {lex_type::l_match}},
         };
 
 
