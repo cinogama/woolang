@@ -171,8 +171,7 @@ namespace wo
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
-                if (to->is_pending() || (to->is_void() && !to->is_func()) 
-                    || from->is_pending() || (from->is_void() && !from->is_func()))
+                if (to->is_pending() || (to->is_void() && !to->is_func()))
                     return false;
 
                 if (to->is_dynamic())
@@ -1685,6 +1684,9 @@ namespace wo
                     || right->value_type->using_type_name)
                     return;
 
+                if (overrided_operation_call)
+                    return;
+
                 if (left->value_type->is_dynamic() || right->value_type->is_dynamic())
                 {
                     value_type = new ast_type(L"dynamic");
@@ -2441,6 +2443,9 @@ namespace wo
                     || left->value_type->using_type_name
                     || right->value_type->is_custom()
                     || right->value_type->using_type_name)
+                    return;
+
+                if (overrided_operation_call)
                     return;
 
                 if (left->is_constant && right->is_constant)
