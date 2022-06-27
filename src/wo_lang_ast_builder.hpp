@@ -95,6 +95,8 @@ namespace wo
 
                 // Write self copy functions here..
                 dumm->searching_from_type = dude_dump_ast_type(searching_from_type);
+                dumm->symbol = nullptr;
+                dumm->searching_begin_namespace_in_pass2 = nullptr;
 
                 return dumm;
             }
@@ -1368,7 +1370,6 @@ namespace wo
                 {
                     WO_REINSTANCE(tras);
                 }
-
                 return dumm;
             }
             void update_constant_value(lexer* lex) override
@@ -3146,7 +3147,7 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
+                ast_pattern_base::instance(dumm);
                 // Write self copy functions here..
 
                 return dumm;
@@ -3164,7 +3165,7 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
+                ast_pattern_base::instance(dumm);
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->optional_expr);
@@ -3187,6 +3188,8 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
+                WO_REINSTANCE(dumm->in_case_sentence);
+
                 return dumm;
             }
         };
@@ -3200,7 +3203,7 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
+                ast_match_case_base::instance(dumm);
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->optional_pattern);
@@ -3210,7 +3213,7 @@ namespace wo
         };
 
 
-        struct ast_match : virtual public ast_pattern_base
+        struct ast_match : virtual public grammar::ast_base
         {
             ast_value* match_value;
             ast_list* cases;

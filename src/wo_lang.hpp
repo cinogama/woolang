@@ -1362,7 +1362,6 @@ namespace wo
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
         {
             using namespace ast;
-
             std::vector<uint32_t> template_args_hashtypes;
             for (auto temtype : template_args_types)
             {
@@ -1761,7 +1760,7 @@ namespace wo
                                     // trying finding type_function
                                     // wo_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
-                                    // TODO : CUSTOM TYPE INFORM..
+                                    // TODO : CUSTOM TYPE INFORM..    
                                     auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
                                     {
