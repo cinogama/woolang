@@ -855,13 +855,13 @@ namespace string
         func endwith(var val:string, var str:string): bool;
 
     extern("rslib_std_string_replace")
-        func replace(var val:string, var match:string, var str:string): string;
+        func replace(var val:string, var match_aim:string, var str:string): string;
 
     extern("rslib_std_string_find")
-        func find(var val:string, var match:string): int;
+        func find(var val:string, var match_aim:string): int;
 
     extern("rslib_std_string_find_from")
-        func find(var val:string, var match:string, var from: int): int;
+        func find(var val:string, var match_aim:string, var from: int): int;
 
     extern("rslib_std_string_trim")
         func trim(var val:string):string;
@@ -974,6 +974,37 @@ func assert(var val: bool, var msg: string)
         std::panic(F"Assert failed: {msg}");
 }
 
+
+optional option<T>
+{
+    value(T),
+    none
+}
+namespace option
+{
+    func map<T, R>(var self: option<T>, var functor: R(T))
+    {
+        match(self)
+        {
+            option::value(x)?
+                return option::value(functor(x));
+            option::none?
+                return option::none:<R>;
+        }
+    }
+
+    func val<T>(var self: option<T>)
+    {
+        match(self)
+        {
+            option::value(x)?
+                return x;
+            option::none?
+                std::panic("Except 'value' here, but get 'none'.");
+        }
+    }
+}
+
 )" };
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
@@ -1007,6 +1038,12 @@ WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, wo_invoke_value(vm, args, argc - 1));
 }
 
+WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_nil(vm);
+}
+
+
 const char* wo_stdlib_debug_src_path = u8"woo/debug.wo";
 const char* wo_stdlib_debug_src_data = {
 u8R"(
@@ -1035,6 +1072,10 @@ namespace std
 
         extern("rslib_std_debug_invoke")
         func invoke<FT>(var foo:FT, ...):typeof(foo(......));
+
+        // Used for create a value with specify type, it's a dangergous function.
+        extern("rslib_std_debug_empty_func")
+        func __empty_function<T>():T;
     }
 }
 )" };

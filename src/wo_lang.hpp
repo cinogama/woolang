@@ -48,6 +48,7 @@ namespace wo
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
+        std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
 
         void apply_template_setting(ast::ast_defines* defs)
         {
@@ -204,10 +205,10 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
         {
             wo_test(template_args.size());
-            if (template_defines->template_type_name_list.size() != template_args.size())
+            if (template_defines_args.size() != template_args.size())
             {
                 lang_anylizer->lang_error(0x0000, template_args.back(), WO_ERR_TEMPLATE_ARG_NOT_MATCH);
                 return false;
@@ -215,18 +216,23 @@ namespace wo
 
             template_stack.push_back(template_type_map());
             auto& current_template = template_stack.back();
-            for (size_t index = 0; index < template_defines->template_type_name_list.size(); index++)
+            for (size_t index = 0; index < template_defines_args.size(); index++)
             {
                 lang_symbol* sym = new lang_symbol;
                 sym->attribute = new ast::ast_decl_attribute();
                 sym->type = lang_symbol::symbol_type::template_typing;
-                sym->name = template_defines->template_type_name_list[index];
+                sym->name = template_defines_args[index];
                 sym->type_informatiom = template_args[index];
                 sym->defined_in_scope = lang_scopes.back();
 
                 lang_symbols.push_back(current_template[sym->name] = sym);
             }
             return true;
+        }
+
+        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        {
+            return begin_template_scope(template_defines->template_type_name_list, template_args);
         }
 
         void end_template_scope()
@@ -304,14 +310,17 @@ namespace wo
             }
 
             // Check member
-            for (auto& [naming_memb_name, naming_memb_name_val] : naming->class_member_index)
+            for (auto& [naming_memb_name, naming_memb_name_val] : naming->struct_member_index)
             {
-                if (auto fnd = clstype->class_member_index.find(naming_memb_name); fnd != clstype->class_member_index.end())
+                wo_assert(naming_memb_name_val.init_value_may_nil);
+                if (auto fnd = clstype->struct_member_index.find(naming_memb_name); fnd != clstype->struct_member_index.end())
                 {
-                    if (naming_memb_name_val->value_type->is_pending())
+                    wo_assert(fnd->second.init_value_may_nil);
+
+                    if (naming_memb_name_val.init_value_may_nil->value_type->is_pending())
                         ; // member type not computed, just pass
-                    else if (fnd->second->value_type->is_pending()
-                        || !fnd->second->value_type->is_same(naming_memb_name_val->value_type))
+                    else if (fnd->second.init_value_may_nil->value_type->is_pending()
+                        || !fnd->second.init_value_may_nil->value_type->is_same(naming_memb_name_val.init_value_may_nil->value_type))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -367,20 +376,33 @@ namespace wo
             // todo: begin_template_scope here~
             if (type->is_custom())
             {
+                bool stop_update = false;
                 if (type->is_complex())
-                    fully_update_type(type->complex_type, in_pass_1);
+                {
+                    fully_update_type(type->complex_type, in_pass_1, template_types);
+                    if (type->complex_type->is_custom())
+                        stop_update = true;
+                }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
-                        fully_update_type(a_t, in_pass_1);
+                    {
+                        fully_update_type(a_t, in_pass_1, template_types);
+                        if (a_t->is_custom())
+                            stop_update = true;
+                    }
 
                 if (type->has_template())
                 {
                     for (auto* template_type : type->template_arguments)
-                        fully_update_type(template_type, in_pass_1);
+                    {
+                        fully_update_type(template_type, in_pass_1, template_types);
+                        if (template_type->is_custom())
+                            stop_update = true;
+                    }
                 }
 
                 // ready for update..
-                if (ast::ast_type::is_custom_type(type->type_name))
+                if (!stop_update && ast::ast_type::is_custom_type(type->type_name))
                 {
                     if (!type->scope_namespaces.empty() ||
                         type->search_from_global_namespace ||
@@ -422,7 +444,7 @@ namespace wo
 
                             auto* symboled_type = new ast::ast_type(L"pending");
                             symboled_type->set_type(type_sym->type_informatiom);
-                            fully_update_type(symboled_type, in_pass_1);
+                            fully_update_type(symboled_type, in_pass_1, template_types);
 
                             if (type->is_func())
                                 type->set_ret_type(symboled_type);
@@ -431,8 +453,11 @@ namespace wo
 
                             // Update member typing index;
                             if (using_template)
-                                for (auto& [name, initval] : type->class_member_index)
-                                    initval = dynamic_cast<ast::ast_value*>(initval->instance());
+                                for (auto& [name, clsmember] : type->struct_member_index)
+                                {
+                                    if (clsmember.init_value_may_nil)
+                                        clsmember.init_value_may_nil = dynamic_cast<ast::ast_value*>(clsmember.init_value_may_nil->instance());
+                                }
 
                             if (already_has_using_type_name)
                                 type->using_type_name = already_has_using_type_name;
@@ -464,7 +489,7 @@ namespace wo
                             {
                                 for (ast::ast_type* naming_type : type->template_impl_naming_checking)
                                 {
-                                    fully_update_type(naming_type, in_pass_1);
+                                    fully_update_type(naming_type, in_pass_1, template_types);
 
                                     check_matching_naming(type, naming_type);
                                 }
@@ -486,12 +511,15 @@ namespace wo
                 }
             }
 
-            for (auto& [name, initval] : type->class_member_index)
+            for (auto& [name, struct_info] : type->struct_member_index)
             {
-                if (in_pass_1)
-                    analyze_pass1(initval);
-                if (has_step_in_step2)
-                    analyze_pass2(initval);
+                if (struct_info.init_value_may_nil)
+                {
+                    if (in_pass_1)
+                        analyze_pass1(struct_info.init_value_may_nil);
+                    if (has_step_in_step2)
+                        analyze_pass2(struct_info.init_value_may_nil);
+                }
             }
 
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
@@ -564,21 +592,45 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
-                    //            symbol first, it can make variable capture correctly.
-                    //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
-                    bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
-                    if (!init_value_is_lambda)
-                        analyze_pass1(varref.init_val);
-                    varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute);
-                    if (init_value_is_lambda)
-                        analyze_pass1(varref.init_val);
+                    if (!varref.template_arguments)
+                    {
+                        // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
+                        //            symbol first, it can make variable capture correctly.
+                        //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
+                        bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
+                        if (!init_value_is_lambda)
+                            analyze_pass1(varref.init_val);
+                        varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::NORMAL);
+                        if (init_value_is_lambda)
+                            analyze_pass1(varref.init_val);
 
-                    varref.symbol->is_ref = varref.is_ref;
-                    a_varref_defs->add_child(varref.init_val);
+                        varref.symbol->is_ref = varref.is_ref;
+                        a_varref_defs->add_child(varref.init_val);
 
-                    if (varref.is_ref)
-                        varref.init_val->is_mark_as_using_ref = true;
+                        if (varref.is_ref)
+                            varref.init_val->is_mark_as_using_ref = true;
+                    }
+                    else
+                    {
+                        // Template variable!!! we just define symbol here.
+                        auto* symb = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                        symb->is_template_symbol = true;
+
+                        wo_assert(symb->template_types.empty());
+
+                        auto* items = varref.template_arguments->children;
+                        while (items)
+                        {
+                            ast_template_define_with_naming* template_name = dynamic_cast<ast_template_define_with_naming*>(items);
+                            // TODO: NEED CHECK NAMING HERE?
+
+                            wo_assert(template_name);
+                            symb->template_types.push_back(template_name->template_ident);
+                            items = items->sibling;
+                        }
+
+                        varref.symbol = symb;
+                    }
                 }
             }
             else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(ast_node))
@@ -636,18 +688,21 @@ namespace wo
                 analyze_pass1(a_value_idx->from);
                 analyze_pass1(a_value_idx->index);
 
-                if (!a_value_idx->from->value_type->class_member_index.empty())
+                if (!a_value_idx->from->value_type->struct_member_index.empty())
                 {
                     if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
                     {
                         if (auto fnd =
-                            a_value_idx->from->value_type->class_member_index.find(
+                            a_value_idx->from->value_type->struct_member_index.find(
                                 str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                            ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                            ); fnd != a_value_idx->from->value_type->struct_member_index.end())
                         {
-                            if (!fnd->second->value_type->is_pending())
+                            if (fnd->second.init_value_may_nil)
                             {
-                                a_value_idx->value_type = fnd->second->value_type;
+                                if (!fnd->second.init_value_may_nil->value_type->is_pending())
+                                {
+                                    a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                }
                             }
                         }
                     }
@@ -682,22 +737,15 @@ namespace wo
                 a_value_assi->add_child(a_value_assi->left);
                 a_value_assi->add_child(a_value_assi->right);
 
-                if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
-                    ; lsymb && lsymb->symbol)
-                    lsymb->symbol->has_been_assigned = true;
-
                 a_value_assi->value_type = ast_type::create_type_at(a_value_assi, L"pending");
-                a_value_assi->value_type->set_type(a_value_assi->left->value_type);
 
-                /*if (!a_value_assi->value_type->is_pending() && !a_value_assi->right->value_type->is_pending())
+                auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
+                if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
                 {
-                    if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
-                    {
-                        lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
-                            a_value_assi->right->value_type->get_type_name().c_str(),
-                            a_value_assi->left->value_type->get_type_name().c_str());
-                    }
-                }*/
+                    // If symbol is template variable, delay the type calc.
+                    lsymb->symbol->has_been_assigned = true;
+                    a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+                }
             }
             else if (ast_value_logical_binary* a_value_logic_bin = dynamic_cast<ast_value_logical_binary*>(ast_node))
             {
@@ -741,17 +789,14 @@ namespace wo
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
                 auto* sym = find_value_in_this_scope(a_value_var);
-
                 if (sym)
                 {
-                    a_value_var->value_type = sym->variable_value->value_type;
-                    if (sym->type == lang_symbol::symbol_type::variable
-                        && !a_value_var->directed_function_call
-                        && !a_value_var->template_reification_args.empty())
+                    if (sym->type == lang_symbol::symbol_type::variable && sym->is_template_symbol)
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
+                        // Here is template variable, delay it's type calc.
                     }
-
+                    else
+                        a_value_var->value_type = sym->variable_value->value_type;
                 }
                 for (auto* a_type : a_value_var->template_reification_args)
                 {
@@ -806,7 +851,8 @@ namespace wo
                                     // ready for update..
                                     fully_update_type(argdef->value_type, true);
                                 }
-                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute);
+
+                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
                                 argdef->symbol->is_ref = argdef->is_ref;
                             }
                         }
@@ -1228,6 +1274,58 @@ namespace wo
                 }
             checking_naming_end:;
             }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass1(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
+            }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                analyze_pass1(a_match->match_value);
+
+                auto* cases = a_match->cases->children;
+                while (cases)
+                {
+                    ast_match_case_base* match_case = dynamic_cast<ast_match_case_base*>(cases);
+                    wo_assert(match_case);
+
+                    match_case->in_match = a_match;
+
+                    cases = cases->sibling;
+                }
+
+                analyze_pass1(a_match->cases);
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                begin_scope();
+                wo_assert(a_match_optional_case->in_match);
+
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    // Cannot pass a_match_optional_case->optional_pattern by analyze_pass1, we will set template in pass2.
+                    if (!a_pattern_optional_value->optional_expr->search_from_global_namespace)
+                        a_pattern_optional_value->optional_expr->searching_begin_namespace_in_pass2 = now_scope();
+
+                    // Calc type in pass2, here just define the variable with ast_value_takeplace
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            a_pattern_identifier->symbol =
+                                define_variable_in_this_scope(a_pattern_identifier->identifier, new ast_value_takeplace, new ast_decl_attribute, template_style::NORMAL);
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                analyze_pass1(a_match_optional_case->in_case_sentence);
+
+                end_scope();
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -1259,6 +1357,47 @@ namespace wo
 
             }
 
+        }
+
+        lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
+        {
+            using namespace ast;
+
+            std::vector<uint32_t> template_args_hashtypes;
+            for (auto temtype : template_args_types)
+            {
+                auto step_in_pass2 = has_step_in_step2;
+                has_step_in_step2 = true;
+                fully_update_type(temtype, true, origin_variable->symbol->template_types);
+                has_step_in_step2 = step_in_pass2;
+
+                template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+            }
+
+            if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
+                fnd != origin_variable->symbol->template_typehashs_reification_instance_symbol_list.end())
+            {
+                return fnd->second;
+            }
+
+            ast_value* dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
+            wo_assert(dumpped_template_init_value);
+
+            lang_symbol* template_reification_symb = nullptr;
+
+            temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
+            if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
+            {
+                analyze_pass1(dumpped_template_init_value);
+                analyze_pass1(origin_variable);
+                template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
+                end_template_scope();
+            }
+            temporary_leave_scope_in_pass1();
+
+            origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
+
+            return template_reification_symb;
         }
 
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
@@ -1301,12 +1440,13 @@ namespace wo
                 dumpped_template_func_define;
 
             temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
-            begin_template_scope(origin_template_func_define, template_args_types);
+            if (begin_template_scope(origin_template_func_define, template_args_types))
+            {
+                analyze_pass1(dumpped_template_func_define);
 
-            analyze_pass1(dumpped_template_func_define);
-
-            // origin_template_func_define->parent->add_child(dumpped_template_func_define);
-            end_template_scope();
+                // origin_template_func_define->parent->add_child(dumpped_template_func_define);
+                end_template_scope();
+            }
             temporary_leave_scope_in_pass1();
 
             lang_symbol* template_reification_symb = new lang_symbol;
@@ -1341,9 +1481,11 @@ namespace wo
                         {
                             if (!a_value_var->directed_function_call)
                             {
-                                if (sym->type != lang_symbol::symbol_type::function)
-                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
-                                else
+                                if (sym->type == lang_symbol::symbol_type::variable)
+                                {
+                                    a_value_var->symbol = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                }
+                                else if (sym->type == lang_symbol::symbol_type::function)
                                 {
                                     ast_value_function_define* dumpped_template_func_define = nullptr;
 
@@ -1368,6 +1510,10 @@ namespace wo
                                         lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
                                     else
                                         a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION);
                                 }
                             }
                         }
@@ -1451,7 +1597,6 @@ namespace wo
                 {
                     // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
                     //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-
                     if (a_value->value_type->is_pending())
                     {
                         // ready for update..
@@ -1479,11 +1624,14 @@ namespace wo
                             auto* sym = find_value_in_this_scope(a_value_var);
                             if (sym)
                             {
-                                if (sym->type == lang_symbol::symbol_type::variable && !a_value_var->template_reification_args.empty())
-                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE);
-
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+
+                                if (sym->is_template_symbol && sym->type == lang_symbol::symbol_type::variable)
+                                {
+                                    // Needm apply template.
+                                    sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                }
 
                                 analyze_pass2(sym->variable_value);
                                 a_value_var->value_type = sym->variable_value->value_type;
@@ -1528,19 +1676,25 @@ namespace wo
                             analyze_pass2(a_value_idx->from);
                             analyze_pass2(a_value_idx->index);
 
-                            if (!a_value_idx->from->value_type->class_member_index.empty())
+                            if (!a_value_idx->from->value_type->struct_member_index.empty())
                             {
                                 if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
                                 {
                                     if (auto fnd =
-                                        a_value_idx->from->value_type->class_member_index.find(
+                                        a_value_idx->from->value_type->struct_member_index.find(
                                             str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                                        ); fnd != a_value_idx->from->value_type->class_member_index.end())
+                                        ); fnd != a_value_idx->from->value_type->struct_member_index.end())
                                     {
-                                        if (!fnd->second->value_type->is_pending())
+                                        if (fnd->second.init_value_may_nil)
                                         {
-                                            a_value_idx->value_type = fnd->second->value_type;
+                                            if (!fnd->second.init_value_may_nil->value_type->is_pending())
+                                            {
+                                                a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                            }
                                         }
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_UNDEFINED_MEMBER,
+                                                str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
                                     }
                                     else
                                     {
@@ -2903,16 +3057,37 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    varref.symbol->has_been_defined_in_pass2 = true;
-                    if (varref.is_ref)
+                    if (!varref.template_arguments)
                     {
-                        varref.init_val->is_mark_as_using_ref = true;
-
-                        if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
-                            (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                            || !varref.init_val->can_be_assign || varref.init_val->is_constant)
+                        varref.symbol->has_been_defined_in_pass2 = true;
+                        if (varref.is_ref)
                         {
-                            lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            varref.init_val->is_mark_as_using_ref = true;
+
+                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
+                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                                || !varref.init_val->can_be_assign || varref.init_val->is_constant)
+                            {
+                                lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        for (auto& [_, impl_symbol] : varref.symbol->template_typehashs_reification_instance_symbol_list)
+                        {
+                            impl_symbol->has_been_defined_in_pass2 = true;
+                            if (varref.is_ref)
+                            {
+                                impl_symbol->variable_value->is_mark_as_using_ref = true;
+
+                                if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
+                                    (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                                    || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
+                                {
+                                    lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                                }
+                            }
                         }
                     }
                 }
@@ -2933,6 +3108,101 @@ namespace wo
                     a_check_naming->template_type->get_type_name(false).c_str(),
                     a_check_naming->naming_const->get_type_name(false).c_str());
             checking_naming_end:;
+            }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass2(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
+            }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                analyze_pass2(a_match->match_value);
+                analyze_pass2(a_match->cases);
+
+                // Must walk all possiable case, and no repeat case!
+                std::set<std::wstring> case_names;
+                auto* cases = a_match->cases->children;
+                while (cases)
+                {
+                    auto* case_ast = dynamic_cast<ast_match_optional_case*>(cases);
+                    wo_assert(case_ast);
+
+                    if (case_names.end() != case_names.find(case_ast->optional_pattern->optional_expr->var_name))
+                        lang_anylizer->lang_error(0x0000, case_ast->optional_pattern->optional_expr, L"match中不能有重复的case，继续");
+                    else
+                        case_names.insert(case_ast->optional_pattern->optional_expr->var_name);
+                    cases = cases->sibling;
+                }
+                if (case_names.size() < a_match->match_value->value_type->struct_member_index.size())
+                    lang_anylizer->lang_error(0x0000, a_match, L"match必须穷尽所有可能的取值，继续");
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                wo_assert(a_match_optional_case->in_match);
+
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+                    else
+                    {
+                        if (!a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
+                        {
+                            a_pattern_optional_value->optional_expr->template_reification_args = a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments;
+                            a_pattern_optional_value->optional_expr->symbol = find_value_in_this_scope(a_pattern_optional_value->optional_expr);
+
+                            if (a_pattern_optional_value->optional_expr->symbol)
+                            {
+                                if (a_pattern_optional_value->optional_expr->symbol->type == lang_symbol::symbol_type::variable)
+                                    a_pattern_optional_value->optional_expr->symbol = analyze_pass_template_reification(a_pattern_optional_value->optional_expr, a_pattern_optional_value->optional_expr->template_reification_args);
+                                else
+                                {
+                                    if (a_pattern_optional_value->optional_expr->symbol->function_overload_sets.size() == 1)
+                                    {
+                                        auto final_function = a_pattern_optional_value->optional_expr->symbol->function_overload_sets.front();
+
+                                        auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
+                                            a_pattern_optional_value->optional_expr->template_reification_args);
+                                        if (dumped_func)
+                                            a_pattern_optional_value->optional_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                }
+                            }
+                            else
+                                ;
+                            /* Donot give error here, it will be given in following 'analyze_pass2' */
+                            //lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_optional_value->optional_expr->var_name.c_str());
+                        }
+                        analyze_pass2(a_pattern_optional_value->optional_expr);
+                    }
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 1)
+                                lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                            else
+                            {
+                                a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_optional_value->optional_expr->value_type->argument_types.front());
+                            }
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                    else
+                    {
+                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                analyze_pass2(a_match_optional_case->in_case_sentence);
             }
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
@@ -3576,7 +3846,9 @@ namespace wo
                     else if (optype == value::valuetype::invalid &&
                         !a_value_assign->left->value_type->is_dynamic()
                         && !a_value_assign->left->value_type->is_func()
-                        && !a_value_assign->right->value_type->is_func())
+                        && !a_value_assign->right->value_type->is_func()
+                        && !a_value_assign->left->value_type->is_optional()
+                        && !a_value_assign->right->value_type->is_optional())
                     {
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     }
@@ -4424,35 +4696,11 @@ namespace wo
             {
                 for (auto& varref_define : a_varref_defines->var_refs)
                 {
-                    if (varref_define.is_ref)
+                    if (!varref_define.template_arguments)
                     {
-                        wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
-                        auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
-
-                        std::string init_static_flag_check_tag;
-                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                        if (varref_define.is_ref)
                         {
-                            init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                            auto& static_inited_flag = get_new_global_variable();
-                            compiler->equb(static_inited_flag, reg(reg::ni));
-                            compiler->jf(tag(init_static_flag_check_tag));
-                            compiler->set(static_inited_flag, imm(1));
-                        }
-                        auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
-
-                        if (is_non_ref_tem_reg(aim_ob))
-                            lang_anylizer->lang_error(0x0000, varref_define.init_val, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                        compiler->ext_setref(ref_ob, aim_ob);
-
-                        if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                            compiler->tag(init_static_flag_check_tag);
-                    }
-                    else
-                    {
-                        if (!varref_define.symbol->is_constexpr)
-                        {
+                            wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
                             auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
 
                             std::string init_static_flag_check_tag;
@@ -4465,17 +4713,107 @@ namespace wo
                                 compiler->jf(tag(init_static_flag_check_tag));
                                 compiler->set(static_inited_flag, imm(1));
                             }
+                            auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
 
-                            if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
-                            {
-                                if (is_need_dup_when_mov(varref_define.init_val))
-                                    compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                                else
-                                    compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                            }
+                            if (is_non_ref_tem_reg(aim_ob))
+                                lang_anylizer->lang_error(0x0000, varref_define.init_val, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                            compiler->ext_setref(ref_ob, aim_ob);
+
                             if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
                                 compiler->tag(init_static_flag_check_tag);
                         }
+                        else
+                        {
+                            if (!varref_define.symbol->is_constexpr)
+                            {
+                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
+
+                                std::string init_static_flag_check_tag;
+                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                                {
+                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                    auto& static_inited_flag = get_new_global_variable();
+                                    compiler->equb(static_inited_flag, reg(reg::ni));
+                                    compiler->jf(tag(init_static_flag_check_tag));
+                                    compiler->set(static_inited_flag, imm(1));
+                                }
+
+                                if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
+                                {
+                                    if (is_need_dup_when_mov(varref_define.init_val))
+                                        compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                    else
+                                        compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
+                                }
+                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
+                                    compiler->tag(init_static_flag_check_tag);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Template variable impl here, give init value to correct place.
+                        const auto& all_template_impl_variable_symbol
+                            = varref_define.symbol->template_typehashs_reification_instance_symbol_list;
+                        for (auto& [_, symbol] : all_template_impl_variable_symbol)
+                        {
+                            if (varref_define.is_ref)
+                            {
+                                wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value));
+                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
+
+                                std::string init_static_flag_check_tag;
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                {
+                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                    auto& static_inited_flag = get_new_global_variable();
+                                    compiler->equb(static_inited_flag, reg(reg::ni));
+                                    compiler->jf(tag(init_static_flag_check_tag));
+                                    compiler->set(static_inited_flag, imm(1));
+                                }
+                                auto& aim_ob = auto_analyze_value(symbol->variable_value, compiler);
+
+                                if (is_non_ref_tem_reg(aim_ob))
+                                    lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                                compiler->ext_setref(ref_ob, aim_ob);
+
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                    compiler->tag(init_static_flag_check_tag);
+                            }
+                            else
+                            {
+                                if (!symbol->is_constexpr)
+                                {
+                                    auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
+
+                                    std::string init_static_flag_check_tag;
+                                    if (symbol->static_symbol && symbol->define_in_function)
+                                    {
+                                        init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                        auto& static_inited_flag = get_new_global_variable();
+                                        compiler->equb(static_inited_flag, reg(reg::ni));
+                                        compiler->jf(tag(init_static_flag_check_tag));
+                                        compiler->set(static_inited_flag, imm(1));
+                                    }
+
+                                    if (nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value))
+                                    {
+                                        if (is_need_dup_when_mov(symbol->variable_value))
+                                            compiler->ext_movdup(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                        else
+                                            compiler->mov(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                    }
+                                    if (symbol->static_symbol && symbol->define_in_function)
+                                        compiler->tag(init_static_flag_check_tag);
+                                }
+                            }
+                        }
+
                     }
                 }
             }
@@ -4565,9 +4903,9 @@ namespace wo
             {
                 auto except_end_tag = "except_end_" + compiler->get_unique_tag_based_command_ip();
 
-                compiler->veh_begin(tag(except_end_tag));
+                compiler->ext_veh_begin(tag(except_end_tag));
                 real_analyze_finalize(a_except->execute_sentence, compiler);
-                compiler->veh_clean(tag(except_end_tag));
+                compiler->ext_veh_clean(tag(except_end_tag));
 
                 compiler->tag(except_end_tag);
             }
@@ -4738,6 +5076,80 @@ namespace wo
             {
                 // do nothing..
             }
+            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret
+                = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            {
+                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    compiler->ext_mkopt(auto_analyze_value(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
+                        a_optional_make_option_ob_to_cr_and_ret->id);
+                else
+                    compiler->ext_mkopt(reg(reg::ni), a_optional_make_option_ob_to_cr_and_ret->id);
+
+                // TODO: ast_optional_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
+                //       need check!
+                compiler->ret();
+            }
+            else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
+            {
+                a_match->match_end_tag_in_final_pass = compiler->get_unique_tag_based_command_ip() + "match_end";
+
+                compiler->set(reg(reg::ths), auto_analyze_value(a_match->match_value, compiler));
+                // 1. Get id in cr.
+                compiler->idstruct(reg(reg::cr), reg(reg::ths), 0);
+
+                real_analyze_finalize(a_match->cases, compiler);
+
+                compiler->tag(a_match->match_end_tag_in_final_pass);
+
+            }
+            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            {
+                wo_assert(a_match_optional_case->in_match);
+
+                auto current_case_end = compiler->get_unique_tag_based_command_ip() + "case_end";
+
+                // 0.Check id?
+                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                {
+                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+
+                    ast_value_variable* case_item = a_pattern_optional_value->optional_expr;
+                    auto fnd = a_match_optional_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
+                    if (fnd == a_match_optional_case->in_match->match_value->value_type->struct_member_index.end())
+                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"无效的case项，此处应该是optional的项之一，继续");
+                    else
+                    {
+                        compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
+                    }
+
+                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    {
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        {
+                            auto& valreg = get_useable_register_for_pure_value();
+                            compiler->idstruct(valreg, reg(reg::ths), 1);
+
+                            compiler->mov(get_opnum_by_symbol(a_pattern_identifier, a_pattern_identifier->symbol, compiler, false), valreg);
+                            complete_using_register(valreg);
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                    }
+                    else
+                    {
+                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                    }
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+
+                real_analyze_finalize(a_match_optional_case->in_case_sentence, compiler);
+
+                compiler->jmp(tag(a_match_optional_case->in_match->match_end_tag_in_final_pass));
+                compiler->tag(current_case_end);
+            }
             else
                 lang_anylizer->lang_error(0x0000, ast_node, L"Bad ast node.");
         }
@@ -4812,7 +5224,9 @@ namespace wo
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
                     if (config::ENABLE_JUST_IN_TIME)
-                        compiler->calljit();
+                    {
+                        wo_error("JIT-MODULE HAS BEEN REMOVED");
+                    }
 
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 
@@ -4969,7 +5383,7 @@ namespace wo
                 if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute);
+                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
                 }
             }
             lang_scopes.push_back(scope);
@@ -5000,7 +5414,14 @@ namespace wo
 
         size_t global_symbol_index = 0;
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, size_t captureindex = (size_t)-1)
+        enum class template_style
+        {
+            NORMAL,
+            IS_TEMPLATE_VARIABLE_DEFINE,
+            IS_TEMPLATE_VARIABLE_IMPL
+        };
+
+        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, template_style is_template_value, size_t captureindex = (size_t)-1)
         {
             wo_assert(lang_scopes.size());
 
@@ -5008,6 +5429,8 @@ namespace wo
             {
                 if (func_def->function_name != L"")
                 {
+                    wo_assert(template_style::NORMAL == is_template_value);
+
                     lang_symbol* sym;
                     if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
                     {
@@ -5056,7 +5479,7 @@ namespace wo
                 }
             }
 
-            if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
+            if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
@@ -5065,7 +5488,10 @@ namespace wo
             }
             else
             {
-                lang_symbol* sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                lang_symbol* sym = new lang_symbol;
+                if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
+                    lang_scopes.back()->symbols[names] = sym;
+
                 sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::variable;
                 sym->name = names;
@@ -5089,8 +5515,11 @@ namespace wo
 
                         if (!attr->is_constant_attr() || !init_val->is_constant)
                         {
-                            sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
-                            lang_scopes.back()->this_block_used_stackvalue_count++;
+                            if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
+                            {
+                                sym->stackvalue_index_in_funcs = func->assgin_stack_index(sym);
+                                lang_scopes.back()->this_block_used_stackvalue_count++;
+                            }
                         }
                         else
                             sym->is_constexpr = true;
@@ -5114,7 +5543,10 @@ namespace wo
                     sym->static_symbol = true;
 
                     if (!attr->is_constant_attr() || !init_val->is_constant)
-                        sym->global_index_in_lang = global_symbol_index++;
+                    {
+                        if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
+                            sym->global_index_in_lang = global_symbol_index++;
+                    }
                     else
                         sym->is_constexpr = true;
 
@@ -5556,7 +5988,7 @@ namespace wo
                     {
                         capture_list.push_back(result);
                         // Define a closure symbol instead of current one.
-                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, capture_list.size() - 1);
+                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, capture_list.size() - 1);
                     }
 
                 }

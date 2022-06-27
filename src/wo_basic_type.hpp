@@ -39,9 +39,11 @@ namespace wo
 
     struct gc_handle_base_t;
     struct closure_function;
+    struct struct_values;
 
     using gchandle_t = gcunit<gc_handle_base_t>;
     using closure_t = gcunit<closure_function>;
+    using struct_t = gcunit<struct_values>;
 
     struct value
     {
@@ -69,6 +71,7 @@ namespace wo
             gchandle_type,
             closure_type,
 
+            struct_type,
         };
 
         union
@@ -83,6 +86,7 @@ namespace wo
             mapping_t* mapping;
             gchandle_t* gchandle;
             closure_t* closure;
+            struct_t* structs;
 
             struct
             {
@@ -381,6 +385,32 @@ namespace wo
     static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
+
+    // optional_value used for store 1 value with a id(used for select or else)
+    struct struct_values
+    {
+        value* m_values;
+        uint16_t m_count;
+
+        struct_values(const struct_values&) = delete;
+        struct_values(struct_values&&) = delete;
+        struct_values& operator=(const struct_values&) = delete;
+        struct_values& operator=(struct_values&&) = delete;
+
+        struct_values(uint16_t sz) noexcept
+            : m_count(sz)
+        {
+            m_values = (value*)malloc(sz * sizeof(value));
+            for (uint16_t i = 0; i < sz; ++i)
+                m_values[i].set_nil();
+        }
+        ~struct_values()
+        {
+            wo_assert(m_values);
+            free(m_values);
+        }
+    };
+
     struct closure_function
     {
         wo_integer_t m_function_addr;

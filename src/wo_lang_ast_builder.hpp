@@ -117,7 +117,12 @@ namespace wo
 
             std::vector<ast_type*> template_impl_naming_checking;
 
-            std::map<std::wstring, ast_value*> class_member_index;
+            struct struct_offset
+            {
+                ast_value* init_value_may_nil = nullptr;
+                uint16_t offset = (uint16_t)0xFFFF;
+            };
+            std::map<std::wstring, struct_offset> struct_member_index;
 
             ast_type* using_type_name = nullptr;
 
@@ -135,6 +140,7 @@ namespace wo
                 {L"nil", value::valuetype::invalid},
 
                 // special type
+                {L"optional", value::valuetype::invalid},
                 {L"void", value::valuetype::invalid},
                 {L"pending", value::valuetype::invalid},
                 {L"dynamic", value::valuetype::invalid},
@@ -189,12 +195,12 @@ namespace wo
                     return true;
                 }
 
-
-                if (from->is_pending() || to->is_pending())
-                    return false;
-
                 if (from->is_same(to, force))
                     return true;
+
+                // Forbid 'nil' cast to any other value
+                if (from->is_pending() || to->is_pending() || from->is_nil())
+                    return false;
 
                 if (from->is_same(to))
                 {
@@ -327,7 +333,7 @@ namespace wo
                     set_type_with_name(_type->type_name);
                     using_type_name = _type->using_type_name;
                     template_arguments = _type->template_arguments;
-                    class_member_index = _type->class_member_index;
+                    struct_member_index = _type->struct_member_index;
                     template_impl_naming_checking = _type->template_impl_naming_checking;
                 }
             }
@@ -372,7 +378,7 @@ namespace wo
                 auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
                 rett->template_arguments = template_arguments;
-                rett->class_member_index = class_member_index;
+                rett->struct_member_index = struct_member_index;
                 rett->template_impl_naming_checking = template_impl_naming_checking;
                 return rett;
             }
@@ -558,6 +564,11 @@ namespace wo
             {
                 return !is_func() &&
                     (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
+            }
+            bool is_optional() const
+            {
+                return !is_func() &&
+                    (type_name == L"optional" || (using_type_name && using_type_name->type_name == L"optional"));
             }
             bool has_template() const
             {
@@ -1775,6 +1786,7 @@ namespace wo
             {
                 bool is_ref;
                 std::wstring ident_name;
+                ast_list* template_arguments;
                 ast_value* init_val;
                 lang_symbol* symbol = nullptr;
             };
@@ -3066,6 +3078,153 @@ namespace wo
             }
         };
 
+        struct ast_optional_item : virtual public grammar::ast_base
+        {
+            std::wstring identifier;
+            ast_type* type_may_nil = nullptr;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->type_may_nil);
+
+                return dumm;
+            }
+        };
+
+        struct ast_optional_make_option_ob_to_cr_and_ret : virtual public grammar::ast_base
+        {
+            uint16_t id;
+            ast_value_variable* argument_may_nil;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->argument_may_nil);
+
+                return dumm;
+            }
+        };
+
+        struct ast_pattern_base : virtual public grammar::ast_base
+        {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_pattern_identifier : virtual public ast_pattern_base
+        {
+            std::wstring identifier;
+            lang_symbol* symbol;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_pattern_optional_value : virtual public ast_pattern_base
+        {
+            // TMP IMPL!
+            ast_value_variable* optional_expr = nullptr;
+            ast_pattern_base* pattern_arg_in_optional_may_nil = nullptr;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->optional_expr);
+                WO_REINSTANCE(dumm->pattern_arg_in_optional_may_nil);
+
+                return dumm;
+            }
+        };
+
+        struct ast_match;
+        struct ast_match_case_base : virtual public grammar::ast_base
+        {
+            ast_sentence_block* in_case_sentence;
+            ast_match* in_match;
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
+        struct ast_match_optional_case : virtual public ast_match_case_base
+        {
+            ast_pattern_optional_value* optional_pattern;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->optional_pattern);
+
+                return dumm;
+            }
+        };
+
+
+        struct ast_match : virtual public ast_pattern_base
+        {
+            ast_value* match_value;
+            ast_list* cases;
+
+            std::string match_end_tag_in_final_pass;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->match_value);
+                WO_REINSTANCE(dumm->cases);
+
+                return dumm;
+            }
+        };
 
         /////////////////////////////////////////////////////////////////////////////////
 
@@ -3293,11 +3452,12 @@ namespace wo
                     ast_cls_namespace->in_scope_sentence->append_at_head(avfd_new);
                 }
 
+                uint16_t id = 0;
                 for (auto* vdefinfo : init_mem_list)
                 {
-                    using_type->old_type->class_member_index[vdefinfo->ident_name]
-                        = using_type->class_const_index_typing[vdefinfo->ident_name]
-                        = vdefinfo->init_val;
+                    auto& memb = using_type->old_type->struct_member_index[vdefinfo->ident_name];
+                    memb.offset = id++;
+                    memb.init_value_may_nil = vdefinfo->init_val;
                 }
 
                 if (!ast_empty::is_empty(input[4]))
@@ -3448,14 +3608,17 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 5);
+                wo_assert(input.size() == 6);
 
                 ast_list* bind_type_and_decl_list = new ast_list;
 
                 ast_namespace* enum_scope = new ast_namespace;
                 ast_list* decl_list = new ast_list;
 
-                enum_scope->scope_name = WO_NEED_TOKEN(1).identifier;
+                // TODO: Enum attribute should be apply here!
+                //       WO_NEED_AST(0)
+
+                enum_scope->scope_name = WO_NEED_TOKEN(2).identifier;
 
                 auto* using_enum_as_int = new ast_using_type_as;
                 using_enum_as_int->new_type_identifier = enum_scope->scope_name;
@@ -3463,7 +3626,7 @@ namespace wo
                 bind_type_and_decl_list->append_at_end(using_enum_as_int);
 
                 enum_scope->in_scope_sentence = decl_list;
-                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(3));
+                ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
                 vardefs->declear_attribute = new ast_decl_attribute;
@@ -3474,7 +3637,7 @@ namespace wo
                         token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
 
                     vardefs->var_refs.push_back(
-                        { false, enumitem->enum_ident, const_val });
+                        { false, enumitem->enum_ident, nullptr, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -3999,14 +4162,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 3);
+                wo_test(input.size() == 4);
                 ast_varref_defines* result = new ast_varref_defines;
 
-                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_test(init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(0).identifier, init_val });
+                    { false, WO_NEED_TOKEN(0).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(1)), init_val });
 
                 return (ast_basic*)result;
             }
@@ -4015,14 +4178,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 5);
+                wo_test(input.size() == 6);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(0));
 
-                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(4));
+                ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_test(result && init_val);
 
                 result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(2).identifier, init_val });
+                    { false, WO_NEED_TOKEN(2).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(3)), init_val });
 
                 return (ast_basic*)result;
             }
@@ -4696,7 +4859,7 @@ namespace wo
                 afor->used_vawo_defines = new ast_varref_defines;
                 afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
 
-                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", exp_dir_iter_call });
+                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", nullptr, exp_dir_iter_call });
                 //}}}}
 
                     // var a= tkplace, b = tkplace...
@@ -4707,7 +4870,7 @@ namespace wo
                     foreachvar->is_mark_as_using_ref = true;
                     afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
                     afor->foreach_var.push_back(foreachvar);
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, new ast_value_takeplace() });
+                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, nullptr, new ast_value_takeplace() });
 
                     a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
                 }
@@ -4901,6 +5064,260 @@ namespace wo
             }
         };
 
+        struct pass_optional_item : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_optional_item* result = new ast_optional_item;
+                if (input.size() == 1)
+                {
+                    // identifier
+                    // => const var identifier<A...> = func(){...}();
+                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                }
+                else
+                {
+                    // identifier ( TYPE )
+                    // => func identifier<A...>(var v: TYPE){...}
+                    wo_assert(input.size() == 4);
+                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                    result->type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+
+                    wo_assert(result->type_may_nil);
+                }
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_optional_define : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(input.size() == 7);
+                // ATTRIBUTE optional IDENTIFIER <TEMPLATE_DEF> { ITEMS }
+                //    0                    2             3          5
+
+                // Create a namespace 
+                ast_decl_attribute* optional_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+
+                ast_list* bind_using_type_namespace_result = new ast_list;
+
+                ast_namespace* optional_scope = new ast_namespace;
+                optional_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                optional_scope->in_scope_sentence = new ast_list;
+
+                // Get templates here(If have?)
+                ast_template_define_with_naming* defined_template_args = nullptr;
+                ast_list* defined_template_arg_lists = nullptr;
+
+                if (!ast_empty::is_empty(input[3]))
+                {
+                    defined_template_arg_lists = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                    defined_template_args = dynamic_cast<ast_template_define_with_naming*>(
+                        defined_template_arg_lists->children);
+                }
+
+                // Then we decl a using-type here;
+                ast_using_type_as* using_type = new ast_using_type_as;
+                using_type->new_type_identifier = optional_scope->scope_name;
+                using_type->old_type = new ast_type(L"optional");
+                using_type->declear_attribute = optional_arttribute;
+
+                std::vector <std::wstring> template_arg_defines;
+                if (defined_template_args)
+                {
+                    ast_list* template_const_list = new ast_list;
+
+                    using_type->is_template_define = true;
+
+                    ast_template_define_with_naming* template_type = defined_template_args;
+                    wo_test(template_type);
+                    while (template_type)
+                    {
+                        using_type->template_type_name_list.push_back(template_type->template_ident);
+
+                        if (template_type->naming_const)
+                        {
+                            ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
+                            acheck->template_type = new ast_type(template_type->template_ident);
+                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const->set_type(template_type->naming_const);
+                            acheck->row_no = template_type->row_no;
+                            acheck->col_no = template_type->col_no;
+                            acheck->source_file = template_type->source_file;
+                            template_const_list->append_at_end(acheck);
+                        }
+
+                        template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    }
+                    using_type->naming_check_list = template_const_list;
+                }
+                bind_using_type_namespace_result->append_at_head(using_type);
+
+                // OK, We need decl optional items/function here
+                ast_optional_item* items =
+                    dynamic_cast<ast_optional_item*>(dynamic_cast<ast_list*>(WO_NEED_AST(5))->children);
+
+                uint16_t optional_item_id = 0;
+
+                auto create_optional_type = [&]() {
+                    ast_type* optional_type_with_template = new ast_type(using_type->new_type_identifier);
+                    for (auto& ident : using_type->template_type_name_list)
+                    {
+                        optional_type_with_template->template_arguments.push_back(new ast_type(ident));
+                    }
+                    return optional_type_with_template;
+                };
+
+                while (items)
+                {
+                    if (items->type_may_nil)
+                    {
+                        // Generate func here!
+                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
+                        avfd_item_type_builder->function_name = items->identifier;
+                        avfd_item_type_builder->argument_list = new ast_list;
+                        avfd_item_type_builder->declear_attribute = optional_arttribute;
+
+                        ast_value_arg_define* argdef = new ast_value_arg_define;
+                        argdef->arg_name = L"_val";
+                        argdef->is_ref = false;
+                        argdef->value_type = items->type_may_nil;
+                        argdef->declear_attribute = new ast_decl_attribute;
+                        avfd_item_type_builder->argument_list->add_child(argdef);
+                        argdef->copy_source_info(items);
+
+                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->value_type->set_as_function_type();
+                        avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
+
+                        avfd_item_type_builder->auto_adjust_return_type = true;
+                        avfd_item_type_builder->copy_source_info(items);
+                        if (using_type->is_template_define)
+                        {
+                            avfd_item_type_builder->is_template_define = true;
+                            avfd_item_type_builder->template_type_name_list = using_type->template_type_name_list;
+                        }
+
+                        avfd_item_type_builder->in_function_sentence = new ast_list;
+
+                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        result->copy_source_info(items);
+                        result->argument_may_nil = new ast_value_variable(argdef->arg_name);
+                        result->id = ++optional_item_id;
+                        // all done ~ fuck!
+
+                        avfd_item_type_builder->in_function_sentence->append_at_end(result);
+                        optional_scope->in_scope_sentence->append_at_end(avfd_item_type_builder);
+                    }
+                    else
+                    {
+                        // Generate const here!
+                        ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
+                        avfd_item_type_builder->function_name = L""; // Is a lambda function!
+                        avfd_item_type_builder->argument_list = new ast_list;
+                        avfd_item_type_builder->declear_attribute = optional_arttribute;
+                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->value_type->set_as_function_type();
+
+                        avfd_item_type_builder->auto_adjust_return_type = true;
+                        avfd_item_type_builder->copy_source_info(items);
+
+                        avfd_item_type_builder->in_function_sentence = new ast_list;
+
+                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        result->copy_source_info(items);
+                        result->id = ++optional_item_id;
+                        // all done ~ fuck!
+                        avfd_item_type_builder->in_function_sentence->append_at_end(result);
+
+                        ast_value_funccall* funccall = new ast_value_funccall();
+                        funccall->copy_source_info(avfd_item_type_builder);
+                        funccall->called_func = avfd_item_type_builder;
+                        funccall->arguments = new ast_list();
+                        funccall->value_type = new ast_type(L"pending");
+
+                        ast_varref_defines* define_optional_item = new ast_varref_defines();
+                        define_optional_item->copy_source_info(items);
+                        define_optional_item->var_refs.push_back({ false, items->identifier,defined_template_arg_lists, funccall });
+                        define_optional_item->declear_attribute = new ast_decl_attribute();
+
+                        optional_scope->in_scope_sentence->append_at_end(define_optional_item);
+                    }
+
+                    auto& member = using_type->old_type->struct_member_index[items->identifier];
+                    member.offset = optional_item_id;
+
+                    items = dynamic_cast<ast_optional_item*>(items->sibling);
+                }
+                bind_using_type_namespace_result->append_at_end(optional_scope);
+                return (ast_basic*)bind_using_type_namespace_result;
+            }
+        };
+
+        struct pass_identifier_pattern : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = new ast_pattern_identifier;
+                result->identifier = WO_NEED_TOKEN(0).identifier;
+                return (ast_basic*)result;
+            }
+        };
+
+
+        struct pass_optional_pattern : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // 1. CALLABLE_LEFT
+                // 2. CALLABLE_LEFT ( PATTERN )
+                auto* result = new ast_pattern_optional_value;
+
+                wo_assert(input.size() == 1 || input.size() == 4);
+
+                result->optional_expr= dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
+
+                if (input.size() == 4)
+                    result->pattern_arg_in_optional_may_nil
+                    = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_match_case_for_optional : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // pattern_case? {sentence in list}
+                wo_assert(input.size() == 3);
+
+                auto* result = new ast_match_optional_case;
+                result->optional_pattern = dynamic_cast<ast_pattern_optional_value*>(WO_NEED_AST(0));
+                wo_assert(result->optional_pattern);
+
+                auto* scope = WO_NEED_AST(2);
+                result->in_case_sentence = dynamic_cast<ast_sentence_block*>(scope);
+                wo_assert(result->in_case_sentence);
+
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_match : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // match ( value ){ case... }
+                wo_assert(input.size() == 7);
+
+                auto* result = new ast_match;
+                result->match_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                result->cases = dynamic_cast<ast_list*>(WO_NEED_AST(5));
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -5034,6 +5451,16 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_item>] = _register_builder<pass_optional_item>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_define>] = _register_builder<pass_optional_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_match>] = _register_builder<pass_match>();
+            _registed_builder_function_id_list[meta::type_hash<pass_match_case_for_optional>] = _register_builder<pass_match_case_for_optional>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_optional_pattern>] = _register_builder<pass_optional_pattern>();
+            _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

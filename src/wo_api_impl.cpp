@@ -923,6 +923,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
     case wo::value::valuetype::closure_type:
         *out_str += "<closure function>";
         return;
+    case wo::value::valuetype::struct_type:
+        *out_str += "<struct value>";
+        return;
     case wo::value::valuetype::invalid:
         *out_str += "nil";
         return;
@@ -959,6 +962,18 @@ wo_string_t wo_cast_string(const wo_value value)
     }
     case wo::value::valuetype::closure_type:
         return "<closure function>";
+    case wo::value::valuetype::struct_type:
+    {
+        std::string tmp_buf = "struct {\n";
+        for (uint16_t i = 0; i < _rsvalue->structs->m_count; ++i)
+        {
+            // TODO: Struct may recursive, handle it..
+            tmp_buf += "    +" + std::to_string(i) + " : " + wo_cast_string(CS_VAL(&_rsvalue->structs->m_values[i])) + ",\n";
+        }
+        tmp_buf += "}";
+        _buf = tmp_buf;
+        return _buf.c_str();
+    }
     case wo::value::valuetype::invalid:
         return "nil";
     default:
@@ -1230,8 +1245,10 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
             wo::lang lang(*lex);
 
             lang.analyze_pass1(result);
-            lang.analyze_pass_template();
-            lang.analyze_pass2(result);
+            if (!lang.has_compile_error())
+                lang.analyze_pass_template();
+            if (!lang.has_compile_error())
+                lang.analyze_pass2(result);
 
             //result->display();
             if (!lang.has_compile_error())

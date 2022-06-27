@@ -689,11 +689,6 @@ namespace wo
                     else
                         tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                     break;
-                case instruct::calljit:
-                    tmpos << "calljit\t";
-                    this_command_ptr += 9;
-                    break;
-
                 case instruct::ret:
                     tmpos << "ret\t";
                     if (main_command & 0b10)
@@ -793,25 +788,6 @@ namespace wo
 
                 case instruct::movx:
                     tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::veh:
-                    tmpos << "veh ";
-                    if (main_command & 0b10)
-                    {
-                        tmpos << "begin except jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
-                    else if (main_command & 0b01)
-                    {
-                        tmpos << "throw";
-                        break;
-                    }
-                    else
-                    {
-                        tmpos << "ok jmp ";
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                        break;
-                    }
                 case instruct::abrt:
                     if (main_command & 0b10)
                         tmpos << "end\t";
@@ -830,7 +806,16 @@ namespace wo
 
                 case instruct::nequb:
                     tmpos << "nequb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
+                case instruct::mkstruct:
+                    tmpos << "mkstruct\t"; print_opnum1(); tmpos << " size=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                case instruct::idstruct:
+                    tmpos << "idstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
+                case instruct::jnequb:
+                {
+                    tmpos << "jnequb\t"; print_opnum1();
+                    tmpos << "\t+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
+                }
                 case instruct::mkarr:
                     tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
                 case instruct::mkmap:
@@ -919,6 +904,28 @@ namespace wo
                             tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
                             tmpos << ",\t+";
                             tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
+                            break;
+                        case instruct::extern_opcode_page_0::veh:
+                            tmpos << "veh ";
+                            if (main_command & 0b10)
+                            {
+                                tmpos << "begin except jmp ";
+                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                                break;
+                            }
+                            else if (main_command & 0b01)
+                            {
+                                tmpos << "throw";
+                                break;
+                            }
+                            else
+                            {
+                                tmpos << "ok jmp ";
+                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                                break;
+                            }
+                        case instruct::extern_opcode_page_0::mkopt:
+                            tmpos << "mkopt\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
                             break;
                         default:
                             tmpos << "??\t";
@@ -1218,63 +1225,6 @@ namespace wo
 #define WO_IPVAL_MOVE_4 ((ARCH & platform_info::ArchType::X86)?(*(uint32_t*)((rt_ip += 4) - 4)):((uint32_t)WO_SAFE_READ_MOVE_4))
 #define WO_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)WO_SAFE_READ_MOVE_8))
 
-        template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
-        bool try_invoke_jit_in_vm_run(const byte_t*& rt_ip, value* rt_bp, value* reg_begin, value* rt_cr)
-        {
-#ifdef WO_ENABLE_ASMJIT
-            std::atomic<jit_state>* state_ptr =
-                (std::atomic<jit_state>*)
-                (const_cast<byte_t*>(rt_ip++));
-
-            if (*state_ptr == jit_state::NONE)
-            {
-                // IF jit_state::NONE, Try to be jit-generator, or just break.
-
-                if (auto jit_state = state_ptr->exchange(jit_state::PREPARING);
-                    jit_state == jit_state::NONE)
-                {
-                    if (auto jit_native_func = jit_compiler_x86::compile_jit(rt_ip + 8, this))
-                    {
-                        uint64_t storeb = (uint64_t)jit_native_func;
-                        byte_t* storeb_ptr = (byte_t*)&storeb;
-                        byte_t* be_store_ptr = const_cast<byte_t*>(rt_ip);
-                        for (size_t i = 0; i < sizeof(uint64_t); i++)
-                        {
-                            static_assert(sizeof(uint64_t) == 8);
-                            be_store_ptr[i] = storeb_ptr[i];
-                        }
-
-                        state_ptr->store(jit_state::READY);
-                    }
-                    else
-                    {
-                        wo_warning("JIT-Compile failed..");
-                    }
-
-                }
-                else if (jit_state == jit_state::READY)
-                {
-                    state_ptr->store(jit_state);
-                }
-            }
-
-            if (*state_ptr == jit_state::READY)
-            {
-                auto native_func = (jit_compiler_x86::jit_packed_function)WO_IPVAL_MOVE_8;
-                native_func(this, rt_bp, reg_begin, rt_cr);
-
-                return true;
-            }
-            else
-            {
-                rt_ip += 8; // skip function_addr
-                return false;
-            }
-#else
-            wo_error("JIT DISABLED");
-            return false;
-#endif
-        }
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
@@ -2822,13 +2772,6 @@ namespace wo
                             rt_cr->set_integer(opnum1->type >= opnum2->type);
                         break;
                     }
-                    case instruct::opcode::calljit:
-                    {
-                        if (!try_invoke_jit_in_vm_run(rt_ip, rt_bp, reg_begin, rt_cr))
-                            break;
-
-                        // If Call Jit success, just fall throw to ret..
-                    }
                     case instruct::opcode::ret:
                     {
                         // NOTE : RET_VAL?
@@ -2974,23 +2917,46 @@ namespace wo
                             rt_ip = rt_env->rt_codes + aimplace;
                         break;
                     }
-                    case instruct::opcode::veh:
+                    case instruct::opcode::mkstruct:
                     {
-                        if (dr & 0b10)
+                        WO_ADDRESSING_N1_REF; // Aim
+                        uint16_t size = WO_IPVAL_MOVE_2;
+
+                        wo_assert(0 != size);
+
+                        opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
+                        struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+
+                        break;
+                    }
+                    case instruct::opcode::idstruct:
+                    {
+                        WO_ADDRESSING_N1; // Aim
+                        WO_ADDRESSING_N2_REF; // Struct
+                        uint16_t offset = WO_IPVAL_MOVE_2;
+
+                        wo_assert(opnum2->type == value::valuetype::struct_type
+                            && nullptr != opnum2->structs
+                            && offset < opnum2->structs->m_count);
+
+                        // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
+                        // gcbase::gc_read_guard gwg1(opnum1->optional);
+
+                        auto* result = opnum2->structs->m_values[offset].get();
+                        if (wo::gc::gc_is_marking())
+                            opnum2->structs->add_memo(result);
+                        opnum1->set_ref(result);
+
+                        break;
+                    }
+                    case instruct::opcode::jnequb:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        uint32_t offset = WO_IPVAL_MOVE_4;
+
+                        if (opnum1->integer != rt_cr->get()->integer)
                         {
-                            //begin
-                            wo::exception_recovery::ready(this, rt_env->rt_codes + WO_IPVAL_MOVE_4, rt_sp, rt_bp);
-                        }
-                        else if (dr & 0b01)
-                        {
-                            // throw
-                            wo::exception_recovery::rollback(this);
-                        }
-                        else
-                        {
-                            // clean
-                            wo::exception_recovery::ok(this);
-                            auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                            auto* restore_ip = rt_env->rt_codes + offset;
                             rt_ip = restore_ip;
                         }
                         break;
@@ -3238,6 +3204,40 @@ namespace wo
                                     auto* arr_val = ++rt_sp;
                                     created_closure->m_closure_args[i].set_trans(arr_val->get());
                                 }
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::veh:
+                            {
+                                if (dr & 0b10)
+                                {
+                                    //begin
+                                    wo::exception_recovery::ready(this, rt_env->rt_codes + WO_IPVAL_MOVE_4, rt_sp, rt_bp);
+                                }
+                                else if (dr & 0b01)
+                                {
+                                    // throw
+                                    wo::exception_recovery::rollback(this);
+                                }
+                                else
+                                {
+                                    // clean
+                                    wo::exception_recovery::ok(this);
+                                    auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                                    rt_ip = restore_ip;
+                                }
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::mkopt:
+                            {
+                                WO_ADDRESSING_N1_REF; // data
+                                uint16_t id = WO_IPVAL_MOVE_2;
+
+                                rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
+                                auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, 2);
+
+                                struct_data->m_values[0].set_integer((wo_integer_t)id);
+                                struct_data->m_values[1].set_val(opnum1);
+
                                 break;
                             }
                             default:

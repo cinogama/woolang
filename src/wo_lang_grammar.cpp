@@ -186,7 +186,7 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DECL_ENUM") >> gm::symlist{gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
+                gm::nt(L"DECL_ENUM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_enum),gm::te(gm::ttype::l_identifier),
                                         gm::te(gm::ttype::l_left_curly_braces),
                                         gm::nt(L"ENUM_ITEMS"),
                                         gm::te(gm::ttype::l_right_curly_braces)}
@@ -363,7 +363,7 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXCEPTED") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"EXCEPTED") >> gm::symlist{
-                                gm::te(gm::ttype::l_except),
+                                gm::te(gm::ttype::l_expect),
                                 gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_except),
 
@@ -468,7 +468,7 @@ namespace wo
                 gm::nt(L"REFDEFINE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_as_ref_define),//ASTVariableDefination
 
-                gm::nt(L"VARDEFINE") >> gm::symlist{gm::te(gm::ttype::l_identifier),
+                gm::nt(L"VARDEFINE") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
@@ -476,20 +476,20 @@ namespace wo
                 gm::nt(L"VARDEFINE") >> gm::symlist{
                 gm::nt(L"VARDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::te(gm::ttype::l_identifier),
+                gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign,L"="),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
-                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
+                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
 
                 gm::nt(L"REFDEFINE") >> gm::symlist{
-                gm::nt(L"VARDEFINE"),
+                gm::nt(L"REFDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::te(gm::ttype::l_identifier),
+                gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign,L"="),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
@@ -918,9 +918,67 @@ namespace wo
                 gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_OPTIONAL") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"DECL_OPTIONAL") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_optional),gm::te(gm::ttype::l_identifier),
+                                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                                        gm::te(gm::ttype::l_left_curly_braces),
+                                        gm::nt(L"OPTIONAL_ITEMS"),
+                                        gm::te(gm::ttype::l_right_curly_braces) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_define),
+                gm::nt(L"OPTIONAL_ITEMS") >> gm::symlist{gm::nt(L"OPTIONAL_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"OPTIONAL_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+                gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
+                gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
+                gm::te(gm::ttype::l_left_brackets), gm::nt(L"TYPE"), gm::te(gm::ttype::l_right_brackets), }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
+
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"MATCH_BLOCK") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"MATCH_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_match),
+                    gm::te(gm::ttype::l_left_brackets),
+                    gm::nt(L"EXPRESSION"),
+                    gm::te(gm::ttype::l_right_brackets),
+                    gm::te(gm::ttype::l_left_curly_braces),
+                    gm::nt(L"MATCH_CASES"),
+                    gm::te(gm::ttype::l_right_curly_braces)
+                } >> WO_ASTBUILDER_INDEX(ast::pass_match),
+
+                gm::nt(L"MATCH_CASES") >> gm::symlist{ gm::nt(L"MATCH_CASE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"MATCH_CASES") >> gm::symlist{ gm::nt(L"MATCH_CASES"), gm::nt(L"MATCH_CASE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 0>),
+
+                gm::nt(L"MATCH_CASE") >> gm::symlist{ gm::nt(L"PATTERN_OPTIONAL_CASE"), gm::te(gm::ttype::l_question), gm::nt(L"BLOCKED_SENTENCE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_match_case_for_optional),
+
+                // PATTERN-CASE MAY BE A SINGLE-VARIABLE/TUPLE/STRUCT...
+                gm::nt(L"PATTERN_OPTIONAL_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_pattern),
+
+                // PATTERN-CASE MAY BE A OPTIONAL
+                gm::nt(L"PATTERN_OPTIONAL_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT"),
+                    gm::te(gm::ttype::l_left_brackets),
+                    gm::nt(L"PATTERN"),
+                    gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_optional_pattern),
+
+                // PATTERN MAY BE TUPLE/STRUCT
+                    // TODO:
+                gm::nt(L"PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
+
+                //////////////////////////////////////////////////////////////////////////////////////
+
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_double_index_point)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_question) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 }
             );

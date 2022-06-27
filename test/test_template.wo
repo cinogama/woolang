@@ -1,11 +1,12 @@
 import woo.std;
+import woo.debug;
 import test_tool;
 
 namespace test_template
 {
     using wraped_iterator<IType, EType>
     {
-        var iter = nil:IType<EType>;
+        var iter = std::debug::__empty_function:<IType<EType>>();
         var pred = nil:dynamic;
 
         func create<IType, EType, PredType>(var iter:IType<EType>, var pred:PredType)
@@ -184,7 +185,7 @@ namespace test_template
 		    }
 		    func instance()
 		    {
-			    return nil:xxtype;
+			    return std::debug::__empty_function:<xxtype>();
 		    }
 	    }
     }
@@ -203,7 +204,7 @@ namespace test_template
 		}
 		func instance()
 		{
-			return nil:gchandle_type;
+			return std::debug::__empty_function:<gchandle_type>();
 		}
     }
 
@@ -215,9 +216,9 @@ namespace test_template
     var constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
-        nil:gchandle as T; // T must same as gchandle for this test..
+        std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
 
-        if (func():T{constexpr_if_test_flag = true;return nil;}() is T)
+        if (func():T{constexpr_if_test_flag = true;return std::debug::__empty_function:<T>();}() is T)
         {
             return 233;
         }
@@ -235,13 +236,12 @@ namespace test_template
 
     func test_typeof_in_template<T>()
     {
-        return nil:typeof(func(){});
+        return func(){};
     }
 
     func test_typeof_in_template2<T>()
     {
-        var a = func(){return 1;};
-        return nil:typeof(a);
+        return func(){return 1;};
     }
 
     func for_m_test_foo<T>(var x: int)
