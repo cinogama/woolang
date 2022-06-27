@@ -671,7 +671,9 @@ WO_API wo_api rslib_std_vm_run(wo_vm vm, wo_value args, size_t argc)
     wo_vm vmm = (wo_vm)wo_pointer(args);
     wo_value ret = wo_run(vmm);
 
-    return wo_ret_val(vm, ret);
+    if (ret)
+        return wo_ret_option_value(vm, wo_ret_val(vm, ret));
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_vm_has_compile_error(wo_vm vm, wo_value args, size_t argc)
@@ -774,7 +776,7 @@ namespace option
                 std::panic("Except 'value' here, but get 'none'.");
         }
     }
-    func has_value<T>(var self: option<T>)
+    func has<T>(var self: option<T>)
     {
         match(self)
         {
@@ -1103,7 +1105,7 @@ namespace std
         func load_file(var vmhandle:vm, var vfilepath:string):bool;
 
         extern("rslib_std_vm_run")
-        func run(var vmhandle:vm):dynamic;
+        func run(var vmhandle:vm): option<dynamic>;
         
         extern("rslib_std_vm_has_compile_error")
         func has_error(var vmhandle:vm):bool;

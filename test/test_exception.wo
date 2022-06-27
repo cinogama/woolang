@@ -33,12 +33,16 @@ func test()
 }
 test();
 "@);
-        test_assure(vmm->run() == 1);
-		test_assure(std::debug::invoke(std::vm::run, vmm) == nil);
+        test_assure(vmm->run()->val() == 1);
+		test_assure(std::debug::invoke(std::vm::run, vmm)->has() == false);
 		
 		// This two function will not run.
-		test_assure(std::debug::invoke(std::vm::run, vmm) == nil);
-		test_assure(vmm->run() == nil);
+		// Why 'nil'?
+		//   After last failed, the vm has been aborted. We run here will reset veh
+		//   and vm find that has been abort, it will return immediately, but wo_run
+		//   only check veh. So return &vm->cr, which contain nil.
+		test_assure(std::debug::invoke(std::vm::run, vmm)->val() == nil);
+		test_assure(vmm->run()->val() == nil);
 	}
 }
 
