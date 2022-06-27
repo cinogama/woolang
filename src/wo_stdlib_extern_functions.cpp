@@ -1003,6 +1003,16 @@ namespace option
                 std::panic("Except 'value' here, but get 'none'.");
         }
     }
+    func has_value<T>(var self: option<T>)
+    {
+        match(self)
+        {
+            option::value(x)?
+                return true;
+            option::none?
+                return false;
+        }
+    }
 }
 
 )" };

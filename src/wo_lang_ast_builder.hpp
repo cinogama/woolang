@@ -171,7 +171,8 @@ namespace wo
 
             static bool check_castable(ast_type* to, ast_type* from, bool force)
             {
-                if (to->is_pending() || (to->is_void() && !to->is_func()))
+                if (to->is_pending() || (to->is_void() && !to->is_func()) 
+                    || from->is_pending() || (from->is_void() && !from->is_func()))
                     return false;
 
                 if (to->is_dynamic())
