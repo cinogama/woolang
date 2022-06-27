@@ -64,7 +64,7 @@ namespace gameObject
 }
 
 // ...
-var obj = nil:gameObject;
+var obj = foo_return_gameObject();
 obj->destroy();
 // ...
 using vector2
@@ -100,6 +100,6 @@ func foo<T>(var val:T)
 foo(1);
 foo(3.1415);
 foo("Hello");
-foo:<array<int>>(nil);
+foo:<array<int>>([1, 2, 3]);
 
 ```
