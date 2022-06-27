@@ -147,31 +147,6 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
     _wo_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
-void _cpp_wo_throw(wo_string_t reason)
-{
-    throw wo::rsruntime_exception(WO_FAIL_MEDIUM, reason);
-}
-
-void wo_throw(wo_string_t reason)
-{
-    _cpp_wo_throw(reason);
-}
-
-void _cpp_wo_halt(wo_string_t reason)
-{
-    throw wo::rsruntime_exception(WO_FAIL_HEAVY, reason);
-}
-
-void wo_halt(wo_string_t reason)
-{
-    _cpp_wo_halt(reason);
-}
-
-void wo_panic(wo_string_t reason)
-{
-    wo_fail(WO_FAIL_DEADLY, reason);
-}
-
 void _wo_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C, 
@@ -1061,27 +1036,67 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
 
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr);
 }
-wo_result_t wo_ret_nil(wo_vm vm)
+wo_result_t wo_ret_val(wo_vm vm, wo_value result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_nil());
-}
-wo_result_t  wo_ret_val(wo_vm vm, wo_value result)
-{
-    if (result)
-        return reinterpret_cast<wo_result_t>(
-            WO_VM(vm)->cr->set_val(
-                reinterpret_cast<wo::value*>(result)->get()
-            ));
-    return wo_ret_nil(vm);
+    wo_assert(result);
+    return reinterpret_cast<wo_result_t>(
+        WO_VM(vm)->cr->set_val(
+            reinterpret_cast<wo::value*>(result)->get()
+        ));
 }
 wo_result_t  wo_ret_ref(wo_vm vm, wo_value result)
 {
-    if (result)
-        return reinterpret_cast<wo_result_t>(
-            WO_VM(vm)->cr->set_ref(
-                reinterpret_cast<wo::value*>(result)->get()
-            ));
-    return wo_ret_nil(vm);
+    wo_assert(result);
+    return reinterpret_cast<wo_result_t>(
+        WO_VM(vm)->cr->set_ref(
+            reinterpret_cast<wo::value*>(result)->get()
+        ));
+}
+
+wo_result_t wo_ret_throw(wo_vm vm, wo_string_t reason)
+{
+    WO_VM(vm)->er->set_string(reason);
+    wo::exception_recovery::rollback(WO_VM(vm), false);
+
+    return 0;
+}
+
+wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
+{
+    WO_VM(vm)->er->set_string(reason);
+    wo::exception_recovery::rollback(WO_VM(vm), true);
+
+    return 0;
+}
+
+wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
+{
+    wo_fail(WO_FAIL_DEADLY, reason);
+
+    return 0;
+}
+
+wo_result_t wo_ret_option_value(wo_vm vm, wo_result_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->er->set_trans(wovm->cr);
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_trans(wovm->er);
+
+    return 0;
+}
+WO_API wo_result_t  wo_ret_option_none(wo_vm vm)
+{
+    auto* wovm = WO_VM(vm);
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+
+    structptr->m_values[0].set_integer(2);
+    return 0;
 }
 
 void wo_coroutine_pauseall()
@@ -1417,7 +1432,7 @@ wo_value wo_push_string(wo_vm vm, wo_string_t val)
 {
     return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
 }
-wo_value wo_push_nil(wo_vm vm)
+wo_value wo_push_empty(wo_vm vm)
 {
     return CS_VAL((WO_VM(vm)->sp--)->set_nil());
 }

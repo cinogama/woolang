@@ -25,22 +25,22 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args, size_t argc)
 {
     wo_fail(WO_FAIL_DEADLY, wo_string(args + 0));
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args, size_t argc)
 {
     throw wo::rsruntime_exception(WO_FAIL_HEAVY, wo_string(args + 0));
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_throw(wo_vm vm, wo_value args, size_t argc)
 {
     throw wo::rsruntime_exception(WO_FAIL_MEDIUM, wo_string(args + 0));
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_fail(wo_vm vm, wo_value args, size_t argc)
 {
     wo_fail(WO_FAIL_MEDIUM, wo_string(args + 0));
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
 {
@@ -409,7 +409,7 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
 
         split_begin = fnd_place + matchlen;
     }
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
@@ -466,13 +466,13 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
 WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
 {
     wo_break_yield(vm);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_resize(args + 0, wo_int(args + 1), args + 2);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
@@ -484,7 +484,7 @@ WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_remove(args + 0, wo_int(args + 1));
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_find(wo_vm vm, wo_value args, size_t argc)
@@ -496,7 +496,7 @@ WO_API wo_api rslib_std_array_clear(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_clear(args);
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 struct array_iter
@@ -512,22 +512,14 @@ WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
 {
     wo::value* arr = reinterpret_cast<wo::value*>(args)->get();
 
-    if (arr->is_nil())
-    {
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-        return wo_ret_nil(vm);
-    }
-    else
-    {
-        return wo_ret_gchandle(vm,
-            new array_iter{ arr->array->begin(), arr->array->end(), 0 },
-            args + 0,
-            [](void* array_iter_t_ptr)
-            {
-                delete (array_iter*)array_iter_t_ptr;
-            }
-        );
-    }
+    return wo_ret_gchandle(vm,
+        new array_iter{ arr->array->begin(), arr->array->end(), 0 },
+        args + 0,
+        [](void* array_iter_t_ptr)
+        {
+            delete (array_iter*)array_iter_t_ptr;
+        }
+    );
 }
 
 WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
@@ -553,9 +545,9 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_map_get(args + 0, args + 1);
 
     if (result)
-        return wo_ret_ref(vm, result);
+        return wo_ret_option_value(vm, wo_ret_ref(vm, result));
 
-    return wo_ret_nil(vm);
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_map_contain(wo_vm vm, wo_value args, size_t argc)
@@ -578,7 +570,7 @@ WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args, size_t argc)
 {
     wo_map_clear(args + 0);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 struct map_iter
@@ -593,22 +585,14 @@ WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
 {
     wo::value* mapp = reinterpret_cast<wo::value*>(args)->get();
 
-    if (mapp->is_nil())
-    {
-        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-        return wo_ret_nil(vm);
-    }
-    else
-    {
-        return wo_ret_gchandle(vm,
-            new map_iter{ mapp->mapping->begin(), mapp->mapping->end() },
-            args + 0,
-            [](void* array_iter_t_ptr)
-            {
-                delete (map_iter*)array_iter_t_ptr;
-            }
-        );
-    }
+    return wo_ret_gchandle(vm,
+        new map_iter{ mapp->mapping->begin(), mapp->mapping->end() },
+        args + 0,
+        [](void* array_iter_t_ptr)
+        {
+            delete (map_iter*)array_iter_t_ptr;
+        }
+    );
 }
 
 WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
@@ -641,7 +625,7 @@ WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
     }
 
     //return wo_ret_ref(vm, mapping_indexed);
-    return wo_ret_nil(vm);
+    return wo_ret_halt(vm, "Other type cannot be oped by 'sub'.");
 }
 
 WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
@@ -649,7 +633,7 @@ WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
     using namespace std;
 
     std::this_thread::sleep_for(wo_real(args) * 1s);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_vm_create(wo_vm vm, wo_value args, size_t argc)
@@ -735,7 +719,7 @@ WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_thread_yield(wo_vm vm, wo_value args, size_t argc)
 {
     wo_co_yield();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
@@ -760,7 +744,50 @@ namespace std
     extern("rslib_std_fail") func fail(var msg:string):void;
     extern("rslib_std_halt") func halt(var msg:string):void;
     extern("rslib_std_panic") func panic(var msg:string):void;
+}
 
+optional option<T>
+{
+    value(T),
+    none
+}
+namespace option
+{
+    func map<T, R>(var self: option<T>, var functor: R(T))
+    {
+        match(self)
+        {
+            option::value(x)?
+                return option::value(functor(x));
+            option::none?
+                return option::none:<R>;
+        }
+    }
+
+    func val<T>(var self: option<T>)
+    {
+        match(self)
+        {
+            option::value(x)?
+                return x;
+            option::none?
+                std::panic("Except 'value' here, but get 'none'.");
+        }
+    }
+    func has_value<T>(var self: option<T>)
+    {
+        match(self)
+        {
+            option::value(x)?
+                return true;
+            option::none?
+                return false;
+        }
+    }
+}
+
+namespace std
+{
     extern("rslib_std_print") func print(...):int;
     extern("rslib_std_time_sec") func time():real;
 
@@ -928,7 +955,7 @@ namespace map
     extern("rslib_std_map_find") 
         func find<KT, VT>(var val:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_only_get") 
-        func get<KT, VT>(var m:map<KT, VT>, var index:KT):VT;
+        func get<KT, VT>(var m:map<KT, VT>, var index:KT): option<VT>;
     extern("rslib_std_map_contain") 
         func contain<KT, VT>(var m:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_get_by_default") 
@@ -973,60 +1000,18 @@ func assert(var val: bool, var msg: string)
     if (!val)
         std::panic(F"Assert failed: {msg}");
 }
-
-
-optional option<T>
-{
-    value(T),
-    none
-}
-namespace option
-{
-    func map<T, R>(var self: option<T>, var functor: R(T))
-    {
-        match(self)
-        {
-            option::value(x)?
-                return option::value(functor(x));
-            option::none?
-                return option::none:<R>;
-        }
-    }
-
-    func val<T>(var self: option<T>)
-    {
-        match(self)
-        {
-            option::value(x)?
-                return x;
-            option::none?
-                std::panic("Except 'value' here, but get 'none'.");
-        }
-    }
-    func has_value<T>(var self: option<T>)
-    {
-        match(self)
-        {
-            option::value(x)?
-                return true;
-            option::none?
-                return false;
-        }
-    }
-}
-
 )" };
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
     wo_attach_default_debuggee(vm);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
     wo_disattach_and_free_debuggee(vm);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args, size_t argc)
@@ -1037,7 +1022,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args, size_t ar
 WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args, size_t argc)
 {
     wo_break_immediately(vm);
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
@@ -1050,7 +1035,7 @@ WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_debug_empty_func(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 
@@ -1192,7 +1177,7 @@ WO_API wo_api rslib_std_thread_wait(wo_vm vm, wo_value args, size_t argc)
     if (rtp->_thread->joinable())
         rtp->_thread->join();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_abort(wo_vm vm, wo_value args, size_t argc)
@@ -1218,7 +1203,7 @@ WO_API wo_api rslib_std_thread_mutex_read(wo_vm vm, wo_value args, size_t argc)
     std::shared_mutex* smtx = (std::shared_mutex*)wo_pointer(args);
     smtx->lock_shared();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_mutex_write(wo_vm vm, wo_value args, size_t argc)
@@ -1226,7 +1211,7 @@ WO_API wo_api rslib_std_thread_mutex_write(wo_vm vm, wo_value args, size_t argc)
     std::shared_mutex* smtx = (std::shared_mutex*)wo_pointer(args);
     smtx->lock();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_mutex_read_end(wo_vm vm, wo_value args, size_t argc)
@@ -1234,7 +1219,7 @@ WO_API wo_api rslib_std_thread_mutex_read_end(wo_vm vm, wo_value args, size_t ar
     std::shared_mutex* smtx = (std::shared_mutex*)wo_pointer(args);
     smtx->unlock_shared();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_mutex_write_end(wo_vm vm, wo_value args, size_t argc)
@@ -1242,7 +1227,7 @@ WO_API wo_api rslib_std_thread_mutex_write_end(wo_vm vm, wo_value args, size_t a
     std::shared_mutex* smtx = (std::shared_mutex*)wo_pointer(args);
     smtx->unlock();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -1263,7 +1248,7 @@ WO_API wo_api rslib_std_thread_spin_read(wo_vm vm, wo_value args, size_t argc)
     wo::gcbase::rw_lock* smtx = (wo::gcbase::rw_lock*)wo_pointer(args);
     smtx->lock_shared();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_spin_write(wo_vm vm, wo_value args, size_t argc)
@@ -1271,7 +1256,7 @@ WO_API wo_api rslib_std_thread_spin_write(wo_vm vm, wo_value args, size_t argc)
     wo::gcbase::rw_lock* smtx = (wo::gcbase::rw_lock*)wo_pointer(args);
     smtx->lock();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_spin_read_end(wo_vm vm, wo_value args, size_t argc)
@@ -1279,7 +1264,7 @@ WO_API wo_api rslib_std_thread_spin_read_end(wo_vm vm, wo_value args, size_t arg
     wo::gcbase::rw_lock* smtx = (wo::gcbase::rw_lock*)wo_pointer(args);
     smtx->unlock_shared();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_thread_spin_write_end(wo_vm vm, wo_value args, size_t argc)
@@ -1287,7 +1272,7 @@ WO_API wo_api rslib_std_thread_spin_write_end(wo_vm vm, wo_value args, size_t ar
     wo::gcbase::rw_lock* smtx = (wo::gcbase::rw_lock*)wo_pointer(args);
     smtx->unlock();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 
@@ -1396,11 +1381,7 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
     else if (WO_CLOSURE_TYPE == functype)
         gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->get()->closure, argc - 1);
     else
-    {
-        wo_fail(WO_FAIL_CALL_FAIL, "Unknown type to call.");
-        return wo_ret_nil(vm);
-    }
-
+        return wo_ret_halt(vm, "Unknown type to call.");
 
     return wo_ret_gchandle(vm,
         new wo_co_waitable<wo::RSCO_Waitter>(gchandle_roroutine),
@@ -1417,7 +1398,7 @@ WO_API wo_api rslib_std_roroutine_abort(wo_vm vm, wo_value args, size_t argc)
     if (gchandle_roroutine->sp_waitable)
         gchandle_roroutine->sp_waitable->abort();
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_completed(wo_vm vm, wo_value args, size_t argc)
@@ -1432,19 +1413,19 @@ WO_API wo_api rslib_std_roroutine_completed(wo_vm vm, wo_value args, size_t argc
 WO_API wo_api rslib_std_roroutine_pause_all(wo_vm vm, wo_value args, size_t argc)
 {
     wo_coroutine_pauseall();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_resume_all(wo_vm vm, wo_value args, size_t argc)
 {
     wo_coroutine_resumeall();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_stop_all(wo_vm vm, wo_value args, size_t argc)
 {
     wo_coroutine_stopall();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_sleep(wo_vm vm, wo_value args, size_t argc)
@@ -1452,13 +1433,13 @@ WO_API wo_api rslib_std_roroutine_sleep(wo_vm vm, wo_value args, size_t argc)
     using namespace std;
     wo::fthread::wait(wo::fvmscheduler::wait(wo_real(args)));
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_yield(wo_vm vm, wo_value args, size_t argc)
 {
     wo::fthread::yield();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_roroutine_wait(wo_vm vm, wo_value args, size_t argc)
@@ -1466,7 +1447,7 @@ WO_API wo_api rslib_std_roroutine_wait(wo_vm vm, wo_value args, size_t argc)
     wo_co_waitable_base* waitable = (wo_co_waitable_base*)wo_pointer(args);
 
     waitable->wait_at_current_fthread();
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 const char* wo_stdlib_roroutine_src_path = u8"woo/co.wo";
@@ -1540,7 +1521,7 @@ WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
     for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
         lex->push_temp_for_error_recover(ri->first, ri->second);
 
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_macro_lexer_warning(wo_vm vm, wo_value args, size_t argc)
@@ -1548,7 +1529,7 @@ WO_API wo_api rslib_std_macro_lexer_warning(wo_vm vm, wo_value args, size_t argc
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
     lex->lex_warning(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
@@ -1556,7 +1537,7 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
     lex->lex_error(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
-    return wo_ret_nil(vm);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)

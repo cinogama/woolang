@@ -90,9 +90,6 @@ typedef void(*wo_fail_handler)(wo_string_t src_file, uint32_t lineno, wo_string_
 
 WO_API wo_fail_handler wo_regist_fail_handler(wo_fail_handler new_handler);
 WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
-WO_API void         wo_throw(wo_string_t reason);
-WO_API void         wo_halt(wo_string_t reason);
-WO_API void         wo_panic(wo_string_t reason);
 
 #define wo_fail(ERRID, REASON) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
 
@@ -148,10 +145,17 @@ WO_API wo_result_t  wo_ret_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
-WO_API wo_result_t  wo_ret_nil(wo_vm vm);
+#define wo_ret_void(vmm) (0);
 WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_ref(wo_vm vm, wo_value result);
+
+WO_API wo_result_t  wo_ret_throw(wo_vm vm, wo_string_t reason);
+WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
+WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
+
+WO_API wo_result_t  wo_ret_option_value(wo_vm vm, wo_result_t result);
+WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 WO_API void         wo_coroutine_pauseall();
 WO_API void         wo_coroutine_resumeall();
@@ -206,7 +210,7 @@ WO_API wo_value     wo_push_handle(wo_vm vm, wo_handle_t val);
 WO_API wo_value     wo_push_pointer(wo_vm vm, wo_ptr_t val);
 WO_API wo_value     wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
-WO_API wo_value     wo_push_nil(wo_vm vm);
+WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_ref(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_valref(wo_vm vm, wo_value val);
