@@ -3118,6 +3118,23 @@ namespace wo
             {
                 analyze_pass2(a_match->match_value);
                 analyze_pass2(a_match->cases);
+
+                // Must walk all possiable case, and no repeat case!
+                std::set<std::wstring> case_names;
+                auto* cases = a_match->cases->children;
+                while (cases)
+                {
+                    auto* case_ast = dynamic_cast<ast_match_optional_case*>(cases);
+                    wo_assert(case_ast);
+
+                    if (case_names.end() != case_names.find(case_ast->optional_pattern->optional_expr->var_name))
+                        lang_anylizer->lang_error(0x0000, case_ast->optional_pattern->optional_expr, L"match中不能有重复的case，继续");
+                    else
+                        case_names.insert(case_ast->optional_pattern->optional_expr->var_name);
+                    cases = cases->sibling;
+                }
+                if (case_names.size() < a_match->match_value->value_type->struct_member_index.size())
+                    lang_anylizer->lang_error(0x0000, a_match, L"match必须穷尽所有可能的取值，继续");
             }
             else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
             {
@@ -3127,33 +3144,41 @@ namespace wo
                 {
                     if (a_match_optional_case->in_match->match_value->value_type->is_pending())
                         lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
-
-                    if (!a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
+                    else
                     {
-                        a_pattern_optional_value->optional_expr->template_reification_args = a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments;
-                        a_pattern_optional_value->optional_expr->symbol = find_value_in_this_scope(a_pattern_optional_value->optional_expr);
-
-                        if (a_pattern_optional_value->optional_expr->symbol->type == lang_symbol::symbol_type::variable)
-                            a_pattern_optional_value->optional_expr->symbol = analyze_pass_template_reification(a_pattern_optional_value->optional_expr, a_pattern_optional_value->optional_expr->template_reification_args);
-                        else
+                        if (!a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
                         {
-                            if (a_pattern_optional_value->optional_expr->symbol->function_overload_sets.size() == 1)
-                            {
-                                auto final_function = a_pattern_optional_value->optional_expr->symbol->function_overload_sets.front();
+                            a_pattern_optional_value->optional_expr->template_reification_args = a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments;
+                            a_pattern_optional_value->optional_expr->symbol = find_value_in_this_scope(a_pattern_optional_value->optional_expr);
 
-                                auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
-                                    a_pattern_optional_value->optional_expr->template_reification_args);
-                                if (dumped_func)
-                                    a_pattern_optional_value->optional_expr->symbol = dumped_func->this_reification_lang_symbol;
+                            if (a_pattern_optional_value->optional_expr->symbol)
+                            {
+                                if (a_pattern_optional_value->optional_expr->symbol->type == lang_symbol::symbol_type::variable)
+                                    a_pattern_optional_value->optional_expr->symbol = analyze_pass_template_reification(a_pattern_optional_value->optional_expr, a_pattern_optional_value->optional_expr->template_reification_args);
                                 else
-                                    lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                {
+                                    if (a_pattern_optional_value->optional_expr->symbol->function_overload_sets.size() == 1)
+                                    {
+                                        auto final_function = a_pattern_optional_value->optional_expr->symbol->function_overload_sets.front();
+
+                                        auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
+                                            a_pattern_optional_value->optional_expr->template_reification_args);
+                                        if (dumped_func)
+                                            a_pattern_optional_value->optional_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                }
                             }
                             else
-                                lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                ;
+                            /* Donot give error here, it will be given in following 'analyze_pass2' */
+                            //lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_optional_value->optional_expr->var_name.c_str());
                         }
+                        analyze_pass2(a_pattern_optional_value->optional_expr);
                     }
-                    analyze_pass2(a_pattern_optional_value->optional_expr);
-
                     if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
                     {
                         if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))

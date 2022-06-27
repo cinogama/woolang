@@ -195,12 +195,12 @@ namespace wo
                     return true;
                 }
 
-
-                if (from->is_pending() || to->is_pending())
-                    return false;
-
                 if (from->is_same(to, force))
                     return true;
+
+                // Forbid 'nil' cast to any other value
+                if (from->is_pending() || to->is_pending() || from->is_nil())
+                    return false;
 
                 if (from->is_same(to))
                 {

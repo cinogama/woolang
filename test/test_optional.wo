@@ -5,12 +5,6 @@ namespace test_optional
 {
     var global_val<T> = []: array<T>;
 
-    optional option<T>
-    {
-        value(T),
-        none,
-    }
-
     func foo()
     {
         test_assure(global_val:<int>->len() == 0);
@@ -39,6 +33,39 @@ namespace test_optional
 
         var gval = option::none:<array<string>>;
         gval = option::value([]: array<string>);
+
+        match(gval)
+        {
+            option::value(x)?
+            {
+                x as array<string>;
+                x->add("Helloworld");
+                x[0] as string;
+                test_assure(x->len() == 1);
+            }
+            option::none?
+                std::panic("Here should not be 'none'.");
+        }
+
+        var a = option::value("Hello");
+        var b = a->map(func(var v: string){return v + "world"});
+        match(b)
+        {
+            option::value(x)?
+                test_assure(x == "Helloworld");
+            option::none?
+                std::panic("Here should not be 'none'.");
+        }
+        var c = option::none:<string>;
+        var d = c->map(func(var x: string){std::panic("That's should not been exec.");
+                                       return "That's should not been exec."});
+        match(d)
+        {
+            option::value(x)?
+                std::panic("Here should not be 'value'.");
+            option::none?
+                ;/* ok do nothing */
+        }
     }
 }
 

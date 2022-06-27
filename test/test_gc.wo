@@ -31,7 +31,7 @@ namespace test_gc
 
                 test_assure(arr_a[0][0] == 12345678);
         }
-        global_list = nil;
+        global_list = [];
     }
 }
 
