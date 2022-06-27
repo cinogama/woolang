@@ -520,7 +520,8 @@ namespace wo
                 if (is_pending_function() || another->is_pending_function())
                     return false;
 
-                wo_test(!is_pending() && !another->is_pending());
+                if (is_pending() || another->is_pending())
+                    return false;
 
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
