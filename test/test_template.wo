@@ -284,7 +284,7 @@ namespace test_template
         test_equal(is_same:<MyTemplate<int>, int>(), false);
 
         test_equal(fib:<int>, fib:<int>);
-        test_assure(fib:<int> != fib:<real>);
+        test_assure(fib:<int>: dynamic != fib:<real>: dynamic);
 
         test_assure(fib:<int> is int(int));
         test_assure(fib:<real> is real(real));
