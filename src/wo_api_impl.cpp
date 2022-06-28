@@ -1015,7 +1015,9 @@ wo_result_t wo_ret_handle(wo_vm vm, wo_handle_t result)
 }
 wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_handle((wo_handle_t)result));
+    if(result)
+        return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_handle((wo_handle_t)result));
+    return wo_ret_halt(vm, "Cannot return a nullptr");
 }
 wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
@@ -1096,6 +1098,24 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm)
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
 
     structptr->m_values[0].set_integer(2);
+    return 0;
+}
+
+wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+
+    if (ptr)
+    {
+        structptr->m_values[0].set_integer(1);
+        structptr->m_values[1].set_handle((wo_handle_t)ptr);
+    }
+    else
+        structptr->m_values[0].set_integer(2);
+
     return 0;
 }
 

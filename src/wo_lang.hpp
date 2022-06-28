@@ -4268,6 +4268,24 @@ namespace wo
                     && !a_value_logical_binary->left->value_type->is_dynamic())
                     optype = a_value_logical_binary->left->value_type->value_type;
 
+                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type))
+                {
+                    if (!a_value_logical_binary->left->value_type->is_dynamic() &&
+                        !a_value_logical_binary->right->value_type->is_dynamic())
+                    {
+                        if (!((a_value_logical_binary->left->value_type->is_integer() ||
+                            a_value_logical_binary->left->value_type->is_real()) &&
+                            (a_value_logical_binary->right->value_type->is_integer() ||
+                                a_value_logical_binary->right->value_type->is_real())))
+                            lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                    }
+                }
+                if (a_value_logical_binary->left->value_type->is_optional()
+                    || a_value_logical_binary->right->value_type->is_optional())
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_logical_binary, L"不可以使用逻辑运算符比较optional类型的值，继续");
+                }
+
                 size_t revert_pos = compiler->get_now_ip();
 
                 auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
