@@ -145,7 +145,7 @@ WO_API wo_result_t  wo_ret_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
-#define wo_ret_void(vmm) (0);
+#define wo_ret_void(vmm) (0)
 WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_ref(wo_vm vm, wo_value result);
