@@ -70,7 +70,7 @@
 
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"不允许向常量赋值"
 
-#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"运算符左右两边的值类型不匹配，无法计算"
+#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"运算符左右两边的值类型（%ls和%ls）不兼容，无法计算"
 
 #define WO_ERR_CANNOT_INDEX_STR_WITH_TYPE L"不能使用 '%ls' 类型的值索引字符串"
 
@@ -230,7 +230,7 @@
 
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"Can not assign to a constant."
 
-#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"The value types on the left and right are incompatible."
+#define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"The value types on the left and right (%ls and %ls) are incompatible."
 
 #define WO_ERR_CANNOT_INDEX_STR_WITH_TYPE L"Can not index string with '%ls'."
 

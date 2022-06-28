@@ -1753,7 +1753,9 @@ namespace wo
                     }
                     break;
                     default:
-                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            left->value_type->get_type_name(false).c_str(),
+                            right->value_type->get_type_name(false).c_str());
                         return;
                     }
                 }
@@ -2472,7 +2474,9 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_real())
                         {
@@ -2481,14 +2485,18 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_string())
                         {
                             if (right->value_type->is_string())
                                 constant_value.set_integer(*left->get_constant_value().string == *right->get_constant_value().string);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else
                             constant_value.set_integer(left->get_constant_value().handle == right->get_constant_value().handle);
@@ -2506,7 +2514,9 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_real())
                         {
@@ -2515,24 +2525,32 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_string())
                         {
                             if (right->value_type->is_string())
                                 constant_value.set_integer(*left->get_constant_value().string < *right->get_constant_value().string);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_handle())
                         {
                             if (right->value_type->is_handle())
                                 constant_value.set_integer(left->get_constant_value().handle < right->get_constant_value().handle);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else
-                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                left->value_type->get_type_name(false).c_str(),
+                                right->value_type->get_type_name(false).c_str());
 
 
                         if (operate == +lex_type::l_larg_or_equal)
@@ -2549,7 +2567,9 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_real())
                         {
@@ -2558,24 +2578,32 @@ namespace wo
                             else if (right->value_type->is_real())
                                 constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_string())
                         {
                             if (right->value_type->is_string())
                                 constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else if (left->value_type->is_handle())
                         {
                             if (right->value_type->is_handle())
                                 constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
                             else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    left->value_type->get_type_name(false).c_str(),
+                                    right->value_type->get_type_name(false).c_str());
                         }
                         else
-                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                left->value_type->get_type_name(false).c_str(),
+                                right->value_type->get_type_name(false).c_str());
 
 
                         if (operate == +lex_type::l_less_or_equal)

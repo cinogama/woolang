@@ -2662,7 +2662,9 @@ namespace wo
 
                         if (nullptr == a_value_bin->value_type)
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R, 
+                                a_value_bin->left->value_type->get_type_name(false).c_str(), 
+                                a_value_bin->right->value_type->get_type_name(false).c_str());
                             a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
                         }
                     }
@@ -3721,7 +3723,9 @@ namespace wo
                         case wo::value::valuetype::mapping_type:
                             compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_binary->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3740,7 +3744,9 @@ namespace wo
                         case wo::value::valuetype::handle_type:
                             compiler->subh(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_binary->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3757,7 +3763,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->mulr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_binary->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3774,7 +3782,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->divr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_binary->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3791,7 +3801,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->modr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_binary->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3875,7 +3887,9 @@ namespace wo
                         case wo::value::valuetype::mapping_type:
                             compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3895,7 +3909,9 @@ namespace wo
                         case wo::value::valuetype::handle_type:
                             compiler->subh(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3913,7 +3929,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->mulr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3931,7 +3949,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->divr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -3949,7 +3969,9 @@ namespace wo
                         case wo::value::valuetype::real_type:
                             compiler->modr(beoped_left_opnum, op_right_opnum); break;
                         default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
                             break;
                         }
                     }
@@ -4277,7 +4299,9 @@ namespace wo
                             a_value_logical_binary->left->value_type->is_real()) &&
                             (a_value_logical_binary->right->value_type->is_integer() ||
                                 a_value_logical_binary->right->value_type->is_real())))
-                            lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                            lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_logical_binary->left->value_type->get_type_name(false).c_str(),
+                                a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                     }
                 }
                 if (a_value_logical_binary->left->value_type->is_optional()

@@ -2183,13 +2183,6 @@ namespace wo
                             case value::valuetype::array_type:
                             case value::valuetype::mapping_type:
                             case value::valuetype::gchandle_type:
-                                if (opnum2->type == value::valuetype::invalid)
-                                {
-                                    wo_assert(opnum2->handle == 0);
-
-                                    opnum1->set_nil();
-                                    break;
-                                }
                                 /* fall through~~~ */
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
@@ -2255,26 +2248,19 @@ namespace wo
                                 opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
 
                             case value::valuetype::array_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else if (opnum2->type == value::valuetype::string_type)
+                                if (opnum2->type == value::valuetype::string_type)
                                     wo_cast_value_from_str(reinterpret_cast<wo_value>(opnum1), opnum2->string->c_str(), wo_type::WO_ARRAY_TYPE);
                                 else
                                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else if (opnum2->type == value::valuetype::string_type)
+                                if (opnum2->type == value::valuetype::string_type)
                                     wo_cast_value_from_str(reinterpret_cast<wo_value>(opnum1), opnum2->string->c_str(), wo_type::WO_MAPPING_TYPE);
                                 else
                                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                                 break;
                             default:
                                 wo_error("Unknown type.");
@@ -2339,26 +2325,19 @@ namespace wo
                                 opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
 
                             case value::valuetype::array_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else if (opnum2->type == value::valuetype::string_type)
+                                if (opnum2->type == value::valuetype::string_type)
                                     wo_cast_value_from_str(reinterpret_cast<wo_value>(opnum1), opnum2->string->c_str(), wo_type::WO_ARRAY_TYPE);
                                 else
                                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
                             case value::valuetype::mapping_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else if (opnum2->type == value::valuetype::string_type)
+                                if (opnum2->type == value::valuetype::string_type)
                                     wo_cast_value_from_str(reinterpret_cast<wo_value>(opnum1), opnum2->string->c_str(), wo_type::WO_MAPPING_TYPE);
                                 else
                                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
-                                if (opnum2->is_nil())
-                                    opnum1->set_nil();
-                                else
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                                 break;
                             default:
                                 wo_error("Unknown type.");
