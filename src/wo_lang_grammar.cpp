@@ -978,15 +978,11 @@ namespace wo
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
-                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"),
-                    gm::te(gm::ttype::l_struct),
-                    gm::te(gm::ttype::l_identifier),
-                    gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"TYPE") >> gm::symlist{gm::te(gm::ttype::l_struct),
                     gm::te(gm::ttype::l_left_curly_braces),
                     gm::nt(L"STRUCT_MEMBER_DEFINES"),
                     gm::te(gm::ttype::l_right_curly_braces), }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_type_define),
 
                 gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_LIST"),  gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -998,7 +994,7 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
                 gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"TYPE_DECLEAR") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
 
                 ////////////////////////////////////////////////////////
 
