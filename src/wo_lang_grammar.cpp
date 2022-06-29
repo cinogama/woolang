@@ -978,6 +978,56 @@ namespace wo
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"),
+                    gm::te(gm::ttype::l_struct),
+                    gm::te(gm::ttype::l_identifier),
+                    gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                    gm::te(gm::ttype::l_left_curly_braces),
+                    gm::nt(L"STRUCT_MEMBER_DEFINES"),
+                    gm::te(gm::ttype::l_right_curly_braces), }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+
+                gm::nt(L"STRUCT_MEMBER_DEFINES") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_LIST"),  gm::nt(L"COMMA_MAY_EMPTY") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBER_PAIR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"STRUCT_MEMBERS_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_PAIR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"TYPE_DECLEAR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                ////////////////////////////////////////////////////////
+
+                gm::nt(L"UNIT") >> gm::symlist{gm::nt(L"STRUCT_TYPE"), // Here we use Callable left stand for type. so we cannot support x here...
+                    gm::te(gm::ttype::l_left_curly_braces),
+                    gm::nt(L"STRUCT_MEMBER_INITS"),
+                    gm::te(gm::ttype::l_right_curly_braces), }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"STRUCT_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template), // We should parse LEFT to type here. it's very easy!
+
+                gm::nt(L"STRUCT_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"STRUCT_MEMBER_INITS") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_INIT_LIST"),  gm::nt(L"COMMA_MAY_EMPTY")  }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"STRUCT_MEMBERS_INIT_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBER_INIT_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"STRUCT_MEMBERS_INIT_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_INIT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_INIT_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                //////////////////////////////////////////////////////////////////////////////////////
+
                 gm::nt(L"USELESS_TOKEN") >> gm::symlist{ gm::te(gm::ttype::l_double_index_point)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 }
