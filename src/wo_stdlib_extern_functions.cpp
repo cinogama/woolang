@@ -409,7 +409,7 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
 
         split_begin = fnd_place + matchlen;
     }
-    return wo_ret_void(vm);
+    return wo_ret_val(vm, arr);
 }
 
 WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
@@ -834,6 +834,13 @@ namespace std
             return a;
         return b;
     }
+
+    func swap<T>(ref a: T, ref b: T)
+    {
+        var t = b;
+        b = a;
+        a = t;
+    }
 }
 
 namespace string
@@ -895,14 +902,12 @@ namespace string
     extern("rslib_std_string_trim")
         func trim(var val:string):string;
 
-    extern("rslib_std_string_split")
-        private func _split(var val:string, var spliter:string, var out_result:array<string>):void;
-
     func split(var val:string, var spliter:string)
     {
-        var arr = []:array<string>;
-        _split(val, spliter, arr);
-        return arr;
+        extern("rslib_std_string_split")
+            private func _split(var val:string, var spliter:string, var out_result:array<string>):array<string>;
+
+        return _split(val, spliter, []:array<string>);
     }
 }
 
