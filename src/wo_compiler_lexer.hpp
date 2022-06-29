@@ -116,7 +116,8 @@ namespace wo
 
         l_expect,
         l_optional,
-        l_match
+        l_match,
+        l_struct
     );
 
     class lexer;
@@ -248,6 +249,7 @@ namespace wo
             {L"expect", {lex_type::l_expect}},
             {L"optional", {lex_type::l_optional}},
             {L"match", {lex_type::l_match}},
+            {L"struct", {lex_type::l_struct}}
         };
 
 

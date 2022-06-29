@@ -2904,7 +2904,12 @@ namespace wo
                         wo_assert(0 != size);
 
                         opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-                        struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+                        struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+
+                        for (size_t i = 0; i < size; i++)
+                            new_struct->m_values[i].set_trans(rt_sp + 1 + i);
+
+                        rt_sp += size;
 
                         break;
                     }

@@ -702,6 +702,7 @@ namespace wo
                                 if (!fnd->second.init_value_may_nil->value_type->is_pending())
                                 {
                                     a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                    a_value_idx->struct_offset = fnd->second.offset;
                                 }
                             }
                         }
@@ -1326,6 +1327,14 @@ namespace wo
 
                 end_scope();
             }
+            else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
+            {
+                analyze_pass1(a_value_make_struct_instance->struct_member_vals);
+            }
+            else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
+            {
+                analyze_pass1(a_struct_member_define->member_val_or_type_tkplace);
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -1689,6 +1698,7 @@ namespace wo
                                             if (!fnd->second.init_value_may_nil->value_type->is_pending())
                                             {
                                                 a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                                a_value_idx->struct_offset = fnd->second.offset;
                                             }
                                         }
                                         else
@@ -2552,7 +2562,8 @@ namespace wo
                         if (!a_value_index->from->value_type->is_array()
                             && !a_value_index->from->value_type->is_map()
                             && !a_value_index->from->value_type->is_string()
-                            && !a_value_index->from->value_type->is_dynamic())
+                            && !a_value_index->from->value_type->is_dynamic()
+                            && !a_value_index->from->value_type->is_struct())
                         {
                             lang_anylizer->lang_error(0x0000, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
                                 , a_value_index->from->value_type->get_type_name().c_str());
@@ -2662,8 +2673,8 @@ namespace wo
 
                         if (nullptr == a_value_bin->value_type)
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R, 
-                                a_value_bin->left->value_type->get_type_name(false).c_str(), 
+                            lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_bin->left->value_type->get_type_name(false).c_str(),
                                 a_value_bin->right->value_type->get_type_name(false).c_str());
                             a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
                         }
@@ -2729,9 +2740,7 @@ namespace wo
                                 {
                                     auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], false);
                                     //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
-                                    cast_array_item->col_no = val->col_no;
-                                    cast_array_item->row_no = val->row_no;
-                                    cast_array_item->source_file = val->source_file;
+                                    cast_array_item->copy_source_info(val);
 
                                     analyze_pass2(cast_array_item);
 
@@ -3205,7 +3214,59 @@ namespace wo
 
                 analyze_pass2(a_match_optional_case->in_case_sentence);
             }
+            else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
+            {
+                analyze_pass2(a_value_make_struct_instance->struct_member_vals);
+                // Varify
+                if (!a_value_make_struct_instance->value_type->is_pending())
+                {
+                    if (a_value_make_struct_instance->value_type->is_struct())
+                    {
+                        auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
 
+                        uint16_t member_count = 0;
+                        while (init_mem_val_pair)
+                        {
+                            member_count++;
+                            auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                            wo_assert(membpair);
+                            init_mem_val_pair = init_mem_val_pair->sibling;
+
+                            auto fnd = a_value_make_struct_instance->value_type->struct_member_index.find(membpair->member_name);
+                            if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
+                            {
+                                membpair->member_offset = fnd->second.offset;
+                                if (!membpair->member_val_or_type_tkplace->value_type->is_same(fnd->second.init_value_may_nil->value_type, false))
+                                {
+                                    // Type not same, create a impl-cast here.
+                                    ast_value_type_cast* castval = new ast_value_type_cast(membpair->member_val_or_type_tkplace, fnd->second.init_value_may_nil->value_type, true);
+                                    castval->copy_source_info(membpair->member_val_or_type_tkplace);
+
+                                    analyze_pass2(castval);
+
+                                    membpair->member_val_or_type_tkplace = castval;
+                                }
+                            }
+                            else
+                                lang_anylizer->lang_error(0x0000, membpair, L"%ls中没有成员%ls，继续",
+                                    a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
+                                    membpair->member_name.c_str());
+                        }
+
+                        if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
+                            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"构造结构体%ls时没有提供全部成员的初始值，继续",
+                                a_value_make_struct_instance->value_type->get_type_name(false).c_str());
+                    }
+                    else
+                        lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"只有struct类型可以使用此方法实例化，继续");
+                }
+                else
+                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"不明struct类型，继续");
+            }
+            else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
+            {
+                analyze_pass2(a_struct_member_define->member_val_or_type_tkplace);
+            }
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
             ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
             if (ast_value_symbolable_base* a_value_base = a_value_base_for_attrb;
@@ -4494,29 +4555,54 @@ namespace wo
             }
             else if (auto* a_value_index = dynamic_cast<ast_value_index*>(value))
             {
-                size_t revert_pos = compiler->get_now_ip();
-
-                auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
-                auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
-
-                if (is_cr_reg(*_beoped_left_opnum)
-                    && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
+                if (a_value_index->from->value_type->is_struct())
                 {
-                    complete_using_register(*_beoped_left_opnum);
-                    complete_using_register(*_beoped_left_opnum);
-                    compiler->revert_code_to(revert_pos);
-                    _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
-                    _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+                    wo_assert(a_value_index->struct_offset != 0xFFFF);
+                    auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+
+                    if (!get_pure_value)
+                    {
+                        last_value_stored_to_cr_flag.write_to_cr();
+                        compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
+                    }
+                    else
+                    {
+                        last_value_stored_to_cr_flag.write_to_cr();
+                        compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
+
+                        auto& result = get_useable_register_for_pure_value();
+                        compiler->set(result, reg(reg::cr));
+                        return result;
+                    }
                 }
-                auto& beoped_left_opnum = *_beoped_left_opnum;
-                auto& op_right_opnum = *_op_right_opnum;
+                else
+                {
+                    size_t revert_pos = compiler->get_now_ip();
 
-                last_value_stored_to_cr_flag.write_to_cr();
+                    auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+                    auto* _op_right_opnum = &analyze_value(a_value_index->index, compiler);
 
-                compiler->idx(beoped_left_opnum, op_right_opnum);
+                    if (is_cr_reg(*_beoped_left_opnum)
+                        && (is_cr_reg(*_op_right_opnum) || is_temp_reg(*_op_right_opnum) || _last_value_stored_to_cr))
+                    {
+                        complete_using_register(*_beoped_left_opnum);
+                        complete_using_register(*_beoped_left_opnum);
+                        compiler->revert_code_to(revert_pos);
+                        _op_right_opnum = &analyze_value(a_value_index->index, compiler, true);
+                        _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
+                    }
+                    auto& beoped_left_opnum = *_beoped_left_opnum;
+                    auto& op_right_opnum = *_op_right_opnum;
 
-                complete_using_register(beoped_left_opnum);
-                complete_using_register(op_right_opnum);
+                    last_value_stored_to_cr_flag.write_to_cr();
+
+                    compiler->idx(beoped_left_opnum, op_right_opnum);
+
+                    complete_using_register(beoped_left_opnum);
+                    complete_using_register(op_right_opnum);
+
+                }
+
 
                 if (!get_pure_value)
                     return WO_NEW_OPNUM(reg(reg::cr));
@@ -4526,6 +4612,7 @@ namespace wo
                     compiler->set(result, reg(reg::cr));
                     return result;
                 }
+
             }
             else if (auto* a_value_packed_variadic_args = dynamic_cast<ast_value_packed_variadic_args*>(value))
             {
@@ -4672,6 +4759,32 @@ namespace wo
                     return WO_NEW_OPNUM(reg(reg::ni));
                 else
                     return get_useable_register_for_pure_value();
+            }
+            else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(value))
+            {
+                std::map<uint16_t, ast_value*> memb_values;
+                auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
+                while (init_mem_val_pair)
+                {
+                    auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                    wo_assert(membpair);
+                    init_mem_val_pair = init_mem_val_pair->sibling;
+
+                    memb_values[membpair->member_offset] = membpair->member_val_or_type_tkplace;
+                }
+
+                for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
+                {
+                    if (index->second->is_mark_as_using_ref)
+                        compiler->pshr(analyze_value(index->second, compiler));
+                    else
+                        compiler->psh(analyze_value(index->second, compiler));
+                }
+
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mkstruct(result, (uint16_t)memb_values.size());
+
+                return result;
             }
             else
             {

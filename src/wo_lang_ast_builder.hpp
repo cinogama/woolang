@@ -143,6 +143,8 @@ namespace wo
 
                 // special type
                 {L"optional", value::valuetype::invalid},
+                {L"struct", value::valuetype::invalid},
+
                 {L"void", value::valuetype::invalid},
                 {L"pending", value::valuetype::invalid},
                 {L"dynamic", value::valuetype::invalid},
@@ -573,6 +575,11 @@ namespace wo
                 return !is_func() &&
                     (type_name == L"optional" || (using_type_name && using_type_name->type_name == L"optional"));
             }
+            bool is_struct() const
+            {
+                return !is_func() &&
+                    (type_name == L"struct" || (using_type_name && using_type_name->type_name == L"struct"));
+            }
             bool has_template() const
             {
                 return !template_arguments.empty();
@@ -756,6 +763,17 @@ namespace wo
             void update_constant_value(lexer* lex) override
             {
                 // do nothing..
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+
+                return dumm;
             }
         };
 
@@ -1088,11 +1106,11 @@ namespace wo
                                 else
                                 {
                                     if (implicit)
-                                        lex->lang_error(0x0000, this->value_type, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
+                                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                             ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                             value_type->get_type_name().c_str());
                                     else
-                                        lex->lang_error(0x0000, this->value_type, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                                             ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
                                             value_type->get_type_name().c_str());
 
@@ -2622,6 +2640,8 @@ namespace wo
             ast_value* from = nullptr;
             ast_value* index = nullptr;
 
+            uint16_t struct_offset = 0xFFFF;
+
             ast_value_index()
             {
                 value_type = new ast_type(L"pending");
@@ -2947,7 +2967,6 @@ namespace wo
             }
         };
 
-
         struct ast_using_type_as : virtual public ast_defines
         {
             std::wstring new_type_identifier;
@@ -3261,6 +3280,49 @@ namespace wo
                 WO_REINSTANCE(dumm->cases);
 
                 return dumm;
+            }
+        };
+
+        struct ast_struct_member_define : virtual public grammar::ast_base
+        {
+            std::wstring member_name;
+            ast_value* member_val_or_type_tkplace;
+
+            uint16_t member_offset;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->member_val_or_type_tkplace);
+
+                return dumm;
+            }
+        };
+
+        struct ast_value_make_struct_instance : virtual public ast_value
+        {
+            ast_list* struct_member_vals;
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->struct_member_vals);
+
+                return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING
             }
         };
 
@@ -5314,7 +5376,7 @@ namespace wo
 
                 wo_assert(input.size() == 1 || input.size() == 4);
 
-                result->optional_expr= dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
+                result->optional_expr = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
 
                 if (input.size() == 4)
                     result->pattern_arg_in_optional_may_nil
@@ -5353,6 +5415,77 @@ namespace wo
                 result->match_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                 result->cases = dynamic_cast<ast_list*>(WO_NEED_AST(5));
                 return (ast_basic*)result;
+            }
+        };
+
+        struct pass_struct_member_def : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = new ast_struct_member_define;
+                result->member_name = WO_NEED_TOKEN(0).identifier;
+                if (input.size() == 2)
+                {
+                    // identifier TYPE_DECLEAR
+                    result->member_val_or_type_tkplace = new ast_value_takeplace;//  dynamic_cast<ast_list*>(WO_NEED_AST(5));
+                    result->member_val_or_type_tkplace->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                    wo_assert(result->member_val_or_type_tkplace->value_type);
+                }
+                else
+                {
+                    wo_assert(input.size() == 3);
+                    // identifier = VALUE
+                    result->member_val_or_type_tkplace = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                    wo_assert(result->member_val_or_type_tkplace);
+                }
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_struct_type_define : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(input.size() == 4);
+                // struct{ members }
+                //   0   1     2   3 
+                ast_type* struct_type = new ast_type(L"struct");
+                uint16_t membid = 0;
+                auto* members = WO_NEED_AST(2)->children;
+                while (members)
+                {
+                    auto* member_pair = dynamic_cast<ast_struct_member_define*>(members);
+                    wo_assert(member_pair);
+
+                    struct_type->struct_member_index[member_pair->member_name].init_value_may_nil
+                        = dynamic_cast<ast_value_takeplace*>(member_pair->member_val_or_type_tkplace);
+                    struct_type->struct_member_index[member_pair->member_name].offset
+                        = membid++;
+
+                    wo_assert(struct_type->struct_member_index[member_pair->member_name].init_value_may_nil);
+
+                    members = members->sibling;
+                }
+
+                return (ast_basic*)struct_type;
+            }
+        };
+
+        struct pass_make_struct_instance : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // STRUCT_TYPE { ITEMS }
+
+                wo_assert(input.size() == 4);
+                ast_value_make_struct_instance* value = new ast_value_make_struct_instance;
+                value->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(0));
+                wo_assert(value->value_type);
+
+                value->struct_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+                wo_assert(value->struct_member_vals);
+
+                return (ast_basic*)value;
             }
         };
 
@@ -5499,6 +5632,10 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_optional_pattern>] = _register_builder<pass_optional_pattern>();
             _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
+            _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();
+            _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

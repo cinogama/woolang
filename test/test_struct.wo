@@ -1,0 +1,41 @@
+import woo.std;
+import test_tool;
+
+namespace test_struct
+{
+    using chstruct<T> = struct{
+        a: string,
+        b: T
+    };
+    using mystruct<T> = struct{
+        a: int,
+        b: string,
+        c: real,
+        d: chstruct<string>,
+        e: chstruct<T>
+    };
+    func main()
+    {
+        var x = mystruct:<string>{
+            a = 233,
+            b = "Helloworld",
+            c = 3.14,
+            d = chstruct:<string>{ a = "d", b = "dval" },
+            e = chstruct:<string>{ a = "e", b = "eval" },
+        } ;
+        
+        x as mystruct<string>;
+        
+        test_equal(x.a, 233);
+        test_equal(x.b, "Helloworld");
+        test_equal(x.c, 3.14);
+        test_equal(x.d.a, "d");
+        test_equal(x.d.b, "dval");
+        test_equal(x.e.a, "e");
+        test_equal(x.e.b, "eval");
+        x.d.b = x.e.b;
+        test_equal(x.d.b, "eval");
+    }
+}
+
+test_function("test_struct.main", test_struct::main);
