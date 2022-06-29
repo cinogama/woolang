@@ -3279,7 +3279,7 @@ namespace wo
         struct ast_struct_member_define : virtual public grammar::ast_base
         {
             std::wstring member_name;
-            ast_value_takeplace* member_type_storage;
+            ast_value* member_val_or_type_tkplace;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3289,7 +3289,7 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->member_type_storage);
+                WO_REINSTANCE(dumm->member_val_or_type_tkplace);
 
                 return dumm;
             }
@@ -5391,16 +5391,22 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                // identifier TYPE_DECLEAR
-                wo_assert(input.size() == 2);
-
                 auto* result = new ast_struct_member_define;
                 result->member_name = WO_NEED_TOKEN(0).identifier;
-                result->member_type_storage = new ast_value_takeplace;//  dynamic_cast<ast_list*>(WO_NEED_AST(5));
-                result->member_type_storage->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-
-                wo_assert(result->member_type_storage->value_type);
-
+                if (input.size() == 2)
+                {
+                    // identifier TYPE_DECLEAR
+                    result->member_val_or_type_tkplace = new ast_value_takeplace;//  dynamic_cast<ast_list*>(WO_NEED_AST(5));
+                    result->member_val_or_type_tkplace->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                    wo_assert(result->member_val_or_type_tkplace->value_type);
+                }
+                else
+                {
+                    wo_assert(input.size() == 3);
+                    // identifier = VALUE
+                    result->member_val_or_type_tkplace = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                    wo_assert(result->member_val_or_type_tkplace);
+                }
                 return (ast_basic*)result;
             }
         };
@@ -5421,14 +5427,25 @@ namespace wo
                     wo_assert(member_pair);
 
                     struct_type->struct_member_index[member_pair->member_name].init_value_may_nil
-                        = member_pair->member_type_storage;
+                        = dynamic_cast<ast_value_takeplace*>(member_pair->member_val_or_type_tkplace);
                     struct_type->struct_member_index[member_pair->member_name].offset
                         = membid++;
+
+                    wo_assert(struct_type->struct_member_index[member_pair->member_name].init_value_may_nil);
 
                     members = members->sibling;
                 }
 
                 return (ast_basic*)struct_type;
+            }
+        };
+
+        struct pass_make_struct_instance : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_error("NOT COMPLETE!");
+                return 0;
             }
         };
 
@@ -5578,6 +5595,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();
+            _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

@@ -1002,7 +1002,7 @@ namespace wo
                     gm::te(gm::ttype::l_left_curly_braces),
                     gm::nt(L"STRUCT_MEMBER_INITS"),
                     gm::te(gm::ttype::l_right_curly_braces), }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_make_struct_instance),
 
                 gm::nt(L"STRUCT_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_LEFT_TEMPLATE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template), // We should parse LEFT to type here. it's very easy!
@@ -1020,7 +1020,7 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
                 gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"RIGHT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
