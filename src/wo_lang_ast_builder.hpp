@@ -1563,7 +1563,6 @@ namespace wo
                 if (left_v->is_same(right_v, false))
                 {
                     ast_type* type = new ast_type(L"pending");
-                    type->copy_source_info(left_v);
                     type->set_type(left_v);
                     return type;
                 }
