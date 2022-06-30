@@ -117,60 +117,6 @@ namespace wo
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
-                        gm::te(gm::ttype::l_using),
-                        gm::te(gm::ttype::l_identifier),
-                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                        gm::nt(L"MATCH_NAMEING_MAY_EMPTY"),
-                        gm::nt(L"CLASS_DEFINE_BODY")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_class_define),
-
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
-                        gm::te(gm::ttype::l_naming),
-                        gm::te(gm::ttype::l_identifier),
-                        gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                        gm::nt(L"MATCH_NAMEING_MAY_EMPTY"),
-                        gm::nt(L"CLASS_DEFINE_BODY")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_class_define),
-
-                gm::nt(L"CLASS_DEFINE_BODY") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
-                                gm::nt(L"CLASS_DEFINE_ITEMS"),
-                                gm::te(gm::ttype::l_right_curly_braces)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
-
-                gm::nt(L"CLASS_DEFINE_BODY") >> gm::symlist{gm::te(gm::ttype::l_left_curly_braces),
-                                gm::te(gm::ttype::l_right_curly_braces)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
-                gm::nt(L"CLASS_DEFINE_ITEMS") >> gm::symlist{gm::nt(L"CLASS_DEFINE_ITEM")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-
-                gm::nt(L"CLASS_DEFINE_ITEMS") >> gm::symlist{gm::nt(L"CLASS_DEFINE_ITEMS")
-                                ,gm::nt(L"CLASS_DEFINE_ITEM")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
-
-                gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::nt(L"VAR_REF_DEFINE"), gm::te(gm::ttype::l_semicolon)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::nt(L"FUNC_DEFINE_WITH_NAME"), gm::nt(L"SEMICOLON_MAY_EMPTY")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"CLASS_DEFINE_ITEM") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
-                gm::nt(L"MATCH_NAMEING_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"MATCH_NAMEING_LIST")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
-
-                gm::nt(L"MATCH_NAMEING_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
-                gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"TYPE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-
-                gm::nt(L"MATCH_NAMEING_LIST") >> gm::symlist{ gm::nt(L"MATCH_NAMEING_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-                //////////////////////////////////////////////////////////////////////////////////////
-
                 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
 

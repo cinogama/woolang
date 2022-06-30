@@ -26,6 +26,13 @@ namespace test_basic
         test_equal(a%7, 1);
         test_equal(a%8, 7);
 
+        a += 1.75;
+        test_equal(a, 16);
+        a -= 0.75;
+        test_equal(a, 16);
+        a -= 1;
+        test_equal(a, 15);
+
         test_assure(abs(1.2 * 5 - 6.0) < 0.0000000001);
         test_assure(abs(1.2 / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(1.2 % 0.6) < 0.0000000001);
@@ -34,6 +41,8 @@ namespace test_basic
         test_assure(abs(x * 5 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
+        x += 1;
+        test_assure(abs(x - 2.2) < 0.0000000001);
 
         var b = 15:dynamic;
         var h1 = 1230H :dynamic;

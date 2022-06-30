@@ -4,17 +4,18 @@ import test_tool;
 
 namespace test_template
 {
-    using wraped_iterator<IType, EType>
+    using wraped_iterator<IType, EType> = struct {
+        iter : IType<EType>,
+        pred : dynamic,
+    };
+    namespace wraped_iterator
     {
-        var iter = std::debug::__empty_function:<IType<EType>>();
-        var pred = nil:dynamic;
-
         func create<IType, EType, PredType>(var iter:IType<EType>, var pred:PredType)
         {
-            var self = new:<IType, EType>();
-            self.iter = iter;
-            self.pred = pred;
-            return self;
+            return wraped_iterator:<IType, EType>{
+                iter = iter,
+                pred = pred,
+            };
         }
 
         func iter<WIType>(var self:WIType)
@@ -249,9 +250,17 @@ namespace test_template
         return x+1;
     }
 
-    using mtest<T>
+    using mtest<T> = struct {
+        c : typeof(for_m_test_foo:<T>(0)),
+    };
+    namespace mtest
     {
-        var c = for_m_test_foo:<T>(16);
+        func create<T>()
+        {
+            return mtest:<T>{
+                c = for_m_test_foo:<T>(16)
+            };
+        }
     }
 
     func main()
