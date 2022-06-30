@@ -2746,7 +2746,7 @@ namespace wo
                             {
                                 if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
                                 {
-                                    auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], false);
+                                    auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], true);
                                     //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
                                     cast_array_item->copy_source_info(val);
 
@@ -2800,7 +2800,7 @@ namespace wo
                                 {
                                     if (!pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
                                     {
-                                        auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], false);
+                                        auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], true);
                                         //pass_type_cast::do_cast(*lang_anylizer, );
                                         cast_key_item->col_no = pairs->key->col_no;
                                         cast_key_item->row_no = pairs->key->row_no;
@@ -2814,7 +2814,7 @@ namespace wo
                                     }
                                     if (!pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
                                     {
-                                        auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], false);
+                                        auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], true);
                                         //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
                                         cast_val_item->col_no = pairs->key->col_no;
                                         cast_val_item->row_no = pairs->key->row_no;
