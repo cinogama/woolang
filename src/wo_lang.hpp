@@ -3915,12 +3915,8 @@ namespace wo
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
                     else if (a_value_assign->left->value_type->is_bool())
                         compiler->lmov(beoped_left_opnum, op_right_opnum);
-                    else if (optype == value::valuetype::invalid &&
-                        !a_value_assign->left->value_type->is_dynamic()
-                        && !a_value_assign->left->value_type->is_func()
-                        && !a_value_assign->right->value_type->is_func()
-                        && !a_value_assign->left->value_type->is_optional()
-                        && !a_value_assign->right->value_type->is_optional())
+                    else if (!a_value_assign->left->value_type->is_same(a_value_assign->right->value_type) &&
+                        !a_value_assign->left->value_type->is_dynamic())
                     {
                         compiler->movx(beoped_left_opnum, op_right_opnum);
                     }
