@@ -5281,7 +5281,7 @@ namespace wo
                     {
                         if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
                         {
-                            auto& valreg = get_useable_register_for_pure_value();
+                            auto& valreg = get_useable_register_for_ref_value();
                             compiler->idstruct(valreg, reg(reg::ths), 1);
 
                             compiler->mov(get_opnum_by_symbol(a_pattern_identifier, a_pattern_identifier->symbol, compiler, false), valreg);
