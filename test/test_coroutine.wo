@@ -12,7 +12,7 @@ namespace test_coroutine
 		var co1 = co(func(){
 			for(var i = 0;i < 3;i += 1)
 			{
-				co::sleep(1);
+				co::sleep(1.);
 				println("Helloworld");
 			}
 		});
@@ -24,11 +24,11 @@ namespace test_coroutine
 
 		},co1);
 
-		sleep(4);
+		sleep(4.);
 		co1->abort();
 
 		while(!co2->completed())
-			sleep(1);
+			sleep(1.);
 	}
 	func finish_co()
 	{
@@ -39,13 +39,13 @@ namespace test_coroutine
 			co_list->add(std::co(func(){
 				for(var i = 0;i < 3;i += 1)
 				{
-					std::co::sleep(1);
+					std::co::sleep(1.);
 				}
 			}));
 		}
 		for(var co : co_list)
 			while(!co->completed())
-				std::sleep(1);
+				std::sleep(1.);
 
 		co_list->clear();
 
@@ -60,7 +60,7 @@ namespace test_coroutine
 		for(var co : co_list)
 		{
 			while(!co->completed())
-				std::sleep(1);
+				std::sleep(1.);
 		}
 	}
 
@@ -102,7 +102,7 @@ namespace test_coroutine
 
 		vm->run();
 		std::println("vm over!");
-		std::sleep(3);
+		std::sleep(3.);
 		std::println("close vm!");
 		vm->close();
 

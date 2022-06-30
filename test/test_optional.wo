@@ -16,7 +16,7 @@ namespace test_optional
     {
         var p<T> = 0: T;
 
-        p:<real> = 128; 
+        p:<real> = 128.0; 
         test_assure(p:<int> == 0);
 
         p:<int> += 5;

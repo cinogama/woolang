@@ -199,11 +199,11 @@ namespace wo
                     return true;
                 }
 
-                if (from->is_same(to, force))
+                if (from->is_same(to, false))
                     return true;
 
                 // Forbid 'nil' cast to any other value
-                if (from->is_pending() || to->is_pending() || from->is_nil())
+                if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                     return false;
 
                 if (from->is_same(to))
@@ -212,20 +212,6 @@ namespace wo
                     if (from->using_type_name && !to->using_type_name)
                         return true;
                 }
-
-                if (from->is_nil())
-                {
-                    if (to->value_type == value::valuetype::array_type
-                        || to->value_type == value::valuetype::mapping_type
-                        || to->value_type == value::valuetype::gchandle_type
-                        || to->is_func()
-                        || to->is_nil())
-                        return true;
-                    return false;
-                }
-
-                if (to->is_nil())
-                    return false;
 
                 if (from->is_func() || to->is_func())
                     return false;
@@ -258,35 +244,6 @@ namespace wo
                             return true;
                     }
                 }
-                else
-                {
-                    if ((to->value_type == value::valuetype::integer_type && from->value_type == value::valuetype::real_type)
-                        || (to->value_type == value::valuetype::real_type && from->value_type == value::valuetype::integer_type))
-                    {
-                        return true;
-                    }
-                }
-
-                if (from->is_array() && to->is_array())
-                    if (to->template_arguments[0]->is_dynamic())
-                        return true;
-
-                if (from->is_map() && to->is_map())
-                {
-                    if (to->template_arguments[0]->is_dynamic())
-                    {
-                        if (to->template_arguments[1]->is_dynamic()
-                            || to->template_arguments[1]->is_same(from->template_arguments[1], false))
-                            return true;
-
-                    }
-                    else if (to->template_arguments[1]->is_dynamic())
-                    {
-                        if (to->template_arguments[0]->is_same(from->template_arguments[0], false))
-                            return true;
-                    }
-                }
-
                 return false;
             }
 
@@ -1603,76 +1560,14 @@ namespace wo
                 auto left_t = left_v->value_type;
                 auto right_t = right_v->value_type;
 
-                switch (left_t)
+                if (left_v->is_same(right_v, false))
                 {
-                case value::valuetype::integer_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"int");
-                        break;
-                    case value::valuetype::real_type:
-                        return new ast_type(L"real");
-                        break;
-                    case value::valuetype::handle_type:
-                        return new ast_type(L"handle");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
+                    ast_type* type = new ast_type(L"pending");
+                    type->copy_source_info(left_v);
+                    type->set_type(left_v);
+                    return type;
                 }
-                case value::valuetype::real_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"real");
-                        break;
-                    case value::valuetype::real_type:
-                        return new ast_type(L"real");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::handle_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::integer_type:
-                        return new ast_type(L"handle");
-                        break;
-                    case value::valuetype::handle_type:
-                        return new ast_type(L"handle");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                case value::valuetype::string_type:
-                {
-                    switch (right_t)
-                    {
-                    case value::valuetype::string_type:
-                        return new ast_type(L"string");
-                        break;
-                    default:
-                        return nullptr;
-                        break;
-                    }
-                    break;
-                }
-                default:
-                    return nullptr;
-                    break;
-                }
+                return nullptr;
             }
 
             static ast_type* binary_upper_type_with_operator(ast_type* left_v, ast_type* right_v, lex_type op)

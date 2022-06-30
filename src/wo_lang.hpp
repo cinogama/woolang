@@ -759,7 +759,8 @@ namespace wo
                 if (a_value_logic_bin->left->value_type->is_custom()
                     || a_value_logic_bin->left->value_type->using_type_name
                     || a_value_logic_bin->right->value_type->is_custom()
-                    || a_value_logic_bin->right->value_type->using_type_name)
+                    || a_value_logic_bin->right->value_type->using_type_name
+                    || !a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
                     a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"pending");
 
@@ -1109,7 +1110,7 @@ namespace wo
                                         else
                                         {
                                             located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
-                                            lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                            lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                                         }
                                     }
                                 }
@@ -1134,7 +1135,7 @@ namespace wo
                         }
                         else
                         {
-                            if (!located_function_scope->function_node->value_type->is_void())
+                            if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name.c_str());
                         }
                     }
@@ -2712,6 +2713,13 @@ namespace wo
                         }
                         if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
                         {
+                            if (!a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type)
+                                && !(a_value_logic_bin->left->value_type->is_dynamic() 
+                                    || a_value_logic_bin->right->value_type->is_dynamic()))
+                                lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                    a_value_logic_bin->left->value_type->get_type_name(false),
+                                    a_value_logic_bin->right->value_type->get_type_name(false));
+
                             a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
                             fully_update_type(a_value_logic_bin->value_type, false);
                         }
@@ -2866,7 +2874,7 @@ namespace wo
                                     else
                                     {
                                         a_ret->located_function->value_type->set_type_with_name(L"dynamic");
-                                        lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
+                                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                                     }
                                 }
                             }
@@ -2907,7 +2915,7 @@ namespace wo
                     }
                     else
                     {
-                        if (!a_ret->located_function->value_type->is_void())
+                        if (!a_ret->located_function->value_type->get_return_type()->is_void())
                             lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name.c_str());
                     }
                 }

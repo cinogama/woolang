@@ -45,9 +45,9 @@ namespace test_template
     }
     func fib<T>(var n:T)
     {
-        if (n <= 2)
+        if (n <= 2:T)
             return 1:T;
-        return fib:<T>(n-1) + fib:<T>(n-2);
+        return fib:<T>(n-1:T) + fib:<T>(n-2:T);
     }
     func diff_static<T>()
     {
@@ -125,22 +125,6 @@ namespace test_template
     func template_if_constexpr_test<T>()
     {
         if (0:T is real)
-            return 1.25;
-        else
-            return 1;
-    }
-
-    func no_if_constexpr_test_1()
-    {
-        if (1)
-            return 1.25;
-        else
-            return 1;
-    }
-
-    func no_if_constexpr_test_2()
-    {
-        if (0)
             return 1.25;
         else
             return 1;
@@ -320,13 +304,13 @@ namespace test_template
 
         test_equal(no_template_test(), "no_template");
         test_equal(no_template_first_test_1(0), "no_template");
-        test_equal(no_template_first_test_2(0,0), "no_template");
+
+        var tmp_arg = 0: dynamic;
+        test_equal(no_template_first_test_2(0, tmp_arg), "no_template");
         test_equal(no_template_first_test_3(0,233), "no_template");
 
         template_if_constexpr_test:<int>():dynamic as int;
         template_if_constexpr_test:<real>():dynamic as real;
-        no_if_constexpr_test_1():dynamic as real;
-        no_if_constexpr_test_2():dynamic as real;
 
         var mt_int = 0:MyTemplate<int>;
         var mt_real = 0:MyTemplate<real>;

@@ -160,12 +160,13 @@
 
 #define WO_ERR_INVALID_OPERATE L"无效的'%ls'"
 
+#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"函数出现了不同类型的返回值，这是不被允许的"
+
+
 
 #define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
 #define WO_WARN_REPEAT_ATTRIBUTE L"重复出现的属性"
-
-#define WO_WARN_FUNC_WILL_RETURN_DYNAMIC L"函数中返回的类型不兼容, 函数返回类型将被标记为 'dynamic'"
 
 #define WO_WARN_OVERRIDDEN_DYNAMIC_TYPE L"类型 'dynamic' 被覆盖"
 
@@ -320,12 +321,12 @@
 
 #define WO_ERR_INVALID_OPERATE L"Invalid '%ls'."
 
+#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"Different types of return values in function."
+
 
 #define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."
 
 #define WO_WARN_REPEAT_ATTRIBUTE L"Duplicate attribute description."
-
-#define WO_WARN_FUNC_WILL_RETURN_DYNAMIC L"Incompatible with the return type, the return value will be determined to be 'dynamic'."
 
 #define WO_WARN_OVERRIDDEN_DYNAMIC_TYPE L"Overridden 'dynamic' attributes."
 

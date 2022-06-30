@@ -5,7 +5,7 @@ namespace test_basic
 {
     func abs<T>(var v:T)
     {
-        if (v < 0) return -v;
+        if (v < 0:T) return -v;
         return v;
     }
 
@@ -26,45 +26,45 @@ namespace test_basic
         test_equal(a%7, 1);
         test_equal(a%8, 7);
 
-        a += 1.75;
+        a += 1.75: dynamic;
         test_equal(a, 16);
-        a -= 0.75;
+        a -= 0.75: dynamic;
         test_equal(a, 16);
         a -= 1;
         test_equal(a, 15);
 
-        test_assure(abs(1.2 * 5 - 6.0) < 0.0000000001);
+        test_assure(abs(1.2 * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(1.2 / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(1.2 % 0.6) < 0.0000000001);
 
         var x = 1.2;
-        test_assure(abs(x * 5 - 6.0) < 0.0000000001);
+        test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
-        x += 1;
+        x += 1: dynamic;
         test_assure(abs(x - 2.2) < 0.0000000001);
 
         var b = 15:dynamic;
         var h1 = 1230H :dynamic;
         var h2 = 7890H :dynamic;
-        test_equal(a+b, 30);
-        test_equal(h1+h2, 9120H);
-        test_equal(h1+1.0, 1231H);
-        test_equal(h1+5, 1235H);
+        test_equal(a + b, 30);
+        test_equal(h1 + h2, 9120H);
+        test_equal(h1 + 1.0, 1231H);
+        test_equal(h1 + 5, 1235H);
 
         test_equal(h2-h1, 6660H);
         test_equal(h1-1.0, 1229H);
         test_equal(h1-5, 1225H);
 
-        test_assure(abs(a*0.2-3) < 0.0000000001);
-        test_assure(abs(a/0.2-75) < 0.0000000001);
+        test_assure(abs(a * 0.2:dynamic - 3) < 0.0000000001);
+        test_assure(abs(a / 0.2:dynamic - 75) < 0.0000000001);
     
         var p = 1;
         var q = 1.0;
 
-        q = 75;
+        q = 75: dynamic;
         q += 0.62;
-        p = q;
+        p = q: dynamic;
         test_equal(p, 75);
 
         test_equal(q>1.0, true);
@@ -80,11 +80,11 @@ namespace test_basic
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
 
-        q += 1;
-        p += q;
+        q += 1: dynamic;
+        p += q: dynamic;
         test_equal(q:int, 76);
 
-        p -= 151.0;
+        p -= 151.0: dynamic;
         test_equal(p, 0);
 
         test_assure(" "->isspace());

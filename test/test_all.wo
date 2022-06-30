@@ -33,7 +33,7 @@ import test_thread;
 /*                                       */
 std::println("Unit-test begin!");
 
-std::sleep(1);
+std::sleep(1.);
 
 execute_all_test();
 /*                                       */
