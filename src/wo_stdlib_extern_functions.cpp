@@ -1055,10 +1055,17 @@ namespace std
     {
         extern("rslib_std_debug_breakpoint")
             func breakpoint():void;
+
         extern("rslib_std_debug_attach_default_debuggee")
             func attach_debuggee():void;
         extern("rslib_std_debug_disattach_default_debuggee")
             func disattach_debuggee():void;
+
+        func breakdown()
+        {
+            attach_debuggee();
+            breakpoint();
+        }
 
         extern("rslib_std_debug_callstack_trace")
             func callstack(var layer:int) : string;

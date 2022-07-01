@@ -2277,8 +2277,10 @@ namespace wo
                                                 if (cast_arg_type->value_type->is_pending())
                                                 {
                                                     // Type cast failed, failed to call this function!
-                                                    a_value_funccall->value_type->set_type_with_name(L"pending");
+                                                    a_value_funccall->value_type = ast_type::create_type_at(a_value_funccall, L"pending");
+                                                    a_value_funccall->value_type->copy_source_info(a_value_funccall);
                                                     lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                                    break;
                                                 }
                                                 else
                                                 {
@@ -2538,7 +2540,8 @@ namespace wo
                         just_do_simple_type_cast:
                             if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
                             {
-                                a_value_typecast->value_type->set_type_with_name(L"pending");
+                                a_value_typecast->value_type = ast_type::create_type_at(a_value_typecast, L"pending");
+                               
                                 if (a_value_typecast->implicit)
                                     lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                         origin_value->value_type->get_type_name(false).c_str(),
