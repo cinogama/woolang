@@ -3591,6 +3591,12 @@ namespace wo
         {
             using namespace opnum;
 
+            if (!symb)
+            {
+                lang_anylizer->lang_error(0x0000, error_prud, L"找不到符号，继续");
+                return WO_NEW_OPNUM(reg(reg::ni));
+            }
+
             if (symb->is_constexpr)
                 return analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
