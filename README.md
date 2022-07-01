@@ -21,7 +21,7 @@ Woolang 是一门强类型/静态类型脚本语言，内置比较完善的调�
 ```go
 import woo.std;
 
-func main(var foo :void(string))
+func main(var foo: void(string))
 {
         var what = "Helloworld";
         return func()
@@ -30,7 +30,7 @@ func main(var foo :void(string))
                };
 }
 
-var f = main(func(var msg:string)
+var f = main(func(var msg: string)
              {
                  std::println(msg)
              });
@@ -44,7 +44,7 @@ Woolang 内置协程调度器，并向宿主提供一系列关于协程调度的
 import woo.std;
 import woo.co;
 
-func work(var val:int)
+func work(var val: int)
 {
     std::println(F"I'm work: {val}");
 }
@@ -60,32 +60,30 @@ using gameObject = gchandle;
 namespace gameObject
 {
     extern("libgameengine", "destroy_gameobject")
-    func destroy(var self:gameObject):void;
+    func destroy(var self: gameObject): void;
 }
 
 // ...
 var obj = foo_return_gameObject();
 obj->destroy();
 // ...
-using vector2
+using vector2 = struct {
+    x: real,
+    y: real,
+}
+namespace vector2
 {
-    var x = .0;
-    var y = .0;
-    func create() {return new();}
-    func create(var x:real, var y:real)
+    func operator + (var a: vector2, var b: vector2)
     {
-        var self = new();
-        self.x = x; self.y = y;
-        return self;
+        return vector2{
+            x = a.x + b.x,
+            y = a.y + b.y,
+        }
     }
+}
 
-    func operator + (var a:vector2, var b:vector2)
-    {
-        return create(a.x+b.x, a.y+b.y);
-    }
-};
-var a = vector2(1, 2);
-var b = vector2(3, 4);
+var a = vector2{ x = 1., y = 2. };
+var b = vector2{ x = 3., y = 4. };
 var c = a + b;
 ```
 
