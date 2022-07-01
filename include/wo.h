@@ -310,11 +310,6 @@ WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
 // * HEAVY_FAIL WILL ABORT VIRTUALMACHINE BY DEFAULT
 #define WO_FAIL_HEAVY 0xC000
 
-#define WO_FAIL_TYPE_FAIL 0xC001
-#define WO_FAIL_ACCESS_NIL 0xC001
-#define WO_FAIL_INDEX_FAIL 0xC002
-#define WO_FAIL_CALL_FAIL 0xC003
-
 // Deadly error:
 // This type of error is caused by complex reasons, any default solutions are useless,
 // if continue working, the program may crash
@@ -323,6 +318,10 @@ WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
 #define WO_FAIL_DEADLY 0xD000
 
 #define WO_FAIL_NOT_SUPPORT 0xD001
+#define WO_FAIL_TYPE_FAIL 0xD001
+#define WO_FAIL_ACCESS_NIL 0xD001
+#define WO_FAIL_INDEX_FAIL 0xD002
+#define WO_FAIL_CALL_FAIL 0xD003
 
 // dEADLY 
 

@@ -2274,9 +2274,17 @@ namespace wo
                                                 cast_arg_type->source_file = arg_val->source_file;
                                                 analyze_pass2(cast_arg_type);
 
-                                                cast_arg_type->update_constant_value(lang_anylizer);
-
-                                                a_value_funccall->arguments->add_child(cast_arg_type);
+                                                if (cast_arg_type->value_type->is_pending())
+                                                {
+                                                    // Type cast failed, failed to call this function!
+                                                    a_value_funccall->value_type->set_type_with_name(L"pending");
+                                                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                                }
+                                                else
+                                                {
+                                                    cast_arg_type->update_constant_value(lang_anylizer);
+                                                    a_value_funccall->arguments->add_child(cast_arg_type);
+                                                }
                                             }
                                             else
                                             {
@@ -2530,6 +2538,7 @@ namespace wo
                         just_do_simple_type_cast:
                             if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
                             {
+                                a_value_typecast->value_type->set_type_with_name(L"pending");
                                 if (a_value_typecast->implicit)
                                     lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                         origin_value->value_type->get_type_name(false).c_str(),
