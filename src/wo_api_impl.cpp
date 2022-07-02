@@ -1795,6 +1795,36 @@ wo_value wo_map_get_by_default(wo_value map, wo_value index, wo_value default_va
     return nullptr;
 }
 
+wo_value wo_map_get_or_default(wo_value map, wo_value index, wo_value default_value)
+{
+    auto _map = WO_VAL(map);
+    if (_map->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == wo::value::valuetype::mapping_type)
+    {
+        wo::value* result = nullptr;
+        wo::gcbase::gc_write_guard g1(_map->mapping);
+        do
+        {
+            auto fnd = _map->mapping->find(*WO_VAL(index));
+            if (fnd != _map->mapping->end())
+                result = &fnd->second;
+        } while (false);
+
+        if (!result)
+            return CS_VAL(default_value);
+
+        if (wo::gc::gc_is_marking())
+            _map->mapping->add_memo(result);
+
+        return CS_VAL(result);
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return nullptr;
+}
+
 wo_value wo_map_get(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);

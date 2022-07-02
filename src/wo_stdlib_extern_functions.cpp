@@ -340,7 +340,7 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
 
-    size_t fnd_place = aim.find(match, 0);
+    size_t fnd_place = aim.find(match);
     if (fnd_place > 0 && fnd_place < aim.size())
         return wo_ret_int(vm, (wo_integer_t)fnd_place);
 
@@ -360,6 +360,30 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, -1);
 }
 
+WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string aim = wo_string(args + 0);
+    wo_string_t match = wo_string(args + 1);
+
+    size_t fnd_place = aim.rfind(match);
+    if (fnd_place > 0 && fnd_place < aim.size())
+        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+
+    return wo_ret_int(vm, -1);
+}
+
+WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string aim = wo_string(args + 0);
+    wo_string_t match = wo_string(args + 1);
+    size_t from = (size_t)wo_string(args + 2);
+
+    size_t fnd_place = aim.rfind(match, from);
+    if (fnd_place > from && fnd_place < aim.size())
+        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+
+    return wo_ret_int(vm, -1);
+}
 
 WO_API wo_api rslib_std_string_trim(wo_vm vm, wo_value args, size_t argc)
 {
@@ -560,6 +584,11 @@ WO_API wo_api rslib_std_map_contain(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_map_get_by_default(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_ref(vm, wo_map_get_by_default(args + 0, args + 1, args + 2));
+}
+
+WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_ref(vm, wo_map_get_or_default(args + 0, args + 1, args + 2));
 }
 
 WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
@@ -899,6 +928,12 @@ namespace string
     extern("rslib_std_string_find_from")
         func find(var val:string, var match_aim:string, var from: int): int;
 
+    extern("rslib_std_string_rfind")
+        func rfind(var val:string, var match_aim:string): int;
+
+    extern("rslib_std_string_rfind_from")
+        func rfind(var val:string, var match_aim:string, var from: int): int;
+
     extern("rslib_std_string_trim")
         func trim(var val:string):string;
 
@@ -967,6 +1002,8 @@ namespace map
         func contain<KT, VT>(var m:map<KT, VT>, var index:KT):bool;
     extern("rslib_std_map_get_by_default") 
         func get<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
+    extern("rslib_std_map_get_or_default") 
+        func get_or_default<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
     func dup<KT, VT>(var val:map<KT, VT>)
     {
         const var _dupval = val;

@@ -241,6 +241,7 @@ WO_API void         wo_arr_clear(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
 WO_API wo_value     wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value);
+WO_API wo_value     wo_map_get_or_default(wo_value map, wo_value index, wo_value default_value);
 WO_API wo_value     wo_map_get(wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
