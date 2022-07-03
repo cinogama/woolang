@@ -1239,7 +1239,6 @@ namespace wo
 
     inline void exception_recovery::rollback(vmbase* _vm, bool force_unexpect)
     {
-        _vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
         if (_vm->veh)
         {
             if (!_vm->veh->ip || force_unexpect)
@@ -3362,12 +3361,14 @@ namespace wo
 
                 er->set_string(any_excep.what());
                 wo::exception_recovery::rollback(this, force_unexcept);
+                clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
                 goto VM_SIM_BEGIN;
             }
             catch (const std::exception& any_excep)
             {
                 er->set_string(any_excep.what());
                 wo::exception_recovery::rollback(this);
+                clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
                 goto VM_SIM_BEGIN;
             }
         }
