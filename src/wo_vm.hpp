@@ -924,8 +924,8 @@ namespace wo
                                 tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                                 break;
                             }
-                        case instruct::extern_opcode_page_0::mkopt:
-                            tmpos << "mkopt\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
+                        case instruct::extern_opcode_page_0::mkunion:
+                            tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
                             break;
                         default:
                             tmpos << "??\t";
@@ -3211,7 +3211,7 @@ namespace wo
                                 }
                                 break;
                             }
-                            case instruct::extern_opcode_page_0::mkopt:
+                            case instruct::extern_opcode_page_0::mkunion:
                             {
                                 WO_ADDRESSING_N1_REF; // data
                                 uint16_t id = WO_IPVAL_MOVE_2;

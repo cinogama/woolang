@@ -4,7 +4,7 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0xa369b815b6f5cc7cull
+#define WO_LANG_GRAMMAR_CRC64 0x383217750e7c6525ull
 
 
 namespace wo
@@ -112,14 +112,14 @@ const wchar_t* woolang_id_nonterm_list[117+ 1] = {
     L"DEFINE_TEMPLATE_TYPE_LIST",
     L"DEFINE_TEMPLATE_TYPE",
     L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY",
-    L"DECL_OPTIONAL",
-    L"OPTIONAL_ITEMS",
-    L"OPTIONAL_ITEM_LIST",
-    L"OPTIONAL_ITEM",
+    L"DECL_UNION",
+    L"UNION_ITEMS",
+    L"UNION_ITEM_LIST",
+    L"UNION_ITEM",
     L"MATCH_BLOCK",
     L"MATCH_CASES",
     L"MATCH_CASE",
-    L"PATTERN_OPTIONAL_CASE",
+    L"PATTERN_UNION_CASE",
     L"PATTERN",
     L"STRUCT_MEMBER_DEFINES",
     L"STRUCT_MEMBERS_LIST",
@@ -203,7 +203,7 @@ const lex_type woolang_id_term_list[77+ 1] = {
     lex_type::l_scopeing,
     lex_type::l_direct,
     lex_type::l_template_using_begin,
-    lex_type::l_optional,
+    lex_type::l_union,
     lex_type::l_match,
     lex_type::l_question,
     lex_type::l_struct,
@@ -8813,9 +8813,6 @@ const int woolang_follow_sets[][77 + 1] = {
 { 84,  70, },
 { 88,  12, 68, 25, 11, },
 { 59,  77, 66, 65, 4, 12, 14, 15, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 68, 25, 11, },
-{ 104,  12, 11, },
-{ 102,  11, },
-{ 103,  12, 11, },
 { 22,  30, },
 { 3,  77, 11, },
 { 109,  25, },
@@ -8851,6 +8848,9 @@ const int woolang_follow_sets[][77 + 1] = {
 { 46,  77, 66, 65, 4, 12, 14, 15, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 69, 47, 8, 58, 67, 68, 70, 24, 25, 10, 11, 59, 60, },
 { 44,  77, 66, 65, 4, 12, 14, 15, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 47, 8, 58, 67, 68, 70, 25, 10, 11, 59, 60, },
 { 60,  77, 66, 65, 4, 12, 14, 15, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 68, 25, 11, },
+{ 104,  12, 11, },
+{ 102,  11, },
+{ 103,  12, 11, },
 { 68,  77, 66, 65, 4, 12, 14, 15, 27, 28, 29, 34, 35, 33, 32, 30, 31, 36, 37, 47, 8, 58, 67, 68, 70, 24, 25, 11, 59, 60, },
 { 117,  77, },
 { 35,  77, 4, 12, 11, },

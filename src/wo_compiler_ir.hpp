@@ -1391,11 +1391,11 @@ namespace wo
         }
 
         template<typename OP1T>
-        void ext_mkopt(const OP1T& op1, uint16_t id)
+        void ext_mkunion(const OP1T& op1, uint16_t id)
         {
             auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), nullptr, (int32_t)id);
             codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkopt;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkunion;
         }
 
         template<typename OP1T, typename OP2T>
@@ -2197,9 +2197,9 @@ namespace wo
                                 temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 01));
                             }
                             break;
-                        case instruct::extern_opcode_page_0::mkopt:
+                        case instruct::extern_opcode_page_0::mkunion:
                         {
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mkopt));
+                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mkunion));
                             auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, 2);
                             uint16_t id = (uint16_t)WO_IR.opinteger;

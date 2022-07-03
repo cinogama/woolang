@@ -777,7 +777,7 @@ namespace std
     extern("rslib_std_panic") func panic(var msg:string):void;
 }
 
-optional option<T>
+union option<T>
 {
     value(T),
     none

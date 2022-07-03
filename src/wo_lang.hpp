@@ -1276,10 +1276,10 @@ namespace wo
                 }
             checking_naming_end:;
             }
-            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            else if (ast_union_make_option_ob_to_cr_and_ret* a_union_make_option_ob_to_cr_and_ret = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
             {
-                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
-                    analyze_pass1(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
+                if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass1(a_union_make_option_ob_to_cr_and_ret->argument_may_nil);
             }
             else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
             {
@@ -1298,33 +1298,33 @@ namespace wo
 
                 analyze_pass1(a_match->cases);
             }
-            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
                 begin_scope();
-                wo_assert(a_match_optional_case->in_match);
+                wo_assert(a_match_union_case->in_match);
 
-                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                 {
-                    // Cannot pass a_match_optional_case->optional_pattern by analyze_pass1, we will set template in pass2.
-                    if (!a_pattern_optional_value->optional_expr->search_from_global_namespace)
-                        a_pattern_optional_value->optional_expr->searching_begin_namespace_in_pass2 = now_scope();
+                    // Cannot pass a_match_union_case->union_pattern by analyze_pass1, we will set template in pass2.
+                    if (!a_pattern_union_value->union_expr->search_from_global_namespace)
+                        a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = now_scope();
 
                     // Calc type in pass2, here just define the variable with ast_value_takeplace
-                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                         {
                             a_pattern_identifier->symbol =
                                 define_variable_in_this_scope(a_pattern_identifier->identifier, new ast_value_takeplace, new ast_decl_attribute, template_style::NORMAL);
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
 
-                analyze_pass1(a_match_optional_case->in_case_sentence);
+                analyze_pass1(a_match_union_case->in_case_sentence);
 
                 end_scope();
             }
@@ -3138,10 +3138,10 @@ namespace wo
                     a_check_naming->naming_const->get_type_name(false).c_str());
             checking_naming_end:;
             }
-            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            else if (ast_union_make_option_ob_to_cr_and_ret* a_union_make_option_ob_to_cr_and_ret = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
             {
-                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
-                    analyze_pass2(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil);
+                if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    analyze_pass2(a_union_make_option_ob_to_cr_and_ret->argument_may_nil);
             }
             else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
             {
@@ -3153,85 +3153,85 @@ namespace wo
                 auto* cases = a_match->cases->children;
                 while (cases)
                 {
-                    auto* case_ast = dynamic_cast<ast_match_optional_case*>(cases);
+                    auto* case_ast = dynamic_cast<ast_match_union_case*>(cases);
                     wo_assert(case_ast);
 
-                    if (case_names.end() != case_names.find(case_ast->optional_pattern->optional_expr->var_name))
-                        lang_anylizer->lang_error(0x0000, case_ast->optional_pattern->optional_expr, L"match中不能有重复的case，继续");
+                    if (case_names.end() != case_names.find(case_ast->union_pattern->union_expr->var_name))
+                        lang_anylizer->lang_error(0x0000, case_ast->union_pattern->union_expr, L"match中不能有重复的case，继续");
                     else
-                        case_names.insert(case_ast->optional_pattern->optional_expr->var_name);
+                        case_names.insert(case_ast->union_pattern->union_expr->var_name);
                     cases = cases->sibling;
                 }
                 if (case_names.size() < a_match->match_value->value_type->struct_member_index.size())
                     lang_anylizer->lang_error(0x0000, a_match, L"match必须穷尽所有可能的取值，继续");
             }
-            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
-                wo_assert(a_match_optional_case->in_match);
+                wo_assert(a_match_union_case->in_match);
 
-                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                 {
-                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+                    if (a_match_union_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"match的值类型未决，无法推导，继续");
                     else
                     {
-                        if (!a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
+                        if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
                         {
-                            a_pattern_optional_value->optional_expr->template_reification_args = a_match_optional_case->in_match->match_value->value_type->using_type_name->template_arguments;
-                            a_pattern_optional_value->optional_expr->symbol = find_value_in_this_scope(a_pattern_optional_value->optional_expr);
+                            a_pattern_union_value->union_expr->template_reification_args = a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments;
+                            a_pattern_union_value->union_expr->symbol = find_value_in_this_scope(a_pattern_union_value->union_expr);
 
-                            if (a_pattern_optional_value->optional_expr->symbol)
+                            if (a_pattern_union_value->union_expr->symbol)
                             {
-                                if (a_pattern_optional_value->optional_expr->symbol->type == lang_symbol::symbol_type::variable)
-                                    a_pattern_optional_value->optional_expr->symbol = analyze_pass_template_reification(a_pattern_optional_value->optional_expr, a_pattern_optional_value->optional_expr->template_reification_args);
+                                if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
+                                    a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(a_pattern_union_value->union_expr, a_pattern_union_value->union_expr->template_reification_args);
                                 else
                                 {
-                                    if (a_pattern_optional_value->optional_expr->symbol->function_overload_sets.size() == 1)
+                                    if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
                                     {
-                                        auto final_function = a_pattern_optional_value->optional_expr->symbol->function_overload_sets.front();
+                                        auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
 
                                         auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
-                                            a_pattern_optional_value->optional_expr->template_reification_args);
+                                            a_pattern_union_value->union_expr->template_reification_args);
                                         if (dumped_func)
-                                            a_pattern_optional_value->optional_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                            a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
                                         else
-                                            lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
                                     }
                                     else
-                                        lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
                                 }
                             }
                             else
                                 ;
                             /* Donot give error here, it will be given in following 'analyze_pass2' */
-                            //lang_anylizer->lang_error(0x0000, a_pattern_optional_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_optional_value->optional_expr->var_name.c_str());
+                            //lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
                         }
-                        analyze_pass2(a_pattern_optional_value->optional_expr);
+                        analyze_pass2(a_pattern_union_value->union_expr);
                     }
-                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                         {
-                            if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 1)
-                                lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                            if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
+                                lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
                             else
                             {
-                                a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_optional_value->optional_expr->value_type->argument_types.front());
+                                a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
                             }
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
                     }
                     else
                     {
-                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
-                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
 
-                analyze_pass2(a_match_optional_case->in_case_sentence);
+                analyze_pass2(a_match_union_case->in_case_sentence);
             }
             else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
             {
@@ -4386,10 +4386,10 @@ namespace wo
                                 a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                     }
                 }
-                if (a_value_logical_binary->left->value_type->is_optional()
-                    || a_value_logical_binary->right->value_type->is_optional())
+                if (a_value_logical_binary->left->value_type->is_union()
+                    || a_value_logical_binary->right->value_type->is_union())
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_logical_binary, L"不可以使用逻辑运算符比较optional类型的值，继续");
+                    lang_anylizer->lang_error(0x0000, a_value_logical_binary, L"不可以使用逻辑运算符比较union类型的值，继续");
                 }
 
                 size_t revert_pos = compiler->get_now_ip();
@@ -5251,16 +5251,16 @@ namespace wo
             {
                 // do nothing..
             }
-            else if (ast_optional_make_option_ob_to_cr_and_ret* a_optional_make_option_ob_to_cr_and_ret
-                = dynamic_cast<ast_optional_make_option_ob_to_cr_and_ret*>(ast_node))
+            else if (ast_union_make_option_ob_to_cr_and_ret* a_union_make_option_ob_to_cr_and_ret
+                = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
             {
-                if (a_optional_make_option_ob_to_cr_and_ret->argument_may_nil)
-                    compiler->ext_mkopt(auto_analyze_value(a_optional_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
-                        a_optional_make_option_ob_to_cr_and_ret->id);
+                if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
+                    compiler->ext_mkunion(auto_analyze_value(a_union_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
+                        a_union_make_option_ob_to_cr_and_ret->id);
                 else
-                    compiler->ext_mkopt(reg(reg::ni), a_optional_make_option_ob_to_cr_and_ret->id);
+                    compiler->ext_mkunion(reg(reg::ni), a_union_make_option_ob_to_cr_and_ret->id);
 
-                // TODO: ast_optional_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
+                // TODO: ast_union_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
                 //       need check!
                 compiler->ret();
             }
@@ -5277,30 +5277,30 @@ namespace wo
                 compiler->tag(a_match->match_end_tag_in_final_pass);
 
             }
-            else if (ast_match_optional_case* a_match_optional_case = dynamic_cast<ast_match_optional_case*>(ast_node))
+            else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
-                wo_assert(a_match_optional_case->in_match);
+                wo_assert(a_match_union_case->in_match);
 
                 auto current_case_end = compiler->get_unique_tag_based_command_ip() + "case_end";
 
                 // 0.Check id?
-                if (ast_pattern_optional_value* a_pattern_optional_value = dynamic_cast<ast_pattern_optional_value*>(a_match_optional_case->optional_pattern))
+                if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                 {
-                    if (a_match_optional_case->in_match->match_value->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"match的值类型未决，无法推导，继续");
+                    if (a_match_union_case->in_match->match_value->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"match的值类型未决，无法推导，继续");
 
-                    ast_value_variable* case_item = a_pattern_optional_value->optional_expr;
-                    auto fnd = a_match_optional_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
-                    if (fnd == a_match_optional_case->in_match->match_value->value_type->struct_member_index.end())
-                        lang_anylizer->lang_error(0x0000, a_match_optional_case, L"无效的case项，此处应该是optional的项之一，继续");
+                    ast_value_variable* case_item = a_pattern_union_value->union_expr;
+                    auto fnd = a_match_union_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
+                    if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"无效的case项，此处应该是union的项之一，继续");
                     else
                     {
                         compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
                     }
 
-                    if (a_pattern_optional_value->pattern_arg_in_optional_may_nil)
+                    if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_optional_value->pattern_arg_in_optional_may_nil))
+                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                         {
                             auto& valreg = get_useable_register_for_ref_value();
                             compiler->idstruct(valreg, reg(reg::ths), 1);
@@ -5309,20 +5309,20 @@ namespace wo
                             complete_using_register(valreg);
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
                     }
                     else
                     {
-                        if (a_pattern_optional_value->optional_expr->value_type->argument_types.size() != 0)
-                            lang_anylizer->lang_error(0x0000, a_match_optional_case, L"optional模式不匹配，应该接收一个参数，继续");
+                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_optional_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
 
-                real_analyze_finalize(a_match_optional_case->in_case_sentence, compiler);
+                real_analyze_finalize(a_match_union_case->in_case_sentence, compiler);
 
-                compiler->jmp(tag(a_match_optional_case->in_match->match_end_tag_in_final_pass));
+                compiler->jmp(tag(a_match_union_case->in_match->match_end_tag_in_final_pass));
                 compiler->tag(current_case_end);
             }
             else

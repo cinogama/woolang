@@ -115,7 +115,7 @@ namespace wo
         l_operator,
 
         l_expect,
-        l_optional,
+        l_union,
         l_match,
         l_struct
     );
@@ -247,7 +247,7 @@ namespace wo
             {L"naming", {lex_type::l_naming}},
             {L"operator", {lex_type::l_operator}},
             {L"expect", {lex_type::l_expect}},
-            {L"optional", {lex_type::l_optional}},
+            {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
             {L"struct", {lex_type::l_struct}}
         };

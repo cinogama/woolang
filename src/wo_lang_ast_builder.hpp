@@ -142,7 +142,7 @@ namespace wo
                 {L"nil", value::valuetype::invalid},
 
                 // special type
-                {L"optional", value::valuetype::invalid},
+                {L"union", value::valuetype::invalid},
                 {L"struct", value::valuetype::invalid},
 
                 {L"void", value::valuetype::invalid},
@@ -527,10 +527,10 @@ namespace wo
                 return !is_func() &&
                     (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
             }
-            bool is_optional() const
+            bool is_union() const
             {
                 return !is_func() &&
-                    (type_name == L"optional" || (using_type_name && using_type_name->type_name == L"optional"));
+                    (type_name == L"union" || (using_type_name && using_type_name->type_name == L"union"));
             }
             bool is_struct() const
             {
@@ -3027,7 +3027,7 @@ namespace wo
             }
         };
 
-        struct ast_optional_item : virtual public grammar::ast_base
+        struct ast_union_item : virtual public grammar::ast_base
         {
             std::wstring identifier;
             ast_type* type_may_nil = nullptr;
@@ -3046,7 +3046,7 @@ namespace wo
             }
         };
 
-        struct ast_optional_make_option_ob_to_cr_and_ret : virtual public grammar::ast_base
+        struct ast_union_make_option_ob_to_cr_and_ret : virtual public grammar::ast_base
         {
             uint16_t id;
             ast_value_variable* argument_may_nil;
@@ -3096,11 +3096,11 @@ namespace wo
             }
         };
 
-        struct ast_pattern_optional_value : virtual public ast_pattern_base
+        struct ast_pattern_union_value : virtual public ast_pattern_base
         {
             // TMP IMPL!
-            ast_value_variable* optional_expr = nullptr;
-            ast_pattern_base* pattern_arg_in_optional_may_nil = nullptr;
+            ast_value_variable* union_expr = nullptr;
+            ast_pattern_base* pattern_arg_in_union_may_nil = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3110,8 +3110,8 @@ namespace wo
                 ast_pattern_base::instance(dumm);
                 // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->optional_expr);
-                WO_REINSTANCE(dumm->pattern_arg_in_optional_may_nil);
+                WO_REINSTANCE(dumm->union_expr);
+                WO_REINSTANCE(dumm->pattern_arg_in_union_may_nil);
 
                 return dumm;
             }
@@ -3136,9 +3136,9 @@ namespace wo
             }
         };
 
-        struct ast_match_optional_case : virtual public ast_match_case_base
+        struct ast_match_union_case : virtual public ast_match_case_base
         {
-            ast_pattern_optional_value* optional_pattern;
+            ast_pattern_union_value* union_pattern;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3148,7 +3148,7 @@ namespace wo
                 ast_match_case_base::instance(dumm);
                 // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->optional_pattern);
+                WO_REINSTANCE(dumm->union_pattern);
 
                 return dumm;
             }
@@ -4839,11 +4839,11 @@ namespace wo
             }
         };
 
-        struct pass_optional_item : public astnode_builder
+        struct pass_union_item : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_optional_item* result = new ast_optional_item;
+                ast_union_item* result = new ast_union_item;
                 if (input.size() == 1)
                 {
                     // identifier
@@ -4864,22 +4864,22 @@ namespace wo
             }
         };
 
-        struct pass_optional_define : public astnode_builder
+        struct pass_union_define : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 wo_assert(input.size() == 7);
-                // ATTRIBUTE optional IDENTIFIER <TEMPLATE_DEF> { ITEMS }
+                // ATTRIBUTE union IDENTIFIER <TEMPLATE_DEF> { ITEMS }
                 //    0                    2             3          5
 
                 // Create a namespace 
-                ast_decl_attribute* optional_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                ast_decl_attribute* union_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
 
                 ast_list* bind_using_type_namespace_result = new ast_list;
 
-                ast_namespace* optional_scope = new ast_namespace;
-                optional_scope->scope_name = WO_NEED_TOKEN(2).identifier;
-                optional_scope->in_scope_sentence = new ast_list;
+                ast_namespace* union_scope = new ast_namespace;
+                union_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                union_scope->in_scope_sentence = new ast_list;
 
                 // Get templates here(If have?)
                 ast_template_define_with_naming* defined_template_args = nullptr;
@@ -4894,9 +4894,9 @@ namespace wo
 
                 // Then we decl a using-type here;
                 ast_using_type_as* using_type = new ast_using_type_as;
-                using_type->new_type_identifier = optional_scope->scope_name;
-                using_type->old_type = new ast_type(L"optional");
-                using_type->declear_attribute = optional_arttribute;
+                using_type->new_type_identifier = union_scope->scope_name;
+                using_type->old_type = new ast_type(L"union");
+                using_type->declear_attribute = union_arttribute;
 
                 std::vector <std::wstring> template_arg_defines;
                 if (defined_template_args)
@@ -4929,19 +4929,19 @@ namespace wo
                 }
                 bind_using_type_namespace_result->append_at_head(using_type);
 
-                // OK, We need decl optional items/function here
-                ast_optional_item* items =
-                    dynamic_cast<ast_optional_item*>(dynamic_cast<ast_list*>(WO_NEED_AST(5))->children);
+                // OK, We need decl union items/function here
+                ast_union_item* items =
+                    dynamic_cast<ast_union_item*>(dynamic_cast<ast_list*>(WO_NEED_AST(5))->children);
 
-                uint16_t optional_item_id = 0;
+                uint16_t union_item_id = 0;
 
-                auto create_optional_type = [&]() {
-                    ast_type* optional_type_with_template = new ast_type(using_type->new_type_identifier);
+                auto create_union_type = [&]() {
+                    ast_type* union_type_with_template = new ast_type(using_type->new_type_identifier);
                     for (auto& ident : using_type->template_type_name_list)
                     {
-                        optional_type_with_template->template_arguments.push_back(new ast_type(ident));
+                        union_type_with_template->template_arguments.push_back(new ast_type(ident));
                     }
-                    return optional_type_with_template;
+                    return union_type_with_template;
                 };
 
                 while (items)
@@ -4952,7 +4952,7 @@ namespace wo
                         ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
                         avfd_item_type_builder->function_name = items->identifier;
                         avfd_item_type_builder->argument_list = new ast_list;
-                        avfd_item_type_builder->declear_attribute = optional_arttribute;
+                        avfd_item_type_builder->declear_attribute = union_arttribute;
 
                         ast_value_arg_define* argdef = new ast_value_arg_define;
                         argdef->arg_name = L"_val";
@@ -4962,7 +4962,7 @@ namespace wo
                         avfd_item_type_builder->argument_list->add_child(argdef);
                         argdef->copy_source_info(items);
 
-                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->value_type = create_union_type();
                         avfd_item_type_builder->value_type->set_as_function_type();
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 
@@ -4976,14 +4976,14 @@ namespace wo
 
                         avfd_item_type_builder->in_function_sentence = new ast_list;
 
-                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                         result->copy_source_info(items);
                         result->argument_may_nil = new ast_value_variable(argdef->arg_name);
-                        result->id = ++optional_item_id;
+                        result->id = ++union_item_id;
                         // all done ~ fuck!
 
                         avfd_item_type_builder->in_function_sentence->append_at_end(result);
-                        optional_scope->in_scope_sentence->append_at_end(avfd_item_type_builder);
+                        union_scope->in_scope_sentence->append_at_end(avfd_item_type_builder);
                     }
                     else
                     {
@@ -4991,8 +4991,8 @@ namespace wo
                         ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
                         avfd_item_type_builder->function_name = L""; // Is a lambda function!
                         avfd_item_type_builder->argument_list = new ast_list;
-                        avfd_item_type_builder->declear_attribute = optional_arttribute;
-                        avfd_item_type_builder->value_type = create_optional_type();
+                        avfd_item_type_builder->declear_attribute = union_arttribute;
+                        avfd_item_type_builder->value_type = create_union_type();
                         avfd_item_type_builder->value_type->set_as_function_type();
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
@@ -5000,9 +5000,9 @@ namespace wo
 
                         avfd_item_type_builder->in_function_sentence = new ast_list;
 
-                        ast_optional_make_option_ob_to_cr_and_ret* result = new ast_optional_make_option_ob_to_cr_and_ret();
+                        ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                         result->copy_source_info(items);
-                        result->id = ++optional_item_id;
+                        result->id = ++union_item_id;
                         // all done ~ fuck!
                         avfd_item_type_builder->in_function_sentence->append_at_end(result);
 
@@ -5012,20 +5012,20 @@ namespace wo
                         funccall->arguments = new ast_list();
                         funccall->value_type = new ast_type(L"pending");
 
-                        ast_varref_defines* define_optional_item = new ast_varref_defines();
-                        define_optional_item->copy_source_info(items);
-                        define_optional_item->var_refs.push_back({ false, items->identifier,defined_template_arg_lists, funccall });
-                        define_optional_item->declear_attribute = new ast_decl_attribute();
+                        ast_varref_defines* define_union_item = new ast_varref_defines();
+                        define_union_item->copy_source_info(items);
+                        define_union_item->var_refs.push_back({ false, items->identifier,defined_template_arg_lists, funccall });
+                        define_union_item->declear_attribute = new ast_decl_attribute();
 
-                        optional_scope->in_scope_sentence->append_at_end(define_optional_item);
+                        union_scope->in_scope_sentence->append_at_end(define_union_item);
                     }
 
                     auto& member = using_type->old_type->struct_member_index[items->identifier];
-                    member.offset = optional_item_id;
+                    member.offset = union_item_id;
 
-                    items = dynamic_cast<ast_optional_item*>(items->sibling);
+                    items = dynamic_cast<ast_union_item*>(items->sibling);
                 }
-                bind_using_type_namespace_result->append_at_end(optional_scope);
+                bind_using_type_namespace_result->append_at_end(union_scope);
                 return (ast_basic*)bind_using_type_namespace_result;
             }
         };
@@ -5041,35 +5041,35 @@ namespace wo
         };
 
 
-        struct pass_optional_pattern : public astnode_builder
+        struct pass_union_pattern : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // 1. CALLABLE_LEFT
                 // 2. CALLABLE_LEFT ( PATTERN )
-                auto* result = new ast_pattern_optional_value;
+                auto* result = new ast_pattern_union_value;
 
                 wo_assert(input.size() == 1 || input.size() == 4);
 
-                result->optional_expr = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
+                result->union_expr = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
 
                 if (input.size() == 4)
-                    result->pattern_arg_in_optional_may_nil
+                    result->pattern_arg_in_union_may_nil
                     = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 return (ast_basic*)result;
             }
         };
 
-        struct pass_match_case_for_optional : public astnode_builder
+        struct pass_match_case_for_union : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // pattern_case? {sentence in list}
                 wo_assert(input.size() == 3);
 
-                auto* result = new ast_match_optional_case;
-                result->optional_pattern = dynamic_cast<ast_pattern_optional_value*>(WO_NEED_AST(0));
-                wo_assert(result->optional_pattern);
+                auto* result = new ast_match_union_case;
+                result->union_pattern = dynamic_cast<ast_pattern_union_value*>(WO_NEED_AST(0));
+                wo_assert(result->union_pattern);
 
                 auto* scope = WO_NEED_AST(2);
                 result->in_case_sentence = dynamic_cast<ast_sentence_block*>(scope);
@@ -5296,14 +5296,14 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_finish_format_string>] = _register_builder<pass_finish_format_string>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_optional_item>] = _register_builder<pass_optional_item>();
+            _registed_builder_function_id_list[meta::type_hash<pass_union_item>] = _register_builder<pass_union_item>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_optional_define>] = _register_builder<pass_optional_define>();
+            _registed_builder_function_id_list[meta::type_hash<pass_union_define>] = _register_builder<pass_union_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_match>] = _register_builder<pass_match>();
-            _registed_builder_function_id_list[meta::type_hash<pass_match_case_for_optional>] = _register_builder<pass_match_case_for_optional>();
+            _registed_builder_function_id_list[meta::type_hash<pass_match_case_for_union>] = _register_builder<pass_match_case_for_union>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_optional_pattern>] = _register_builder<pass_optional_pattern>();
+            _registed_builder_function_id_list[meta::type_hash<pass_union_pattern>] = _register_builder<pass_union_pattern>();
             _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();

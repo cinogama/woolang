@@ -864,26 +864,26 @@ namespace wo
                 gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_OPTIONAL") }
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_UNION") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DECL_OPTIONAL") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_optional),gm::te(gm::ttype::l_identifier),
+                gm::nt(L"DECL_UNION") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_union),gm::te(gm::ttype::l_identifier),
                                         gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                         gm::te(gm::ttype::l_left_curly_braces),
-                                        gm::nt(L"OPTIONAL_ITEMS"),
+                                        gm::nt(L"UNION_ITEMS"),
                                         gm::te(gm::ttype::l_right_curly_braces) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_optional_define),
-                gm::nt(L"OPTIONAL_ITEMS") >> gm::symlist{gm::nt(L"OPTIONAL_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
+                >> WO_ASTBUILDER_INDEX(ast::pass_union_define),
+                gm::nt(L"UNION_ITEMS") >> gm::symlist{gm::nt(L"UNION_ITEM_LIST"), gm::nt(L"COMMA_MAY_EMPTY")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM") }
+                gm::nt(L"UNION_ITEM_LIST") >> gm::symlist{ gm::nt(L"UNION_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-                gm::nt(L"OPTIONAL_ITEM_LIST") >> gm::symlist{ gm::nt(L"OPTIONAL_ITEM_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"OPTIONAL_ITEM") }
+                gm::nt(L"UNION_ITEM_LIST") >> gm::symlist{ gm::nt(L"UNION_ITEM_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"UNION_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
-                gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
-                gm::nt(L"OPTIONAL_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
+                gm::nt(L"UNION_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_union_item),
+                gm::nt(L"UNION_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
                 gm::te(gm::ttype::l_left_brackets), gm::nt(L"TYPE"), gm::te(gm::ttype::l_right_brackets), }
-                >> WO_ASTBUILDER_INDEX(ast::pass_optional_item),
+                >> WO_ASTBUILDER_INDEX(ast::pass_union_item),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"MATCH_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -903,19 +903,19 @@ namespace wo
                 gm::nt(L"MATCH_CASES") >> gm::symlist{ gm::nt(L"MATCH_CASES"), gm::nt(L"MATCH_CASE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 0>),
 
-                gm::nt(L"MATCH_CASE") >> gm::symlist{ gm::nt(L"PATTERN_OPTIONAL_CASE"), gm::te(gm::ttype::l_question), gm::nt(L"BLOCKED_SENTENCE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_match_case_for_optional),
+                gm::nt(L"MATCH_CASE") >> gm::symlist{ gm::nt(L"PATTERN_UNION_CASE"), gm::te(gm::ttype::l_question), gm::nt(L"BLOCKED_SENTENCE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_match_case_for_union),
 
                 // PATTERN-CASE MAY BE A SINGLE-VARIABLE/TUPLE/STRUCT...
-                gm::nt(L"PATTERN_OPTIONAL_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_optional_pattern),
+                gm::nt(L"PATTERN_UNION_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_union_pattern),
 
-                // PATTERN-CASE MAY BE A OPTIONAL
-                gm::nt(L"PATTERN_OPTIONAL_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT"),
+                // PATTERN-CASE MAY BE A UNION
+                gm::nt(L"PATTERN_UNION_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT"),
                     gm::te(gm::ttype::l_left_brackets),
                     gm::nt(L"PATTERN"),
                     gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_optional_pattern),
+                >> WO_ASTBUILDER_INDEX(ast::pass_union_pattern),
 
                 // PATTERN MAY BE TUPLE/STRUCT
                     // TODO:

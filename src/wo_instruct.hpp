@@ -134,7 +134,7 @@ namespace wo
                                         //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
                                         //  01 thorw
                                         //  00 clean
-            mkopt = 8 WO_OPCODE_SPACE   // mkopt(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
+            mkunion = 8 WO_OPCODE_SPACE   // mkunion(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
 
         };
         enum extern_opcode_page_1 : uint8_t
