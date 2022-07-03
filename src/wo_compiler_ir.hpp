@@ -547,8 +547,15 @@ namespace wo
                     if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::ldsr)
                     {
                         auto* imm_opnum_stx_offset = dynamic_cast<opnum::immbase*>(opnum2);
-                        if (imm_opnum_stx_offset->try_int() <= 0)
-                            imm_opnum_stx_offset->try_set_int(imm_opnum_stx_offset->try_int() - maxim_offset);
+                        if (imm_opnum_stx_offset)
+                        {
+                            if (imm_opnum_stx_offset->try_int() <= 0)
+                                imm_opnum_stx_offset->try_set_int(imm_opnum_stx_offset->try_int() - maxim_offset);
+                        }
+                        else
+                        {
+                            // Here only get arg from stack. so here nothing todo.
+                        }
                     }
                     if (auto* op1 = dynamic_cast<opnum::reg*>(opnum1); op1 && updated_opnum.find(opnum1) == updated_opnum.end())
                     {

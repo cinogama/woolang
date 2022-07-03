@@ -1235,6 +1235,8 @@ namespace wo
             else if (ast_using_type_as* a_using_type_as = dynamic_cast<ast_using_type_as*>(ast_node))
             {
                 // now_scope()->used_namespace.push_back(a_using_namespace);
+                fully_update_type(a_using_type_as->old_type, true);
+
                 auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
                 typing_symb->apply_template_setting(a_using_type_as);
             }
