@@ -95,7 +95,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
             switch (choice)
             {
             case 1:
-                wo_error(reason);
+                wo_error(reason); break;
             case 2:
                 return;
             case 3:
@@ -1204,9 +1204,13 @@ wo_integer_t wo_lengthof(wo_value value)
         wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return wo::u8strlen(_rsvalue->string->c_str());
     }
+    else if (_rsvalue->type == wo::value::valuetype::struct_type)
+    {
+        return _rsvalue->structs->m_count;
+    }
     else
     {
-        wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string','array' or 'map' can get length.");
+        wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string','array', 'struct' or 'map' can get length.");
         return 0;
     }
 }
@@ -1610,6 +1614,32 @@ wo_value wo_run(wo_vm vm)
 }
 
 // CONTAINER OPERATE
+
+wo_value wo_struct_get(wo_value value, uint16_t offset)
+{
+    auto _struct = WO_VAL(value);
+
+    if (_struct->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_struct->type == wo::value::valuetype::struct_type)
+    {
+        wo::struct_t* struct_impl = _struct->structs;
+
+        if (offset < struct_impl->m_count)
+        {
+            auto* result = &struct_impl->m_values[offset];
+            if (wo::gc::gc_is_marking())
+                struct_impl->add_memo(result);
+
+            return CS_VAL(result);
+        }
+        else
+            wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
+    return nullptr;
+}
 
 void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
 {

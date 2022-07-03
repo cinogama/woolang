@@ -80,7 +80,8 @@ typedef enum _wo_value_type
     WO_MAPPING_TYPE,
     WO_ARRAY_TYPE,
     WO_GCHANDLE_TYPE,
-    WO_CLOSURE_TYPE
+    WO_CLOSURE_TYPE,
+    WO_STRUCT_TYPE
 }
 wo_type;
 
@@ -232,6 +233,9 @@ WO_API wo_value     wo_dispatch(wo_vm vm);
 WO_API void         wo_break_yield(wo_vm vm);
 
 WO_API wo_int_t     wo_lengthof(wo_value value);
+
+WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
+
 WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
 WO_API wo_value     wo_arr_add(wo_value arr, wo_value elem);
 WO_API wo_value     wo_arr_get(wo_value arr, wo_int_t index);

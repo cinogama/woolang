@@ -385,7 +385,7 @@ namespace wo
     static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
-
+    static_assert((int)value::valuetype::struct_type == WO_STRUCT_TYPE);
     // optional_value used for store 1 value with a id(used for select or else)
     struct struct_values
     {
