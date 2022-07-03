@@ -2728,8 +2728,8 @@ namespace wo
                                 && !(a_value_logic_bin->left->value_type->is_dynamic() 
                                     || a_value_logic_bin->right->value_type->is_dynamic()))
                                 lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    a_value_logic_bin->left->value_type->get_type_name(false),
-                                    a_value_logic_bin->right->value_type->get_type_name(false));
+                                    a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
+                                    a_value_logic_bin->right->value_type->get_type_name(false).c_str());
 
                             a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
                             fully_update_type(a_value_logic_bin->value_type, false);
