@@ -1682,7 +1682,11 @@ namespace std
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       // "STR"
+        l_literal_string,       //  "helloworld" @"(println("hello");) "
+
+        l_format_string,        // f"..{  /  }..{ 
+        l_format_string_end,    // }.."
+
         l_semicolon,            // ;
 
         l_comma,                // ,
@@ -1721,6 +1725,8 @@ namespace std
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
 
+        l_question,   // ?
+
         l_import,               // import
 
         l_inf,
@@ -1752,7 +1758,13 @@ namespace std
         l_continue,
         l_goto,
         l_at,
-        l_naming
+        l_naming,
+        l_operator,
+
+        l_expect,
+        l_union,
+        l_match,
+        l_struct
     }
 
     using lexer = handle;

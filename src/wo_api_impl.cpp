@@ -469,6 +469,14 @@ void wo_set_ref(wo_value value, wo_value val)
         _rsvalue->set_ref(_ref_val);
 }
 
+void wo_set_struct(wo_value value, uint16_t structsz)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+
+    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, structsz);
+}
+
 wo_integer_t wo_cast_int(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);

@@ -127,6 +127,7 @@ WO_API void wo_set_bool(wo_value value, wo_bool_t val);
 WO_API void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_val(wo_value value, wo_value val);
 WO_API void wo_set_ref(wo_value value, wo_value val);
+WO_API void wo_set_struct(wo_value value, uint16_t structsz);
 
 WO_API wo_integer_t wo_cast_int(const wo_value value);
 WO_API wo_real_t    wo_cast_real(const wo_value value);

@@ -1511,6 +1511,7 @@ namespace wo
                 if (wo_has_compile_warning(_macro_action_vm))
                     lex.lex_warning(0x0000, L"宏控制器代码报告了一个警告，继续：\n%ls",
                         str_to_wstr(wo_get_compile_warning(_macro_action_vm, WO_NOTHING)).c_str());
+                wo_run(_macro_action_vm);
             }
 
         }
