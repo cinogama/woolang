@@ -1320,11 +1320,11 @@ namespace wo
                                 define_variable_in_this_scope(a_pattern_identifier->identifier, new ast_value_takeplace, new ast_decl_attribute, template_style::NORMAL);
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
 
                 analyze_pass1(a_match_union_case->in_case_sentence);
 
@@ -2333,7 +2333,7 @@ namespace wo
                             if (a_value_unary->operate == +lex_type::l_lnot)
                             {
                                 if (!a_value_unary->val->value_type->is_bool() && !a_value_unary->val->value_type->is_dynamic())
-                                    lang_anylizer->lang_error(0x0000, a_value_unary->val, L"逻辑非运算符只能计算bool类型的值，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL);
                                 a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
                             }
                             else if (!a_value_unary->val->value_type->is_pending())
@@ -3163,13 +3163,13 @@ namespace wo
                     wo_assert(case_ast);
 
                     if (case_names.end() != case_names.find(case_ast->union_pattern->union_expr->var_name))
-                        lang_anylizer->lang_error(0x0000, case_ast->union_pattern->union_expr, L"match中不能有重复的case，继续");
+                        lang_anylizer->lang_error(0x0000, case_ast->union_pattern->union_expr, WO_ERR_REPEAT_MATCH_CASE);
                     else
                         case_names.insert(case_ast->union_pattern->union_expr->var_name);
                     cases = cases->sibling;
                 }
                 if (case_names.size() < a_match->match_value->value_type->struct_member_index.size())
-                    lang_anylizer->lang_error(0x0000, a_match, L"match必须穷尽所有可能的取值，继续");
+                    lang_anylizer->lang_error(0x0000, a_match, WO_ERR_MATCH_CASE_NOT_COMPLETE);
             }
             else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
@@ -3178,7 +3178,7 @@ namespace wo
                 if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                 {
                     if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"match的值类型未决，无法推导，继续");
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
                     else
                     {
                         if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
@@ -3219,23 +3219,23 @@ namespace wo
                         if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                         {
                             if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
-                                lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
+                                lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
                             else
                             {
                                 a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
                             }
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
                     }
                     else
                     {
                         if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
 
                 analyze_pass2(a_match_union_case->in_case_sentence);
             }
@@ -3273,20 +3273,21 @@ namespace wo
                                 }
                             }
                             else
-                                lang_anylizer->lang_error(0x0000, membpair, L"%ls中没有成员%ls，继续",
+                                lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
                                     a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
                                     membpair->member_name.c_str());
                         }
 
                         if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
-                            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"构造结构体%ls时没有提供全部成员的初始值，继续",
+                            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
                                 a_value_make_struct_instance->value_type->get_type_name(false).c_str());
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"只有struct类型可以使用此方法实例化，继续");
+                        lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, L"不明struct类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
+                        a_value_make_struct_instance->value_type->get_type_name(false));
             }
             else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
             {
@@ -4392,19 +4393,51 @@ namespace wo
                                 a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                     }
                 }
-                if (a_value_logical_binary->left->value_type->is_union()
-                    || a_value_logical_binary->right->value_type->is_union())
+                if (a_value_logical_binary->operate == +lex_type::l_equal || a_value_logical_binary->operate == +lex_type::l_not_equal)
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_logical_binary, L"不可以使用逻辑运算符比较union类型的值，继续");
+                    if (a_value_logical_binary->left->value_type->is_union())
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_RELATION_CANNOT_COMPARE,
+                            lexer::lex_is_operate_type(a_value_logical_binary->operate), L"union");
+                    }
+                    if (a_value_logical_binary->right->value_type->is_union())
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_RELATION_CANNOT_COMPARE,
+                            lexer::lex_is_operate_type(a_value_logical_binary->operate), L"union");
+                    }
+                }
+                if (a_value_logical_binary->operate == +lex_type::l_larg
+                    || a_value_logical_binary->operate == +lex_type::l_larg_or_equal
+                    || a_value_logical_binary->operate == +lex_type::l_less
+                    || a_value_logical_binary->operate == +lex_type::l_less_or_equal)
+                {
+                    if (!(a_value_logical_binary->left->value_type->is_integer()
+                        || a_value_logical_binary->left->value_type->is_real()
+                        || a_value_logical_binary->left->value_type->is_string()))
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_RELATION_CANNOT_COMPARE,
+                            lexer::lex_is_operate_type(a_value_logical_binary->operate),
+                            a_value_logical_binary->left->value_type->get_type_name(false).c_str());
+                    }
+                    if (!(a_value_logical_binary->right->value_type->is_integer()
+                        || a_value_logical_binary->right->value_type->is_real()
+                        || a_value_logical_binary->right->value_type->is_string()))
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_RELATION_CANNOT_COMPARE,
+                            lexer::lex_is_operate_type(a_value_logical_binary->operate),
+                            a_value_logical_binary->right->value_type->get_type_name(false).c_str());
+                    }
                 }
 
                 if (a_value_logical_binary->operate == +lex_type::l_lor ||
                     a_value_logical_binary->operate == +lex_type::l_land)
                 {
                     if (!a_value_logical_binary->left->value_type->is_bool() &&!a_value_logical_binary->left->value_type->is_dynamic())
-                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, L"逻辑运算符左边的值类型应该是bool类型，继续");
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
+                            a_value_logical_binary->left->value_type->get_type_name(false));
                     if (!a_value_logical_binary->right->value_type->is_bool() && !a_value_logical_binary->right->value_type->is_dynamic())
-                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, L"逻辑运算符左边的值类型应该是bool类型，继续");
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
+                            a_value_logical_binary->right->value_type->get_type_name(false));
                 }
 
                 size_t revert_pos = compiler->get_now_ip();
@@ -5019,7 +5052,8 @@ namespace wo
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
                 if (!a_if->judgement_value->value_type->is_dynamic() && !a_if->judgement_value->value_type->is_bool())
-                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, L"if表达式的判决值类型应该是bool类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, 
+                        L"if", a_if->judgement_value->value_type->get_type_name(false));
 
                 if (a_if->judgement_value->is_constant)
                 {
@@ -5070,7 +5104,8 @@ namespace wo
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
             if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
-                lang_anylizer->lang_error(0x0000, a_while->judgement_value, L"while表达式的判决值类型应该是bool类型，继续");
+                lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
+                    a_while->judgement_value->value_type->get_type_name(false));
 
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
@@ -5125,7 +5160,8 @@ namespace wo
                 if (a_forloop->judgement_expr)
                 {
                     if (!a_forloop->judgement_expr->value_type->is_dynamic() && !a_forloop->judgement_expr->value_type->is_bool())
-                        lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, L"for表达式的判决值类型应该是bool类型，继续");
+                        lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"for",
+                            a_forloop->judgement_expr->value_type->get_type_name(false));
 
                     mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
                     compiler->jf(tag(forloop_end_tag));
@@ -5310,12 +5346,12 @@ namespace wo
                 if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                 {
                     if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"match的值类型未决，无法推导，继续");
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
 
                     ast_value_variable* case_item = a_pattern_union_value->union_expr;
                     auto fnd = a_match_union_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
                     if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, L"无效的case项，此处应该是union的项之一，继续");
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_CASE_TYPE);
                     else
                     {
                         compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
@@ -5332,16 +5368,16 @@ namespace wo
                             complete_using_register(valreg);
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的模式类型，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
                     }
                     else
                     {
                         if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, L"union模式不匹配，应该接收一个参数，继续");
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
                     }
                 }
                 else
-                    lang_anylizer->lang_error(0x0000, a_match_union_case, L"未预料到的分支类型，继续");
+                    lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
 
                 real_analyze_finalize(a_match_union_case->in_case_sentence, compiler);
 
@@ -5410,7 +5446,7 @@ namespace wo
                             != compiler->pdb_info->extern_function_map.end())
                         {
                             this->lang_anylizer->lang_error(0x0000, funcdef,
-                                L"函数符号 '%ws' 此前已经被导出，导出同一命名空间下的同名函数是不允许的，继续",
+                                WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION,
                                 str_to_wstr(fname).c_str());
                         }
                         else
@@ -5805,7 +5841,7 @@ namespace wo
                         current_scope = current_scope->parent_scope;
                     }
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个保护对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name.c_str());
                     return false;
                 }
                 if (astdefine->declear_attribute->is_private_attr())
@@ -5813,7 +5849,7 @@ namespace wo
                     if (ast->source_file == astdefine->source_file)
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的源文件内访问，继续", symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str());
                     return false;
                 }
             }
@@ -5833,7 +5869,7 @@ namespace wo
                         current_scope = current_scope->parent_scope;
                     }
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个保护对象，只能在其定义所在的命名空间内访问，继续", symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name.c_str());
                     return true;
                 }
                 if (symbol->attribute->is_private_attr())
@@ -5841,7 +5877,7 @@ namespace wo
                     if (ast->source_file == symbol->defined_source())
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, L"无法访问'%ls'，这是一个私有对象，只能在其定义所在的源文件内访问，继续", symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str());
                     return false;
                 }
             }
@@ -6164,7 +6200,7 @@ namespace wo
                     // The variable is not static and define outside the function. ready to capture it!
                     if (current_function->function_node->function_name != L"")
                         // Only anonymous can capture variablel;
-                        lang_anylizer->lang_error(0x0000, var_ident, L"不能在非匿名函数中捕获变量'%ls'，继续",
+                        lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC,
                             result->name.c_str());
 
                     auto* current_func_defined_in_function = current_function->parent_scope;
@@ -6176,7 +6212,7 @@ namespace wo
                     {
                         // TODO: Enable capture from outside function more than 1 layers
                         // Only capture 1 layer
-                        lang_anylizer->lang_error(0x0000, var_ident, L"闭包捕获的变量只能来自闭包定义所在的函数，继续",
+                        lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_IN_OUTSIDE_FUNC,
                             result->name.c_str());
                     }
 

@@ -144,13 +144,13 @@
 
 #define WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"'map' 类型需要提供两个类型参数"
 
-#define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数'%ls'的返回类型，需要手动标注"
+#define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数 '%ls' 的返回类型，需要手动标注"
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"此处泛型不能用于修饰非变量/函数对象"
 
 #define WO_ERR_NO_MATCHED_TEMPLATE_FUNC L"未找到符合模板参数的函数重载"
 
-#define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员'%ls'"
+#define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"尝试使用非字符串常量索引具类型映射"
 
@@ -162,7 +162,64 @@
 
 #define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"函数出现了不同类型的返回值，这是不被允许的"
 
+#define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"嵌套格式化字符串是不被允许的"
 
+#define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE L"重复的宏定义 '%ls'"
+
+#define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
+
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n%ls"
+
+#define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
+
+#define WO_ERR_UNEXPECT_PATTERN_MODE L"未预料到的模式类型"
+
+#define WO_ERR_UNEXPECT_PATTERN_CASE L"未预料到的分支类型"
+
+#define WO_ERR_TEMPLATE_FUNCTION_SHOULD_SPECIFY_TEMPLATE_AGRS L"函数是一个泛型函数，需要指定泛型参数"
+
+#define WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL L"逻辑非运算符只允许处理 'bool' 类型的参数"
+
+#define WO_ERR_REPEAT_MATCH_CASE L"'match' 语句中不能有重复的 'case' 分支"
+
+#define WO_ERR_MATCH_CASE_NOT_COMPLETE L"'match' 语句必须穷尽所有可能的 'case' 分支"
+
+#define WO_ERR_UNKNOWN_MATCHING_VAL_TYPE L"正在 'match' 的值类型未决断，无法为后续代码进行推导"
+
+#define WO_ERR_UNKNOWN_CASE_TYPE L"无效的 'case'，此处只能是正在match的值类型"
+
+#define WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG L"无效的 'case'，union 模式不匹配，需要接收一个参数"
+
+#define WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV L"无效的 'case'，union 模式不匹配，此处不能接收参数"
+
+#define WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION L"函数符号 '%ls' 此前已经被导出，导出同一命名空间下的同名函数是不允许的"
+
+#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在定义所在的源文件中访问"
+
+#define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个保护对象，只能在定义所在的命名空间中访问"
+
+#define WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC L"不能在非匿名函数中捕获变量 '%ls'"
+
+#define WO_ERR_CANNOT_CAPTURE_IN_OUTSIDE_FUNC L"不允许捕获来自更外层的变量 '%ls'"
+
+#define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"运算符 '%ls' 的重载函数不能接收引用参数"
+
+#define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"类型 '%ls' 中没有名为 '%ls' 的成员"
+
+#define WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED L"构造结构体 '%ls' 时没有提供所有成员的初始值"
+
+#define WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY L"仅结构体类型允许使用形如 Type { ... } 的方法构建"
+
+#define WO_ERR_TYPE_IN_SHOULD_BE_BOOL L"'%ls' 表达式判别的值类型应该为 'bool'，但是给定的是 '%ls'"
+
+#define WO_ERR_RELATION_CANNOT_COMPARE L"关系运算符 '%ls' 不能用于比较 '%ls'"
+
+#define WO_ERR_VALUE_TYPE_HERE_SHOULD_BE L"此处的值类型应该是 '%ls'，但是给定的是 '%ls'"
+
+
+
+
+#define WO_WARN_WARNING_GIVEN_BY_MACRO L"宏控制器报告了一个警告：\n%ls"
 
 #define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
@@ -323,6 +380,64 @@
 
 #define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"Different types of return values in function."
 
+#define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"嵌套格式化字符串是不被允许的"
+
+#define WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE L"重复的宏定义 '%ls'"
+
+#define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
+
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n%ls"
+
+#define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
+
+#define WO_ERR_UNEXPECT_PATTERN_MODE L"未预料到的模式类型"
+
+#define WO_ERR_UNEXPECT_PATTERN_CASE L"未预料到的分支类型"
+
+#define WO_ERR_TEMPLATE_FUNCTION_SHOULD_SPECIFY_TEMPLATE_AGRS L"函数是一个泛型函数，需要指定泛型参数"
+
+#define WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL L"逻辑非运算符只允许处理 'bool' 类型的参数"
+
+#define WO_ERR_REPEAT_MATCH_CASE L"'match' 语句中不能有重复的 'case' 分支"
+
+#define WO_ERR_MATCH_CASE_NOT_COMPLETE L"'match' 语句必须穷尽所有可能的 'case' 分支"
+
+#define WO_ERR_UNKNOWN_MATCHING_VAL_TYPE L"正在 'match' 的值类型未决断，无法为后续代码进行推导"
+
+#define WO_ERR_UNKNOWN_CASE_TYPE L"无效的 'case'，此处只能是正在match的值类型"
+
+#define WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG L"无效的 'case'，union 模式不匹配，需要接收一个参数"
+
+#define WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV L"无效的 'case'，union 模式不匹配，此处不能接收参数"
+
+#define WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION L"函数符号 '%ls' 此前已经被导出，导出同一命名空间下的同名函数是不允许的"
+
+#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在定义所在的源文件中访问"
+
+#define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个保护对象，只能在定义所在的命名空间中访问"
+
+#define WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC L"不能在非匿名函数中捕获变量 '%ls'"
+
+#define WO_ERR_CANNOT_CAPTURE_IN_OUTSIDE_FUNC L"不允许捕获来自更外层的变量 '%ls'"
+
+#define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"运算符 '%ls' 的重载函数不能接收引用参数"
+
+#define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"类型 '%ls' 中没有名为 '%ls' 的成员"
+
+#define WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED L"构造结构体 '%ls' 时没有提供所有成员的初始值"
+
+#define WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY L"仅结构体类型允许使用形如 Type { ... } 的方法构建"
+
+#define WO_ERR_TYPE_IN_SHOULD_BE_BOOL L"'%ls' 表达式判别的值类型应该为 'bool'，但是给定的是 '%ls'"
+
+#define WO_ERR_RELATION_CANNOT_COMPARE L"关系运算符 '%ls' 不能用于比较 '%ls'"
+
+#define WO_ERR_VALUE_TYPE_HERE_SHOULD_BE L"此处的值类型应该是 '%ls'，但是给定的是 '%ls'"
+
+
+
+
+#define WO_WARN_WARNING_GIVEN_BY_MACRO L"宏控制器报告了一个警告：\n%ls"
 
 #define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."
 

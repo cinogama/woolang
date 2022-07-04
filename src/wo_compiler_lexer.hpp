@@ -869,7 +869,7 @@ namespace wo
                 {
                     // Is f"..."
                     if (format_string_count)
-                        return lex_error(0x0006, L"不允许嵌套格式化字符串，继续");
+                        return lex_error(0x0006, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
 
                     next_one();
 
@@ -1435,7 +1435,7 @@ namespace wo
                         this->used_macro_list = std::make_shared<std::unordered_map<std::wstring, std::shared_ptr<macro>>>();
 
                     if (this->used_macro_list->find(p->macro_name) != this->used_macro_list->end())
-                        lex_error(0x0000, L"未知pragma指令，继续");
+                        lex_error(0x0000, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, p->macro_name.c_str());
                     else
                         (*this->used_macro_list)[p->macro_name] = p;
 
@@ -1443,7 +1443,7 @@ namespace wo
                 }
                 else
                 {
-                    lex_error(0x0000, L"未知pragma指令，继续");
+                    lex_error(0x0000, WO_ERR_UNKNOWN_PRAGMA_COMMAND, pragma_name.c_str());
                 }
 
                 goto re_try_read_next_one;
@@ -1500,7 +1500,7 @@ namespace wo
                 ("macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
                 wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
             {
-                lex.lex_error(0x0000, L"宏控制器编译失败，继续：\n%ls",
+                lex.lex_error(0x0000, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR,
                     str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)).c_str());
 
                 wo_close_vm(_macro_action_vm);
@@ -1509,14 +1509,14 @@ namespace wo
             else
             {
                 if (wo_has_compile_warning(_macro_action_vm))
-                    lex.lex_warning(0x0000, L"宏控制器代码报告了一个警告，继续：\n%ls",
+                    lex.lex_warning(0x0000, WO_WARN_WARNING_GIVEN_BY_MACRO,
                         str_to_wstr(wo_get_compile_warning(_macro_action_vm, WO_NOTHING)).c_str());
                 wo_run(_macro_action_vm);
             }
 
         }
         else
-            lex.lex_error(0x0000, L"缺少'{'，继续");
+            lex.lex_error(0x0000, WO_ERR_HERE_SHOULD_HAVE, L"{");
 
     }
 }

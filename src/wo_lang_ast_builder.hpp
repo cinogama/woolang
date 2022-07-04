@@ -3726,7 +3726,7 @@ namespace wo
                         {
                             auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
                             if (argdef->is_ref)
-                                lex.lex_error(0x0000, L"运算符'%ls'的重载函数不允许有引用参数，继续",
+                                lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
                                     dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier.c_str());
                             arguments = arguments->sibling;
                         }
@@ -3776,7 +3776,7 @@ namespace wo
                     {
                         auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
                         if (argdef->is_ref)
-                            lex.lex_error(0x0000, L"运算符'%ls'的重载函数不允许有引用参数，继续",
+                            lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
                                 dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier.c_str());
                         arguments = arguments->sibling;
                     }
