@@ -1132,7 +1132,7 @@ namespace wo
                 _be_check_value_node = value;
                 aim_type = type;
 
-                value_type = new ast_type(L"int");
+                value_type = new ast_type(L"bool");
             }
             ast_value_type_check() {}
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override

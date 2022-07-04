@@ -2541,7 +2541,7 @@ namespace wo
                         {
                         just_do_simple_type_cast:
                             if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
-                            {                               
+                            {
                                 if (a_value_typecast->implicit)
                                     lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
                                         origin_value->value_type->get_type_name(false).c_str(),
@@ -2727,7 +2727,7 @@ namespace wo
                         if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
                         {
                             if (!a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type)
-                                && !(a_value_logic_bin->left->value_type->is_dynamic() 
+                                && !(a_value_logic_bin->left->value_type->is_dynamic()
                                     || a_value_logic_bin->right->value_type->is_dynamic()))
                                 lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                                     a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
@@ -5005,6 +5005,9 @@ namespace wo
             }
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
+                if (!a_if->judgement_value->value_type->is_dynamic() && !a_if->judgement_value->value_type->is_bool())
+                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, L"if表达式的判决值类型应该是bool类型，继续");
+
                 if (a_if->judgement_value->is_constant)
                 {
                     auto_analyze_value(a_if->judgement_value, compiler, false, true);
@@ -5053,6 +5056,8 @@ namespace wo
             }
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
+            if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
+                lang_anylizer->lang_error(0x0000, a_while->judgement_value, L"while表达式的判决值类型应该是bool类型，继续");
 
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
@@ -5106,6 +5111,9 @@ namespace wo
 
                 if (a_forloop->judgement_expr)
                 {
+                    if (!a_forloop->judgement_expr->value_type->is_dynamic() && !a_forloop->judgement_expr->value_type->is_bool())
+                        lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, L"for表达式的判决值类型应该是bool类型，继续");
+
                     mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
                     compiler->jf(tag(forloop_end_tag));
                 }
