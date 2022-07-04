@@ -24,7 +24,7 @@ func execute_all_test()
         (test_function_set[i].function:void())();
 
         std::println("Passed:", test_success_count);
-        if (test_failed_count)
+        if (test_failed_count != 0)
         {
             std::println("Failed:", test_failed_count);
             std::panic("This test case has been failed...");
