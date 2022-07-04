@@ -3,11 +3,11 @@ import test_tool;
 
 namespace test_bool
 {
-	func foo_true(var val:bool)
+	func foo_true(var val: bool)
 	{
 		test_assure(val== true);
 	}
-	func foo_false(var val:bool)
+	func foo_false(var val: bool)
 	{
 		test_assure(val == false);
 	}
@@ -21,16 +21,16 @@ namespace test_bool
 		test_assure(!a == false);
 		test_assure(!256 == false);
 
-		a = "";
+		a = "": bool;
 		test_assure(a == true);
 		test_assure(a != false);
 
-		a = nil;
+		a = nil: bool;
 		test_assure(a == false);
 		test_assure(a != true);
 
-		foo_true({});
-		foo_false(nil);
+		foo_true({}: bool);
+		foo_false(nil: bool);
 	}
 }
 

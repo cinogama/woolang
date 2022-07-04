@@ -181,7 +181,7 @@ namespace wo
                 if (to->is_dynamic())
                     return true;
 
-                if (to->is_bool())
+                if (to->is_bool() && force)
                     return true;
 
                 if (from->is_dynamic())
