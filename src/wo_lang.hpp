@@ -4398,6 +4398,15 @@ namespace wo
                     lang_anylizer->lang_error(0x0000, a_value_logical_binary, L"不可以使用逻辑运算符比较union类型的值，继续");
                 }
 
+                if (a_value_logical_binary->operate == +lex_type::l_lor ||
+                    a_value_logical_binary->operate == +lex_type::l_land)
+                {
+                    if (!a_value_logical_binary->left->value_type->is_bool() &&!a_value_logical_binary->left->value_type->is_dynamic())
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, L"逻辑运算符左边的值类型应该是bool类型，继续");
+                    if (!a_value_logical_binary->right->value_type->is_bool() && !a_value_logical_binary->right->value_type->is_dynamic())
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, L"逻辑运算符左边的值类型应该是bool类型，继续");
+                }
+
                 size_t revert_pos = compiler->get_now_ip();
 
                 auto* _beoped_left_opnum = &analyze_value(a_value_logical_binary->left, compiler);
