@@ -243,6 +243,7 @@ WO_API wo_value     wo_arr_get(wo_value arr, wo_int_t index);
 WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
 WO_API void         wo_arr_remove(wo_value arr, wo_int_t index);
 WO_API void         wo_arr_clear(wo_value arr);
+WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
 WO_API wo_value     wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value);
@@ -250,6 +251,7 @@ WO_API wo_value     wo_map_get_or_default(wo_value map, wo_value index, wo_value
 WO_API wo_value     wo_map_get(wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
+WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
 

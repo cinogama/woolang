@@ -2331,7 +2331,11 @@ namespace wo
                             analyze_pass2(a_value_unary->val);
 
                             if (a_value_unary->operate == +lex_type::l_lnot)
-                                a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"int");
+                            {
+                                if (!a_value_unary->val->value_type->is_bool() && !a_value_unary->val->value_type->is_dynamic())
+                                    lang_anylizer->lang_error(0x0000, a_value_unary->val, L"逻辑非运算符只能计算bool类型的值，继续");
+                                a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
+                            }
                             else if (!a_value_unary->val->value_type->is_pending())
                                 a_value_unary->value_type = a_value_unary->val->value_type;
                             // else

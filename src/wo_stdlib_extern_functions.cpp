@@ -499,6 +499,11 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
+WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
+}
+
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_ref(vm, wo_arr_add(args + 0, args + 1));
@@ -594,6 +599,11 @@ WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo_map_remove(args + 0, args + 1));
+}
+
+WO_API wo_api rslib_std_map_empty(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo_map_is_empty(args + 0));
 }
 
 WO_API wo_api rslib_std_map_clear(wo_vm vm, wo_value args, size_t argc)
@@ -949,18 +959,21 @@ namespace string
 namespace array
 {
     extern("rslib_std_lengthof") 
-        func len<T>(var val:array<T>):int;
+        func len<T>(var val: array<T>): int;
+
+    extern("rslib_std_array_empty")
+        func empty<T>(var val: array<T>): bool;
 
     extern("rslib_std_array_resize") 
-        func resize<T>(var val:array<T>, var newsz:int, var init_val:T):void;
+        func resize<T>(var val: array<T>, var newsz: int, var init_val: T): void;
 
-    func get<T>(var a:array<T>, var index:int)
+    func get<T>(var a: array<T>, var index: int)
     {
         return a[index];
     }
 
     extern("rslib_std_array_add") 
-        func add<T>(var val:array<T>, var elem:T):T;
+        func add<T>(var val: array<T>, var elem: T):T;
   
     func dup<T>(var val:array<T>)
     {
@@ -1010,10 +1023,13 @@ namespace map
         return _dupval;
     }
 
+    extern("rslib_std_map_empty")
+        func empty<KT, VT>(var val: map<KT, VT>): bool;
+
     extern("rslib_std_map_remove")
-        func remove<KT, VT>(var val:map<KT, VT>, var index:int):void;
+        func remove<KT, VT>(var val: map<KT, VT>, var index: int): void;
     extern("rslib_std_map_clear")
-        func clear<KT, VT>(var val:map<KT, VT>):void;
+        func clear<KT, VT>(var val: map<KT, VT>): void;
 
     using iterator<KT, VT> = gchandle;
     namespace iterator 

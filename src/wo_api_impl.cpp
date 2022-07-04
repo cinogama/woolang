@@ -1779,6 +1779,21 @@ void wo_arr_clear(wo_value arr)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
+wo_bool_t wo_arr_is_empty(wo_value arr)
+{
+    auto _arr = WO_VAL(arr);
+    if (_arr->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_arr->type == wo::value::valuetype::array_type)
+    {
+        wo::gcbase::gc_write_guard g1(_arr->array);      
+        return _arr->array->empty();
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+    return true;
+}
+
 wo_bool_t wo_map_find(wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
@@ -1932,6 +1947,20 @@ void wo_map_clear(wo_value map)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
 }
 
+wo_bool_t wo_map_is_empty(wo_value map)
+{
+    auto _map = WO_VAL(map);
+    if (_map->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == wo::value::valuetype::mapping_type)
+    {
+        wo::gcbase::gc_write_guard g1(_map->mapping);
+        return _map->mapping->empty();
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+    return true;
+}
 
 wo_bool_t wo_gchandle_close(wo_value gchandle)
 {
