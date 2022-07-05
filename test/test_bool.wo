@@ -17,9 +17,9 @@ namespace test_bool
 		test_assure(a == true);
 		test_assure(a != false);
 
-		test_assure(!(12:bool) == false);
+		test_assure(!(12: bool) == false);
 		test_assure(!a == false);
-		test_assure(!256 == false);
+		test_assure(!(256: bool) == false);
 
 		a = "": bool;
 		test_assure(a == true);

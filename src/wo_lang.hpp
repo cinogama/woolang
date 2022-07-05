@@ -1153,6 +1153,7 @@ namespace wo
                 analyze_pass1(ast_if_sentence->judgement_value);
 
                 if (ast_if_sentence->judgement_value->is_constant
+                    && in_function()
                     && in_function()->function_node->is_template_reification)
                 {
                     ast_if_sentence->is_constexpr_if = true;
@@ -2332,8 +2333,6 @@ namespace wo
 
                             if (a_value_unary->operate == +lex_type::l_lnot)
                             {
-                                if (!a_value_unary->val->value_type->is_bool() && !a_value_unary->val->value_type->is_dynamic())
-                                    lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL);
                                 a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
                             }
                             else if (!a_value_unary->val->value_type->is_pending())
@@ -4783,6 +4782,8 @@ namespace wo
                 switch (a_value_unary->operate)
                 {
                 case lex_type::l_lnot:
+                    if (!a_value_unary->val->value_type->is_bool() && !a_value_unary->val->value_type->is_dynamic())
+                        lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL);
                     compiler->equb(analyze_value(a_value_unary->val, compiler), reg(reg::ni));
                     break;
                 case lex_type::l_sub:

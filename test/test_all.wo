@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_compile;
 import test_struct;
 import test_optional;
 import test_basic;

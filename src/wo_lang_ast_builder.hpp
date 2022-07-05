@@ -2372,10 +2372,16 @@ namespace wo
                     switch (operate)
                     {
                     case lex_type::l_land:
-                        constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
+                        if (left->value_type->is_bool() && right->value_type->is_bool())
+                            constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
+                        else
+                            is_constant = false;
                         break;
                     case lex_type::l_lor:
-                        constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
+                        if (left->value_type->is_bool() && right->value_type->is_bool())
+                            constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
+                        else
+                            is_constant = false;
                         break;
                     case lex_type::l_equal:
                     case lex_type::l_not_equal:
@@ -2752,8 +2758,13 @@ namespace wo
                     }
                     else /*if(_token.type == +lex_type::l_lnot)*/
                     {
-                        value_type = new ast_type(L"int");
-                        constant_value.set_integer(!val->get_constant_value().handle);
+                        if (val->value_type->is_bool())
+                        {
+                            value_type = new ast_type(L"bool");
+                            constant_value.set_integer(!val->get_constant_value().handle);
+                        }
+                        else
+                            is_constant = false;
                     }
                 }
             }

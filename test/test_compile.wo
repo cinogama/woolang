@@ -1,0 +1,174 @@
+import woo.std;
+import woo.vm;
+
+import test_tool;
+
+namespace test_compile
+{
+    func compile_program(var src: string): bool
+    {
+        var vmm = std::vm::create();
+        var result = vmm->load_source("test_compile/test_tmp_script.wo", src);
+        
+        vmm->close();
+        return result;
+    }
+    func assure_compile_success(var src: string)
+    {
+        test_assure(compile_program(src));
+    }
+    func assure_compile_fail(var src: string)
+    {
+        test_assure(!compile_program(src));
+    }
+
+	func main()
+	{
+        var begin_tm = std::time();
+        for (var i=0; i<1000; i+=1)
+        {
+            assure_compile_success(@"
+            import woo.std;
+            func demo<T>(var val: T)
+            {
+                return "Hello" + val: string;
+            }
+            func main()
+            {
+                demo("world");
+                demo(123);
+                demo(1.72);
+                demo(0x0000H);
+            }
+            "@);
+        }
+        var end_time = std::time();
+        std::println("Compile 1000 src cost:", end_time - begin_tm);
+
+        // Empty source will failed.
+        assure_compile_fail(@""@);
+
+        // Cannot cast nil
+        assure_compile_fail(@"var a = nil: gchandle;"@);
+
+        // Cannot add different types
+        assure_compile_fail(@"var b = "" + 2;"@);
+        assure_compile_fail(@"var b = 1 + 2.0;"@);
+        assure_compile_fail(@"var b = 0x00H + 128;"@);
+
+        // match must walk through all cases
+        assure_compile_fail(@"
+        union MyUnion
+        {
+            A,B,C,D,E
+        }
+        var x = MyUnion::A;
+        match(x)
+        {
+            A?;
+            B?;
+            C?;
+        }
+        "@);
+
+        // Construct struct must complete.
+        assure_compile_fail(@"
+        using st = struct{a: int, b: real};
+        st{a = 15};
+        "@);
+        assure_compile_fail(@"var t = int{a = ""};"@);
+        assure_compile_fail(@"var t = y{a = ""};"@);
+
+        // Template args must match
+        assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
+
+        // extern symbol must be found 
+        assure_compile_fail(@"extern("not_exist_func")func foo(): void;"@);
+        assure_compile_fail(@"extern("not_exist_lib","not_exist_func")func foo(): void;"@);
+
+        // return must in func
+        assure_compile_fail(@"return 0;"@);
+
+        // func cannot return different type if func is not dynamic
+        assure_compile_fail(@"func xx(){return 1; return 1.0;}"@);
+
+        // func cannot return different type from marked type
+        assure_compile_fail(@"func xx: void(){return 1;}"@);
+        assure_compile_fail(@"func xx: int(){return 1.;}"@);
+        assure_compile_fail(@"func xx: void(){return 1;}"@);
+
+        // unknown type/identifier is invalid
+        assure_compile_fail(@"var x = 1: noexist; var y = x;"@);
+        assure_compile_fail(@"var x = 0; y = x;"@);
+        assure_compile_fail(@"noexist(1,2,3);"@);
+
+        // Only index struct by const str
+        assure_compile_fail(@"
+        using st = struct{a: int}; 
+        var s = st{a = 1}; 
+        var i = "a"; 
+        var b = s[i];
+        "@);
+
+        // Only index struct by const str
+        assure_compile_fail(@"
+        using st = struct{a: int}; 
+        var s = st{a = 1}; 
+        var i = "a"; 
+        var b = s[i];
+        "@);
+
+        // Cannot index unindexable type or invalid index
+        assure_compile_fail(@"var a = 5; var b = a[7];"@);
+        assure_compile_fail(@"var a = [1]; var b = a["index"];"@);
+        assure_compile_fail(@"
+        using st = struct{a: int};
+        var s = st{a = 15};
+        var b = s.b;
+        "@);
+        assure_compile_fail(@"
+        using st = struct{a: int};
+        var s = st{a = 15};
+        var b = s[0];
+        "@);
+
+        // Call fail
+        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1);"@);
+        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1., "");"@);
+        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1, "", 1);"@);
+        assure_compile_fail(@"var a = 1; a();"@);
+
+        // Logic op only accept bool
+        assure_compile_fail(@"var r = 1 || false;"@);
+        assure_compile_fail(@"var r = 1 || 0;"@);
+        assure_compile_fail(@"var r = true || 0;"@);
+        assure_compile_fail(@"var r = 1 && 0;"@);
+        assure_compile_fail(@"var r = 1 && false;"@);
+        assure_compile_fail(@"var r = true && 0;"@);
+        assure_compile_fail(@"var r = !0;"@);
+
+        // relationship op cannot work at map/array/struct...
+        assure_compile_fail(@"var r = [] < [];"@);
+        assure_compile_fail(@"var r = {} >= {};"@);
+        assure_compile_fail(@"var r = func(){} == [];"@);
+        assure_compile_fail(@"union x{a,b}; var r = x::a == x::b;"@);
+
+        // if/while/for only accept bool
+        assure_compile_fail(@"if (0){}"@);
+        assure_compile_fail(@"while (0){}"@);
+        assure_compile_fail(@"for (;0;){}"@);
+
+        // invalid export
+        assure_compile_fail(@"extern func foo(){} extern func foo(var a:int){}"@);
+
+        // redefine
+        assure_compile_fail(@"var a = 0; var a = 1;"@);
+        assure_compile_fail(@"func a(){} var a = 1;"@);
+        assure_compile_fail(@"using a = int; var a = 1;"@);
+
+        // not a type
+
+	}
+}
+
+test_function("test_compile.main", test_compile::main);
