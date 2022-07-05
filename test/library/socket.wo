@@ -3,17 +3,17 @@
 using socket = gchandle;
 namespace socket
 {
-	enum ip_protocol
-	{
-		IPV4 = 0,
-		IPV6 = 1,
-	}
-	enum protocol
-	{
-		TCP = 0,
-		UDP = 1,
-	}
+    enum ip_protocol
+    {
+        IPV4 = 0,
+        IPV6 = 1,
+    }
+    enum protocol
+    {
+        TCP = 0,
+        UDP = 1,
+    }
 
-	extern("wo_socket", "rssocket_create_sock")
-		func create(var proto : protocol, var ip_proto : ip_protocol) : socket;
+    extern("wo_socket", "rssocket_create_sock")
+        func create(var proto : protocol, var ip_proto : ip_protocol) : socket;
 }

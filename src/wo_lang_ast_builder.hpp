@@ -144,6 +144,7 @@ namespace wo
                 // special type
                 {L"union", value::valuetype::invalid},
                 {L"struct", value::valuetype::invalid},
+                {L"tuple", value::valuetype::invalid},
 
                 {L"void", value::valuetype::invalid},
                 {L"pending", value::valuetype::invalid},
@@ -531,6 +532,11 @@ namespace wo
             {
                 return !is_func() &&
                     (type_name == L"union" || (using_type_name && using_type_name->type_name == L"union"));
+            }
+            bool is_tuple() const
+            {
+                return !is_func() &&
+                    (type_name == L"tuple" || (using_type_name && using_type_name->type_name == L"tuple"));
             }
             bool is_struct() const
             {
@@ -1062,17 +1068,7 @@ namespace wo
                                 }
                                 else
                                 {
-                                    if (implicit)
-                                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                            ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
-                                            value_type->get_type_name().c_str());
-                                    else
-                                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                            ast_type::get_name_from_type(_be_cast_value_node->value_type->value_type).c_str(),
-                                            value_type->get_type_name().c_str());
-
-                                    constant_value.set_nil();
-                                    value_type = new ast_type(constant_value);
+                                    is_constant = false;
                                 }
                                 break;
                             }
@@ -3231,6 +3227,28 @@ namespace wo
             }
         };
 
+        struct ast_value_make_tuple_instance : virtual public ast_value
+        {
+            ast_list* tuple_member_vals;
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->tuple_member_vals);
+
+                return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 
 #define WO_NEED_TOKEN(ID) [&]() {             \
@@ -4267,6 +4285,47 @@ namespace wo
             }
         };
 
+        struct pass_append_list_for_ref_tuple_maker : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                /*
+                gm::te(gm::ttype::l_left_brackets), 0
+                gm::te(gm::ttype::l_ref), 1
+                gm::nt(L"RIGHT"), 2
+                gm::te(gm::ttype::l_comma), 3
+                gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"), 4
+                gm::te(gm::ttype::l_right_brackets)
+                */
+                wo_assert(input.size() == 6);
+                ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
+                if (list)
+                {
+                    ast_value* val = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                    wo_assert(val);
+
+                    val->is_mark_as_using_ref = true;
+                    list->append_at_head(val);
+
+                    return (grammar::ast_base*)list;
+                }
+                wo_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
+                return 0;
+            }
+        };
+
+        struct pass_make_tuple : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(input.size() == 1);
+                ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
+                tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
+                return (grammar::ast_base*)tuple;
+            }
+
+        };
+
         struct pass_empty : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -5175,6 +5234,30 @@ namespace wo
             }
         };
 
+        struct pass_build_tuple_type : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // ( LIST )
+
+                wo_assert(input.size() == 3);
+                ast_type* tuple_type = new ast_type(L"tuple");
+
+                auto* type_ptr = WO_NEED_AST(1)->children;
+                while (type_ptr)
+                {
+                    ast_type* type = dynamic_cast<ast_type*>(type_ptr);
+                    type_ptr = type_ptr->sibling;
+
+                    wo_assert(type);
+                    tuple_type->template_arguments.push_back(type);
+                }
+                wo_assert(!tuple_type->template_arguments.empty());
+
+                return (ast_basic*)tuple_type;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -5287,9 +5370,13 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 1>>] = _register_builder<pass_append_list<0, 1>>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 2>>] = _register_builder<pass_append_list<0, 2>>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<2, 0>>] = _register_builder<pass_append_list<2, 0>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 2>>] = _register_builder<pass_append_list<1, 2>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 3>>] = _register_builder<pass_append_list<1, 3>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_import_files>] = _register_builder<pass_import_files>();
 
@@ -5320,6 +5407,11 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();
             _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_build_tuple_type>] = _register_builder<pass_build_tuple_type>();
+            _registed_builder_function_id_list[meta::type_hash<pass_append_list_for_ref_tuple_maker>] = _register_builder<pass_append_list_for_ref_tuple_maker>();
+            _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
+
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

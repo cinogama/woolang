@@ -501,6 +501,28 @@ namespace wo
                 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TYPE"),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
+                ///////////////////////////////////////////////////
+
+                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST"),gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_tuple_type),
+
+                gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::nt(L"TYPE"), gm::te(gm::ttype::l_comma), gm::nt(L"TUPLE_TYPE_LIST_FOLLOWED") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<0, 2>),
+
+                gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::nt(L"TYPE"), gm::te(gm::ttype::l_comma) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"TUPLE_TYPE_LIST_FOLLOWED") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::nt(L"TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                ///////////////////////////////////////////////////
+
                 gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -696,6 +718,33 @@ namespace wo
 
                 gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                //////////////////////
+
+                gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_TUPLE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_make_tuple),
+
+                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
+                                        gm::te(gm::ttype::l_left_brackets),
+                                        gm::nt(L"RIGHT"),
+                                        gm::te(gm::ttype::l_comma),
+                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
+                                        gm::te(gm::ttype::l_right_brackets) }
+                                        >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 3>),
+
+                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
+                                        gm::te(gm::ttype::l_left_brackets),
+                                        gm::te(gm::ttype::l_ref),
+                                        gm::nt(L"RIGHT"),
+                                        gm::te(gm::ttype::l_comma),
+                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
+                                        gm::te(gm::ttype::l_right_brackets) }
+                                        >> WO_ASTBUILDER_INDEX(ast::pass_append_list_for_ref_tuple_maker),
+
+                gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                ///////////////////////
 
                 gm::nt(L"CONSTANT_MAP") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_curly_braces),

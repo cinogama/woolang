@@ -3,24 +3,24 @@ import test_tool;
 
 namespace test_operator_overload
 {
-	func operator + (var a:string, var b:int)
-	{
-		return a + b:string;
-	}
+    func operator + (var a:string, var b:int)
+    {
+        return a + b:string;
+    }
 
-	func operator * (var a:string, var b:int)
-	{
-		var result = "";
-		for (var i = 0; i<b; i+=1)
-			result += a;
-		return result;
-	}
-	
-	func main()
-	{
-		test_equal("Hello" + 25, "Hello25");
-		test_equal("Hello" * 3, "HelloHelloHello");
-	}
+    func operator * (var a:string, var b:int)
+    {
+        var result = "";
+        for (var i = 0; i<b; i+=1)
+            result += a;
+        return result;
+    }
+    
+    func main()
+    {
+        test_equal("Hello" + 25, "Hello25");
+        test_equal("Hello" * 3, "HelloHelloHello");
+    }
 }
 
 test_function("test_operator_overload.main", test_operator_overload::main);

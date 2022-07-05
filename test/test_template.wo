@@ -161,41 +161,41 @@ namespace test_template
     
     namespace A
     {
-	    using xxtype = gchandle_type;
-	    namespace xxtype
-	    {
-		    func create()
-		    {
-			    return "success";
-		    }
-		    func instance()
-		    {
-			    return std::debug::__empty_function:<xxtype>();
-		    }
-	    }
+        using xxtype = gchandle_type;
+        namespace xxtype
+        {
+            func create()
+            {
+                return "success";
+            }
+            func instance()
+            {
+                return std::debug::__empty_function:<xxtype>();
+            }
+        }
     }
 
     func make_instance<T>()
     {
-	    return typeof(T::instance())::create();
+        return typeof(T::instance())::create();
     }
 
     using gchandle_type = gchandle;
     namespace gchandle_type
     {
         func create()
-		{
-			return "gchandle_type success";
-		}
-		func instance()
-		{
-			return std::debug::__empty_function:<gchandle_type>();
-		}
+        {
+            return "gchandle_type success";
+        }
+        func instance()
+        {
+            return std::debug::__empty_function:<gchandle_type>();
+        }
     }
 
     func is_same<T1, T2>()
     {
-	    return func():T1{} is T2();
+        return func():T1{} is T2();
     }
 
     var constexpr_if_test_flag = false;
@@ -211,12 +211,12 @@ namespace test_template
 
     func invoke_template<FR, FA>(var foo:FR(FA), var arg:FA)
     {
-	    return foo(arg);
+        return foo(arg);
     }
 
     func append_str_hello(var msg:string)
     {
-	    return "hello" + msg;
+        return "hello" + msg;
     }
 
     func test_typeof_in_template<T>()
