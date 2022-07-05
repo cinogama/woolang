@@ -4413,7 +4413,8 @@ namespace wo
                 {
                     if (!(a_value_logical_binary->left->value_type->is_integer()
                         || a_value_logical_binary->left->value_type->is_real()
-                        || a_value_logical_binary->left->value_type->is_string()))
+                        || a_value_logical_binary->left->value_type->is_string() 
+                        || a_value_logical_binary->left->value_type->is_dynamic()))
                     {
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_RELATION_CANNOT_COMPARE,
                             lexer::lex_is_operate_type(a_value_logical_binary->operate),
@@ -4421,7 +4422,8 @@ namespace wo
                     }
                     if (!(a_value_logical_binary->right->value_type->is_integer()
                         || a_value_logical_binary->right->value_type->is_real()
-                        || a_value_logical_binary->right->value_type->is_string()))
+                        || a_value_logical_binary->right->value_type->is_string()
+                        || a_value_logical_binary->right->value_type->is_dynamic()))
                     {
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_RELATION_CANNOT_COMPARE,
                             lexer::lex_is_operate_type(a_value_logical_binary->operate),

@@ -804,7 +804,16 @@ namespace option
                 return option::none:<R>;
         }
     }
-
+    func valor<T, R>(var self: option<T>, var default_val: T)
+    {
+        match(self)
+        {
+            option::value(x)?
+                return x;
+            option::none?
+                return default_val;
+        }
+    }
     func val<T>(var self: option<T>)
     {
         match(self)
