@@ -708,6 +708,21 @@ namespace wo
                         }
                     }
                 }
+                else if (a_value_idx->from->value_type->is_tuple())
+                {
+                    if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+                    {
+                        // Index tuple must with constant integer.
+                        auto index = a_value_idx->index->get_constant_value().integer;
+                        if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                        {
+                            a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
+                            a_value_idx->struct_offset = (uint16_t)index;
+                        }
+                        else
+                            a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"pending");
+                    }
+                }
                 else if (a_value_idx->from->value_type->is_string())
                 {
                     a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
@@ -1335,6 +1350,34 @@ namespace wo
             {
                 analyze_pass1(a_value_make_struct_instance->struct_member_vals);
             }
+            else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(ast_node))
+            {
+                analyze_pass1(a_value_make_tuple_instance->tuple_member_vals);
+                std::vector<ast_type*> types;
+                bool tuple_type_not_pending = true;
+                auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+                while (tuple_elems)
+                {
+                    ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
+                    if (!val->value_type->is_pending())
+                        types.push_back(val->value_type);
+                    else
+                    {
+                        tuple_type_not_pending = false;
+                        break;
+                    }
+                    tuple_elems = tuple_elems->sibling;
+                }
+                if (tuple_type_not_pending)
+                {
+                    a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
+                    a_value_make_tuple_instance->value_type->template_arguments = types;
+                }
+                else
+                {
+                    a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"pending");
+                }
+            }
             else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
             {
                 analyze_pass1(a_struct_member_define->member_val_or_type_tkplace);
@@ -1720,6 +1763,26 @@ namespace wo
                                     lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
                                 }
 
+                            }
+                            else if (a_value_idx->from->value_type->is_tuple())
+                            {
+                                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+                                {
+                                    // Index tuple must with constant integer.
+                                    auto index = a_value_idx->index->get_constant_value().integer;
+                                    if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                                    {
+                                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
+                                        a_value_idx->struct_offset = (uint16_t)index;
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_value_idx, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引 %d 项），继续",
+                                            (int)a_value_idx->from->value_type->template_arguments.size(), (int)index);
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_idx, L"只允许使用 'int' 类型的常量索引元组，继续");
+                                }
                             }
                             else if (a_value_idx->from->value_type->is_string())
                             {
@@ -2580,7 +2643,8 @@ namespace wo
                             && !a_value_index->from->value_type->is_map()
                             && !a_value_index->from->value_type->is_string()
                             && !a_value_index->from->value_type->is_dynamic()
-                            && !a_value_index->from->value_type->is_struct())
+                            && !a_value_index->from->value_type->is_struct()
+                            && !a_value_index->from->value_type->is_tuple())
                         {
                             lang_anylizer->lang_error(0x0000, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
                                 , a_value_index->from->value_type->get_type_name().c_str());
@@ -3292,6 +3356,35 @@ namespace wo
             {
                 analyze_pass2(a_struct_member_define->member_val_or_type_tkplace);
             }
+            else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(ast_node))
+            {
+                analyze_pass2(a_value_make_tuple_instance->tuple_member_vals);
+                std::vector<ast_type*> types;
+                bool tuple_type_not_pending = true;
+                auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+                while (tuple_elems)
+                {
+                    ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
+                    if (!val->value_type->is_pending())
+                        types.push_back(val->value_type);
+                    else
+                    {
+                        tuple_type_not_pending = false;
+                        break;
+                    }
+                    tuple_elems = tuple_elems->sibling;
+                }
+                if (tuple_type_not_pending)
+                {
+                    a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
+                    a_value_make_tuple_instance->value_type->template_arguments = types;
+                }
+                else
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, L"元组元素类型未决，因此无法推导元组类型，继续");
+                }
+            }
+
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
             ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
             if (ast_value_symbolable_base* a_value_base = a_value_base_for_attrb;
@@ -4412,7 +4505,7 @@ namespace wo
                 {
                     if (!(a_value_logical_binary->left->value_type->is_integer()
                         || a_value_logical_binary->left->value_type->is_real()
-                        || a_value_logical_binary->left->value_type->is_string() 
+                        || a_value_logical_binary->left->value_type->is_string()
                         || a_value_logical_binary->left->value_type->is_dynamic()))
                     {
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_RELATION_CANNOT_COMPARE,
@@ -4433,7 +4526,7 @@ namespace wo
                 if (a_value_logical_binary->operate == +lex_type::l_lor ||
                     a_value_logical_binary->operate == +lex_type::l_land)
                 {
-                    if (!a_value_logical_binary->left->value_type->is_bool() &&!a_value_logical_binary->left->value_type->is_dynamic())
+                    if (!a_value_logical_binary->left->value_type->is_bool() && !a_value_logical_binary->left->value_type->is_dynamic())
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
                             a_value_logical_binary->left->value_type->get_type_name(false));
                     if (!a_value_logical_binary->right->value_type->is_bool() && !a_value_logical_binary->right->value_type->is_dynamic())
@@ -4625,7 +4718,7 @@ namespace wo
             }
             else if (auto* a_value_index = dynamic_cast<ast_value_index*>(value))
             {
-                if (a_value_index->from->value_type->is_struct())
+                if (a_value_index->from->value_type->is_struct() || a_value_index->from->value_type->is_tuple())
                 {
                     wo_assert(a_value_index->struct_offset != 0xFFFF);
                     auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
@@ -4858,6 +4951,31 @@ namespace wo
 
                 return result;
             }
+            else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(value))
+            {
+                auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+                std::vector<ast_value*> arr_list;
+                while (tuple_elems)
+                {
+                    ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
+                    wo_assert(val);
+                    arr_list.insert(arr_list.begin(), val);
+
+                    tuple_elems = tuple_elems->sibling;
+                }
+                for (auto val : arr_list)
+                {
+                    if (val->is_mark_as_using_ref)
+                        compiler->pshr(analyze_value(val, compiler));
+                    else
+                        compiler->psh(analyze_value(val, compiler));
+                }
+
+                auto& result = get_useable_register_for_pure_value();
+                compiler->mkstruct(result, (uint16_t)arr_list.size());
+
+                return result;
+            }
             else
             {
                 wo_error("unknown value type..");
@@ -5055,7 +5173,7 @@ namespace wo
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
                 if (!a_if->judgement_value->value_type->is_dynamic() && !a_if->judgement_value->value_type->is_bool())
-                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, 
+                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL,
                         L"if", a_if->judgement_value->value_type->get_type_name(false));
 
                 if (a_if->judgement_value->is_constant)
@@ -5106,9 +5224,9 @@ namespace wo
             }
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
-            if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
-                lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
-                    a_while->judgement_value->value_type->get_type_name(false));
+                if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
+                    lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
+                        a_while->judgement_value->value_type->get_type_name(false));
 
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();

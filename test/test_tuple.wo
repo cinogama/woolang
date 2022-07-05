@@ -1,0 +1,24 @@
+import woo.std;
+import test_tool;
+
+namespace test_tuple
+{
+    using st1 = struct {
+        a: string,
+        b: real,
+    };
+    func main()
+    {
+        var x = (1, 2.2, "Helloworld");
+        var s = st1 { a = x[2] as string, b = x[1] as real };
+        var w = (s, 1, 2);
+        var l = w as (st1, int, int);
+        var all = (x, s, w, l);
+
+        test_assure(all[3][0].a == x[2]);
+        test_assure(x[0] == 1);
+        test_assure(x[2] == "Helloworld");
+    }
+}
+
+test_function("test_tuple.main", test_tuple::main);

@@ -5,66 +5,66 @@ import woo.thread;
 
 namespace test_thread
 {
-	var summ_mtx = std::spin::create();
-	var summ = 0;
+    var summ_mtx = std::spin::create();
+    var summ = 0;
 
-	var created_threads = []:array<std::thread>;
+    var created_threads = []:array<std::thread>;
 
-	const var thread_count = 4;
+    const var thread_count = 4;
 
     func main()
     {
         var i = 0;
-		while (i<thread_count)
-		{
-			created_threads->add(
-				std::thread::create(
-					func(var id:int)
-					{
-						var c = 0;
-						while (c<10_000_000)
-						{
-							summ_mtx->lock();
-							summ += 1;
-							summ_mtx->unlock();
+        while (i<thread_count)
+        {
+            created_threads->add(
+                std::thread::create(
+                    func(var id:int)
+                    {
+                        var c = 0;
+                        while (c<10_000_000)
+                        {
+                            summ_mtx->lock();
+                            summ += 1;
+                            summ_mtx->unlock();
 
-							c+=1;
-						}
-						std::println("Thread:", id, "complete");
-					}, i 	
-			));
-			i+=1;
-		}
+                            c+=1;
+                        }
+                        std::println("Thread:", id, "complete");
+                    }, i     
+            ));
+            i+=1;
+        }
 
-		std::println("OK! Waiting to end..");
+        std::println("OK! Waiting to end..");
 
-		i = 0;
-		while (i<thread_count)
-		{
-			created_threads[i]->wait();
-			i+=1;
-		}
-		std::println("Result:", summ);
-		test_equal(summ, 10_000_000 * thread_count);
+        i = 0;
+        while (i<thread_count)
+        {
+            created_threads[i]->wait();
+            i+=1;
+        }
+        std::println("Result:", summ);
+        test_equal(summ, 10_000_000 * thread_count);
 
-		// Thread should be abort-able..
-		summ = 0;
-		var this_should_be_true = false;
-		var __pack = [ref this_should_be_true];
-		var th = std::thread::create(
-			func(ref i)
-			{
-				__pack[0] = true;
-				while (i <= 1_0000_0000)
-				{
-					i+=1;
-				}
-			}, ref summ);
-		std::sleep(0.2);
-		th->abort();
-		th->wait();
+        // Thread should be abort-able..
+        summ = 0;
+        var this_should_be_true = false;
+        var __pack = [ref this_should_be_true];
+        var th = std::thread::create(
+            func(ref i)
+            {
+                __pack[0] = true;
+                while (i <= 1_0000_0000)
+                {
+                    i+=1;
+                }
+            }, ref summ);
+        std::sleep(0.2);
+        th->abort();
+        th->wait();
 
-		test_assure(this_should_be_true && summ!=0 && summ<1_0000_0000);
+        test_assure(this_should_be_true && summ!=0 && summ<1_0000_0000);
 
     }
 }
