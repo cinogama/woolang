@@ -7,6 +7,7 @@
 #ifdef _WIN32
 // include nothing
 #else
+#define _XOPEN_SOURCE
 #   include <ucontext.h>
 #endif
 namespace wo
