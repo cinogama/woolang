@@ -10,6 +10,7 @@
 #elif defined(__linux__)
 #include <dlfcn.h>
 #elif defined(__APPLE__)
+#include <dlfcn.h>
 #include <mach-o/dyld.h>
 #endif
 
