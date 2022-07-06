@@ -7,8 +7,10 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-#else
+#elif defined(__linux__)
 #include <dlfcn.h>
+#elif defined(__APPLE__)
+#include <mach-o/dyld.h>
 #endif
 
 namespace wo
@@ -49,7 +51,7 @@ namespace wo
 #else
         void* loadlib(const char* dllpath, const char* scriptpath)
         {
-#ifdef __linux__
+#if defined(__linux__) || defined(__APPLE__)
             if (!dllpath)
                 return dlopen(nullptr, RTLD_LAZY);
 
@@ -70,8 +72,8 @@ namespace wo
 
             return nullptr;
 #else
-            wo_error("Unknown operating-system..") :
-                return nullptr;
+            wo_error("Unknown operating-system..");
+            return nullptr;
 #endif
         }
         wo_native_func loadfunc(void* libhandle, const char* funcname)
