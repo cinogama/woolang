@@ -1694,15 +1694,28 @@ namespace wo
             }
         };
 
+        struct ast_pattern_base : virtual public grammar::ast_base
+        {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_defines::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
         struct ast_varref_defines : virtual public ast_defines
         {
             struct varref_define
             {
                 bool is_ref;
-                std::wstring ident_name;
-                ast_list* template_arguments;
+                ast_pattern_base* pattern;
+
                 ast_value* init_val;
-                lang_symbol* symbol = nullptr;
             };
             std::vector<varref_define> var_refs;
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -1714,7 +1727,9 @@ namespace wo
                 for (auto& vr_define : var_refs)
                 {
                     space(os, lay + 1);
-                    os << (vr_define.is_ref ? "ref " : "var ") << vr_define.ident_name << L" = " << std::endl;
+                    os << (vr_define.is_ref ? "ref " : "var ") << std::endl;
+                    vr_define.pattern->display(os, lay + 1);
+                    os << L" = " << std::endl;
                     vr_define.init_val->display(os, lay + 1);
                 }
                 space(os, lay);
@@ -3070,24 +3085,12 @@ namespace wo
             }
         };
 
-        struct ast_pattern_base : virtual public grammar::ast_base
-        {
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
-                // Write self copy functions here..
-
-                return dumm;
-            }
-        };
-
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
             std::wstring identifier;
-            lang_symbol* symbol;
+            lang_symbol* symbol = nullptr;
+
+            ast_list* template_arguments = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3457,8 +3460,11 @@ namespace wo
                     ast_value_literal* const_val = new ast_value_literal(
                         token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
 
+                    auto* define_enum_item = new ast_pattern_identifier;
+                    define_enum_item->identifier = enumitem->enum_ident;
+
                     vardefs->var_refs.push_back(
-                        { false, enumitem->enum_ident, nullptr, const_val });
+                        { false, define_enum_item, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -3989,8 +3995,11 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_test(init_val);
 
-                result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(0).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(1)), init_val });
+                auto* define_varref = new ast_pattern_identifier;
+                define_varref->identifier = WO_NEED_TOKEN(0).identifier;
+                define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
+
+                result->var_refs.push_back({ false, define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4005,8 +4014,11 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_test(result && init_val);
 
-                result->var_refs.push_back(
-                    { false, WO_NEED_TOKEN(2).identifier, dynamic_cast<ast_list*>(WO_NEED_AST(3)), init_val });
+                auto* define_varref = new ast_pattern_identifier;
+                define_varref->identifier = WO_NEED_TOKEN(2).identifier;
+                define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+
+                result->var_refs.push_back({ false, define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4721,7 +4733,10 @@ namespace wo
                 afor->used_vawo_defines = new ast_varref_defines;
                 afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
 
-                afor->used_vawo_defines->var_refs.push_back({ false, L"_iter", nullptr, exp_dir_iter_call });
+                auto* afor_iter_define = new ast_pattern_identifier;
+                afor_iter_define->identifier = L"_iter";
+
+                afor->used_vawo_defines->var_refs.push_back({ false,afor_iter_define, exp_dir_iter_call });
                 //}}}}
 
                     // var a= tkplace, b = tkplace...
@@ -4732,7 +4747,11 @@ namespace wo
                     foreachvar->is_mark_as_using_ref = true;
                     afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
                     afor->foreach_var.push_back(foreachvar);
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs->tokens.identifier, nullptr, new ast_value_takeplace() });
+
+                    auto* define_varref = new ast_pattern_identifier;
+                    define_varref->identifier = a_var_defs->tokens.identifier;
+
+                    afor->used_vawo_defines->var_refs.push_back({ false, define_varref, new ast_value_takeplace() });
 
                     a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
                 }
@@ -5101,7 +5120,12 @@ namespace wo
 
                         ast_varref_defines* define_union_item = new ast_varref_defines();
                         define_union_item->copy_source_info(items);
-                        define_union_item->var_refs.push_back({ false, items->identifier,defined_template_arg_lists, funccall });
+
+                        auto* union_item_define = new ast_pattern_identifier;
+                        union_item_define->identifier = items->identifier;
+                        union_item_define->template_arguments = defined_template_arg_lists;
+
+                        define_union_item->var_refs.push_back({ false, union_item_define, funccall });
                         define_union_item->declear_attribute = new ast_decl_attribute();
 
                         union_scope->in_scope_sentence->append_at_end(define_union_item);

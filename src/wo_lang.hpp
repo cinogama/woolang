@@ -540,6 +540,228 @@ namespace wo
             }
         };
 
+        void analyze_pattern_in_pass1(bool is_ref, ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
+        {
+            using namespace ast;
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                if (!a_pattern_identifier->template_arguments)
+                {
+                    // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
+                    //            symbol first, it can make variable capture correctly.
+                    //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
+                    bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(initval);
+                    if (!init_value_is_lambda)
+                        analyze_pass1(initval);
+                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::NORMAL);
+                    if (init_value_is_lambda)
+                        analyze_pass1(initval);
+
+                    a_pattern_identifier->symbol->is_ref = is_ref;
+
+                    if (is_ref)
+                        initval->is_mark_as_using_ref = true;
+                }
+                else
+                {
+                    // Template variable!!! we just define symbol here.
+                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                    symb->is_template_symbol = true;
+
+                    wo_assert(symb->template_types.empty());
+
+                    auto* items = a_pattern_identifier->template_arguments->children;
+                    while (items)
+                    {
+                        ast_template_define_with_naming* template_name = dynamic_cast<ast_template_define_with_naming*>(items);
+                        // TODO: NEED CHECK NAMING HERE?
+
+                        wo_assert(template_name);
+                        symb->template_types.push_back(template_name->template_ident);
+                        items = items->sibling;
+                    }
+
+                    a_pattern_identifier->symbol = symb;
+                }
+            }
+            else
+                lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
+        void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval)
+        {
+            using namespace ast;
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                if (!a_pattern_identifier->template_arguments)
+                {
+                    analyze_pass2(initval);
+
+                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    if (a_pattern_identifier->symbol->is_ref)
+                    {
+                        initval->is_mark_as_using_ref = true;
+
+                        if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval);
+                            (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                            || !initval->can_be_assign || initval->is_constant)
+                        {
+                            lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                        }
+                    }
+                }
+                else
+                {
+                    for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
+                    {
+                        impl_symbol->has_been_defined_in_pass2 = true;
+                        if (a_pattern_identifier->symbol->is_ref)
+                        {
+                            impl_symbol->variable_value->is_mark_as_using_ref = true;
+
+                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
+                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
+                                || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
+                            {
+                                lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            }
+                        }
+                    }
+                }
+            }
+            else
+                lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
+        void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, ir_compiler* compiler)
+        {
+            using namespace ast;
+            using namespace opnum;
+
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                if (!a_pattern_identifier->template_arguments)
+                {
+                    if (a_pattern_identifier->symbol->is_ref)
+                    {
+                        wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(initval));
+                        auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
+
+                        std::string init_static_flag_check_tag;
+                        if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
+                        {
+                            init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                            auto& static_inited_flag = get_new_global_variable();
+                            compiler->equb(static_inited_flag, reg(reg::ni));
+                            compiler->jf(tag(init_static_flag_check_tag));
+                            compiler->set(static_inited_flag, imm(1));
+                        }
+                        auto& aim_ob = auto_analyze_value(initval, compiler);
+
+                        if (is_non_ref_tem_reg(aim_ob))
+                            lang_anylizer->lang_error(0x0000, initval, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                        compiler->ext_setref(ref_ob, aim_ob);
+
+                        if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
+                            compiler->tag(init_static_flag_check_tag);
+                    }
+                    else
+                    {
+                        if (!a_pattern_identifier->symbol->is_constexpr)
+                        {
+                            auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
+
+                            std::string init_static_flag_check_tag;
+                            if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
+                            {
+                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                auto& static_inited_flag = get_new_global_variable();
+                                compiler->equb(static_inited_flag, reg(reg::ni));
+                                compiler->jf(tag(init_static_flag_check_tag));
+                                compiler->set(static_inited_flag, imm(1));
+                            }
+
+                            if (nullptr == dynamic_cast<ast_value_takeplace*>(initval))
+                            {
+                                if (is_need_dup_when_mov(initval))
+                                    compiler->ext_movdup(ref_ob, auto_analyze_value(initval, compiler));
+                                else
+                                    compiler->mov(ref_ob, auto_analyze_value(initval, compiler));
+                            }
+                            if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
+                                compiler->tag(init_static_flag_check_tag);
+                        }
+                    }
+                }
+                else
+                {
+                    // Template variable impl here, give init value to correct place.
+                    const auto& all_template_impl_variable_symbol
+                        = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
+                    for (auto& [_, symbol] : all_template_impl_variable_symbol)
+                    {
+                        if (a_pattern_identifier->symbol->is_ref)
+                        {
+                            wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value));
+                            auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
+
+                            std::string init_static_flag_check_tag;
+                            if (symbol->static_symbol && symbol->define_in_function)
+                            {
+                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                auto& static_inited_flag = get_new_global_variable();
+                                compiler->equb(static_inited_flag, reg(reg::ni));
+                                compiler->jf(tag(init_static_flag_check_tag));
+                                compiler->set(static_inited_flag, imm(1));
+                            }
+                            auto& aim_ob = auto_analyze_value(symbol->variable_value, compiler);
+
+                            if (is_non_ref_tem_reg(aim_ob))
+                                lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
+
+                            compiler->ext_setref(ref_ob, aim_ob);
+
+                            if (symbol->static_symbol && symbol->define_in_function)
+                                compiler->tag(init_static_flag_check_tag);
+                        }
+                        else
+                        {
+                            if (!symbol->is_constexpr)
+                            {
+                                auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
+
+                                std::string init_static_flag_check_tag;
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                {
+                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                                    auto& static_inited_flag = get_new_global_variable();
+                                    compiler->equb(static_inited_flag, reg(reg::ni));
+                                    compiler->jf(tag(init_static_flag_check_tag));
+                                    compiler->set(static_inited_flag, imm(1));
+                                }
+
+                                if (nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value))
+                                {
+                                    if (is_need_dup_when_mov(symbol->variable_value))
+                                        compiler->ext_movdup(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                    else
+                                        compiler->mov(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
+                                }
+                                if (symbol->static_symbol && symbol->define_in_function)
+                                    compiler->tag(init_static_flag_check_tag);
+                            }
+                        }
+                    }
+
+                }
+            }
+            else
+                lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
+
         void analyze_pass1(grammar::ast_base* ast_node)
         {
             entry_pass ep1(in_pass2, false);
@@ -592,45 +814,7 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    if (!varref.template_arguments)
-                    {
-                        // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
-                        //            symbol first, it can make variable capture correctly.
-                        //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
-                        bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(varref.init_val);
-                        if (!init_value_is_lambda)
-                            analyze_pass1(varref.init_val);
-                        varref.symbol = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::NORMAL);
-                        if (init_value_is_lambda)
-                            analyze_pass1(varref.init_val);
-
-                        varref.symbol->is_ref = varref.is_ref;
-                        a_varref_defs->add_child(varref.init_val);
-
-                        if (varref.is_ref)
-                            varref.init_val->is_mark_as_using_ref = true;
-                    }
-                    else
-                    {
-                        // Template variable!!! we just define symbol here.
-                        auto* symb = define_variable_in_this_scope(varref.ident_name, varref.init_val, a_varref_defs->declear_attribute, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
-                        symb->is_template_symbol = true;
-
-                        wo_assert(symb->template_types.empty());
-
-                        auto* items = varref.template_arguments->children;
-                        while (items)
-                        {
-                            ast_template_define_with_naming* template_name = dynamic_cast<ast_template_define_with_naming*>(items);
-                            // TODO: NEED CHECK NAMING HERE?
-
-                            wo_assert(template_name);
-                            symb->template_types.push_back(template_name->template_ident);
-                            items = items->sibling;
-                        }
-
-                        varref.symbol = symb;
-                    }
+                    analyze_pattern_in_pass1(varref.is_ref, varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
                 }
             }
             else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(ast_node))
@@ -3155,39 +3339,7 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    if (!varref.template_arguments)
-                    {
-                        varref.symbol->has_been_defined_in_pass2 = true;
-                        if (varref.is_ref)
-                        {
-                            varref.init_val->is_mark_as_using_ref = true;
-
-                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(varref.init_val);
-                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                                || !varref.init_val->can_be_assign || varref.init_val->is_constant)
-                            {
-                                lang_anylizer->lang_error(0x0000, varref.init_val, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        for (auto& [_, impl_symbol] : varref.symbol->template_typehashs_reification_instance_symbol_list)
-                        {
-                            impl_symbol->has_been_defined_in_pass2 = true;
-                            if (varref.is_ref)
-                            {
-                                impl_symbol->variable_value->is_mark_as_using_ref = true;
-
-                                if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
-                                    (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                                    || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
-                                {
-                                    lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                                }
-                            }
-                        }
-                    }
+                    analyze_pattern_in_pass2(varref.pattern, varref.init_val);
                 }
             }
             else if (ast_check_type_with_naming_in_pass2* a_check_naming = dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
@@ -5040,125 +5192,7 @@ namespace wo
             {
                 for (auto& varref_define : a_varref_defines->var_refs)
                 {
-                    if (!varref_define.template_arguments)
-                    {
-                        if (varref_define.is_ref)
-                        {
-                            wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val));
-                            auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
-
-                            std::string init_static_flag_check_tag;
-                            if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                            {
-                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                auto& static_inited_flag = get_new_global_variable();
-                                compiler->equb(static_inited_flag, reg(reg::ni));
-                                compiler->jf(tag(init_static_flag_check_tag));
-                                compiler->set(static_inited_flag, imm(1));
-                            }
-                            auto& aim_ob = auto_analyze_value(varref_define.init_val, compiler);
-
-                            if (is_non_ref_tem_reg(aim_ob))
-                                lang_anylizer->lang_error(0x0000, varref_define.init_val, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                            compiler->ext_setref(ref_ob, aim_ob);
-
-                            if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                                compiler->tag(init_static_flag_check_tag);
-                        }
-                        else
-                        {
-                            if (!varref_define.symbol->is_constexpr)
-                            {
-                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, varref_define.symbol, compiler);
-
-                                std::string init_static_flag_check_tag;
-                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                                {
-                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                    auto& static_inited_flag = get_new_global_variable();
-                                    compiler->equb(static_inited_flag, reg(reg::ni));
-                                    compiler->jf(tag(init_static_flag_check_tag));
-                                    compiler->set(static_inited_flag, imm(1));
-                                }
-
-                                if (nullptr == dynamic_cast<ast_value_takeplace*>(varref_define.init_val))
-                                {
-                                    if (is_need_dup_when_mov(varref_define.init_val))
-                                        compiler->ext_movdup(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                                    else
-                                        compiler->mov(ref_ob, auto_analyze_value(varref_define.init_val, compiler));
-                                }
-                                if (varref_define.symbol->static_symbol && varref_define.symbol->define_in_function)
-                                    compiler->tag(init_static_flag_check_tag);
-                            }
-                        }
-                    }
-                    else
-                    {
-                        // Template variable impl here, give init value to correct place.
-                        const auto& all_template_impl_variable_symbol
-                            = varref_define.symbol->template_typehashs_reification_instance_symbol_list;
-                        for (auto& [_, symbol] : all_template_impl_variable_symbol)
-                        {
-                            if (varref_define.is_ref)
-                            {
-                                wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value));
-                                auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
-
-                                std::string init_static_flag_check_tag;
-                                if (symbol->static_symbol && symbol->define_in_function)
-                                {
-                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                    auto& static_inited_flag = get_new_global_variable();
-                                    compiler->equb(static_inited_flag, reg(reg::ni));
-                                    compiler->jf(tag(init_static_flag_check_tag));
-                                    compiler->set(static_inited_flag, imm(1));
-                                }
-                                auto& aim_ob = auto_analyze_value(symbol->variable_value, compiler);
-
-                                if (is_non_ref_tem_reg(aim_ob))
-                                    lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                                compiler->ext_setref(ref_ob, aim_ob);
-
-                                if (symbol->static_symbol && symbol->define_in_function)
-                                    compiler->tag(init_static_flag_check_tag);
-                            }
-                            else
-                            {
-                                if (!symbol->is_constexpr)
-                                {
-                                    auto& ref_ob = get_opnum_by_symbol(a_varref_defines, symbol, compiler);
-
-                                    std::string init_static_flag_check_tag;
-                                    if (symbol->static_symbol && symbol->define_in_function)
-                                    {
-                                        init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                        auto& static_inited_flag = get_new_global_variable();
-                                        compiler->equb(static_inited_flag, reg(reg::ni));
-                                        compiler->jf(tag(init_static_flag_check_tag));
-                                        compiler->set(static_inited_flag, imm(1));
-                                    }
-
-                                    if (nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value))
-                                    {
-                                        if (is_need_dup_when_mov(symbol->variable_value))
-                                            compiler->ext_movdup(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
-                                        else
-                                            compiler->mov(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
-                                    }
-                                    if (symbol->static_symbol && symbol->define_in_function)
-                                        compiler->tag(init_static_flag_check_tag);
-                                }
-                            }
-                        }
-
-                    }
+                    analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, compiler);
                 }
             }
             else if (auto* a_list = dynamic_cast<ast_list*>(ast_node))
