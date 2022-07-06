@@ -46,7 +46,6 @@ namespace wo
     class exception_recovery
     {
         exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
-        vmbase* vm;
     public:
         const byte_t* ip;
         value* sp;
@@ -1228,8 +1227,7 @@ namespace wo
     };
 
     inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
-        : vm(_vm)
-        , ip(_ip)
+        : ip(_ip)
         , sp(_sp)
         , bp(_bp)
         , last(_vm->veh)

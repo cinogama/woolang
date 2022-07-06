@@ -3350,7 +3350,7 @@ namespace wo
                 }
                 else
                     lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
-                        a_value_make_struct_instance->value_type->get_type_name(false));
+                        a_value_make_struct_instance->value_type->get_type_name(false).c_str());
             }
             else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
             {
@@ -4528,10 +4528,10 @@ namespace wo
                 {
                     if (!a_value_logical_binary->left->value_type->is_bool() && !a_value_logical_binary->left->value_type->is_dynamic())
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
-                            a_value_logical_binary->left->value_type->get_type_name(false));
+                            a_value_logical_binary->left->value_type->get_type_name(false).c_str());
                     if (!a_value_logical_binary->right->value_type->is_bool() && !a_value_logical_binary->right->value_type->is_dynamic())
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
-                            a_value_logical_binary->right->value_type->get_type_name(false));
+                            a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                 }
 
                 size_t revert_pos = compiler->get_now_ip();
@@ -5174,7 +5174,7 @@ namespace wo
             {
                 if (!a_if->judgement_value->value_type->is_dynamic() && !a_if->judgement_value->value_type->is_bool())
                     lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL,
-                        L"if", a_if->judgement_value->value_type->get_type_name(false));
+                        L"if", a_if->judgement_value->value_type->get_type_name(false).c_str());
 
                 if (a_if->judgement_value->is_constant)
                 {
@@ -5226,7 +5226,7 @@ namespace wo
             {
                 if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
                     lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
-                        a_while->judgement_value->value_type->get_type_name(false));
+                        a_while->judgement_value->value_type->get_type_name(false).c_str());
 
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto while_end_tag = "while_end_" + compiler->get_unique_tag_based_command_ip();
@@ -5282,7 +5282,7 @@ namespace wo
                 {
                     if (!a_forloop->judgement_expr->value_type->is_dynamic() && !a_forloop->judgement_expr->value_type->is_bool())
                         lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"for",
-                            a_forloop->judgement_expr->value_type->get_type_name(false));
+                            a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
 
                     mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
                     compiler->jf(tag(forloop_end_tag));
