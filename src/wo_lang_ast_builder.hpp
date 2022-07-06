@@ -658,8 +658,7 @@ namespace wo
                 // Write self copy functions here..
                 dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
                 WO_REINSTANCE(dumm->complex_type);
-                std::vector<ast_type*> argument_types;
-                std::vector<ast_type*> template_arguments;
+
                 for (auto& argtype : dumm->argument_types)
                 {
                     WO_REINSTANCE(argtype);
@@ -2919,7 +2918,6 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
                 // Write self copy functions here..
                 return dumm;
             }
@@ -3102,7 +3100,26 @@ namespace wo
                 return dumm;
             }
         };
+        struct ast_pattern_tuple : virtual public ast_pattern_base
+        {
+            std::vector<ast_pattern_base*> tuple_patterns;
 
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_pattern_base::instance(dumm);
+                // Write self copy functions here..
+
+                for (auto& pattern_in_tuple : dumm->tuple_patterns)
+                {
+                    WO_REINSTANCE(pattern_in_tuple);
+                }
+
+                return dumm;
+            }
+        };
         struct ast_pattern_union_value : virtual public ast_pattern_base
         {
             // TMP IMPL!
