@@ -2922,7 +2922,7 @@ namespace wo
                             && offset < opnum2->structs->m_count);
 
                         // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
-                        gcbase::gc_read_guard gwg1(opnum1->optional);
+                        gcbase::gc_read_guard gwg1(opnum2->structs);
 
                         auto* result = opnum2->structs->m_values[offset].get();
                         if (wo::gc::gc_is_marking())
