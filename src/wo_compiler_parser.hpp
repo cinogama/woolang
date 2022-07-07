@@ -561,27 +561,34 @@ namespace wo
                             //only for non-te
                             auto& ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
                             auto& prules = P[ntv];
+
                             for (auto& prule : prules)
                             {
-                                if (item.next_sign + 1 < item.item_rule.second.size())
+                                auto current_next_sign = item.next_sign;
+                                bool has_e_prod = false;
+                                do
                                 {
-                                    auto& beta_set = FIRST(item.item_rule.second[item.next_sign + 1]);
-                                    auto& beta_follow = FOLLOW_READ(ntv);
-                                    for (auto& beta : beta_set)
+                                    has_e_prod = false;
+                                    ++current_next_sign;
+                                    if (current_next_sign < item.item_rule.second.size())
                                     {
-                                        if (beta.t_type == +ttype::l_empty)
-                                            add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
-                                        else
+                                        auto& beta_set = FIRST(item.item_rule.second[current_next_sign]);
+                                        auto& beta_follow = FOLLOW_READ(ntv);
+
+                                        for (auto& beta : beta_set)
                                         {
-                                            if (beta_follow.find(beta) != beta_follow.end())
+                                            if (beta.t_type == +ttype::l_empty)
+                                                has_e_prod = true;
+                                            else
+                                            {
+                                                wo_assert(beta_follow.find(beta) != beta_follow.end());
                                                 add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , beta });
+                                            }
                                         }
                                     }
-                                }
-                                else
-                                    add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
-
-
+                                    else
+                                        add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
+                                } while (has_e_prod);
                             }
                         }
 

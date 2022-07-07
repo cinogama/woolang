@@ -886,7 +886,6 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
 
-
                 gm::nt(L"TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
