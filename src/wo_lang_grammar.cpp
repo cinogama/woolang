@@ -375,12 +375,10 @@ namespace wo
                                 gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_foreach),
 
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"FOREACH_VAR_ITEM") }
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"NORMAL_PATTERN") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"FOREACH_VAR_ITEM") }
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"NORMAL_PATTERN") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-                gm::nt(L"FOREACH_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -414,7 +412,7 @@ namespace wo
                 gm::nt(L"REFDEFINE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_as_ref_define),//ASTVariableDefination
 
-                gm::nt(L"VARDEFINE") >> gm::symlist{gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"VARDEFINE") >> gm::symlist{ gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
@@ -422,12 +420,12 @@ namespace wo
                 gm::nt(L"VARDEFINE") >> gm::symlist{
                 gm::nt(L"VARDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                gm::te(gm::ttype::l_assign,L"="),
+                gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
-                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
@@ -435,8 +433,8 @@ namespace wo
                 gm::nt(L"REFDEFINE") >> gm::symlist{
                 gm::nt(L"REFDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::te(gm::ttype::l_identifier), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                gm::te(gm::ttype::l_assign,L"="),
+                gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::te(gm::ttype::l_assign),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
@@ -1016,6 +1014,11 @@ namespace wo
 
                 gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
+
+                ////////////////////////////////////////////////////
+
+                gm::nt(L"NORMAL_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
