@@ -2949,6 +2949,7 @@ namespace wo
             std::vector<ast_value_takeplace*> foreach_patterns_vars_in_pass;
             ast_value_variable* iterator_var;
 
+            ast_varref_defines* used_iter_define; // Just used for taking place;;;
             ast_varref_defines* used_vawo_defines; // Just used for taking place;;;
 
             ast_value_funccall* iter_getting_funccall;  // Used for get iter's type. it will used for getting func symbol;;
@@ -4736,15 +4737,18 @@ namespace wo
 
                 afor->iter_getting_funccall = exp_dir_iter_call;
 
-                afor->used_vawo_defines = new ast_varref_defines;
-                afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
+                afor->used_iter_define = new ast_varref_defines;
+                afor->used_iter_define->declear_attribute = new ast_decl_attribute;
 
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = L"_iter";
 
-                afor->used_vawo_defines->var_refs.push_back({ false,afor_iter_define, exp_dir_iter_call });
-                //}}}}
-                
+                afor->used_iter_define->var_refs.push_back({ false, afor_iter_define, exp_dir_iter_call });
+
+
+                afor->used_vawo_defines = new ast_varref_defines;
+                afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
+
                 // var a= tkplace, b = tkplace...
                 ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
                 while (a_var_defs)

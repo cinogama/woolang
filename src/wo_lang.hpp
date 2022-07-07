@@ -1444,6 +1444,9 @@ namespace wo
             {
                 begin_scope();
 
+                a_foreach->used_iter_define->copy_source_info(a_foreach);
+                analyze_pass1(a_foreach->used_iter_define);
+
                 a_foreach->used_vawo_defines->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->used_vawo_defines);
 
@@ -3235,7 +3238,7 @@ namespace wo
             }
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
-
+                analyze_pass2(a_foreach->used_iter_define);
                 analyze_pass2(a_foreach->used_vawo_defines);
 
                 /*
@@ -3310,6 +3313,7 @@ namespace wo
                     lang_anylizer->lex_enable_error_warn = false;
 
                     int rndidx = (int)a_foreach->foreach_patterns_vars_in_pass.size() - 1;
+
                     for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
                         ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
                         ridx++)
@@ -3683,19 +3687,25 @@ namespace wo
         }
 
         // register mapping.... fxxk
-        std::vector<bool> assigned_t_register_list = std::vector<bool>(opnum::reg::T_REGISTER_COUNT);   // will assign t register
-        std::vector<bool> assigned_r_register_list = std::vector<bool>(opnum::reg::R_REGISTER_COUNT);   // will assign r register
+        enum class RegisterUsingState : uint8_t
+        {
+            FREE,
+            NORMAL,
+            BLOCKING
+        };
+        std::vector<RegisterUsingState> assigned_t_register_list = std::vector<RegisterUsingState>(opnum::reg::T_REGISTER_COUNT);   // will assign t register
+        std::vector<RegisterUsingState> assigned_r_register_list = std::vector<RegisterUsingState>(opnum::reg::R_REGISTER_COUNT);   // will assign r register
 
-        opnum::opnumbase& get_useable_register_for_pure_value()
+        opnum::opnumbase& get_useable_register_for_pure_value(bool must_release = false)
         {
             using namespace ast;
             using namespace opnum;
 #define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
             for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
             {
-                if (!assigned_t_register_list[i])
+                if (RegisterUsingState::FREE == assigned_t_register_list[i])
                 {
-                    assigned_t_register_list[i] = true;
+                    assigned_t_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
                     return WO_NEW_OPNUM(reg(reg::t0 + (uint8_t)i));
                 }
             }
@@ -3709,14 +3719,15 @@ namespace wo
             if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
                 reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT)
             {
-                assigned_t_register_list[reg_ptr->id] = false;
+                assigned_t_register_list[reg_ptr->id] = RegisterUsingState::FREE;
             }
         }
         void _complete_using_all_register_for_pure_value()
         {
             for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
             {
-                assigned_t_register_list[i] = 0;
+                if (assigned_t_register_list[i] != RegisterUsingState::BLOCKING)
+                    assigned_t_register_list[i] = RegisterUsingState::FREE;
             }
         }
 
@@ -3733,16 +3744,16 @@ namespace wo
             return false;
         }
 
-        opnum::opnumbase& get_useable_register_for_ref_value()
+        opnum::opnumbase& get_useable_register_for_ref_value(bool must_release = false)
         {
             using namespace ast;
             using namespace opnum;
 #define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
             for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
             {
-                if (!assigned_r_register_list[i])
+                if (RegisterUsingState::FREE == assigned_r_register_list[i])
                 {
-                    assigned_r_register_list[i] = true;
+                    assigned_r_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
                     return WO_NEW_OPNUM(reg(reg::r0 + (uint8_t)i));
                 }
             }
@@ -3757,15 +3768,15 @@ namespace wo
                 reg_ptr && reg_ptr->id >= opnum::reg::T_REGISTER_COUNT
                 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT)
             {
-                wo_test(assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT]);
-                assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT] = false;
+                assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT] = RegisterUsingState::FREE;
             }
         }
         void _complete_using_all_register_for_ref_value()
         {
             for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
             {
-                assigned_r_register_list[i] = 0;
+                if (assigned_r_register_list[i] != RegisterUsingState::BLOCKING)
+                    assigned_r_register_list[i] = RegisterUsingState::FREE;
             }
         }
 
@@ -5401,6 +5412,7 @@ namespace wo
             }
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
+                real_analyze_finalize(a_foreach->used_iter_define, compiler);
                 real_analyze_finalize(a_foreach->used_vawo_defines, compiler);
 
                 auto foreach_begin_tag = "foreach_begin_" + compiler->get_unique_tag_based_command_ip();
@@ -5427,11 +5439,11 @@ namespace wo
                     {
                         // Get a pure value reg for pattern!
                         a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg =
-                            &get_useable_register_for_pure_value();
+                            &get_useable_register_for_pure_value(true);
                     }
+                    wo_assert(a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg);
                     ++pattern_val_takeplace_id;
                 }
-                complete_using_all_register();
 
                 compiler->tag(foreach_begin_tag);
                 mov_value_to_cr(auto_analyze_value(a_foreach->iter_next_judge_expr, compiler), compiler);
@@ -5448,6 +5460,7 @@ namespace wo
                     else
                     {
                         analyze_pattern_in_finalize(varpatterndef.pattern, a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id], compiler);
+                        complete_using_register(*a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg);
                     }
                     ++pattern_val_takeplace_id;
                 }
