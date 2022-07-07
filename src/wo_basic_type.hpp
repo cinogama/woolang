@@ -390,7 +390,7 @@ namespace wo
     struct struct_values
     {
         value* m_values;
-        uint16_t m_count;
+        const uint16_t m_count;
 
         struct_values(const struct_values&) = delete;
         struct_values(struct_values&&) = delete;

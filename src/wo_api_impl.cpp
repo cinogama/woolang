@@ -947,6 +947,7 @@ wo_string_t wo_cast_string(const wo_value value)
         return "<closure function>";
     case wo::value::valuetype::struct_type:
     {
+        wo::gcbase::gc_read_guard rg1(_rsvalue->structs);
         std::string tmp_buf = "struct {\n";
         for (uint16_t i = 0; i < _rsvalue->structs->m_count; ++i)
         {
@@ -1093,6 +1094,7 @@ wo_result_t wo_ret_option_value(wo_vm vm, wo_result_t result)
     wovm->er->set_trans(wovm->cr);
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_trans(wovm->er);
@@ -1104,6 +1106,7 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm)
     auto* wovm = WO_VM(vm);
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
     return 0;
@@ -1115,6 +1118,7 @@ wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
 
     if (ptr)
     {
@@ -1133,6 +1137,7 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
     structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
@@ -1214,6 +1219,7 @@ wo_integer_t wo_lengthof(wo_value value)
     }
     else if (_rsvalue->type == wo::value::valuetype::struct_type)
     {
+        // no need lock for struct's count
         return _rsvalue->structs->m_count;
     }
     else
@@ -1632,7 +1638,7 @@ wo_value wo_struct_get(wo_value value, uint16_t offset)
     else if (_struct->type == wo::value::valuetype::struct_type)
     {
         wo::struct_t* struct_impl = _struct->structs;
-
+        wo::gcbase::gc_read_guard gwg1(struct_impl);
         if (offset < struct_impl->m_count)
         {
             auto* result = &struct_impl->m_values[offset];

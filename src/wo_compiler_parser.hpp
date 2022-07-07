@@ -238,7 +238,7 @@ namespace wo
                     copy_source_info(ast_node->parent);
                 else
                     wo_assert(0, "Failed to copy source info.");
-                
+
             }
             void copy_source_info(const lexer* lex)
             {
@@ -561,29 +561,34 @@ namespace wo
                             //only for non-te
                             auto& ntv = std::get<nt>(item.item_rule.second[item.next_sign]);
                             auto& prules = P[ntv];
+
                             for (auto& prule : prules)
                             {
-                                if (item.next_sign + 1 < item.item_rule.second.size())
+                                auto current_next_sign = item.next_sign;
+                                bool has_e_prod = false;
+                                do
                                 {
-                                    auto& beta_set = FIRST(item.item_rule.second[item.next_sign + 1]);
-                                    for (auto& beta : beta_set)
+                                    has_e_prod = false;
+                                    ++current_next_sign;
+                                    if (current_next_sign < item.item_rule.second.size())
                                     {
-                                        if (beta.t_type == +ttype::l_empty)
+                                        auto& beta_set = FIRST(item.item_rule.second[current_next_sign]);
+                                        auto& beta_follow = FOLLOW_READ(ntv);
+
+                                        for (auto& beta : beta_set)
                                         {
-                                            add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
-                                        }
-                                        else
-                                        {
-                                            add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , beta });
+                                            if (beta.t_type == +ttype::l_empty)
+                                                has_e_prod = true;
+                                            else
+                                            {
+                                                wo_assert(beta_follow.find(beta) != beta_follow.end());
+                                                add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , beta });
+                                            }
                                         }
                                     }
-                                }
-                                else
-                                {
-                                    add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
-                                }
-
-
+                                    else
+                                        add_ietm.insert(lr_item{ rule{ntv,prule}, 0 , item.prospect });
+                                } while (has_e_prod);
                             }
                         }
 
@@ -782,6 +787,8 @@ namespace wo
                     {
                         if (std::holds_alternative<nt>(single_rule.second[pindex]))
                         {
+                            nt nxt = std::get<nt>(single_rule.second[pindex]);
+
                             if (pindex == single_rule.second.size() - 1)
                             {
                                 auto& follow_set = FOLLOW_SET[single_rule.first];
@@ -800,13 +807,20 @@ namespace wo
                                     else
                                         have_e_prud = true;
                                 }
-                                if (have_e_prud && pindex == single_rule.second.size() - 2)
+                                if (have_e_prud)
                                 {
-                                    auto& follow_set = FOLLOW_SET[single_rule.first];
-                                    FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
+                                    if (pindex == single_rule.second.size() - 2)
+                                    {
+                                        auto& follow_set = FOLLOW_SET[single_rule.first];
+                                        FOLLOW_SET[single_rule.second[pindex]].insert(follow_set.begin(), follow_set.end());
+                                    }
+                                    else
+                                    {
+                                        auto& next_symb_follow_set = FIRST(single_rule.second[pindex + 2]);
+                                        FOLLOW_SET[single_rule.second[pindex]].insert(next_symb_follow_set.begin(), next_symb_follow_set.end());
+                                    }
                                 }
                                 //first_set.begin(), first_set.end());
-
                             }
                         }
                     }
