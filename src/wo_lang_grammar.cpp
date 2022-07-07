@@ -959,14 +959,9 @@ namespace wo
                 // PATTERN-CASE MAY BE A UNION
                 gm::nt(L"PATTERN_UNION_CASE") >> gm::symlist{ gm::nt(L"CALLABLE_LEFT"),
                     gm::te(gm::ttype::l_left_brackets),
-                    gm::nt(L"PATTERN"),
+                    gm::nt(L"DEFINE_PATTERN"),
                     gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_union_pattern),
-
-                // PATTERN MAY BE TUPLE/STRUCT
-                    // TODO:
-                gm::nt(L"PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
@@ -1020,7 +1015,7 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern),
 
                 gm::nt(L"DEFINE_PATTERN_LIST") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

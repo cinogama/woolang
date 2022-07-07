@@ -584,6 +584,26 @@ namespace wo
                     a_pattern_identifier->symbol = symb;
                 }
             }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                analyze_pass1(initval);
+                for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
+                {
+                    take_place->copy_source_info(pattern);
+                }
+                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
+                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
+                {
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                    }
+                }
+                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                {
+                    analyze_pattern_in_pass1(is_ref, a_pattern_tuple->tuple_patterns[i], new ast_decl_attribute, a_pattern_tuple->tuple_takeplaces[i]);
+                }
+            }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
         }
@@ -628,6 +648,35 @@ namespace wo
                     }
                 }
             }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                analyze_pass2(initval);
+
+                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
+                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
+                {
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                    }
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
+                        analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
+                    }
+                }
+                else
+                {
+                    if (initval->value_type->is_pending())
+                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：值类型未决，继续");
+                    else if (!initval->value_type->is_tuple())
+                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：期待给定一个tuple类型，但给定的是 '%s'，继续",
+                            initval->value_type->get_type_name(false).c_str());
+                    else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
+                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：tuple元素数量不符，期待获取%d个值，但给定了%d个，继续",
+                            (int)a_pattern_tuple->tuple_takeplaces.size(),
+                            (int)initval->value_type->template_arguments.size());
+                }
+            }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
         }
@@ -642,7 +691,6 @@ namespace wo
                 {
                     if (a_pattern_identifier->symbol->is_ref)
                     {
-                        wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(initval));
                         auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
                         std::string init_static_flag_check_tag;
@@ -655,7 +703,7 @@ namespace wo
                             compiler->jf(tag(init_static_flag_check_tag));
                             compiler->set(static_inited_flag, imm(1));
                         }
-                        auto& aim_ob = auto_analyze_value(initval, compiler);
+                        auto& aim_ob = analyze_value(initval, compiler);
 
                         if (is_non_ref_tem_reg(aim_ob))
                             lang_anylizer->lang_error(0x0000, initval, WO_ERR_NOT_REFABLE_INIT_ITEM);
@@ -682,13 +730,11 @@ namespace wo
                                 compiler->set(static_inited_flag, imm(1));
                             }
 
-                            if (nullptr == dynamic_cast<ast_value_takeplace*>(initval))
-                            {
-                                if (is_need_dup_when_mov(initval))
-                                    compiler->ext_movdup(ref_ob, auto_analyze_value(initval, compiler));
-                                else
-                                    compiler->mov(ref_ob, auto_analyze_value(initval, compiler));
-                            }
+                            if (is_need_dup_when_mov(initval))
+                                compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
+                            else
+                                compiler->mov(ref_ob, analyze_value(initval, compiler));
+
                             if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
                                 compiler->tag(init_static_flag_check_tag);
                         }
@@ -703,7 +749,6 @@ namespace wo
                     {
                         if (a_pattern_identifier->symbol->is_ref)
                         {
-                            wo_assert(nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value));
                             auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
                             std::string init_static_flag_check_tag;
@@ -716,7 +761,7 @@ namespace wo
                                 compiler->jf(tag(init_static_flag_check_tag));
                                 compiler->set(static_inited_flag, imm(1));
                             }
-                            auto& aim_ob = auto_analyze_value(symbol->variable_value, compiler);
+                            auto& aim_ob = analyze_value(symbol->variable_value, compiler);
 
                             if (is_non_ref_tem_reg(aim_ob))
                                 lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
@@ -743,13 +788,11 @@ namespace wo
                                     compiler->set(static_inited_flag, imm(1));
                                 }
 
-                                if (nullptr == dynamic_cast<ast_value_takeplace*>(symbol->variable_value))
-                                {
-                                    if (is_need_dup_when_mov(symbol->variable_value))
-                                        compiler->ext_movdup(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
-                                    else
-                                        compiler->mov(ref_ob, auto_analyze_value(symbol->variable_value, compiler));
-                                }
+                                if (is_need_dup_when_mov(symbol->variable_value))
+                                    compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                else
+                                    compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
+
                                 if (symbol->static_symbol && symbol->define_in_function)
                                     compiler->tag(init_static_flag_check_tag);
                             }
@@ -757,6 +800,19 @@ namespace wo
                     }
 
                 }
+            }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                auto& struct_val = analyze_value(initval, compiler);
+                auto& current_values = get_useable_register_for_pure_value();
+                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                {              
+                    compiler->idstruct(current_values, struct_val, (uint16_t)i);
+                    a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
+
+                    analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], compiler);
+                }
+                complete_using_register(current_values);
             }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
@@ -1520,13 +1576,8 @@ namespace wo
                     // Calc type in pass2, here just define the variable with ast_value_takeplace
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
-                        {
-                            a_pattern_identifier->symbol =
-                                define_variable_in_this_scope(a_pattern_identifier->identifier, new ast_value_takeplace, new ast_decl_attribute, template_style::NORMAL);
-                        }
-                        else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
+                        a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
+                        analyze_pattern_in_pass1(false, a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
                     }
                 }
                 else
@@ -3440,17 +3491,14 @@ namespace wo
                     }
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
-                        {
-                            if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
-                                lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
-                            else
-                            {
-                                a_pattern_identifier->symbol->variable_value->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
-                            }
-                        }
-                        else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
+                        wo_assert(a_match_union_case->take_place_value_may_nil);
+                        a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
+
+                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+
+                        analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
+
                     }
                     else
                     {
@@ -5582,16 +5630,13 @@ namespace wo
 
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
-                        {
-                            auto& valreg = get_useable_register_for_ref_value();
-                            compiler->idstruct(valreg, reg(reg::ths), 1);
+                        auto& valreg = get_useable_register_for_ref_value();
+                        compiler->idstruct(valreg, reg(reg::ths), 1);
 
-                            compiler->mov(get_opnum_by_symbol(a_pattern_identifier, a_pattern_identifier->symbol, compiler, false), valreg);
-                            complete_using_register(valreg);
-                        }
-                        else
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_MODE);
+                        wo_assert(a_match_union_case->take_place_value_may_nil);
+                        a_match_union_case->take_place_value_may_nil->used_reg = &valreg;
+
+                        analyze_pattern_in_finalize(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil, compiler);
                     }
                     else
                     {

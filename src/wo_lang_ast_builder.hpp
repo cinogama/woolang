@@ -3111,6 +3111,7 @@ namespace wo
         struct ast_pattern_tuple : virtual public ast_pattern_base
         {
             std::vector<ast_pattern_base*> tuple_patterns;
+            std::vector<ast_value_takeplace*> tuple_takeplaces;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3123,6 +3124,10 @@ namespace wo
                 for (auto& pattern_in_tuple : dumm->tuple_patterns)
                 {
                     WO_REINSTANCE(pattern_in_tuple);
+                }
+                for (auto& takeplaces : dumm->tuple_takeplaces)
+                {
+                    WO_REINSTANCE(takeplaces);
                 }
 
                 return dumm;
@@ -3171,6 +3176,7 @@ namespace wo
         struct ast_match_union_case : virtual public ast_match_case_base
         {
             ast_pattern_union_value* union_pattern;
+            ast_value_takeplace* take_place_value_may_nil;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -4000,10 +4006,10 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_test(init_val);
 
-                auto* define_varref = dynamic_cast<ast_pattern_identifier*>(WO_NEED_AST(0));
+                auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(0));
                 wo_assert(define_varref);
-
-                define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
+                if (auto* pattern_identifier = dynamic_cast<ast_pattern_identifier*>(define_varref))
+                    pattern_identifier->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
                 result->var_refs.push_back({ false, define_varref, init_val });
 
@@ -4020,10 +4026,10 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_test(result && init_val);
 
-                auto* define_varref = dynamic_cast<ast_pattern_identifier*>(WO_NEED_AST(2));
+                auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 wo_assert(define_varref);
-
-                define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                if (auto* pattern_identifier = dynamic_cast<ast_pattern_identifier*>(define_varref))
+                    pattern_identifier->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(3));
 
                 result->var_refs.push_back({ false, define_varref, init_val });
 
@@ -5152,6 +5158,24 @@ namespace wo
             }
         };
 
+        struct pass_tuple_pattern : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = new ast_pattern_tuple;
+                auto* subpattern = WO_NEED_AST(1)->children;
+                while (subpattern)
+                {
+                    auto* child_pattern = dynamic_cast<ast_pattern_base*>(subpattern);
+                    subpattern = subpattern->sibling;
+
+                    wo_assert(child_pattern);
+                    result->tuple_patterns.push_back(child_pattern);
+                    result->tuple_takeplaces.push_back(new ast_value_takeplace);
+                }
+                return (ast_basic*)result;
+            }
+        };
 
         struct pass_union_pattern : public astnode_builder
         {
@@ -5445,6 +5469,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_union_pattern>] = _register_builder<pass_union_pattern>();
             _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
+            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern>] = _register_builder<pass_tuple_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();

@@ -18,6 +18,12 @@ namespace test_tuple
         test_assure(all[3][0].a == x[2]);
         test_assure(x[0] == 1);
         test_assure(x[2] == "Helloworld");
+
+        var (a, b, c, d) = all;
+        test_assure(c[0].a == x[2]);
+
+        var (w0, w1, (m0, m1, m2), w3) = all;
+        test_assure(m0.a == c[0].a);
     }
 }
 
