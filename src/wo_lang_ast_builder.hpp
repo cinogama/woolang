@@ -17,6 +17,10 @@
 namespace wo
 {
 #define WO_REINSTANCE(ITEM) if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}
+    namespace opnum
+    {
+        struct opnumbase;
+    }
 
     grammar* get_wo_grammar(void);
     namespace ast
@@ -718,6 +722,7 @@ namespace wo
 
         struct ast_value_takeplace : virtual public ast_value
         {
+            opnum::opnumbase* used_reg = nullptr;
             ast_value_takeplace()
             {
                 value_type = new ast_type(L"pending");
@@ -2941,8 +2946,7 @@ namespace wo
 
         struct ast_foreach : virtual public grammar::ast_base
         {
-            std::vector<std::wstring> foreach_varname;
-            std::vector<ast_value_variable*> foreach_var;
+            std::vector<ast_value_takeplace*> foreach_patterns_vars_in_pass;
             ast_value_variable* iterator_var;
 
             ast_varref_defines* used_vawo_defines; // Just used for taking place;;;
@@ -2960,7 +2964,7 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
-                for (auto& vptr : dumm->foreach_var)
+                for (auto& vptr : dumm->foreach_patterns_vars_in_pass)
                 {
                     WO_REINSTANCE(vptr);
                 }
@@ -3995,8 +3999,9 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
                 wo_test(init_val);
 
-                auto* define_varref = new ast_pattern_identifier;
-                define_varref->identifier = WO_NEED_TOKEN(0).identifier;
+                auto* define_varref = dynamic_cast<ast_pattern_identifier*>(WO_NEED_AST(0));
+                wo_assert(define_varref);
+
                 define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
                 result->var_refs.push_back({ false, define_varref, init_val });
@@ -4014,8 +4019,9 @@ namespace wo
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
                 wo_test(result && init_val);
 
-                auto* define_varref = new ast_pattern_identifier;
-                define_varref->identifier = WO_NEED_TOKEN(2).identifier;
+                auto* define_varref = dynamic_cast<ast_pattern_identifier*>(WO_NEED_AST(2));
+                wo_assert(define_varref);
+
                 define_varref->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(3));
 
                 result->var_refs.push_back({ false, define_varref, init_val });
@@ -4738,22 +4744,13 @@ namespace wo
 
                 afor->used_vawo_defines->var_refs.push_back({ false,afor_iter_define, exp_dir_iter_call });
                 //}}}}
-
-                    // var a= tkplace, b = tkplace...
-                ast_token* a_var_defs = dynamic_cast<ast_token*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
+                
+                // var a= tkplace, b = tkplace...
+                ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
                 while (a_var_defs)
                 {
-                    ast_value_variable* foreachvar = new ast_value_variable(a_var_defs->tokens.identifier);
-                    foreachvar->is_mark_as_using_ref = true;
-                    afor->foreach_varname.push_back(a_var_defs->tokens.identifier);
-                    afor->foreach_var.push_back(foreachvar);
-
-                    auto* define_varref = new ast_pattern_identifier;
-                    define_varref->identifier = a_var_defs->tokens.identifier;
-
-                    afor->used_vawo_defines->var_refs.push_back({ false, define_varref, new ast_value_takeplace() });
-
-                    a_var_defs = dynamic_cast<ast_token*>(a_var_defs->sibling);
+                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs, new ast_value_takeplace() });
+                    a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
                 }
 
                 // in loop body..
