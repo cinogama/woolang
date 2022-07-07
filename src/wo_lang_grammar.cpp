@@ -375,9 +375,9 @@ namespace wo
                                 gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_foreach),
 
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"NORMAL_PATTERN") }
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{  gm::nt(L"DEFINE_PATTERN") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"NORMAL_PATTERN") }
+                gm::nt(L"FOREACH_VAR_IDENTS") >> gm::symlist{ gm::nt(L"FOREACH_VAR_IDENTS"),gm::te(gm::ttype::l_comma),gm::nt(L"DEFINE_PATTERN") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"IF")}
@@ -412,7 +412,7 @@ namespace wo
                 gm::nt(L"REFDEFINE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_as_ref_define),//ASTVariableDefination
 
-                gm::nt(L"VARDEFINE") >> gm::symlist{ gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"VARDEFINE") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
@@ -420,12 +420,12 @@ namespace wo
                 gm::nt(L"VARDEFINE") >> gm::symlist{
                 gm::nt(L"VARDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
-                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
@@ -433,7 +433,7 @@ namespace wo
                 gm::nt(L"REFDEFINE") >> gm::symlist{
                 gm::nt(L"REFDEFINE"),
                 gm::te(gm::ttype::l_comma),
-                gm::nt(L"NORMAL_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
@@ -1016,8 +1016,20 @@ namespace wo
 
                 ////////////////////////////////////////////////////
 
-                gm::nt(L"NORMAL_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
+
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"DEFINE_PATTERN_LIST") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"DEFINE_PATTERN_ITEMS") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"DEFINE_PATTERN_ITEMS") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN_ITEMS"), gm::te(gm::ttype::l_comma), gm::nt(L"DEFINE_PATTERN") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
