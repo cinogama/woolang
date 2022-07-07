@@ -729,11 +729,14 @@ namespace wo
                                 compiler->jf(tag(init_static_flag_check_tag));
                                 compiler->set(static_inited_flag, imm(1));
                             }
-
-                            if (is_need_dup_when_mov(initval))
-                                compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
-                            else
-                                compiler->mov(ref_ob, analyze_value(initval, compiler));
+                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                                !valtkpls || valtkpls->used_reg)
+                            {
+                                if (is_need_dup_when_mov(initval))
+                                    compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
+                                else
+                                    compiler->mov(ref_ob, analyze_value(initval, compiler));
+                            }
 
                             if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
                                 compiler->tag(init_static_flag_check_tag);
@@ -787,11 +790,14 @@ namespace wo
                                     compiler->jf(tag(init_static_flag_check_tag));
                                     compiler->set(static_inited_flag, imm(1));
                                 }
-
-                                if (is_need_dup_when_mov(symbol->variable_value))
-                                    compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
-                                else
-                                    compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                                    !valtkpls || valtkpls->used_reg)
+                                {
+                                    if (is_need_dup_when_mov(symbol->variable_value))
+                                        compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                    else
+                                        compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                }
 
                                 if (symbol->static_symbol && symbol->define_in_function)
                                     compiler->tag(init_static_flag_check_tag);
@@ -806,7 +812,7 @@ namespace wo
                 auto& struct_val = analyze_value(initval, compiler);
                 auto& current_values = get_useable_register_for_pure_value();
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                {              
+                {
                     compiler->idstruct(current_values, struct_val, (uint16_t)i);
                     a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
 
@@ -1505,15 +1511,6 @@ namespace wo
 
                 a_foreach->used_vawo_defines->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->used_vawo_defines);
-
-                for (auto defs : a_foreach->used_vawo_defines->var_refs)
-                {
-                    ast_value_takeplace* tkplace = new ast_value_takeplace;
-                    tkplace->is_mark_as_using_ref = true;
-                    tkplace->copy_source_info(defs.pattern);
-
-                    a_foreach->foreach_patterns_vars_in_pass.push_back(tkplace);
-                }
 
                 a_foreach->iterator_var->copy_source_info(a_foreach);
                 analyze_pass1(a_foreach->iterator_var);
@@ -3290,8 +3287,6 @@ namespace wo
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
                 analyze_pass2(a_foreach->used_iter_define);
-                analyze_pass2(a_foreach->used_vawo_defines);
-
                 /*
                 for (auto& variable : a_foreach->foreach_var)
                     analyze_pass2(variable);
@@ -3328,7 +3323,7 @@ namespace wo
                     }
 
                     int need_takeplace_count = (int)_next_executer_type->argument_types.size();
-                    need_takeplace_count -= (int)a_foreach->foreach_patterns_vars_in_pass.size();
+                    need_takeplace_count -= (int)a_foreach->used_vawo_defines->var_refs.size();
                     need_takeplace_count -= 1;//iter
 
                     lang_anylizer->lex_enable_error_warn = true;
@@ -3336,7 +3331,7 @@ namespace wo
                         lang_anylizer->lang_error(0x0000, a_foreach, WO_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT
                             , a_foreach->iter_next_judge_expr->directed_value_from->value_type
                             ->get_type_name(false).c_str()
-                            , a_foreach->foreach_patterns_vars_in_pass.size());
+                            , a_foreach->used_vawo_defines->var_refs.size());
                     lang_anylizer->lex_enable_error_warn = false;
 
                     wo_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
@@ -3363,14 +3358,21 @@ namespace wo
                     }
                     lang_anylizer->lex_enable_error_warn = false;
 
-                    int rndidx = (int)a_foreach->foreach_patterns_vars_in_pass.size() - 1;
-
+                    int rndidx = (int)a_foreach->used_vawo_defines->var_refs.size() - 1;
+                    a_foreach->foreach_patterns_vars_in_pass2.resize(rndidx + 1);
                     for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
                         ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
                         ridx++)
                     {
-                        a_foreach->foreach_patterns_vars_in_pass[rndidx]->completed_in_pass2 = false;
-                        a_foreach->used_vawo_defines->var_refs[rndidx--].init_val->value_type->set_type(*ridx);
+                        auto* tkplaceval = a_foreach->foreach_patterns_vars_in_pass2[rndidx] = 
+                            dynamic_cast<ast_value_takeplace*>(a_foreach->used_vawo_defines->var_refs[rndidx].init_val);
+
+                        wo_assert(tkplaceval);
+                        tkplaceval->is_mark_as_using_ref = true;
+                        tkplaceval->completed_in_pass2 = false;
+                        tkplaceval->value_type->set_type(*ridx);
+
+                        rndidx--;
 
                         if (rndidx < 0)
                             break;
@@ -3381,10 +3383,12 @@ namespace wo
                     a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
                     for (int i = 0; i < need_takeplace_count; i++)
                         a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
-                    for (auto& variable : a_foreach->foreach_patterns_vars_in_pass)
+                    for (auto& variable : a_foreach->foreach_patterns_vars_in_pass2)
                         // WARNING! Variable foreach_patterns_vars_in_pass should same as which in
                         //          a_foreach->iter_next_judge_expr->arguments. it will used in finalize
                         a_foreach->iter_next_judge_expr->arguments->append_at_end(variable);
+
+                    analyze_pass2(a_foreach->used_vawo_defines);
                 }
                 else
                 {
@@ -5461,7 +5465,7 @@ namespace wo
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
                 real_analyze_finalize(a_foreach->used_iter_define, compiler);
-                real_analyze_finalize(a_foreach->used_vawo_defines, compiler);
+                // real_analyze_finalize(a_foreach->used_vawo_defines, compiler);
 
                 auto foreach_begin_tag = "foreach_begin_" + compiler->get_unique_tag_based_command_ip();
                 auto foreach_end_tag = "foreach_end_" + compiler->get_unique_tag_based_command_ip();
@@ -5480,16 +5484,16 @@ namespace wo
                     if (auto* identifier_pattern = dynamic_cast<ast::ast_pattern_identifier*>(varpatterndef.pattern))
                     {
                         // Optimize，get opnum from it's symbol;
-                        a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg =
+                        a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg =
                             &get_opnum_by_symbol(identifier_pattern, identifier_pattern->symbol, compiler, false);
                     }
                     else
                     {
                         // Get a pure value reg for pattern!
-                        a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg =
+                        a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg =
                             &get_useable_register_for_pure_value(true);
                     }
-                    wo_assert(a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg);
+                    wo_assert(a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg);
                     ++pattern_val_takeplace_id;
                 }
 
@@ -5507,8 +5511,8 @@ namespace wo
                     }
                     else
                     {
-                        analyze_pattern_in_finalize(varpatterndef.pattern, a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id], compiler);
-                        complete_using_register(*a_foreach->foreach_patterns_vars_in_pass[pattern_val_takeplace_id]->used_reg);
+                        analyze_pattern_in_finalize(varpatterndef.pattern, a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id], compiler);
+                        complete_using_register(*a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg);
                     }
                     ++pattern_val_takeplace_id;
                 }

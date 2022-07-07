@@ -173,6 +173,11 @@ namespace test_compile
         // invalid type of tuple
         assure_compile_fail(@"var a = (1, 3, ["Hello"]); a[2] = [1];"@);
         assure_compile_fail(@"var a = (1, 3, ["Hello"]); a[1] = 1.2;"@);
+
+        // invalid match for tuple
+        assure_compile_fail(@"var (a, b) = (1,);"@);
+        assure_compile_fail(@"var (a, b) = (1, 2, 3);"@);
+        assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
     }
 }
 

@@ -2946,7 +2946,7 @@ namespace wo
 
         struct ast_foreach : virtual public grammar::ast_base
         {
-            std::vector<ast_value_takeplace*> foreach_patterns_vars_in_pass;
+            std::vector<ast_value_takeplace*> foreach_patterns_vars_in_pass2;
             ast_value_variable* iterator_var;
 
             ast_varref_defines* used_iter_define; // Just used for taking place;;;
@@ -2965,7 +2965,7 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
-                for (auto& vptr : dumm->foreach_patterns_vars_in_pass)
+                for (auto& vptr : dumm->foreach_patterns_vars_in_pass2)
                 {
                     WO_REINSTANCE(vptr);
                 }

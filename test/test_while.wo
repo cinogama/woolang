@@ -29,6 +29,12 @@ namespace test_while
 
         var tm_end = std::time();
         std::println("fib40 cost:", tm_end-tm_beg);
+
+        var t = [("Hello", "world")];
+        for (var (a, b) : t)
+        {
+            test_assure(a+b == "Helloworld");
+        }
     }
 }
 
