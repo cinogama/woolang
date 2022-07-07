@@ -2902,6 +2902,7 @@ namespace wo
 
                         opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
                         struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+                        gcbase::gc_write_guard gwg1(new_struct);
 
                         for (size_t i = 0; i < size; i++)
                             new_struct->m_values[i].set_trans(rt_sp + 1 + i);
@@ -2921,7 +2922,7 @@ namespace wo
                             && offset < opnum2->structs->m_count);
 
                         // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
-                        // gcbase::gc_read_guard gwg1(opnum1->optional);
+                        gcbase::gc_read_guard gwg1(opnum1->optional);
 
                         auto* result = opnum2->structs->m_values[offset].get();
                         if (wo::gc::gc_is_marking())
@@ -3215,6 +3216,7 @@ namespace wo
 
                                 rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
                                 auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, 2);
+                                gcbase::gc_write_guard gwg1(struct_data);
 
                                 struct_data->m_values[0].set_integer((wo_integer_t)id);
                                 struct_data->m_values[1].set_val(opnum1);
