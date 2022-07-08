@@ -1141,7 +1141,7 @@ namespace wo
                 // GOTO : only nt have goto, 
                 cachefile << L"const int woolang_lr1_act_goto[][" << nonte_list.size() << L" + 1] = {" << endl;
                 cachefile << L"// {   STATE_ID,  NT_ID1, NT_ID2, ...  }" << endl;
-
+                size_t WO_LR1_ACT_GOTO_SIZE = 0;
                 for (auto& [state_id, te_sym_list] : wo_grammar->LR1_TABLE)
                 {
                     std::vector<int> nt_goto_state(nonte_list.size() + 1, -1);
@@ -1162,6 +1162,7 @@ namespace wo
 
                     if (has_action)
                     {
+                        ++WO_LR1_ACT_GOTO_SIZE;
                         cachefile << L" {   " << state_id << L",  ";
                         for (size_t i = 1; i < nt_goto_state.size(); i++)
                         {
@@ -1173,13 +1174,15 @@ namespace wo
 
                 cachefile << L"};" << endl;
 
+                cachefile << L"#define WO_LR1_ACT_GOTO_SIZE (" << WO_LR1_ACT_GOTO_SIZE << ")" << endl;
+
                 // Stack/Reduce
                 cachefile << L"const int woolang_lr1_act_stack_reduce[][" << te_list.size() << L" + 1] = {" << endl;
                 cachefile << L"// {   STATE_ID,  TE_ID1, TE_ID2, ...  }" << endl;
 
                 bool has_acc = false;
                 int acc_state = 0, acc_term = 0;
-
+                size_t WO_LR1_ACT_STACK_SIZE = 0;
                 for (auto& [state_id, te_sym_list] : wo_grammar->LR1_TABLE)
                 {
                     std::vector<int> te_stack_reduce_state(te_list.size() + 1, 0);
@@ -1220,6 +1223,7 @@ namespace wo
 
                     if (has_action)
                     {
+                        ++WO_LR1_ACT_STACK_SIZE;
                         cachefile << L" {   " << state_id << L",  ";
                         for (size_t i = 1; i < te_stack_reduce_state.size(); i++)
                         {
@@ -1230,6 +1234,8 @@ namespace wo
                 }
 
                 cachefile << L"};" << endl;
+
+                cachefile << L"#define WO_LR1_ACT_STACK_SIZE (" << WO_LR1_ACT_STACK_SIZE << ")" << endl;
 
                 ///////////////////////////////////////////////////////////////////////
                 // Generate FOLLOW

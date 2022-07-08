@@ -18,6 +18,8 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <sstream>
 #include <any>
 #include <forward_list>
+#include <unordered_map>
+#include <map>
 
 namespace wo
 {
@@ -93,6 +95,22 @@ namespace wo
         using rule = std::pair< nonterminal, std::vector<sym>>;
         using symlist = std::vector<sym>;
         using ttype = lex_type;//just token
+
+        struct hash_symbol
+        {
+            size_t operator ()(const sym& smb) const noexcept
+            {
+                if (std::holds_alternative<te>(smb))
+                {
+                    return ((size_t)std::get<te>(smb).t_type) * 2;
+                }
+                else
+                {
+                    const static auto wstrhasher = std::hash<std::wstring>();
+                    return wstrhasher(std::get<nt>(smb).nt_name) * 2 + 1;
+                }
+            }
+        };
 
         class ast_base
         {
@@ -663,8 +681,8 @@ namespace wo
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
 
-        using lr1table_t = std::map<size_t, std::map<sym, std::set<action>, sym_less>>;
-        std::map<size_t, std::map<sym, std::set<action>, sym_less>> LR1_TABLE;
+        using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
+        lr1table_t LR1_TABLE;
 
         using te_nt_index_t = signed int;
         struct rt_rule
@@ -950,7 +968,7 @@ namespace wo
 
             //3. BUILD LR1
 
-            std::map<size_t, std::map<sym, std::set<action>, sym_less>>& lr1_table = LR1_TABLE;
+            lr1table_t& lr1_table = LR1_TABLE;
             for (size_t statei = 0; statei < C.size(); statei++)
             {
                 std::set<sym>next_set;

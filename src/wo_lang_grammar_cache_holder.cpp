@@ -11,6 +11,8 @@ namespace wo
     void wo_read_lr1_to(wo::grammar::lr1table_t& out_lr1table)
     {
         // READ GOTO
+        out_lr1table.reserve(WO_LR1_ACT_STACK_SIZE + 1);
+
         for (auto& goto_act : woolang_lr1_act_goto)
         {
             for (size_t i = 1; i < sizeof(goto_act) / sizeof(goto_act[0]); i++)
@@ -55,7 +57,6 @@ namespace wo
             .insert(grammar::action{ grammar::action::act_type::accept,
                         grammar::te{lex_type::l_eof},
                         (size_t)0 });
-
     }
     void wo_read_follow_set_to(wo::grammar::sym_nts_t& out_followset)
     {
