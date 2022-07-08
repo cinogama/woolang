@@ -574,7 +574,7 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_map_get(args + 0, args + 1);
 
     if (result)
-        return wo_ret_option_value(vm, wo_ret_ref(vm, result));
+        return wo_ret_option_ref(vm, result);
 
     return wo_ret_option_none(vm);
 }
@@ -711,7 +711,7 @@ WO_API wo_api rslib_std_vm_run(wo_vm vm, wo_value args, size_t argc)
     wo_value ret = wo_run(vmm);
 
     if (ret)
-        return wo_ret_option_value(vm, wo_ret_val(vm, ret));
+        return wo_ret_option_value(vm, ret);
     return wo_ret_option_none(vm);
 }
 

@@ -2798,6 +2798,7 @@ namespace wo
                         {
                             lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
                         }
+                        a_value_assi->value_type->set_type(a_value_assi->left->value_type);
                     }
                     else if (ast_value_type_cast* a_value_typecast = dynamic_cast<ast_value_type_cast*>(a_value))
                     {

@@ -427,8 +427,10 @@ void wo_set_handle(wo_value value, wo_handle_t val)
 }
 void wo_set_pointer(wo_value value, wo_ptr_t val)
 {
-    auto _rsvalue = WO_VAL(value);
-    _rsvalue->set_handle((wo_handle_t)val);
+    if (val)
+        WO_VAL(value)->set_handle((wo_handle_t)val);
+    else
+        wo_ret_halt(CS_VM(wo::vmbase::_this_thread_vm), "Cannot set a nullptr");
 }
 void wo_set_string(wo_value value, wo_string_t val)
 {
@@ -1087,7 +1089,7 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
     return 0;
 }
 
-wo_result_t wo_ret_option_value(wo_vm vm, wo_result_t result)
+wo_result_t wo_ret_option(wo_vm vm, wo_result_t result)
 {
     auto* wovm = WO_VM(vm);
 
@@ -1101,7 +1103,7 @@ wo_result_t wo_ret_option_value(wo_vm vm, wo_result_t result)
 
     return 0;
 }
-WO_API wo_result_t  wo_ret_option_none(wo_vm vm)
+wo_result_t wo_ret_option_none(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
@@ -1127,6 +1129,34 @@ wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
     }
     else
         structptr->m_values[0].set_integer(2);
+
+    return 0;
+}
+
+wo_result_t wo_ret_option_value(wo_vm vm, wo_value val)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_val(WO_VAL(val));
+
+    return 0;
+}
+
+wo_result_t wo_ret_option_ref(wo_vm vm, wo_value val)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_ref(WO_VAL(val));
 
     return 0;
 }
@@ -1792,7 +1822,7 @@ wo_bool_t wo_arr_is_empty(wo_value arr)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
     else if (_arr->type == wo::value::valuetype::array_type)
     {
-        wo::gcbase::gc_write_guard g1(_arr->array);      
+        wo::gcbase::gc_write_guard g1(_arr->array);
         return _arr->array->empty();
     }
     else
