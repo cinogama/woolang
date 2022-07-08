@@ -3453,68 +3453,70 @@ namespace wo
             else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
                 wo_assert(a_match_union_case->in_match);
-
-                if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
+                if (a_match_union_case->in_match && a_match_union_case->in_match->match_value->value_type->is_union())
                 {
-                    if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
-                    else
+                    if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
                     {
-                        if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
-                        {
-                            a_pattern_union_value->union_expr->template_reification_args = a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments;
-                            a_pattern_union_value->union_expr->symbol = find_value_in_this_scope(a_pattern_union_value->union_expr);
-
-                            if (a_pattern_union_value->union_expr->symbol)
-                            {
-                                if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
-                                    a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(a_pattern_union_value->union_expr, a_pattern_union_value->union_expr->template_reification_args);
-                                else
-                                {
-                                    if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
-                                    {
-                                        auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
-
-                                        auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
-                                            a_pattern_union_value->union_expr->template_reification_args);
-                                        if (dumped_func)
-                                            a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
-                                        else
-                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
-                                    }
-                                    else
-                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
-                                }
-                            }
-                            else
-                                ;
-                            /* Donot give error here, it will be given in following 'analyze_pass2' */
-                            //lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
-                        }
-                        analyze_pass2(a_pattern_union_value->union_expr);
-                    }
-                    if (a_pattern_union_value->pattern_arg_in_union_may_nil)
-                    {
-                        wo_assert(a_match_union_case->take_place_value_may_nil);
-
-                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+                        if (a_match_union_case->in_match->match_value->value_type->is_pending())
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
                         else
-                            a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
+                        {
+                            if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
+                            {
+                                a_pattern_union_value->union_expr->template_reification_args = a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments;
+                                a_pattern_union_value->union_expr->symbol = find_value_in_this_scope(a_pattern_union_value->union_expr);
 
-                        analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
+                                if (a_pattern_union_value->union_expr->symbol)
+                                {
+                                    if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
+                                        a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(a_pattern_union_value->union_expr, a_pattern_union_value->union_expr->template_reification_args);
+                                    else
+                                    {
+                                        if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
+                                        {
+                                            auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
 
+                                            auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
+                                                a_pattern_union_value->union_expr->template_reification_args);
+                                            if (dumped_func)
+                                                a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                            else
+                                                lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                        }
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                    }
+                                }
+                                else
+                                    ;
+                                /* Donot give error here, it will be given in following 'analyze_pass2' */
+                                //lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
+                            }
+                            analyze_pass2(a_pattern_union_value->union_expr);
+                        }
+                        if (a_pattern_union_value->pattern_arg_in_union_may_nil)
+                        {
+                            wo_assert(a_match_union_case->take_place_value_may_nil);
+
+                            if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
+                                lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+                            else
+                                a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
+
+                            analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
+
+                        }
+                        else
+                        {
+                            if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
+                                lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
+                        }
                     }
                     else
-                    {
-                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
-                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
-                    }
-                }
-                else
-                    lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
 
-                analyze_pass2(a_match_union_case->in_case_sentence);
+                    analyze_pass2(a_match_union_case->in_case_sentence);
+                }
             }
             else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
             {
