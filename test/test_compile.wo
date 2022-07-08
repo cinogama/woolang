@@ -71,6 +71,13 @@ namespace test_compile
         }
         "@);
 
+        // Invalid match
+        assure_compile_fail(@"var m = 1;match(m){ option::value(i)?; }"@);
+        assure_compile_fail(@"var m = nil;match(m){ option::none(i)?; }"@);
+        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::none(i)?; }"@);
+        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
+
         // Construct struct must complete.
         assure_compile_fail(@"
         using st = struct{a: int, b: real};
