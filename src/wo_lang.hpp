@@ -3364,7 +3364,7 @@ namespace wo
                         ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
                         ridx++)
                     {
-                        auto* tkplaceval = a_foreach->foreach_patterns_vars_in_pass2[rndidx] = 
+                        auto* tkplaceval = a_foreach->foreach_patterns_vars_in_pass2[rndidx] =
                             dynamic_cast<ast_value_takeplace*>(a_foreach->used_vawo_defines->var_refs[rndidx].init_val);
 
                         wo_assert(tkplaceval);
@@ -3496,10 +3496,11 @@ namespace wo
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
                         wo_assert(a_match_union_case->take_place_value_may_nil);
-                        a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
 
                         if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
                             lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+                        else
+                            a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
 
                         analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
 
