@@ -1545,6 +1545,21 @@ namespace wo
             else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
             {
                 analyze_pass1(a_match->match_value);
+                a_match->match_scope_in_pass = begin_scope();
+
+                if (a_match->match_value->value_type->is_union()
+                    && !a_match->match_value->value_type->is_pending()
+                    && a_match->match_value->value_type->using_type_name)
+                {
+                    wo_assert(a_match->match_value->value_type->using_type_name->symbol);
+
+                    ast_using_namespace* ast_using = new ast_using_namespace;
+                    ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
+                    ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
+                    ast_using->from_global_namespace = true;
+                    now_scope()->used_namespace.push_back(ast_using);
+                    a_match->has_using_namespace = true;
+                }
 
                 auto* cases = a_match->cases->children;
                 while (cases)
@@ -1558,6 +1573,8 @@ namespace wo
                 }
 
                 analyze_pass1(a_match->cases);
+
+                end_scope();
             }
             else if (ast_match_union_case* a_match_union_case = dynamic_cast<ast_match_union_case*>(ast_node))
             {
@@ -3432,6 +3449,23 @@ namespace wo
             else if (ast_match* a_match = dynamic_cast<ast_match*>(ast_node))
             {
                 analyze_pass2(a_match->match_value);
+                if (!a_match->has_using_namespace)
+                {
+                    if (a_match->match_value->value_type->is_union()
+                        && !a_match->match_value->value_type->is_pending()
+                        && a_match->match_value->value_type->using_type_name)
+                    {
+                        wo_assert(a_match->match_value->value_type->using_type_name->symbol);
+
+                        ast_using_namespace* ast_using = new ast_using_namespace;
+                        ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
+                        ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
+                        ast_using->from_global_namespace = true;
+                        now_scope()->used_namespace.push_back(ast_using);
+                        a_match->has_using_namespace = true;
+                    }
+                }
+
                 analyze_pass2(a_match->cases);
 
                 // Must walk all possiable case, and no repeat case!

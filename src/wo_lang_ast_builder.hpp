@@ -3199,6 +3199,8 @@ namespace wo
             ast_list* cases;
 
             std::string match_end_tag_in_final_pass;
+            lang_scope* match_scope_in_pass;
+            bool has_using_namespace = false;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
