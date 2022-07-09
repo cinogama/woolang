@@ -430,7 +430,7 @@ void wo_set_pointer(wo_value value, wo_ptr_t val)
     if (val)
         WO_VAL(value)->set_handle((wo_handle_t)val);
     else
-        wo_ret_halt(CS_VM(wo::vmbase::_this_thread_vm), "Cannot set a nullptr");
+        wo_fail(WO_FAIL_ACCESS_NIL, "Cannot set a nullptr");
 }
 void wo_set_string(wo_value value, wo_string_t val)
 {
@@ -1930,6 +1930,28 @@ wo_value wo_map_get(wo_value map, wo_value index)
             return CS_VAL(&fnd->second);
         }
         return nullptr;
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
+
+    return nullptr;
+}
+
+wo_value wo_map_set(wo_value map, wo_value index, wo_value val)
+{
+    auto _map = WO_VAL(map);
+    if (_map->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_map->type == wo::value::valuetype::mapping_type)
+    {
+        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::value* result;
+        if (val)
+            result = (*_map->mapping)[*WO_VAL(index)].set_val(WO_VAL(val));
+        else
+            result = (*_map->mapping)[*WO_VAL(index)].set_nil();
+        
+        return CS_VAL(result);
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
