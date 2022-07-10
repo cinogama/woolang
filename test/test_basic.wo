@@ -100,6 +100,12 @@ namespace test_basic
         test_equal(split_result->len(), 2);
         test_equal(split_result[0], "a b");
         test_equal(split_result[1], "c d");
+
+        var m = {}: map<int, int>;
+        m[0] = m[1] = m[2] = 233;
+        test_equal(m[0], 233);
+        test_equal(m[1], 233);
+        test_equal(m[2], 233);
     }
 }
 
