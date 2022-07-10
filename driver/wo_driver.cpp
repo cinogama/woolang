@@ -34,8 +34,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "Woolang ver." << wo_version() << " " << std::endl;
-        std::cout << wo_compile_date() << std::endl;
+        std::cout << "helloworld" << std::endl;
     }
 
     wo_finish();
