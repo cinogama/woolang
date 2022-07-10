@@ -14,16 +14,19 @@ int main(int argc, char** argv)
         bool compile_successful_flag = wo_load_file(vmm, argv[1]);
 
         if (wo_has_compile_error(vmm))
-            std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
-        if (wo_has_compile_warning(vmm))
-            std::cerr << wo_get_compile_warning(vmm, WO_DEFAULT) << std::endl;
+            std::cout << "helloworld" << std::endl;
+        else
+        {
+            if (wo_has_compile_warning(vmm))
+                std::cerr << wo_get_compile_warning(vmm, WO_DEFAULT) << std::endl;
 
-        wo_value return_state = nullptr;
+            wo_value return_state = nullptr;
 
-        if (compile_successful_flag)
-            return_state = wo_run(vmm);
+            if (compile_successful_flag)
+                return_state = wo_run(vmm);
+
+        }
         wo_close_vm(vmm);
-
         wo_finish();
 
         if (return_state)
