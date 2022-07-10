@@ -2917,17 +2917,20 @@ namespace wo
                         WO_ADDRESSING_N2_REF; // Struct
                         uint16_t offset = WO_IPVAL_MOVE_2;
 
-                        wo_assert(opnum2->type == value::valuetype::struct_type
-                            && nullptr != opnum2->structs
-                            && offset < opnum2->structs->m_count);
+                        if (opnum2->type != value::valuetype::struct_type && nullptr == opnum2->structs)
+                            wo_fail(WO_FAIL_ACCESS_NIL, "Cannot index from non-struct value.");
+                        else if (offset >= opnum2->structs->m_count)
+                            wo_fail(WO_FAIL_ACCESS_NIL, "Out of struct range.");
+                        else
+                        {
+                            // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
+                            gcbase::gc_read_guard gwg1(opnum2->structs);
 
-                        // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
-                        gcbase::gc_read_guard gwg1(opnum2->structs);
-
-                        auto* result = opnum2->structs->m_values[offset].get();
-                        if (wo::gc::gc_is_marking())
-                            opnum2->structs->add_memo(result);
-                        opnum1->set_ref(result);
+                            auto* result = opnum2->structs->m_values[offset].get();
+                            if (wo::gc::gc_is_marking())
+                                opnum2->structs->add_memo(result);
+                            opnum1->set_ref(result);
+                        }
 
                         break;
                     }

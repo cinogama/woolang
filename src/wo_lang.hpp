@@ -4256,7 +4256,15 @@ namespace wo
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                return beoped_left_opnum;
+                
+                if (get_pure_value && is_cr_reg(beoped_left_opnum))
+                {
+                    auto& treg = get_useable_register_for_pure_value();
+                    compiler->set(treg, beoped_left_opnum);
+                    return treg;
+                }
+                else
+                    return beoped_left_opnum;
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
@@ -4420,7 +4428,15 @@ namespace wo
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                return beoped_left_opnum;
+
+                if (get_pure_value && is_cr_reg(beoped_left_opnum))
+                {
+                    auto& treg = get_useable_register_for_pure_value();
+                    compiler->set(treg, beoped_left_opnum);
+                    return treg;
+                }
+                else 
+                    return beoped_left_opnum;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
             {
@@ -4981,20 +4997,7 @@ namespace wo
                     wo_assert(a_value_index->struct_offset != 0xFFFF);
                     auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
 
-                    if (!get_pure_value)
-                    {
-                        last_value_stored_to_cr_flag.write_to_cr();
-                        compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
-                    }
-                    else
-                    {
-                        last_value_stored_to_cr_flag.write_to_cr();
-                        compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
-
-                        auto& result = get_useable_register_for_pure_value();
-                        compiler->set(result, reg(reg::cr));
-                        return result;
-                    }
+                    compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
                 }
                 else
                 {
