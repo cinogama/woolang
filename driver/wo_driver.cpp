@@ -14,7 +14,7 @@ int main(int argc, char** argv)
         bool compile_successful_flag = wo_load_file(vmm, argv[1]);
 
         if (wo_has_compile_error(vmm))
-            std::cout << "helloworld" << std::endl;
+            std::cout << "hello world" << std::endl;
         else
         {
             if (wo_has_compile_warning(vmm))
