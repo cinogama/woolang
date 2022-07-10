@@ -37,7 +37,7 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cout << "helloworld" << std::endl;
+        std::cout << "hello misteo" << std::endl;
     }
 
     wo_finish();
