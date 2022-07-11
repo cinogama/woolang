@@ -2090,10 +2090,10 @@ namespace wo
                                     !a_value_funccall->directed_value_from->value_type->is_func())
                                 {
                                     // trying finding type_function
-                                    // wo_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
-                                    // TODO : CUSTOM TYPE INFORM..    
                                     auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+
+                                    // Is using type?
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
@@ -2128,40 +2128,12 @@ namespace wo
 
                                         a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
                                     }
-
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                                    (a_value_funccall->directed_value_from->value_type->type_name);
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
-                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
-                                        origin_namespace.begin(),
-                                        origin_namespace.end()
-                                    );
-
-                                    auto state = lang_anylizer->lex_enable_error_warn;
-                                    lang_anylizer->lex_enable_error_warn = false;
-                                    analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                    lang_anylizer->lex_enable_error_warn = state;
-
-
-                                    if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
-                                        || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
-                                        || (a_value_funccall->callee_symbol_in_type_namespace->symbol
-                                            && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
-                                    {
-                                        if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
-                                            a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
-                                            = old_callee_func->template_reification_args;
-
-                                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                                        goto start_ast_op_calling;
-                                    }
-
-                                    // not find func in custom type and basic type, try dynamic 
-                                    if (!a_value_funccall->directed_value_from->value_type->is_dynamic())
+                                    // base type?
+                                    else
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
-                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back(L"dynamic");
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                        (a_value_funccall->directed_value_from->value_type->type_name);
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
                                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
                                             origin_namespace.begin(),
@@ -2173,6 +2145,7 @@ namespace wo
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
                                         lang_anylizer->lex_enable_error_warn = state;
 
+
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                             || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
                                             || (a_value_funccall->callee_symbol_in_type_namespace->symbol
@@ -2183,8 +2156,11 @@ namespace wo
                                                 = old_callee_func->template_reification_args;
 
                                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                            goto start_ast_op_calling;
                                         }
                                     }
+
+                                    // End trying invoke from direct-type namespace
                                 }
                             }
                         start_ast_op_calling:

@@ -305,9 +305,8 @@ namespace test_template
         test_equal(no_template_test(), "no_template");
         test_equal(no_template_first_test_1(0), "no_template");
 
-        var tmp_arg = 0: dynamic;
-        test_equal(no_template_first_test_2(0, tmp_arg), "no_template");
-        test_equal(no_template_first_test_3(0,233), "no_template");
+        test_equal(no_template_first_test_2(0, 0.), "no_template");
+        test_equal(no_template_first_test_3(0, 233), "no_template");
 
         template_if_constexpr_test:<int>():dynamic as int;
         template_if_constexpr_test:<real>():dynamic as real;

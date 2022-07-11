@@ -199,9 +199,9 @@ namespace wo
                         for (auto ta_type : to->template_arguments)
                             if (!ta_type->is_dynamic())
                                 return false;
-                        return true;
+                        return force;
                     }
-                    return true;
+                    return force; // ISSUE-16 All type cast must be forced
                 }
 
                 if (from->is_same(to, false))
@@ -215,7 +215,7 @@ namespace wo
                 {
                     // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
                     if (from->using_type_name && !to->using_type_name)
-                        return true;
+                        return force; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
                 }
 
                 if (from->is_func() || to->is_func())

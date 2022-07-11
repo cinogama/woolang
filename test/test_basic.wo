@@ -26,9 +26,9 @@ namespace test_basic
         test_equal(a%7, 1);
         test_equal(a%8, 7);
 
-        a += 1.75: dynamic;
+        a += 1.75: int;
         test_equal(a, 16);
-        a -= 0.75: dynamic;
+        a -= 0.75: int;
         test_equal(a, 16);
         a -= 1;
         test_equal(a, 15);
@@ -41,7 +41,7 @@ namespace test_basic
         test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
-        x += 1: dynamic;
+        x += 1: real;
         test_assure(abs(x - 2.2) < 0.0000000001);
 
         var b = 15:dynamic;
@@ -62,9 +62,9 @@ namespace test_basic
         var p = 1;
         var q = 1.0;
 
-        q = 75: dynamic;
+        q = 75: real;
         q += 0.62;
-        p = q: dynamic;
+        p = q: int;
         test_equal(p, 75);
 
         test_equal(q>1.0, true);
@@ -80,11 +80,11 @@ namespace test_basic
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
 
-        q += 1: dynamic;
-        p += q: dynamic;
+        q += 1: real;
+        p += q: int;
         test_equal(q:int, 76);
 
-        p -= 151.0: dynamic;
+        p -= 151.0: int;
         test_equal(p, 0);
 
         test_assure(" "->isspace());
