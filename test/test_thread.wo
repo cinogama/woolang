@@ -57,7 +57,7 @@ namespace test_thread
                 __pack[0] = true;
                 while (i <= 1_0000_0000)
                 {
-                    i+=1;
+                    i+=1: dynamic;
                 }
             }, ref summ);
         std::sleep(0.2);

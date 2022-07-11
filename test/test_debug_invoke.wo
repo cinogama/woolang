@@ -39,10 +39,10 @@ namespace test_debug_invoke
                             std::debug::invoke(variadic_func_call, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d"));
             test_equal(std::print("h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"),
                             std::debug::invoke(std::print, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"));
-            i +=1;
+            i += 1: dynamic;
         }
 
-        swap(ref i, 233);
+        swap(ref i, 233: dynamic);
         test_equal(i, 233);
 
         std::debug::invoke(swap, ref i, 123);

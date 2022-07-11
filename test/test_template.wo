@@ -6,7 +6,7 @@ namespace test_template
 {
     using wraped_iterator<IType, EType> = struct {
         iter : IType<EType>,
-        pred : dynamic,
+        pred : bool(EType),
     };
     namespace wraped_iterator
     {
@@ -33,7 +33,7 @@ namespace test_template
                 var idxable = self.iter->next(ref out_index, ref out_val);
 
                 if (!idxable) return false;
-                if ((self.pred:dynamic(EType))(out_val))
+                if (self.pred(out_val))
                     return true;
             }
         }
