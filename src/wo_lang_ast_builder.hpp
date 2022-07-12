@@ -2689,8 +2689,9 @@ namespace wo
 
         struct ast_fakevalue_unpacked_args : virtual public ast_value
         {
+            constexpr static wo_integer_t UNPACK_ALL_ARGUMENT = 65535;
             ast_value* unpacked_pack;
-            wo_integer_t expand_count = 0;
+            wo_integer_t expand_count = UNPACK_ALL_ARGUMENT;
 
             ast_fakevalue_unpacked_args(ast_value* pak, wo_integer_t _expand_count)
                 : unpacked_pack(pak),
@@ -3608,7 +3609,7 @@ namespace wo
                 {
                     return (ast_basic*)new ast_fakevalue_unpacked_args(
                         dynamic_cast<ast_value*>(WO_NEED_AST(0)),
-                        0);
+                        ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT);
                 }
                 else
                 {

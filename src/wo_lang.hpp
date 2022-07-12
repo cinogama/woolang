@@ -2321,7 +2321,17 @@ namespace wo
                                                 if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
                                                 {
                                                     auto ecount = a_fakevalue_unpack_args->expand_count;
-                                                    if (0 == ecount)
+                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                    {
+                                                        if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                        {
+                                                            auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                            if (unpacking_tuple_type->using_type_name)
+                                                                unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                            a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
+                                                        }
+                                                    }
+                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
                                                     {
                                                         // all in!!!
                                                         if (with_template)
@@ -2332,10 +2342,29 @@ namespace wo
                                                         goto this_function_override_checking_over;
                                                     }
 
+                                                    size_t unpack_type_index = 0; // Used for type check when unpack tuple.
                                                     while (ecount)
                                                     {
                                                         if (form_arg)
                                                         {
+                                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                            {
+                                                                // Varify tuple type here.
+                                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                if (unpacking_tuple_type->using_type_name)
+                                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+
+                                                                if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
+                                                                    // There is no enough value for tuple to expand. match failed!
+                                                                    goto this_function_override_checking_over;
+                                                                else if (!unpacking_tuple_type->template_arguments[unpack_type_index]->is_same(form_arg->value_type, false))
+                                                                    // Type didn't match, match failed!
+                                                                    goto this_function_override_checking_over;
+                                                                else
+                                                                    // ok, do nothing.
+                                                                    ++unpack_type_index;
+                                                            }
+
                                                             form_args = form_arg->sibling;
                                                             form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
                                                         }
@@ -2505,17 +2534,29 @@ namespace wo
                                             a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
 
                                             auto ecount = a_fakevalue_unpack_args->expand_count;
-                                            if (0 == ecount)
+                                            if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
                                             {
                                                 // all in!!!
-                                                ecount =
-                                                    (wo_integer_t)(
-                                                        a_value_funccall->called_func->value_type->argument_types.end()
-                                                        - a_type_index);
-                                                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                                    a_fakevalue_unpack_args->expand_count = -ecount;
-                                                else
+                                                // If unpacking type is tuple. cannot run here.
+                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                {
+                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                    if (unpacking_tuple_type->using_type_name)
+                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                    ecount = unpacking_tuple_type->template_arguments.size();
                                                     a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
+                                                else
+                                                {
+                                                    ecount =
+                                                        (wo_integer_t)(
+                                                            a_value_funccall->called_func->value_type->argument_types.end()
+                                                            - a_type_index);
+                                                    if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                                        a_fakevalue_unpack_args->expand_count = -ecount;
+                                                    else
+                                                        a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
                                             }
                                             while (ecount)
                                             {
@@ -2842,9 +2883,10 @@ namespace wo
                     {
                         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
                         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
+                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
                             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
                         {
-                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array");
+                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array" WO_TERM_OR L"tuple");
                         }
                     }
                     else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(a_value))
@@ -4418,6 +4460,21 @@ namespace wo
 
                     if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
                     {
+                        if (a_fakevalue_unpacked_args->expand_count == ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT)
+                        {
+                            if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+                            {
+                                auto* unpacking_tuple_type = a_fakevalue_unpacked_args->unpacked_pack->value_type;
+                                if (unpacking_tuple_type->using_type_name)
+                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                a_fakevalue_unpacked_args->expand_count = unpacking_tuple_type->template_arguments.size();
+                            }
+                            else
+                            {
+                                a_fakevalue_unpacked_args->expand_count = 0;
+                            }
+                        }
+
                         if (a_fakevalue_unpacked_args->expand_count <= 0)
                             full_unpack_arguments = true;
                     }
@@ -4440,13 +4497,21 @@ namespace wo
                         auto& packing = analyze_value(a_fakevalue_unpacked_args->unpacked_pack, compiler,
                             a_fakevalue_unpacked_args->expand_count <= 0);
 
-                        if (a_fakevalue_unpacked_args->expand_count <= 0)
-                            compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
-                        else
+                        if(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+                        {
                             extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
+                            compiler->ext_unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
+                        }
+                        else
+                        {
+                            if (a_fakevalue_unpacked_args->expand_count <= 0)
+                                compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
+                            else
+                                extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
-                        compiler->ext_unpackargs(packing,
-                            a_fakevalue_unpacked_args->expand_count);
+                            compiler->ext_unpackargs(packing,
+                                a_fakevalue_unpacked_args->expand_count);
+                        }
                     }
                     else
                     {

@@ -3129,39 +3129,76 @@ namespace wo
                                 WO_ADDRESSING_N1_REF;
                                 WO_ADDRESSING_N2_REF;
 
-                                if (opnum1->type != value::valuetype::array_type || opnum1->is_nil())
-                                {
-                                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array can used in unpack.");
-                                }
-                                else if (opnum2->integer > 0)
-                                {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
 
-                                    if ((size_t)opnum2->integer > arg_array->size())
+                                if (opnum1->is_nil())
+                                {
+                                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+                                }
+                                else if (opnum1->type == value::valuetype::struct_type)
+                                {
+                                    auto* arg_tuple = opnum1->structs;
+                                    gcbase::gc_read_guard gwg1(arg_tuple);
+                                    if (opnum2->integer > 0)
                                     {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                        if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
+                                        {
+                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                        }
+                                        else
+                                        {
+                                            for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
+                                                (rt_sp--)->set_trans(&arg_tuple->m_values[i - 1]);
+                                        }
                                     }
                                     else
                                     {
-                                        for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
-                                            arg_idx != arg_array->rend();
-                                            arg_idx++)
+                                        if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
+                                        {
+                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                        }
+                                        for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                                            (rt_sp--)->set_trans(&arg_tuple->m_values[i - 1]);
+
+                                        tc->integer += (wo_integer_t)arg_tuple->m_count;
+                                    }
+                                }
+                                else if (opnum1->type == value::valuetype::array_type)
+                                {
+                                    if (opnum2->integer > 0)
+                                    {
+                                        auto* arg_array = opnum1->array;
+                                        gcbase::gc_read_guard gwg1(arg_array);
+
+                                        if ((size_t)opnum2->integer > arg_array->size())
+                                        {
+                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                        }
+                                        else
+                                        {
+                                            for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
+                                                arg_idx != arg_array->rend();
+                                                arg_idx++)
+                                                (rt_sp--)->set_trans(&*arg_idx);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        auto* arg_array = opnum1->array;
+                                        gcbase::gc_read_guard gwg1(arg_array);
+
+                                        if (arg_array->size() < (size_t)(-opnum2->integer))
+                                        {
+                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                        }
+                                        for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
                                             (rt_sp--)->set_trans(&*arg_idx);
+
+                                        tc->integer += arg_array->size();
                                     }
                                 }
                                 else
                                 {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
-
-                                    if (arg_array->size() < (size_t)(-opnum2->integer))
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-
-                                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                                        (rt_sp--)->set_trans(&*arg_idx);
-
-                                    tc->integer += arg_array->size();
+                                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
                                 }
                                 break;
                             }
