@@ -7,14 +7,14 @@ namespace test_gc
 
     func main()
     {
-        global_list = [1,2,3,4,5]:array<dynamic>;
+        global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]:array<dynamic>;
         var i = 0;
         var tmp = []:array<array<int>>;
         var arr_a = [[12345678],], arr_b = []:array<array<int>>;
         while (i < 1000_000)
         {
-                global_list->add({});
-                global_list[-1]["Hello"] = "world";
+                global_list->add({}: dynamic);
+                global_list[-1]["Hello"] = "world": dynamic;
                 i+=1;
 
                 tmp->add(arr_a[0]);

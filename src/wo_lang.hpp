@@ -2090,10 +2090,10 @@ namespace wo
                                     !a_value_funccall->directed_value_from->value_type->is_func())
                                 {
                                     // trying finding type_function
-                                    // wo_assert(a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.empty());
 
-                                    // TODO : CUSTOM TYPE INFORM..    
                                     auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+
+                                    // Is using type?
                                     if (a_value_funccall->directed_value_from->value_type->using_type_name)
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
@@ -2128,40 +2128,12 @@ namespace wo
 
                                         a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
                                     }
-
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                                    (a_value_funccall->directed_value_from->value_type->type_name);
-                                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
-                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
-                                        origin_namespace.begin(),
-                                        origin_namespace.end()
-                                    );
-
-                                    auto state = lang_anylizer->lex_enable_error_warn;
-                                    lang_anylizer->lex_enable_error_warn = false;
-                                    analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                    lang_anylizer->lex_enable_error_warn = state;
-
-
-                                    if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
-                                        || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
-                                        || (a_value_funccall->callee_symbol_in_type_namespace->symbol
-                                            && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
-                                    {
-                                        if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
-                                            a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
-                                            = old_callee_func->template_reification_args;
-
-                                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                                        goto start_ast_op_calling;
-                                    }
-
-                                    // not find func in custom type and basic type, try dynamic 
-                                    if (!a_value_funccall->directed_value_from->value_type->is_dynamic())
+                                    // base type?
+                                    else
                                     {
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
-                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back(L"dynamic");
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                        (a_value_funccall->directed_value_from->value_type->type_name);
                                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
                                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
                                             origin_namespace.begin(),
@@ -2173,6 +2145,7 @@ namespace wo
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
                                         lang_anylizer->lex_enable_error_warn = state;
 
+
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                             || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
                                             || (a_value_funccall->callee_symbol_in_type_namespace->symbol
@@ -2183,8 +2156,11 @@ namespace wo
                                                 = old_callee_func->template_reification_args;
 
                                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                            goto start_ast_op_calling;
                                         }
                                     }
+
+                                    // End trying invoke from direct-type namespace
                                 }
                             }
                         start_ast_op_calling:
@@ -2214,8 +2190,6 @@ namespace wo
 
                                         std::vector<ast_value_function_define*> best_match_sets;
                                         std::vector<ast_value_function_define*> best_match_sets_template;
-                                        std::vector<ast_value_function_define*> need_cast_sets;
-                                        std::vector<ast_value_function_define*> need_cast_sets_template;
                                         std::vector<ast_value_function_define*> variadic_sets;
                                         std::vector<ast_value_function_define*> variadic_sets_template;
 
@@ -2227,7 +2201,6 @@ namespace wo
                                             auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
                                             wo_test(override_func);
 
-                                            bool best_match = true;
                                             bool with_template = false;
                                             grammar::ast_base* real_args = nullptr;
                                             grammar::ast_base* form_args = nullptr;
@@ -2347,9 +2320,18 @@ namespace wo
 
                                                 if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
                                                 {
-                                                    best_match = false;
                                                     auto ecount = a_fakevalue_unpack_args->expand_count;
-                                                    if (0 == ecount)
+                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                    {
+                                                        if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                        {
+                                                            auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                            if (unpacking_tuple_type->using_type_name)
+                                                                unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                            a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
+                                                        }
+                                                    }
+                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
                                                     {
                                                         // all in!!!
                                                         if (with_template)
@@ -2360,10 +2342,29 @@ namespace wo
                                                         goto this_function_override_checking_over;
                                                     }
 
+                                                    size_t unpack_type_index = 0; // Used for type check when unpack tuple.
                                                     while (ecount)
                                                     {
                                                         if (form_arg)
                                                         {
+                                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                            {
+                                                                // Varify tuple type here.
+                                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                if (unpacking_tuple_type->using_type_name)
+                                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+
+                                                                if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
+                                                                    // There is no enough value for tuple to expand. match failed!
+                                                                    goto this_function_override_checking_over;
+                                                                else if (!unpacking_tuple_type->template_arguments[unpack_type_index]->is_same(form_arg->value_type, false))
+                                                                    // Type didn't match, match failed!
+                                                                    goto this_function_override_checking_over;
+                                                                else
+                                                                    // ok, do nothing.
+                                                                    ++unpack_type_index;
+                                                            }
+
                                                             form_args = form_arg->sibling;
                                                             form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
                                                         }
@@ -2392,8 +2393,6 @@ namespace wo
                                                     break;
                                                 else if (real_arg->value_type->is_same(form_arg->value_type, false))
                                                     ;// do nothing..
-                                                else if (ast_type::check_castable(form_arg->value_type, real_arg->value_type, false))
-                                                    best_match = false;
                                                 else
                                                     break; // bad match, break..
 
@@ -2409,21 +2408,10 @@ namespace wo
                                                     // finish match check, add it to set
                                                     if (real_args == nullptr)
                                                     {
-                                                        if (best_match)
-                                                        {
-                                                            if (with_template)
-                                                                best_match_sets_template.push_back(override_func);
-                                                            else
-                                                                best_match_sets.push_back(override_func);
-                                                        }
+                                                        if (with_template)
+                                                            best_match_sets_template.push_back(override_func);
                                                         else
-                                                        {
-                                                            if (with_template)
-                                                                need_cast_sets_template.push_back(override_func);
-                                                            else
-                                                                need_cast_sets.push_back(override_func);
-                                                        }
-
+                                                            best_match_sets.push_back(override_func);
                                                     }
                                                     // else: bad match..
                                                 }
@@ -2438,10 +2426,6 @@ namespace wo
                                             judge_sets = &best_match_sets;
                                         else if (best_match_sets_template.size())
                                             judge_sets = &best_match_sets_template;
-                                        else if (need_cast_sets.size())
-                                            judge_sets = &need_cast_sets;
-                                        else if (need_cast_sets_template.size())
-                                            judge_sets = &need_cast_sets_template;
                                         else if (variadic_sets.size())
                                             judge_sets = &variadic_sets;
                                         else if (variadic_sets_template.size())
@@ -2550,17 +2534,29 @@ namespace wo
                                             a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
 
                                             auto ecount = a_fakevalue_unpack_args->expand_count;
-                                            if (0 == ecount)
+                                            if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
                                             {
                                                 // all in!!!
-                                                ecount =
-                                                    (wo_integer_t)(
-                                                        a_value_funccall->called_func->value_type->argument_types.end()
-                                                        - a_type_index);
-                                                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                                    a_fakevalue_unpack_args->expand_count = -ecount;
-                                                else
+                                                // If unpacking type is tuple. cannot run here.
+                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                {
+                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                    if (unpacking_tuple_type->using_type_name)
+                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                    ecount = unpacking_tuple_type->template_arguments.size();
                                                     a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
+                                                else
+                                                {
+                                                    ecount =
+                                                        (wo_integer_t)(
+                                                            a_value_funccall->called_func->value_type->argument_types.end()
+                                                            - a_type_index);
+                                                    if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                                        a_fakevalue_unpack_args->expand_count = -ecount;
+                                                    else
+                                                        a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
                                             }
                                             while (ecount)
                                             {
@@ -2588,26 +2584,7 @@ namespace wo
                                         {
                                             if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index, false))
                                             {
-                                                auto* cast_arg_type = new ast_value_type_cast(arg_val, *a_type_index, true);
-
-                                                cast_arg_type->col_no = arg_val->col_no;
-                                                cast_arg_type->row_no = arg_val->row_no;
-                                                cast_arg_type->source_file = arg_val->source_file;
-                                                analyze_pass2(cast_arg_type);
-
-                                                if (cast_arg_type->value_type->is_pending())
-                                                {
-                                                    // Type cast failed, failed to call this function!
-                                                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-                                                    a_value_funccall->value_type = ast_type::create_type_at(a_value_funccall, L"pending");
-                                                    a_value_funccall->value_type->copy_source_info(a_value_funccall);
-                                                    break;
-                                                }
-                                                else
-                                                {
-                                                    cast_arg_type->update_constant_value(lang_anylizer);
-                                                    a_value_funccall->arguments->add_child(cast_arg_type);
-                                                }
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                             }
                                             else
                                             {
@@ -2683,16 +2660,8 @@ namespace wo
 
                                 if (!val->value_type->is_same(decide_array_item_type, false))
                                 {
-                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
-                                    if (mixed_type)
-                                    {
-                                        decide_array_item_type->set_type_with_name(mixed_type->type_name);
-                                    }
-                                    else
-                                    {
-                                        decide_array_item_type->set_type_with_name(L"dynamic");
-                                        // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                                    }
+                                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                                    break;
                                 }
                                 val = dynamic_cast<ast_value*>(val->sibling);
                             }
@@ -2734,29 +2703,13 @@ namespace wo
 
                                 if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
                                 {
-                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
-                                    if (mixed_type)
-                                    {
-                                        decide_map_key_type->set_type_with_name(mixed_type->type_name);
-                                    }
-                                    else
-                                    {
-                                        decide_map_key_type->set_type_with_name(L"dynamic");
-                                        // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                                    }
+                                    lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
+                                    break;
                                 }
                                 if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
                                 {
-                                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
-                                    if (mixed_type)
-                                    {
-                                        decide_map_val_type->set_type_with_name(mixed_type->type_name);
-                                    }
-                                    else
-                                    {
-                                        decide_map_val_type->set_type_with_name(L"dynamic");
-                                        // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                                    }
+                                    lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
+                                    break;
                                 }
                                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
                             }
@@ -2793,18 +2746,14 @@ namespace wo
 
                         if (a_value_assi->right->value_type->is_pending_function())
                         {
-                            auto* try_finding_override = new ast_value_type_cast(a_value_assi->right, a_value_assi->value_type, true);
-                            try_finding_override->col_no = a_value_assi->right->col_no;
-                            try_finding_override->row_no = a_value_assi->right->row_no;
-                            try_finding_override->source_file = a_value_assi->right->source_file;
-
-                            analyze_pass2(try_finding_override);
-                            try_finding_override->update_constant_value(lang_anylizer);
-
-                            a_value_assi->right = try_finding_override;
+                            // Function assign, auto find overload? no! type must be case by user
+                            if (a_value_assi->left->value_type->is_func())
+                                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE, a_value_assi->left->value_type->get_type_name(false));
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
                         }
 
-                        if (!ast_type::check_castable(a_value_assi->left->value_type, a_value_assi->right->value_type, false))
+                        if (!a_value_assi->left->value_type->is_same(a_value_assi->right->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                                 a_value_assi->right->value_type->get_type_name(false).c_str(),
@@ -2862,18 +2811,12 @@ namespace wo
                         else
                         {
                         just_do_simple_type_cast:
-                            if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type, !a_value_typecast->implicit))
+                            if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
                             {
-                                if (a_value_typecast->implicit)
-                                    lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_IMPLCAST_TYPE_TO_TYPE,
-                                        origin_value->value_type->get_type_name(false).c_str(),
-                                        a_value_typecast->value_type->get_type_name(false).c_str()
-                                    );
-                                else
-                                    lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                                        origin_value->value_type->get_type_name(false).c_str(),
-                                        a_value_typecast->value_type->get_type_name(false).c_str()
-                                    );
+                                lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                                    origin_value->value_type->get_type_name(false).c_str(),
+                                    a_value_typecast->value_type->get_type_name(false).c_str()
+                                );
                                 a_value_typecast->value_type = ast_type::create_type_at(a_value_typecast, L"pending");
                             }
                         }
@@ -2908,35 +2851,19 @@ namespace wo
 
                         if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_string())
                         {
-                            if (!a_value_index->index->value_type->is_integer() && !a_value_index->index->value_type->is_handle())
+                            if (!a_value_index->index->value_type->is_integer())
                             {
-                                auto* index_val = new ast_value_type_cast(a_value_index->index, ast_type::create_type_at(a_value_index, L"int"), true);
-                                index_val->col_no = a_value_index->index->col_no;
-                                index_val->row_no = a_value_index->index->row_no;
-                                index_val->source_file = a_value_index->index->source_file;
-
-                                analyze_pass2(index_val);
-
-                                index_val->update_constant_value(lang_anylizer);
-
-                                a_value_index->index = index_val;
+                                lang_anylizer->lang_error(0x0000, a_value_index->index, L"'%ls' 的索引只能是 'int' 类型的值，继续"
+                                    , a_value_index->from->value_type->get_type_name().c_str());
                             }
                         }
                         if (a_value_index->from->value_type->is_map())
                         {
                             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0]))
                             {
-                                auto* index_val = new ast_value_type_cast(a_value_index->index, a_value_index->from->value_type->template_arguments[0], true);
-                                // pass_type_cast::do_cast(*lang_anylizer, a_value_index->index, );
-                                index_val->col_no = a_value_index->index->col_no;
-                                index_val->row_no = a_value_index->index->row_no;
-                                index_val->source_file = a_value_index->index->source_file;
-
-                                analyze_pass2(index_val);
-
-                                index_val->update_constant_value(lang_anylizer);
-
-                                a_value_index->index = index_val;
+                                lang_anylizer->lang_error(0x0000, a_value_index->index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
+                                    , a_value_index->from->value_type->get_type_name().c_str()
+                                    , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str());
                             }
                         }
 
@@ -2949,25 +2876,17 @@ namespace wo
 
                         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                         {
-                            auto* cast_return_type = new ast_value_type_cast(a_value_variadic_args_idx->argindex, ast_type::create_type_at(a_value_variadic_args_idx, L"int"), true);
-                            //pass_type_cast::do_cast(*lang_anylizer, a_value_variadic_args_idx->argindex, ast_type::create_type_at(L"int"));
-                            cast_return_type->col_no = a_value_variadic_args_idx->col_no;
-                            cast_return_type->row_no = a_value_variadic_args_idx->row_no;
-                            cast_return_type->source_file = a_value_variadic_args_idx->source_file;
-
-                            analyze_pass2(cast_return_type);
-
-                            cast_return_type->update_constant_value(lang_anylizer);
-
-                            a_value_variadic_args_idx->argindex = cast_return_type;
+                            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx->argindex, L"'变长参数包' 的索引只能是 'int' 类型的值，继续");
                         }
                     }
                     else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))
                     {
                         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
-                        if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array() && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
+                        if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
+                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
+                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
                         {
-                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array");
+                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array" WO_TERM_OR L"tuple");
                         }
                     }
                     else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(a_value))
@@ -3081,19 +3000,8 @@ namespace wo
                             while (val)
                             {
                                 if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
-                                {
-                                    auto* cast_array_item = new ast_value_type_cast(val, a_value_arr->value_type->template_arguments[0], true);
-                                    //pass_type_cast::do_cast(*lang_anylizer, val, a_value_arr->value_type->template_arguments[0]);
-                                    cast_array_item->copy_source_info(val);
-
-                                    analyze_pass2(cast_array_item);
-
-                                    cast_array_item->update_constant_value(lang_anylizer);
-
-                                    reenplace_array_items.push_back(cast_array_item);
-                                }
-                                else
-                                    reenplace_array_items.push_back(val);
+                                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
+                                reenplace_array_items.push_back(val);
 
                                 val = dynamic_cast<ast_value*>(val->sibling);
                             }
@@ -3135,33 +3043,10 @@ namespace wo
                                 else
                                 {
                                     if (!pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
-                                    {
-                                        auto* cast_key_item = new ast_value_type_cast(pairs->key, a_value_map->value_type->template_arguments[0], true);
-                                        //pass_type_cast::do_cast(*lang_anylizer, );
-                                        cast_key_item->col_no = pairs->key->col_no;
-                                        cast_key_item->row_no = pairs->key->row_no;
-                                        cast_key_item->source_file = pairs->key->source_file;
-
-                                        analyze_pass2(cast_key_item);
-
-                                        cast_key_item->update_constant_value(lang_anylizer);
-
-                                        pairs->key = cast_key_item;
-                                    }
+                                        lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
                                     if (!pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
-                                    {
-                                        auto* cast_val_item = new ast_value_type_cast(pairs->val, a_value_map->value_type->template_arguments[1], true);
-                                        //pass_type_cast::do_cast(*lang_anylizer, pairs->val, a_value_map->value_type->template_arguments[1]);
-                                        cast_val_item->col_no = pairs->key->col_no;
-                                        cast_val_item->row_no = pairs->key->row_no;
-                                        cast_val_item->source_file = pairs->key->source_file;
+                                        lang_anylizer->lang_error(0x0000, pairs->val, L"'map' 序列中的值类型与泛型参数中指定的不一致，继续");
 
-                                        analyze_pass2(cast_val_item);
-
-                                        cast_val_item->update_constant_value(lang_anylizer);
-
-                                        pairs->val = cast_val_item;
-                                    }
                                 }
                                 pairs = dynamic_cast<ast_mapping_pair*>(pairs->sibling);
                             }
@@ -3220,17 +3105,7 @@ namespace wo
                             if (!func_return_type->is_pending()
                                 && !func_return_type->is_same(a_ret->return_value->value_type))
                             {
-                                auto* cast_return_type = new ast_value_type_cast(a_ret->return_value, func_return_type, true);
-                                // pass_type_cast::do_cast(*lang_anylizer, a_ret->return_value, func_return_type);
-                                cast_return_type->col_no = a_ret->col_no;
-                                cast_return_type->row_no = a_ret->row_no;
-                                cast_return_type->source_file = a_ret->source_file;
-
-                                analyze_pass2(cast_return_type);
-
-                                cast_return_type->update_constant_value(lang_anylizer);
-
-                                a_ret->return_value = cast_return_type;
+                                lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }
                     }
@@ -3577,13 +3452,10 @@ namespace wo
                                 membpair->member_offset = fnd->second.offset;
                                 if (!membpair->member_val_or_type_tkplace->value_type->is_same(fnd->second.init_value_may_nil->value_type, false))
                                 {
-                                    // Type not same, create a impl-cast here.
-                                    ast_value_type_cast* castval = new ast_value_type_cast(membpair->member_val_or_type_tkplace, fnd->second.init_value_may_nil->value_type, true);
-                                    castval->copy_source_info(membpair->member_val_or_type_tkplace);
-
-                                    analyze_pass2(castval);
-
-                                    membpair->member_val_or_type_tkplace = castval;
+                                    lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
+                                        , membpair->member_name.c_str()
+                                        , fnd->second.init_value_may_nil->value_type->get_type_name(false).c_str()
+                                        , membpair->member_val_or_type_tkplace->value_type->get_type_name(false).c_str());
                                 }
                             }
                             else
@@ -4256,7 +4128,7 @@ namespace wo
                     break;
                 }
                 complete_using_register(op_right_opnum);
-                
+
                 if (get_pure_value && is_cr_reg(beoped_left_opnum))
                 {
                     auto& treg = get_useable_register_for_pure_value();
@@ -4435,7 +4307,7 @@ namespace wo
                     compiler->set(treg, beoped_left_opnum);
                     return treg;
                 }
-                else 
+                else
                     return beoped_left_opnum;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
@@ -4448,12 +4320,6 @@ namespace wo
             {
                 if (force_value)
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
-
-                if (a_value_type_cast->implicit && a_value_type_cast->_be_cast_value_node->is_mark_as_using_ref)
-                {
-                    // NOTE: ref value cannot be implicit casted. give error.
-                    lang_anylizer->lang_error(0x0000, a_value_type_cast->_be_cast_value_node, WO_ERR_CANNOT_IMPLCAST_REF);
-                }
 
                 if (a_value_type_cast->value_type->is_bool())
                 {
@@ -4594,6 +4460,21 @@ namespace wo
 
                     if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
                     {
+                        if (a_fakevalue_unpacked_args->expand_count == ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT)
+                        {
+                            if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+                            {
+                                auto* unpacking_tuple_type = a_fakevalue_unpacked_args->unpacked_pack->value_type;
+                                if (unpacking_tuple_type->using_type_name)
+                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                a_fakevalue_unpacked_args->expand_count = unpacking_tuple_type->template_arguments.size();
+                            }
+                            else
+                            {
+                                a_fakevalue_unpacked_args->expand_count = 0;
+                            }
+                        }
+
                         if (a_fakevalue_unpacked_args->expand_count <= 0)
                             full_unpack_arguments = true;
                     }
@@ -4616,13 +4497,21 @@ namespace wo
                         auto& packing = analyze_value(a_fakevalue_unpacked_args->unpacked_pack, compiler,
                             a_fakevalue_unpacked_args->expand_count <= 0);
 
-                        if (a_fakevalue_unpacked_args->expand_count <= 0)
-                            compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
-                        else
+                        if(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+                        {
                             extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
+                            compiler->ext_unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
+                        }
+                        else
+                        {
+                            if (a_fakevalue_unpacked_args->expand_count <= 0)
+                                compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
+                            else
+                                extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
-                        compiler->ext_unpackargs(packing,
-                            a_fakevalue_unpacked_args->expand_count);
+                            compiler->ext_unpackargs(packing,
+                                a_fakevalue_unpacked_args->expand_count);
+                        }
                     }
                     else
                     {

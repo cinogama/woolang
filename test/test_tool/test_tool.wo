@@ -1,14 +1,18 @@
 import woo.std;
 import woo.debug;
 
-var test_function_set = []:array<map<string, dynamic>>;
+using test_func_pair = struct{
+    name: string,
+    function: void(),
+};
+var test_function_set = []:array<test_func_pair>;
 var test_success_count = 0, test_failed_count = 0;
 
 func test_function(var func_name:string, var test_func:void())
 {
-    test_function_set->add({
-            {"funcname", func_name}, 
-            {"function", test_func},
+    test_function_set->add(test_func_pair{
+            name = func_name,
+            function = test_func,
         });
 }
 
@@ -19,9 +23,9 @@ func execute_all_test()
     {
         test_success_count = 0;
         test_failed_count = 0;
-        std::println("Testing:", test_function_set[i].funcname, "...");
+        std::println("Testing:", test_function_set[i].name, "...");
 
-        (test_function_set[i].function:void())();
+        test_function_set[i].function();
 
         std::println("Passed:", test_success_count);
         if (test_failed_count != 0)
@@ -34,9 +38,9 @@ func execute_all_test()
     }
 }
 
-func test_equal(var a, var b)
+func test_equal<AT, BT>(var a: AT, var b: BT)
 {
-    if (a == b)
+    if (a: dynamic == b: dynamic)
         test_success_count += 1;
     else
     {
@@ -46,7 +50,7 @@ func test_equal(var a, var b)
     }
 }
 
-func test_assure(var a)
+func test_assure(var a: bool)
 {
     if (a)
         test_success_count += 1;

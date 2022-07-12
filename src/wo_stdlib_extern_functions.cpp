@@ -1154,6 +1154,7 @@ namespace std
 const char* wo_stdlib_vm_src_path = u8"woo/vm.wo";
 const char* wo_stdlib_vm_src_data = {
 u8R"(
+import woo.std;
 namespace std
 {
     using vm = gchandle;
@@ -1201,6 +1202,11 @@ namespace std
         
         extern("rslib_std_vm_virtual_source")
         func virtual_source(var vfilepath:string, var src:string, var enable_overwrite:bool):bool;
+
+        func close(var self: vm)
+        {
+            self:gchandle->close();
+        }
     }
 }
 )" };

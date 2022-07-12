@@ -178,15 +178,17 @@ namespace wo
                 return value::valuetype::invalid;
             }
 
-            static bool check_castable(ast_type* to, ast_type* from, bool force)
+            static bool check_castable(ast_type* to, ast_type* from)
             {
+                // MUST BE FORCE CAST HERE!
+
                 if (to->is_pending() || (to->is_void() && !to->is_func()))
                     return false;
 
-                if (to->is_dynamic())
+                if (to->is_bool())
                     return true;
 
-                if (to->is_bool() && force)
+                if (to->is_dynamic())
                     return true;
 
                 if (from->is_dynamic())
@@ -215,39 +217,36 @@ namespace wo
                 {
                     // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
                     if (from->using_type_name && !to->using_type_name)
-                        return true;
+                        return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
                 }
 
                 if (from->is_func() || to->is_func())
                     return false;
 
-                if (force)
+                if (to->value_type == value::valuetype::string_type)
+                    return true;
+
+                if (to->value_type == value::valuetype::integer_type
+                    || to->value_type == value::valuetype::real_type
+                    || to->value_type == value::valuetype::handle_type
+                    || to->value_type == value::valuetype::string_type)
                 {
-                    if (to->value_type == value::valuetype::string_type)
+                    if (from->value_type == value::valuetype::integer_type
+                        || from->value_type == value::valuetype::real_type
+                        || from->value_type == value::valuetype::handle_type
+                        || from->value_type == value::valuetype::string_type)
                         return true;
+                }
 
-                    if (to->value_type == value::valuetype::integer_type
-                        || to->value_type == value::valuetype::real_type
-                        || to->value_type == value::valuetype::handle_type
-                        || to->value_type == value::valuetype::string_type)
-                    {
-                        if (from->value_type == value::valuetype::integer_type
-                            || from->value_type == value::valuetype::real_type
-                            || from->value_type == value::valuetype::handle_type
-                            || from->value_type == value::valuetype::string_type)
-                            return true;
-                    }
-
-                    if (from->value_type == value::valuetype::string_type)
-                    {
-                        if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
-                            return true;
-                        if (to->is_map() && ((!to->has_template()) || (
-                            to->template_arguments[0]->is_dynamic()
-                            && to->template_arguments[1]->is_dynamic()
-                            )))
-                            return true;
-                    }
+                if (from->value_type == value::valuetype::string_type)
+                {
+                    if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
+                        return true;
+                    if (to->is_map() && ((!to->has_template()) || (
+                        to->template_arguments[0]->is_dynamic()
+                        && to->template_arguments[1]->is_dynamic()
+                        )))
+                        return true;
                 }
                 return false;
             }
@@ -952,13 +951,11 @@ namespace wo
         struct ast_value_type_cast : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
-            bool implicit;
-            ast_value_type_cast(ast_value* value, ast_type* type, bool _implicit)
+            ast_value_type_cast(ast_value* value, ast_type* type)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
                 value_type = type;
-                implicit = _implicit;
             }
 
             ast_value_type_cast() {}
@@ -1019,22 +1016,22 @@ namespace wo
                             switch (aim_real_type)
                             {
                             case value::valuetype::real_type:
-                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::integer_type))
+                                if (last_value.is_nil())
                                     goto try_cast_nil_to_int_handle_real_str;
                                 constant_value.set_real(wo_cast_real((wo_value)&last_value));
                                 break;
                             case value::valuetype::integer_type:
-                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type && last_value.type != value::valuetype::real_type))
+                                if (last_value.is_nil())
                                     goto try_cast_nil_to_int_handle_real_str;
                                 constant_value.set_integer(wo_cast_int((wo_value)&last_value));
                                 break;
                             case value::valuetype::string_type:
-                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                if (last_value.is_nil())
                                     goto try_cast_nil_to_int_handle_real_str;
                                 constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
                                 break;
                             case value::valuetype::handle_type:
-                                if (last_value.is_nil() || (implicit && last_value.type != aim_real_type))
+                                if (last_value.is_nil())
                                     goto try_cast_nil_to_int_handle_real_str;
                                 constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
                                 break;
@@ -2692,8 +2689,9 @@ namespace wo
 
         struct ast_fakevalue_unpacked_args : virtual public ast_value
         {
+            constexpr static wo_integer_t UNPACK_ALL_ARGUMENT = 65535;
             ast_value* unpacked_pack;
-            wo_integer_t expand_count = 0;
+            wo_integer_t expand_count = UNPACK_ALL_ARGUMENT;
 
             ast_fakevalue_unpacked_args(ast_value* pak, wo_integer_t _expand_count)
                 : unpacked_pack(pak),
@@ -3611,7 +3609,7 @@ namespace wo
                 {
                     return (ast_basic*)new ast_fakevalue_unpacked_args(
                         dynamic_cast<ast_value*>(WO_NEED_AST(0)),
-                        0);
+                        ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT);
                 }
                 else
                 {
@@ -4113,7 +4111,7 @@ namespace wo
                             return (ast_basic*)map_builder;
                         }
 
-                    ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node, false);
+                    ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node);
                     typecast->update_constant_value(&lex);
                     return (ast_basic*)typecast;
                 }
@@ -4889,7 +4887,7 @@ namespace wo
                     auto* left = new ast_value_literal(WO_NEED_TOKEN(0));
                     auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"), false);
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
 
                     cast_right->row_no = left->row_no = right->row_no;
                     cast_right->col_no = left->col_no = right->col_no;
@@ -4907,7 +4905,7 @@ namespace wo
                     auto* left = new ast_value_literal(WO_NEED_TOKEN(1));
                     auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(2));
 
-                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"), false);
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
 
                     cast_right->row_no = left->row_no = right->row_no;
                     cast_right->col_no = left->col_no = right->col_no;
