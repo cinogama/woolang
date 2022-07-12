@@ -2842,10 +2842,9 @@ namespace wo
                     {
                         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
                         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
-                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
                             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
                         {
-                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array/tuple");
+                            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array");
                         }
                     }
                     else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(a_value))
