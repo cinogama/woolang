@@ -3463,6 +3463,7 @@ namespace wo
                             if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
                             {
                                 membpair->member_offset = fnd->second.offset;
+                                fully_update_type(fnd->second.init_value_may_nil->value_type, false);
                                 if (!fnd->second.init_value_may_nil->value_type->accept_type(membpair->member_val_or_type_tkplace->value_type, false))
                                 {
                                     lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
