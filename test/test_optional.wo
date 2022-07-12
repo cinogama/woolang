@@ -31,7 +31,7 @@ namespace test_optional
 
         foo();
 
-        var gval = option::none:<array<string>>;
+        var gval = option::none as option<array<string>>;
         gval = option::value([]: array<string>);
 
         match(gval)
@@ -56,7 +56,7 @@ namespace test_optional
             option::none?
                 std::panic("Here should not be 'none'.");
         }
-        var c = option::none:<string>;
+        var c = option::none as option<string>;
         var d = c->map(func(var x: string){std::panic("That's should not been exec.");
                                        return "That's should not been exec."});
         match(d)

@@ -794,14 +794,14 @@ union option<T>
 }
 namespace option
 {
-    func map<T, R>(var self: option<T>, var functor: R(T))
+    func map<T, R>(var self: option<T>, var functor: R(T)) : option<R>
     {
         match(self)
         {
             option::value(x)?
                 return option::value(functor(x));
             option::none?
-                return option::none:<R>;
+                return option::none;
         }
     }
     func valor<T>(var self: option<T>, var default_val: T)

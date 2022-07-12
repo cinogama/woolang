@@ -925,11 +925,16 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
                 gm::nt(L"UNION_ITEM_LIST") >> gm::symlist{ gm::nt(L"UNION_ITEM_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"UNION_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
-                gm::nt(L"UNION_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"UNION_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_union_item),
                 gm::nt(L"UNION_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier),
-                gm::te(gm::ttype::l_left_brackets), gm::nt(L"TYPE"), gm::te(gm::ttype::l_right_brackets), }
+                gm::te(gm::ttype::l_left_brackets), gm::nt(L"TYPE"), gm::te(gm::ttype::l_right_brackets), gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_union_item),
+
+                gm::nt(L"TYPE_DECL_MAY_EMPTY") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"TYPE_DECL_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"MATCH_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

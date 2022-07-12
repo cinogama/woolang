@@ -320,7 +320,7 @@ namespace wo
                     if (naming_memb_name_val.init_value_may_nil->value_type->is_pending())
                         ; // member type not computed, just pass
                     else if (fnd->second.init_value_may_nil->value_type->is_pending()
-                        || !fnd->second.init_value_may_nil->value_type->is_same(naming_memb_name_val.init_value_may_nil->value_type))
+                        || !fnd->second.init_value_may_nil->value_type->is_same(naming_memb_name_val.init_value_may_nil->value_type, false))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -545,7 +545,7 @@ namespace wo
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                if (!a_pattern_identifier->template_arguments)
+                if (a_pattern_identifier->template_arguments.empty())
                 {
                     // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
                     //            symbol first, it can make variable capture correctly.
@@ -570,16 +570,7 @@ namespace wo
 
                     wo_assert(symb->template_types.empty());
 
-                    auto* items = a_pattern_identifier->template_arguments->children;
-                    while (items)
-                    {
-                        ast_template_define_with_naming* template_name = dynamic_cast<ast_template_define_with_naming*>(items);
-                        // TODO: NEED CHECK NAMING HERE?
-
-                        wo_assert(template_name);
-                        symb->template_types.push_back(template_name->template_ident);
-                        items = items->sibling;
-                    }
+                    symb->template_types = a_pattern_identifier->template_arguments;
 
                     a_pattern_identifier->symbol = symb;
                 }
@@ -612,7 +603,7 @@ namespace wo
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                if (!a_pattern_identifier->template_arguments)
+                if (a_pattern_identifier->template_arguments.empty())
                 {
                     analyze_pass2(initval);
 
@@ -687,7 +678,7 @@ namespace wo
 
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                if (!a_pattern_identifier->template_arguments)
+                if (a_pattern_identifier->template_arguments.empty())
                 {
                     if (a_pattern_identifier->symbol->is_ref)
                     {
@@ -1239,7 +1230,7 @@ namespace wo
                             break;
                         }
 
-                        if (!val->value_type->is_same(decide_array_item_type, false))
+                        if (!decide_array_item_type->accept_type(val->value_type, false))
                         {
                             auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
                             if (mixed_type)
@@ -1293,8 +1284,7 @@ namespace wo
                             decide_map_val_type = nullptr;
                             break;
                         }
-
-                        if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
+                        if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                         {
                             auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
                             if (mixed_type)
@@ -1307,7 +1297,7 @@ namespace wo
                                 // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
                             }
                         }
-                        if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
+                        if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                         {
                             auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
                             if (mixed_type)
@@ -1361,7 +1351,7 @@ namespace wo
                                 }
                                 else
                                 {
-                                    if (!func_return_type->is_same(a_ret->return_value->value_type, false))
+                                    if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                                     {
                                         auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                         if (mixed_type)
@@ -2357,7 +2347,7 @@ namespace wo
                                                                 if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
                                                                     // There is no enough value for tuple to expand. match failed!
                                                                     goto this_function_override_checking_over;
-                                                                else if (!unpacking_tuple_type->template_arguments[unpack_type_index]->is_same(form_arg->value_type, false))
+                                                                else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
                                                                     // Type didn't match, match failed!
                                                                     goto this_function_override_checking_over;
                                                                 else
@@ -2391,7 +2381,7 @@ namespace wo
                                                     ;
                                                 else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
                                                     break;
-                                                else if (real_arg->value_type->is_same(form_arg->value_type, false))
+                                                else if (form_arg->value_type->accept_type(real_arg->value_type, false))
                                                     ;// do nothing..
                                                 else
                                                     break; // bad match, break..
@@ -2582,7 +2572,7 @@ namespace wo
                                             continue;
                                         else
                                         {
-                                            if (!arg_val->value_type->is_pending() && !arg_val->value_type->is_same(*a_type_index, false))
+                                            if (!arg_val->value_type->is_pending() && !(*a_type_index)->accept_type(arg_val->value_type, false))
                                             {
                                                 lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                             }
@@ -2658,7 +2648,7 @@ namespace wo
                                     break;
                                 }
 
-                                if (!val->value_type->is_same(decide_array_item_type, false))
+                                if (!decide_array_item_type->accept_type(val->value_type, false))
                                 {
                                     lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
                                     break;
@@ -2701,12 +2691,12 @@ namespace wo
                                     break;
                                 }
 
-                                if (!map_pair->key->value_type->is_same(decide_map_key_type, false))
+                                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                                 {
                                     lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
                                     break;
                                 }
-                                if (!map_pair->val->value_type->is_same(decide_map_val_type, false))
+                                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                                 {
                                     lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
                                     break;
@@ -2753,7 +2743,7 @@ namespace wo
                                 lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
                         }
 
-                        if (!a_value_assi->left->value_type->is_same(a_value_assi->right->value_type, false))
+                        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                                 a_value_assi->right->value_type->get_type_name(false).c_str(),
@@ -2788,7 +2778,7 @@ namespace wo
                                             continue; // In function override judge, not accessable function will be skip!
 
                                         auto* overload_func = dynamic_cast<ast_value_function_define*>(func_overload);
-                                        if (overload_func->value_type->is_same(a_value_typecast->value_type))
+                                        if (overload_func->value_type->is_same(a_value_typecast->value_type, false))
                                         {
                                             a_value_typecast->_be_cast_value_node = overload_func;
                                             break;
@@ -2859,7 +2849,7 @@ namespace wo
                         }
                         if (a_value_index->from->value_type->is_map())
                         {
-                            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0]))
+                            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false))
                             {
                                 lang_anylizer->lang_error(0x0000, a_value_index->index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
                                     , a_value_index->from->value_type->get_type_name().c_str()
@@ -2921,7 +2911,7 @@ namespace wo
                                     a_value_bin->value_type = a_value_bin->overrided_operation_call->value_type;
                                 else if (a_value_bin->value_type->is_pending())
                                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
-                                else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type))
+                                else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false))
                                     lang_anylizer->lang_warning(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
                             }
 
@@ -2961,14 +2951,14 @@ namespace wo
                                     a_value_logic_bin->value_type = a_value_logic_bin->overrided_operation_call->value_type;
                                 else if (a_value_logic_bin->value_type->is_pending())
                                     a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
-                                else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type))
+                                else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type, false))
                                     lang_anylizer->lang_warning(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
                             }
 
                         }
                         if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
                         {
-                            if (!a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type)
+                            if (!a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false)
                                 && !(a_value_logic_bin->left->value_type->is_dynamic()
                                     || a_value_logic_bin->right->value_type->is_dynamic()))
                                 lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
@@ -2999,7 +2989,7 @@ namespace wo
 
                             while (val)
                             {
-                                if (!val->value_type->is_same(a_value_arr->value_type->template_arguments[0], false))
+                                if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
                                     lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
                                 reenplace_array_items.push_back(val);
 
@@ -3042,9 +3032,9 @@ namespace wo
                                 }
                                 else
                                 {
-                                    if (!pairs->key->value_type->is_same(a_value_map->value_type->template_arguments[0], false))
+                                    if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
                                         lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
-                                    if (!pairs->val->value_type->is_same(a_value_map->value_type->template_arguments[1], false))
+                                    if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
                                         lang_anylizer->lang_error(0x0000, pairs->val, L"'map' 序列中的值类型与泛型参数中指定的不一致，继续");
 
                                 }
@@ -3085,7 +3075,7 @@ namespace wo
                             }
                             else
                             {
-                                if (!func_return_type->is_same(a_ret->return_value->value_type, false))
+                                if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                                 {
                                     auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                     if (mixed_type)
@@ -3103,7 +3093,7 @@ namespace wo
                         else
                         {
                             if (!func_return_type->is_pending()
-                                && !func_return_type->is_same(a_ret->return_value->value_type))
+                                && !func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
@@ -3373,28 +3363,51 @@ namespace wo
                         {
                             if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
                             {
-                                a_pattern_union_value->union_expr->template_reification_args = a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments;
                                 a_pattern_union_value->union_expr->symbol = find_value_in_this_scope(a_pattern_union_value->union_expr);
 
                                 if (a_pattern_union_value->union_expr->symbol)
                                 {
-                                    if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
-                                        a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(a_pattern_union_value->union_expr, a_pattern_union_value->union_expr->template_reification_args);
-                                    else
-                                    {
-                                        if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
-                                        {
-                                            auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
+                                    std::vector<ast_type*> fact_used_template;
 
-                                            auto* dumped_func = analyze_pass_template_reification(dynamic_cast<ast_value_function_define*>(final_function),
-                                                a_pattern_union_value->union_expr->template_reification_args);
-                                            if (dumped_func)
-                                                a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
-                                            else
-                                                lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                    auto fnd = a_match_union_case->in_match->match_value->value_type->struct_member_index.find(
+                                        a_pattern_union_value->union_expr->symbol->name);
+                                    if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
+                                    {
+                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, L"'%ls' 不是 '%ls' 的合法项，继续",
+                                            a_pattern_union_value->union_expr->symbol->name.c_str(),
+                                            a_match_union_case->in_match->match_value->value_type->get_type_name(false).c_str());
+                                    }
+                                    else
+                                        for (auto id : fnd->second.union_used_template_index)
+                                        {
+                                            wo_assert(id < a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.size());
+                                            fact_used_template.push_back(a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments[id]);
                                         }
+
+                                    if (!fact_used_template.empty())
+                                    {
+                                        a_pattern_union_value->union_expr->template_reification_args = fact_used_template;
+                                        if (a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::variable)
+                                            a_pattern_union_value->union_expr->symbol = analyze_pass_template_reification(
+                                                a_pattern_union_value->union_expr,
+                                                fact_used_template);
                                         else
-                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                        {
+                                            if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
+                                            {
+                                                auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
+
+                                                auto* dumped_func = analyze_pass_template_reification(
+                                                    dynamic_cast<ast_value_function_define*>(final_function),
+                                                    fact_used_template);
+                                                if (dumped_func)
+                                                    a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
+                                                else
+                                                    lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                                            }
+                                            else
+                                                lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                        }
                                     }
                                 }
                                 else
@@ -3450,7 +3463,7 @@ namespace wo
                             if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
                             {
                                 membpair->member_offset = fnd->second.offset;
-                                if (!membpair->member_val_or_type_tkplace->value_type->is_same(fnd->second.init_value_may_nil->value_type, false))
+                                if (!fnd->second.init_value_may_nil->value_type->accept_type(membpair->member_val_or_type_tkplace->value_type, false))
                                 {
                                     lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
                                         , membpair->member_name.c_str()
@@ -4009,7 +4022,7 @@ namespace wo
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type)
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false)
                     && !a_value_binary->left->value_type->is_dynamic())
                     optype = a_value_binary->left->value_type->value_type;
 
@@ -4141,7 +4154,7 @@ namespace wo
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
                 // if mixed type, do opx
-                bool same_type = a_value_assign->left->value_type->is_same(a_value_assign->right->value_type);
+                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
                 value::valuetype optype = value::valuetype::invalid;
                 if (same_type && !a_value_assign->left->value_type->is_dynamic())
                     optype = a_value_assign->left->value_type->value_type;
@@ -4177,7 +4190,7 @@ namespace wo
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
                     else if (a_value_assign->left->value_type->is_bool())
                         compiler->lmov(beoped_left_opnum, op_right_opnum);
-                    else if (!a_value_assign->left->value_type->is_same(a_value_assign->right->value_type) &&
+                    else if (!a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false) &&
                         !a_value_assign->left->value_type->is_dynamic())
                     {
                         compiler->movx(beoped_left_opnum, op_right_opnum);
@@ -4331,7 +4344,7 @@ namespace wo
                 }
 
                 if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->is_same(a_value_type_cast->_be_cast_value_node->value_type)
+                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, false)
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
@@ -4350,7 +4363,7 @@ namespace wo
 
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
-                if (a_value_type_judge->value_type->is_same(a_value_type_judge->_be_cast_value_node->value_type, false))
+                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
@@ -4377,7 +4390,7 @@ namespace wo
                 if (force_value)
                     return analyze_value(a_value_type_check->_be_check_value_node, compiler, get_pure_value);
 
-                if (a_value_type_check->aim_type->is_same(a_value_type_check->_be_check_value_node->value_type, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
@@ -4497,7 +4510,7 @@ namespace wo
                         auto& packing = analyze_value(a_fakevalue_unpacked_args->unpacked_pack, compiler,
                             a_fakevalue_unpacked_args->expand_count <= 0);
 
-                        if(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+                        if (a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
                         {
                             extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
                             compiler->ext_unpackargs(packing, a_fakevalue_unpacked_args->expand_count);
@@ -4630,11 +4643,11 @@ namespace wo
                     return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
 
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type)
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false)
                     && !a_value_logical_binary->left->value_type->is_dynamic())
                     optype = a_value_logical_binary->left->value_type->value_type;
 
-                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type))
+                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
                 {
                     if (!a_value_logical_binary->left->value_type->is_dynamic() &&
                         !a_value_logical_binary->right->value_type->is_dynamic())

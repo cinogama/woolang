@@ -127,6 +127,7 @@ namespace wo
             {
                 ast_value* init_value_may_nil = nullptr;
                 uint16_t offset = (uint16_t)0xFFFF;
+                std::vector<size_t> union_used_template_index;
             };
             std::map<std::wstring, struct_offset> struct_member_index;
 
@@ -151,6 +152,7 @@ namespace wo
                 {L"tuple", value::valuetype::invalid},
 
                 {L"void", value::valuetype::invalid},
+                {L"anything", value::valuetype::invalid}, // Top type.
                 {L"pending", value::valuetype::invalid},
                 {L"dynamic", value::valuetype::invalid},
             };
@@ -213,7 +215,7 @@ namespace wo
                 if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                     return false;
 
-                if (from->is_same(to))
+                if (from->is_same(to, true))
                 {
                     // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
                     if (from->using_type_name && !to->using_type_name)
@@ -478,7 +480,7 @@ namespace wo
                 return true;
 
             }
-            bool is_same(const ast_type* another, bool ignore_using_type = true) const
+            bool is_same(const ast_type* another, bool ignore_using_type) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -493,6 +495,13 @@ namespace wo
 
                     if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
                         return false;
+
+                    if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                        return false;
+
+                    for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                        if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], ignore_using_type))
+                            return false;
                 }
                 if (has_template())
                 {
@@ -500,7 +509,7 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (!template_arguments[index]->is_same(another->template_arguments[index]))
+                        if (!template_arguments[index]->is_same(another->template_arguments[index], ignore_using_type))
                             return false;
                     }
                 }
@@ -510,16 +519,71 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
-                        if (!argument_types[index]->is_same(another->argument_types[index]))
+                        if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
                         return false;
                 }
                 if (is_complex() && another->is_complex())
-                    return complex_type->is_same(another->complex_type);
+                    return complex_type->is_same(another->complex_type, ignore_using_type);
                 else if (!is_complex() && !another->is_complex())
                     return get_type_name(ignore_using_type) == another->get_type_name(ignore_using_type);
+                return false;
+            }
+
+            bool accept_type(const ast_type* another, bool ignore_using_type) const
+            {
+                if (is_pending_function() || another->is_pending_function())
+                    return false;
+
+                if (is_pending() || another->is_pending())
+                    return false;
+
+                if (another->is_anything())
+                    return true; // top type, OK
+
+                if (!ignore_using_type && (using_type_name || another->using_type_name))
+                {
+                    if (!using_type_name || !another->using_type_name)
+                        return false;
+
+                    if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                        return false;
+
+                    if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                        return false;
+
+                    for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type))
+                            return false;
+                }
+                if (has_template())
+                {
+                    if (template_arguments.size() != another->template_arguments.size())
+                        return false;
+                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    {
+                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type))
+                            return false;
+                    }
+                }
+                if (is_func())
+                {
+                    if (argument_types.size() != another->argument_types.size())
+                        return false;
+                    for (size_t index = 0; index < argument_types.size(); index++)
+                    {
+                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type))
+                            return false;
+                    }
+                    if (is_variadic_function_type != another->is_variadic_function_type)
+                        return false;
+                }
+                if (is_complex() && another->is_complex())
+                    return complex_type->accept_type(another->complex_type, ignore_using_type);
+                else if (!is_complex() && !another->is_complex())
+                    return type_name == another->type_name;
                 return false;
             }
             bool is_func() const
@@ -540,6 +604,11 @@ namespace wo
             {
                 return !is_func() &&
                     (type_name == L"tuple" || (using_type_name && using_type_name->type_name == L"tuple"));
+            }
+            bool is_anything() const
+            {
+                return !is_func() &&
+                    (type_name == L"anything" || (using_type_name && using_type_name->type_name == L"anything"));
             }
             bool is_struct() const
             {
@@ -3054,6 +3123,7 @@ namespace wo
         {
             std::wstring identifier;
             ast_type* type_may_nil = nullptr;
+            ast_type* gadt_out_type_may_nil = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3064,7 +3134,7 @@ namespace wo
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->type_may_nil);
-
+                WO_REINSTANCE(dumm->gadt_out_type_may_nil);
                 return dumm;
             }
         };
@@ -3093,7 +3163,7 @@ namespace wo
             std::wstring identifier;
             lang_symbol* symbol = nullptr;
 
-            ast_list* template_arguments = nullptr;
+            std::vector<std::wstring> template_arguments;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -4009,7 +4079,19 @@ namespace wo
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(0));
                 wo_assert(define_varref);
                 if (auto* pattern_identifier = dynamic_cast<ast_pattern_identifier*>(define_varref))
-                    pattern_identifier->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
+                {
+                    auto* template_def_item = WO_NEED_AST(1)->children;
+                    while (template_def_item)
+                    {
+                        auto* template_def = dynamic_cast<ast_template_define_with_naming*>(template_def_item);
+                        wo_assert(template_def);
+
+                        pattern_identifier->template_arguments.push_back(template_def->template_ident);
+
+                        template_def_item = template_def_item->sibling;
+                    }
+                }
+
 
                 result->var_refs.push_back({ false, define_varref, init_val });
 
@@ -4029,8 +4111,18 @@ namespace wo
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 wo_assert(define_varref);
                 if (auto* pattern_identifier = dynamic_cast<ast_pattern_identifier*>(define_varref))
-                    pattern_identifier->template_arguments = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                {
+                    auto* template_def_item = WO_NEED_AST(3)->children;
+                    while (template_def_item)
+                    {
+                        auto* template_def = dynamic_cast<ast_template_define_with_naming*>(template_def_item);
+                        wo_assert(template_def);
 
+                        pattern_identifier->template_arguments.push_back(template_def->template_ident);
+
+                        template_def_item = template_def_item->sibling;
+                    }
+                }
                 result->var_refs.push_back({ false, define_varref, init_val });
 
                 return (ast_basic*)result;
@@ -4131,7 +4223,7 @@ namespace wo
                 {
                     return new ast_value_type_judge(value_node, type_node);
                 }
-                else if (!value_node->value_type->is_same(type_node))
+                else if (!value_node->value_type->is_same(type_node, false))
                 {
                     lex.parser_error(0x0000, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;
@@ -4957,20 +5049,21 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_union_item* result = new ast_union_item;
-                if (input.size() == 1)
+                if (input.size() == 2)
                 {
-                    // identifier
+                    // identifier : type
                     // => const var identifier<A...> = func(){...}();
                     result->identifier = WO_NEED_TOKEN(0).identifier;
+                    result->gadt_out_type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(1));
                 }
                 else
                 {
-                    // identifier ( TYPE )
+                    // identifier ( TYPE ) : type
                     // => func identifier<A...>(var v: TYPE){...}
-                    wo_assert(input.size() == 4);
+                    wo_assert(input.size() == 5);
                     result->identifier = WO_NEED_TOKEN(0).identifier;
                     result->type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(2));
-
+                    result->gadt_out_type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(4));
                     wo_assert(result->type_may_nil);
                 }
                 return (ast_basic*)result;
@@ -4979,6 +5072,26 @@ namespace wo
 
         struct pass_union_define : public astnode_builder
         {
+            static void find_used_template(
+                ast_type* type_decl,
+                const std::vector<std::wstring>& template_defines,
+                std::set<std::wstring>& out_used_type)
+            {
+                // No need for checking using-type.
+                if (type_decl->scope_namespaces.empty()
+                    && !type_decl->search_from_global_namespace
+                    && std::find(template_defines.begin(), template_defines.end(), type_decl->type_name)
+                    != template_defines.end())
+                    out_used_type.insert(type_decl->type_name);
+                if (type_decl->is_complex())
+                    find_used_template(type_decl->complex_type, template_defines, out_used_type);
+                if (type_decl->is_func())
+                    for (auto* argtype : type_decl->argument_types)
+                        find_used_template(argtype, template_defines, out_used_type);
+                if (type_decl->has_template())
+                    for (auto* argtype : type_decl->template_arguments)
+                        find_used_template(argtype, template_defines, out_used_type);
+            }
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 wo_assert(input.size() == 7);
@@ -5011,7 +5124,7 @@ namespace wo
                 using_type->old_type = new ast_type(L"union");
                 using_type->declear_attribute = union_arttribute;
 
-                std::vector <std::wstring> template_arg_defines;
+                std::vector <std::wstring>& template_arg_defines = using_type->template_type_name_list;
                 if (defined_template_args)
                 {
                     ast_list* template_const_list = new ast_list;
@@ -5048,19 +5161,32 @@ namespace wo
 
                 uint16_t union_item_id = 0;
 
-                auto create_union_type = [&]() {
-                    ast_type* union_type_with_template = new ast_type(using_type->new_type_identifier);
-                    for (auto& ident : using_type->template_type_name_list)
-                    {
-                        union_type_with_template->template_arguments.push_back(new ast_type(ident));
-                    }
-                    return union_type_with_template;
-                };
-
                 while (items)
                 {
+                    std::set<std::wstring> used_template_args;
+
+                    auto create_union_type = [&]() {
+                        ast_type* union_type_with_template = new ast_type(using_type->new_type_identifier);
+                        for (auto& ident : using_type->template_type_name_list)
+                        {
+                            // Current template-type has been used.
+                            if (used_template_args.find(ident) != used_template_args.end())
+                                union_type_with_template->template_arguments.push_back(new ast_type(ident));
+                            else
+                                // Not used template-type, 
+                                union_type_with_template->template_arguments.push_back(new ast_type(L"anything"));
+                        }
+                        return union_type_with_template;
+                    };
+
+                    auto& member = using_type->old_type->struct_member_index[items->identifier];
+                    member.offset = ++union_item_id;
+
+                    if (items->gadt_out_type_may_nil)
+                        find_used_template(items->gadt_out_type_may_nil, template_arg_defines, used_template_args);
                     if (items->type_may_nil)
                     {
+                        find_used_template(items->type_may_nil, template_arg_defines, used_template_args);
                         // Generate func here!
                         ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
                         avfd_item_type_builder->function_name = items->identifier;
@@ -5075,7 +5201,11 @@ namespace wo
                         avfd_item_type_builder->argument_list->add_child(argdef);
                         argdef->copy_source_info(items);
 
-                        avfd_item_type_builder->value_type = create_union_type();
+                        if (items->gadt_out_type_may_nil)
+                            avfd_item_type_builder->value_type = items->gadt_out_type_may_nil;
+                        else
+                            avfd_item_type_builder->value_type = create_union_type();
+
                         avfd_item_type_builder->value_type->set_as_function_type();
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 
@@ -5083,8 +5213,18 @@ namespace wo
                         avfd_item_type_builder->copy_source_info(items);
                         if (using_type->is_template_define)
                         {
-                            avfd_item_type_builder->is_template_define = true;
-                            avfd_item_type_builder->template_type_name_list = using_type->template_type_name_list;
+                            size_t id = 0;
+                            for (auto& templatedef : using_type->template_type_name_list)
+                            {
+                                if (used_template_args.find(templatedef) != used_template_args.end())
+                                {
+                                    avfd_item_type_builder->template_type_name_list.push_back(templatedef);
+                                    member.union_used_template_index.push_back(id);
+                                }
+                                ++id;
+                            }
+                            if (!avfd_item_type_builder->template_type_name_list.empty())
+                                avfd_item_type_builder->is_template_define = true;
                         }
 
                         avfd_item_type_builder->in_function_sentence = new ast_list;
@@ -5092,7 +5232,7 @@ namespace wo
                         ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                         result->copy_source_info(items);
                         result->argument_may_nil = new ast_value_variable(argdef->arg_name);
-                        result->id = ++union_item_id;
+                        result->id = union_item_id;
                         // all done ~ fuck!
 
                         avfd_item_type_builder->in_function_sentence->append_at_end(result);
@@ -5105,7 +5245,10 @@ namespace wo
                         avfd_item_type_builder->function_name = L""; // Is a lambda function!
                         avfd_item_type_builder->argument_list = new ast_list;
                         avfd_item_type_builder->declear_attribute = union_arttribute;
-                        avfd_item_type_builder->value_type = create_union_type();
+                        if (items->gadt_out_type_may_nil)
+                            avfd_item_type_builder->value_type = items->gadt_out_type_may_nil;
+                        else
+                            avfd_item_type_builder->value_type = create_union_type();
                         avfd_item_type_builder->value_type->set_as_function_type();
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
@@ -5115,7 +5258,7 @@ namespace wo
 
                         ast_union_make_option_ob_to_cr_and_ret* result = new ast_union_make_option_ob_to_cr_and_ret();
                         result->copy_source_info(items);
-                        result->id = ++union_item_id;
+                        result->id = union_item_id;
                         // all done ~ fuck!
                         avfd_item_type_builder->in_function_sentence->append_at_end(result);
 
@@ -5130,17 +5273,25 @@ namespace wo
 
                         auto* union_item_define = new ast_pattern_identifier;
                         union_item_define->identifier = items->identifier;
-                        union_item_define->template_arguments = defined_template_arg_lists;
+                        if (using_type->is_template_define)
+                        {
+                            size_t id = 0;
+                            for (auto& templatedef : using_type->template_type_name_list)
+                            {
+                                if (used_template_args.find(templatedef) != used_template_args.end())
+                                {
+                                    union_item_define->template_arguments.push_back(templatedef);
+                                    member.union_used_template_index.push_back(id);
+                                }
+                                ++id;
+                            }
+                        }
 
                         define_union_item->var_refs.push_back({ false, union_item_define, funccall });
                         define_union_item->declear_attribute = new ast_decl_attribute();
 
                         union_scope->in_scope_sentence->append_at_end(define_union_item);
                     }
-
-                    auto& member = using_type->old_type->struct_member_index[items->identifier];
-                    member.offset = union_item_id;
-
                     items = dynamic_cast<ast_union_item*>(items->sibling);
                 }
                 bind_using_type_namespace_result->append_at_end(union_scope);
