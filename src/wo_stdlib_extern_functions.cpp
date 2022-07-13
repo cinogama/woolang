@@ -835,6 +835,11 @@ namespace option
         }
     }
 }
+union result<T, F>
+{
+    ok(T),
+    error(F),
+}
 
 namespace std
 {
