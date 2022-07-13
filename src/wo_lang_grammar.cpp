@@ -501,6 +501,8 @@ namespace wo
 
                 ///////////////////////////////////////////////////
 
+                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"COMMA_MAY_EMPTY"),gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_tuple_type),
                 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST"),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_tuple_type),
 
@@ -721,6 +723,20 @@ namespace wo
 
                 gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"CONSTANT_TUPLE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_make_tuple),
+
+                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
+                                        gm::te(gm::ttype::l_left_brackets),
+                                        gm::nt(L"COMMA_MAY_EMPTY"),
+                                        gm::te(gm::ttype::l_right_brackets) }
+                                        >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
+                                        gm::te(gm::ttype::l_left_brackets),
+                                        gm::nt(L"RIGHT"),
+                                        gm::te(gm::ttype::l_comma),
+                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
+                                        gm::te(gm::ttype::l_right_brackets) }
+                                        >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 3>),
 
                 gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_brackets),
@@ -1020,6 +1036,9 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern),
+
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"COMMA_MAY_EMPTY"), gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_tuple_pattern),
 
                 gm::nt(L"DEFINE_PATTERN_LIST") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN_ITEMS"), gm::nt(L"COMMA_MAY_EMPTY") }

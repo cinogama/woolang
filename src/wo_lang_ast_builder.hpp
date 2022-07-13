@@ -4454,7 +4454,11 @@ namespace wo
             {
                 wo_assert(input.size() == 1);
                 ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
-                tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
+
+                if(!ast_empty::is_empty(input[0]))
+                    tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
+                else
+                    tuple->tuple_member_vals = new ast_list();
                 return (grammar::ast_base*)tuple;
             }
 
@@ -5314,15 +5318,18 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_pattern_tuple;
-                auto* subpattern = WO_NEED_AST(1)->children;
-                while (subpattern)
+                if (!ast_empty::is_empty(input[1]))
                 {
-                    auto* child_pattern = dynamic_cast<ast_pattern_base*>(subpattern);
-                    subpattern = subpattern->sibling;
+                    auto* subpattern = WO_NEED_AST(1)->children;
+                    while (subpattern)
+                    {
+                        auto* child_pattern = dynamic_cast<ast_pattern_base*>(subpattern);
+                        subpattern = subpattern->sibling;
 
-                    wo_assert(child_pattern);
-                    result->tuple_patterns.push_back(child_pattern);
-                    result->tuple_takeplaces.push_back(new ast_value_takeplace);
+                        wo_assert(child_pattern);
+                        result->tuple_patterns.push_back(child_pattern);
+                        result->tuple_takeplaces.push_back(new ast_value_takeplace);
+                    }
                 }
                 return (ast_basic*)result;
             }
@@ -5460,17 +5467,19 @@ namespace wo
                 wo_assert(input.size() == 3);
                 ast_type* tuple_type = new ast_type(L"tuple");
 
-                auto* type_ptr = WO_NEED_AST(1)->children;
-                while (type_ptr)
+                if (!ast_empty::is_empty(input[1]))
                 {
-                    ast_type* type = dynamic_cast<ast_type*>(type_ptr);
-                    type_ptr = type_ptr->sibling;
+                    auto* type_ptr = WO_NEED_AST(1)->children;
+                    while (type_ptr)
+                    {
+                        ast_type* type = dynamic_cast<ast_type*>(type_ptr);
+                        type_ptr = type_ptr->sibling;
 
-                    wo_assert(type);
-                    tuple_type->template_arguments.push_back(type);
+                        wo_assert(type);
+                        tuple_type->template_arguments.push_back(type);
+                    }
+                    wo_assert(!tuple_type->template_arguments.empty());
                 }
-                wo_assert(!tuple_type->template_arguments.empty());
-
                 return (ast_basic*)tuple_type;
             }
         };
