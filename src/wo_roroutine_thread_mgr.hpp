@@ -395,7 +395,7 @@ namespace wo
                     if ((*p2)->waitting_ready())
                     {
                         has_ready_work = true;
-                        _jobs_queue.push_back(*p2);
+                        _jobs_queue.push_front(*p2);
 
                         _pending_jobs_queue.erase(p2);
                     }
@@ -411,6 +411,7 @@ namespace wo
 
         std::vector<fvmshcedule_queue_thread> m_working_thread;
         std::atomic_bool            _shutdown_flag = false;
+        std::atomic_bool            _timer_update_flag = false;
         std::thread                 _schedule_thread;
 
         std::thread                 _schedule_timer_thread;
@@ -488,18 +489,27 @@ namespace wo
                             });
                         if (_this->_shutdown_flag)
                             goto thread_work_end;
+
+                        wo_assert(!_this->_hr_listening_awakeup_time_point.empty());
                     } while (0);
 
-                    wo_assert(!_this->_hr_listening_awakeup_time_point.empty());
-
                     std::unique_lock ug1(_this->_timer_mx);
-                    _this->_timer_cv.wait_until(ug1,
-                        _this->_hr_listening_awakeup_time_point.begin()->first - PRE_ACTIVE_TIME,
-                        [=]()->bool {
-                            return _this->_shutdown_flag;
-                        });
-                    if (_this->_shutdown_flag)
-                        goto thread_work_end;
+                    while (true)
+                    {
+                        _this->_timer_cv.wait_until(ug1,
+                            _this->_hr_listening_awakeup_time_point.begin()->first - PRE_ACTIVE_TIME,
+                            [=]()->bool {
+                                return _this->_shutdown_flag || _this->_timer_update_flag;
+                            });
+                        if (_this->_shutdown_flag)
+                            goto thread_work_end;
+
+                        if (_this->_timer_update_flag)
+                            _this->_timer_update_flag = false;
+                        else
+                            break;
+                    }
+
 
                     _this->_hr_current_time_point = _this->_hr_clock.now();
 
@@ -689,6 +699,7 @@ namespace wo
 
         if (need_update_timer_flag)
         {
+            _scheduler->_timer_update_flag = true;
             _scheduler->_timer_list_cv.notify_all();
             _scheduler->_timer_cv.notify_all();
         }
