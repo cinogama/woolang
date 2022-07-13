@@ -80,8 +80,8 @@ namespace test_compile
 
         // Construct struct must complete.
         assure_compile_fail(@"
-        using st = struct{a: int, b: real};
-        st{a = 15};
+            using st = struct{a: int, b: real};
+            st{a = 15};
         "@);
         assure_compile_fail(@"var t = int{a = ""};"@);
         assure_compile_fail(@"var t = y{a = ""};"@);
@@ -111,32 +111,32 @@ namespace test_compile
 
         // Only index struct by const str
         assure_compile_fail(@"
-        using st = struct{a: int}; 
-        var s = st{a = 1}; 
-        var i = "a"; 
-        var b = s[i];
+            using st = struct{a: int}; 
+            var s = st{a = 1}; 
+            var i = "a"; 
+            var b = s[i];
         "@);
 
         // Only index struct by const str
         assure_compile_fail(@"
-        using st = struct{a: int}; 
-        var s = st{a = 1}; 
-        var i = "a"; 
-        var b = s[i];
+            using st = struct{a: int}; 
+            var s = st{a = 1}; 
+            var i = "a"; 
+            var b = s[i];
         "@);
 
         // Cannot index unindexable type or invalid index
         assure_compile_fail(@"var a = 5; var b = a[7];"@);
         assure_compile_fail(@"var a = [1]; var b = a["index"];"@);
         assure_compile_fail(@"
-        using st = struct{a: int};
-        var s = st{a = 15};
-        var b = s.b;
+            using st = struct{a: int};
+            var s = st{a = 15};
+            var b = s.b;
         "@);
         assure_compile_fail(@"
-        using st = struct{a: int};
-        var s = st{a = 15};
-        var b = s[0];
+            using st = struct{a: int};
+            var s = st{a = 15};
+            var b = s[0];
         "@);
 
         // Call fail
@@ -144,6 +144,10 @@ namespace test_compile
         assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1., "");"@);
         assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1, "", 1);"@);
         assure_compile_fail(@"var a = 1; a();"@);
+        assure_compile_fail(@"
+            func operator == (var a: array<int>, var b: array<int>): string{return "Helloworld";}
+            var a = 1; var b = (a == 1) as string;
+        "@);
 
         // Logic op only accept bool
         assure_compile_fail(@"var r = 1 || false;"@);

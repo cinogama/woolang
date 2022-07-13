@@ -2493,6 +2493,8 @@ namespace wo
 
                             }
 
+                            bool failed_to_call_cur_func = false;
+
                             if (a_value_funccall->called_func
                                 && a_value_funccall->called_func->value_type->is_func()
                                 && !a_value_funccall->called_func->value_type->is_pending())
@@ -2507,7 +2509,9 @@ namespace wo
                                     if (!real_args)
                                     {
                                         // default arg mgr here, now just kill
+                                        failed_to_call_cur_func = true;
                                         lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        break;
                                     }
                                     else
                                     {
@@ -2561,6 +2565,7 @@ namespace wo
                                                 }
                                                 else
                                                 {
+                                                    failed_to_call_cur_func = true;
                                                     lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                                     break;
                                                 }
@@ -2574,7 +2579,9 @@ namespace wo
                                         {
                                             if (!arg_val->value_type->is_pending() && !(*a_type_index)->accept_type(arg_val->value_type, false))
                                             {
+                                                failed_to_call_cur_func = true;
                                                 lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                                break;
                                             }
                                             else
                                             {
@@ -2603,14 +2610,21 @@ namespace wo
                                         // TODO MARK NOT NEED EXPAND HERE
                                     }
                                     else
+                                    {
+                                        failed_to_call_cur_func = true;
                                         lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                    }
                                 }
                             }
                             else if (!a_value_funccall->called_func->value_type->is_pending())
                             {
+                                failed_to_call_cur_func = true;
                                 lang_anylizer->lang_error(0x0000, a_value, WO_ERR_TYPE_CANNOT_BE_CALL,
                                     a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                             }
+
+                            if (failed_to_call_cur_func)
+                                a_value_funccall->value_type->set_type_with_name(L"pending");
                         }
                         else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
                         {
