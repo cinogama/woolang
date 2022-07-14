@@ -711,7 +711,7 @@ WO_API wo_api rslib_std_vm_run(wo_vm vm, wo_value args, size_t argc)
     wo_value ret = wo_run(vmm);
 
     if (ret)
-        return wo_ret_option_value(vm, ret);
+        return wo_ret_option_val(vm, ret);
     return wo_ret_option_none(vm);
 }
 
@@ -772,7 +772,7 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 {
     wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
     if (ext_symb)
-        return wo_ret_option(vm, wo_ret_int(vm, ext_symb));
+        return wo_ret_option_int(vm, ext_symb);
     else
         return wo_ret_option_none(vm);
 }

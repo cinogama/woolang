@@ -156,10 +156,18 @@ WO_API wo_result_t  wo_ret_throw(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
 
+WO_API wo_result_t  wo_ret_option_int(wo_vm vm, wo_integer_t result);
+WO_API wo_result_t  wo_ret_option_real(wo_vm vm, wo_real_t result);
+WO_API wo_result_t  wo_ret_option_float(wo_vm vm, float result);
+WO_API wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result);
+WO_API wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result);
+
+WO_API wo_result_t  wo_ret_option_ptr(wo_vm vm, wo_ptr_t result);
+
 WO_API wo_result_t  wo_ret_option(wo_vm vm, wo_result_t result);
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
-WO_API wo_result_t  wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr);
-WO_API wo_result_t  wo_ret_option_value(wo_vm vm, wo_value val);
+
+WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_ref(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 

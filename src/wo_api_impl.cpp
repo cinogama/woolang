@@ -1089,6 +1089,72 @@ wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
     return 0;
 }
 
+wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_integer(result);
+
+    return 0;
+}
+wo_result_t wo_ret_option_real(wo_vm vm, wo_real_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_real(result);
+
+    return 0;
+}
+wo_result_t wo_ret_option_float(wo_vm vm, float result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_real((wo_real_t)result);
+
+    return 0;
+}
+wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_handle(result);
+
+    return 0;
+}
+wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_string(result);
+
+    return 0;
+}
+
 wo_result_t wo_ret_option(wo_vm vm, wo_result_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -1114,7 +1180,7 @@ wo_result_t wo_ret_option_none(wo_vm vm)
     return 0;
 }
 
-wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
+wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
 
@@ -1122,10 +1188,10 @@ wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
-    if (ptr)
+    if (result)
     {
         structptr->m_values[0].set_integer(1);
-        structptr->m_values[1].set_handle((wo_handle_t)ptr);
+        structptr->m_values[1].set_handle((wo_handle_t)result);
     }
     else
         structptr->m_values[0].set_integer(2);
@@ -1133,7 +1199,7 @@ wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t ptr)
     return 0;
 }
 
-wo_result_t wo_ret_option_value(wo_vm vm, wo_value val)
+wo_result_t wo_ret_option_val(wo_vm vm, wo_value val)
 {
     auto* wovm = WO_VM(vm);
 
@@ -1950,7 +2016,7 @@ wo_value wo_map_set(wo_value map, wo_value index, wo_value val)
             result = (*_map->mapping)[*WO_VAL(index)].set_val(WO_VAL(val));
         else
             result = (*_map->mapping)[*WO_VAL(index)].set_nil();
-        
+
         return CS_VAL(result);
     }
     else
