@@ -163,8 +163,6 @@ WO_API wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result);
 
 WO_API wo_result_t  wo_ret_option_ptr(wo_vm vm, wo_ptr_t result);
-
-WO_API wo_result_t  wo_ret_option(wo_vm vm, wo_result_t result);
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value val);

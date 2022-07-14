@@ -1155,20 +1155,6 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
     return 0;
 }
 
-wo_result_t wo_ret_option(wo_vm vm, wo_result_t result)
-{
-    auto* wovm = WO_VM(vm);
-
-    wovm->er->set_trans(wovm->cr);
-    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_trans(wovm->er);
-
-    return 0;
-}
 wo_result_t wo_ret_option_none(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
