@@ -770,7 +770,11 @@ WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_int(vm, wo_extern_symb(vm, wo_string(args + 0)));
+    wo_integer_t ext_symb = wo_extern_symb(vm, wo_string(args + 0));
+    if (ext_symb)
+        return wo_ret_option(vm, wo_ret_int(vm, ext_symb));
+    else
+        return wo_ret_option_none(vm);
 }
 
 const char* wo_stdlib_src_path = u8"woo/std.wo";
@@ -872,7 +876,7 @@ namespace std
         func exepath():string;
 
     extern("rslib_std_get_extern_symb")
-        func extern_symbol<T>(var fullname:string):T;
+        func extern_symbol<T>(var fullname:string): option<T>;
 
     func max<T>(var a:T, var b:T) : bool
     {
