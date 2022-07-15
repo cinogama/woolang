@@ -1481,7 +1481,7 @@ namespace wo
         {
             std::wstring macro_anylzing_src =
                 L"import woo.macro; extern func macro_" +
-                macro_name + L"(var lexer:std::lexer) {";
+                macro_name + L"(lexer:std::lexer) {";
             ;
             size_t index = lex.next_reading_index;
             do
