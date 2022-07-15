@@ -17,12 +17,12 @@ namespace test_exception
             foo();
             std::halt("This cannot be shown.");
         }
-        var vmm = std::vm::create();
+        let vmm = std::vm::create();
         vmm->load_source("test_vm/test_exception.wo", @"
 import woo.std;
 func test()
 {
-    static var n = 0;
+    static let n = 0;
     if (n == 1)
         std::throw("This exception should be throw.");
     else

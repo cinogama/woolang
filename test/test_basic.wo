@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_basic
 {
-    func abs<T>(var v:T)
+    func abs<T>(v:T)
     {
         if (v < 0:T) return -v;
         return v;
@@ -11,7 +11,7 @@ namespace test_basic
 
     func main()
     {
-        var a = 15;
+        let a = 15;
         test_equal(a/3, 5);
         test_equal(a/4, 3);
         test_equal(a/5, 3);
@@ -37,16 +37,16 @@ namespace test_basic
         test_assure(abs(1.2 / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(1.2 % 0.6) < 0.0000000001);
 
-        var x = 1.2;
+        let x = 1.2;
         test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
         x += 1: real;
         test_assure(abs(x - 2.2) < 0.0000000001);
 
-        var b = 15:dynamic;
-        var h1 = 1230H :dynamic;
-        var h2 = 7890H :dynamic;
+        let b = 15:dynamic;
+        let h1 = 1230H :dynamic;
+        let h2 = 7890H :dynamic;
         test_equal(a + b, 30);
         test_equal(h1 + h2, 9120H);
         test_equal(h1 + 1.0, 1231H);
@@ -59,8 +59,8 @@ namespace test_basic
         test_assure(abs(a * 0.2:dynamic - 3) < 0.0000000001);
         test_assure(abs(a / 0.2:dynamic - 75) < 0.0000000001);
     
-        var p = 1;
-        var q = 1.0;
+        let p = 1;
+        let q = 1.0;
 
         q = 75: real;
         q += 0.62;
@@ -96,12 +96,12 @@ namespace test_basic
         test_assure("wo_test"->endwith("_test"));
         test_equal("Hello, world"->replace("world", "woolang"), "Hello, woolang");
         
-        var split_result = "a b  c d"->split("  ");
+        let split_result = "a b  c d"->split("  ");
         test_equal(split_result->len(), 2);
         test_equal(split_result[0], "a b");
         test_equal(split_result[1], "c d");
 
-        var m = {}: map<int, int>;
+        let m = {}: map<int, int>;
         m[0] = m[1] = m[2] = 233;
         test_equal(m[0], 233);
         test_equal(m[1], 233);

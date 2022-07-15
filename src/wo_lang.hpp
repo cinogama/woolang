@@ -540,11 +540,14 @@ namespace wo
             }
         };
 
-        void analyze_pattern_in_pass1(bool is_ref, ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
+        void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
         {
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
+                // Merge all attrib 
+                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+
                 if (a_pattern_identifier->template_arguments.empty())
                 {
                     // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
@@ -553,19 +556,20 @@ namespace wo
                     bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(initval);
                     if (!init_value_is_lambda)
                         analyze_pass1(initval);
-                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::NORMAL);
+
+                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
                     if (init_value_is_lambda)
                         analyze_pass1(initval);
 
-                    a_pattern_identifier->symbol->is_ref = is_ref;
+                    a_pattern_identifier->symbol->is_ref = a_pattern_identifier->is_ref;
 
-                    if (is_ref)
+                    if (a_pattern_identifier->is_ref)
                         initval->is_mark_as_using_ref = true;
                 }
                 else
                 {
                     // Template variable!!! we just define symbol here.
-                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
                     symb->is_template_symbol = true;
 
                     wo_assert(symb->template_types.empty());
@@ -592,7 +596,7 @@ namespace wo
                 }
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
-                    analyze_pattern_in_pass1(is_ref, a_pattern_tuple->tuple_patterns[i], new ast_decl_attribute, a_pattern_tuple->tuple_takeplaces[i]);
+                    analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
                 }
             }
             else
@@ -611,12 +615,22 @@ namespace wo
                     if (a_pattern_identifier->symbol->is_ref)
                     {
                         initval->is_mark_as_using_ref = true;
-
-                        if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval);
-                            (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                            || !initval->can_be_assign || initval->is_constant)
+                        if (auto* a_val_tkpalce = dynamic_cast<ast_value_takeplace*>(initval))
                         {
-                            lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            if (!a_val_tkpalce->as_ref)
+                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                        }
+                        else
+                        {
+                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval))
+                            {
+                                if (a_val_symb->symbol->attribute->is_constant_attr())
+                                    lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            }
+                            else if (!initval->can_be_assign || initval->is_constant)
+                            {
+                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                            }
                         }
                     }
                 }
@@ -801,7 +815,7 @@ namespace wo
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
             {
                 auto& struct_val = analyze_value(initval, compiler);
-                auto& current_values = get_useable_register_for_pure_value();
+                auto& current_values = get_useable_register_for_ref_value();
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
                     compiler->idstruct(current_values, struct_val, (uint16_t)i);
@@ -867,7 +881,7 @@ namespace wo
             {
                 for (auto& varref : a_varref_defs->var_refs)
                 {
-                    analyze_pattern_in_pass1(varref.is_ref, varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
+                    analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
                 }
             }
             else if (ast_value_binary* a_value_bin = dynamic_cast<ast_value_binary*>(ast_node))
@@ -1581,7 +1595,16 @@ namespace wo
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
                         a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
-                        analyze_pattern_in_pass1(false, a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
+
+                        if (auto* a_pattern_identifier = dynamic_cast<ast::ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
+                        {
+                            if (a_pattern_identifier->is_ref)
+                                a_match_union_case->take_place_value_may_nil->as_ref = true;
+                        }
+                        else
+                            a_match_union_case->take_place_value_may_nil->as_ref = true;
+
+                        analyze_pattern_in_pass1(a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
                     }
                 }
                 else

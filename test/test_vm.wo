@@ -5,16 +5,16 @@ import test_tool;
 
 namespace test_vm
 {
-    func load_and_create_vmm(var src:string)
+    func load_and_create_vmm(src:string)
     {
-        var vmm = std::vm::create();
+        let vmm = std::vm::create();
         vmm->load_source("test_vm/test_tmp_script.wo", src);
         return vmm;
     }
 
     func main()
     {
-       var vmm = load_and_create_vmm(
+       let vmm = load_and_create_vmm(
             @"
             import woo.std;
             func main()
@@ -31,20 +31,20 @@ namespace test_vm
         vmm->close();
 
         // Test memmory leak
-        var i = 0;
+        let i = 0;
         while (i < 1000)
         {
             i += 1;
-            var vmm = load_and_create_vmm(
+            let vmm = load_and_create_vmm(
                 @"
                 import woo.std;
-                func test_template< T >(var n:T)
+                func test_template< T >(n:T)
                 {
                     return n;
                 }
                 func main()
                 {
-                    var a = [1,2,3,4,5];
+                    let a = [1,2,3,4,5];
                     a->get(0) = 233;
 
                     if (a[0] != 233)

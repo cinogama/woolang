@@ -5,11 +5,11 @@ namespace test_dup
 {
     func main()
     {
-        var arr = [1];
-        var dup_arr = arr->dup();
+        let arr = [1];
+        let dup_arr = arr->dup();
 
-        var map = {{"key", "val"}};
-        var dup_map = map->dup();
+        let map = {{"key", "val"}};
+        let dup_map = map->dup();
 
         dup_arr[0] = 233;
         dup_map["key"] = "modify";

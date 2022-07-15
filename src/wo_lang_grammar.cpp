@@ -367,7 +367,7 @@ namespace wo
                                 gm::te(gm::ttype::l_for),
                                 gm::te(gm::ttype::l_left_brackets),
                                     gm::nt(L"DECL_ATTRIBUTE"),
-                                gm::te(gm::ttype::l_var),
+                                gm::te(gm::ttype::l_let),
                                 gm::nt(L"FOREACH_VAR_IDENTS"),
                                 gm::te(gm::ttype::l_typecast),
                                 gm::nt(L"EXPRESSION"),
@@ -402,15 +402,9 @@ namespace wo
 
                 gm::nt(L"VAR_REF_DEFINE") >> gm::symlist{
                 gm::nt(L"DECL_ATTRIBUTE"),
-                gm::te(gm::ttype::l_var),
+                gm::te(gm::ttype::l_let),
                 gm::nt(L"VARDEFINE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_as_var_define),//ASTVariableDefination
-
-                gm::nt(L"VAR_REF_DEFINE") >> gm::symlist{
-                gm::nt(L"DECL_ATTRIBUTE"),
-                gm::te(gm::ttype::l_ref),
-                gm::nt(L"REFDEFINE")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_mark_as_ref_define),//ASTVariableDefination
 
                 gm::nt(L"VARDEFINE") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
@@ -423,19 +417,6 @@ namespace wo
                 gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"EXPRESSION")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
-
-                gm::nt(L"REFDEFINE") >> gm::symlist{ gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                gm::te(gm::ttype::l_assign),
-                gm::nt(L"LEFT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_begin_varref_define),//ASTVariableDefination
-
-                gm::nt(L"REFDEFINE") >> gm::symlist{
-                gm::nt(L"REFDEFINE"),
-                gm::te(gm::ttype::l_comma),
-                gm::nt(L"DEFINE_PATTERN"), gm::nt(L"DEFINE_TEMPLATE_ITEM"),
-                gm::te(gm::ttype::l_assign),
-                gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE")}
@@ -576,13 +557,9 @@ namespace wo
                 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_var),gm::te(gm::ttype::l_identifier)}
-                >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
 
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
@@ -734,15 +711,7 @@ namespace wo
                                         gm::te(gm::ttype::l_left_brackets),
                                         gm::nt(L"RIGHT"),
                                         gm::te(gm::ttype::l_comma),
-                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
-                                        gm::te(gm::ttype::l_right_brackets) }
-                                        >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 3>),
-
-                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
-                                        gm::te(gm::ttype::l_left_brackets),
-                                        gm::nt(L"RIGHT"),
-                                        gm::te(gm::ttype::l_comma),
-                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
+                                        gm::nt(L"COMMA_EXPR"),
                                         gm::te(gm::ttype::l_right_brackets) }
                                         >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 3>),
 
@@ -751,12 +720,9 @@ namespace wo
                                         gm::te(gm::ttype::l_ref),
                                         gm::nt(L"RIGHT"),
                                         gm::te(gm::ttype::l_comma),
-                                        gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"),
+                                        gm::nt(L"COMMA_EXPR"),
                                         gm::te(gm::ttype::l_right_brackets) }
                                         >> WO_ASTBUILDER_INDEX(ast::pass_append_list_for_ref_tuple_maker),
-
-                gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 ///////////////////////
 
@@ -1032,7 +998,10 @@ namespace wo
 
                 ////////////////////////////////////////////////////
 
-                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
+
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{  gm::te(gm::ttype::l_ref), gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }

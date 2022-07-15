@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_while
 {
-    func fib(var n:int)
+    func fib(n:int)
     {
         if (n <= 2)
             return 1;
@@ -12,8 +12,8 @@ namespace test_while
 
     func main()
     {
-        var i = 0;
-        var n = 0;
+        let i = 0;
+        let n = 0;
         while (i < 100_0000)
         {
                 n += 1;
@@ -22,16 +22,16 @@ namespace test_while
 
         test_equal(n, 100_0000);
 
-        var tm_beg = std::time();
+        let tm_beg = std::time();
 
-        for(var i=0;i<=40;i+=1)
+        for(i=0;i<=40;i+=1)
             std::println("fib(", i, ")=", fib(i));
 
-        var tm_end = std::time();
+        let tm_end = std::time();
         std::println("fib40 cost:", tm_end-tm_beg);
 
-        var t = [("Hello", "world")];
-        for (var (a, b) : t)
+        let t = [("Hello", "world")];
+        for (let (a, b) : t)
         {
             test_assure(a+b == "Helloworld");
         }

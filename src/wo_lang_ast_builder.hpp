@@ -790,6 +790,7 @@ namespace wo
 
         struct ast_value_takeplace : virtual public ast_value
         {
+            bool as_ref = false;
             opnum::opnumbase* used_reg = nullptr;
             ast_value_takeplace()
             {
@@ -1783,9 +1784,7 @@ namespace wo
         {
             struct varref_define
             {
-                bool is_ref;
                 ast_pattern_base* pattern;
-
                 ast_value* init_val;
             };
             std::vector<varref_define> var_refs;
@@ -1798,7 +1797,7 @@ namespace wo
                 for (auto& vr_define : var_refs)
                 {
                     space(os, lay + 1);
-                    os << (vr_define.is_ref ? "ref " : "var ") << std::endl;
+                    os << "let " << std::endl;
                     vr_define.pattern->display(os, lay + 1);
                     os << L" = " << std::endl;
                     vr_define.init_val->display(os, lay + 1);
@@ -3160,8 +3159,10 @@ namespace wo
 
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
+            bool is_ref = false;
             std::wstring identifier;
             lang_symbol* symbol = nullptr;
+            ast_decl_attribute* attr = nullptr;
 
             std::vector<std::wstring> template_arguments;
 
@@ -3534,8 +3535,9 @@ namespace wo
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
-                vardefs->declear_attribute = new ast_decl_attribute;
-                vardefs->declear_attribute->add_attribute(&lex, +lex_type::l_const);
+                vardefs->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                wo_assert(vardefs->declear_attribute);
+
                 for (auto& enumitem : enum_items->enum_items)
                 {
                     ast_value_literal* const_val = new ast_value_literal(
@@ -3543,9 +3545,11 @@ namespace wo
 
                     auto* define_enum_item = new ast_pattern_identifier;
                     define_enum_item->identifier = enumitem->enum_ident;
+                    define_enum_item->attr = new ast_decl_attribute();
+                    define_enum_item->attr->add_attribute(&lex, +lex_type::l_const);
 
                     vardefs->var_refs.push_back(
-                        { false, define_enum_item, const_val });
+                        { define_enum_item, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -4093,7 +4097,7 @@ namespace wo
                 }
 
 
-                result->var_refs.push_back({ false, define_varref, init_val });
+                result->var_refs.push_back({ define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4123,26 +4127,7 @@ namespace wo
                         template_def_item = template_def_item->sibling;
                     }
                 }
-                result->var_refs.push_back({ false, define_varref, init_val });
-
-                return (ast_basic*)result;
-            }
-        };
-        struct pass_mark_as_ref_define : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                wo_test(input.size() == 3);
-                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(2));
-                wo_test(result);
-
-                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                wo_assert(result->declear_attribute);
-
-                for (auto& defines : result->var_refs)
-                {
-                    defines.is_ref = true;
-                }
+                result->var_refs.push_back({ define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4455,7 +4440,7 @@ namespace wo
                 wo_assert(input.size() == 1);
                 ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
 
-                if(!ast_empty::is_empty(input[0]))
+                if (!ast_empty::is_empty(input[0]))
                     tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 else
                     tuple->tuple_member_vals = new ast_list();
@@ -4796,12 +4781,21 @@ namespace wo
                 arg_def->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 wo_assert(arg_def->declear_attribute);
 
-                arg_def->is_ref = WO_NEED_TOKEN(1).type == +lex_type::l_ref;
-                arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
                 if (input.size() == 4)
+                {
+                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_ref);
+
+                    arg_def->is_ref = true;
+                    arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
+                }
                 else
-                    arg_def->value_type = new ast_type(L"dynamic");
+                {
+                    wo_assert(input.size() == 3);
+                    arg_def->is_ref = false;
+                    arg_def->arg_name = WO_NEED_TOKEN(1).identifier;
+                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                }
 
                 return (grammar::ast_base*)arg_def;
             }
@@ -4844,8 +4838,9 @@ namespace wo
 
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = L"_iter";
+                afor_iter_define->attr = new ast_decl_attribute();
 
-                afor->used_iter_define->var_refs.push_back({ false, afor_iter_define, exp_dir_iter_call });
+                afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
 
 
                 afor->used_vawo_defines = new ast_varref_defines;
@@ -4855,7 +4850,13 @@ namespace wo
                 ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
                 while (a_var_defs)
                 {
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs, new ast_value_takeplace() });
+                    if (auto* a_identi = dynamic_cast<ast_pattern_identifier*>(a_var_defs))
+                    {
+                        if (a_identi->is_ref)
+                            lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
+                    }
+
+                    afor->used_vawo_defines->var_refs.push_back({ a_var_defs, new ast_value_takeplace() });
                     a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
                 }
 
@@ -5277,6 +5278,8 @@ namespace wo
 
                         auto* union_item_define = new ast_pattern_identifier;
                         union_item_define->identifier = items->identifier;
+                        union_item_define->attr = new ast_decl_attribute();
+
                         if (using_type->is_template_define)
                         {
                             size_t id = 0;
@@ -5291,7 +5294,7 @@ namespace wo
                             }
                         }
 
-                        define_union_item->var_refs.push_back({ false, union_item_define, funccall });
+                        define_union_item->var_refs.push_back({ union_item_define, funccall });
                         define_union_item->declear_attribute = new ast_decl_attribute();
 
                         union_scope->in_scope_sentence->append_at_end(define_union_item);
@@ -5308,7 +5311,17 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_pattern_identifier;
-                result->identifier = WO_NEED_TOKEN(0).identifier;
+                if (input.size() == 3)
+                {
+                    result->is_ref = true;
+                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
+                    result->identifier = WO_NEED_TOKEN(2).identifier;
+                }
+                else
+                {
+                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                    result->identifier = WO_NEED_TOKEN(1).identifier;
+                }
                 return (ast_basic*)result;
             }
         };
@@ -5328,7 +5341,14 @@ namespace wo
 
                         wo_assert(child_pattern);
                         result->tuple_patterns.push_back(child_pattern);
-                        result->tuple_takeplaces.push_back(new ast_value_takeplace);
+
+                        ast_value_takeplace* val_take_place = new ast_value_takeplace;
+                        if (ast_pattern_identifier* ipat = dynamic_cast<ast_pattern_identifier*>(child_pattern))
+                            val_take_place->as_ref = ipat->is_ref;
+                        else
+                            val_take_place->as_ref = true;
+
+                        result->tuple_takeplaces.push_back(val_take_place);
                     }
                 }
                 return (ast_basic*)result;
@@ -5579,8 +5599,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>] = _register_builder<pass_add_varref_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_as_var_define>] = _register_builder<pass_mark_as_var_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_as_ref_define>] = _register_builder<pass_mark_as_ref_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_namespace>] = _register_builder<pass_namespace>();
 

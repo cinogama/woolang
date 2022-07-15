@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_return
 {
-    var a = 0;
+    let a = 0;
 
     func ret_ref_a()
     {
@@ -12,7 +12,7 @@ namespace test_return
 
     func main()
     {
-        ref b = ret_ref_a();
+        let ref b = ret_ref_a();
         b = 256;
 
         test_equal(a, 256);

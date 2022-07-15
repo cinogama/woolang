@@ -780,15 +780,14 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-const var true = 1 : bool;
-const var false = 0 : bool;
+let const true = 1: bool, false = 0: bool;
 
 namespace std
 {
-    extern("rslib_std_throw") func throw(var msg:string):void;
-    extern("rslib_std_fail") func fail(var msg:string):void;
-    extern("rslib_std_halt") func halt(var msg:string):void;
-    extern("rslib_std_panic") func panic(var msg:string):void;
+    extern("rslib_std_throw") func throw(msg: string):void;
+    extern("rslib_std_fail") func fail(msg: string):void;
+    extern("rslib_std_halt") func halt(msg: string):void;
+    extern("rslib_std_panic") func panic(msg: string):void;
 }
 
 union option<T>
@@ -798,7 +797,7 @@ union option<T>
 }
 namespace option
 {
-    func map<T, R>(var self: option<T>, var functor: R(T)) : option<R>
+    func map<T, R>(self: option<T>, functor: R(T)) : option<R>
     {
         match(self)
         {
@@ -808,7 +807,7 @@ namespace option
                 return option::none;
         }
     }
-    func valor<T>(var self: option<T>, var default_val: T)
+    func valor<T>(self: option<T>, default_val: T)
     {
         match(self)
         {
@@ -818,7 +817,7 @@ namespace option
                 return default_val;
         }
     }
-    func val<T>(var self: option<T>)
+    func val<T>(self: option<T>)
     {
         match(self)
         {
@@ -828,7 +827,7 @@ namespace option
                 std::panic("Except 'value' here, but get 'none'.");
         }
     }
-    func has<T>(var self: option<T>)
+    func has<T>(self: option<T>)
     {
         match(self)
         {
@@ -851,41 +850,41 @@ namespace std
     extern("rslib_std_time_sec") func time():real;
 
     extern("rslib_std_atomic_cas") 
-        func atomic_cas<T>(ref val:T, ref excepted:T, var swapval:T):T;
+        func atomic_cas<T>(ref val:T, ref excepted:T, swapval:T):T;
 
     func println(...)
     {
-        var c = print((...)...);
+        let c = print((...)...);
         print("\n");
         return c;
     }
 
     extern("rslib_std_randomint") 
-        func rand(var from:int, var to:int):int;
+        func rand(from: int, to: int):int;
 
     extern("rslib_std_randomreal") 
-        func rand(var from:real, var to:real):real;
+        func rand(from:real, to:real):real;
 
     extern("rslib_std_break_yield") 
         func break_yield():void;
 
     extern("rslib_std_thread_sleep")
-        func sleep(var tm:real):void;
+        func sleep(tm:real):void;
    
     extern("rslib_std_get_exe_path")
         func exepath():string;
 
     extern("rslib_std_get_extern_symb")
-        func extern_symbol<T>(var fullname:string): option<T>;
+        func extern_symbol<T>(fullname:string): option<T>;
 
-    func max<T>(var a:T, var b:T) : bool
+    func max<T>(a:T, b:T) : bool
     {
         if (a >= b)
             return a;
         return b;
     }
 
-    func min<T>(var a:T, var b:T) : bool
+    func min<T>(a:T, b:T) : bool
     {
         if (a <= b)
             return a;
@@ -894,7 +893,7 @@ namespace std
 
     func swap<T>(ref a: T, ref b: T)
     {
-        var t = b;
+        let t = b;
         b = a;
         a = t;
     }
@@ -903,72 +902,72 @@ namespace std
 namespace string
 {
     extern("rslib_std_lengthof") 
-        func len(var val:string):int;
+        func len(val:string):int;
 
     extern("rslib_std_sub")
-        func sub(var val:string, var begin:int):string;
+        func sub(val:string, begin:int):string;
 
     extern("rslib_std_sub")
-        func sub(var val:string, var begin:int, var length:int):string;
+        func sub(val:string, begin:int, length:int):string;
     
     extern("rslib_std_string_toupper")
-        func upper(var val:string):string;
+        func upper(val:string):string;
 
     extern("rslib_std_string_tolower")
-        func lower(var val:string):string;
+        func lower(val:string):string;
 
     extern("rslib_std_string_isspace")
-        func isspace(var val:string):bool;
+        func isspace(val:string):bool;
 
     extern("rslib_std_string_isalpha")
-        func isalpha(var val:string): bool;
+        func isalpha(val:string): bool;
 
     extern("rslib_std_string_isalnum")
-        func isalnum(var val:string): bool;
+        func isalnum(val:string): bool;
 
     extern("rslib_std_string_isnumber")
-        func isnumber(var val:string): bool;
+        func isnumber(val:string): bool;
 
     extern("rslib_std_string_ishex")
-        func ishex(var val:string): bool;
+        func ishex(val:string): bool;
 
     extern("rslib_std_string_isoct")
-        func isoct(var val:string): bool;
+        func isoct(val:string): bool;
 
     extern("rslib_std_string_enstring")
-        func enstring(var val:string):string;
+        func enstring(val:string):string;
 
     extern("rslib_std_string_destring")
-        func destring(var val:string): string;
+        func destring(val:string): string;
 
     extern("rslib_std_string_beginwith")
-        func beginwith(var val:string, var str:string): bool;
+        func beginwith(val:string, str:string): bool;
 
     extern("rslib_std_string_endwith")
-        func endwith(var val:string, var str:string): bool;
+        func endwith(val:string, str:string): bool;
 
     extern("rslib_std_string_replace")
-        func replace(var val:string, var match_aim:string, var str:string): string;
+        func replace(val:string, match_aim:string, str:string): string;
 
     extern("rslib_std_string_find")
-        func find(var val:string, var match_aim:string): int;
+        func find(val:string, match_aim:string): int;
 
     extern("rslib_std_string_find_from")
-        func find(var val:string, var match_aim:string, var from: int): int;
+        func find(val:string, match_aim:string, from: int): int;
 
     extern("rslib_std_string_rfind")
-        func rfind(var val:string, var match_aim:string): int;
+        func rfind(val:string, match_aim:string): int;
 
     extern("rslib_std_string_rfind_from")
-        func rfind(var val:string, var match_aim:string, var from: int): int;
+        func rfind(val:string, match_aim:string, from: int): int;
 
     extern("rslib_std_string_trim")
-        func trim(var val:string):string;
+        func trim(val:string):string;
 
-    func split(var val:string, var spliter:string)
+    func split(val:string, spliter:string)
     {
         extern("rslib_std_string_split")
-            private func _split(var val:string, var spliter:string, var out_result:array<string>):array<string>;
+            private func _split(val:string, spliter:string, out_result:array<string>):array<string>;
 
         return _split(val, spliter, []:array<string>);
     }
@@ -977,103 +976,103 @@ namespace string
 namespace array
 {
     extern("rslib_std_lengthof") 
-        func len<T>(var val: array<T>): int;
+        func len<T>(val: array<T>): int;
 
     extern("rslib_std_array_empty")
-        func empty<T>(var val: array<T>): bool;
+        func empty<T>(val: array<T>): bool;
 
     extern("rslib_std_array_resize") 
-        func resize<T>(var val: array<T>, var newsz: int, var init_val: T): void;
+        func resize<T>(val: array<T>, newsz: int, init_val: T): void;
 
-    func get<T>(var a: array<T>, var index: int)
+    func get<T>(a: array<T>, index: int)
     {
         return a[index];
     }
 
     extern("rslib_std_array_add") 
-        func add<T>(var val: array<T>, var elem: T):T;
+        func add<T>(val: array<T>, elem: T):T;
   
-    func dup<T>(var val:array<T>)
+    func dup<T>(val:array<T>)
     {
-        const var _dupval = val;
+        let const _dupval = val;
         return _dupval;
     }
 
     extern("rslib_std_array_remove")
-        func remove<T>(var val:array<T>, var index:int):void;
+        func remove<T>(val:array<T>, index:int):void;
 
     extern("rslib_std_array_find")
-        func find<T>(var val:array<T>, var elem:T):int;
+        func find<T>(val:array<T>, elem:T):int;
 
     extern("rslib_std_array_clear")
-        func clear<T>(var val:array<T>):void;
+        func clear<T>(val:array<T>):void;
 
     using iterator<T> = gchandle;
     namespace iterator 
     {
         extern("rslib_std_array_iter_next")
-            func next<T>(var iter:iterator<T>, ref out_key:int, ref out_val:T):bool;
+            func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T):bool;
     
-        func iter<T>(var iter:iterator<T>) { return iter; }
+        func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        func iter<T>(var val:array<T>):iterator<T>;
+        func iter<T>(val:array<T>):iterator<T>;
 }
 
 namespace map
 {
     extern("rslib_std_lengthof") 
-        func len<KT, VT>(var val:map<KT, VT>):int;
+        func len<KT, VT>(val:map<KT, VT>):int;
     extern("rslib_std_map_find") 
-        func find<KT, VT>(var val:map<KT, VT>, var index:KT):bool;
+        func find<KT, VT>(val:map<KT, VT>, index:KT):bool;
     extern("rslib_std_map_only_get") 
-        func get<KT, VT>(var m:map<KT, VT>, var index:KT): option<VT>;
+        func get<KT, VT>(m:map<KT, VT>, index:KT): option<VT>;
     extern("rslib_std_map_contain") 
-        func contain<KT, VT>(var m:map<KT, VT>, var index:KT):bool;
+        func contain<KT, VT>(m:map<KT, VT>, index:KT):bool;
     extern("rslib_std_map_get_by_default") 
-        func get<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
+        func get<KT, VT>(m:map<KT, VT>, index:KT, default_val:VT):VT;
     extern("rslib_std_map_get_or_default") 
-        func get_or_default<KT, VT>(var m:map<KT, VT>, var index:KT, var default_val:VT):VT;
-    func dup<KT, VT>(var val:map<KT, VT>)
+        func get_or_default<KT, VT>(m:map<KT, VT>, index:KT, default_val:VT):VT;
+    func dup<KT, VT>(val:map<KT, VT>)
     {
-        const var _dupval = val;
+        let const _dupval = val;
         return _dupval;
     }
 
     extern("rslib_std_map_empty")
-        func empty<KT, VT>(var val: map<KT, VT>): bool;
+        func empty<KT, VT>(val: map<KT, VT>): bool;
 
     extern("rslib_std_map_remove")
-        func remove<KT, VT>(var val: map<KT, VT>, var index: int): void;
+        func remove<KT, VT>(val: map<KT, VT>, index: int): void;
     extern("rslib_std_map_clear")
-        func clear<KT, VT>(var val: map<KT, VT>): void;
+        func clear<KT, VT>(val: map<KT, VT>): void;
 
     using iterator<KT, VT> = gchandle;
     namespace iterator 
     {
         extern("rslib_std_map_iter_next")
-            func next<KT, VT>(var iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT):bool;
+            func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT):bool;
 
-        func iter<KT, VT>(var iter:iterator<KT, VT>) { return iter; }
+        func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        func iter<KT, VT>(var val:map<KT, VT>):iterator<KT, VT>;
+        func iter<KT, VT>(val:map<KT, VT>):iterator<KT, VT>;
 }
 
 namespace gchandle
 {
     extern("rslib_std_gchandle_close")
-        func close(var handle:gchandle):void;
+        func close(handle:gchandle):void;
 }
 
-func assert(var val: bool)
+func assert(val: bool)
 {
     if (!val)
         std::panic("Assert failed.");
 }
-func assert(var val: bool, var msg: string)
+func assert(val: bool, msg: string)
 {
     if (!val)
         std::panic(F"Assert failed: {msg}");
@@ -1139,19 +1138,19 @@ namespace std
         }
 
         extern("rslib_std_debug_callstack_trace")
-            func callstack(var layer:int) : string;
+            func callstack(layer:int) : string;
 
-        func run(var foo, ...)
+        func run<FT>(foo: FT, ...)
         {
             attach_debuggee();
-            var result = (foo:dynamic(...))(......);
+            let result = (foo:dynamic(...))(......);
             disattach_debuggee();
     
             return result;
         }
 
         extern("rslib_std_debug_invoke")
-        func invoke<FT>(var foo:FT, ...):typeof(foo(......));
+        func invoke<FT>(foo:FT, ...):typeof(foo(......));
 
         // Used for create a value with specify type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
@@ -1181,38 +1180,38 @@ namespace std
         func create():vm;
 
         extern("rslib_std_vm_load_src")
-        func load_source(var vmhandle:vm, var src:string):bool;
+        func load_source(vmhandle:vm, src:string):bool;
         extern("rslib_std_vm_load_src")
-        func load_source(var vmhandle:vm, var vfilepath:string, var src:string):bool;
+        func load_source(vmhandle:vm, vfilepath:string, src:string):bool;
 
         extern("rslib_std_vm_load_file")
-        func load_file(var vmhandle:vm, var vfilepath:string):bool;
+        func load_file(vmhandle:vm, vfilepath:string):bool;
 
         extern("rslib_std_vm_run")
-        func run(var vmhandle:vm): option<dynamic>;
+        func run(vmhandle:vm): option<dynamic>;
         
         extern("rslib_std_vm_has_compile_error")
-        func has_error(var vmhandle:vm):bool;
+        func has_error(vmhandle:vm):bool;
 
         extern("rslib_std_vm_has_compile_warning")
-        func has_warning(var vmhandle:vm):bool;
+        func has_warning(vmhandle:vm):bool;
 
         extern("rslib_std_vm_get_compile_error")
-        func error_msg(var vmhandle:vm):string;
+        func error_msg(vmhandle:vm):string;
 
         extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(var vmhandle:vm):string;
+        func warning_msg(vmhandle:vm):string;
 
         extern("rslib_std_vm_get_compile_error")
-        func error_msg(var vmhandle:vm, var style:info_style):string;
+        func error_msg(vmhandle:vm, style:info_style):string;
 
         extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(var vmhandle:vm, var style:info_style):string;
+        func warning_msg(vmhandle:vm, style:info_style):string;
         
         extern("rslib_std_vm_virtual_source")
-        func virtual_source(var vfilepath:string, var src:string, var enable_overwrite:bool):bool;
+        func virtual_source(vfilepath:string, src:string, enable_overwrite:bool):bool;
 
-        func close(var self: vm)
+        func close(self: vm)
         {
             self:gchandle->close();
         }
@@ -1377,13 +1376,13 @@ namespace std
     namespace thread
     {
         extern("rslib_std_thread_create")
-            func create<FuncT>(var thread_work:FuncT, ...):thread;
+            func create<FuncT>(thread_work:FuncT, ...):thread;
 
         extern("rslib_std_thread_wait")
-            func wait(var threadhandle : thread):void;
+            func wait(threadhandle : thread):void;
 
         extern("rslib_std_thread_abort")
-            func abort(var threadhandle : thread):bool;
+            func abort(threadhandle : thread):bool;
     }
 
     using mutex = gchandle;
@@ -1393,16 +1392,16 @@ namespace std
             func create():mutex;
 
         extern("rslib_std_thread_mutex_read")
-            func read(var mtx : mutex):void;
+            func read(mtx : mutex):void;
 
         extern("rslib_std_thread_mutex_write")
-            func lock(var mtx : mutex):void;
+            func lock(mtx : mutex):void;
 
         extern("rslib_std_thread_mutex_read_end")
-            func unread(var mtx : mutex):void;
+            func unread(mtx : mutex):void;
 
         extern("rslib_std_thread_mutex_write_end")
-            func unlock(var mtx : mutex):void;
+            func unlock(mtx : mutex):void;
     }
 
     using spin = gchandle;
@@ -1412,16 +1411,16 @@ namespace std
             func create():spin;
 
         extern("rslib_std_thread_spin_read")
-            func read(var mtx : spin):void;
+            func read(mtx : spin):void;
 
         extern("rslib_std_thread_spin_write")
-            func lock(var mtx : spin):void;
+            func lock(mtx : spin):void;
 
         extern("rslib_std_thread_spin_read_end")
-            func unread(var mtx : spin):void;
+            func unread(mtx : spin):void;
 
         extern("rslib_std_thread_spin_write_end")
-            func unlock(var mtx : spin):void;
+            func unlock(mtx : spin):void;
     }
 }
 
@@ -1553,13 +1552,13 @@ namespace std
     namespace co
     {
         extern("rslib_std_roroutine_launch")
-            func create<FT>(var f:FT, ...):co;
+            func create<FT>(f:FT, ...):co;
         
         extern("rslib_std_roroutine_abort")
-            func abort(var co:co):void;
+            func abort(co:co):void;
 
         extern("rslib_std_roroutine_completed")
-            func completed(var co:co):bool;
+            func completed(co:co):bool;
 
         // Static functions:
 
@@ -1573,16 +1572,16 @@ namespace std
             func stop_all():void;
 
         extern("rslib_std_roroutine_sleep")
-            func sleep(var time:real):void;
+            func sleep(time:real):void;
 
         extern("rslib_std_thread_yield")
                 func yield():bool;
 
         extern("rslib_std_roroutine_wait")
-                func wait(var condi:waitable):void;
+                func wait(condi:waitable):void;
 
         extern("rslib_std_roroutine_wait")
-                func wait(var condi:co):void;
+                func wait(condi:co):void;
     }
 }
 
@@ -1778,7 +1777,7 @@ namespace std
         l_for,
         l_extern,
 
-        l_var,
+        l_let,
         l_ref,
         l_func,
         l_return,
@@ -1811,34 +1810,34 @@ namespace std
     namespace lexer
     {
         extern("rslib_std_macro_lexer_lex")
-            func lex(var lex:lexer, var src:string):void;
+            func lex(lex:lexer, src:string):void;
 
         extern("rslib_std_macro_lexer_warning")
-            func warning(var lex:lexer, var msg:string):void;
+            func warning(lex:lexer, msg:string):void;
 
         extern("rslib_std_macro_lexer_error")
-            func error(var lex:lexer, var msg:string):void;
+            func error(lex:lexer, msg:string):void;
 
         extern("rslib_std_macro_lexer_peek")
-            func peek(var lex:lexer, ref out_token:string):token_type;
+            func peek(lex:lexer, ref out_token:string):token_type;
 
         extern("rslib_std_macro_lexer_next")
-            func next(var lex:lexer, ref out_token:string):token_type;
+            func next(lex:lexer, ref out_token:string):token_type;
 
         extern("rslib_std_macro_lexer_nextch")
-            func nextch(var lex:lexer) : string;
+            func nextch(lex:lexer) : string;
 
         extern("rslib_std_macro_lexer_peekch")
-            func peekch(var lex:lexer) : string;
+            func peekch(lex:lexer) : string;
 
         extern("rslib_std_macro_lexer_current_path")
-            func path(var lex:lexer) : string;
+            func path(lex:lexer) : string;
 
         extern("rslib_std_macro_lexer_current_rowno")
-            func row(var lex:lexer) : int;
+            func row(lex:lexer) : int;
 
         extern("rslib_std_macro_lexer_current_colno")
-            func col(var lex:lexer) : int;
+            func col(lex:lexer) : int;
     }
 }
 

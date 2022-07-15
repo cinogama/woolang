@@ -10,7 +10,7 @@ namespace test_template
     };
     namespace wraped_iterator
     {
-        func create<IType, EType, PredType>(var iter:IType<EType>, var pred:PredType)
+        func create<IType, EType, PredType>(iter:IType<EType>, pred:PredType)
         {
             return wraped_iterator:<IType, EType>{
                 iter = iter,
@@ -18,19 +18,19 @@ namespace test_template
             };
         }
 
-        func iter<WIType>(var self:WIType)
+        func iter<WIType>(self:WIType)
         {
             return self;
         }
 
         func next<IType, EType>(
-                        var self:wraped_iterator<IType, EType>, 
+                        self:wraped_iterator<IType, EType>, 
                         ref out_index:int, 
                         ref out_val:EType) : bool
         {
             while(true)
             {
-                var idxable = self.iter->next(ref out_index, ref out_val);
+                let idxable = self.iter->next(ref out_index, ref out_val);
 
                 if (!idxable) return false;
                 if (self.pred(out_val))
@@ -39,11 +39,11 @@ namespace test_template
         }
     }
 
-    func invokable<T>(var foo:T(T), var n:T)
+    func invokable<T>(foo:T(T), n:T)
     {
         return foo(n);
     }
-    func fib<T>(var n:T)
+    func fib<T>(n:T)
     {
         if (n <= 2:T)
             return 1:T;
@@ -51,13 +51,13 @@ namespace test_template
     }
     func diff_static<T>()
     {
-        static var a = []:array<T>;
+        static let a = []:array<T>;
         return a;
     }
 
     func typename_of<T>()
     {
-        const var _tmp = 0:T;
+        const let _tmp = 0:T;
 
         if (_tmp is dynamic)
             return "dynamic";
@@ -71,16 +71,16 @@ namespace test_template
 
     func test_cost_time<T>()
     {
-        var begin_time = std::time();
-        var i = 0:T;
+        let begin_time = std::time();
+        let i = 0:T;
         while (i < 1_0000_0000:T)
             i += 1:T;
-        var end_time = std::time();
+        let end_time = std::time();
 
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
     }
 
-    func cast_to<TO, FROM>(var val:FROM)
+    func cast_to<TO, FROM>(val:FROM)
     {
         return val:TO;
     }
@@ -95,29 +95,29 @@ namespace test_template
         return "has_template";
     }
 
-    func no_template_first_test_1(var n:int)
+    func no_template_first_test_1(n:int)
     {
         return "no_template";
     }
-    func no_template_first_test_1<T>(var n:T)
+    func no_template_first_test_1<T>(n:T)
     {
         return "has_template";
     }
 
-    func no_template_first_test_2(var n:int, var x:real)
+    func no_template_first_test_2(n:int, x:real)
     {
         return "no_template";
     }
-    func no_template_first_test_2<T>(var n:T, var x:real)
+    func no_template_first_test_2<T>(n:T, x:real)
     {
         return "has_template";
     }
 
-    func no_template_first_test_3(var n:int, ...)
+    func no_template_first_test_3(n:int, ...)
     {
         return "no_template";
     }
-    func no_template_first_test_3<T>(var n:T, ...)
+    func no_template_first_test_3<T>(n:T, ...)
     {
         return "has_template";
     }
@@ -133,11 +133,11 @@ namespace test_template
     using MyTemplate<T> = int;
     namespace MyTemplate
     {
-        func MyTemplateTName<T>(var self:MyTemplate<T>)
+        func MyTemplateTName<T>(self:MyTemplate<T>)
         {
             return typename_of:<T>();
         }
-        func CheckForType<SP, T>(var self:MyTemplate<T>)
+        func CheckForType<SP, T>(self:MyTemplate<T>)
         {
             // do check:
             func():SP{}() as T;
@@ -145,15 +145,15 @@ namespace test_template
     }
 
     using MySecTemplate<T> = int;
-    func TemplateAutoJudgeTest<T>(var self:MyTemplate<T>)
+    func TemplateAutoJudgeTest<T>(self:MyTemplate<T>)
     {
         return "fail";
     }
-    func TemplateAutoJudgeTest<T>(var self:MySecTemplate<T>)
+    func TemplateAutoJudgeTest<T>(self:MySecTemplate<T>)
     {
         return "ohooo";
     }
-    func TemplateAutoJudgeTest<T>(var self:array<T>)
+    func TemplateAutoJudgeTest<T>(self:array<T>)
     {
         return "success";
     }
@@ -198,7 +198,7 @@ namespace test_template
         return func():T1{} is T2();
     }
 
-    var constexpr_if_test_flag = false;
+    let constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
         std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
@@ -209,12 +209,12 @@ namespace test_template
         }
     }
 
-    func invoke_template<FR, FA>(var foo:FR(FA), var arg:FA)
+    func invoke_template<FR, FA>(foo:FR(FA), arg:FA)
     {
         return foo(arg);
     }
 
-    func append_str_hello(var msg:string)
+    func append_str_hello(msg:string)
     {
         return "hello" + msg;
     }
@@ -229,7 +229,7 @@ namespace test_template
         return func(){return 1;};
     }
 
-    func for_m_test_foo<T>(var x: int)
+    func for_m_test_foo<T>(x: int)
     {
         return x+1;
     }
@@ -249,19 +249,19 @@ namespace test_template
 
     func main()
     {
-        var mins = mtest:<string>();
+        let mins = mtest:<string>();
         mins.c = 66;
         
-        var xfunc = test_typeof_in_template:<int>;
+        let xfunc = test_typeof_in_template:<int>;
         xfunc = func(){return func(){};};
 
-        var xfunc2 = test_typeof_in_template:<int>();
+        let xfunc2 = test_typeof_in_template:<int>();
         xfunc2 = func(){};
  
-        var xfunc3 = test_typeof_in_template2:<int>;
+        let xfunc3 = test_typeof_in_template2:<int>;
         xfunc3 = func(){return func(){return 0;};};
 
-        var xfunc4 = test_typeof_in_template2:<int>();
+        let xfunc4 = test_typeof_in_template2:<int>();
         xfunc4 = func(){return 0;};
 
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");
@@ -290,7 +290,7 @@ namespace test_template
         test_assure(diff_static:<real>() == diff_static:<real>());
         test_assure(diff_static:<int>() == diff_static:<int>());
 
-        var result = invokable(fib:<int>, 10);
+        let result = invokable(fib:<int>, 10);
 
         test_equal(result, 55);
 
@@ -311,8 +311,8 @@ namespace test_template
         template_if_constexpr_test:<int>():dynamic as int;
         template_if_constexpr_test:<real>():dynamic as real;
 
-        var mt_int = 0:MyTemplate<int>;
-        var mt_real = 0:MyTemplate<real>;
+        let mt_int = 0:MyTemplate<int>;
+        let mt_real = 0:MyTemplate<real>;
 
         test_equal(mt_int->MyTemplateTName(), "int");
         test_equal(mt_real->MyTemplateTName(), "real");
@@ -321,9 +321,9 @@ namespace test_template
         mt_int->CheckForType:<int>();
         mt_real->CheckForType:<real>();
 
-        var n0 = []:array<real>;
-        var n1 = 0:MyTemplate<real>;
-        var n2 = 0:MySecTemplate<real>;
+        let n0 = []:array<real>;
+        let n1 = 0:MyTemplate<real>;
+        let n2 = 0:MySecTemplate<real>;
         test_equal(TemplateAutoJudgeTest(n0), "success");
         test_equal(TemplateAutoJudgeTest(n1), "fail");
         test_equal(TemplateAutoJudgeTest(n2), "ohooo");
@@ -331,9 +331,9 @@ namespace test_template
         test_equal(make_instance:<A::xxtype>(), "success");
         test_equal(make_instance:<gchandle_type>(), "gchandle_type success");
 
-        var p = []:array<int>;
-        var q = [1,2,3,4,5,6,7,8,9];
-        for(var v : wraped_iterator(q->iter(), func(var e:int){return e==5;}))
+        let p = []:array<int>;
+        let q = [1,2,3,4,5,6,7,8,9];
+        for(let v : wraped_iterator(q->iter(), func(e:int){return e==5;}))
         {
             p->add(v);
         }

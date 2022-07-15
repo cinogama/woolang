@@ -7,23 +7,71 @@ namespace test_tuple
         a: string,
         b: real,
     };
+
+    
+    func foo1()
+    {
+        let t = (1, 2, 3);
+        let (ref a, b, ref c) = t;
+
+        a = b = c = 233;
+
+        test_equal(a, b);
+        test_equal(b, c);
+        test_equal(a, 233);
+        test_equal(b, 233);
+        test_equal(c, 233);
+
+        test_equal(t[0], 233);
+        test_equal(t[1], 2);
+        test_equal(t[2], 233);
+
+        let o = option::value("Hello");
+        match(o)
+        {
+            value(ref str)?
+                str = "world";
+            none?
+                std::fail("That's should not happend.");
+        }
+
+        test_equal(o->val(), "world");
+
+        let p = option::value((1, 2, (3, 4)));
+        match(p)
+        {
+            value((ref a, b, (c, ref d)))?
+                a = b = c = d = 233666;
+            none?
+                std::fail("That's should not happend.");
+        }
+
+        let (x, y, (z, w)) = p->val();
+        test_equal(x, 233666);
+        test_equal(y, 2);
+        test_equal(z, 3);
+        test_equal(w, 233666);
+    }
+
     func main()
     {
-        var x = (1, 2.2, "Helloworld");
-        var s = st1 { a = x[2] as string, b = x[1] as real };
-        var w = (s, 1, 2);
-        var l = w as (st1, int, int);
-        var all = (x, s, w, l);
+        let x = (1, 2.2, "Helloworld");
+        let s = st1 { a = x[2] as string, b = x[1] as real };
+        let w = (s, 1, 2);
+        let l = w as (st1, int, int);
+        let all = (x, s, w, l);
 
         test_assure(all[3][0].a == x[2]);
         test_assure(x[0] == 1);
         test_assure(x[2] == "Helloworld");
 
-        var (a, b, c, d) = all;
+        let (a, b, c, d) = all;
         test_assure(c[0].a == x[2]);
 
-        var (w0, w1, (m0, m1, m2), w3) = all;
+        let (w0, w1, (m0, m1, m2), w3) = all;
         test_assure(m0.a == c[0].a);
+
+        foo1();
     }
 }
 

@@ -3,14 +3,14 @@ import test_tool;
 
 namespace test_gc
 {
-    var global_list = []:array<dynamic>;
+    let global_list = []:array<dynamic>;
 
     func main()
     {
         global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]:array<dynamic>;
-        var i = 0;
-        var tmp = []:array<array<int>>;
-        var arr_a = [[12345678],], arr_b = []:array<array<int>>;
+        let i = 0;
+        let tmp = []:array<array<int>>;
+        let arr_a = [[12345678],], arr_b = []:array<array<int>>;
         while (i < 1000_000)
         {
                 global_list->add({}: dynamic);

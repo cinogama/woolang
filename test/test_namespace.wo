@@ -7,17 +7,17 @@ namespace test_namespace
     {
         namespace x
         {
-            var a = 147;
+            let a = 147;
         }
-        var a = 123;
+        let a = 123;
         namespace b
         {
-            var a = 456;
+            let a = 456;
             func foo()
             {
                 using x;
                 
-                var a = 789;
+                let a = 789;
                 return a;
             }
         }
