@@ -4853,7 +4853,7 @@ namespace wo
                     if (auto* a_identi = dynamic_cast<ast_pattern_identifier*>(a_var_defs))
                     {
                         if (a_identi->is_ref)
-                            lex.lang_error(0x0000, a_identi, L"for-each Óï¾äÖÐµÄ×îÍâ²ãÄ£Ê½²»¿ÉÒÔ½ÓÊÕÒýÓÃ 'ref'.");
+                            lex.lang_error(0x0000, a_identi, L"for-each è¯­å¥ä¸­çš„æœ€å¤–å±‚æ¨¡å¼ä¸å¯ä»¥æŽ¥æ”¶å¼•ç”¨ 'ref'.");
                     }
 
                     afor->used_vawo_defines->var_refs.push_back({ a_var_defs, new ast_value_takeplace() });
