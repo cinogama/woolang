@@ -790,6 +790,7 @@ namespace wo
 
         struct ast_value_takeplace : virtual public ast_value
         {
+            bool as_ref = false;
             opnum::opnumbase* used_reg = nullptr;
             ast_value_takeplace()
             {
@@ -1783,9 +1784,7 @@ namespace wo
         {
             struct varref_define
             {
-                bool is_ref;
                 ast_pattern_base* pattern;
-
                 ast_value* init_val;
             };
             std::vector<varref_define> var_refs;
@@ -1798,7 +1797,7 @@ namespace wo
                 for (auto& vr_define : var_refs)
                 {
                     space(os, lay + 1);
-                    os << (vr_define.is_ref ? "ref " : "var ") << std::endl;
+                    os << "let " << std::endl;
                     vr_define.pattern->display(os, lay + 1);
                     os << L" = " << std::endl;
                     vr_define.init_val->display(os, lay + 1);
@@ -3160,6 +3159,7 @@ namespace wo
 
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
+            bool is_ref = false;
             std::wstring identifier;
             lang_symbol* symbol = nullptr;
 
@@ -3545,7 +3545,7 @@ namespace wo
                     define_enum_item->identifier = enumitem->enum_ident;
 
                     vardefs->var_refs.push_back(
-                        { false, define_enum_item, const_val });
+                        { define_enum_item, const_val });
 
                     // TODO: DATA TYPE SYSTEM..
                     const_val->value_type = new ast_type(enum_scope->scope_name);
@@ -4093,7 +4093,7 @@ namespace wo
                 }
 
 
-                result->var_refs.push_back({ false, define_varref, init_val });
+                result->var_refs.push_back({ define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4123,26 +4123,7 @@ namespace wo
                         template_def_item = template_def_item->sibling;
                     }
                 }
-                result->var_refs.push_back({ false, define_varref, init_val });
-
-                return (ast_basic*)result;
-            }
-        };
-        struct pass_mark_as_ref_define : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                wo_test(input.size() == 3);
-                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(2));
-                wo_test(result);
-
-                result->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                wo_assert(result->declear_attribute);
-
-                for (auto& defines : result->var_refs)
-                {
-                    defines.is_ref = true;
-                }
+                result->var_refs.push_back({ define_varref, init_val });
 
                 return (ast_basic*)result;
             }
@@ -4854,7 +4835,7 @@ namespace wo
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = L"_iter";
 
-                afor->used_iter_define->var_refs.push_back({ false, afor_iter_define, exp_dir_iter_call });
+                afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
 
 
                 afor->used_vawo_defines = new ast_varref_defines;
@@ -4864,7 +4845,7 @@ namespace wo
                 ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
                 while (a_var_defs)
                 {
-                    afor->used_vawo_defines->var_refs.push_back({ false, a_var_defs, new ast_value_takeplace() });
+                    afor->used_vawo_defines->var_refs.push_back({ a_var_defs, new ast_value_takeplace() });
                     a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
                 }
 
@@ -5300,7 +5281,7 @@ namespace wo
                             }
                         }
 
-                        define_union_item->var_refs.push_back({ false, union_item_define, funccall });
+                        define_union_item->var_refs.push_back({ union_item_define, funccall });
                         define_union_item->declear_attribute = new ast_decl_attribute();
 
                         union_scope->in_scope_sentence->append_at_end(define_union_item);
@@ -5317,7 +5298,13 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_pattern_identifier;
-                result->identifier = WO_NEED_TOKEN(0).identifier;
+                if (input.size() == 2)
+                {
+                    result->is_ref = true;
+                    result->identifier = WO_NEED_TOKEN(1).identifier;
+                }
+                else
+                    result->identifier = WO_NEED_TOKEN(0).identifier;
                 return (ast_basic*)result;
             }
         };
@@ -5337,7 +5324,14 @@ namespace wo
 
                         wo_assert(child_pattern);
                         result->tuple_patterns.push_back(child_pattern);
-                        result->tuple_takeplaces.push_back(new ast_value_takeplace);
+
+                        ast_value_takeplace* val_take_place = new ast_value_takeplace;
+                        if (ast_pattern_identifier* ipat = dynamic_cast<ast_pattern_identifier*>(child_pattern))
+                            val_take_place->as_ref = ipat->is_ref;
+                        else
+                            val_take_place->as_ref = true;
+                        
+                        result->tuple_takeplaces.push_back(val_take_place);
                     }
                 }
                 return (ast_basic*)result;
@@ -5588,8 +5582,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>] = _register_builder<pass_add_varref_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_as_var_define>] = _register_builder<pass_mark_as_var_define>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_as_ref_define>] = _register_builder<pass_mark_as_ref_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_namespace>] = _register_builder<pass_namespace>();
 
