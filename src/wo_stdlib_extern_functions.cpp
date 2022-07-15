@@ -1778,7 +1778,7 @@ namespace std
         l_for,
         l_extern,
 
-        l_var,
+        l_let,
         l_ref,
         l_func,
         l_return,

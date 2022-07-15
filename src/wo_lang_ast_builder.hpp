@@ -4455,7 +4455,7 @@ namespace wo
                 wo_assert(input.size() == 1);
                 ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
 
-                if(!ast_empty::is_empty(input[0]))
+                if (!ast_empty::is_empty(input[0]))
                     tuple->tuple_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 else
                     tuple->tuple_member_vals = new ast_list();
@@ -4796,12 +4796,21 @@ namespace wo
                 arg_def->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 wo_assert(arg_def->declear_attribute);
 
-                arg_def->is_ref = WO_NEED_TOKEN(1).type == +lex_type::l_ref;
-                arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
                 if (input.size() == 4)
+                {
+                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_ref);
+
+                    arg_def->is_ref = true;
+                    arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
+                }
                 else
-                    arg_def->value_type = new ast_type(L"dynamic");
+                {
+                    wo_assert(input.size() == 3);
+                    arg_def->is_ref = false;
+                    arg_def->arg_name = WO_NEED_TOKEN(1).identifier;
+                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                }
 
                 return (grammar::ast_base*)arg_def;
             }
