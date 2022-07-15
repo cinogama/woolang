@@ -545,6 +545,9 @@ namespace wo
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
+                // Merge all attrib 
+                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+
                 if (a_pattern_identifier->template_arguments.empty())
                 {
                     // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
@@ -553,7 +556,8 @@ namespace wo
                     bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(initval);
                     if (!init_value_is_lambda)
                         analyze_pass1(initval);
-                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::NORMAL);
+
+                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
                     if (init_value_is_lambda)
                         analyze_pass1(initval);
 
@@ -565,7 +569,7 @@ namespace wo
                 else
                 {
                     // Template variable!!! we just define symbol here.
-                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, attrib, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
                     symb->is_template_symbol = true;
 
                     wo_assert(symb->template_types.empty());
@@ -592,7 +596,7 @@ namespace wo
                 }
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
-                    analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], new ast_decl_attribute, a_pattern_tuple->tuple_takeplaces[i]);
+                    analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
                 }
             }
             else

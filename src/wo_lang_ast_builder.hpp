@@ -3162,6 +3162,7 @@ namespace wo
             bool is_ref = false;
             std::wstring identifier;
             lang_symbol* symbol = nullptr;
+            ast_decl_attribute* attr = nullptr;
 
             std::vector<std::wstring> template_arguments;
 
@@ -3534,8 +3535,9 @@ namespace wo
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
-                vardefs->declear_attribute = new ast_decl_attribute;
-                vardefs->declear_attribute->add_attribute(&lex, +lex_type::l_const);
+                vardefs->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                wo_assert(vardefs->declear_attribute);
+
                 for (auto& enumitem : enum_items->enum_items)
                 {
                     ast_value_literal* const_val = new ast_value_literal(
@@ -3543,6 +3545,8 @@ namespace wo
 
                     auto* define_enum_item = new ast_pattern_identifier;
                     define_enum_item->identifier = enumitem->enum_ident;
+                    define_enum_item->attr = new ast_decl_attribute();
+                    define_enum_item->attr->add_attribute(&lex, +lex_type::l_const);
 
                     vardefs->var_refs.push_back(
                         { define_enum_item, const_val });
@@ -5298,13 +5302,17 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_pattern_identifier;
-                if (input.size() == 2)
+                if (input.size() == 3)
                 {
                     result->is_ref = true;
-                    result->identifier = WO_NEED_TOKEN(1).identifier;
+                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
+                    result->identifier = WO_NEED_TOKEN(2).identifier;
                 }
                 else
-                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                {
+                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                    result->identifier = WO_NEED_TOKEN(1).identifier;
+                }
                 return (ast_basic*)result;
             }
         };
@@ -5330,7 +5338,7 @@ namespace wo
                             val_take_place->as_ref = ipat->is_ref;
                         else
                             val_take_place->as_ref = true;
-                        
+
                         result->tuple_takeplaces.push_back(val_take_place);
                     }
                 }

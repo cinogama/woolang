@@ -998,10 +998,10 @@ namespace wo
 
                 ////////////////////////////////////////////////////
 
-                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
-                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_ref), gm::te(gm::ttype::l_identifier) }
+                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{  gm::te(gm::ttype::l_ref), gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"DEFINE_PATTERN_LIST"), gm::te(gm::ttype::l_right_brackets) }
