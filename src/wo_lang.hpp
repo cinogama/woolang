@@ -808,7 +808,7 @@ namespace wo
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
             {
                 auto& struct_val = analyze_value(initval, compiler);
-                auto& current_values = get_useable_register_for_pure_value();
+                auto& current_values = get_useable_register_for_ref_value();
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
                     compiler->idstruct(current_values, struct_val, (uint16_t)i);
