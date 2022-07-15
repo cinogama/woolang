@@ -5,7 +5,7 @@ import test_tool;
 
 namespace test_debug_invoke
 {
-    func fib(var val:int)
+    func fib(val:int)
     {
         if (val <= 2)
             return 1;
@@ -19,9 +19,9 @@ namespace test_debug_invoke
     {
         std::debug::breakpoint();
     }
-    func swap(ref a, ref b)
+    func swap(ref a: dynamic, ref b: dynamic)
     {
-        var c = b;
+        let c = b;
         b = a;
         a = c;
     }
@@ -32,7 +32,7 @@ namespace test_debug_invoke
         
         std::debug::invoke(cause_minor_fail);
 
-        var i = 0:dynamic;
+        let i = 0:dynamic;
         while (i < 10)
         {
             test_equal(variadic_func_call("h", "e", "l", "l", "o", "w", "o", "r", "l", "d"),
@@ -48,7 +48,7 @@ namespace test_debug_invoke
         std::debug::invoke(swap, ref i, 123);
         test_equal(i, 123);
 
-        var vinvoke = std::debug::invoke:<typeof(swap)>;
+        let vinvoke = std::debug::invoke:<typeof(swap)>;
         vinvoke(swap, ref i, 777);
         test_equal(i, 777);
     }

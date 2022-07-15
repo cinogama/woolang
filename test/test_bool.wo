@@ -3,17 +3,17 @@ import test_tool;
 
 namespace test_bool
 {
-    func foo_true(var val: bool)
+    func foo_true(val: bool)
     {
         test_assure(val== true);
     }
-    func foo_false(var val: bool)
+    func foo_false(val: bool)
     {
         test_assure(val == false);
     }
     func main()
     {
-        var a = 5:bool;
+        let a = 5:bool;
         test_assure(a == true);
         test_assure(a != false);
 

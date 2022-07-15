@@ -4838,6 +4838,7 @@ namespace wo
 
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = L"_iter";
+                afor_iter_define->attr = new ast_decl_attribute();
 
                 afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
 
@@ -4849,6 +4850,12 @@ namespace wo
                 ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
                 while (a_var_defs)
                 {
+                    if (auto* a_identi = dynamic_cast<ast_pattern_identifier*>(a_var_defs))
+                    {
+                        if (a_identi->is_ref)
+                            lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
+                    }
+
                     afor->used_vawo_defines->var_refs.push_back({ a_var_defs, new ast_value_takeplace() });
                     a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
                 }
@@ -5271,6 +5278,8 @@ namespace wo
 
                         auto* union_item_define = new ast_pattern_identifier;
                         union_item_define->identifier = items->identifier;
+                        union_item_define->attr = new ast_decl_attribute();
+
                         if (using_type->is_template_define)
                         {
                             size_t id = 0;

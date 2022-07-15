@@ -9,20 +9,20 @@ namespace test_tuple
     };
     func main()
     {
-        var x = (1, 2.2, "Helloworld");
-        var s = st1 { a = x[2] as string, b = x[1] as real };
-        var w = (s, 1, 2);
-        var l = w as (st1, int, int);
-        var all = (x, s, w, l);
+        let x = (1, 2.2, "Helloworld");
+        let s = st1 { a = x[2] as string, b = x[1] as real };
+        let w = (s, 1, 2);
+        let l = w as (st1, int, int);
+        let all = (x, s, w, l);
 
         test_assure(all[3][0].a == x[2]);
         test_assure(x[0] == 1);
         test_assure(x[2] == "Helloworld");
 
-        var (a, b, c, d) = all;
+        let (a, b, c, d) = all;
         test_assure(c[0].a == x[2]);
 
-        var (w0, w1, (m0, m1, m2), w3) = all;
+        let (w0, w1, (m0, m1, m2), w3) = all;
         test_assure(m0.a == c[0].a);
     }
 }

@@ -3,8 +3,8 @@ import test_tool;
 
 namespace test_helloworld
 {
-    var _should_not_be_set_flag = false;
-    var _should_be_set_flag = false;
+    let _should_not_be_set_flag = false;
+    let _should_be_set_flag = false;
 
     func execute_func()
     {
@@ -17,7 +17,7 @@ namespace test_helloworld
         return _should_not_be_set_flag = true;
     }
 
-    func test_no_return_recursive(var val: bool)
+    func test_no_return_recursive(val: bool)
     {
         if (val)
             test_no_return_recursive(false);
@@ -27,13 +27,13 @@ namespace test_helloworld
     {
         using std;
 
-        const var n = "Helloworld~";
+        const let n = "Helloworld~";
         println(n);
 
-        var fhello = func(){println("Helloworld~~")};
+        let fhello = func(){println("Helloworld~~")};
         fhello();
 
-        var fhello2 = func(){print("~~"); println("Helloworld~~")};
+        let fhello2 = func(){print("~~"); println("Helloworld~~")};
         fhello2();
 
         execute_func() || non_execute_func();

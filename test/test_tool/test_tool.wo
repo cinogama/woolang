@@ -5,10 +5,10 @@ using test_func_pair = struct{
     name: string,
     function: void(),
 };
-var test_function_set = []:array<test_func_pair>;
-var test_success_count = 0, test_failed_count = 0;
+let test_function_set = []:array<test_func_pair>;
+let test_success_count = 0, test_failed_count = 0;
 
-func test_function(var func_name:string, var test_func:void())
+func test_function(func_name:string, test_func:void())
 {
     test_function_set->add(test_func_pair{
             name = func_name,
@@ -18,7 +18,7 @@ func test_function(var func_name:string, var test_func:void())
 
 func execute_all_test()
 {
-    var i = 0;
+    let i = 0;
     while (i < test_function_set->len())
     {
         test_success_count = 0;
@@ -38,7 +38,7 @@ func execute_all_test()
     }
 }
 
-func test_equal<AT, BT>(var a: AT, var b: BT)
+func test_equal<AT, BT>(a: AT, b: BT)
 {
     if (a: dynamic == b: dynamic)
         test_success_count += 1;
@@ -50,7 +50,7 @@ func test_equal<AT, BT>(var a: AT, var b: BT)
     }
 }
 
-func test_assure(var a: bool)
+func test_assure(a: bool)
 {
     if (a)
         test_success_count += 1;

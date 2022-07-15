@@ -5,7 +5,7 @@ namespace test_string_u8
 {
     func main()
     {
-        var str = "Helloworld";
+        let str = "Helloworld";
         test_equal(str, "Helloworld");
         test_equal(str->sub(0, 5), "Hello");
         test_equal(str[0], "H");
@@ -13,7 +13,7 @@ namespace test_string_u8
         test_equal(str[2], "l");
         test_equal(str[3], "l");
 
-        var chstr = "你好世界";
+        let chstr = "你好世界";
         test_equal(chstr, "你好世界");
         test_equal(chstr->sub(0, 2), "你好");
         test_equal(chstr[0], "你");
@@ -21,7 +21,7 @@ namespace test_string_u8
         test_equal(chstr[2], "世");
         test_equal(chstr[3], "界");
 
-        var combine = str->sub(0, 5) + chstr->sub(2, 2);
+        let combine = str->sub(0, 5) + chstr->sub(2, 2);
         test_equal(combine, "Hello世界");
         test_equal(combine->len(), 7);
 

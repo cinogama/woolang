@@ -622,10 +622,11 @@ namespace wo
                         }
                         else if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval))
                         {
-                            if (a_val_symb->symbol->attribute->is_constant_attr() || !initval->can_be_assign || initval->is_constant)
+                            if (a_val_symb->symbol->attribute->is_constant_attr())
                                 lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
                         }
-                        else
+
+                        if(!initval->can_be_assign || initval->is_constant)
                         {
                             lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
                         }
@@ -1592,6 +1593,15 @@ namespace wo
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
                         a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
+
+                        if (auto* a_pattern_identifier = dynamic_cast<ast::ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
+                        {
+                            if(a_pattern_identifier->is_ref)
+                                a_match_union_case->take_place_value_may_nil->as_ref = true;
+                        }
+                        else
+                            a_match_union_case->take_place_value_may_nil->as_ref = true;
+                        
                         analyze_pattern_in_pass1(a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
                     }
                 }

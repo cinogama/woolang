@@ -5,31 +5,31 @@ import test_tool;
 
 namespace test_compile
 {
-    func compile_program(var src: string): bool
+    func compile_program(src: string): bool
     {
-        var vmm = std::vm::create();
-        var result = vmm->load_source("test_compile/test_tmp_script.wo", src);
+        let vmm = std::vm::create();
+        let result = vmm->load_source("test_compile/test_tmp_script.wo", src);
         
         vmm->close();
         return result;
     }
-    func assure_compile_success(var src: string)
+    func assure_compile_success(src: string)
     {
         test_assure(compile_program(src));
     }
-    func assure_compile_fail(var src: string)
+    func assure_compile_fail(src: string)
     {
         test_assure(!compile_program(src));
     }
 
     func main()
     {
-        var begin_tm = std::time();
-        for (var i=0; i<1000; i+=1)
+        let begin_tm = std::time();
+        for (let i=0; i<1000; i+=1)
         {
             assure_compile_success(@"
             import woo.std;
-            func demo<T>(var val: T)
+            func demo<T>(val: T)
             {
                 return "Hello" + val: string;
             }
@@ -42,19 +42,19 @@ namespace test_compile
             }
             "@);
         }
-        var end_time = std::time();
+        let end_time = std::time();
         std::println("Compile 1000 src cost:", end_time - begin_tm);
 
         // Empty source will failed.
         assure_compile_fail(@""@);
 
         // Cannot cast nil
-        assure_compile_fail(@"var a = nil: gchandle;"@);
+        assure_compile_fail(@"let a = nil: gchandle;"@);
 
         // Cannot add different types
-        assure_compile_fail(@"var b = "" + 2;"@);
-        assure_compile_fail(@"var b = 1 + 2.0;"@);
-        assure_compile_fail(@"var b = 0x00H + 128;"@);
+        assure_compile_fail(@"let b = "" + 2;"@);
+        assure_compile_fail(@"let b = 1 + 2.0;"@);
+        assure_compile_fail(@"let b = 0x00H + 128;"@);
 
         // match must walk through all cases
         assure_compile_fail(@"
@@ -62,7 +62,7 @@ namespace test_compile
         {
             A,B,C,D,E
         }
-        var x = MyUnion::A;
+        let x = MyUnion::A;
         match(x)
         {
             A?;
@@ -72,19 +72,19 @@ namespace test_compile
         "@);
 
         // Invalid match
-        assure_compile_fail(@"var m = 1;match(m){ option::value(i)?; }"@);
-        assure_compile_fail(@"var m = nil;match(m){ option::none(i)?; }"@);
-        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::none(i)?; }"@);
-        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
-        assure_compile_fail(@"import woo.std; var m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"let m = 1;match(m){ option::value(i)?; }"@);
+        assure_compile_fail(@"let m = nil;match(m){ option::none(i)?; }"@);
+        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; }"@);
+        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
 
         // Construct struct must complete.
         assure_compile_fail(@"
             using st = struct{a: int, b: real};
             st{a = 15};
         "@);
-        assure_compile_fail(@"var t = int{a = ""};"@);
-        assure_compile_fail(@"var t = y{a = ""};"@);
+        assure_compile_fail(@"let t = int{a = ""};"@);
+        assure_compile_fail(@"let t = y{a = ""};"@);
 
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
@@ -105,64 +105,64 @@ namespace test_compile
         assure_compile_fail(@"func xx: void(){return 1;}"@);
 
         // unknown type/identifier is invalid
-        assure_compile_fail(@"var x = 1: noexist; var y = x;"@);
-        assure_compile_fail(@"var x = 0; y = x;"@);
+        assure_compile_fail(@"let x = 1: noexist; let y = x;"@);
+        assure_compile_fail(@"let x = 0; y = x;"@);
         assure_compile_fail(@"noexist(1,2,3);"@);
 
         // Only index struct by const str
         assure_compile_fail(@"
             using st = struct{a: int}; 
-            var s = st{a = 1}; 
-            var i = "a"; 
-            var b = s[i];
+            let s = st{a = 1}; 
+            let i = "a"; 
+            let b = s[i];
         "@);
 
         // Only index struct by const str
         assure_compile_fail(@"
             using st = struct{a: int}; 
-            var s = st{a = 1}; 
-            var i = "a"; 
-            var b = s[i];
+            let s = st{a = 1}; 
+            let i = "a"; 
+            let b = s[i];
         "@);
 
         // Cannot index unindexable type or invalid index
-        assure_compile_fail(@"var a = 5; var b = a[7];"@);
-        assure_compile_fail(@"var a = [1]; var b = a["index"];"@);
+        assure_compile_fail(@"let a = 5; let b = a[7];"@);
+        assure_compile_fail(@"let a = [1]; let b = a["index"];"@);
         assure_compile_fail(@"
             using st = struct{a: int};
-            var s = st{a = 15};
-            var b = s.b;
+            let s = st{a = 15};
+            let b = s.b;
         "@);
         assure_compile_fail(@"
             using st = struct{a: int};
-            var s = st{a = 15};
-            var b = s[0];
+            let s = st{a = 15};
+            let b = s[0];
         "@);
 
         // Call fail
-        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1);"@);
-        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1., "");"@);
-        assure_compile_fail(@"func foo(var a:int, var b: string){} foo(1, "", 1);"@);
-        assure_compile_fail(@"var a = 1; a();"@);
+        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1);"@);
+        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1., "");"@);
+        assure_compile_fail(@"func foo(a:int, let b: string){} foo(1, "", 1);"@);
+        assure_compile_fail(@"let a = 1; a();"@);
         assure_compile_fail(@"
-            func operator == (var a: array<int>, var b: array<int>): string{return "Helloworld";}
-            var a = 1; var b = (a == 1) as string;
+            func operator == (a: array<int>, let b: array<int>): string{return "Helloworld";}
+            let a = 1; let b = (a == 1) as string;
         "@);
 
         // Logic op only accept bool
-        assure_compile_fail(@"var r = 1 || false;"@);
-        assure_compile_fail(@"var r = 1 || 0;"@);
-        assure_compile_fail(@"var r = true || 0;"@);
-        assure_compile_fail(@"var r = 1 && 0;"@);
-        assure_compile_fail(@"var r = 1 && false;"@);
-        assure_compile_fail(@"var r = true && 0;"@);
-        assure_compile_fail(@"var r = !0;"@);
+        assure_compile_fail(@"let r = 1 || false;"@);
+        assure_compile_fail(@"let r = 1 || 0;"@);
+        assure_compile_fail(@"let r = true || 0;"@);
+        assure_compile_fail(@"let r = 1 && 0;"@);
+        assure_compile_fail(@"let r = 1 && false;"@);
+        assure_compile_fail(@"let r = true && 0;"@);
+        assure_compile_fail(@"let r = !0;"@);
 
         // relationship op cannot work at map/array/struct...
-        assure_compile_fail(@"var r = [] < [];"@);
-        assure_compile_fail(@"var r = {} >= {};"@);
-        assure_compile_fail(@"var r = func(){} == [];"@);
-        assure_compile_fail(@"union x{a,b}; var r = x::a == x::b;"@);
+        assure_compile_fail(@"let r = [] < [];"@);
+        assure_compile_fail(@"let r = {} >= {};"@);
+        assure_compile_fail(@"let r = func(){} == [];"@);
+        assure_compile_fail(@"union x{a,b}; let r = x::a == x::b;"@);
 
         // if/while/for only accept bool
         assure_compile_fail(@"if (0){}"@);
@@ -170,24 +170,24 @@ namespace test_compile
         assure_compile_fail(@"for (;0;){}"@);
 
         // invalid export
-        assure_compile_fail(@"extern func foo(){} extern func foo(var a:int){}"@);
+        assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
 
         // redefine
-        assure_compile_fail(@"var a = 0; var a = 1;"@);
-        assure_compile_fail(@"func a(){} var a = 1;"@);
-        assure_compile_fail(@"using a = int; var a = 1;"@);
+        assure_compile_fail(@"let a = 0; let a = 1;"@);
+        assure_compile_fail(@"func a(){} let a = 1;"@);
+        assure_compile_fail(@"using a = int; let a = 1;"@);
 
         // invalid index of tuple
-        assure_compile_fail(@"var a = (1,2); a[5] = 6;"@);
-        assure_compile_fail(@"var a = (1,2); a[-1] = 6;"@);
+        assure_compile_fail(@"let a = (1,2); a[5] = 6;"@);
+        assure_compile_fail(@"let a = (1,2); a[-1] = 6;"@);
 
         // invalid type of tuple
-        assure_compile_fail(@"var a = (1, 3, ["Hello"]); a[2] = [1];"@);
-        assure_compile_fail(@"var a = (1, 3, ["Hello"]); a[1] = 1.2;"@);
+        assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[2] = [1];"@);
+        assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[1] = 1.2;"@);
 
         // invalid match for tuple
-        assure_compile_fail(@"var (a, b) = (1,);"@);
-        assure_compile_fail(@"var (a, b) = (1, 2, 3);"@);
+        assure_compile_fail(@"let (a, b) = (1,);"@);
+        assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
     }
 }

@@ -5,23 +5,23 @@ import woo.thread;
 
 namespace test_thread
 {
-    var summ_mtx = std::spin::create();
-    var summ = 0;
+    let summ_mtx = std::spin::create();
+    let summ = 0;
 
-    var created_threads = []:array<std::thread>;
+    let created_threads = []:array<std::thread>;
 
-    const var thread_count = 4;
+    const let thread_count = 4;
 
     func main()
     {
-        var i = 0;
+        let i = 0;
         while (i<thread_count)
         {
             created_threads->add(
                 std::thread::create(
-                    func(var id:int)
+                    func(id:int)
                     {
-                        var c = 0;
+                        let c = 0;
                         while (c<10_000_000)
                         {
                             summ_mtx->lock();
@@ -49,15 +49,15 @@ namespace test_thread
 
         // Thread should be abort-able..
         summ = 0;
-        var this_should_be_true = false;
-        var __pack = [ref this_should_be_true];
-        var th = std::thread::create(
-            func(ref i)
+        let this_should_be_true = false;
+        let __pack = [ref this_should_be_true];
+        let th = std::thread::create(
+            func(ref i: int)
             {
                 __pack[0] = true;
                 while (i <= 1_0000_0000)
                 {
-                    i+=1: dynamic;
+                    i+=1;
                 }
             }, ref summ);
         std::sleep(0.2);

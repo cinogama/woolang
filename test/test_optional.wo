@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_optional
 {
-    var global_val<T> = []: array<T>;
+    let global_val<T> = []: array<T>;
 
     func foo()
     {
@@ -14,7 +14,7 @@ namespace test_optional
 
     func main()
     {
-        var p<T> = 0: T;
+        let p<T> = 0: T;
 
         p:<real> = 128.0; 
         test_assure(p:<int> == 0);
@@ -26,12 +26,12 @@ namespace test_optional
         test_assure(p:<int> == 5);
         test_assure(p:<handle> == 0x147H);
 
-        var g = global_val:<string> as array<string>;
+        let g = global_val:<string> as array<string>;
         g->add("Helloworld");
 
         foo();
 
-        var gval = option::none as option<array<string>>;
+        let gval = option::none as option<array<string>>;
         gval = option::value([]: array<string>);
 
         match(gval)
@@ -47,8 +47,8 @@ namespace test_optional
                 std::panic("Here should not be 'none'.");
         }
 
-        var a = option::value("Hello");
-        var b = a->map(func(var v: string){return v + "world"});
+        let a = option::value("Hello");
+        let b = a->map(func(v: string){return v + "world"});
         match(b)
         {
             option::value(x)?
@@ -56,8 +56,8 @@ namespace test_optional
             option::none?
                 std::panic("Here should not be 'none'.");
         }
-        var c = option::none as option<string>;
-        var d = c->map(func(var x: string){std::panic("That's should not been exec.");
+        let c = option::none as option<string>;
+        let d = c->map(func(x: string){std::panic("That's should not been exec.");
                                        return "That's should not been exec."});
         match(d)
         {

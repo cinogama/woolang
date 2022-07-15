@@ -16,7 +16,7 @@ namespace test_struct
     };
     func main()
     {
-        var x = mystruct:<string>{
+        let x = mystruct:<string>{
             a = 233,
             b = "Helloworld",
             c = 3.14,

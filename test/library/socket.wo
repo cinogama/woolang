@@ -15,5 +15,5 @@ namespace socket
     }
 
     extern("wo_socket", "rssocket_create_sock")
-        func create(var proto : protocol, var ip_proto : ip_protocol) : socket;
+        func create(proto : protocol, ip_proto : ip_protocol) : socket;
 }
