@@ -18,19 +18,19 @@ func main()
 
 Woolang 是一门强类型/静态类型脚本语言，内置比较完善的调试器，可以随时中断程序开始调试。此外语言支持GC，拥有闭包等一系列基本工具，可以简单快乐地编写所需的逻辑。
 
-```go
+```rust
 import woo.std;
 
-func main(var foo: void(string))
+func main(foo: void(string))
 {
-        var what = "Helloworld";
+        let what = "Helloworld";
         return func()
                {
                    foo(what) 
                };
 }
 
-var f = main(func(var msg: string)
+let f = main(func(msg: string)
              {
                  std::println(msg)
              });
@@ -40,31 +40,31 @@ f();    // Will display "Helloworld"
 
 Woolang 内置协程调度器，并向宿主提供一系列关于协程调度的API，可以简单快速地编写出高并发的程序。
 
-```go
+```rust
 import woo.std;
 import woo.co;
 
-func work(var val: int)
+func work(val: int)
 {
     std::println(F"I'm work: {val}");
 }
 
-for (var i=0; i<1000; i+=1)
+for (let i=0; i<1000; i+=1)
     std::co(work, i);      // Launch a coroutine.
 ```
 
 作为脚本语言，Woolang 允许用户基于基本类型定义新的“自定义类型”，配合`指向调用`语法糖和`运算符重载`功能，让Woolang能够更好地配合宿主完成工作。
 
-```go
+```rust
 using gameObject = gchandle;
 namespace gameObject
 {
     extern("libgameengine", "destroy_gameobject")
-    func destroy(var self: gameObject): void;
+    func destroy(self: gameObject): void;
 }
 
 // ...
-var obj = foo_return_gameObject();
+let obj = foo_return_gameObject();
 obj->destroy();
 // ...
 using vector2 = struct {
@@ -73,7 +73,7 @@ using vector2 = struct {
 }
 namespace vector2
 {
-    func operator + (var a: vector2, var b: vector2)
+    func operator + (a: vector2, b: vector2)
     {
         return vector2{
             x = a.x + b.x,
@@ -82,15 +82,15 @@ namespace vector2
     }
 }
 
-var a = vector2{ x = 1., y = 2. };
-var b = vector2{ x = 3., y = 4. };
-var c = a + b;
+let a = vector2{ x = 1., y = 2. };
+let b = vector2{ x = 3., y = 4. };
+let c = a + b;
 ```
 
 作为强类型/静态类型语言，Woolang提供了泛型机制。编译器会做力所能及的类型推导，大多数情况下不需要手动额外填写模板参数。
 
-```go
-func foo<T>(var val:T)
+```rust
+func foo<T>(val:T)
 {
     return val;
 }
