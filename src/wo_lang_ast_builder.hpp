@@ -208,14 +208,14 @@ namespace wo
                     return true;
                 }
 
-                if (from->is_same(to, false))
+                if (to->accept_type(from, false))
                     return true;
 
                 // Forbid 'nil' cast to any other value
                 if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                     return false;
 
-                if (from->is_same(to, true))
+                if (from->accept_type(to, true))
                 {
                     // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
                     if (from->using_type_name && !to->using_type_name)

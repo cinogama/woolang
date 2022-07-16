@@ -1758,6 +1758,36 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
+wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
+{
+    auto _arr = WO_VAL(arr);
+
+    if (_arr->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_arr->type == wo::value::valuetype::array_type)
+    {
+        wo::gcbase::gc_write_guard g1(_arr->array);
+
+        if ((size_t)place < _arr->array->size())
+        {
+            auto index = _arr->array->insert(_arr->array->begin() + place, wo::value());
+            if (val)
+                index->set_val(WO_VAL(val));
+            else
+                index->set_nil();
+
+            wo_assert(!index->is_ref());
+            return CS_VAL(&*index);
+        }
+        else
+            wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
+
+    return nullptr;
+}
+
 wo_value wo_arr_add(wo_value arr, wo_value elem)
 {
     auto _arr = WO_VAL(arr);
@@ -1790,7 +1820,7 @@ wo_value wo_arr_get(wo_value arr, wo_int_t index)
     {
         wo::gcbase::gc_read_guard g1(_arr->array);
 
-        if ((size_t)index <= _arr->array->size())
+        if ((size_t)index < _arr->array->size())
             return CS_VAL(&(*_arr->array)[index]);
         else
             wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
@@ -1836,16 +1866,17 @@ void wo_arr_remove(wo_value arr, wo_int_t index)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
-        if (index < 0)
-            ;// do nothing..
-        else if ((size_t)index <= _arr->array->size())
+        if (index != -1)
         {
-            if (wo::gc::gc_is_marking())
-                _arr->array->add_memo(&(*_arr->array)[index]);
-            _arr->array->erase(_arr->array->begin() + index);
+            if ((size_t)index < _arr->array->size())
+            {
+                if (wo::gc::gc_is_marking())
+                    _arr->array->add_memo(&(*_arr->array)[index]);
+                _arr->array->erase(_arr->array->begin() + index);
+            }
+            else
+                wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
         }
-        else
-            wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");

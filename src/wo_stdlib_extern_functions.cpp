@@ -499,6 +499,11 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
+WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_ref(vm, wo_arr_insert(args + 0, wo_int(args + 1), args + 2));
+}
+
 WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
@@ -983,6 +988,9 @@ namespace array
 
     extern("rslib_std_array_resize") 
         func resize<T>(val: array<T>, newsz: int, init_val: T): void;
+
+    extern("rslib_std_array_insert") 
+        func insert<T>(val: array<T>, insert_place: int, insert_val: T): T;
 
     func get<T>(a: array<T>, index: int)
     {
