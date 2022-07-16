@@ -4059,14 +4059,36 @@ namespace wo
                 if (ast_empty::is_empty(input[2]))
                     return input[2];
 
-                ast_namespace* result = new ast_namespace();
-                result->scope_name = WO_NEED_TOKEN(1).identifier;
+                ast_namespace* last_namespace = nullptr;
+                ast_namespace* output_namespace = nullptr;
+                auto* space_name_list = WO_NEED_AST(1)->children;
+                while (space_name_list)
+                {
+                    auto* name = dynamic_cast<ast_token*>(space_name_list);
+                    wo_assert(name);
+
+                    ast_namespace* result = new ast_namespace();
+                    result->scope_name = WO_NEED_TOKEN(1).identifier;
+
+                    if (last_namespace)
+                    {
+                        last_namespace->in_scope_sentence = new ast_list;
+                        last_namespace->in_scope_sentence->append_at_end(result);
+                    }
+                    else
+                        output_namespace = result;
+
+                    last_namespace = result;
+
+                    space_name_list = space_name_list->sibling;
+                }
+               
 
                 auto* list = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(2));
                 wo_test(list);
-                result->in_scope_sentence = list->sentence_list;
+                last_namespace->in_scope_sentence = list->sentence_list;
 
-                return (ast_basic*)result;
+                return (ast_basic*)output_namespace;
             }
         };
 

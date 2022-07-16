@@ -156,8 +156,17 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_NAMESPACE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace),gm::te(gm::ttype::l_identifier), gm::nt(L"BLOCKED_SENTENCE")}
+                gm::nt(L"DECL_NAMESPACE") >> gm::symlist{gm::te(gm::ttype::l_namespace), gm::nt(L"SPACE_NAME_LIST") , gm::nt(L"SENTENCE_BLOCK")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_namespace),
+
+                gm::nt(L"SPACE_NAME_LIST") >> gm::symlist{ gm::nt(L"SPACE_NAME") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"SPACE_NAME_LIST") >> gm::symlist{ gm::nt(L"SPACE_NAME_LIST"), gm::te(gm::ttype::l_scopeing), gm::nt(L"SPACE_NAME") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                gm::nt(L"SPACE_NAME") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"BLOCKED_SENTENCE") >> gm::symlist{ gm::nt(L"LABELED_SENTENCE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
