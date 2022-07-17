@@ -307,13 +307,7 @@ namespace wo
                     set_gcunit_with_barrier(valuetype::array_type);
 
                     auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
-                    for (auto src_iter = dup_arrray->begin(), dst_iter = created_arr->begin();
-                        dst_iter != created_arr->end();
-                        src_iter++, dst_iter++
-                        )
-                    {
-                        dst_iter->set_dup(&*src_iter);
-                    }
+                    *created_arr = *dup_arrray;
                 }
                 else
                     set_nil();
@@ -328,16 +322,28 @@ namespace wo
                     set_gcunit_with_barrier(valuetype::mapping_type);
 
                     auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(gcunit);
-                    for (auto& [key, val] : *dup_mapping)
-                        (*created_map)[key].set_dup(&val);
+                    *created_map = *dup_mapping;
+                }
+                else
+                    set_nil();
+            }
+            else if (from->type == valuetype::struct_type)
+            {
+                auto* dup_struct = from->structs;
+                if (dup_struct)
+                {
+                    gcbase::gc_read_guard g1(dup_struct);
+                    set_gcunit_with_barrier(valuetype::struct_type);
+
+                    auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
+                    for (uint16_t i = 0; i < dup_struct->m_count; ++i)
+                        created_struct->m_values[i].set_trans(&dup_struct->m_values[i]);
                 }
                 else
                     set_nil();
             }
             else
-            {
                 set_val(from);
-            }
 
             return this;
         }

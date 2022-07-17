@@ -1066,6 +1066,13 @@ wo_result_t  wo_ret_ref(wo_vm vm, wo_value result)
         ));
 }
 
+wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
+{
+    auto* val = WO_VAL(result);
+    WO_VM(vm)->cr->set_dup(val);
+    return 0;
+}
+
 wo_result_t wo_ret_throw(wo_vm vm, wo_string_t reason)
 {
     WO_VM(vm)->er->set_string(reason);

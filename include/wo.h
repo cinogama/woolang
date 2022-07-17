@@ -151,6 +151,7 @@ WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value ho
 WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_ref(wo_vm vm, wo_value result);
+WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_throw(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);

@@ -46,6 +46,10 @@ WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_int(vm, wo_lengthof(args));
 }
+WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_dup(vm, args + 0);
+}
 
 WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
 {
@@ -902,6 +906,9 @@ namespace std
         b = a;
         a = t;
     }
+
+    extern("rslib_std_make_dup")
+    func dup<T>(dupval: T): T;
 }
 
 namespace string
@@ -983,6 +990,9 @@ namespace array
     extern("rslib_std_lengthof") 
         func len<T>(val: array<T>): int;
 
+    extern("rslib_std_make_dup")
+        func dup<T>(val: array<T>): array<T>;
+
     extern("rslib_std_array_empty")
         func empty<T>(val: array<T>): bool;
 
@@ -994,18 +1004,12 @@ namespace array
 
     func get<T>(a: array<T>, index: int)
     {
-        return a[index];
+        return ref a[index];
     }
 
     extern("rslib_std_array_add") 
         func add<T>(val: array<T>, elem: T):T;
   
-    func dup<T>(val:array<T>)
-    {
-        let const _dupval = val;
-        return _dupval;
-    }
-
     extern("rslib_std_array_remove")
         func remove<T>(val:array<T>, index:int):void;
 
@@ -1031,22 +1035,19 @@ namespace array
 namespace map
 {
     extern("rslib_std_lengthof") 
-        func len<KT, VT>(val:map<KT, VT>):int;
+        func len<KT, VT>(val: map<KT, VT>):int;
+    extern("rslib_std_make_dup")
+        func dup<KT, VT>(val: map<KT, VT>): map<KT, VT>;
     extern("rslib_std_map_find") 
-        func find<KT, VT>(val:map<KT, VT>, index:KT):bool;
+        func find<KT, VT>(val: map<KT, VT>, index: KT): bool;
     extern("rslib_std_map_only_get") 
-        func get<KT, VT>(m:map<KT, VT>, index:KT): option<VT>;
+        func get<KT, VT>(m: map<KT, VT>, index: KT): option<VT>;
     extern("rslib_std_map_contain") 
-        func contain<KT, VT>(m:map<KT, VT>, index:KT):bool;
+        func contain<KT, VT>(m: map<KT, VT>, index: KT):bool;
     extern("rslib_std_map_get_by_default") 
-        func get<KT, VT>(m:map<KT, VT>, index:KT, default_val:VT):VT;
+        func get<KT, VT>(m: map<KT, VT>, index: KT, default_val: VT):VT;
     extern("rslib_std_map_get_or_default") 
-        func get_or_default<KT, VT>(m:map<KT, VT>, index:KT, default_val:VT):VT;
-    func dup<KT, VT>(val:map<KT, VT>)
-    {
-        let const _dupval = val;
-        return _dupval;
-    }
+        func get_or_default<KT, VT>(m: map<KT, VT>, index: KT, default_val: VT): VT;
 
     extern("rslib_std_map_empty")
         func empty<KT, VT>(val: map<KT, VT>): bool;
@@ -1583,13 +1584,13 @@ namespace std
             func sleep(time:real):void;
 
         extern("rslib_std_thread_yield")
-                func yield():bool;
+            func yield():bool;
 
         extern("rslib_std_roroutine_wait")
-                func wait(condi:waitable):void;
+            func wait(condi:waitable):void;
 
         extern("rslib_std_roroutine_wait")
-                func wait(condi:co):void;
+            func wait(condi:co):void;
     }
 }
 
