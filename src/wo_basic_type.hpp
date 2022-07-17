@@ -295,58 +295,7 @@ namespace wo
             }
         }
 
-        inline value* set_dup(value* from)
-        {
-            // TODO: IF A VAL HAS IT REF; IN CONST VAL, WILL STILL HAS POSSIBLE TO MODIFY THE VAL;
-            if (from->type == valuetype::array_type)
-            {
-                auto* dup_arrray = from->array;
-                if (dup_arrray)
-                {
-                    gcbase::gc_read_guard g1(dup_arrray);
-                    set_gcunit_with_barrier(valuetype::array_type);
-
-                    auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
-                    *created_arr = *dup_arrray;
-                }
-                else
-                    set_nil();
-
-            }
-            else if (from->type == valuetype::mapping_type)
-            {
-                auto* dup_mapping = from->mapping;
-                if (dup_mapping)
-                {
-                    gcbase::gc_read_guard g1(dup_mapping);
-                    set_gcunit_with_barrier(valuetype::mapping_type);
-
-                    auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(gcunit);
-                    *created_map = *dup_mapping;
-                }
-                else
-                    set_nil();
-            }
-            else if (from->type == valuetype::struct_type)
-            {
-                auto* dup_struct = from->structs;
-                if (dup_struct)
-                {
-                    gcbase::gc_read_guard g1(dup_struct);
-                    set_gcunit_with_barrier(valuetype::struct_type);
-
-                    auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
-                    for (uint16_t i = 0; i < dup_struct->m_count; ++i)
-                        created_struct->m_values[i].set_trans(&dup_struct->m_values[i]);
-                }
-                else
-                    set_nil();
-            }
-            else
-                set_val(from);
-
-            return this;
-        }
+        inline value* set_dup(value* from);
     };
     static_assert(sizeof(value) == 16);
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
@@ -453,4 +402,57 @@ namespace wo
             close();
         }
     };
+
+    inline value* value::set_dup(value* from)
+    {
+        // TODO: IF A VAL HAS IT REF; IN CONST VAL, WILL STILL HAS POSSIBLE TO MODIFY THE VAL;
+        if (from->type == valuetype::array_type)
+        {
+            auto* dup_arrray = from->array;
+            if (dup_arrray)
+            {
+                gcbase::gc_read_guard g1(dup_arrray);
+                set_gcunit_with_barrier(valuetype::array_type);
+
+                auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
+                *created_arr = *dup_arrray;
+            }
+            else
+                set_nil();
+
+        }
+        else if (from->type == valuetype::mapping_type)
+        {
+            auto* dup_mapping = from->mapping;
+            if (dup_mapping)
+            {
+                gcbase::gc_read_guard g1(dup_mapping);
+                set_gcunit_with_barrier(valuetype::mapping_type);
+
+                auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(gcunit);
+                *created_map = *dup_mapping;
+            }
+            else
+                set_nil();
+        }
+        else if (from->type == valuetype::struct_type)
+        {
+            auto* dup_struct = from->structs;
+            if (dup_struct)
+            {
+                gcbase::gc_read_guard g1(dup_struct);
+                set_gcunit_with_barrier(valuetype::struct_type);
+
+                auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
+                for (uint16_t i = 0; i < dup_struct->m_count; ++i)
+                    created_struct->m_values[i].set_trans(&dup_struct->m_values[i]);
+            }
+            else
+                set_nil();
+        }
+        else
+            set_val(from);
+
+        return this;
+    }
 }
