@@ -185,14 +185,13 @@ WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
 
 WO_API void         wo_abort_all_vm_to_exit();
 
-enum _wo_inform_style
+typedef enum _wo_inform_style
 {
     WO_DEFAULT = 0,
 
     WO_NOTHING = 1,
     WO_NEED_COLOR = 2,
-
-};
+} wo_inform_style;
 
 WO_API wo_string_t  wo_locale_name();
 WO_API wo_string_t  wo_exe_path();
@@ -212,8 +211,8 @@ WO_API wo_value     wo_run(wo_vm vm);
 
 WO_API wo_bool_t    wo_has_compile_error(wo_vm vm);
 WO_API wo_bool_t    wo_has_compile_warning(wo_vm vm);
-WO_API wo_string_t  wo_get_compile_error(wo_vm vm, _wo_inform_style style);
-WO_API wo_string_t  wo_get_compile_warning(wo_vm vm, _wo_inform_style style);
+WO_API wo_string_t  wo_get_compile_error(wo_vm vm, wo_inform_style style);
+WO_API wo_string_t  wo_get_compile_warning(wo_vm vm, wo_inform_style style);
 
 WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
 
