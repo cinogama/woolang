@@ -42,6 +42,7 @@ WO_API wo_api rslib_std_fail(wo_vm vm, wo_value args, size_t argc)
     wo_fail(WO_FAIL_MEDIUM, wo_string(args + 0));
     return wo_ret_void(vm);
 }
+
 WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_int(vm, wo_lengthof(args));

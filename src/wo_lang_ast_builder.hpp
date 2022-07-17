@@ -245,7 +245,7 @@ namespace wo
                     if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
                         return true;
                     if (to->is_map() && ((!to->has_template()) || (
-                        to->template_arguments[0]->is_dynamic()
+                        (to->template_arguments[0]->is_dynamic() || to->template_arguments[0]->is_string())
                         && to->template_arguments[1]->is_dynamic()
                         )))
                         return true;
