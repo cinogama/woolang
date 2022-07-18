@@ -807,7 +807,7 @@ union option<T>
 }
 namespace option
 {
-    func map<T, R>(self: option<T>, functor: R(T)) : option<R>
+    func map<T, R>(self: option<T>, functor: (T)=>R) : option<R>
     {
         match(self)
         {
@@ -1153,7 +1153,7 @@ namespace std
         func run<FT>(foo: FT, ...)
         {
             attach_debuggee();
-            let result = (foo:dynamic(...))(......);
+            let result = (foo:(...)=>dynamic)(......);
             disattach_debuggee();
     
             return result;
