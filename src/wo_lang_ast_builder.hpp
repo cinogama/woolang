@@ -667,29 +667,6 @@ namespace wo
             std::wstring get_type_name(bool ignore_using_type = true) const
             {
                 std::wstring result;
-
-                if (!ignore_using_type && using_type_name)
-                {
-                    auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
-                        wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
-                    result = (namespacechain.empty() ? L"" : namespacechain + L"::")
-                        + using_type_name->get_type_name(ignore_using_type);
-                }
-                else
-                {
-                    result = (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
-                    if (has_template())
-                    {
-                        result += L"<";
-                        for (size_t index = 0; index < template_arguments.size(); index++)
-                        {
-                            result += template_arguments[index]->get_type_name(ignore_using_type);
-                            if (index + 1 != template_arguments.size())
-                                result += L", ";
-                        }
-                        result += L">";
-                    }
-                }
                 if (is_function_type)
                 {
                     result += L"(";
@@ -704,8 +681,31 @@ namespace wo
                     {
                         result += L"...";
                     }
-                    result += L")";
+                    result += L")=>";
                 }
+                if (!ignore_using_type && using_type_name)
+                {
+                    auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
+                        wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
+                    result += (namespacechain.empty() ? L"" : namespacechain + L"::")
+                        + using_type_name->get_type_name(ignore_using_type);
+                }
+                else
+                {
+                    result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    if (has_template())
+                    {
+                        result += L"<";
+                        for (size_t index = 0; index < template_arguments.size(); index++)
+                        {
+                            result += template_arguments[index]->get_type_name(ignore_using_type);
+                            if (index + 1 != template_arguments.size())
+                                result += L", ";
+                        }
+                        result += L">";
+                    }
+                }
+                
                 return result;
             }
 
@@ -4624,53 +4624,44 @@ namespace wo
             }
         };
 
-        struct pass_build_complex_type : public astnode_builder
+        struct pass_build_function_type : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_type* result = nullptr;
+                wo_test(input.size() == 3);
 
-                auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(0));
+                ast_type* result = nullptr;
+                auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
 
                 wo_test(complex_type);
 
                 if (complex_type->is_func())
-                {
-                    // complex type;
-                    wo_test(complex_type && input.size() == 2 && !ast_empty::is_empty(input[1]));
                     result = new ast_type(complex_type);
-                }
                 else
                     result = complex_type;
 
-                if (input.size() == 1 || ast_empty::is_empty(input[1]))
+                result->set_as_function_type();
+                auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
+                auto* child = arg_list->children;
+                while (child)
                 {
-                    return (ast_basic*)result;
-                }
-                else
-                {
-                    result->set_as_function_type();
-                    auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(1));
-                    auto* child = arg_list->children;
-                    while (child)
+                    if (auto* type = dynamic_cast<ast_type*>(child))
                     {
-                        if (auto* type = dynamic_cast<ast_type*>(child))
-                        {
-                            result->append_function_argument_type(type);
-                        }
-                        else
-                        {
-                            auto* tktype = dynamic_cast<ast_token*>(child);
-                            wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
-                            //must be last elem..
-
-                            result->set_as_variadic_arg_func();
-                        }
-
-                        child = child->sibling;
+                        result->append_function_argument_type(type);
                     }
-                    return (ast_basic*)result;
+                    else
+                    {
+                        auto* tktype = dynamic_cast<ast_token*>(child);
+                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
+                        //must be last elem..
+
+                        result->set_as_variadic_arg_func();
+                    }
+
+                    child = child->sibling;
                 }
+                return (ast_basic*)result;
+
             }
         };
         struct pass_build_type_may_template : public astnode_builder
@@ -5504,23 +5495,46 @@ namespace wo
             {
                 // ( LIST )
 
-                wo_assert(input.size() == 3);
+                wo_assert(input.size() == 1);
                 ast_type* tuple_type = new ast_type(L"tuple");
 
-                if (!ast_empty::is_empty(input[1]))
+                if (!ast_empty::is_empty(input[0]))
                 {
-                    auto* type_ptr = WO_NEED_AST(1)->children;
+                    auto* type_ptr = WO_NEED_AST(0)->children;
                     while (type_ptr)
                     {
                         ast_type* type = dynamic_cast<ast_type*>(type_ptr);
-                        type_ptr = type_ptr->sibling;
+                        if (type)
+                        {
+                            type_ptr = type_ptr->sibling;
+                            tuple_type->template_arguments.push_back(type);
+                        }
+                        else
+                            lex.parser_error(0x0000, L"元祖类型中不允许出现 '...'，继续");
 
-                        wo_assert(type);
-                        tuple_type->template_arguments.push_back(type);
                     }
                     wo_assert(!tuple_type->template_arguments.empty());
                 }
                 return (ast_basic*)tuple_type;
+            }
+        };
+
+        struct pass_tuple_types_list : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                //( LIST , ...)
+
+                if (input.size() == 3)
+                    return WO_NEED_AST(1);
+
+                wo_assert(input.size() == 5);
+                if (ast_empty::is_empty(input[3]))
+                    return WO_NEED_AST(1);
+
+                dynamic_cast<ast_list*>(WO_NEED_AST(1))->append_at_end(WO_NEED_AST(3));
+
+                return WO_NEED_AST(1);
             }
         };
 
@@ -5646,7 +5660,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_variable>] = _register_builder<pass_variable>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_build_complex_type>] = _register_builder<pass_build_complex_type>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_function_type>] = _register_builder<pass_build_function_type>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_type_may_template>] = _register_builder<pass_build_type_may_template>();
 
@@ -5674,6 +5688,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_tuple_type>] = _register_builder<pass_build_tuple_type>();
+            _registed_builder_function_id_list[meta::type_hash<pass_tuple_types_list>] = _register_builder<pass_tuple_types_list>();
             _registed_builder_function_id_list[meta::type_hash<pass_append_list_for_ref_tuple_maker>] = _register_builder<pass_append_list_for_ref_tuple_maker>();
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 

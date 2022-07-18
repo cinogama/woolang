@@ -790,7 +790,7 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-let const true = 1: bool, false = 0: bool;
+let const true = 1: bool, const false = 0: bool;
 
 namespace std
 {
@@ -807,7 +807,7 @@ union option<T>
 }
 namespace option
 {
-    func map<T, R>(self: option<T>, functor: R(T)) : option<R>
+    func map<T, R>(self: option<T>, functor: (T)=>R) : option<R>
     {
         match(self)
         {
@@ -1153,7 +1153,7 @@ namespace std
         func run<FT>(foo: FT, ...)
         {
             attach_debuggee();
-            let result = (foo:dynamic(...))(......);
+            let result = (foo:(...)=>dynamic)(......);
             disattach_debuggee();
     
             return result;
