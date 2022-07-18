@@ -225,7 +225,7 @@ namespace wo
                             gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                             gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                             gm::nt(L"RETURN_TYPE_DECLEAR"),
-                            gm::nt(L"BLOCKED_SENTENCE") }
+                            gm::nt(L"SENTENCE_BLOCK") }
                             >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
                 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
@@ -236,7 +236,7 @@ namespace wo
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                                 gm::nt(L"RETURN_TYPE_DECLEAR"),
-                                gm::nt(L"BLOCKED_SENTENCE") }
+                                gm::nt(L"SENTENCE_BLOCK") }
                                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
                 gm::nt(L"OVERLOADINGABLE_OPERATOR") >> gm::symlist{ gm::te(gm::ttype::l_add) }
@@ -472,7 +472,7 @@ namespace wo
                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                 gm::nt(L"RETURN_TYPE_DECLEAR"),
-                gm::nt(L"BLOCKED_SENTENCE") }
+                gm::nt(L"SENTENCE_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
                 // May empty
@@ -757,8 +757,8 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                //gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                //>> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_variable_in_namespace),// TODO HERE SHOULD BE IDENTIF IN NAMESPACE
