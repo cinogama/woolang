@@ -790,7 +790,7 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-let const true = 1: bool, false = 0: bool;
+let const true = 1: bool, const false = 0: bool;
 
 namespace std
 {
