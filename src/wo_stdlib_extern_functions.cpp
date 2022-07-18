@@ -1731,7 +1731,7 @@ namespace std
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       //  "helloworld" @"(println("hello");) "
+        l_literal_string,       // "" "helloworld" @"(println("hello");) "
 
         l_format_string,        // f"..{  /  }..{ 
         l_format_string_end,    // }.."
@@ -1768,6 +1768,7 @@ namespace std
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
+        l_function_result,               // '->'
 
         l_left_brackets,        // (
         l_right_brackets,       // )
