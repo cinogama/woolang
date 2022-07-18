@@ -224,7 +224,7 @@ namespace wo
                             gm::te(gm::ttype::l_identifier),
                             gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                             gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                            gm::nt(L"RETURN_TYPE_DECLEAR"),
+                            gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
                             gm::nt(L"SENTENCE_BLOCK") }
                             >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -235,7 +235,7 @@ namespace wo
                                 gm::nt(L"OVERLOADINGABLE_OPERATOR"),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                                gm::nt(L"RETURN_TYPE_DECLEAR"),
+                                gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
                                 gm::nt(L"SENTENCE_BLOCK") }
                                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -288,7 +288,7 @@ namespace wo
                                 gm::te(gm::ttype::l_identifier),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                                gm::nt(L"TYPE_DECLEAR"),
+                                gm::nt(L"RETURN_TYPE_DECLEAR"),
                                     gm::te(gm::ttype::l_semicolon)
                 }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
@@ -301,7 +301,7 @@ namespace wo
                                     gm::nt(L"OVERLOADINGABLE_OPERATOR"),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                                gm::nt(L"TYPE_DECLEAR"),
+                                gm::nt(L"RETURN_TYPE_DECLEAR"),
                                     gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -471,16 +471,19 @@ namespace wo
                 gm::te(gm::ttype::l_func),
                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
-                gm::nt(L"RETURN_TYPE_DECLEAR"),
+                gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
                 gm::nt(L"SENTENCE_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
                 // May empty
 
-                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::nt(L"RETURN_TYPE_DECLEAR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"RETURN_TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_function_result),gm::nt(L"TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 gm::nt(L"TYPE_DECLEAR") >> gm::symlist{ gm::te(gm::ttype::l_typecast),gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
@@ -756,8 +759,6 @@ namespace wo
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"SCOPING_BEGIN_IDENT") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SCOPING_LIST") >> gm::symlist{ gm::te(gm::ttype::l_scopeing),gm::te(gm::ttype::l_identifier) }

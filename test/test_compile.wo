@@ -5,7 +5,7 @@ import test_tool;
 
 namespace test_compile
 {
-    func compile_program(src: string): bool
+    func compile_program(src: string)=> bool
     {
         let vmm = std::vm::create();
         let result = vmm->load_source("test_compile/test_tmp_script.wo", src);
@@ -90,8 +90,8 @@ namespace test_compile
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
 
         // extern symbol must be found 
-        assure_compile_fail(@"extern("not_exist_func")func foo(): void;"@);
-        assure_compile_fail(@"extern("not_exist_lib","not_exist_func")func foo(): void;"@);
+        assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);
+        assure_compile_fail(@"extern("not_exist_lib","not_exist_func")func foo() => void;"@);
 
         // return must in func
         assure_compile_fail(@"return 0;"@);
@@ -145,7 +145,7 @@ namespace test_compile
         assure_compile_fail(@"func foo(a:int, let b: string){} foo(1, "", 1);"@);
         assure_compile_fail(@"let a = 1; a();"@);
         assure_compile_fail(@"
-            func operator == (a: array<int>, let b: array<int>): string{return "Helloworld";}
+            func operator == (a: array<int>, let b: array<int>)=> string{return "Helloworld";}
             let a = 1; let b = (a == 1) as string;
         "@);
 

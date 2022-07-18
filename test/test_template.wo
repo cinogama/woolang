@@ -26,7 +26,7 @@ namespace test_template
         func next<IType, EType>(
                         self:wraped_iterator<IType, EType>, 
                         ref out_index:int, 
-                        ref out_val:EType) : bool
+                        ref out_val:EType) => bool
         {
             while(true)
             {
@@ -140,7 +140,7 @@ namespace test_template
         func CheckForType<SP, T>(self:MyTemplate<T>)
         {
             // do check:
-            func():SP{}() as T;
+            func()=>SP{}() as T;
         }
     }
 
@@ -195,7 +195,7 @@ namespace test_template
 
     func is_same<T1, T2>()
     {
-        return func():T1{} is ()=>T2;
+        return func()=>T1{} is ()=>T2;
     }
 
     let constexpr_if_test_flag = false;
@@ -203,7 +203,7 @@ namespace test_template
     {
         std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
 
-        if (func():T{constexpr_if_test_flag = true;return std::debug::__empty_function:<T>();}() is T)
+        if (func()=>T{constexpr_if_test_flag = true;return std::debug::__empty_function:<T>();}() is T)
         {
             return 233;
         }
