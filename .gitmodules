@@ -1,0 +1,4 @@
+[submodule "wooc"]
+	path = wooc
+	url = https://gitlab.cinogama.com/cinogamaproject/woolangpackages/wooc.git
+	branch = master
