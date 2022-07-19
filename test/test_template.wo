@@ -247,11 +247,29 @@ namespace test_template
         }
     }
 
+    func template_func_symb_inside_impl<T>()
+    {
+        if (0. is T)
+            return 3.14159;
+        else
+            return "pi";
+    }
+    func template_func_symb_inside<T>()
+    {
+        return template_func_symb_inside_impl:<T>();
+    }
+
     func main()
     {
         let mins = mtest:<string>();
         mins.c = 66;
         
+        test_assure(template_func_symb_inside:<real>() == template_func_symb_inside:<real>());
+        test_assure(template_func_symb_inside:<string>() == template_func_symb_inside:<string>());
+        
+        test_assure(template_func_symb_inside:<real>() == 3.14159);
+        test_assure(template_func_symb_inside:<string>() == "pi");
+
         let xfunc = test_typeof_in_template:<int>;
         xfunc = func(){return func(){};};
 
