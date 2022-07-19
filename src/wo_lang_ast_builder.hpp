@@ -1376,7 +1376,7 @@ namespace wo
 
             std::vector<ast_type*> template_reification_args;
             bool directed_function_call = false;
-
+            bool is_auto_judge_function_overload = false;
             ast_value_variable(const std::wstring& _var_name)
             {
                 var_name = _var_name;

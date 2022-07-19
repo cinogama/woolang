@@ -635,6 +635,7 @@ namespace wo
                 }
                 else
                 {
+                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
                         impl_symbol->has_been_defined_in_pass2 = true;
@@ -1183,6 +1184,7 @@ namespace wo
             {
                 if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
                 {
+                    symb_callee->is_auto_judge_function_overload = true; // Current may used for auto judge for function invoke, here to skip!
                     if (a_value_funccall->directed_value_from)
                     {
                         if (!symb_callee->search_from_global_namespace/*
@@ -1918,7 +1920,7 @@ namespace wo
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
-                                if (sym->is_template_symbol)
+                                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type==lang_symbol::symbol_type::variable))
                                 {
                                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                                     if (!sym)
