@@ -1221,7 +1221,7 @@ namespace wo
                 if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
                 {
                     // 
-                    ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"dynamic");
+                    ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
 
                     ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
                     if (val)
@@ -1244,14 +1244,9 @@ namespace wo
                         {
                             auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
                             if (mixed_type)
-                            {
                                 decide_array_item_type->set_type_with_name(mixed_type->type_name);
-                            }
                             else
-                            {
-                                decide_array_item_type->set_type_with_name(L"dynamic");
-                                // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                            }
+                                decide_array_item_type = nullptr;
                         }
                         val = dynamic_cast<ast_value*>(val->sibling);
                     }
@@ -1269,8 +1264,8 @@ namespace wo
 
                 if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
                 {
-                    ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"dynamic");
-                    ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"dynamic");
+                    ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
+                    ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
 
                     ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
                     if (map_pair)
@@ -1920,14 +1915,14 @@ namespace wo
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
-                                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type==lang_symbol::symbol_type::variable))
+                                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                                 {
                                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                                     if (!sym)
                                         lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
                                 }
 
-                                if(sym)
+                                if (sym)
                                 {
                                     analyze_pass2(sym->variable_value);
                                     a_value_var->value_type = sym->variable_value->value_type;
@@ -2499,9 +2494,9 @@ namespace wo
                                 a_value_funccall->arguments->remove_allnode();
 
                                 for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
-                                    a_type_index != a_value_funccall->called_func->value_type->argument_types.end();
-                                    a_type_index++)
+                                    a_type_index != a_value_funccall->called_func->value_type->argument_types.end();)
                                 {
+                                    bool donot_move_forward = false;
                                     if (!real_args)
                                     {
                                         // default arg mgr here, now just kill
@@ -2567,10 +2562,12 @@ namespace wo
                                                 }
                                                 ecount--;
                                             }
-                                            a_type_index--;
+                                            donot_move_forward = true;
                                         }
                                         else if (dynamic_cast<ast_value_takeplace*>(arg_val))
-                                            continue;
+                                        {
+                                            // Do nothing
+                                        }
                                         else
                                         {
                                             if (!arg_val->value_type->is_pending() && !(*a_type_index)->accept_type(arg_val->value_type, false))
@@ -2585,6 +2582,8 @@ namespace wo
                                             }
                                         }
                                     }
+                                    if (!donot_move_forward)
+                                        a_type_index++;
                                 }
                                 if (a_value_funccall->called_func->value_type->is_variadic_function_type)
                                 {
@@ -2639,7 +2638,7 @@ namespace wo
                         {
                             analyze_pass2(a_value_arr->array_items);
                             // 
-                            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"dynamic");
+                            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
 
                             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
                             if (val)
@@ -2675,8 +2674,8 @@ namespace wo
                         {
                             analyze_pass2(a_value_map->mapping_pairs);
 
-                            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"dynamic");
-                            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"dynamic");
+                            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
+                            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
 
                             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
                             if (map_pair)
