@@ -201,7 +201,6 @@ namespace wo
         std::map<wo_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
         ast::ast_value_function_define* now_function_in_final_anylize = nullptr;
         std::vector<template_type_map> template_stack;
-        std::unordered_set<ast::ast_value_variable*> template_variable_list_for_pass_template;
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
@@ -1074,8 +1073,6 @@ namespace wo
                         fully_update_type(a_type, true);
                     }
                 }
-
-                template_variable_list_for_pass_template.insert(a_value_var);
             }
             else if (ast_value_type_cast* a_value_cast = dynamic_cast<ast_value_type_cast*>(ast_node))
             {
@@ -1207,9 +1204,6 @@ namespace wo
 
                 analyze_pass1(a_value_funccall->called_func);
                 analyze_pass1(a_value_funccall->arguments);
-
-                if (auto* symb_callee = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
-                    template_variable_list_for_pass_template.erase(symb_callee);
 
                 // NOTE There is no need for adding arguments and celled_func to child, pass2 must read them..
                 //a_value_funccall->add_child(a_value_funccall->called_func);
@@ -1687,40 +1681,82 @@ namespace wo
         {
             using namespace ast;
             std::vector<uint32_t> template_args_hashtypes;
-            for (auto temtype : template_args_types)
-            {
-                auto step_in_pass2 = has_step_in_step2;
-                has_step_in_step2 = true;
-                fully_update_type(temtype, true, origin_variable->symbol->template_types);
-                has_step_in_step2 = step_in_pass2;
 
-                template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+            if (!origin_variable->symbol)
+            {
+                lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_UNKNOWN_IDENTIFIER, origin_variable->var_name.c_str());
+                return nullptr;
             }
 
-            if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
-                fnd != origin_variable->symbol->template_typehashs_reification_instance_symbol_list.end())
+            if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
             {
-                return fnd->second;
+                ast_value_function_define* dumpped_template_func_define = nullptr;
+
+                wo_assert(origin_variable->symbol->function_overload_sets.size());
+                for (auto& func_overload : origin_variable->symbol->function_overload_sets)
+                {
+                    if (!check_symbol_is_accessable(func_overload, func_overload->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, false))
+                        continue; // In template function, not accessable function will be skip!
+
+                    if (func_overload->is_template_define
+                        && func_overload->template_type_name_list.size() == origin_variable->template_reification_args.size())
+                    {
+                        // TODO: finding repeated template? goon
+                        dumpped_template_func_define = analyze_pass_template_reification(func_overload, origin_variable->template_reification_args);
+                        break;
+                    }
+                }
+                if (!dumpped_template_func_define)
+                {
+                    lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                    return nullptr;
+                }
+                else
+                    return dumpped_template_func_define->this_reification_lang_symbol;
             }
-
-            ast_value* dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
-            wo_assert(dumpped_template_init_value);
-
-            lang_symbol* template_reification_symb = nullptr;
-
-            temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
-            if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
+            else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
             {
-                analyze_pass1(dumpped_template_init_value);
-                analyze_pass1(origin_variable);
-                template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
-                end_template_scope();
+                // Is variable?
+                for (auto temtype : template_args_types)
+                {
+                    auto step_in_pass2 = has_step_in_step2;
+                    has_step_in_step2 = true;
+                    fully_update_type(temtype, true, origin_variable->symbol->template_types);
+                    has_step_in_step2 = step_in_pass2;
+
+                    template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
+                }
+
+                if (auto fnd = origin_variable->symbol->template_typehashs_reification_instance_symbol_list.find(template_args_hashtypes);
+                    fnd != origin_variable->symbol->template_typehashs_reification_instance_symbol_list.end())
+                {
+                    return fnd->second;
+                }
+
+                ast_value* dumpped_template_init_value = dynamic_cast<ast_value*>(origin_variable->symbol->variable_value->instance());
+                wo_assert(dumpped_template_init_value);
+
+                lang_symbol* template_reification_symb = nullptr;
+
+                temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
+                if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
+                {
+                    analyze_pass1(dumpped_template_init_value);
+                    analyze_pass1(origin_variable);
+                    template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
+                    end_template_scope();
+                }
+                temporary_leave_scope_in_pass1();
+
+                origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
+
+                return template_reification_symb;
             }
-            temporary_leave_scope_in_pass1();
-
-            origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
-
-            return template_reification_symb;
+            else
+            {
+                lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION);
+                return nullptr;
+            }
         }
 
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
@@ -1786,74 +1822,6 @@ namespace wo
             lang_symbols.push_back(template_reification_symb);
 
             return dumpped_template_func_define;
-        }
-
-        void analyze_pass_template()
-        {
-            using namespace ast;
-            do
-            {
-                auto _duped_template_variable_list_for_pass_template = template_variable_list_for_pass_template;
-                template_variable_list_for_pass_template.clear();
-                for (ast_value_variable* a_value_var : _duped_template_variable_list_for_pass_template)
-                {
-                    auto* sym = find_value_in_this_scope(a_value_var);
-                    if (sym && sym->is_template_symbol)
-                    {
-                        if (!a_value_var->template_reification_args.empty())
-                        {
-                            if (!a_value_var->directed_function_call)
-                            {
-                                if (sym->type == lang_symbol::symbol_type::variable)
-                                {
-                                    a_value_var->symbol = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
-                                }
-                                else if (sym->type == lang_symbol::symbol_type::function)
-                                {
-                                    ast_value_function_define* dumpped_template_func_define = nullptr;
-
-                                    wo_assert(sym->function_overload_sets.size());
-                                    for (auto& func_overload : sym->function_overload_sets)
-                                    {
-                                        if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var, false))
-                                            continue; // In template function, not accessable function will be skip!
-
-                                        if (func_overload->is_template_define
-                                            && func_overload->template_type_name_list.size() == a_value_var->template_reification_args.size())
-                                        {
-                                            // TODO: finding repeated template? goon
-
-                                            dumpped_template_func_define = analyze_pass_template_reification(func_overload, a_value_var->template_reification_args);
-
-                                            break;
-                                        }
-                                    }
-
-                                    if (!dumpped_template_func_define)
-                                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
-                                    else
-                                        a_value_var->symbol = dumpped_template_func_define->this_reification_lang_symbol; // apply symbol
-                                }
-                                else
-                                {
-                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION);
-                                }
-                            }
-                        }
-                        else
-                        {
-                            // No template args.. continue..
-
-                            continue;
-                        }
-
-                        a_value_var->value_type = a_value_var->symbol->variable_value->value_type;
-                    }
-                    else;
-                    // Do nothing, error will be reported by pass2
-
-                }
-            } while (!template_variable_list_for_pass_template.empty());
         }
 
         bool write_flag_complete_in_pass2 = true;
@@ -1950,43 +1918,46 @@ namespace wo
                                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
-                                if (sym->is_template_symbol && sym->type == lang_symbol::symbol_type::variable)
+                                if (sym->is_template_symbol)
                                 {
-                                    // Needm apply template.
                                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                    if (!sym)
+                                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
                                 }
 
-                                analyze_pass2(sym->variable_value);
-                                a_value_var->value_type = sym->variable_value->value_type;
-                                a_value_var->symbol = sym;
-
-                                if (a_value_var->value_type->is_pending())
+                                if(sym)
                                 {
-                                    if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
-                                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
-                                    else if (a_value_var->symbol->function_overload_sets.size() == 1
-                                        && !a_value_var->symbol->is_template_symbol
-                                        && a_value_var->template_reification_args.empty())
-                                    {
-                                        // only you~
-                                        auto* result = sym->function_overload_sets.front();
-                                        check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
-                                        analyze_pass2(result);
-                                        a_value_var->value_type = result->value_type;
+                                    analyze_pass2(sym->variable_value);
+                                    a_value_var->value_type = sym->variable_value->value_type;
+                                    a_value_var->symbol = sym;
 
-                                        if (a_value_var->value_type->is_pending())
-                                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
-                                    }
-                                    else
+                                    if (a_value_var->value_type->is_pending())
                                     {
-                                        // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
-                                        /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
-                                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                                        if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
+                                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                                        else if (a_value_var->symbol->function_overload_sets.size() == 1
+                                            && !a_value_var->symbol->is_template_symbol
+                                            && a_value_var->template_reification_args.empty())
+                                        {
+                                            // only you~
+                                            auto* result = sym->function_overload_sets.front();
+                                            check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
+                                            analyze_pass2(result);
+                                            a_value_var->value_type = result->value_type;
+
+                                            if (a_value_var->value_type->is_pending())
+                                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
+                                        }
                                         else
-                                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
+                                        {
+                                            // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
+                                            /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
+                                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                                            else
+                                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
+                                        }
                                     }
                                 }
-
                             }
                             else
                             {

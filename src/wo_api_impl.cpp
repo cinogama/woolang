@@ -1411,8 +1411,6 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
 
             lang.analyze_pass1(result);
             if (!lang.has_compile_error())
-                lang.analyze_pass_template();
-            if (!lang.has_compile_error())
                 lang.analyze_pass2(result);
 
             //result->display();
