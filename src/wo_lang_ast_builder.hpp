@@ -216,11 +216,7 @@ namespace wo
                     return false;
 
                 if (from->accept_type(to, true))
-                {
-                    // TODO: MAY NEED USING CHAIN CHECK? HERE JUST CHECK IF A USING-TYPE TO NATIVE-TYPE
-                    if (from->using_type_name && !to->using_type_name)
-                        return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
-                }
+                    return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
 
                 if (from->is_func() || to->is_func())
                     return false;
