@@ -2898,8 +2898,6 @@ namespace wo
                         WO_ADDRESSING_N1_REF; // Aim
                         uint16_t size = WO_IPVAL_MOVE_2;
 
-                        wo_assert(0 != size);
-
                         opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
                         struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
                         gcbase::gc_write_guard gwg1(new_struct);
