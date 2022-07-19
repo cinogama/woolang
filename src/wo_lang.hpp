@@ -2852,7 +2852,7 @@ namespace wo
                         {
                             if (!a_value_index->index->value_type->is_integer())
                             {
-                                lang_anylizer->lang_error(0x0000, a_value_index->index, L"'%ls' 的索引只能是 'int' 类型的值，继续"
+                                lang_anylizer->lang_error(0x0000, a_value_index, L"'%ls' 的索引只能是 'int' 类型的值，继续"
                                     , a_value_index->from->value_type->get_type_name().c_str());
                             }
                         }
@@ -2860,7 +2860,7 @@ namespace wo
                         {
                             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false))
                             {
-                                lang_anylizer->lang_error(0x0000, a_value_index->index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
+                                lang_anylizer->lang_error(0x0000, a_value_index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
                                     , a_value_index->from->value_type->get_type_name().c_str()
                                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str());
                             }
@@ -2875,7 +2875,7 @@ namespace wo
 
                         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx->argindex, L"'变长参数包' 的索引只能是 'int' 类型的值，继续");
+                            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, L"'变长参数包' 的索引只能是 'int' 类型的值，继续");
                         }
                     }
                     else if (ast_fakevalue_unpacked_args* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(ast_node))

@@ -1028,7 +1028,7 @@ wo_result_t wo_ret_pointer(wo_vm vm, wo_ptr_t result)
 {
     if (result)
         return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_handle((wo_handle_t)result));
-    return wo_ret_halt(vm, "Cannot return a nullptr");
+    return wo_ret_panic(vm, "Cannot return a nullptr");
 }
 wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
