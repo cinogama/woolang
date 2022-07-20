@@ -6557,4 +6557,21 @@ namespace wo
             return lang_anylizer->has_error();
         }
     };
+
+    namespace ast
+    {
+        inline void ast_value_variable::update_constant_value(lexer* lex)
+        {
+            // TODO: constant variable here..
+            if (symbol)
+            {
+                symbol->variable_value->update_constant_value(lex);
+                if (symbol->variable_value->is_constant)
+                {
+                    is_constant = true;
+                    constant_value = symbol->variable_value->get_constant_value();
+                }
+            }
+        }
+    }
 }

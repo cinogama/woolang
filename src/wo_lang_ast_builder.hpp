@@ -1416,12 +1416,7 @@ namespace wo
                 }
                 return dumm;
             }
-            void update_constant_value(lexer* lex) override
-            {
-                // TODO: constant variable here..
-
-                // do nothing;
-            }
+            inline void update_constant_value(lexer* lex) override;
         };
 
         struct ast_list : virtual public grammar::ast_base
