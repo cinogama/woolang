@@ -1146,7 +1146,6 @@ namespace wo
                         if (a_value_func->in_function_sentence)
                         {
                             analyze_pass1(a_value_func->in_function_sentence);
-                            a_value_func->add_child(a_value_func->in_function_sentence);
                         }
 
                         if (a_value_func->externed_func_info)
