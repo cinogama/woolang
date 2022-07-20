@@ -1,5 +1,4 @@
 {
-	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
 	"name": "Woolang",
 	"patterns": [
 		{
@@ -11,14 +10,28 @@
 	],
 	"repository": {
 		"keywords": {
-			"patterns": [{
-				"name": "keyword.control.woolang",
-				"match": "\\b(if|else|while|for|return)\\b"
-			},
-			{
-				"name": "keyword.declear.woolang",
-				"match": "\\b(func|var|ref)\\b"
-			}]
+			"patterns": [
+				{
+					"name": "keyword.control.woolang",
+					"match": "\\b(if|else|while|for|return|goto|continue|break|expect|match)\\b"
+				},
+				{
+					"name": "keyword.declear.woolang",
+					"match": "\\b(func|let|ref|namespace|using|enum|union|where|extern|public|private|protected|const|static|operator|struct)\\b"
+				},
+				{
+					"name": "keyword.import.woolang",
+					"match": "\\b(import)\\b"
+				},
+				{
+					"name": "keyword.calc.woolang",
+					"match": "\\b(as|is|typeof)\\b"
+				},
+				{
+					"name": "keyword.constant.woolang",
+					"match": "\\b(true|false|inf|nil)\\b"
+				}
+			]
 		},
 		"strings": {
 			"name": "string.quoted.double.woolang",
