@@ -22,7 +22,7 @@ namespace test_coroutine
             co::wait(pre_co);
             println("OK");
 
-        },co1);
+        }, (co1,));
 
         sleep(4.);
         co1->abort();

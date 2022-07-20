@@ -381,6 +381,10 @@ namespace wo
                 else
                     return is_custom_type(type_name);
             }
+            bool is_pure_pending() const
+            {
+                return !is_func() && type_name == L"pending";
+            }
             bool is_pending() const
             {
                 if (has_template())
@@ -701,7 +705,7 @@ namespace wo
                         result += L">";
                     }
                 }
-                
+
                 return result;
             }
 
@@ -1189,6 +1193,7 @@ namespace wo
         {
             ast_value* _be_check_value_node;
             ast_type* aim_type;
+            bool check_pending = false;
 
             ast_value_type_check(ast_value* value, ast_type* type)
             {
@@ -1219,7 +1224,7 @@ namespace wo
 
                 _be_check_value_node->update_constant_value(lex);
 
-                if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
+                if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
                 {
                     auto result = _be_check_value_node->value_type->is_same(aim_type, false);
 
@@ -1868,7 +1873,28 @@ namespace wo
                 return dumm;
             }
         };
+        struct ast_value_function_define;
+        struct ast_where_constraint : virtual public grammar::ast_base
+        {
+            ast_list* where_constraint_list;
+            ast_value_function_define* binded_func_define;
+            bool accept = true;
 
+            std::vector<lexer::lex_error_msg> unmatched_constraint;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->where_constraint_list);
+                dumm->binded_func_define = nullptr;
+                dumm->accept = true;
+                return dumm;
+            }
+        };
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             std::wstring function_name;
@@ -1878,14 +1904,13 @@ namespace wo
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
             std::string ir_func_signature_tag = "";
-
             lang_scope* this_func_scope = nullptr;
-
             ast_extern_info* externed_func_info = nullptr;
-
             bool is_different_arg_count_in_same_extern_symbol = false;
-
             std::vector<lang_symbol*> capture_variables;
+
+            ast_where_constraint* where_constraint = nullptr;
+
             bool is_closure_function()const noexcept
             {
                 return capture_variables.size();
@@ -1968,6 +1993,7 @@ namespace wo
 
                 WO_REINSTANCE(dumm->argument_list);
                 WO_REINSTANCE(dumm->in_function_sentence);
+                WO_REINSTANCE(dumm->where_constraint);
                 dumm->this_func_scope = nullptr;
 
                 return dumm;
@@ -3346,7 +3372,6 @@ namespace wo
                 // DO NOTHING
             }
         };
-
         /////////////////////////////////////////////////////////////////////////////////
 
 #define WO_NEED_TOKEN(ID) [&]() {             \
@@ -3806,7 +3831,7 @@ namespace wo
                 ast_type* return_type = nullptr;
                 ast_list* template_types = nullptr;
 
-                if (input.size() == 9)
+                if (input.size() == 10)
                 {
                     // function with name..
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
@@ -3818,10 +3843,17 @@ namespace wo
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(3));
 
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(5));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(8))->sentence_list;
+
                     return_type = dynamic_cast<ast_type*>(WO_NEED_AST(7));
+                    if (!ast_empty::is_empty(input[8]))
+                    {
+                        ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(8));
+                        wo_assert(ast_func->where_constraint);
+                    }
+
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(9))->sentence_list;
                 }
-                else if (input.size() == 8)
+                else if (input.size() == 9)
                 {
                     // anonymous function
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
@@ -3836,10 +3868,17 @@ namespace wo
 
                     ast_func->function_name = L""; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(7))->sentence_list;
+
                     return_type = dynamic_cast<ast_type*>(WO_NEED_AST(6));
+                    if (!ast_empty::is_empty(input[7]))
+                    {
+                        ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(7));
+                        wo_assert(ast_func->where_constraint);
+                    }
+
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(8))->sentence_list;
                 }
-                else if (input.size() == 10)
+                else if (input.size() == 11)
                 {
                     if (WO_IS_TOKEN(2) && WO_NEED_TOKEN(2).type == +lex_type::l_operator)
                     {
@@ -3863,9 +3902,14 @@ namespace wo
                                     dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier.c_str());
                             arguments = arguments->sibling;
                         }
-
-                        ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(9))->sentence_list;
                         return_type = dynamic_cast<ast_type*>(WO_NEED_AST(8));
+                        if (!ast_empty::is_empty(input[9]))
+                        {
+                            ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(9));
+                            wo_assert(ast_func->where_constraint);
+                        }
+
+                        ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(10))->sentence_list;
                     }
                     else
                     {
@@ -3882,7 +3926,13 @@ namespace wo
 
                         ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(6));
                         ast_func->in_function_sentence = nullptr;
+
                         return_type = dynamic_cast<ast_type*>(WO_NEED_AST(8));
+                        if (!ast_empty::is_empty(input[9]))
+                        {
+                            ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(9));
+                            wo_assert(ast_func->where_constraint);
+                        }
 
                         ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
                         if (ast_func->externed_func_info->externed_func)
@@ -3916,7 +3966,11 @@ namespace wo
 
                     ast_func->in_function_sentence = nullptr;
                     return_type = dynamic_cast<ast_type*>(WO_NEED_AST(9));
-
+                    if (!ast_empty::is_empty(input[10]))
+                    {
+                        ast_func->where_constraint = dynamic_cast<ast_where_constraint*>(WO_NEED_AST(10));
+                        wo_assert(ast_func->where_constraint);
+                    }
 
                     ast_func->externed_func_info = dynamic_cast<ast_extern_info*>(WO_NEED_AST(0));
                     if (ast_func->externed_func_info->externed_func)
@@ -5534,6 +5588,21 @@ namespace wo
             }
         };
 
+        struct pass_build_where_constraint : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // where xxxx.... ,
+                wo_assert(input.size() == 3);
+
+                ast_where_constraint* result = new ast_where_constraint;
+                result->where_constraint_list = dynamic_cast<ast_list*>(WO_NEED_AST(1));
+                wo_assert(result->where_constraint_list);
+
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -5688,6 +5757,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_append_list_for_ref_tuple_maker>] = _register_builder<pass_append_list_for_ref_tuple_maker>();
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

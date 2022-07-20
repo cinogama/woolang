@@ -1096,6 +1096,8 @@ namespace wo
                     // ready for update..
                     fully_update_type(ast_value_check->aim_type, true);
                 }
+                if (ast_value_check->aim_type->is_pure_pending())
+                    ast_value_check->check_pending = true;
 
                 ast_value_check->update_constant_value(lang_anylizer);
             }
@@ -1134,44 +1136,54 @@ namespace wo
                     // update return type info for
                     // func xxx(var x:int): typeof(x)
 
-                    if (a_value_func->in_function_sentence)
+                    if (a_value_func->where_constraint)
                     {
-                        analyze_pass1(a_value_func->in_function_sentence);
-                        a_value_func->add_child(a_value_func->in_function_sentence);
+                        a_value_func->where_constraint->binded_func_define = a_value_func;
+                        analyze_pass1(a_value_func->where_constraint);
                     }
-
-                    if (a_value_func->externed_func_info)
+                    if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
                     {
-                        if (a_value_func->externed_func_info->load_from_lib != L"")
+                        if (a_value_func->in_function_sentence)
                         {
-                            if (!a_value_func->externed_func_info->externed_func)
-                            {
-                                // Load lib,
-                                a_value_func->externed_func_info->externed_func =
-                                    rslib_extern_symbols::get_lib_symbol(
-                                        a_value_func->source_file.c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                        extern_libs);
-                                if (a_value_func->externed_func_info->externed_func)
-                                    a_value_func->is_constant = true;
-                                else
-                                    lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                        a_value_func->externed_func_info->symbol_name.c_str(),
-                                        a_value_func->externed_func_info->load_from_lib.c_str());
-                            }
-                            else
-                                a_value_func->is_constant = true;
+                            analyze_pass1(a_value_func->in_function_sentence);
+                            a_value_func->add_child(a_value_func->in_function_sentence);
                         }
 
-                        extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
-                            .push_back(a_value_func);
+                        if (a_value_func->externed_func_info)
+                        {
+                            if (a_value_func->externed_func_info->load_from_lib != L"")
+                            {
+                                if (!a_value_func->externed_func_info->externed_func)
+                                {
+                                    // Load lib,
+                                    a_value_func->externed_func_info->externed_func =
+                                        rslib_extern_symbols::get_lib_symbol(
+                                            a_value_func->source_file.c_str(),
+                                            wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                                            wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                                            extern_libs);
+                                    if (a_value_func->externed_func_info->externed_func)
+                                        a_value_func->is_constant = true;
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                            a_value_func->externed_func_info->symbol_name.c_str(),
+                                            a_value_func->externed_func_info->load_from_lib.c_str());
+                                }
+                                else
+                                    a_value_func->is_constant = true;
+                            }
+
+                            extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
+                                .push_back(a_value_func);
+                        }
+                        else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
+                        {
+                            // This function has no return, set it as void
+                            a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, L"void"));
+                        }
                     }
-                    else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
-                    {
-                        // This function has no return, set it as void
-                        a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, L"void"));
-                    }
+                    else
+                        a_value_func->value_type->set_type_with_name(L"pending");
                 }
 
                 end_function();
@@ -1641,6 +1653,10 @@ namespace wo
             {
                 analyze_pass1(a_struct_member_define->member_val_or_type_tkplace);
             }
+            else if (ast_where_constraint* a_where_constraint = dynamic_cast<ast_where_constraint*>(ast_node))
+            {
+                analyze_pass1(a_where_constraint->where_constraint_list);
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -2045,21 +2061,29 @@ namespace wo
                         {
                             if (!a_value_funcdef->is_template_define)
                             {
-                                if (a_value_funcdef->in_function_sentence)
-                                {
-                                    analyze_pass2(a_value_funcdef->in_function_sentence);
-                                }
-                                if (a_value_funcdef->value_type->type_name == L"pending")
-                                {
-                                    // There is no return in function  return void
-                                    if (a_value_funcdef->auto_adjust_return_type)
-                                    {
-                                        if (a_value_funcdef->has_return_value)
-                                            lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+                                if (a_value_funcdef->where_constraint)
+                                    analyze_pass2(a_value_funcdef->where_constraint);
 
-                                        a_value_funcdef->value_type->set_type_with_name(L"void");
+                                if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
+                                {
+                                    if (a_value_funcdef->in_function_sentence)
+                                    {
+                                        analyze_pass2(a_value_funcdef->in_function_sentence);
+                                    }
+                                    if (a_value_funcdef->value_type->type_name == L"pending")
+                                    {
+                                        // There is no return in function  return void
+                                        if (a_value_funcdef->auto_adjust_return_type)
+                                        {
+                                            if (a_value_funcdef->has_return_value)
+                                                lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+
+                                            a_value_funcdef->value_type->set_type_with_name(L"void");
+                                        }
                                     }
                                 }
+                                else
+                                    a_value_funcdef->value_type->set_type_with_name(L"pending");
                             }
                         }
                         else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
@@ -2147,7 +2171,6 @@ namespace wo
                         start_ast_op_calling:
 
                             analyze_pass2(a_value_funccall->called_func);
-
                             analyze_pass2(a_value_funccall->arguments);
 
                             // judge the function override..
@@ -2173,6 +2196,8 @@ namespace wo
                                         std::vector<ast_value_function_define*> best_match_sets_template;
                                         std::vector<ast_value_function_define*> variadic_sets;
                                         std::vector<ast_value_function_define*> variadic_sets_template;
+
+                                        std::vector<ast_value_function_define*> tried_function;
 
                                         for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
                                         {
@@ -2270,133 +2295,138 @@ namespace wo
                                             }
 
                                             analyze_pass2(_override_func);
+                                            tried_function.push_back(_override_func);
 
-                                            real_args = a_value_funccall->arguments->children;
-                                            form_args = override_func->argument_list->children;
-                                            do
+                                            if (_override_func->where_constraint == nullptr
+                                                || _override_func->where_constraint->accept)
                                             {
-                                                auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
-                                                auto* real_arg = dynamic_cast<ast_value*>(real_args);
-
-                                                wo_test(real_args == real_arg);
-
-                                                if (!form_arg)
+                                                real_args = a_value_funccall->arguments->children;
+                                                form_args = override_func->argument_list->children;
+                                                do
                                                 {
-                                                    // variadic..
-                                                    if (nullptr == real_arg) // arg count match, just like best match/ need cast match
-                                                        goto match_check_end_for_variadic_func;
-                                                    else
+                                                    auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                                    auto* real_arg = dynamic_cast<ast_value*>(real_args);
+
+                                                    wo_test(real_args == real_arg);
+
+                                                    if (!form_arg)
                                                     {
-                                                        if (with_template)
-                                                            variadic_sets_template.push_back(override_func);
+                                                        // variadic..
+                                                        if (nullptr == real_arg) // arg count match, just like best match/ need cast match
+                                                            goto match_check_end_for_variadic_func;
                                                         else
-                                                            variadic_sets.push_back(override_func);
-                                                    }
-
-                                                    goto this_function_override_checking_over;
-                                                }
-
-                                                if (!real_arg)
-                                                    goto this_function_override_checking_over;// real_args count didn't match, break..
-
-                                                if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
-                                                {
-                                                    auto ecount = a_fakevalue_unpack_args->expand_count;
-                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
-                                                    {
-                                                        if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
                                                         {
-                                                            auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                                            if (unpacking_tuple_type->using_type_name)
-                                                                unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                                            a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
-                                                        }
-                                                    }
-                                                    if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
-                                                    {
-                                                        // all in!!!
-                                                        if (with_template)
-                                                            variadic_sets.push_back(override_func);
-                                                        else
-                                                            variadic_sets_template.push_back(override_func);
-
-                                                        goto this_function_override_checking_over;
-                                                    }
-
-                                                    size_t unpack_type_index = 0; // Used for type check when unpack tuple.
-                                                    while (ecount)
-                                                    {
-                                                        if (form_arg)
-                                                        {
-                                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
-                                                            {
-                                                                // Varify tuple type here.
-                                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                                                if (unpacking_tuple_type->using_type_name)
-                                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-
-                                                                if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
-                                                                    // There is no enough value for tuple to expand. match failed!
-                                                                    goto this_function_override_checking_over;
-                                                                else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
-                                                                    // Type didn't match, match failed!
-                                                                    goto this_function_override_checking_over;
-                                                                else
-                                                                    // ok, do nothing.
-                                                                    ++unpack_type_index;
-                                                            }
-
-                                                            form_args = form_arg->sibling;
-                                                            form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
-                                                        }
-                                                        else if (form_args)
-                                                        {
-                                                            // is variadic
                                                             if (with_template)
                                                                 variadic_sets_template.push_back(override_func);
                                                             else
                                                                 variadic_sets.push_back(override_func);
-                                                            goto this_function_override_checking_over;
                                                         }
-                                                        else
-                                                        {
-                                                            // not match , over..
-                                                            goto this_function_override_checking_over;
-                                                        }
-                                                        ecount--;
+
+                                                        goto this_function_override_checking_over;
                                                     }
 
-                                                }
+                                                    if (!real_arg)
+                                                        goto this_function_override_checking_over;// real_args count didn't match, break..
 
-                                                if (dynamic_cast<ast_value_takeplace*>(real_arg))
-                                                    ;
-                                                else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
-                                                    break;
-                                                else if (form_arg->value_type->accept_type(real_arg->value_type, false))
-                                                    ;// do nothing..
-                                                else
-                                                    break; // bad match, break..
-
-
-                                                real_args = real_args->sibling;
-                                            match_check_end_for_variadic_func:
-                                                if (form_args)
-                                                    form_args = form_args->sibling;
-
-
-                                                if (form_args == nullptr)
-                                                {
-                                                    // finish match check, add it to set
-                                                    if (real_args == nullptr)
+                                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
                                                     {
-                                                        if (with_template)
-                                                            best_match_sets_template.push_back(override_func);
-                                                        else
-                                                            best_match_sets.push_back(override_func);
+                                                        auto ecount = a_fakevalue_unpack_args->expand_count;
+                                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                        {
+                                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                            {
+                                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                if (unpacking_tuple_type->using_type_name)
+                                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                                a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
+                                                            }
+                                                        }
+                                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                        {
+                                                            // all in!!!
+                                                            if (with_template)
+                                                                variadic_sets.push_back(override_func);
+                                                            else
+                                                                variadic_sets_template.push_back(override_func);
+
+                                                            goto this_function_override_checking_over;
+                                                        }
+
+                                                        size_t unpack_type_index = 0; // Used for type check when unpack tuple.
+                                                        while (ecount)
+                                                        {
+                                                            if (form_arg)
+                                                            {
+                                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                                {
+                                                                    // Varify tuple type here.
+                                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                    if (unpacking_tuple_type->using_type_name)
+                                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+
+                                                                    if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
+                                                                        // There is no enough value for tuple to expand. match failed!
+                                                                        goto this_function_override_checking_over;
+                                                                    else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
+                                                                        // Type didn't match, match failed!
+                                                                        goto this_function_override_checking_over;
+                                                                    else
+                                                                        // ok, do nothing.
+                                                                        ++unpack_type_index;
+                                                                }
+
+                                                                form_args = form_arg->sibling;
+                                                                form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                                            }
+                                                            else if (form_args)
+                                                            {
+                                                                // is variadic
+                                                                if (with_template)
+                                                                    variadic_sets_template.push_back(override_func);
+                                                                else
+                                                                    variadic_sets.push_back(override_func);
+                                                                goto this_function_override_checking_over;
+                                                            }
+                                                            else
+                                                            {
+                                                                // not match , over..
+                                                                goto this_function_override_checking_over;
+                                                            }
+                                                            ecount--;
+                                                        }
+
                                                     }
-                                                    // else: bad match..
-                                                }
-                                            } while (form_args);
+
+                                                    if (dynamic_cast<ast_value_takeplace*>(real_arg))
+                                                        ;
+                                                    else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
+                                                        break;
+                                                    else if (form_arg->value_type->accept_type(real_arg->value_type, false))
+                                                        ;// do nothing..
+                                                    else
+                                                        break; // bad match, break..
+
+
+                                                    real_args = real_args->sibling;
+                                                match_check_end_for_variadic_func:
+                                                    if (form_args)
+                                                        form_args = form_args->sibling;
+
+
+                                                    if (form_args == nullptr)
+                                                    {
+                                                        // finish match check, add it to set
+                                                        if (real_args == nullptr)
+                                                        {
+                                                            if (with_template)
+                                                                best_match_sets_template.push_back(override_func);
+                                                            else
+                                                                best_match_sets.push_back(override_func);
+                                                        }
+                                                        // else: bad match..
+                                                    }
+                                                } while (form_args);
+                                            }
 
                                         this_function_override_checking_over:;
 
@@ -2442,7 +2472,24 @@ namespace wo
                                         }
                                         else
                                         {
-                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
+                                            if (tried_function.size() == 1)
+                                            {
+                                                auto* tried_func = tried_function.front();
+
+                                                if (tried_func->where_constraint && !tried_func->where_constraint->accept)
+                                                {
+                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"不满足函数的 'where' 约束要求，继续：");
+                                                    for (auto& error_info : tried_func->where_constraint->unmatched_constraint)
+                                                    {
+                                                        if (lang_anylizer->lex_enable_error_warn)
+                                                            lang_anylizer->lex_error_list.push_back(error_info);
+                                                    }
+                                                }
+                                                else
+                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL);
+                                            }
+                                            else
+                                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
                                         }
                                     }
                                 }
@@ -2727,11 +2774,19 @@ namespace wo
                         if (!a_value_funcdef->is_template_define)
                         {
                             // return-type adjust complete. do 'return' cast;
-                            a_value_funcdef->auto_adjust_return_type = false;// stop using auto-adjust
-                            if (a_value_funcdef->in_function_sentence)
+                            if (a_value_funcdef->where_constraint)
+                                analyze_pass2(a_value_funcdef->where_constraint);
+
+                            if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
                             {
-                                analyze_pass2(a_value_funcdef->in_function_sentence);
+                                a_value_funcdef->auto_adjust_return_type = false;// stop using auto-adjust
+                                if (a_value_funcdef->in_function_sentence)
+                                {
+                                    analyze_pass2(a_value_funcdef->in_function_sentence);
+                                }
                             }
+                            else
+                                a_value_funcdef->value_type->set_type_with_name(L"pending");
                         }
                     }
                     else if (ast_value_assign* a_value_assi = dynamic_cast<ast_value_assign*>(ast_node))
@@ -3530,6 +3585,50 @@ namespace wo
                     lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, L"元组元素类型未决，因此无法推导元组类型，继续");
                 }
             }
+            else if (ast_where_constraint* a_where_constraint = dynamic_cast<ast_where_constraint*>(ast_node))
+            {
+                ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
+                while (val)
+                {
+                    lang_anylizer->clear_err_flag();
+                    auto state = lang_anylizer->lex_enable_error_warn;
+                    lang_anylizer->lex_enable_error_warn = false;
+                    analyze_pass2(val);
+                    lang_anylizer->lex_enable_error_warn = state;
+
+                    if (lang_anylizer->has_error_flag)
+                    {
+                        // Current constraint failed, store it to list;
+                        a_where_constraint->unmatched_constraint.push_back(lang_anylizer->first_error_info);
+                        a_where_constraint->accept = false;
+                    }
+                    else
+                    {
+                        val->update_constant_value(lang_anylizer);
+                        if (!val->is_constant)
+                        {
+                            a_where_constraint->unmatched_constraint.push_back(
+                                lang_anylizer->make_error(0x0000, val, L"'where' 约束项必须得出一个常量结果，继续"));
+                            a_where_constraint->accept = false;
+                        }
+                        else if (!val->value_type->is_bool())
+                        {
+                            a_where_constraint->unmatched_constraint.push_back(
+                                lang_anylizer->make_error(0x0000, val, L"'where' 约束项得出的结果类型应该是 'bool'，但此处是 '%ls'，继续"
+                                    , val->value_type->get_type_name(false).c_str()));
+                            a_where_constraint->accept = false;
+                        }
+                        else if (0 == val->get_constant_value().handle)
+                        {
+                            a_where_constraint->unmatched_constraint.push_back(
+                                lang_anylizer->make_error(0x0000, val, L"'where' 检查发现不满足的条件，继续"));
+                            a_where_constraint->accept = false;
+                        }
+                    }
+                    val = dynamic_cast<ast_value*>(val->sibling);
+                }
+            }
+
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
             ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);

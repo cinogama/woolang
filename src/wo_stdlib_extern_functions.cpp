@@ -1468,18 +1468,26 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
 {
     // rslib_std_roroutine_launch(...)   
     auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<wo::vmbase*>(vm));
-    for (size_t i = argc - 1; i > 0; i--)
-        wo_push_valref(reinterpret_cast<wo_vm>(_nvm), args + i);
+    wo_int_t arg_count = 0;
+
+    if (argc == 2)
+    {
+        wo_value arg_pack = args + 1;
+        arg_count = wo_lengthof(arg_pack);
+
+        for (size_t i = arg_count; i > 0; i--)
+            wo_push_valref(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
+    }
 
     wo::shared_pointer<wo::RSCO_Waitter> gchandle_roroutine;
 
     auto functype = wo_valuetype(args + 0);
     if (WO_INTEGER_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_int(args + 0), argc - 1);
+        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_int(args + 0), arg_count);
     else if (WO_HANDLE_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_handle(args + 0), argc - 1);
+        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_handle(args + 0), arg_count);
     else if (WO_CLOSURE_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->get()->closure, argc - 1);
+        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->get()->closure, arg_count);
     else
         return wo_ret_halt(vm, "Unknown type to call.");
 
@@ -1562,7 +1570,12 @@ namespace std
     namespace co
     {
         extern("rslib_std_roroutine_launch")
-            func create<FT>(f:FT, ...)=>co;
+            func create<FT>(f: FT)=> co
+            where !(f() is pending);
+
+        extern("rslib_std_roroutine_launch")
+            func create<FT, ArgTs>(f: FT, args: ArgTs)=> co 
+            where !(f(args...) is pending);
         
         extern("rslib_std_roroutine_abort")
             func abort(co:co)=>void;

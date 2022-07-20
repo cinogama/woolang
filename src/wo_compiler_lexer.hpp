@@ -112,7 +112,7 @@ namespace wo
         l_continue,
         l_goto,
         l_at,
-        l_naming,
+        l_where,
         l_operator,
 
         l_expect,
@@ -246,7 +246,7 @@ namespace wo
             {L"break", {lex_type::l_break}},
             {L"continue", {lex_type::l_continue}},
             {L"goto", {lex_type::l_goto}},
-            {L"naming", {lex_type::l_naming}},
+            {L"where", {lex_type::l_where}},
             {L"operator", {lex_type::l_operator}},
             {L"expect", {lex_type::l_expect}},
             {L"union", {lex_type::l_union}},
@@ -460,21 +460,52 @@ namespace wo
         std::vector<lex_error_msg> lex_error_list;
         std::vector<lex_error_msg> lex_warn_list;
 
+        bool has_error_flag = false;
+        lex_error_msg first_error_info, last_error_info;
+        void clear_err_flag()
+        {
+            has_error_flag = false;
+        }
+
+        lex_error_msg& raise_err(const lex_error_msg& msg)
+        {
+            if (!has_error_flag)
+            {
+                has_error_flag = true;
+                return first_error_info = last_error_info = msg;
+            }
+            return last_error_info = msg;
+        }
+
         bool just_have_err = false; // it will be clear at next()
 
-        template<typename ... TS>
-        lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        template<typename AstT, typename ... TS>
+        lex_error_msg& make_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            if (!lex_enable_error_warn)
-                return lex_type::l_error;
-
-            just_have_err = true;
+            size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
+            size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_list.emplace_back(
-                lex_error_msg
+            return raise_err(lex_error_msg
+                {
+                    false,
+                    0x1000 + errorno,
+                    row_no,
+                    col_no,
+                    describe,
+                    tree_node->source_file
+                });
+        }
+
+        template<typename ... TS>
+        lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        {
+            wchar_t describe[256] = {};
+            swprintf(describe, 255, fmt, args...);
+
+            lex_error_msg& msg = raise_err(lex_error_msg
                 {
                     false,
                     0x1000 + errorno,
@@ -482,9 +513,14 @@ namespace wo
                     now_file_colno,
                     describe,
                     source_file
-                }
-            );
-            skip_error_line();
+                });
+
+            if (lex_enable_error_warn)
+            {
+                just_have_err = true;
+                lex_error_list.emplace_back(msg);
+                skip_error_line();
+            }
 
             return lex_type::l_error;
         }
@@ -513,16 +549,10 @@ namespace wo
         template<typename ... TS>
         lex_type parser_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
         {
-            if (!lex_enable_error_warn)
-                return lex_type::l_error;
-
-            just_have_err = true;
-
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_list.emplace_back(
-                lex_error_msg
+            lex_error_msg& msg = raise_err(lex_error_msg
                 {
                     false,
                     0x1000 + errorno,
@@ -530,8 +560,13 @@ namespace wo
                     next_file_colno,
                     describe,
                     source_file
-                }
-            );
+                });
+
+            if (lex_enable_error_warn)
+            {
+                just_have_err = true;
+                lex_error_list.emplace_back(msg);
+            }
             return lex_type::l_error;
         }
         template<typename ... TS>
@@ -559,19 +594,13 @@ namespace wo
         template<typename AstT, typename ... TS>
         lex_type lang_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            if (!lex_enable_error_warn)
-                return lex_type::l_error;
-
-            just_have_err = true;
-
             size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
             size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
-            lex_error_list.emplace_back(
-                lex_error_msg
+            lex_error_msg& msg = raise_err(lex_error_msg
                 {
                     false,
                     0x1000 + errorno,
@@ -579,8 +608,13 @@ namespace wo
                     col_no,
                     describe,
                     tree_node->source_file
-                }
-            );
+                });
+
+            if (lex_enable_error_warn)
+            {
+                just_have_err = true;
+                lex_error_list.emplace_back(msg);
+            }
             return lex_type::l_error;
         }
         template<typename AstT, typename ... TS>

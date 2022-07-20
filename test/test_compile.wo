@@ -5,46 +5,35 @@ import test_tool;
 
 namespace test_compile
 {
-    func compile_program(src: string)=> bool
+    func compile_program(src: string)=> (bool, std::vm)
     {
         let vmm = std::vm::create();
         let result = vmm->load_source("test_compile/test_tmp_script.wo", src);
         
-        vmm->close();
-        return result;
+        return (result, vmm);
     }
     func assure_compile_success(src: string)
     {
-        test_assure(compile_program(src));
+        let (success, vm) = compile_program(src);
+        if (!success)
+            std::println(vm->error_msg());
+
+        test_assure(success);
+
+        vm->close();
     }
     func assure_compile_fail(src: string)
     {
-        test_assure(!compile_program(src));
+        let (success, vm) = compile_program(src);
+        test_assure(!success);
+        
+        vm->close();
     }
 
     func main()
     {
         let begin_tm = std::time();
-        for (let i=0; i<1000; i+=1)
-        {
-            assure_compile_success(@"
-            import woo.std;
-            func demo<T>(val: T)
-            {
-                return "Hello" + val: string;
-            }
-            func main()
-            {
-                demo("world");
-                demo(123);
-                demo(1.72);
-                demo(0x0000H);
-            }
-            "@);
-        }
-        let end_time = std::time();
-        std::println("Compile 1000 src cost:", end_time - begin_tm);
-
+        
         // Empty source will failed.
         assure_compile_fail(@""@);
 
@@ -148,6 +137,22 @@ namespace test_compile
             func operator == (a: array<int>, let b: array<int>)=> string{return "Helloworld";}
             let a = 1; let b = (a == 1) as string;
         "@);
+        assure_compile_fail(@"
+            import woo.co;
+            std::co(func(x: int){});
+        "@);
+        assure_compile_fail(@"
+            import woo.co;
+            std::co(func(x: int){}, ());
+        "@);
+        assure_compile_fail(@"
+            import woo.co;
+            std::co(func(x: int){}, (1, 2, 3));
+        "@);
+        assure_compile_success(@"
+            import woo.co;
+            std::co(func(){}, ());
+        "@);
 
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);
@@ -189,6 +194,26 @@ namespace test_compile
         assure_compile_fail(@"let (a, b) = (1,);"@);
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
+    
+        for (let i=0; i<1000; i+=1)
+        {
+            assure_compile_success(@"
+                import woo.std;
+                func demo<T>(val: T)
+                {
+                    return "Hello" + val: string;
+                }
+                func main()
+                {
+                    demo("world");
+                    demo(123);
+                    demo(1.72);
+                    demo(0x0000H);
+                }
+            "@);
+        }
+        let end_time = std::time();
+        std::println("Compile 1000 src cost:", end_time - begin_tm);
     }
 }
 

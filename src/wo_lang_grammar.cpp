@@ -215,6 +215,25 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
 
+                gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON") >> gm::symlist{ gm::nt(L"WHERE_CONSTRAINT"), gm::te(gm::ttype::l_semicolon) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"WHERE_CONSTRAINT_MAY_EMPTY") >> gm::symlist{ gm::nt(L"WHERE_CONSTRAINT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"WHERE_CONSTRAINT_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"WHERE_CONSTRAINT") >> gm::symlist{ gm::te(gm::ttype::l_where), gm::nt(L"CONSTRAINT_LIST"), gm::nt(L"COMMA_MAY_EMPTY") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_where_constraint),
+
+                gm::nt(L"CONSTRAINT_LIST") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"CONSTRAINT_LIST") >> gm::symlist{ gm::nt(L"CONSTRAINT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"EXPRESSION") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FUNC_DEFINE_WITH_NAME") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -225,6 +244,7 @@ namespace wo
                             gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                             gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                             gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
+                            gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"),
                             gm::nt(L"SENTENCE_BLOCK") }
                             >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -236,6 +256,7 @@ namespace wo
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
+                                gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"),
                                 gm::nt(L"SENTENCE_BLOCK") }
                                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -289,6 +310,7 @@ namespace wo
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                                 gm::nt(L"RETURN_TYPE_DECLEAR"),
+                                gm::nt(L"WHERE_CONSTRAINT_MAY_EMPTY"),
                                     gm::te(gm::ttype::l_semicolon)
                 }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
@@ -302,6 +324,7 @@ namespace wo
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                                 gm::nt(L"RETURN_TYPE_DECLEAR"),
+                                gm::nt(L"WHERE_CONSTRAINT_MAY_EMPTY"),
                                     gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
@@ -472,6 +495,7 @@ namespace wo
                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::te(gm::ttype::l_left_brackets),gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_right_brackets),
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY"),
+                gm::nt(L"WHERE_CONSTRAINT_WITH_SEMICOLON"),
                 gm::nt(L"SENTENCE_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
