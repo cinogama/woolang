@@ -153,6 +153,42 @@ namespace test_compile
             import woo.co;
             std::co(func(){}, ());
         "@);
+        assure_compile_success(@"
+            let const Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
+            let const Same<A, B> = (nil: dynamic: A) is B;
+
+            func foo<FT, AT>(x: FT, y: AT)
+                where Invokable:<FT, AT>,  
+                           Same:<AT, int>;
+            {
+            }
+
+            foo(func(x: int){return x*2}, 2333);
+        "@);
+        assure_compile_fail(@"
+            let const Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
+            let const Same<A, B> = (nil: dynamic: A) is B;
+
+            func foo<FT, AT>(x: FT, y: AT)
+                where Invokable:<FT, AT>,  
+                           Same:<AT, int>;
+            {
+            }
+
+            foo(func(x: string){}, 2333);
+        "@);
+        assure_compile_fail(@"
+            let const Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
+            let const Same<A, B> = (nil: dynamic: A) is B;
+
+            func foo<FT, AT>(x: FT, y: AT)
+                where Invokable:<FT, AT>,  
+                           Same:<AT, int>;
+            {
+            }
+
+            foo(func(x: string){}, "Helloworld");
+        "@);
 
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);
