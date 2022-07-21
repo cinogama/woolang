@@ -2646,9 +2646,21 @@ namespace wo
                                 }
                                 if (real_args)
                                 {
-                                    if (dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
+                                    if (ast_fakevalue_unpacked_args* unpackval = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
                                     {
                                         // TODO MARK NOT NEED EXPAND HERE
+                                        if (unpackval->unpacked_pack->value_type->is_tuple())
+                                        {
+                                            size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->using_type_name
+                                                ? unpackval->unpacked_pack->value_type->using_type_name->template_arguments.size()
+                                                : unpackval->unpacked_pack->value_type->template_arguments.size();
+
+                                            if (tuple_arg_sz != 0)
+                                            {
+                                                failed_to_call_cur_func = true;
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            }
+                                        }
                                     }
                                     else
                                     {

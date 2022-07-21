@@ -853,6 +853,17 @@ union result<T, F>
     ok(T),
     err(F),
 }
+namespace result
+{
+    func unwarp<T, F>(r: result<T, F>)=> T
+    {
+        match(r)
+        {
+            ok(v)? return v;
+            err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        }
+    }
+}
 
 namespace std
 {
