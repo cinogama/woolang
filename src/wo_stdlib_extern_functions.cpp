@@ -1031,6 +1031,32 @@ namespace array
     extern("rslib_std_array_clear")
         func clear<T>(val:array<T>)=>void;
 
+    func forall<T>(val: array<T>, functor: (T)=>bool)
+    {
+        let result = []: array<T>;
+        for (let elem : val)
+            if (functor(elem))
+                result->add(elem);
+        return result;
+    }
+
+    func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
+    {
+        let result = []: array<R>;
+        for (let elem : val)
+            for (let insert : functor(elem))
+                result->add(insert);
+        return result;
+    }
+
+    func trans<T, R>(val: array<T>, functor: (T)=>R)
+    {
+        let result = []: array<R>;
+        for (let elem : val)
+            result->add(functor(elem));
+        return result;
+    }
+
     using iterator<T> = gchandle;
     namespace iterator 
     {
