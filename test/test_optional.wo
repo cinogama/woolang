@@ -14,7 +14,7 @@ namespace test_optional
 
     func main()
     {
-        let p<T> = 0: T;
+        let mut p<T> = 0: T;
 
         p:<real> = 128.0; 
         test_assure(p:<int> == 0);
@@ -31,7 +31,7 @@ namespace test_optional
 
         foo();
 
-        let gval = option::none as option<array<string>>;
+        let mut gval = option::none as option<array<string>>;
         gval = option::value([]: array<string>);
 
         match(gval)

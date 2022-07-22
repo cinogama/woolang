@@ -28,8 +28,7 @@ namespace wo
         bool static_symbol = false;
         bool has_been_defined_in_pass2 = false;
         bool is_constexpr = false;
-        bool has_been_assigned = false;
-        bool is_ref = false;
+        ast::identifier_decl decl = ast::identifier_decl::IMMUTABLE;
         bool is_captured_variable = false;
 
         union
@@ -560,9 +559,9 @@ namespace wo
                     if (init_value_is_lambda)
                         analyze_pass1(initval);
 
-                    a_pattern_identifier->symbol->is_ref = a_pattern_identifier->is_ref;
+                    a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
 
-                    if (a_pattern_identifier->is_ref)
+                    if (a_pattern_identifier->decl == ast::identifier_decl::REF)
                         initval->is_mark_as_using_ref = true;
                 }
                 else
@@ -570,12 +569,10 @@ namespace wo
                     // Template variable!!! we just define symbol here.
                     auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
                     symb->is_template_symbol = true;
-
                     wo_assert(symb->template_types.empty());
-
                     symb->template_types = a_pattern_identifier->template_arguments;
-
                     a_pattern_identifier->symbol = symb;
+                    a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
                 }
             }
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
@@ -611,7 +608,7 @@ namespace wo
                     analyze_pass2(initval);
 
                     a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
-                    if (a_pattern_identifier->symbol->is_ref)
+                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
                     {
                         initval->is_mark_as_using_ref = true;
                         if (auto* a_val_tkpalce = dynamic_cast<ast_value_takeplace*>(initval))
@@ -639,7 +636,7 @@ namespace wo
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
                         impl_symbol->has_been_defined_in_pass2 = true;
-                        if (a_pattern_identifier->symbol->is_ref)
+                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
                         {
                             impl_symbol->variable_value->is_mark_as_using_ref = true;
 
@@ -694,7 +691,7 @@ namespace wo
             {
                 if (a_pattern_identifier->template_arguments.empty())
                 {
-                    if (a_pattern_identifier->symbol->is_ref)
+                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
                     {
                         auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
@@ -755,7 +752,7 @@ namespace wo
                         = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
                     for (auto& [_, symbol] : all_template_impl_variable_symbol)
                     {
-                        if (a_pattern_identifier->symbol->is_ref)
+                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
                         {
                             auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
@@ -992,7 +989,8 @@ namespace wo
                     {
                         a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
                     }
-                    a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
+                    if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
+                        a_value_idx->can_be_assign = false;
                 }
 
             }
@@ -1010,7 +1008,6 @@ namespace wo
                 if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
                 {
                     // If symbol is template variable, delay the type calc.
-                    lsymb->symbol->has_been_assigned = true;
                     a_value_assi->value_type->set_type(a_value_assi->left->value_type);
                 }
             }
@@ -1121,7 +1118,8 @@ namespace wo
                                 }
 
                                 argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
-                                argdef->symbol->is_ref = argdef->is_ref;
+
+                                argdef->symbol->decl = argdef->decl;
                             }
                         }
                         else
@@ -1600,7 +1598,7 @@ namespace wo
 
                         if (auto* a_pattern_identifier = dynamic_cast<ast::ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                         {
-                            if (a_pattern_identifier->is_ref)
+                            if (a_pattern_identifier->decl == identifier_decl::REF)
                                 a_match_union_case->take_place_value_may_nil->as_ref = true;
                         }
                         else
@@ -1756,6 +1754,7 @@ namespace wo
                     analyze_pass1(dumpped_template_init_value);
                     analyze_pass1(origin_variable);
                     template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
+                    template_reification_symb->decl = origin_variable->symbol->decl;
                     end_template_scope();
                 }
                 temporary_leave_scope_in_pass1();
@@ -2053,7 +2052,8 @@ namespace wo
                                 {
                                     a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
                                 }
-                                a_value_idx->can_be_assign = a_value_idx->from->can_be_assign;
+                                if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
+                                    a_value_idx->can_be_assign = false;
                             }
                         }
                         else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
@@ -2805,10 +2805,6 @@ namespace wo
                         analyze_pass2(a_value_assi->left);
                         analyze_pass2(a_value_assi->right);
 
-                        if (auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left)
-                            ; lsymb && lsymb->symbol)
-                            lsymb->symbol->has_been_assigned = true;
-
                         if (a_value_assi->right->value_type->is_pending_function())
                         {
                             // Function assign, auto find overload? no! type must be case by user
@@ -2933,7 +2929,8 @@ namespace wo
                         }
 
                         if (!a_value_index->from->value_type->is_string())
-                            a_value_index->can_be_assign = a_value_index->from->can_be_assign;
+                            if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
+                                a_value_index->can_be_assign = false;
                     }
                     else if (ast_value_indexed_variadic_args* a_value_variadic_args_idx = dynamic_cast<ast_value_indexed_variadic_args*>(ast_node))
                     {
@@ -3650,21 +3647,28 @@ namespace wo
                     )
                 )
             {
-                if (a_value_base->symbol && a_value_base->symbol->attribute->is_constant_attr())
-                    a_value_base->can_be_assign = false;
-
+                if (a_value_base->symbol)
+                {
+                    if (a_value_base->symbol->attribute->is_constant_attr())
+                    {
+                        a_value_base->can_be_assign = false;
+                        a_value_base->is_const_value = true;
+                    }
+                    else if (a_value_base->symbol->decl == identifier_decl::IMMUTABLE)
+                    {
+                        a_value_base->can_be_assign = false;
+                    }
+                }
                 if (a_value_base->is_mark_as_using_ref)
                 {
-                    if (a_value_base->symbol && a_value_base->can_be_assign)
-                        a_value_base->symbol->has_been_assigned = true;
-                    else
+                    if (!a_value_base->symbol || !a_value_base->can_be_assign)
                         lang_anylizer->lang_error(0x0000, a_value_base, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
                 }
 
                 // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
                 // DECIDED BY a_value_base->symbol->is_ref
 
-                if (a_value_base->symbol && a_value_base->symbol->is_ref)
+                if (a_value_base->symbol && a_value_base->symbol->decl == identifier_decl::REF)
                     a_value_base->is_ref_ob_in_finalize = true;
 
                 if (!a_value_base_for_attrb)
@@ -3828,14 +3832,12 @@ namespace wo
 
         bool is_need_dup_when_mov(ast::ast_value* val)
         {
-            if (dynamic_cast<ast::ast_value_symbolable_base*>(val))
-            {
-                if (!val->can_be_assign && (
-                    val->value_type->is_dynamic()
-                    || val->value_type->is_map()
-                    || val->value_type->is_array()))
-                    return true;
-            }
+            if (val->is_const_value && (
+                val->value_type->is_dynamic()
+                || val->value_type->is_map()
+                || val->value_type->is_array()
+                || val->value_type->is_struct()))
+                return true;
             return false;
         }
 
@@ -5806,7 +5808,8 @@ namespace wo
                     {
                         if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
                         {
-                            if (a_value_arg_define->is_ref || !a_value_arg_define->symbol->has_been_assigned)
+                            if (a_value_arg_define->decl == ast::identifier_decl::REF
+                                || a_value_arg_define->decl == ast::identifier_decl::IMMUTABLE)
                             {
                                 funcdef->this_func_scope->
                                     reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
@@ -6581,6 +6584,7 @@ namespace wo
                 if (symbol->variable_value->is_constant)
                 {
                     is_constant = true;
+                    symbol->is_constexpr = true;
                     constant_value = symbol->variable_value->get_constant_value();
                 }
             }

@@ -6,7 +6,7 @@ using test_func_pair = struct{
     function: ()=>void,
 };
 let test_function_set = []:array<test_func_pair>;
-let test_success_count = 0, test_failed_count = 0;
+let mut test_success_count = 0, mut test_failed_count = 0;
 
 func test_function(func_name:string, test_func:()=>void)
 {
@@ -18,7 +18,7 @@ func test_function(func_name:string, test_func:()=>void)
 
 func execute_all_test()
 {
-    let i = 0;
+    let mut i = 0;
     while (i < test_function_set->len())
     {
         test_success_count = 0;

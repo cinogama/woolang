@@ -3,8 +3,8 @@ import test_tool;
 
 namespace test_helloworld
 {
-    let _should_not_be_set_flag = false;
-    let _should_be_set_flag = false;
+    let mut _should_not_be_set_flag = false;
+    let mut _should_be_set_flag = false;
 
     func execute_func()
     {

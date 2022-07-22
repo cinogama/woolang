@@ -10,8 +10,8 @@ namespace test_operator_overload
 
     func operator * (a:string, b:int)
     {
-        let result = "";
-        for (let i = 0; i<b; i+=1)
+        let mut result = "";
+        for (let mut i = 0; i<b; i+=1)
             result += a;
         return result;
     }

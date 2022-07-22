@@ -11,7 +11,7 @@ namespace test_basic
 
     func main()
     {
-        let a = 15;
+        let mut a = 15;
         test_equal(a/3, 5);
         test_equal(a/4, 3);
         test_equal(a/5, 3);
@@ -37,7 +37,7 @@ namespace test_basic
         test_assure(abs(1.2 / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(1.2 % 0.6) < 0.0000000001);
 
-        let x = 1.2;
+        let mut x = 1.2;
         test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
@@ -59,8 +59,8 @@ namespace test_basic
         test_assure(abs(a * 0.2:dynamic - 3) < 0.0000000001);
         test_assure(abs(a / 0.2:dynamic - 75) < 0.0000000001);
     
-        let p = 1;
-        let q = 1.0;
+        let mut p = 1;
+        let mut q = 1.0;
 
         q = 75: real;
         q += 0.62;

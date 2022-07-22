@@ -72,7 +72,7 @@ namespace test_template
     func test_cost_time<T>()
     {
         let begin_time = std::time();
-        let i = 0:T;
+        let mut i = 0:T;
         while (i < 1_0000_0000:T)
             i += 1:T;
         let end_time = std::time();
@@ -198,7 +198,7 @@ namespace test_template
         return func()=>T1{} is ()=>T2;
     }
 
-    let constexpr_if_test_flag = false;
+    let mut constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
         std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
@@ -270,16 +270,16 @@ namespace test_template
         test_assure(template_func_symb_inside:<real>() == 3.14159);
         test_assure(template_func_symb_inside:<string>() == "pi");
 
-        let xfunc = test_typeof_in_template:<int>;
+        let mut xfunc = test_typeof_in_template:<int>;
         xfunc = func(){return func(){};};
 
-        let xfunc2 = test_typeof_in_template:<int>();
+        let mut xfunc2 = test_typeof_in_template:<int>();
         xfunc2 = func(){};
  
-        let xfunc3 = test_typeof_in_template2:<int>;
+        let mut xfunc3 = test_typeof_in_template2:<int>;
         xfunc3 = func(){return func(){return 0;};};
 
-        let xfunc4 = test_typeof_in_template2:<int>();
+        let mut xfunc4 = test_typeof_in_template2:<int>();
         xfunc4 = func(){return 0;};
 
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");

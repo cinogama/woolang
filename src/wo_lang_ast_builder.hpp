@@ -71,6 +71,13 @@ namespace wo
 #endif
         /////////////////////////////////////////////////////////////////////////////////
 
+        enum class identifier_decl
+        {
+            IMMUTABLE,
+            MUTABLE,
+            REF
+        };
+
         struct ast_value;
         ast_value* dude_dump_ast_value(ast_value*);
         struct ast_type;
@@ -753,6 +760,8 @@ namespace wo
 
             bool is_mark_as_using_ref = false;
             bool is_ref_ob_in_finalize = false;
+            
+            bool is_const_value = false;
             bool can_be_assign = false;
 
             bool is_constant = false;
@@ -1820,13 +1829,13 @@ namespace wo
 
         struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
-            bool is_ref = false;
+            identifier_decl decl = identifier_decl::IMMUTABLE;
             std::wstring arg_name;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
-                os << L"< " << ANSI_HIY << (is_ref ? L"ref " : L"var ")
+                os << L"< " << ANSI_HIY << (decl == identifier_decl::REF ? L"ref " : L"var ")
                     << arg_name << ANSI_HIM << L" (" << value_type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
             }
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2748,7 +2757,7 @@ namespace wo
             {
                 wo_assert(argindex);
                 value_type = new ast_type(L"dynamic");
-                can_be_assign = true;
+                can_be_assign = false;
             }
 
             ast_value_indexed_variadic_args() {}
@@ -3176,7 +3185,8 @@ namespace wo
 
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
-            bool is_ref = false;
+            identifier_decl decl = identifier_decl::IMMUTABLE;
+
             std::wstring identifier;
             lang_symbol* symbol = nullptr;
             ast_decl_attribute* attr = nullptr;
@@ -3892,7 +3902,7 @@ namespace wo
                         while (arguments)
                         {
                             auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
-                            if (argdef->is_ref)
+                            if (argdef->decl == identifier_decl::REF)
                                 lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
                                     dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier.c_str());
                             arguments = arguments->sibling;
@@ -3953,7 +3963,7 @@ namespace wo
                     while (arguments)
                     {
                         auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
-                        if (argdef->is_ref)
+                        if (argdef->decl == identifier_decl::REF)
                             lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
                                 dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier.c_str());
                         arguments = arguments->sibling;
@@ -4839,16 +4849,21 @@ namespace wo
 
                 if (input.size() == 4)
                 {
-                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_ref);
+                    if (WO_NEED_TOKEN(1).type == +lex_type::l_ref)
+                        arg_def->decl = identifier_decl::REF;
+                    else
+                    {
+                        wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_mut);
+                        arg_def->decl = identifier_decl::MUTABLE;
+                    }
 
-                    arg_def->is_ref = true;
                     arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
-                    arg_def->is_ref = false;
+
                     arg_def->arg_name = WO_NEED_TOKEN(1).identifier;
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 }
@@ -4908,7 +4923,7 @@ namespace wo
                 {
                     if (auto* a_identi = dynamic_cast<ast_pattern_identifier*>(a_var_defs))
                     {
-                        if (a_identi->is_ref)
+                        if (a_identi->decl == identifier_decl::REF)
                             lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
                     }
 
@@ -5256,7 +5271,6 @@ namespace wo
 
                         ast_value_arg_define* argdef = new ast_value_arg_define;
                         argdef->arg_name = L"_val";
-                        argdef->is_ref = false;
                         argdef->value_type = items->type_may_nil;
                         argdef->declear_attribute = new ast_decl_attribute;
                         avfd_item_type_builder->argument_list->add_child(argdef);
@@ -5369,7 +5383,14 @@ namespace wo
                 auto* result = new ast_pattern_identifier;
                 if (input.size() == 3)
                 {
-                    result->is_ref = true;
+                    if (WO_NEED_TOKEN(0).type == +lex_type::l_ref)
+                        result->decl = identifier_decl::REF;
+                    else
+                    {
+                        wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
+                        result->decl = identifier_decl::MUTABLE;
+                    }
+
                     result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
                     result->identifier = WO_NEED_TOKEN(2).identifier;
                 }
@@ -5400,7 +5421,7 @@ namespace wo
 
                         ast_value_takeplace* val_take_place = new ast_value_takeplace;
                         if (ast_pattern_identifier* ipat = dynamic_cast<ast_pattern_identifier*>(child_pattern))
-                            val_take_place->as_ref = ipat->is_ref;
+                            val_take_place->as_ref = (ipat->decl == identifier_decl::REF);
                         else
                             val_take_place->as_ref = true;
 

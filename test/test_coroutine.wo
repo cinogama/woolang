@@ -10,7 +10,7 @@ namespace test_coroutine
         using std;
 
         let co1 = co(func(){
-            for(let i = 0;i < 3;i += 1)
+            for(let mut i = 0;i < 3;i += 1)
             {
                 co::sleep(1.);
                 println("Helloworld");
@@ -34,10 +34,10 @@ namespace test_coroutine
     {
         let co_list = []:array< std::co >;
 
-        for(let i = 0;i < 1000;i += 1)
+        for(let mut i = 0;i < 1000;i += 1)
         {
             co_list->add(std::co(func(){
-                for(let i = 0;i < 3;i += 1)
+                for(let mut i = 0;i < 3;i += 1)
                 {
                     std::co::sleep(1.);
                 }
@@ -49,11 +49,11 @@ namespace test_coroutine
 
         co_list->clear();
 
-        for(let i = 0;i < 4;i += 1)
+        for(let mut i = 0;i < 4;i += 1)
             co_list->add(std::co(
                 func()
                 {
-                    for(i = 0;i < 1'000'000;i += 1)
+                    for(let mut j = i; j < 1'000'000; j += 1)
                         std::co::yield();
                 }
             ));
@@ -78,7 +78,7 @@ namespace test_coroutine
 
         let co_list = []:array<std::co>;
 
-        for(let i = 0; i < 1000; i += 1)
+        for(let mut i = 0; i < 1000; i += 1)
             co_list->add(std::co(
                 func()
                 {
@@ -106,17 +106,17 @@ namespace test_coroutine
         std::println("close vm!");
         vm->close();
 
-        let aim_value = false;
+        let mut aim_value = false;
         let _pack = [ref aim_value];
 
-        let co1 = std::co(func(){ _pack[0] = true });
+        let mut co1 = std::co(func(){ _pack[0] = true });
         while(!co1->completed())
             std::sleep(0.1);
 
         test_assure(aim_value);
 
         co1 = std::co(func(){
-            for (let i = 0; i < 10; i += 1)
+            for (let mut i = 0; i < 10; i += 1)
             {
                 std::println("co working:", i);
                 std::co::yield();
@@ -142,7 +142,7 @@ namespace test_coroutine
         std::co::stop_all();
 
         co1 = std::co(func(){
-            for (let i = 0; i < 10; i += 1)
+            for (let mut i = 0; i < 10; i += 1)
             {
                 std::println("co working:", i);
                 std::co::yield();
