@@ -1737,9 +1737,7 @@ namespace wo
                     }
                     break;
                     default:
-                        lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            left->value_type->get_type_name(false).c_str(),
-                            right->value_type->get_type_name(false).c_str());
+                        is_constant = false;
                         return;
                     }
                 }

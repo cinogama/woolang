@@ -6574,7 +6574,7 @@ namespace wo
         inline void ast_value_variable::update_constant_value(lexer* lex)
         {
             // TODO: constant variable here..
-            if (symbol && symbol->attribute->is_constant_attr())
+            if (symbol && (symbol->attribute->is_constant_attr() || symbol->decl == identifier_decl::IMMUTABLE))
             {
                 symbol->variable_value->update_constant_value(lex);
                 if (symbol->variable_value->is_constant)
