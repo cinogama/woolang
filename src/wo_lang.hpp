@@ -4668,11 +4668,7 @@ namespace wo
                                 compiler->pshr(val);
                         }
                         else if (is_need_dup_when_mov(argv))
-                        {
-                            auto& tmpreg = analyze_value(argv, compiler, true);
-                            compiler->ext_movdup(tmpreg, tmpreg);
-                            compiler->psh(complete_using_register(tmpreg));
-                        }
+                            lang_anylizer->lang_error(0x0000, argv, L"不允许将 'const' 的非平凡类型值作为调用函数的参数，继续");
                         else
                             compiler->psh(complete_using_register(analyze_value(argv, compiler)));
                     }
@@ -5495,7 +5491,7 @@ namespace wo
                 if (a_return->return_value)
                 {
                     if (is_need_dup_when_mov(a_return->return_value))
-                        compiler->ext_movdup(reg(reg::cr), auto_analyze_value(a_return->return_value, compiler));
+                        lang_anylizer->lang_error(0x0000, a_return, L"不允许将 'const' 的非平凡类型值作为函数的返回值，继续");
                     else if (a_return->return_value->is_mark_as_using_ref)
                         set_ref_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else if (a_return->return_value->is_mark_as_using_ref)
