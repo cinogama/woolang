@@ -1814,6 +1814,7 @@ namespace std
 
         l_let,
         l_ref,
+        l_mut,
         l_func,
         l_return,
         l_using,
@@ -1832,7 +1833,7 @@ namespace std
         l_continue,
         l_goto,
         l_at,
-        l_naming,
+        l_where,
         l_operator,
 
         l_expect,
