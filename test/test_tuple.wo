@@ -12,7 +12,7 @@ namespace test_tuple
     func foo1()
     {
         let t = (1, 2, 3);
-        let (ref a, b, ref c) = t;
+        let (ref a, mut b, ref c) = t;
 
         a = b = c = 233;
 
@@ -40,7 +40,7 @@ namespace test_tuple
         let p = option::value((1, 2, (3, 4)));
         match(p)
         {
-            value((ref a, b, (c, ref d)))?
+            value((ref a, mut b, (mut c, ref d)))?
                 a = b = c = d = 233666;
             none?
                 std::fail("That's should not happend.");

@@ -6,7 +6,7 @@ import woo.thread;
 namespace test_thread
 {
     let summ_mtx = std::spin::create();
-    let summ = 0;
+    let mut summ = 0;
 
     let created_threads = []:array<std::thread>;
 
@@ -14,14 +14,14 @@ namespace test_thread
 
     func main()
     {
-        let i = 0;
+        let mut i = 0;
         while (i<thread_count)
         {
             created_threads->add(
                 std::thread::create(
                     func(id:int)
                     {
-                        let c = 0;
+                        let mut c = 0;
                         while (c<10_000_000)
                         {
                             summ_mtx->lock();
@@ -49,7 +49,7 @@ namespace test_thread
 
         // Thread should be abort-able..
         summ = 0;
-        let this_should_be_true = false;
+        let mut this_should_be_true = false;
         let __pack = [ref this_should_be_true];
         let th = std::thread::create(
             func(ref i: int)

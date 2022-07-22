@@ -31,7 +31,7 @@ namespace test_vm
         vmm->close();
 
         // Test memmory leak
-        let i = 0;
+        let mut i = 0;
         while (i < 1000)
         {
             i += 1;

@@ -94,6 +94,7 @@ namespace wo
 
         l_let,
         l_ref,
+        l_mut,
         l_func,
         l_return,
         l_using,
@@ -229,6 +230,7 @@ namespace wo
             {L"else", {lex_type::l_else}},
             {L"let", {lex_type::l_let }},
             {L"ref", {lex_type::l_ref}},
+            {L"mut", {lex_type::l_mut}},
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},
             {L"using", {lex_type::l_using} },

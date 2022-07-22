@@ -231,7 +231,7 @@ namespace test_compile
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
     
-        for (let i=0; i<1000; i+=1)
+        for (let mut i=0; i<1000; i+=1)
         {
             assure_compile_success(@"
                 import woo.std;

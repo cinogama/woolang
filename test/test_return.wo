@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_return
 {
-    let a = 0;
+    let mut a = 0;
 
     func ret_ref_a()
     {

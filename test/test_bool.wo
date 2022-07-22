@@ -13,7 +13,7 @@ namespace test_bool
     }
     func main()
     {
-        let a = 5:bool;
+        let mut a = 5:bool;
         test_assure(a == true);
         test_assure(a != false);
 

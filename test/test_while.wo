@@ -12,12 +12,12 @@ namespace test_while
 
     func main()
     {
-        let i = 0;
-        let n = 0;
+        let mut i = 0;
+        let mut n = 0;
         while (i < 100_0000)
         {
                 n += 1;
-                i+=1;
+                i += 1;
         }
 
         test_equal(n, 100_0000);

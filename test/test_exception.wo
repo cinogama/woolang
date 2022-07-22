@@ -22,7 +22,7 @@ namespace test_exception
 import woo.std;
 func test()
 {
-    static let n = 0;
+    static let mut n = 0;
     if (n == 1)
         std::throw("This exception should be throw.");
     else
