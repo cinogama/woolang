@@ -769,10 +769,33 @@ void _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype excep
         _wo_cast_array(value, lex);
     else if (lex_type == +wo::lex_type::l_literal_string) // is string
         value->set_string(wo::wstr_to_str(wstr).c_str());
-    else if (lex_type == +wo::lex_type::l_literal_integer) // is integer
-        value->set_integer(std::stoll(wo::wstr_to_str(wstr).c_str()));
-    else if (lex_type == +wo::lex_type::l_literal_real) // is real
-        value->set_real(std::stod(wo::wstr_to_str(wstr).c_str()));
+    else if (lex_type == +wo::lex_type::l_add
+        || lex_type == +wo::lex_type::l_sub
+        || lex_type == +wo::lex_type::l_literal_integer
+        || lex_type == +wo::lex_type::l_literal_real) // is integer
+    {
+        bool positive = true;
+        if (lex_type == +wo::lex_type::l_sub || lex_type == +wo::lex_type::l_add)
+        {
+            lex_type = lex->next(&wstr);
+            if (lex_type == +wo::lex_type::l_sub)
+                positive = false;
+
+            if (lex_type != +wo::lex_type::l_literal_integer
+                && lex_type != +wo::lex_type::l_literal_real)
+                wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+        }
+
+        if (lex_type == +wo::lex_type::l_literal_integer) // is real
+            value->set_integer(positive
+                ? std::stoll(wo::wstr_to_str(wstr).c_str())
+                : -std::stoll(wo::wstr_to_str(wstr).c_str()));
+        else if (lex_type == +wo::lex_type::l_literal_real) // is real
+            value->set_real(positive
+                ? std::stod(wo::wstr_to_str(wstr).c_str())
+                : -std::stod(wo::wstr_to_str(wstr).c_str()));
+
+    }
     else if (lex_type == +wo::lex_type::l_nil) // is nil
         value->set_nil();
     else if (wstr == L"true")

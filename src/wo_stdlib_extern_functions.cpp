@@ -898,14 +898,14 @@ namespace std
     extern("rslib_std_get_extern_symb")
         func extern_symbol<T>(fullname:string)=> option<T>;
 
-    func max<T>(a:T, b:T) => bool
+    func max<T>(a:T, b:T)
     {
         if (a >= b)
             return a;
         return b;
     }
 
-    func min<T>(a:T, b:T) => bool
+    func min<T>(a:T, b:T)
     {
         if (a <= b)
             return a;
