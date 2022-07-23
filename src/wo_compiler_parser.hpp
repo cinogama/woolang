@@ -143,11 +143,12 @@ namespace wo
             {
                 wo_assert(out_list.empty() || nullptr == list || list->empty());
 
-                if (list)
-                {
-                    out_list.swap(*list);
-                    return true;
-                }
+                if (!list)
+                    list = new std::forward_list<ast_base*>;
+
+                out_list.swap(*list);
+                return true;
+
                 return false;
             }
 
@@ -174,7 +175,6 @@ namespace wo
             {
                 if (!list)
                     list = new std::forward_list<ast_base*>;
-
                 list->push_front(this);
             }
             void remove_allnode()
