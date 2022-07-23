@@ -3607,7 +3607,12 @@ namespace wo
                     if (lang_anylizer->has_error_flag)
                     {
                         // Current constraint failed, store it to list;
-                        a_where_constraint->unmatched_constraint.push_back(lang_anylizer->first_error_info);
+                        a_where_constraint->unmatched_constraint.push_back(
+                            lang_anylizer->make_error(0x0000, val, L"约束项存在语法错误，以下是错误内容，继续："));
+                        a_where_constraint->unmatched_constraint.insert(
+                            a_where_constraint->unmatched_constraint.end(),
+                            lang_anylizer->error_frame.begin(),
+                            lang_anylizer->error_frame.end());
                         a_where_constraint->accept = false;
                     }
                     else
@@ -3616,20 +3621,20 @@ namespace wo
                         if (!val->is_constant)
                         {
                             a_where_constraint->unmatched_constraint.push_back(
-                                lang_anylizer->make_error(0x0000, val, L"'where' 约束项必须得出一个常量结果，继续"));
+                                lang_anylizer->make_error(0x0000, val, L"约束项必须得出一个常量结果，继续"));
                             a_where_constraint->accept = false;
                         }
                         else if (!val->value_type->is_bool())
                         {
                             a_where_constraint->unmatched_constraint.push_back(
-                                lang_anylizer->make_error(0x0000, val, L"'where' 约束项得出的结果类型应该是 'bool'，但此处是 '%ls'，继续"
+                                lang_anylizer->make_error(0x0000, val, L"约束项得出的结果类型应该是 'bool'，但此处是 '%ls'，继续"
                                     , val->value_type->get_type_name(false).c_str()));
                             a_where_constraint->accept = false;
                         }
                         else if (0 == val->get_constant_value().handle)
                         {
                             a_where_constraint->unmatched_constraint.push_back(
-                                lang_anylizer->make_error(0x0000, val, L"'where' 检查发现不满足的条件，继续"));
+                                lang_anylizer->make_error(0x0000, val, L"检查发现不满足的条件，继续"));
                             a_where_constraint->accept = false;
                         }
                     }

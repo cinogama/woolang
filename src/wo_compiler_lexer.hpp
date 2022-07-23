@@ -463,9 +463,10 @@ namespace wo
         std::vector<lex_error_msg> lex_warn_list;
 
         bool has_error_flag = false;
-        lex_error_msg first_error_info, last_error_info;
+        std::vector<lex_error_msg> error_frame;
         void clear_err_flag()
         {
+            error_frame.clear();
             has_error_flag = false;
         }
 
@@ -474,9 +475,9 @@ namespace wo
             if (!has_error_flag)
             {
                 has_error_flag = true;
-                return first_error_info = last_error_info = msg;
+                return error_frame.emplace_back(msg);
             }
-            return last_error_info = msg;
+            return error_frame.emplace_back(msg);
         }
 
         bool just_have_err = false; // it will be clear at next()
