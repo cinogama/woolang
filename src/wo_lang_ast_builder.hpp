@@ -689,6 +689,10 @@ namespace wo
             {
                 return value_type == value::valuetype::handle_type && !is_func();
             }
+            bool is_gchandle() const
+            {
+                return value_type == value::valuetype::gchandle_type && !is_func();
+            }
 
             std::wstring get_type_name(bool ignore_using_type = true) const
             {

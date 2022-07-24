@@ -1031,7 +1031,9 @@ namespace wo
                     else if ((a_value_logic_bin->left->value_type->is_integer()
                         || a_value_logic_bin->left->value_type->is_handle()
                         || a_value_logic_bin->left->value_type->is_real()
-                        || a_value_logic_bin->left->value_type->is_string())
+                        || a_value_logic_bin->left->value_type->is_string()
+                        || a_value_logic_bin->left->value_type->is_gchandle()
+                        || a_value_logic_bin->left->value_type->is_dynamic())
                         && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                     {
                         a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
@@ -3051,7 +3053,9 @@ namespace wo
                                 else if ((a_value_logic_bin->left->value_type->is_integer()
                                     || a_value_logic_bin->left->value_type->is_handle()
                                     || a_value_logic_bin->left->value_type->is_real()
-                                    || a_value_logic_bin->left->value_type->is_string())
+                                    || a_value_logic_bin->left->value_type->is_string()
+                                    || a_value_logic_bin->left->value_type->is_gchandle()
+                                    || a_value_logic_bin->left->value_type->is_dynamic())
                                     && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                                     type_ok = true;
                             }
