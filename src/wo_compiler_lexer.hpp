@@ -1460,6 +1460,8 @@ namespace wo
                 wo_close_vm(_macro_action_vm);
                 _macro_action_vm = nullptr;
             }
+            else
+                wo_run(_macro_action_vm);
         }
         else
             lex.lex_error(0x0000, WO_ERR_HERE_SHOULD_HAVE, L"{");

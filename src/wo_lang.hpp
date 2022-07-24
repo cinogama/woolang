@@ -1018,9 +1018,9 @@ namespace wo
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
 
-                if (!a_value_logic_bin->left->value_type->is_bool()
+                if (a_value_logic_bin->left->value_type->is_custom()
                     || a_value_logic_bin->left->value_type->using_type_name
-                    || !a_value_logic_bin->right->value_type->is_bool()
+                    || a_value_logic_bin->right->value_type->is_custom()
                     || a_value_logic_bin->right->value_type->using_type_name
                     || !a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
