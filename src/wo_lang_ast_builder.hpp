@@ -544,7 +544,14 @@ namespace wo
                     return get_type_name(ignore_using_type) == another->get_type_name(ignore_using_type);
                 return false;
             }
-
+            bool is_builtin_basic_type()
+            {
+                if (is_bool())
+                    return true;
+                if (is_custom() || using_type_name)
+                    return false;
+                return true;
+            }
             bool accept_type(const ast_type* another, bool ignore_using_type) const
             {
                 if (is_pending_function() || another->is_pending_function())
@@ -617,22 +624,22 @@ namespace wo
             bool is_union() const
             {
                 return !is_func() &&
-                    (type_name == L"union" || (using_type_name && using_type_name->type_name == L"union"));
+                    (type_name == L"union");
             }
             bool is_tuple() const
             {
                 return !is_func() &&
-                    (type_name == L"tuple" || (using_type_name && using_type_name->type_name == L"tuple"));
+                    (type_name == L"tuple");
             }
             bool is_anything() const
             {
                 return !is_func() &&
-                    (type_name == L"anything" || (using_type_name && using_type_name->type_name == L"anything"));
+                    (type_name == L"anything");
             }
             bool is_struct() const
             {
                 return !is_func() &&
-                    (type_name == L"struct" || (using_type_name && using_type_name->type_name == L"struct"));
+                    (type_name == L"struct");
             }
             bool has_template() const
             {

@@ -889,10 +889,8 @@ namespace wo
                 a_value_bin->add_child(a_value_bin->left);
                 a_value_bin->add_child(a_value_bin->right);
 
-                if (a_value_bin->left->value_type->is_custom()
-                    || a_value_bin->left->value_type->using_type_name
-                    || a_value_bin->right->value_type->is_custom()
-                    || a_value_bin->right->value_type->using_type_name)
+                if (!a_value_bin->left->value_type->is_builtin_basic_type()
+                    || !a_value_bin->right->value_type->is_builtin_basic_type())
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
                     a_value_bin->value_type = nullptr;
                 else
@@ -1018,37 +1016,56 @@ namespace wo
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
 
-                if (a_value_logic_bin->left->value_type->is_custom()
-                    || a_value_logic_bin->left->value_type->using_type_name
-                    || a_value_logic_bin->right->value_type->is_custom()
-                    || a_value_logic_bin->right->value_type->using_type_name
-                    || !a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
-                    // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
+                bool has_default_op = false;
+                if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
+                    && a_value_logic_bin->right->value_type->is_builtin_basic_type())
+                {
+                    if (a_value_logic_bin->operate == +lex_type::l_lor || a_value_logic_bin->operate == +lex_type::l_land)
+                    {
+                        if (a_value_logic_bin->left->value_type->is_bool() && a_value_logic_bin->right->value_type->is_bool())
+                        {
+                            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                            has_default_op = true;
+                        }
+                    }
+                    else if ((a_value_logic_bin->left->value_type->is_integer()
+                        || a_value_logic_bin->left->value_type->is_handle()
+                        || a_value_logic_bin->left->value_type->is_real()
+                        || a_value_logic_bin->left->value_type->is_string())
+                        && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
+                    {
+                        a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                        has_default_op = true;
+                    }
+
+                }
+                if (!has_default_op)
+                {
                     a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"pending");
+                    ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
+                    try_operator_func_overload->copy_source_info(a_value_logic_bin);
 
-                ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
-                try_operator_func_overload->copy_source_info(a_value_logic_bin);
+                    try_operator_func_overload->try_invoke_operator_override_function = true;
+                    try_operator_func_overload->arguments = new ast_list();
+                    try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
 
-                try_operator_func_overload->try_invoke_operator_override_function = true;
-                try_operator_func_overload->arguments = new ast_list();
-                try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
+                    try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
+                    try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
 
-                try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
-                try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
+                    try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
 
-                try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
+                    ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
+                    try_operator_func_overload->arguments->add_child(arg1);
 
-                ast_value* arg1 = dynamic_cast<ast_value*>(a_value_logic_bin->left->instance());
-                try_operator_func_overload->arguments->add_child(arg1);
+                    ast_value* arg2 = dynamic_cast<ast_value*>(a_value_logic_bin->right->instance());
+                    try_operator_func_overload->arguments->add_child(arg2);
 
-                ast_value* arg2 = dynamic_cast<ast_value*>(a_value_logic_bin->right->instance());
-                try_operator_func_overload->arguments->add_child(arg2);
+                    a_value_logic_bin->overrided_operation_call = try_operator_func_overload;
+                    analyze_pass1(a_value_logic_bin->overrided_operation_call);
 
-                a_value_logic_bin->overrided_operation_call = try_operator_func_overload;
-                analyze_pass1(a_value_logic_bin->overrided_operation_call);
-
-                if (!a_value_logic_bin->overrided_operation_call->value_type->is_pending())
-                    a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
+                    if (!a_value_logic_bin->overrided_operation_call->value_type->is_pending())
+                        a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
+                }
             }
             else if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(ast_node))
             {
@@ -3020,14 +3037,31 @@ namespace wo
                         }
                         if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
                         {
-                            if (!a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false)
-                                && !(a_value_logic_bin->left->value_type->is_dynamic()
-                                    || a_value_logic_bin->right->value_type->is_dynamic()))
+                            bool type_ok = false;
+                            /*if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
+                                && a_value_logic_bin->right->value_type->is_builtin_basic_type())*/
+                            {
+                                if (a_value_logic_bin->operate == +lex_type::l_lor
+                                    || a_value_logic_bin->operate == +lex_type::l_land)
+                                {
+                                    if (a_value_logic_bin->left->value_type->is_bool()
+                                        && a_value_logic_bin->right->value_type->is_bool())
+                                        type_ok = true;
+                                }
+                                else if ((a_value_logic_bin->left->value_type->is_integer()
+                                    || a_value_logic_bin->left->value_type->is_handle()
+                                    || a_value_logic_bin->left->value_type->is_real()
+                                    || a_value_logic_bin->left->value_type->is_string())
+                                    && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
+                                    type_ok = true;
+                            }
+
+                            if (!type_ok)
                                 lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                                     a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
                                     a_value_logic_bin->right->value_type->get_type_name(false).c_str());
-
-                            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                            else
+                                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
                             fully_update_type(a_value_logic_bin->value_type, false);
                         }
 
