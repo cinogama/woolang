@@ -1647,6 +1647,20 @@ namespace wo
                     return nullptr;
                 if (left_v->is_custom() || right_v->is_custom())
                     return nullptr;
+                if (left_v->is_map() || right_v->is_map())
+                    return nullptr;
+                if (left_v->is_array() || right_v->is_array())
+                    return nullptr;
+                if (left_v->is_anything() || right_v->is_anything())
+                    return nullptr;
+                if (left_v->is_bool() || right_v->is_bool())
+                    return nullptr;
+                if (left_v->is_tuple() || right_v->is_tuple())
+                    return nullptr;
+                if (left_v->is_struct() || right_v->is_struct())
+                    return nullptr;
+                if (left_v->is_union() || right_v->is_union())
+                    return nullptr;
 
                 return binary_upper_type(left_v, right_v);
             }
