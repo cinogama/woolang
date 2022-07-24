@@ -885,15 +885,17 @@ namespace std
         func extern_symbol<T>(fullname:string)=> option<T>;
 
     func max<T>(a:T, b:T)
+        where (a<b) is bool;
     {
-        if (a >= b)
-            return a;
-        return b;
+        if (a < b)
+            return b;
+        return a;
     }
 
     func min<T>(a:T, b:T)
+        where (a<b) is bool;
     {
-        if (a <= b)
+        if (a < b)
             return a;
         return b;
     }

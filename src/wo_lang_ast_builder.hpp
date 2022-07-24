@@ -772,7 +772,7 @@ namespace wo
 
             bool is_mark_as_using_ref = false;
             bool is_ref_ob_in_finalize = false;
-            
+
             bool is_const_value = false;
             bool can_be_assign = false;
 
@@ -1657,8 +1657,6 @@ namespace wo
                     return nullptr;
                 if ((left_v->is_string() || right_v->is_string()) && op != +lex_type::l_add && op != +lex_type::l_add_assign)
                     return nullptr;
-                if (left_v->is_custom() || right_v->is_custom())
-                    return nullptr;
                 if (left_v->is_map() || right_v->is_map())
                     return nullptr;
                 if (left_v->is_array() || right_v->is_array())
@@ -2481,10 +2479,14 @@ namespace wo
                 right->update_constant_value(lex);
 
                 // if left/right is custom, donot calculate them 
-                if (left->value_type->is_custom()
-                    || left->value_type->using_type_name
-                    || right->value_type->is_custom()
-                    || right->value_type->using_type_name)
+                if (operate == +lex_type::l_land
+                    || operate == +lex_type::l_lor)
+                {
+                    if (!left->value_type->is_bool() || !right->value_type->is_bool())
+                        return;
+                }
+                else if (left->value_type->is_custom() || left->value_type->using_type_name
+                    || right->value_type->is_custom() || right->value_type->using_type_name)
                     return;
 
                 if (overrided_operation_call)
@@ -3379,6 +3381,10 @@ namespace wo
         struct ast_value_make_tuple_instance : virtual public ast_value
         {
             ast_list* tuple_member_vals;
+            ast_value_make_tuple_instance()
+            {
+                value_type = new ast_type(L"pending");
+            }
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
