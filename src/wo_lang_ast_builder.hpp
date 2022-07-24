@@ -522,6 +522,9 @@ namespace wo
                 }
                 if (is_func())
                 {
+                    if (!another->is_func())
+                        return false;
+
                     if (argument_types.size() != another->argument_types.size())
                         return false;
                     for (size_t index = 0; index < argument_types.size(); index++)
@@ -532,6 +535,9 @@ namespace wo
                     if (is_variadic_function_type != another->is_variadic_function_type)
                         return false;
                 }
+                else if (another->is_func())
+                    return false;
+
                 if (is_complex() && another->is_complex())
                     return complex_type->is_same(another->complex_type, ignore_using_type);
                 else if (!is_complex() && !another->is_complex())
@@ -577,6 +583,9 @@ namespace wo
                 }
                 if (is_func())
                 {
+                    if (!another->is_func())
+                        return false;
+
                     if (argument_types.size() != another->argument_types.size())
                         return false;
                     for (size_t index = 0; index < argument_types.size(); index++)
@@ -587,6 +596,9 @@ namespace wo
                     if (is_variadic_function_type != another->is_variadic_function_type)
                         return false;
                 }
+                else if (another->is_func())
+                    return false;
+
                 if (is_complex() && another->is_complex())
                     return complex_type->accept_type(another->complex_type, ignore_using_type);
                 else if (!is_complex() && !another->is_complex())
