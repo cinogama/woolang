@@ -189,6 +189,15 @@ namespace test_compile
 
             foo(func(x: string){}, "Helloworld");
         "@);
+        assure_compile_fail(@"
+            func foo(x:string){}
+            let m = func(){return "fff"};
+            foo(m);
+        "@);
+        assure_compile_fail(@"
+            func foo(x:()=>string){}
+            foo("Helloworld");
+        "@);
 
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);
