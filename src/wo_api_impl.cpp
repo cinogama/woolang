@@ -1459,7 +1459,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
         wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
 
     bool compile_has_err = lex->has_error();
-    if (compile_has_err || lex->has_warning())
+    if (compile_has_err)
         WO_VM(vm)->compile_info = lex;
     else
         delete lex;
@@ -1470,13 +1470,6 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
 wo_bool_t wo_has_compile_error(wo_vm vm)
 {
     if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
-        return true;
-    return false;
-}
-
-wo_bool_t wo_has_compile_warning(wo_vm vm)
-{
-    if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_warning())
         return true;
     return false;
 }
@@ -1504,40 +1497,6 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
                     _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
             }
             _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
-        }
-        /*src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-                wo::wo_stderr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << wo::wo_endl;
-            wo_wstderr << war_info.to_wstring() << wo::wo_endl;
-        }*/
-    }
-    return _vm_compile_errors.c_str();
-}
-
-wo_string_t wo_get_compile_warning(wo_vm vm, _wo_inform_style style)
-{
-    if (style == WO_DEFAULT)
-        style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
-
-    thread_local std::string _vm_compile_errors;
-    _vm_compile_errors = "";
-    if (vm && WO_VM(vm)->compile_info)
-    {
-        auto& lex = *WO_VM(vm)->compile_info;
-
-        std::string src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-            {
-                if (style == WO_NEED_COLOR)
-                    _vm_compile_errors += ANSI_HIY "In file: '" ANSI_RST + (src_file_path = war_info.filename) + ANSI_HIY "'" ANSI_RST "\n";
-                else
-                    _vm_compile_errors += "In file: '" + (src_file_path = war_info.filename) + "'\n";
-            }
-            _vm_compile_errors += wo::wstr_to_str(war_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
         }
         /*src_file_path = "";
         for (auto& war_info : lex.lex_warn_list)

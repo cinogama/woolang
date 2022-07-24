@@ -15,8 +15,6 @@ int main(int argc, char** argv)
 
         if (wo_has_compile_error(vmm))
             std::cerr << wo_get_compile_error(vmm, WO_DEFAULT) << std::endl;
-        if (wo_has_compile_warning(vmm))
-            std::cerr << wo_get_compile_warning(vmm, WO_DEFAULT) << std::endl;
 
         wo_value return_state = nullptr;
 

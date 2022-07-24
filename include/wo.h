@@ -210,9 +210,7 @@ WO_API wo_bool_t    wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_
 WO_API wo_value     wo_run(wo_vm vm);
 
 WO_API wo_bool_t    wo_has_compile_error(wo_vm vm);
-WO_API wo_bool_t    wo_has_compile_warning(wo_vm vm);
 WO_API wo_string_t  wo_get_compile_error(wo_vm vm, wo_inform_style style);
-WO_API wo_string_t  wo_get_compile_warning(wo_vm vm, wo_inform_style style);
 
 WO_API wo_string_t  wo_get_runtime_error(wo_vm vm);
 

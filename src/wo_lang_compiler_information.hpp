@@ -216,18 +216,9 @@
 
 #define WO_ERR_VALUE_TYPE_HERE_SHOULD_BE L"此处的值类型应该是 '%ls'，但是给定的是 '%ls'"
 
+#define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
-
-
-#define WO_WARN_WARNING_GIVEN_BY_MACRO L"宏控制器报告了一个警告：\n%ls"
-
-#define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
-
-#define WO_WARN_REPEAT_ATTRIBUTE L"重复出现的属性"
-
-#define WO_WARN_OVERRIDDEN_DYNAMIC_TYPE L"类型 'dynamic' 被覆盖"
-
-#define WO_WARN_CAST_REF L"正在尝试转换引用传递对象的类型，'ref' 将失效"
+#define WO_ERR_REPEAT_ATTRIBUTE L"重复出现的属性"
 
 #else
 
@@ -434,17 +425,8 @@
 
 #define WO_ERR_VALUE_TYPE_HERE_SHOULD_BE L"此处的值类型应该是 '%ls'，但是给定的是 '%ls'"
 
+#define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."
 
-
-
-#define WO_WARN_WARNING_GIVEN_BY_MACRO L"宏控制器报告了一个警告：\n%ls"
-
-#define WO_WARN_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."
-
-#define WO_WARN_REPEAT_ATTRIBUTE L"Duplicate attribute description."
-
-#define WO_WARN_OVERRIDDEN_DYNAMIC_TYPE L"Overridden 'dynamic' attributes."
-
-#define WO_WARN_CAST_REF L"Trying cast the type of reference passing object, 'ref' will be useless."
+#define WO_ERR_REPEAT_ATTRIBUTE L"Duplicate attribute description."
 
 #endif

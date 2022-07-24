@@ -899,8 +899,7 @@ namespace wo
                     a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
                         a_value_bin->left->value_type,
                         a_value_bin->right->value_type,
-                        a_value_bin->operate
-                    );
+                        a_value_bin->operate);
 
                 if (nullptr == a_value_bin->value_type)
                 {
@@ -1019,9 +1018,9 @@ namespace wo
                 a_value_logic_bin->add_child(a_value_logic_bin->left);
                 a_value_logic_bin->add_child(a_value_logic_bin->right);
 
-                if (a_value_logic_bin->left->value_type->is_custom()
+                if (!a_value_logic_bin->left->value_type->is_bool()
                     || a_value_logic_bin->left->value_type->using_type_name
-                    || a_value_logic_bin->right->value_type->is_custom()
+                    || !a_value_logic_bin->right->value_type->is_bool()
                     || a_value_logic_bin->right->value_type->using_type_name
                     || !a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                     // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
@@ -2112,10 +2111,9 @@ namespace wo
                                             origin_namespace.end()
                                         );
 
-                                        auto state = lang_anylizer->lex_enable_error_warn;
-                                        lang_anylizer->lex_enable_error_warn = false;
+                                        lang_anylizer->begin_trying_block();
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                        lang_anylizer->lex_enable_error_warn = state;
+                                        lang_anylizer->end_trying_block();
 
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
                                             || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
@@ -2144,10 +2142,9 @@ namespace wo
                                             origin_namespace.end()
                                         );
 
-                                        auto state = lang_anylizer->lex_enable_error_warn;
-                                        lang_anylizer->lex_enable_error_warn = false;
+                                        lang_anylizer->begin_trying_block();
                                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                                        lang_anylizer->lex_enable_error_warn = state;
+                                        lang_anylizer->end_trying_block();
 
 
                                         if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
@@ -2480,8 +2477,7 @@ namespace wo
                                                     this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"不满足函数的 'where' 约束要求，继续：");
                                                     for (auto& error_info : tried_func->where_constraint->unmatched_constraint)
                                                     {
-                                                        if (lang_anylizer->lex_enable_error_warn)
-                                                            lang_anylizer->lex_error_list.push_back(error_info);
+                                                        lang_anylizer->get_cur_error_frame().push_back(error_info);
                                                     }
                                                 }
                                                 else
@@ -2958,12 +2954,9 @@ namespace wo
 
                         if (a_value_bin->overrided_operation_call)
                         {
-                            auto state = lang_anylizer->lex_enable_error_warn;
-                            lang_anylizer->lex_enable_error_warn = false;
-
+                            lang_anylizer->begin_trying_block();
                             analyze_pass2(a_value_bin->overrided_operation_call);
-
-                            lang_anylizer->lex_enable_error_warn = state;
+                            lang_anylizer->end_trying_block();
 
                             if (a_value_bin->overrided_operation_call->value_type->is_pending())
                             {
@@ -2984,7 +2977,7 @@ namespace wo
                                 else if (a_value_bin->value_type->is_pending())
                                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
                                 else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false))
-                                    lang_anylizer->lang_warning(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
                             }
 
                         }
@@ -3004,12 +2997,9 @@ namespace wo
 
                         if (a_value_logic_bin->overrided_operation_call)
                         {
-                            auto state = lang_anylizer->lex_enable_error_warn;
-                            lang_anylizer->lex_enable_error_warn = false;
-
+                            lang_anylizer->begin_trying_block();
                             analyze_pass2(a_value_logic_bin->overrided_operation_call);
-
-                            lang_anylizer->lex_enable_error_warn = state;
+                            lang_anylizer->end_trying_block();
 
                             if (a_value_logic_bin->overrided_operation_call->value_type->is_pending())
                             {
@@ -3024,7 +3014,7 @@ namespace wo
                                 else if (a_value_logic_bin->value_type->is_pending())
                                     a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
                                 else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type, false))
-                                    lang_anylizer->lang_warning(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
+                                    lang_anylizer->lang_error(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
                             }
 
                         }
@@ -3247,9 +3237,7 @@ namespace wo
                     analyze_pass2(variable);
                 */
 
-                auto state = lang_anylizer->lex_enable_error_warn;
-                lang_anylizer->lex_enable_error_warn = false;
-
+                lang_anylizer->begin_trying_block();
                 analyze_pass2(a_foreach->iterator_var);
                 analyze_pass2(a_foreach->iter_next_judge_expr->directed_value_from);
 
@@ -3281,13 +3269,14 @@ namespace wo
                     need_takeplace_count -= (int)a_foreach->used_vawo_defines->var_refs.size();
                     need_takeplace_count -= 1;//iter
 
-                    lang_anylizer->lex_enable_error_warn = true;
+
+                    lang_anylizer->set_eror_at(1);
                     if (need_takeplace_count < 0)
                         lang_anylizer->lang_error(0x0000, a_foreach, WO_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT
                             , a_foreach->iter_next_judge_expr->directed_value_from->value_type
                             ->get_type_name(false).c_str()
                             , a_foreach->used_vawo_defines->var_refs.size());
-                    lang_anylizer->lex_enable_error_warn = false;
+                    lang_anylizer->set_eror_at(0);
 
                     wo_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
 
@@ -3303,7 +3292,7 @@ namespace wo
                     a_foreach->iterator_var->parent = nullptr;
                     a_foreach->iterator_var->sibling = nullptr;
 
-                    lang_anylizer->lex_enable_error_warn = true;
+                    lang_anylizer->set_eror_at(1);
                     if (a_foreach->iter_next_judge_expr->called_func->value_type
                         ->is_variadic_function_type)
                     {
@@ -3311,7 +3300,7 @@ namespace wo
                             a_foreach->iter_next_judge_expr->directed_value_from->value_type
                             ->get_type_name(false).c_str());
                     }
-                    lang_anylizer->lex_enable_error_warn = false;
+                    lang_anylizer->set_eror_at(0);
 
                     int rndidx = (int)a_foreach->used_vawo_defines->var_refs.size() - 1;
                     a_foreach->foreach_patterns_vars_in_pass2.resize(rndidx + 1);
@@ -3349,7 +3338,7 @@ namespace wo
                 {
                     // Do not find symbol, but do nothing.. error has been reported by analyze_pass2
                 }
-                lang_anylizer->lex_enable_error_warn = state;
+                lang_anylizer->end_trying_block();
 
                 analyze_pass2(a_foreach->iter_next_judge_expr);
                 analyze_pass2(a_foreach->execute_sentences);
@@ -3598,21 +3587,18 @@ namespace wo
                 ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
                 while (val)
                 {
-                    lang_anylizer->clear_err_flag();
-                    auto state = lang_anylizer->lex_enable_error_warn;
-                    lang_anylizer->lex_enable_error_warn = false;
+                    lang_anylizer->begin_trying_block();
                     analyze_pass2(val);
-                    lang_anylizer->lex_enable_error_warn = state;
 
-                    if (lang_anylizer->has_error_flag)
+                    if (!lang_anylizer->get_cur_error_frame().empty())
                     {
                         // Current constraint failed, store it to list;
                         a_where_constraint->unmatched_constraint.push_back(
                             lang_anylizer->make_error(0x0000, val, L"约束项存在语法错误，以下是错误内容，继续："));
                         a_where_constraint->unmatched_constraint.insert(
                             a_where_constraint->unmatched_constraint.end(),
-                            lang_anylizer->error_frame.begin(),
-                            lang_anylizer->error_frame.end());
+                            lang_anylizer->get_cur_error_frame().begin(),
+                            lang_anylizer->get_cur_error_frame().end());
                         a_where_constraint->accept = false;
                     }
                     else
@@ -3638,6 +3624,8 @@ namespace wo
                             a_where_constraint->accept = false;
                         }
                     }
+
+                    lang_anylizer->end_trying_block();
                     val = dynamic_cast<ast_value*>(val->sibling);
                 }
             }

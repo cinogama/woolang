@@ -1087,10 +1087,6 @@ namespace wo
                             {
                                 aim_real_type = last_value.type;
                             }
-                            else if (_be_cast_value_node->value_type->is_dynamic())
-                            {
-                                lex->lang_warning(0x0000, value_type, WO_WARN_OVERRIDDEN_DYNAMIC_TYPE);
-                            }
 
                             switch (aim_real_type)
                             {
@@ -1293,7 +1289,7 @@ namespace wo
                     attributes.insert(attr);
                 }
                 else
-                    lex->parser_warning(0x0000, WO_WARN_REPEAT_ATTRIBUTE);
+                    lex->parser_error(0x0000, WO_ERR_REPEAT_ATTRIBUTE);
             }
 
             bool is_constant_attr() const
@@ -3665,10 +3661,6 @@ namespace wo
                     lex.lex_error_list.insert(lex.lex_error_list.end(),
                         new_lex.lex_error_list.begin(),
                         new_lex.lex_error_list.end());
-
-                    lex.lex_warn_list.insert(lex.lex_warn_list.end(),
-                        new_lex.lex_warn_list.begin(),
-                        new_lex.lex_warn_list.end());
 
                     lex.imported_file_list = new_lex.imported_file_list;
 

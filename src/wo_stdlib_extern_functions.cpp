@@ -731,26 +731,12 @@ WO_API wo_api rslib_std_vm_has_compile_error(wo_vm vm, wo_value args, size_t arg
     return wo_ret_bool(vm, wo_has_compile_error(vmm));
 }
 
-WO_API wo_api rslib_std_vm_has_compile_warning(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    return wo_ret_bool(vm, wo_has_compile_warning(vmm));
-}
-
 WO_API wo_api rslib_std_vm_get_compile_error(wo_vm vm, wo_value args, size_t argc)
 {
     wo_vm vmm = (wo_vm)wo_pointer(args);
     _wo_inform_style style = argc > 1 ? (_wo_inform_style)wo_int(args + 1) : WO_DEFAULT;
 
     return wo_ret_string(vm, wo_get_compile_error(vmm, style));
-}
-
-WO_API wo_api rslib_std_vm_get_compile_warning(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    _wo_inform_style style = argc > 1 ? (_wo_inform_style)wo_int(args + 1) : WO_DEFAULT;
-
-    return wo_ret_string(vm, wo_get_compile_warning(vmm, style));
 }
 
 WO_API wo_api rslib_std_vm_virtual_source(wo_vm vm, wo_value args, size_t argc)
@@ -1240,21 +1226,12 @@ namespace std
         extern("rslib_std_vm_has_compile_error")
         func has_error(vmhandle:vm)=>bool;
 
-        extern("rslib_std_vm_has_compile_warning")
-        func has_warning(vmhandle:vm)=>bool;
-
         extern("rslib_std_vm_get_compile_error")
         func error_msg(vmhandle:vm)=>string;
-
-        extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(vmhandle:vm)=>string;
 
         extern("rslib_std_vm_get_compile_error")
         func error_msg(vmhandle:vm, style:info_style)=>string;
 
-        extern("rslib_std_vm_get_compile_warning")
-        func warning_msg(vmhandle:vm, style:info_style)=>string;
-        
         extern("rslib_std_vm_virtual_source")
         func virtual_source(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
 
@@ -1674,14 +1651,6 @@ WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_macro_lexer_warning(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    lex->lex_warning(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
-    return wo_ret_void(vm);
-}
-
 WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
@@ -1873,9 +1842,6 @@ namespace std
     {
         extern("rslib_std_macro_lexer_lex")
             func lex(lex:lexer, src:string)=>void;
-
-        extern("rslib_std_macro_lexer_warning")
-            func warning(lex:lexer, msg:string)=>void;
 
         extern("rslib_std_macro_lexer_error")
             func error(lex:lexer, msg:string)=>void;
