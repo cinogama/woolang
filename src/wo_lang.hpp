@@ -2500,7 +2500,8 @@ namespace wo
                                                     }
                                                 }
                                                 else
-                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL);
+                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
+                                                        tried_func->value_type->get_type_name(false).c_str());
                                             }
                                             else
                                                 this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
