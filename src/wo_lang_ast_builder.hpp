@@ -340,7 +340,7 @@ namespace wo
             {
                 is_function_type = true;
             }
-            ast_type* get_return_type()
+            ast_type* get_return_type() const
             {
                 if (is_complex())
                     return new ast_type(*complex_type);
@@ -451,18 +451,23 @@ namespace wo
                 if ((using_type_name == nullptr && another->using_type_name)
                     || (using_type_name && another->using_type_name == nullptr))
                 {
-                    if (using_type_name && using_type_name->is_like(another, termplate_set))
+                    const ast_type* chtype = another->is_func() ? another->get_return_type() : another;
+                    if (using_type_name && using_type_name->is_like(chtype, termplate_set))
                     {
                         if (out_para)*out_para = dynamic_cast<ast_type*>(using_type_name->instance());
-                        if (out_args)*out_args = const_cast<ast_type*>(another);
+                        if (out_args)*out_args = const_cast<ast_type*>(chtype);
                         return true;
                     }
-                    if (another->using_type_name && is_like(another->using_type_name, termplate_set))
+                    chtype = is_func() ? get_return_type() : this;
+                    if (another->using_type_name && chtype->is_like(another->using_type_name, termplate_set))
                     {
-                        if (out_para)*out_para = const_cast<ast_type*>(this);
+                        if (out_para)*out_para = const_cast<ast_type*>(chtype);
                         if (out_args)*out_args = dynamic_cast<ast_type*>(another->using_type_name->instance());
                         return true;
                     }
+
+                    // TODO: If using A = ...;
+                    //       The type: A or (A)=>... will have same using-type. need think about how to deal with it.
                     return false;
                 }
 
