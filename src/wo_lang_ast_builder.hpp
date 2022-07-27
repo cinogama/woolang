@@ -3095,6 +3095,7 @@ namespace wo
                     WO_REINSTANCE(vptr);
                 }
                 WO_REINSTANCE(dumm->iterator_var);
+                WO_REINSTANCE(dumm->used_iter_define);
                 WO_REINSTANCE(dumm->used_vawo_defines);
                 WO_REINSTANCE(dumm->iter_getting_funccall);
                 WO_REINSTANCE(dumm->iter_next_judge_expr);
@@ -4014,6 +4015,27 @@ namespace wo
                     if (ast_func->externed_func_info->externed_func)
                         ast_func->is_constant = true;
                 }
+                else if (input.size() == 6)
+                {
+                    // \ <> ARGS  = EXPR ;
+                    // 0 1   2    3    4  5 
+                    // anonymous function
+                    ast_func->declear_attribute = new ast_decl_attribute();
+                    wo_assert(ast_func->declear_attribute);
+
+                    if (!ast_empty::is_empty(input[1]))
+                    {
+                        wo_error("Not support now...");
+                        template_types = dynamic_cast<ast_list*>(WO_NEED_AST(1));
+                    }
+
+                    ast_func->function_name = L""; // just get a fucking name
+                    ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+
+                    return_type = nullptr;
+
+                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(4))->sentence_list;
+                }
                 else
                     wo_error("Unknown ast type.");
                 // many things to do..
@@ -4863,10 +4885,15 @@ namespace wo
                         result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
                     }
                 }
-                else // ==3
+                else if (input.size() == 3)
                 {
                     result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                     result->return_value->is_mark_as_using_ref = true;
+                }
+                else 
+                {
+                    wo_assert(input.size() == 1);
+                    result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 }
                 return (grammar::ast_base*)result;
             }

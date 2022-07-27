@@ -23,6 +23,30 @@ namespace test_helloworld
             test_no_return_recursive(false);
     }
 
+    func test_lambda()
+    {
+        let a = [1,2,3];
+
+        let b = a->collect(\x:int = [x, x * 2];)
+                 ->trans(\x:int = x: string;)
+                 ->collect(\x:string = [x + "hello", x + "world"];);
+
+        b->trans(\x:string = std::println(x););
+
+        test_assure(b[0] == "1hello");
+        test_assure(b[1] == "1world");
+        test_assure(b[2] == "2hello");
+        test_assure(b[3] == "2world");
+        test_assure(b[4] == "2hello");
+        test_assure(b[5] == "2world");
+        test_assure(b[6] == "4hello");
+        test_assure(b[7] == "4world");
+        test_assure(b[8] == "3hello");
+        test_assure(b[9] == "3world");
+        test_assure(b[10] == "6hello");
+        test_assure(b[11] == "6world");
+    }
+
     func main()
     {
         using std;

@@ -384,10 +384,6 @@ namespace wo
                                         gm::te(gm::ttype::l_identifier)
                 } >> WO_ASTBUILDER_INDEX(ast::pass_continue),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_goto),
-                                gm::te(gm::ttype::l_identifier)
-                } >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
                 gm::nt(L"MAY_EMPTY_EXPRESSION") >> gm::symlist{ gm::nt(L"EXPRESSION") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"MAY_EMPTY_EXPRESSION") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
@@ -499,7 +495,21 @@ namespace wo
                 gm::nt(L"SENTENCE_BLOCK") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
 
+                gm::nt(L"FUNC_DEFINE") >> gm::symlist{
+                gm::te(gm::ttype::l_lambda),
+                gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                gm::nt(L"ARGDEFINE"),
+                gm::te(gm::ttype::l_assign),
+                gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA"),
+                gm::te(gm::ttype::l_semicolon), }
+                >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
                 // May empty
+
+                    
+                gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA") >> gm::symlist{ gm::nt(L"RETURN_EXPR_IN_LAMBDA") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
+                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),

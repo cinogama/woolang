@@ -111,7 +111,7 @@ namespace wo
 
         l_break,
         l_continue,
-        l_goto,
+        l_lambda,
         l_at,
         l_where,
         l_operator,
@@ -217,6 +217,8 @@ namespace wo
             {L"=>",      {lex_type::l_function_result }},
             {L"@",      {lex_type::l_at }},
             {L"?",      {lex_type::l_question }},
+            {L"\\",      {lex_type::l_lambda}},
+            {L"λ",      {lex_type::l_lambda}},
         };
 
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
@@ -247,7 +249,6 @@ namespace wo
             {L"typeof", {lex_type::l_typeof}},
             {L"break", {lex_type::l_break}},
             {L"continue", {lex_type::l_continue}},
-            {L"goto", {lex_type::l_goto}},
             {L"where", {lex_type::l_where}},
             {L"operator", {lex_type::l_operator}},
             {L"expect", {lex_type::l_expect}},
