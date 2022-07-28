@@ -13,7 +13,7 @@ namespace test_basic
         for (let mut i = 0; i<3; i+=1)
         {
             let f = func(){ return i };
-            let a = \ = i;
+            let a = \ = i;;
             test_equal(a(), f());
             test_equal(a(), i);
             test_equal(f(), i);
