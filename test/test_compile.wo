@@ -89,8 +89,8 @@ namespace test_compile
         assure_compile_fail(@"func xx(){return 1; return 1.0;}"@);
 
         // Capture lambda itself is invalid.
-        assure_compile_fail(@"let f = func(){f();};"@);
-        assure_compile_fail(@"let f = \x: int = f;;"@);
+        assure_compile_fail(@"func main(){let f = func(){f();};}"@);
+        assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int = foo(f);;}"@);
 
         // func cannot return different type from marked type
         assure_compile_fail(@"func xx: void(){return 1;}"@);
