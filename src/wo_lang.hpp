@@ -548,17 +548,9 @@ namespace wo
 
                 if (a_pattern_identifier->template_arguments.empty())
                 {
-                    // ATTENTION: Here is a trick! if init_value is a lambda function, we delay analyze to define 
-                    //            symbol first, it can make variable capture correctly.
-                    //            function_define cannot be const, so we no-need analyze init_value first. Just define it!
-                    bool init_value_is_lambda = nullptr != dynamic_cast<ast_value_function_define*>(initval);
-                    if (!init_value_is_lambda)
-                        analyze_pass1(initval);
+                    analyze_pass1(initval);
 
                     a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
-                    if (init_value_is_lambda)
-                        analyze_pass1(initval);
-
                     a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
 
                     if (a_pattern_identifier->decl == ast::identifier_decl::REF)

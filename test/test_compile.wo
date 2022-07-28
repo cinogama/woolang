@@ -88,6 +88,10 @@ namespace test_compile
         // func cannot return different type if func is not dynamic
         assure_compile_fail(@"func xx(){return 1; return 1.0;}"@);
 
+        // Capture lambda itself is invalid.
+        assure_compile_fail(@"let f = func(){f();};"@);
+        assure_compile_fail(@"let f = \x: int = f;;"@);
+
         // func cannot return different type from marked type
         assure_compile_fail(@"func xx: void(){return 1;}"@);
         assure_compile_fail(@"func xx: int(){return 1.;}"@);
