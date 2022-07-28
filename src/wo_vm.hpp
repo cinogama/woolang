@@ -363,7 +363,6 @@ namespace wo
         value* cr = nullptr;  // op result trace & function return;
         value* tc = nullptr;  // arugument count
         value* er = nullptr;  // exception result
-        value* ths = nullptr;  // exception result
 
         // stack info
         value* sp = nullptr;
@@ -396,7 +395,6 @@ namespace wo
             cr = register_mem_begin + opnum::reg::spreg::cr;
             tc = register_mem_begin + opnum::reg::spreg::tc;
             er = register_mem_begin + opnum::reg::spreg::er;
-            ths = register_mem_begin + opnum::reg::spreg::ths;
             sp = bp = stack_mem_begin;
 
             wo_asure(interrupt(LEAVE_INTERRUPT));
@@ -438,7 +436,6 @@ namespace wo
             new_vm->cr = new_vm->register_mem_begin + opnum::reg::spreg::cr;
             new_vm->tc = new_vm->register_mem_begin + opnum::reg::spreg::tc;
             new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
-            new_vm->ths = new_vm->register_mem_begin + opnum::reg::spreg::ths;
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
 
             new_vm->env = env;  // env setted, gc will scan this vm..
@@ -756,6 +753,12 @@ namespace wo
                     }
 
                     break;
+                case instruct::mkclos:
+                    tmpos << "mkclos\t";
+                    tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
+                    tmpos << ",\t+";
+                    tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    break;
                 case instruct::typeas:
                     if (main_command & 0b01)
                         tmpos << "typeis\t";
@@ -808,8 +811,12 @@ namespace wo
                     tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
                 case instruct::mkmap:
                     tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
-                case instruct::idx:
-                    tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::idarr:
+                    tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::idmap:
+                    tmpos << "idmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::idstr:
+                    tmpos << "idstr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::equr:
                     tmpos << "equr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::nequr:
@@ -848,12 +855,6 @@ namespace wo
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::movdup:
                             tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::mkclos:
-                            tmpos << "mkclos\t";
-                            tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
-                            tmpos << ",\t+";
-                            tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
-                            break;
                         case instruct::extern_opcode_page_0::veh:
                             tmpos << "veh ";
                             if (main_command & 0b10)
@@ -1294,7 +1295,6 @@ namespace wo
             value* const_global_begin = rt_env->constant_global_reg_rtstack;
             value* reg_begin = register_mem_begin;
             value* const rt_cr = cr;
-            value* const rt_ths = ths;
 
             auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
@@ -2281,87 +2281,105 @@ namespace wo
                         }
                         break;
                     }
-                    case instruct::opcode::idx:
+                    case instruct::opcode::idarr:
                     {
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        rt_ths->set_val(opnum1);
-
-                        if (nullptr == rt_ths->gcunit && rt_ths->is_gcunit())
+                        if (nullptr == opnum1->gcunit)
                         {
-                            WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to access is 'nil'.");
+                            WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to index from 'nil', expecting array.");
                             rt_cr->set_nil();
                         }
                         else
                         {
-                            switch (rt_ths->type)
-                            {
-                            case value::valuetype::string_type:
-                            {
-                                gcbase::gc_read_guard gwg1(rt_ths->gcunit);
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                            wo_assert(opnum1->type == value::valuetype::array_type);
+                            wo_assert(opnum2->type == value::valuetype::integer_type);
 
-                                if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                {
-                                    size_t strlength = 0;
-                                    wo_string_t out_str = u8substr(rt_ths->string->c_str(), opnum2->integer, 1, &strlength);
-                                    rt_cr->set_string(std::string(out_str, strlength).c_str());
-                                }
-                                else
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Cannot index string without integer & handle.");
-                                break;
-                            }
-                            case value::valuetype::array_type:
+                            size_t index = opnum2->integer;
+                            if (opnum2->integer < 0)
+                                index = opnum1->array->size() + opnum2->integer;
+                            if (index >= opnum1->array->size())
                             {
-                                gcbase::gc_read_guard gwg1(rt_ths->gcunit);
-                                if (opnum2->type == value::valuetype::integer_type || opnum2->type == value::valuetype::handle_type)
-                                {
-                                    auto real_idx = opnum2->integer;
-                                    if (real_idx < 0)
-                                        real_idx = rt_ths->array->size() - (-real_idx);
-                                    if ((size_t)real_idx >= rt_ths->array->size())
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                                        rt_cr->set_nil();
-                                    }
-                                    else
-                                    {
-                                        auto* result = (*rt_ths->array)[(size_t)real_idx].get();
-                                        if (wo::gc::gc_is_marking())
-                                            rt_ths->array->add_memo(result);
-                                        rt_cr->set_ref(result);
-                                    }
-                                }
-                                else
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Cannot index array without integer & handle.");
-                                break;
-                            }
-                            case value::valuetype::mapping_type:
-                            {
-                                {
-                                    gcbase::gc_read_guard gwg1(rt_ths->gcunit);
-                                    auto fnd = rt_ths->mapping->find(*opnum2);
-                                    if (fnd != rt_ths->mapping->end())
-                                    {
-                                        auto* result = fnd->second.get();
-                                        if (wo::gc::gc_is_marking())
-                                            rt_ths->mapping->add_memo(result);
-                                        rt_cr->set_ref(result);
-                                        break;
-                                    }
-                                }
-                                gcbase::gc_write_guard gwg1(rt_ths->gcunit);
-                                auto* result = &(*rt_ths->mapping)[*opnum2];
-                                if (wo::gc::gc_is_marking())
-                                    rt_ths->mapping->add_memo(result);
-                                rt_cr->set_ref(result);
-                                break;
-                            }
-                            default:
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "unknown type to index.");
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                                 rt_cr->set_nil();
-                                break;
                             }
+                            else
+                            {
+                                auto* result = opnum1->array->at(index).get();
+                                if (wo::gc::gc_is_marking())
+                                    opnum1->array->add_memo(result);
+                                rt_cr->set_ref(result);
+                            }
+                        }
+                        break;
+                    }
+                    case instruct::opcode::idmap:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+
+                        if (nullptr == opnum1->gcunit)
+                        {
+                            WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to index from 'nil', expecting map.");
+                            rt_cr->set_nil();
+                        }
+                        else
+                        {
+                            wo_assert(opnum1->type == value::valuetype::mapping_type);
+                            do
+                            {
+                                gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                                auto fnd = opnum1->mapping->find(*opnum2);
+                                if (fnd != opnum1->mapping->end())
+                                {
+                                    auto* result = fnd->second.get();
+                                    if (wo::gc::gc_is_marking())
+                                        opnum1->mapping->add_memo(result);
+                                    rt_cr->set_ref(result);
+                                    break;
+                                }
+                            } while (0);
+                            // TODO: Should report error here to make sure 'nil-safe'
+                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                            auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
+                            if (wo::gc::gc_is_marking())
+                                opnum1->mapping->add_memo(result);
+                            rt_cr->set_ref(result);
+                        }
+                        break;
+                    }
+                    case instruct::opcode::idstr:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+
+                        wo_assert(nullptr != opnum1->gcunit);
+
+                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                        wo_assert(opnum2->type == value::valuetype::integer_type);
+                        size_t strlength = 0;
+                        wo_string_t out_str = u8substr(opnum1->string->c_str(), opnum2->integer, 1, &strlength);
+                        rt_cr->set_string(std::string(out_str, strlength).c_str());
+                        break;
+                    }
+                    case instruct::opcode::mkclos:
+                    {
+                        uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
+                        uint32_t function_address = WO_IPVAL_MOVE_4;
+
+                        rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
+                        auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
+
+                        gcbase::gc_write_guard gwg1(created_closure);
+                        created_closure->m_function_addr = function_address;
+                        created_closure->m_closure_args.resize(closure_arg_count);
+                        for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+                        {
+                            auto* arr_val = ++rt_sp;
+                            created_closure->m_closure_args[i].set_trans(arr_val->get());
                         }
                         break;
                     }
@@ -2501,24 +2519,6 @@ namespace wo
                                 WO_ADDRESSING_N2_REF;
 
                                 opnum1->set_dup(opnum2);
-                                break;
-                            }
-                            case instruct::extern_opcode_page_0::mkclos:
-                            {
-                                uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-                                uint32_t function_address = WO_IPVAL_MOVE_4;
-
-                                rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                                auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
-
-                                gcbase::gc_write_guard gwg1(created_closure);
-                                created_closure->m_function_addr = function_address;
-                                created_closure->m_closure_args.resize(closure_arg_count);
-                                for (size_t i = 0; i < (size_t)closure_arg_count; i++)
-                                {
-                                    auto* arr_val = ++rt_sp;
-                                    created_closure->m_closure_args[i].set_trans(arr_val->get());
-                                }
                                 break;
                             }
                             case instruct::extern_opcode_page_0::veh:

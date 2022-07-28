@@ -88,7 +88,6 @@ namespace wo
                 argument_count,                 tc = argument_count,
                 exception_inform,               er = exception_inform,
                 nil_constant,                   ni = nil_constant,
-                index_from,                     ths = index_from,
                 pattern_match,                  pm = pattern_match,
 
                 last_special_register = 0b00111111,
@@ -1227,11 +1226,9 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::ret, nullptr, nullptr, popcount);
         }
 
-        void ext_mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
+        void mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
         {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(wrapped_func), nullptr, (int32_t)capture_count);
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkclos;
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::mkclos, WO_OPNUM(wrapped_func), nullptr, (int32_t)capture_count);
         }
 
         template<typename OP1T>
@@ -1337,13 +1334,31 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::mkmap, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void idx(const OP1T& op1, const OP2T& op2)
+        void idarr(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::idx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::idarr, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void idmap(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::idmap, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
+        void idstr(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::idstr, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
         template<typename OP1T, typename OP2T>
@@ -1658,26 +1673,26 @@ namespace wo
                     break;
                 case instruct::opcode::equr:
                     temp_this_command_code_buf.push_back(WO_OPCODE(equr));
-                    auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::nequr:
                     temp_this_command_code_buf.push_back(WO_OPCODE(nequr));
-                    auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::equs:
                     temp_this_command_code_buf.push_back(WO_OPCODE(equs));
-                    auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::nequs:
                     temp_this_command_code_buf.push_back(WO_OPCODE(nequs));
-                    auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
                 case instruct::opcode::addr:
@@ -1844,8 +1859,18 @@ namespace wo
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
-                case instruct::opcode::idx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(idx));
+                case instruct::opcode::idarr:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(idarr));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    break;
+                case instruct::opcode::idmap:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(idmap));
+                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
+                    break;
+                case instruct::opcode::idstr:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(idstr));
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
@@ -1982,6 +2007,23 @@ namespace wo
 
                     break;
                 }
+                case instruct::mkclos:
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(mkclos));
+                    auto_check_mem_allign(1, 2);
+                    uint16_t capture_count = (uint16_t)WO_IR.opinteger;
+                    byte_t* readptr = (byte_t*)&capture_count;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+                    auto_check_mem_allign(1, 4);
+                    jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
+                        .push_back(generated_runtime_code_buf.size() + need_fill_count + 1 + 2);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    temp_this_command_code_buf.push_back(0x00);
+                    break;
+                }
                 case instruct::opcode::ext:
 
                     switch (WO_IR.ext_page_id)
@@ -2029,23 +2071,6 @@ namespace wo
                             auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                             auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                             break;
-                        case instruct::extern_opcode_page_0::mkclos:
-                        {
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mkclos));
-                            auto_check_mem_allign(2, 2);
-                            uint16_t capture_count = (uint16_t)WO_IR.opinteger;
-                            byte_t* readptr = (byte_t*)&capture_count;
-                            temp_this_command_code_buf.push_back(readptr[0]);
-                            temp_this_command_code_buf.push_back(readptr[1]);
-                            auto_check_mem_allign(2, 4);
-                            jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                                .push_back(generated_runtime_code_buf.size() + need_fill_count + 2 + 2);
-                            temp_this_command_code_buf.push_back(0x00);
-                            temp_this_command_code_buf.push_back(0x00);
-                            temp_this_command_code_buf.push_back(0x00);
-                            temp_this_command_code_buf.push_back(0x00);
-                            break;
-                        }
                         case instruct::extern_opcode_page_0::veh:
                             if (WO_IR.op1)
                             {

@@ -85,7 +85,7 @@ namespace wo
 
             movcast = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
-            RESERVED_0 = 47 WO_OPCODE_SPACE,      //
+            mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
 
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
@@ -97,18 +97,18 @@ namespace wo
             abrt = 51 WO_OPCODE_SPACE,  // abrt(0_1/0)  (0xcc 0xcd can use it to abort)     
                                         // end(1_1/0)   1 byte
 
-            RESERVED_1 = 52 WO_OPCODE_SPACE,  // 
-            RESERVED_2 = 53 WO_OPCODE_SPACE,  // 
+            idarr = 52 WO_OPCODE_SPACE,  // idarr(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idmap = 53 WO_OPCODE_SPACE,  // idmap(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
             mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-            idx = 56 WO_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idstr = 56 WO_OPCODE_SPACE,     // idstr(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
             equr = 57 WO_OPCODE_SPACE,      // equr(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             nequr = 58 WO_OPCODE_SPACE,     // nequr
             equs = 59 WO_OPCODE_SPACE,      // equs
             nequs = 60 WO_OPCODE_SPACE,     // nequs
-            RESERVED_3 = 61 WO_OPCODE_SPACE,      // 
+            RESERVED_0 = 61 WO_OPCODE_SPACE,      // 
 
             jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
             idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte
@@ -128,7 +128,7 @@ namespace wo
             packargs = 3 WO_OPCODE_SPACE,   // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             movdup = 5 WO_OPCODE_SPACE,     // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            mkclos = 6 WO_OPCODE_SPACE,     // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
+            // mkclos = 6 WO_OPCODE_SPACE,     // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
 
             veh = 7 WO_OPCODE_SPACE,    // excep(RAISE?_ROLLBACK?) 
                                         //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)

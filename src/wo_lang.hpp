@@ -4526,7 +4526,7 @@ namespace wo
                             ++idx)
                             compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
 
-                        compiler->ext_mkclos((uint16_t)a_value_function_define->capture_variables.size(),
+                        compiler->mkclos((uint16_t)a_value_function_define->capture_variables.size(),
                             opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
                         if (get_pure_value)
                         {
@@ -4996,11 +4996,17 @@ namespace wo
 
                     last_value_stored_to_cr_flag.write_to_cr();
 
-                    compiler->idx(beoped_left_opnum, op_right_opnum);
-
+                    if (a_value_index->from->value_type->is_array())
+                        compiler->idarr(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_index->from->value_type->is_map())
+                        compiler->idmap(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_index->from->value_type->is_string())
+                        compiler->idstr(beoped_left_opnum, op_right_opnum);
+                    else
+                        wo_error("Unknown index operation.");
+    
                     complete_using_register(beoped_left_opnum);
                     complete_using_register(op_right_opnum);
-
                 }
 
 
@@ -5612,9 +5618,9 @@ namespace wo
             {
                 a_match->match_end_tag_in_final_pass = compiler->get_unique_tag_based_command_ip() + "match_end";
 
-                compiler->set(reg(reg::ths), auto_analyze_value(a_match->match_value, compiler));
+                compiler->set(reg(reg::pm), auto_analyze_value(a_match->match_value, compiler));
                 // 1. Get id in cr.
-                compiler->idstruct(reg(reg::cr), reg(reg::ths), 0);
+                compiler->idstruct(reg(reg::cr), reg(reg::pm), 0);
 
                 real_analyze_finalize(a_match->cases, compiler);
 
@@ -5645,7 +5651,7 @@ namespace wo
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
                         auto& valreg = get_useable_register_for_ref_value();
-                        compiler->idstruct(valreg, reg(reg::ths), 1);
+                        compiler->idstruct(valreg, reg(reg::pm), 1);
 
                         wo_assert(a_match_union_case->take_place_value_may_nil);
                         a_match_union_case->take_place_value_may_nil->used_reg = &valreg;
