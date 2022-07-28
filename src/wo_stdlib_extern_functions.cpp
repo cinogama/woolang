@@ -802,40 +802,60 @@ namespace option
     {
         match(self)
         {
-            option::value(x)?
-                return option::value(functor(x));
-            option::none?
-                return option::none;
+        value(x)?
+            return option::value(functor(x));
+        none?
+            return option::none;
+        }
+    }
+    func map<T, R>(self: option<T>, functor: (T)=>R, or_functor: ()=>R) => option<R>
+    {
+        match(self)
+        {
+        value(x)?
+            return value(functor(x));
+        none?
+            return value(or_functor());
+        }
+    }
+    func or<T>(self: option<T>, functor: ()=>T)
+    {
+        match(self)
+        {
+        value(x)?
+            return self;
+        none?
+            return value(functor());
         }
     }
     func valor<T>(self: option<T>, default_val: T)
     {
         match(self)
         {
-            option::value(x)?
-                return x;
-            option::none?
-                return default_val;
+        value(x)?
+            return x;
+        none?
+            return default_val;
         }
     }
     func val<T>(self: option<T>)
     {
         match(self)
         {
-            option::value(x)?
-                return x;
-            option::none?
-                std::panic("Except 'value' here, but get 'none'.");
+        value(x)?
+            return x;
+        none?
+            std::panic("Expect 'value' here, but get 'none'.");
         }
     }
     func has<T>(self: option<T>)
     {
         match(self)
         {
-            option::value(x)?
-                return true;
-            option::none?
-                return false;
+        value(x)?
+            return true;
+        none?
+            return false;
         }
     }
 }
@@ -850,8 +870,8 @@ namespace result
     {
         match(r)
         {
-            ok(v)? return v;
-            err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        ok(v)? return v;
+        err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
 }

@@ -567,6 +567,8 @@ namespace wo
 
                 if (another->is_anything())
                     return true; // top type, OK
+                if (is_void())
+                    return true; // button type, OK
 
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
@@ -1646,7 +1648,7 @@ namespace wo
             {
                 if (left_v->is_dynamic() || right_v->is_dynamic())
                 {
-                    return new ast_type(L"dynamic");
+                    return nullptr;
                 }
                 if (left_v->is_func() || right_v->is_func())
                 {
