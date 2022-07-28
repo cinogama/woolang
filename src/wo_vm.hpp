@@ -818,16 +818,14 @@ namespace wo
                     tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
                 case instruct::idx:
                     tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::addx:
-                        tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::subx:
-                        tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::mulx:
-                        tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::divx:
-                        tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::modx:
-                        tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::equr:
+                    tmpos << "equr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::nequr:
+                    tmpos << "nequr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::equs:
+                    tmpos << "equs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::nequs:
+                    tmpos << "nequs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::ext:
                 {
                     tmpos << "ext ";
@@ -1575,487 +1573,7 @@ namespace wo
                         string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
                         break;
                     }
-
-                    case instruct::opcode::addx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
-
-                        if (opnum1->type != max_type)
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum1->integer; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->real = (wo_real_t)opnum1->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::handle_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->handle = (wo_handle_t)opnum1->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->handle = (wo_handle_t)opnum1->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        opnum1->type = max_type;
-                        ///////////////////////////////////////////////
-
-                        if (opnum2->type == max_type)
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->integer += opnum2->integer; break;
-                            case value::valuetype::real_type:
-                                opnum1->real += opnum2->real; break;
-                            case value::valuetype::handle_type:
-                                opnum1->handle += opnum2->handle; break;
-                            case value::valuetype::string_type:
-                                string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        else
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->integer += (wo_integer_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->integer += (wo_integer_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->integer += (wo_integer_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real += (wo_real_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->real += (wo_real_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->real += (wo_real_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::handle_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->handle += (wo_handle_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->handle += (wo_handle_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->handle += (wo_handle_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        break;
-                    }
-
-                    case instruct::opcode::subx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
-
-                        if (opnum1->type != max_type)
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum1->integer; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->real = (wo_real_t)opnum1->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::handle_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->handle = (wo_handle_t)opnum1->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->handle = (wo_handle_t)opnum1->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        opnum1->type = max_type;
-                        ///////////////////////////////////////////////
-
-                        if (opnum2->type == max_type)
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->integer -= opnum2->integer; break;
-                            case value::valuetype::real_type:
-                                opnum1->real -= opnum2->real; break;
-                            case value::valuetype::handle_type:
-                                opnum1->handle -= opnum2->handle; break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        else
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->integer -= (wo_integer_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->integer -= (wo_integer_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->integer -= (wo_integer_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real -= (wo_real_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->real -= (wo_real_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->real -= (wo_real_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::handle_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->handle -= (wo_handle_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->handle -= (wo_handle_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->handle -= (wo_handle_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        break;
-                    }
-
-                    case instruct::opcode::mulx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
-
-                        if (opnum1->type != max_type)
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum1->integer; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        opnum1->type = max_type;
-                        ///////////////////////////////////////////////
-
-                        if (opnum2->type == max_type)
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->integer *= opnum2->integer; break;
-                            case value::valuetype::real_type:
-                                opnum1->real *= opnum2->real; break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        else
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->integer *= (wo_integer_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->integer *= (wo_integer_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real *= (wo_real_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->real *= (wo_real_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        break;
-                    }
-
-                    case instruct::opcode::divx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
-
-                        if (opnum1->type != max_type)
-                        {
-
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum1->integer; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        opnum1->type = max_type;
-                        ///////////////////////////////////////////////
-
-                        if (opnum2->type == max_type)
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->integer /= opnum2->integer; break;
-                            case value::valuetype::real_type:
-                                opnum1->real /= opnum2->real; break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        else
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->integer /= (wo_integer_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->integer /= (wo_integer_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real /= (wo_real_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->real /= (wo_real_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        break;
-                    }
-
-                    case instruct::opcode::modx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
-
-                        if (opnum1->type != max_type)
-                        {
-
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum1->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum1->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum1->integer; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        opnum1->type = max_type;
-                        ///////////////////////////////////////////////
-
-                        if (opnum2->type == max_type)
-                        {
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->integer %= opnum2->integer; break;
-                            case value::valuetype::real_type:
-                                opnum1->real = fmod(opnum1->real, opnum2->real); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        else
-                        {
-                            switch (max_type)
-                            {
-                            case wo::value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->integer %= (wo_integer_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->integer %= (wo_integer_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            case wo::value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = fmod(opnum1->real, (wo_real_t)opnum2->integer); break;
-                                case value::valuetype::real_type:
-                                    opnum1->real = fmod(opnum1->real, (wo_real_t)opnum2->real); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                                }
-                                break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Mismatch type for operating."); break;
-                            }
-                        }
-                        break;
-                    }
-
                     /// OPERATE
-
-
                     case instruct::opcode::set:
                     {
                         WO_ADDRESSING_N1;
@@ -2276,6 +1794,40 @@ namespace wo
                         rt_cr->set_integer(opnum1->integer != opnum2->integer);
                         break;
                     }
+                    case instruct::opcode::equr:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                        rt_cr->set_integer(opnum1->real == opnum2->real);
+
+                        break;
+                    }
+                    case instruct::opcode::nequr:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                        rt_cr->set_integer(opnum1->real != opnum2->real);
+                        break;
+                    }
+                    case instruct::opcode::equs:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                        rt_cr->set_integer(*opnum1->string == *opnum2->string);
+
+                        break;
+                    }
+                    case instruct::opcode::nequs:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                        rt_cr->set_integer(*opnum1->string != *opnum2->string);
+                        break;
+                    }
                     case instruct::opcode::equx:
                     {
                         WO_ADDRESSING_N1_REF;
@@ -2479,36 +2031,23 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (opnum1->type == opnum2->type)
+                        wo_assert(opnum1->type == opnum2->type);
+
+                        switch (opnum1->type)
                         {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer < opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle < opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real < opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string < *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(0);
-                                break;
-                            }
+                        case value::valuetype::integer_type:
+                            rt_cr->set_integer(opnum1->integer < opnum2->integer); break;
+                        case value::valuetype::handle_type:
+                            rt_cr->set_integer(opnum1->handle < opnum2->handle); break;
+                        case value::valuetype::real_type:
+                            rt_cr->set_integer(opnum1->real < opnum2->real); break;
+                        case value::valuetype::string_type:
+                            rt_cr->set_integer(*opnum1->string < *opnum2->string); break;
+                        default:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                            rt_cr->set_integer(0);
+                            break;
                         }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer < opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real < (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(opnum1->type < opnum2->type);
 
                         break;
                     }
@@ -2517,36 +2056,24 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (opnum1->type == opnum2->type)
+                        wo_assert(opnum1->type == opnum2->type);
+                        switch (opnum1->type)
                         {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer > opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle > opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real > opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string > *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(0);
-                                break;
-                            }
+                        case value::valuetype::integer_type:
+                            rt_cr->set_integer(opnum1->integer > opnum2->integer); break;
+                        case value::valuetype::handle_type:
+                            rt_cr->set_integer(opnum1->handle > opnum2->handle); break;
+                        case value::valuetype::real_type:
+                            rt_cr->set_integer(opnum1->real > opnum2->real); break;
+                        case value::valuetype::string_type:
+                            rt_cr->set_integer(*opnum1->string > *opnum2->string); break;
+                        default:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                            rt_cr->set_integer(0);
+                            break;
                         }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer > opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real > (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(opnum1->type > opnum2->type);
+
+
                         break;
                     }
                     case instruct::opcode::eltx:
@@ -2554,36 +2081,23 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (opnum1->type == opnum2->type)
+                        wo_assert(opnum1->type == opnum2->type);
+
+                        switch (opnum1->type)
                         {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer <= opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle <= opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real <= opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string <= *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(0);
-                                break;
-                            }
+                        case value::valuetype::integer_type:
+                            rt_cr->set_integer(opnum1->integer <= opnum2->integer); break;
+                        case value::valuetype::handle_type:
+                            rt_cr->set_integer(opnum1->handle <= opnum2->handle); break;
+                        case value::valuetype::real_type:
+                            rt_cr->set_integer(opnum1->real <= opnum2->real); break;
+                        case value::valuetype::string_type:
+                            rt_cr->set_integer(*opnum1->string <= *opnum2->string); break;
+                        default:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                            rt_cr->set_integer(0);
+                            break;
                         }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer <= opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real <= (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(opnum1->type <= opnum2->type);
 
                         break;
                     }
@@ -2592,36 +2106,24 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (opnum1->type == opnum2->type)
+                        wo_assert(opnum1->type == opnum2->type);
+
+                        switch (opnum1->type)
                         {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer >= opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle >= opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real >= opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string >= *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(0);
-                                break;
-                            }
+                        case value::valuetype::integer_type:
+                            rt_cr->set_integer(opnum1->integer >= opnum2->integer); break;
+                        case value::valuetype::handle_type:
+                            rt_cr->set_integer(opnum1->handle >= opnum2->handle); break;
+                        case value::valuetype::real_type:
+                            rt_cr->set_integer(opnum1->real >= opnum2->real); break;
+                        case value::valuetype::string_type:
+                            rt_cr->set_integer(*opnum1->string >= *opnum2->string); break;
+                        default:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                            rt_cr->set_integer(0);
+                            break;
                         }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer >= opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real >= (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(opnum1->type >= opnum2->type);
+
                         break;
                     }
                     case instruct::opcode::ret:

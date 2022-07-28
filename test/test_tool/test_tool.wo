@@ -40,7 +40,13 @@ func execute_all_test()
 
 func test_equal<AT, BT>(a: AT, b: BT)
 {
-    if (a: dynamic == b: dynamic)
+    let mut result = false;
+    if (a is string || b is string)
+        result = a == b;
+    else
+        result = std::equalbyte(a, b);
+
+    if(result)
         test_success_count += 1;
     else
     {

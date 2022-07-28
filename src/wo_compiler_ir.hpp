@@ -773,7 +773,7 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void addx(const OP1T& op1, const OP2T& op2)
+        void equr(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -782,10 +782,10 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not add value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::addx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::equr, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void subx(const OP1T& op1, const OP2T& op2)
+        void nequr(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -794,10 +794,10 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not sub value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::subx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::nequr, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void mulx(const OP1T& op1, const OP2T& op2)
+        void equs(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -806,10 +806,10 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not mul value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mulx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::equs, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void divx(const OP1T& op1, const OP2T& op2)
+        void nequs(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -818,7 +818,7 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not div value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::divx, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::nequs, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
         void modx(const OP1T& op1, const OP2T& op2)
@@ -1675,32 +1675,26 @@ namespace wo
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
-                case instruct::opcode::addx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(addx));
+                case instruct::opcode::equr:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(equr));
                     auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
-                case instruct::opcode::subx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(subx));
+                case instruct::opcode::nequr:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(nequr));
                     auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
-                case instruct::opcode::mulx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(mulx));
+                case instruct::opcode::equs:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(equs));
                     auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 
                     break;
-                case instruct::opcode::divx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(divx));
-                    auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
-
-                    break;
-                case instruct::opcode::modx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(modx));
+                case instruct::opcode::nequs:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(nequs));
                     auto_check_mem_allign(2, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(2, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
 

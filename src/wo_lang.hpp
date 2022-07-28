@@ -1032,8 +1032,7 @@ namespace wo
                         || a_value_logic_bin->left->value_type->is_handle()
                         || a_value_logic_bin->left->value_type->is_real()
                         || a_value_logic_bin->left->value_type->is_string()
-                        || a_value_logic_bin->left->value_type->is_gchandle()
-                        || a_value_logic_bin->left->value_type->is_dynamic())
+                        || a_value_logic_bin->left->value_type->is_gchandle())
                         && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                     {
                         a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
@@ -2923,7 +2922,6 @@ namespace wo
                         if (!a_value_index->from->value_type->is_array()
                             && !a_value_index->from->value_type->is_map()
                             && !a_value_index->from->value_type->is_string()
-                            && !a_value_index->from->value_type->is_dynamic()
                             && !a_value_index->from->value_type->is_struct()
                             && !a_value_index->from->value_type->is_tuple())
                         {
@@ -2966,8 +2964,7 @@ namespace wo
                     {
                         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
                         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
-                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
-                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_dynamic())
+                            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
                         {
                             lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array" WO_TERM_OR L"tuple");
                         }
@@ -3060,8 +3057,7 @@ namespace wo
                                     || a_value_logic_bin->left->value_type->is_handle()
                                     || a_value_logic_bin->left->value_type->is_real()
                                     || a_value_logic_bin->left->value_type->is_string()
-                                    || a_value_logic_bin->left->value_type->is_gchandle()
-                                    || a_value_logic_bin->left->value_type->is_dynamic())
+                                    || a_value_logic_bin->left->value_type->is_gchandle())
                                     && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
                                     type_ok = true;
                             }
@@ -4181,8 +4177,7 @@ namespace wo
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false)
-                    && !a_value_binary->left->value_type->is_dynamic())
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false))
                     optype = a_value_binary->left->value_type->value_type;
 
                 auto& beoped_left_opnum = analyze_value(a_value_binary->left, compiler, true);
@@ -4191,105 +4186,84 @@ namespace wo
                 switch (a_value_binary->operate)
                 {
                 case lex_type::l_add:
-                    if (optype == value::valuetype::invalid)
-                        compiler->addx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::handle_type:
-                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::string_type:
-                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_binary->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::handle_type:
+                        compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::string_type:
+                        compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_binary->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
                     break;
                 case lex_type::l_sub:
-                    if (optype == value::valuetype::invalid)
-                        compiler->subx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::handle_type:
-                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_binary->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::handle_type:
+                        compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_binary->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 case lex_type::l_mul:
-                    if (optype == value::valuetype::invalid)
-                        compiler->mulx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_binary->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_binary->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 case lex_type::l_div:
-                    if (optype == value::valuetype::invalid)
-                        compiler->divx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_binary->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_binary->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 case lex_type::l_mod:
-                    if (optype == value::valuetype::invalid)
-                        compiler->modx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_binary->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_binary->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 default:
                     wo_error("Do not support this operator..");
@@ -4311,7 +4285,7 @@ namespace wo
                 // if mixed type, do opx
                 bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
                 value::valuetype optype = value::valuetype::invalid;
-                if (same_type && !a_value_assign->left->value_type->is_dynamic())
+                if (same_type)
                     optype = a_value_assign->left->value_type->value_type;
 
                 if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
@@ -4758,15 +4732,11 @@ namespace wo
                     return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
 
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false)
-                    && !a_value_logical_binary->left->value_type->is_dynamic())
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
                     optype = a_value_logical_binary->left->value_type->value_type;
 
                 if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
                 {
-                    if (!a_value_logical_binary->left->value_type->is_dynamic() &&
-                        !a_value_logical_binary->right->value_type->is_dynamic())
-                    {
                         if (!((a_value_logical_binary->left->value_type->is_integer() ||
                             a_value_logical_binary->left->value_type->is_real()) &&
                             (a_value_logical_binary->right->value_type->is_integer() ||
@@ -4774,7 +4744,6 @@ namespace wo
                             lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                                 a_value_logical_binary->left->value_type->get_type_name(false).c_str(),
                                 a_value_logical_binary->right->value_type->get_type_name(false).c_str());
-                    }
                 }
                 if (a_value_logical_binary->operate == +lex_type::l_equal || a_value_logical_binary->operate == +lex_type::l_not_equal)
                 {
@@ -4796,8 +4765,7 @@ namespace wo
                 {
                     if (!(a_value_logical_binary->left->value_type->is_integer()
                         || a_value_logical_binary->left->value_type->is_real()
-                        || a_value_logical_binary->left->value_type->is_string()
-                        || a_value_logical_binary->left->value_type->is_dynamic()))
+                        || a_value_logical_binary->left->value_type->is_string()))
                     {
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_RELATION_CANNOT_COMPARE,
                             lexer::lex_is_operate_type(a_value_logical_binary->operate),
@@ -4805,8 +4773,7 @@ namespace wo
                     }
                     if (!(a_value_logical_binary->right->value_type->is_integer()
                         || a_value_logical_binary->right->value_type->is_real()
-                        || a_value_logical_binary->right->value_type->is_string()
-                        || a_value_logical_binary->right->value_type->is_dynamic()))
+                        || a_value_logical_binary->right->value_type->is_string()))
                     {
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_RELATION_CANNOT_COMPARE,
                             lexer::lex_is_operate_type(a_value_logical_binary->operate),
@@ -4817,10 +4784,10 @@ namespace wo
                 if (a_value_logical_binary->operate == +lex_type::l_lor ||
                     a_value_logical_binary->operate == +lex_type::l_land)
                 {
-                    if (!a_value_logical_binary->left->value_type->is_bool() && !a_value_logical_binary->left->value_type->is_dynamic())
+                    if (!a_value_logical_binary->left->value_type->is_bool())
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
                             a_value_logical_binary->left->value_type->get_type_name(false).c_str());
-                    if (!a_value_logical_binary->right->value_type->is_bool() && !a_value_logical_binary->right->value_type->is_dynamic())
+                    if (!a_value_logical_binary->right->value_type->is_bool())
                         lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
                             a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                 }
@@ -4872,34 +4839,26 @@ namespace wo
                 switch (a_value_logical_binary->operate)
                 {
                 case lex_type::l_equal:
-                    if ((a_value_logical_binary->left->value_type->is_nil()
-                        || a_value_logical_binary->right->value_type->is_nil()
-                        || a_value_logical_binary->left->value_type->is_func()
-                        || a_value_logical_binary->right->value_type->is_func()
-                        || a_value_logical_binary->left->value_type->is_gc_type()
-                        || a_value_logical_binary->right->value_type->is_gc_type()
-                        || optype == value::valuetype::integer_type
-                        || optype == value::valuetype::handle_type)
-                        && (!a_value_logical_binary->left->value_type->is_string()
-                            && !a_value_logical_binary->right->value_type->is_string()))
+                    if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
+                        || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
                         compiler->equb(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
+                        compiler->equr(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
+                        compiler->equs(beoped_left_opnum, op_right_opnum);
                     else
-                        compiler->equx(beoped_left_opnum, op_right_opnum);
+                        compiler->equb(beoped_left_opnum, op_right_opnum);
                     break;
                 case lex_type::l_not_equal:
-                    if ((a_value_logical_binary->left->value_type->is_nil()
-                        || a_value_logical_binary->right->value_type->is_nil()
-                        || a_value_logical_binary->left->value_type->is_func()
-                        || a_value_logical_binary->right->value_type->is_func()
-                        || a_value_logical_binary->left->value_type->is_gc_type()
-                        || a_value_logical_binary->right->value_type->is_gc_type()
-                        || optype == value::valuetype::integer_type
-                        || optype == value::valuetype::handle_type)
-                        && (!a_value_logical_binary->left->value_type->is_string()
-                            && !a_value_logical_binary->right->value_type->is_string()))
+                    if ((a_value_logical_binary->left->value_type->is_integer() && a_value_logical_binary->right->value_type->is_integer())
+                        || (a_value_logical_binary->left->value_type->is_handle() && a_value_logical_binary->right->value_type->is_handle()))
                         compiler->nequb(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_logical_binary->left->value_type->is_real() && a_value_logical_binary->right->value_type->is_real())
+                        compiler->nequr(beoped_left_opnum, op_right_opnum);
+                    else if (a_value_logical_binary->left->value_type->is_string() && a_value_logical_binary->right->value_type->is_string())
+                        compiler->nequs(beoped_left_opnum, op_right_opnum);
                     else
-                        compiler->nequx(beoped_left_opnum, op_right_opnum);
+                        compiler->nequb(beoped_left_opnum, op_right_opnum);
                     break;
                 case lex_type::l_less:
                     if (optype == value::valuetype::integer_type)
@@ -5153,19 +5112,12 @@ namespace wo
                 switch (a_value_unary->operate)
                 {
                 case lex_type::l_lnot:
-                    if (!a_value_unary->val->value_type->is_bool() && !a_value_unary->val->value_type->is_dynamic())
+                    if (!a_value_unary->val->value_type->is_bool())
                         lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL);
                     compiler->equb(analyze_value(a_value_unary->val, compiler), reg(reg::ni));
                     break;
                 case lex_type::l_sub:
-                    if (a_value_unary->val->value_type->is_dynamic())
-                    {
-                        auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->set(reg(reg::cr), imm(0));
-                        compiler->subx(reg(reg::cr), result);
-                        complete_using_register(result);
-                    }
-                    else if (a_value_unary->val->value_type->is_integer())
+                    if (a_value_unary->val->value_type->is_integer())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
                         compiler->set(reg(reg::cr), imm(0));
@@ -5346,7 +5298,7 @@ namespace wo
             }
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
-                if (!a_if->judgement_value->value_type->is_dynamic() && !a_if->judgement_value->value_type->is_bool())
+                if (!a_if->judgement_value->value_type->is_bool())
                     lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL,
                         L"if", a_if->judgement_value->value_type->get_type_name(false).c_str());
 
@@ -5398,7 +5350,7 @@ namespace wo
             }
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
-                if (!a_while->judgement_value->value_type->is_dynamic() && !a_while->judgement_value->value_type->is_bool())
+                if (!a_while->judgement_value->value_type->is_bool())
                     lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
                         a_while->judgement_value->value_type->get_type_name(false).c_str());
 
@@ -5454,7 +5406,7 @@ namespace wo
 
                 if (a_forloop->judgement_expr)
                 {
-                    if (!a_forloop->judgement_expr->value_type->is_dynamic() && !a_forloop->judgement_expr->value_type->is_bool())
+                    if (!a_forloop->judgement_expr->value_type->is_bool())
                         lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"for",
                             a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
 

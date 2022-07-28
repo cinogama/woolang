@@ -14,7 +14,7 @@ namespace test_gc
         while (i < 1000_000)
         {
                 global_list->add({}: dynamic);
-                global_list[-1]["Hello"] = "world": dynamic;
+                (global_list[-1]:map)["Hello": dynamic] = "world": dynamic;
                 i+=1;
 
                 tmp->add(arr_a[0]);

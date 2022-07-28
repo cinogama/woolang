@@ -47,17 +47,17 @@ namespace test_basic
         let b = 15:dynamic;
         let h1 = 1230H :dynamic;
         let h2 = 7890H :dynamic;
-        test_equal(a + b, 30);
-        test_equal(h1 + h2, 9120H);
-        test_equal(h1 + 1.0, 1231H);
-        test_equal(h1 + 5, 1235H);
+        test_equal(a: int + b: int, 30);
+        test_equal(h1: handle + h2: handle, 9120H);
+        test_equal(h1: handle + 1.0: handle, 1231H);
+        test_equal(h1: handle + 5: handle, 1235H);
 
-        test_equal(h2-h1, 6660H);
-        test_equal(h1-1.0, 1229H);
-        test_equal(h1-5, 1225H);
+        test_equal(h2: handle - h1: handle, 6660H);
+        test_equal(h1: handle - 1.0: handle, 1229H);
+        test_equal(h1: handle - 5: handle, 1225H);
 
-        test_assure(abs(a:dynamic * 0.2:dynamic - 3:dynamic) < 0.0000000001:dynamic);
-        test_assure(abs(a:dynamic / 0.2:dynamic - 75:dynamic) < 0.0000000001:dynamic);
+        test_assure(abs(a:real * 0.2 - 3.) < 0.0000000001);
+        test_assure(abs(a:real / 0.2 - 75.) < 0.0000000001);
     
         let mut p = 1;
         let mut q = 1.0;
@@ -72,10 +72,10 @@ namespace test_basic
         test_equal(q<1.0, false);
         test_equal(q<=1.0, false);
         test_equal(q==1.0, false);
-        test_equal(h1 > q:dynamic, true);
-        test_equal(h1 >= q:dynamic, true);
-        test_equal(h1 <  q:dynamic, false);
-        test_equal(h1 <= q:dynamic, false);
+        test_equal(h1:real > q, true);
+        test_equal(h1:real >= q, true);
+        test_equal((h1:real) < q, false);
+        test_equal(h1:real <= q, false);
 
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
