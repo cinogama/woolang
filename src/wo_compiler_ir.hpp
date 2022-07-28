@@ -952,25 +952,6 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void equx(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::equx, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-        template<typename OP1T, typename OP2T>
-        void nequx(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::nequx, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-
-        template<typename OP1T, typename OP2T>
         void land(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -1750,17 +1731,6 @@ namespace wo
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
                     auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
                     break;
-                case instruct::opcode::equx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(equx));
-                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    break;
-                case instruct::opcode::nequx:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(nequx));
-                    auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    auto_check_mem_allign(1, WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf));
-                    break;
-
                 case instruct::opcode::land:
                     temp_this_command_code_buf.push_back(WO_OPCODE(land));
                     auto_check_mem_allign(1, WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf));

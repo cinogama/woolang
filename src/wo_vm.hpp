@@ -790,16 +790,8 @@ namespace wo
                     else
                         tmpos << "abrt\t";
                     break;
-
-                case instruct::equx:
-                    tmpos << "equx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
-                case instruct::nequx:
-                    tmpos << "nequx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
                 case instruct::equb:
                     tmpos << "equb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
                 case instruct::nequb:
                     tmpos << "nequb\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::mkstruct:
@@ -1826,81 +1818,6 @@ namespace wo
                         WO_ADDRESSING_N2_REF;
                         wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
                         rt_cr->set_integer(*opnum1->string != *opnum2->string);
-                        break;
-                    }
-                    case instruct::opcode::equx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        if (opnum1->type == opnum2->type)
-                        {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer == opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle == opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real == opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string == *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(0);
-                                break;
-                            }
-                        }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer == opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real == (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(opnum1->is_nil() && opnum2->is_nil());
-                        break;
-
-                    }
-                    case instruct::opcode::nequx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        if (opnum1->type == opnum2->type)
-                        {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                                rt_cr->set_integer(opnum1->integer != opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                rt_cr->set_integer(opnum1->handle != opnum2->handle); break;
-                            case value::valuetype::real_type:
-                                rt_cr->set_integer(opnum1->real != opnum2->real); break;
-                            case value::valuetype::string_type:
-                                rt_cr->set_integer(*opnum1->string != *opnum2->string); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                                rt_cr->set_integer(1);
-                                break;
-                            }
-                        }
-                        else if (opnum1->type == value::valuetype::integer_type
-                            && opnum2->type == value::valuetype::real_type)
-                        {
-                            rt_cr->set_integer((wo_real_t)opnum1->integer != opnum2->real);
-                        }
-                        else if (opnum1->type == value::valuetype::real_type
-                            && opnum2->type == value::valuetype::integer_type)
-                        {
-                            rt_cr->set_integer(opnum1->real != (wo_real_t)opnum2->integer);
-                        }
-                        else
-                            rt_cr->set_integer(!(opnum1->is_nil() && opnum2->is_nil()));
                         break;
                     }
                     case instruct::opcode::land:

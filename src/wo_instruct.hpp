@@ -97,8 +97,8 @@ namespace wo
             abrt = 51 WO_OPCODE_SPACE,  // abrt(0_1/0)  (0xcc 0xcd can use it to abort)     
                                         // end(1_1/0)   1 byte
 
-            equx = 52 WO_OPCODE_SPACE,   // equx(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-            nequx = 53 WO_OPCODE_SPACE,  // nequx
+            RESERVED_1 = 52 WO_OPCODE_SPACE,  // 
+            RESERVED_2 = 53 WO_OPCODE_SPACE,  // 
 
             mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
@@ -108,7 +108,7 @@ namespace wo
             nequr = 58 WO_OPCODE_SPACE,     // nequr
             equs = 59 WO_OPCODE_SPACE,      // equs
             nequs = 60 WO_OPCODE_SPACE,     // nequs
-            RESERVED_5 = 61 WO_OPCODE_SPACE,      // 
+            RESERVED_3 = 61 WO_OPCODE_SPACE,      // 
 
             jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
             idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte
