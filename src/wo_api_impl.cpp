@@ -290,6 +290,12 @@ wo_string_t wo_exe_path()
     return wo::exe_path();
 }
 
+wo_bool_t wo_equal_byte(wo_value a, wo_value b)
+{
+    auto left = WO_VAL(a), right = WO_VAL(b);
+    return left->type==right->type && left->handle == right->handle;
+}
+
 wo_ptr_t wo_safety_pointer_ignore_fail(wo::gchandle_t* gchandle)
 {
     if (gchandle->has_been_closed)

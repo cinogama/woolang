@@ -85,7 +85,7 @@ namespace wo
 
             movcast = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
-            movx = 47 WO_OPCODE_SPACE,      // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            RESERVED_0 = 47 WO_OPCODE_SPACE,      // movx(dr)          REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
 
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
@@ -104,7 +104,7 @@ namespace wo
             mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             idx = 56 WO_OPCODE_SPACE,       // idx(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
-            addx = 57 WO_OPCODE_SPACE,      // addx(dr)         CHANGE_TYPE(1B) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+            addx = 57 WO_OPCODE_SPACE,      // addx(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             subx = 58 WO_OPCODE_SPACE,      // subx
             mulx = 59 WO_OPCODE_SPACE,      // mulx
             divx = 60 WO_OPCODE_SPACE,      // divx

@@ -196,6 +196,8 @@ typedef enum _wo_inform_style
 WO_API wo_string_t  wo_locale_name();
 WO_API wo_string_t  wo_exe_path();
 
+WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
+
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
 WO_API wo_vm        wo_create_vm();
 WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);

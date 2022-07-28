@@ -19,7 +19,7 @@ namespace test_debug_invoke
     {
         std::debug::breakpoint();
     }
-    func swap(ref a: dynamic, ref b: dynamic)
+    func swap<T>(ref a: T, ref b: T)
     {
         let c = b;
         b = a;
@@ -32,24 +32,24 @@ namespace test_debug_invoke
         
         std::debug::invoke(cause_minor_fail);
 
-        let mut i = 0:dynamic;
+        let mut i = 0;
         while (i < 10)
         {
             test_equal(variadic_func_call("h", "e", "l", "l", "o", "w", "o", "r", "l", "d"),
                             std::debug::invoke(variadic_func_call, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d"));
             test_equal(std::print("h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"),
                             std::debug::invoke(std::print, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"));
-            i += 1: dynamic;
+            i += 1;
         }
 
-        swap(ref i, 233: dynamic);
+        swap(ref i, 233);
         test_equal(i, 233);
 
-        std::debug::invoke(swap, ref i, 123);
+        std::debug::invoke(swap:<int>, ref i, 123);
         test_equal(i, 123);
 
-        let vinvoke = std::debug::invoke:<typeof(swap)>;
-        vinvoke(swap, ref i, 777);
+        let vinvoke = std::debug::invoke:<typeof(swap:<int>)>;
+        vinvoke(swap:<int>, ref i, 777);
         test_equal(i, 777);
     }
 }

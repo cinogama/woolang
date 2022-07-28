@@ -1800,6 +1800,11 @@ namespace wo
                 fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
                 has_step_in_step2 = step_in_pass2;
 
+                if (temtype->is_pending())
+                {
+                    lang_anylizer->lang_error(0x0000, temtype, WO_ERR_UNKNOWN_TYPE, temtype->get_type_name(false).c_str());
+                    return nullptr;
+                }
                 template_args_hashtypes.push_back(get_typing_hash_after_pass1(temtype));
             }
 
@@ -4200,10 +4205,6 @@ namespace wo
                             compiler->addh(beoped_left_opnum, op_right_opnum); break;
                         case wo::value::valuetype::string_type:
                             compiler->adds(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::array_type:
-                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::mapping_type:
-                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
                         default:
                             lang_anylizer->lang_error(0xC000, a_value_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                                 a_value_binary->left->value_type->get_type_name(false).c_str(),
@@ -4339,128 +4340,92 @@ namespace wo
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
+                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
                     if (is_need_dup_when_mov(a_value_assign->right))
                         // TODO Right may be 'nil', do not dup nil..
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
-                    else if (a_value_assign->left->value_type->is_bool())
-                        compiler->lmov(beoped_left_opnum, op_right_opnum);
-                    else if (!a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false) &&
-                        !a_value_assign->left->value_type->is_dynamic())
-                    {
-                        compiler->movx(beoped_left_opnum, op_right_opnum);
-                    }
                     else
                         compiler->mov(beoped_left_opnum, op_right_opnum);
                     break;
                 case lex_type::l_add_assign:
-                    if (optype == value::valuetype::invalid)
-                        // TODO : NEED WARNING..
-                        compiler->addmovx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::handle_type:
-                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::string_type:
-                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::array_type:
-                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::mapping_type:
-                            compiler->addx(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_assign->left->value_type->get_type_name(false).c_str(),
-                                a_value_assign->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::handle_type:
+                        compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::string_type:
+                        compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_assign->left->value_type->get_type_name(false).c_str(),
+                            a_value_assign->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
                     break;
                 case lex_type::l_sub_assign:
-                    if (optype == value::valuetype::invalid)
-                        // TODO : NEED WARNING..
-                        compiler->submovx(beoped_left_opnum, op_right_opnum);
-                    else
+
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::handle_type:
-                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_assign->left->value_type->get_type_name(false).c_str(),
-                                a_value_assign->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::handle_type:
+                        compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_assign->left->value_type->get_type_name(false).c_str(),
+                            a_value_assign->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 case lex_type::l_mul_assign:
-                    if (optype == value::valuetype::invalid)
-                        // TODO : NEED WARNING..
-                        compiler->mulmovx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_assign->left->value_type->get_type_name(false).c_str(),
-                                a_value_assign->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_assign->left->value_type->get_type_name(false).c_str(),
+                            a_value_assign->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 case lex_type::l_div_assign:
-                    if (optype == value::valuetype::invalid)
-                        // TODO : NEED WARNING..
-                        compiler->divmovx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_assign->left->value_type->get_type_name(false).c_str(),
-                                a_value_assign->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_assign->left->value_type->get_type_name(false).c_str(),
+                            a_value_assign->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
                     break;
                 case lex_type::l_mod_assign:
-                    if (optype == value::valuetype::invalid)
-                        // TODO : NEED WARNING..
-                        compiler->modmovx(beoped_left_opnum, op_right_opnum);
-                    else
+                    switch (optype)
                     {
-                        switch (optype)
-                        {
-                        case wo::value::valuetype::integer_type:
-                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
-                        case wo::value::valuetype::real_type:
-                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
-                        default:
-                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_assign->left->value_type->get_type_name(false).c_str(),
-                                a_value_assign->right->value_type->get_type_name(false).c_str());
-                            break;
-                        }
+                    case wo::value::valuetype::integer_type:
+                        compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                    case wo::value::valuetype::real_type:
+                        compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                    default:
+                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_assign->left->value_type->get_type_name(false).c_str(),
+                            a_value_assign->right->value_type->get_type_name(false).c_str());
+                        break;
                     }
+
                     break;
                 default:
                     wo_error("Do not support this operator..");

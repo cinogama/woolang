@@ -773,6 +773,11 @@ WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
+}
+
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
@@ -883,6 +888,9 @@ namespace std
 
     extern("rslib_std_get_extern_symb")
         func extern_symbol<T>(fullname:string)=> option<T>;
+
+    extern("rslib_std_equal_byte")
+    func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
 
     func max<T>(a:T, b:T)
         where (a<b) is bool;

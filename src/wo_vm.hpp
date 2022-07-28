@@ -784,9 +784,6 @@ namespace wo
                     }
 
                     break;
-
-                case instruct::movx:
-                    tmpos << "movx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::abrt:
                     if (main_command & 0b10)
                         tmpos << "end\t";
@@ -821,53 +818,16 @@ namespace wo
                     tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
                 case instruct::idx:
                     tmpos << "idx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
                 case instruct::addx:
-                    if (*this_command_ptr++)
-                    {
                         tmpos << "addx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-                    else
-                    {
-                        tmpos << "addmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
                 case instruct::subx:
-                    if (*this_command_ptr++)
-                    {
                         tmpos << "subx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-                    else
-                    {
-                        tmpos << "submovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
                 case instruct::mulx:
-                    if (*this_command_ptr++)
-                    {
                         tmpos << "mulx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-                    else
-                    {
-                        tmpos << "mulmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
                 case instruct::divx:
-                    if (*this_command_ptr++)
-                    {
                         tmpos << "divx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-                    else
-                    {
-                        tmpos << "divmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
                 case instruct::modx:
-                    if (*this_command_ptr++)
-                    {
                         tmpos << "modx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-                    else
-                    {
-                        tmpos << "modmovx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                    }
-
                 case instruct::ext:
                 {
                     tmpos << "ext ";
@@ -1618,13 +1578,10 @@ namespace wo
 
                     case instruct::opcode::addx:
                     {
-                        auto change_type_sign = WO_IPVAL_MOVE_1;
-
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = change_type_sign ?
-                            std::max(opnum1->type, opnum2->type) : opnum1->type;
+                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
 
                         if (opnum1->type != max_type)
                         {
@@ -1738,13 +1695,10 @@ namespace wo
 
                     case instruct::opcode::subx:
                     {
-                        auto change_type_sign = WO_IPVAL_MOVE_1;
-
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = change_type_sign ?
-                            std::max(opnum1->type, opnum2->type) : opnum1->type;
+                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
 
                         if (opnum1->type != max_type)
                         {
@@ -1856,13 +1810,10 @@ namespace wo
 
                     case instruct::opcode::mulx:
                     {
-                        auto change_type_sign = WO_IPVAL_MOVE_1;
-
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = change_type_sign ?
-                            std::max(opnum1->type, opnum2->type) : opnum1->type;
+                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
 
                         if (opnum1->type != max_type)
                         {
@@ -1940,13 +1891,10 @@ namespace wo
 
                     case instruct::opcode::divx:
                     {
-                        auto change_type_sign = WO_IPVAL_MOVE_1;
-
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = change_type_sign ?
-                            std::max(opnum1->type, opnum2->type) : opnum1->type;
+                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
 
                         if (opnum1->type != max_type)
                         {
@@ -2025,13 +1973,10 @@ namespace wo
 
                     case instruct::opcode::modx:
                     {
-                        auto change_type_sign = WO_IPVAL_MOVE_1;
-
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        value::valuetype max_type = change_type_sign ?
-                            std::max(opnum1->type, opnum2->type) : opnum1->type;
+                        value::valuetype max_type = std::max(opnum1->type, opnum2->type);
 
                         if (opnum1->type != max_type)
                         {
@@ -2125,67 +2070,6 @@ namespace wo
                         WO_ADDRESSING_N2_REF;
 
                         opnum1->set_val(opnum2);
-                        break;
-                    }
-                    case instruct::opcode::movx:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        if (opnum1->type == opnum2->type)
-                            opnum1->handle = opnum2->handle;  // Has same type, just move all data.
-                        else
-                        {
-                            switch (opnum1->type)
-                            {
-                            case value::valuetype::integer_type:
-                            {
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->integer = (wo_integer_t)opnum2->real; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->integer = (wo_integer_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                    break;
-                                }break;
-                            }
-                            case value::valuetype::real_type:
-                            {
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->real = (wo_real_t)opnum2->integer; break;
-                                case value::valuetype::handle_type:
-                                    opnum1->real = (wo_real_t)opnum2->handle; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                    break;
-                                }break;
-                            }
-                            case value::valuetype::handle_type:
-                            {
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->handle = (wo_handle_t)opnum2->integer; break;
-                                case value::valuetype::real_type:
-                                    opnum1->handle = (wo_handle_t)opnum2->real; break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                    break;
-                                }break;
-                            }
-                            case value::valuetype::array_type:
-                            case value::valuetype::mapping_type:
-                            case value::valuetype::gchandle_type:
-                                /* fall through~~~ */
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Type mismatch between two opnum.");
-                                break;
-                            }
-                        }
                         break;
                     }
                     case instruct::opcode::movcast:
@@ -2409,10 +2293,6 @@ namespace wo
                                 rt_cr->set_integer(opnum1->real == opnum2->real); break;
                             case value::valuetype::string_type:
                                 rt_cr->set_integer(*opnum1->string == *opnum2->string); break;
-
-                            case value::valuetype::mapping_type:
-                            case value::valuetype::array_type:
-                                rt_cr->set_integer(opnum1->gcunit == opnum2->gcunit); break;
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                                 rt_cr->set_integer(0);
@@ -2451,10 +2331,6 @@ namespace wo
                                 rt_cr->set_integer(opnum1->real != opnum2->real); break;
                             case value::valuetype::string_type:
                                 rt_cr->set_integer(*opnum1->string != *opnum2->string); break;
-
-                            case value::valuetype::mapping_type:
-                            case value::valuetype::array_type:
-                                rt_cr->set_integer(opnum1->gcunit != opnum2->gcunit); break;
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                                 rt_cr->set_integer(1);

@@ -56,8 +56,8 @@ namespace test_basic
         test_equal(h1-1.0, 1229H);
         test_equal(h1-5, 1225H);
 
-        test_assure(abs(a * 0.2:dynamic - 3) < 0.0000000001);
-        test_assure(abs(a / 0.2:dynamic - 75) < 0.0000000001);
+        test_assure(abs(a:dynamic * 0.2:dynamic - 3:dynamic) < 0.0000000001:dynamic);
+        test_assure(abs(a:dynamic / 0.2:dynamic - 75:dynamic) < 0.0000000001:dynamic);
     
         let mut p = 1;
         let mut q = 1.0;
@@ -72,10 +72,10 @@ namespace test_basic
         test_equal(q<1.0, false);
         test_equal(q<=1.0, false);
         test_equal(q==1.0, false);
-        test_equal(h1>q, true);
-        test_equal(h1>=q, true);
-        test_equal(h1<q, false);
-        test_equal(h1<=q, false);
+        test_equal(h1 > q:dynamic, true);
+        test_equal(h1 >= q:dynamic, true);
+        test_equal(h1 <  q:dynamic, false);
+        test_equal(h1 <= q:dynamic, false);
 
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
