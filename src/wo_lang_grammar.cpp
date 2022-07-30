@@ -466,6 +466,9 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
+                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
                 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
                 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") }
@@ -479,8 +482,14 @@ namespace wo
                 gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
 
-                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
+                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"TRI_EXPR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_ITEM") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_ITEM"),gm::te(gm::ttype::l_question),gm::nt(L"TRI_EXPR"),gm::te(gm::ttype::l_or),gm::nt(L"TRI_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_trib_expr),
 
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -507,7 +516,7 @@ namespace wo
                 // May empty
 
                 gm::nt(L"WHERE_DECL_FOR_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty), 
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"WHERE_DECL_FOR_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_where), gm::nt(L"VARDEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_trans_where_decl_in_lambda),
 
@@ -588,12 +597,12 @@ namespace wo
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_func_argument), 
+                >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
 
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
-                gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
+                gm::nt(L"TRI_ITEM") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
                 gm::nt(L"LOGICAL_OR") >> gm::symlist{ gm::nt(L"LOGICAL_AND") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

@@ -62,6 +62,7 @@ namespace wo
         l_larg,                 // >
         l_land,                 // &&
         l_lor,                  // ||
+        l_or,                   // |
         l_lnot,                  // !
         l_scopeing,             // ::
         l_template_using_begin,             // ::<
@@ -203,6 +204,7 @@ namespace wo
             {L">",      {lex_type::l_larg}},                 // >
             {L"&&",     {lex_type::l_land}},                 // &&
             {L"||",     {lex_type::l_lor}},                  // ||
+            {L"|",      {lex_type::l_or}},                  // ||
             {L"!",      {lex_type::l_lnot}},                  // !=
             {L"::",     {lex_type::l_scopeing}},
             {L":<",     {lex_type::l_template_using_begin}},

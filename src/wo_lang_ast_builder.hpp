@@ -3423,6 +3423,54 @@ namespace wo
                 // DO NOTHING
             }
         };
+
+        struct ast_value_trib_expr : virtual public ast_value
+        {
+            ast_value* judge_expr;
+            ast_value* val_if_true;
+            ast_value* val_or;
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+                // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->judge_expr);
+                WO_REINSTANCE(dumm->val_if_true);
+                WO_REINSTANCE(dumm->val_or);
+
+                return dumm;
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                judge_expr->update_constant_value(lex);
+                if (judge_expr->is_constant)
+                {
+                    if (judge_expr->get_constant_value().integer)
+                    {
+                        val_if_true->update_constant_value(lex);
+                        if (val_if_true->is_constant)
+                        {
+                            is_constant = true;
+                            constant_value.set_val(&val_if_true->get_constant_value());
+                        }
+                    }
+                    else
+                    {
+                        val_or->update_constant_value(lex);
+                        if (val_or->is_constant)
+                        {
+                            is_constant = true;
+                            constant_value.set_val(&val_or->get_constant_value());
+                        }
+                    }
+                }
+            }
+        };
         /////////////////////////////////////////////////////////////////////////////////
 
 #define WO_NEED_TOKEN(ID) [&]() {             \
@@ -5238,7 +5286,21 @@ namespace wo
                 return (ast_basic*)result;
             }
         };
+        struct pass_trib_expr : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_value_trib_expr * expr = new ast_value_trib_expr;
 
+                wo_assert(input.size() == 5);
+                expr->judge_expr = dynamic_cast<ast_value*>(WO_NEED_AST(0));
+                expr->val_if_true = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                expr->val_or = dynamic_cast<ast_value*>(WO_NEED_AST(4));
+
+                return (ast_basic*)expr;
+            }
+            
+        };
         struct pass_union_define : public astnode_builder
         {
             static void find_used_template(
@@ -5869,6 +5931,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();
+            
+            _registed_builder_function_id_list[meta::type_hash<pass_trib_expr>] = _register_builder<pass_trib_expr>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<1>>] = _register_builder<pass_direct<1>>();

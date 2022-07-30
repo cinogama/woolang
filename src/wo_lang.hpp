@@ -1663,6 +1663,18 @@ namespace wo
             {
                 analyze_pass1(a_where_constraint->where_constraint_list);
             }
+            else if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(ast_node))
+            {
+                analyze_pass1(a_value_trib_expr->judge_expr);
+                analyze_pass1(a_value_trib_expr->val_if_true);
+                analyze_pass1(a_value_trib_expr->val_or);
+
+                if (a_value_trib_expr->val_if_true->value_type->is_same(
+                    a_value_trib_expr->val_or->value_type, false))
+                    a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
+                else
+                    a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, L"pending");
+            }
             else
             {
                 grammar::ast_base* child = ast_node->children;
@@ -3136,8 +3148,128 @@ namespace wo
                             }
                         }
                     }
+                    else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(ast_node))
+                    {
+                        analyze_pass2(a_value_make_tuple_instance->tuple_member_vals);
+                        std::vector<ast_type*> types;
+                        bool tuple_type_not_pending = true;
+                        auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+                        while (tuple_elems)
+                        {
+                            ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
+                            if (!val->value_type->is_pending())
+                                types.push_back(val->value_type);
+                            else
+                            {
+                                tuple_type_not_pending = false;
+                                break;
+                            }
+                            tuple_elems = tuple_elems->sibling;
+                        }
+                        if (tuple_type_not_pending)
+                        {
+                            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
+                            a_value_make_tuple_instance->value_type->template_arguments = types;
+                        }
+                        else
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, L"元组元素类型未决，因此无法推导元组类型，继续");
+                        }
+                    }
+                    else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
+                    {
+                        analyze_pass2(a_value_make_struct_instance->struct_member_vals);
+                        // Varify
+                        if (!a_value_make_struct_instance->value_type->is_pending())
+                        {
+                            if (a_value_make_struct_instance->value_type->is_struct())
+                            {
+                                auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
 
+                                uint16_t member_count = 0;
+                                while (init_mem_val_pair)
+                                {
+                                    member_count++;
+                                    auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                                    wo_assert(membpair);
+                                    init_mem_val_pair = init_mem_val_pair->sibling;
+
+                                    auto fnd = a_value_make_struct_instance->value_type->struct_member_index.find(membpair->member_name);
+                                    if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
+                                    {
+                                        membpair->member_offset = fnd->second.offset;
+                                        fully_update_type(fnd->second.init_value_may_nil->value_type, false);
+                                        if (!fnd->second.init_value_may_nil->value_type->accept_type(membpair->member_val_or_type_tkplace->value_type, false))
+                                        {
+                                            lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
+                                                , membpair->member_name.c_str()
+                                                , fnd->second.init_value_may_nil->value_type->get_type_name(false).c_str()
+                                                , membpair->member_val_or_type_tkplace->value_type->get_type_name(false).c_str());
+                                        }
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
+                                            a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
+                                            membpair->member_name.c_str());
+                                }
+
+                                if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
+                                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
+                                        a_value_make_struct_instance->value_type->get_type_name(false).c_str());
+                            }
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
+                                a_value_make_struct_instance->value_type->get_type_name(false).c_str());
+                    }
+                    else if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(ast_node))
+                    {
+                        analyze_pass2(a_value_trib_expr->judge_expr);
+                        if (!a_value_trib_expr->judge_expr->value_type->is_bool())
+                        {
+                            lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'，继续"
+                                , a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
+                        }
+
+                        a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
+
+                        if (a_value_trib_expr->judge_expr->is_constant)
+                        {
+                            if (a_value_trib_expr->judge_expr->get_constant_value().integer)
+                            {
+                                analyze_pass2(a_value_trib_expr->val_if_true);
+                                a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
+                            }
+                            else
+                            {
+                                analyze_pass2(a_value_trib_expr->val_or);
+                                a_value_trib_expr->value_type = a_value_trib_expr->val_or->value_type;
+                            }
+                        }
+                        else
+                        {
+                            analyze_pass2(a_value_trib_expr->val_if_true);
+                            analyze_pass2(a_value_trib_expr->val_or);
+
+                            if (a_value_trib_expr->val_if_true->value_type->is_same(
+                                a_value_trib_expr->val_or->value_type, false))
+                            {
+                                a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
+                            }
+                            else
+                            {
+                                lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的不同分支的值应该有相同的类型，但此处分别是 '%ls' 和 '%ls'，继续"
+                                    , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
+                                    , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
+                            }
+                        }
+                    }
                 }
+
+
+                a_value->update_constant_value(lang_anylizer);
             }
 
             /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3534,85 +3666,9 @@ namespace wo
                     analyze_pass2(a_match_union_case->in_case_sentence);
                 }
             }
-            else if (ast_value_make_struct_instance* a_value_make_struct_instance = dynamic_cast<ast_value_make_struct_instance*>(ast_node))
-            {
-                analyze_pass2(a_value_make_struct_instance->struct_member_vals);
-                // Varify
-                if (!a_value_make_struct_instance->value_type->is_pending())
-                {
-                    if (a_value_make_struct_instance->value_type->is_struct())
-                    {
-                        auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
-
-                        uint16_t member_count = 0;
-                        while (init_mem_val_pair)
-                        {
-                            member_count++;
-                            auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
-                            wo_assert(membpair);
-                            init_mem_val_pair = init_mem_val_pair->sibling;
-
-                            auto fnd = a_value_make_struct_instance->value_type->struct_member_index.find(membpair->member_name);
-                            if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
-                            {
-                                membpair->member_offset = fnd->second.offset;
-                                fully_update_type(fnd->second.init_value_may_nil->value_type, false);
-                                if (!fnd->second.init_value_may_nil->value_type->accept_type(membpair->member_val_or_type_tkplace->value_type, false))
-                                {
-                                    lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
-                                        , membpair->member_name.c_str()
-                                        , fnd->second.init_value_may_nil->value_type->get_type_name(false).c_str()
-                                        , membpair->member_val_or_type_tkplace->value_type->get_type_name(false).c_str());
-                                }
-                            }
-                            else
-                                lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
-                                    a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
-                                    membpair->member_name.c_str());
-                        }
-
-                        if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
-                            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
-                                a_value_make_struct_instance->value_type->get_type_name(false).c_str());
-                    }
-                    else
-                        lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
-                }
-                else
-                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
-                        a_value_make_struct_instance->value_type->get_type_name(false).c_str());
-            }
             else if (ast_struct_member_define* a_struct_member_define = dynamic_cast<ast_struct_member_define*>(ast_node))
             {
                 analyze_pass2(a_struct_member_define->member_val_or_type_tkplace);
-            }
-            else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(ast_node))
-            {
-                analyze_pass2(a_value_make_tuple_instance->tuple_member_vals);
-                std::vector<ast_type*> types;
-                bool tuple_type_not_pending = true;
-                auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
-                while (tuple_elems)
-                {
-                    ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
-                    if (!val->value_type->is_pending())
-                        types.push_back(val->value_type);
-                    else
-                    {
-                        tuple_type_not_pending = false;
-                        break;
-                    }
-                    tuple_elems = tuple_elems->sibling;
-                }
-                if (tuple_type_not_pending)
-                {
-                    a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
-                    a_value_make_tuple_instance->value_type->template_arguments = types;
-                }
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, L"元组元素类型未决，因此无法推导元组类型，继续");
-                }
             }
             else if (ast_where_constraint* a_where_constraint = dynamic_cast<ast_where_constraint*>(ast_node))
             {
@@ -3661,7 +3717,6 @@ namespace wo
                     val = dynamic_cast<ast_value*>(val->sibling);
                 }
             }
-
 
             ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
             ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
@@ -4099,6 +4154,12 @@ namespace wo
             using namespace opnum;
             if (value->is_constant && !force_value)
             {
+                if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(value))
+                {
+                    // Only generate expr if const-expr is a function call
+                    analyze_value(a_value_trib_expr->judge_expr, compiler, false);
+                }
+
                 auto const_value = value->get_constant_value();
                 switch (const_value.type)
                 {
@@ -4729,13 +4790,13 @@ namespace wo
 
                 if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
                 {
-                        if (!((a_value_logical_binary->left->value_type->is_integer() ||
-                            a_value_logical_binary->left->value_type->is_real()) &&
-                            (a_value_logical_binary->right->value_type->is_integer() ||
-                                a_value_logical_binary->right->value_type->is_real())))
-                            lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                a_value_logical_binary->left->value_type->get_type_name(false).c_str(),
-                                a_value_logical_binary->right->value_type->get_type_name(false).c_str());
+                    if (!((a_value_logical_binary->left->value_type->is_integer() ||
+                        a_value_logical_binary->left->value_type->is_real()) &&
+                        (a_value_logical_binary->right->value_type->is_integer() ||
+                            a_value_logical_binary->right->value_type->is_real())))
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                            a_value_logical_binary->left->value_type->get_type_name(false).c_str(),
+                            a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                 }
                 if (a_value_logical_binary->operate == +lex_type::l_equal || a_value_logical_binary->operate == +lex_type::l_not_equal)
                 {
@@ -4996,7 +5057,7 @@ namespace wo
                         compiler->idstr(beoped_left_opnum, op_right_opnum);
                     else
                         wo_error("Unknown index operation.");
-    
+
                     complete_using_register(beoped_left_opnum);
                     complete_using_register(op_right_opnum);
                 }
@@ -5217,6 +5278,31 @@ namespace wo
                 compiler->mkstruct(result, (uint16_t)arr_list.size());
 
                 return result;
+            }
+            else if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(value))
+            {
+                if (a_value_trib_expr->judge_expr->is_constant)
+                {
+                    if (a_value_trib_expr->judge_expr->get_constant_value().integer)
+                        return analyze_value(a_value_trib_expr->val_if_true, compiler, get_pure_value);
+                    else
+                        return analyze_value(a_value_trib_expr->val_or, compiler, get_pure_value);
+                }
+                else
+                {
+                    auto trib_expr_else = "trib_expr_else" + compiler->get_unique_tag_based_command_ip();
+                    auto trib_expr_end = "trib_expr_end" + compiler->get_unique_tag_based_command_ip();
+
+                    mov_value_to_cr(analyze_value(a_value_trib_expr->judge_expr, compiler, false), compiler);
+                    compiler->jf(tag(trib_expr_else));
+                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_if_true , compiler, false), compiler);
+                    compiler->jmp(tag(trib_expr_end));
+                    compiler->tag(trib_expr_else);
+                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_or, compiler, false), compiler);
+                    compiler->tag(trib_expr_end);
+
+                    return WO_NEW_OPNUM(reg(reg::cr));
+                }
             }
             else
             {
@@ -6521,7 +6607,7 @@ namespace wo
         inline void ast_value_variable::update_constant_value(lexer* lex)
         {
             // TODO: constant variable here..
-            if (symbol 
+            if (symbol
                 && !symbol->is_captured_variable
                 && (symbol->attribute->is_constant_attr() || symbol->decl == identifier_decl::IMMUTABLE))
             {
