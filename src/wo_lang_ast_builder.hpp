@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <cmath>
 #include <unordered_map>
+#include <algorithm>
 
 namespace wo
 {
@@ -4048,7 +4049,12 @@ namespace wo
                     wo_assert(ast_func->in_function_sentence);
 
                     if (ast_varref_defines* where_decls = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(5)))
+                    {
+                        // Inverse where_decls
+                        std::reverse(where_decls->var_refs.begin(), where_decls->var_refs.end());
+
                         sentences->sentence_list->append_at_head(where_decls);
+                    }
                 }
                 else
                     wo_error("Unknown ast type.");
