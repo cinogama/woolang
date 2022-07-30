@@ -1771,7 +1771,7 @@ namespace std
 {
     enum token_type
     {
-        l_eof = -1,
+         l_eof = -1,
         l_error = 0,
 
         l_empty,          // [empty]
@@ -1807,6 +1807,7 @@ namespace std
         l_larg,                 // >
         l_land,                 // &&
         l_lor,                  // ||
+        l_or,                   // |
         l_lnot,                  // !
         l_scopeing,             // ::
         l_template_using_begin,             // ::<
@@ -1856,7 +1857,7 @@ namespace std
 
         l_break,
         l_continue,
-        l_goto,
+        l_lambda,
         l_at,
         l_where,
         l_operator,
