@@ -501,11 +501,16 @@ namespace wo
                 gm::nt(L"ARGDEFINE"),
                 gm::te(gm::ttype::l_assign),
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA"),
+                gm::nt(L"WHERE_DECL_FOR_LAMBDA"),
                 gm::te(gm::ttype::l_semicolon), }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
                 // May empty
 
-                    
+                gm::nt(L"WHERE_DECL_FOR_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty), 
+                gm::nt(L"WHERE_DECL_FOR_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_where), gm::nt(L"VARDEFINE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_trans_where_decl_in_lambda),
+
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA") >> gm::symlist{ gm::nt(L"RETURN_EXPR_IN_LAMBDA") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
                 gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"EXPRESSION") }

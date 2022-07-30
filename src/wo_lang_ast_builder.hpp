@@ -3985,7 +3985,7 @@ namespace wo
                             ast_func->is_constant = true;
                     }
                 }
-                else if (input.size() == 11)
+                else if (input.size() == 12)
                 {
                     // export func
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
@@ -4022,9 +4022,9 @@ namespace wo
                     if (ast_func->externed_func_info->externed_func)
                         ast_func->is_constant = true;
                 }
-                else if (input.size() == 6)
+                else if (input.size() == 7)
                 {
-                    // \ <> ARGS  = EXPR ;
+                    // \ <> ARGS  = EXPR where;
                     // 0 1   2    3    4  5 
                     // anonymous function
                     ast_func->declear_attribute = new ast_decl_attribute();
@@ -4041,7 +4041,14 @@ namespace wo
 
                     return_type = nullptr;
 
-                    ast_func->in_function_sentence = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(4))->sentence_list;
+                    ast_sentence_block* sentences = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(4));
+                    wo_assert(sentences);
+
+                    ast_func->in_function_sentence = sentences->sentence_list;
+                    wo_assert(ast_func->in_function_sentence);
+
+                    if (ast_varref_defines* where_decls = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(5)))
+                        sentences->sentence_list->append_at_head(where_decls);
                 }
                 else
                     wo_error("Unknown ast type.");
@@ -4279,6 +4286,19 @@ namespace wo
 
                 result->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 wo_assert(result->declear_attribute);
+
+                return (ast_basic*)result;
+            }
+        };
+        struct pass_trans_where_decl_in_lambda : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_test(input.size() == 2);
+                ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(1));
+                wo_test(result);
+
+                result->declear_attribute = new ast_decl_attribute();
 
                 return (ast_basic*)result;
             }
@@ -5781,6 +5801,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_add_varref_define>] = _register_builder<pass_add_varref_define>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_as_var_define>] = _register_builder<pass_mark_as_var_define>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_trans_where_decl_in_lambda>] = _register_builder<pass_trans_where_decl_in_lambda>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_namespace>] = _register_builder<pass_namespace>();
 
