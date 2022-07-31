@@ -1857,6 +1857,7 @@ namespace wo
 
                 for (auto& varref : dumm->var_refs)
                 {
+                    WO_REINSTANCE(varref.pattern);
                     WO_REINSTANCE(varref.init_val);
                 }
 
@@ -3242,6 +3243,9 @@ namespace wo
                 if (!child_instance) *dumm = *this;
                 ast_pattern_base::instance(dumm);
                 // Write self copy functions here..
+
+                WO_REINSTANCE(dumm->attr);
+                dumm->symbol = nullptr;
 
                 return dumm;
             }

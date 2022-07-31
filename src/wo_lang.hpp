@@ -5295,7 +5295,7 @@ namespace wo
 
                     mov_value_to_cr(analyze_value(a_value_trib_expr->judge_expr, compiler, false), compiler);
                     compiler->jf(tag(trib_expr_else));
-                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_if_true , compiler, false), compiler);
+                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_if_true, compiler, false), compiler);
                     compiler->jmp(tag(trib_expr_end));
                     compiler->tag(trib_expr_else);
                     mov_value_to_cr(analyze_value(a_value_trib_expr->val_or, compiler, false), compiler);
