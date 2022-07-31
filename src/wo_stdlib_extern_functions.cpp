@@ -1897,6 +1897,27 @@ namespace std
 
         extern("rslib_std_macro_lexer_current_colno")
             func col(lex:lexer) => int;
+
+        func try(self: lexer, token: token_type)=> option<string>
+        {
+            let mut result = "";
+            if (token == self->peek(ref result))
+            {
+                self->next("");
+                return option::value(result);
+            }
+            return option::none;
+        }
+        func expected(self: lexer, token: token_type)=> option<string>
+        {
+            let result = self->try(token);
+            match(result)
+            {
+            none?       self->error("Unexpected token here.");
+            value(_)?   ; /* do nothing */
+            }
+            return result
+        }
     }
 }
 
