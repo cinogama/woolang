@@ -55,24 +55,24 @@ namespace wo
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
 
         std::atomic_size_t _gc_scan_vm_index;
-        volatile size_t _gc_scan_vm_count;
-        vmbase** volatile _gc_vm_list;
+        std::atomic_size_t _gc_scan_vm_count;
+        std::atomic<vmbase**> _gc_vm_list;
 
-        volatile bool _gc_is_marking = false;
-        volatile bool _gc_stopping_world_gc = false;
+        std::atomic_bool _gc_is_marking = false;
+        bool _gc_stopping_world_gc = false;
 
         bool gc_is_marking()
         {
-            return _gc_is_marking;
+            return _gc_is_marking.load();
         }
 
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
             size_t id = _gc_scan_vm_index++;
-            if (id < _gc_scan_vm_count)
+            if (id < _gc_scan_vm_count.load())
             {
-                *out_vm_type = _gc_vm_list[id]->virtual_machine_type;
-                return _gc_vm_list[id];
+                *out_vm_type = _gc_vm_list.load()[id]->virtual_machine_type;
+                return _gc_vm_list.load()[id];
             }
 
             return nullptr;
@@ -435,15 +435,15 @@ namespace wo
                         vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
 
                 // 2. Mark all unit in vm's stack, register, global(only once)
-                _gc_scan_vm_count = vmbase::_alive_vm_list.size();
+                _gc_scan_vm_count.store(vmbase::_alive_vm_list.size());
 
-                std::vector<vmbase*> vmlist(_gc_scan_vm_count);
+                std::vector<vmbase*> vmlist(_gc_scan_vm_count.load());
 
                 auto vm_index = vmbase::_alive_vm_list.begin();
-                for (size_t i = 0; i < _gc_scan_vm_count; ++i)
+                for (size_t i = 0; i < _gc_scan_vm_count.load(); ++i)
                     vmlist[i] = *(vm_index++);
-                _gc_vm_list = vmlist.data();
-                _gc_scan_vm_index = 0;
+                _gc_vm_list.store(vmlist.data());
+                _gc_scan_vm_index.store(0);
 
                 // 3. Start GC Worker for first marking        
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
