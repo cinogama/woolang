@@ -2495,10 +2495,9 @@ namespace wo
                                         }
                                         else
                                         {
-                                            if (tried_function.size() == 1)
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
+                                            for(auto* tried_func : tried_function)
                                             {
-                                                auto* tried_func = tried_function.front();
-
                                                 if (tried_func->where_constraint && !tried_func->where_constraint->accept)
                                                 {
                                                     this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"不满足函数的 'where' 约束要求，继续：");
@@ -2511,8 +2510,6 @@ namespace wo
                                                     this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
                                                         tried_func->value_type->get_type_name(false).c_str());
                                             }
-                                            else
-                                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
                                         }
                                     }
                                 }
@@ -4155,10 +4152,8 @@ namespace wo
             if (value->is_constant && !force_value)
             {
                 if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(value))
-                {
                     // Only generate expr if const-expr is a function call
-                    analyze_value(a_value_trib_expr->judge_expr, compiler, false);
-                }
+                    analyze_value(a_value_trib_expr->judge_expr, compiler, false, true, true);
 
                 auto const_value = value->get_constant_value();
                 switch (const_value.type)

@@ -38,13 +38,20 @@ func execute_all_test()
     }
 }
 
+private func _test_compare<AT, BT>(a: AT, b :BT)
+    where (a is string) && (b is string);
+{
+    return a == b;
+}
+private func _test_compare<AT, BT>(a: AT, b :BT)
+    where !(a is string) || !(b is string);
+{
+    return std::equalbyte(a, b);
+}
+
 func test_equal<AT, BT>(a: AT, b: BT)
 {
-    let mut result = false;
-    if (a is string || b is string)
-        result = a == b;
-    else
-        result = std::equalbyte(a, b);
+    let result = _test_compare(a, b);
 
     if(result)
         test_success_count += 1;

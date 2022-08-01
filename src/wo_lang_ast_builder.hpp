@@ -833,6 +833,8 @@ namespace wo
                 // ast_symbolable_base::instance(dumm);
 
                 // Write self copy functions here..
+                if (constant_value.type == value::valuetype::string_type)
+                    dumm->constant_value.set_string_nogc(constant_value.string->c_str());
                 WO_REINSTANCE(dumm->value_type);
 
                 return dumm;
@@ -1054,9 +1056,6 @@ namespace wo
                 ast_value::instance(dumm);
 
                 // Write self copy functions here..
-                if (constant_value.type == value::valuetype::string_type)
-                    dumm->constant_value.set_string_nogc(constant_value.string->c_str());
-
                 return dumm;
             }
         };
@@ -2496,7 +2495,7 @@ namespace wo
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
 
-                if (left->value_type->is_same(right->value_type, false))
+                if (!left->value_type->is_same(right->value_type, false))
                     return;
 
                 // if left/right is custom, donot calculate them 
