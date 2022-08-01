@@ -796,10 +796,21 @@ namespace wo
             bool can_be_assign = false;
 
             bool is_constant = false;
-            wo::value constant_value;
+            wo::value constant_value = {};
 
             ast_value& operator = (ast_value&&) = delete;
             ast_value& operator = (const ast_value&) = default;
+
+            ~ast_value()
+            {
+                if (auto* gcunit = constant_value.get_gcunit_with_barrier())
+                {
+                    wo_assert(constant_value.type == value::valuetype::string_type);
+
+                    gcunit->~gcbase();
+                    free64(gcunit);
+                }
+            }
 
             virtual wo::value& get_constant_value()
             {
@@ -855,14 +866,6 @@ namespace wo
 
         struct ast_value_literal : virtual public ast_value
         {
-            ~ast_value_literal()
-            {
-                if (auto* gcunit = constant_value.get_gcunit_with_barrier())
-                {
-                    gcunit->~gcbase();
-                    free64(gcunit);
-                }
-            }
             void update_constant_value(lexer* lex) override
             {
                 // do nothing
@@ -1713,24 +1716,19 @@ namespace wo
                     return;
 
                 if (left->value_type->is_dynamic() || right->value_type->is_dynamic())
-                {
-                    value_type = new ast_type(L"dynamic");
-                }
+                    return;
+
                 else if (left->value_type->is_pending() || right->value_type->is_pending())
+                    return;
+
+                if (nullptr == (value_type = binary_upper_type_with_operator(left->value_type, right->value_type, operate)))
                 {
+                    // Donot give error here.
+
+                    // lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
                     value_type = new ast_type(L"pending");
-                }
-                else
-                {
-                    if (nullptr == (value_type = binary_upper_type_with_operator(left->value_type, right->value_type, operate)))
-                    {
-                        // Donot give error here.
 
-                        // lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
-                        value_type = new ast_type(L"pending");
-
-                        return;
-                    }
+                    return;
                 }
 
                 if (left->is_constant && right->is_constant)
@@ -2498,6 +2496,9 @@ namespace wo
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
 
+                if (left->value_type->is_same(right->value_type, false))
+                    return;
+
                 // if left/right is custom, donot calculate them 
                 if (operate == +lex_type::l_land
                     || operate == +lex_type::l_lor)
@@ -2520,53 +2521,26 @@ namespace wo
                     switch (operate)
                     {
                     case lex_type::l_land:
-                        if (left->value_type->is_bool() && right->value_type->is_bool())
-                            constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
-                        else
-                            is_constant = false;
+                        constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
                         break;
                     case lex_type::l_lor:
-                        if (left->value_type->is_bool() && right->value_type->is_bool())
-                            constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
-                        else
-                            is_constant = false;
+                        constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
                         break;
                     case lex_type::l_equal:
                     case lex_type::l_not_equal:
                         if (left->value_type->is_integer())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().integer);
                         else if (left->value_type->is_real())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().real);
                         else if (left->value_type->is_string())
-                        {
-                            if (right->value_type->is_string())
-                                constant_value.set_integer(*left->get_constant_value().string == *right->get_constant_value().string);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
-                        else
+                            constant_value.set_integer(*left->get_constant_value().string == *right->get_constant_value().string);
+                        else if (left->value_type->is_handle())
                             constant_value.set_integer(left->get_constant_value().handle == right->get_constant_value().handle);
-
+                        else
+                        {
+                            is_constant = false;
+                            return;
+                        }
                         if (operate == +lex_type::l_not_equal)
                             constant_value.set_integer(!constant_value.integer);
                         break;
@@ -2574,49 +2548,18 @@ namespace wo
                     case lex_type::l_less:
                     case lex_type::l_larg_or_equal:
                         if (left->value_type->is_integer())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().integer);
                         else if (left->value_type->is_real())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().real);
                         else if (left->value_type->is_string())
-                        {
-                            if (right->value_type->is_string())
-                                constant_value.set_integer(*left->get_constant_value().string < *right->get_constant_value().string);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(*left->get_constant_value().string < *right->get_constant_value().string);
                         else if (left->value_type->is_handle())
-                        {
-                            if (right->value_type->is_handle())
-                                constant_value.set_integer(left->get_constant_value().handle < right->get_constant_value().handle);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().handle < right->get_constant_value().handle);
                         else
-                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                left->value_type->get_type_name(false).c_str(),
-                                right->value_type->get_type_name(false).c_str());
+                        {
+                            is_constant = false;
+                            return;
+                        }
 
 
                         if (operate == +lex_type::l_larg_or_equal)
@@ -2627,50 +2570,18 @@ namespace wo
                     case lex_type::l_less_or_equal:
 
                         if (left->value_type->is_integer())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().integer);
                         else if (left->value_type->is_real())
-                        {
-                            if (right->value_type->is_integer())
-                                constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().integer);
-                            else if (right->value_type->is_real())
-                                constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
+                            constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
                         else if (left->value_type->is_string())
-                        {
-                            if (right->value_type->is_string())
                                 constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
                         else if (left->value_type->is_handle())
-                        {
-                            if (right->value_type->is_handle())
                                 constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
-                            else
-                                lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                    left->value_type->get_type_name(false).c_str(),
-                                    right->value_type->get_type_name(false).c_str());
-                        }
                         else
-                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                                left->value_type->get_type_name(false).c_str(),
-                                right->value_type->get_type_name(false).c_str());
-
+                        {
+                            is_constant = false;
+                            return;
+                        }
 
                         if (operate == +lex_type::l_less_or_equal)
                             constant_value.set_integer(!constant_value.integer);
@@ -2750,7 +2661,7 @@ namespace wo
 
                         if (!index->value_type->is_integer() && !index->value_type->is_handle())
                         {
-                            lex->lang_error(0x0000, this, WO_ERR_CANNOT_INDEX_STR_WITH_TYPE, value_type->get_type_name().c_str());
+                            is_constant = false;
                             return;
                         }
 
@@ -2759,10 +2670,6 @@ namespace wo
 
                         constant_value.set_string_nogc(
                             std::string(out_str, strlength).c_str());
-                    }
-                    else
-                    {
-                        // TODO: Index nil, report error in compile time?
                     }
                 }
             }
@@ -3451,6 +3358,9 @@ namespace wo
 
             void update_constant_value(lexer* lex) override
             {
+                if (is_constant)
+                    return;
+
                 judge_expr->update_constant_value(lex);
                 if (judge_expr->is_constant)
                 {
@@ -4975,7 +4885,7 @@ namespace wo
                     result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                     result->return_value->is_mark_as_using_ref = true;
                 }
-                else 
+                else
                 {
                     wo_assert(input.size() == 1);
                     result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(0));
@@ -5294,7 +5204,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_value_trib_expr * expr = new ast_value_trib_expr;
+                ast_value_trib_expr* expr = new ast_value_trib_expr;
 
                 wo_assert(input.size() == 5);
                 expr->judge_expr = dynamic_cast<ast_value*>(WO_NEED_AST(0));
@@ -5303,7 +5213,7 @@ namespace wo
 
                 return (ast_basic*)expr;
             }
-            
+
         };
         struct pass_union_define : public astnode_builder
         {
@@ -5935,7 +5845,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();
-            
+
             _registed_builder_function_id_list[meta::type_hash<pass_trib_expr>] = _register_builder<pass_trib_expr>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_direct<0>>] = _register_builder<pass_direct<0>>();

@@ -6606,6 +6606,9 @@ namespace wo
     {
         inline void ast_value_variable::update_constant_value(lexer* lex)
         {
+            if (is_constant)
+                return;
+
             // TODO: constant variable here..
             if (symbol
                 && !symbol->is_captured_variable
@@ -6616,7 +6619,13 @@ namespace wo
                 {
                     is_constant = true;
                     symbol->is_constexpr = true;
-                    constant_value = symbol->variable_value->get_constant_value();
+                    if (symbol->variable_value->get_constant_value().type == value::valuetype::string_type)
+                        constant_value.set_string_nogc(symbol->variable_value->get_constant_value().string->c_str());
+                    else
+                    {
+                        constant_value = symbol->variable_value->get_constant_value();
+                        wo_assert(!constant_value.is_gcunit());
+                    }
                 }
             }
         }
