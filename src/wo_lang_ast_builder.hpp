@@ -806,6 +806,7 @@ namespace wo
                 if (auto* gcunit = constant_value.get_gcunit_with_barrier())
                 {
                     wo_assert(constant_value.type == value::valuetype::string_type);
+                    wo_assert(gcunit->gc_type == gcbase::gctype::no_gc);
 
                     gcunit->~gcbase();
                     free64(gcunit);
@@ -2573,9 +2574,9 @@ namespace wo
                         else if (left->value_type->is_real())
                             constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
                         else if (left->value_type->is_string())
-                                constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
+                            constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
                         else if (left->value_type->is_handle())
-                                constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
+                            constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
                         else
                         {
                             is_constant = false;

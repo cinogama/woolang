@@ -1,37 +1,66 @@
 import woo.std;
+import woo.co;
+import woo.thread;
 import test_tool;
 
 namespace test_gc
 {
     let mut global_list = []:array<dynamic>;
 
-    func main()
+    func test_gc_parallel_work(id: int)
     {
+        std::println("test_gc_co/thread id=", id, "begin");
+
         global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]: array<dynamic>;
-        let mut i = 0;
+        let local_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]: array<dynamic>;
         let tmp = []:array<array<int>>;
         let arr_a = [[12345678],], arr_b = []:array<array<int>>;
-        while (i < 1000_000)
+
+        let test_begin_time = std::time();
+
+        while (std::time() - test_begin_time <= 35.)
         {
-                global_list->add({}: dynamic);
-                (global_list[-1]:map)["Hello": dynamic] = "world": dynamic;
-                i+=1;
+            global_list->add({{"Hello", "world"}}: dynamic);
+            global_list->add({{"Hello", "world"}}: dynamic);
+            global_list->add({{"Hello", "world"}}: dynamic);
 
-                tmp->add(arr_a[0]);
-                arr_a->remove(0);
-                arr_b->add(tmp[0]);
-                tmp->remove(0);
+            if (std::rand(1, 100000) == 233)
+                global_list->clear();
 
-                test_assure(arr_b[0][0] == 12345678);
+            tmp->add(arr_a[0]);
+            arr_a->remove(0);
+            arr_b->add(tmp[0]);
+            tmp->remove(0);
 
-                tmp->add(arr_b[0]);
-                arr_b->remove(0);
-                arr_a->add(tmp[0]);
-                tmp->remove(0);
+            local_list->add(arr_a: dynamic);
+            local_list->add(arr_b: dynamic);
 
-                test_assure(arr_a[0][0] == 12345678);
+            test_assure(arr_b[0][0] == 12345678);
+
+            tmp->add(arr_b[0]);
+            arr_b->remove(0);
+            arr_a->add(tmp[0]);
+            tmp->remove(0);
+
+            local_list->add(arr_a: dynamic);
+            local_list->add(arr_b: dynamic);
+
+            if (std::rand(1, 100000) == 233)
+                local_list->clear();
+
+
+            test_assure(arr_a[0][0] == 12345678);
         }
-        global_list = [];
+        global_list->clear();
+
+        std::println("test_gc_co/thread id=", id, "finished!");
+    }
+
+    func main()
+    {
+        std::co(\ = test_gc_parallel_work(1););
+        std::thread(\ = test_gc_parallel_work(2););
+        test_gc_parallel_work(0);
     }
 }
 
