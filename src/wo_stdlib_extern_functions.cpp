@@ -798,6 +798,23 @@ union option<T>
 }
 namespace option
 {
+    func reduce<T>(self: option<T>)=> option<T>
+        where !(self->val() is option<void>);
+    {
+        return self;
+    }
+
+    func reduce<T>(self: option<T>)=> typeof(self->val()->reduce())
+        where self->val() is option<void>;
+    {
+        match(self)
+        {
+        value(u)?
+            return u->reduce();
+        none?
+            return none;
+        }
+    }
     func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
     {
         match(self)

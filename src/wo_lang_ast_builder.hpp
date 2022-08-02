@@ -1225,6 +1225,18 @@ namespace wo
             void update_constant_value(lexer* lex) override
             {
                 // do nothing
+                if (is_constant)
+                    return;
+
+                _be_cast_value_node->update_constant_value(lex);
+                if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
+                {
+                    if (value_type->accept_type(_be_cast_value_node->value_type, false))
+                    {
+                        constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
+                        is_constant = true;
+                    }
+                }
             }
         };
 
@@ -1265,8 +1277,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
                 {
-                    auto result = _be_check_value_node->value_type->is_same(aim_type, false);
-
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
                     if (result)
                     {
                         is_constant = true;
@@ -3379,7 +3390,7 @@ namespace wo
                         if (val_or->is_constant)
                         {
                             is_constant = true;
-                            constant_value.set_val(&val_or->get_constant_value());
+                            constant_value.set_val_compile_time(&val_or->get_constant_value());
                         }
                     }
                 }

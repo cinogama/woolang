@@ -152,6 +152,14 @@ namespace wo
             string_t::gc_new<gcbase::gctype::no_gc>(gcunit, str);
             return this;
         }
+        inline value* set_val_compile_time(value* val)
+        {
+            if (val->type == valuetype::string_type)
+                return set_string_nogc(val->string->c_str());
+
+            wo_assert(!val->is_gcunit());
+            return set_val(val);
+        }
         inline value* set_integer(wo_integer_t val)
         {
             type = valuetype::integer_type;
