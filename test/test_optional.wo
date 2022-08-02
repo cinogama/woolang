@@ -17,13 +17,13 @@ namespace test_optional
 
         match(m->get(1)->reduce())
         {
-        value(v)? test_assure(v as int == 2);
-        none? test_assure(false);
+            value(v)? test_assure(v as int == 233);
+            none? test_assure(false);
         }
         match(m->get(2)->reduce())
         {
-        value(v)? test_assure(false);
-        none? ;
+            value(v)? test_assure(false);
+            none? ;
         }
     }
 
