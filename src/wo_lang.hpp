@@ -350,7 +350,7 @@ namespace wo
 
                 if (in_pass_1)
                     analyze_pass1(type->typefrom);
-                else if (has_step_in_step2)
+                if (has_step_in_step2)
                     analyze_pass2(type->typefrom);
 
                 if (!type->typefrom->value_type->is_pending())
@@ -515,7 +515,7 @@ namespace wo
                 {
                     if (in_pass_1)
                         analyze_pass1(struct_info.init_value_may_nil);
-                    else if (has_step_in_step2)
+                    if (has_step_in_step2)
                         analyze_pass2(struct_info.init_value_may_nil);
                 }
             }
@@ -1772,11 +1772,16 @@ namespace wo
                 temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
                 if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
                 {
+                    auto step_in_pass2 = has_step_in_step2;
+                    has_step_in_step2 = false;
+
                     analyze_pass1(dumpped_template_init_value);
                     analyze_pass1(origin_variable);
                     template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
                     template_reification_symb->decl = origin_variable->symbol->decl;
                     end_template_scope();
+
+                    has_step_in_step2 = step_in_pass2;
                 }
                 temporary_leave_scope_in_pass1();
 
@@ -1838,10 +1843,15 @@ namespace wo
             temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
             if (begin_template_scope(origin_template_func_define, template_args_types))
             {
+                auto step_in_pass2 = has_step_in_step2;
+                has_step_in_step2 = false;
+
                 analyze_pass1(dumpped_template_func_define);
 
                 // origin_template_func_define->parent->add_child(dumpped_template_func_define);
                 end_template_scope();
+
+                has_step_in_step2 = true;
             }
             temporary_leave_scope_in_pass1();
 
@@ -1925,7 +1935,7 @@ namespace wo
                 {
                     // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
                     //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-                    if (a_value->value_type->is_pending() && !dynamic_cast<ast_value_function_define*>(a_value))
+                    if (a_value->value_type->is_pending())
                     {
                         // ready for update..
                         fully_update_type(a_value->value_type, false);
