@@ -350,7 +350,7 @@ namespace wo
 
                 if (in_pass_1)
                     analyze_pass1(type->typefrom);
-                if (has_step_in_step2)
+                else if (has_step_in_step2)
                     analyze_pass2(type->typefrom);
 
                 if (!type->typefrom->value_type->is_pending())
@@ -515,7 +515,7 @@ namespace wo
                 {
                     if (in_pass_1)
                         analyze_pass1(struct_info.init_value_may_nil);
-                    if (has_step_in_step2)
+                    else if (has_step_in_step2)
                         analyze_pass2(struct_info.init_value_may_nil);
                 }
             }
@@ -1694,7 +1694,7 @@ namespace wo
                 }
                 else
                 {
-                    if (a_val->value_type->is_pending()&&!dynamic_cast<ast_value_function_define*>(a_val))
+                    if (a_val->value_type->is_pending() && !dynamic_cast<ast_value_function_define*>(a_val))
                     {
                         // ready for update..
                         fully_update_type(a_val->value_type, true);
@@ -2317,8 +2317,28 @@ namespace wo
                                                 continue;
                                             }
 
+                                            lang_anylizer->begin_trying_block();
                                             analyze_pass2(_override_func);
                                             tried_function.push_back(_override_func);
+
+                                            if (!lang_anylizer->get_cur_error_frame().empty())
+                                            {
+                                                // error happend in func, abondon this overload.
+                                                if (_override_func->where_constraint == nullptr)
+                                                {
+                                                    _override_func->where_constraint = new ast_where_constraint;
+                                                    _override_func->where_constraint->copy_source_info(_override_func);
+                                                }
+
+                                                wo_assert(_override_func->where_constraint);
+                                                _override_func->where_constraint->accept = false;
+                                                _override_func->where_constraint->binded_func_define = _override_func;
+                                                _override_func->where_constraint->unmatched_constraint.insert(
+                                                    _override_func->where_constraint->unmatched_constraint.end(),
+                                                    lang_anylizer->get_cur_error_frame().begin(),
+                                                    lang_anylizer->get_cur_error_frame().end());
+                                            }
+                                            lang_anylizer->end_trying_block();
 
                                             if (_override_func->where_constraint == nullptr
                                                 || _override_func->where_constraint->accept)
@@ -2496,7 +2516,7 @@ namespace wo
                                         else
                                         {
                                             this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
-                                            for(auto* tried_func : tried_function)
+                                            for (auto* tried_func : tried_function)
                                             {
                                                 if (tried_func->where_constraint && !tried_func->where_constraint->accept)
                                                 {
