@@ -1694,7 +1694,7 @@ namespace wo
                 }
                 else
                 {
-                    if (a_val->value_type->is_pending())
+                    if (a_val->value_type->is_pending()&&!dynamic_cast<ast_value_function_define*>(a_val))
                     {
                         // ready for update..
                         fully_update_type(a_val->value_type, true);
@@ -1925,7 +1925,7 @@ namespace wo
                 {
                     // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
                     //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-                    if (a_value->value_type->is_pending())
+                    if (a_value->value_type->is_pending() && !dynamic_cast<ast_value_function_define*>(a_value))
                     {
                         // ready for update..
                         fully_update_type(a_value->value_type, false);
