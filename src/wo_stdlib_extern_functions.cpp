@@ -815,6 +815,7 @@ namespace option
             return none;
         }
     }
+
     func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
     {
         match(self)

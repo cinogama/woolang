@@ -202,6 +202,21 @@ namespace test_compile
             func foo(x:()=>string){}
             foo("Helloworld");
         "@);
+        assure_compile_success(@"
+            import woo.std;
+            let a = option::value(2);
+            a->reduce() as option<int>;
+        "@);
+        assure_compile_success(@"
+            import woo.std;
+            let a = option::value(option::value(option::value(2)));
+            a->reduce() as option<int>;
+        "@);
+        assure_compile_fail(@"
+            import woo.std;
+            let a = option::value(option::value(option::value(2)));
+            a->reduce() as option<option<int>>;
+        "@);
 
         // Logic op only accept bool
         assure_compile_fail(@"let r = 1 || false;"@);

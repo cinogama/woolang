@@ -10,6 +10,21 @@ namespace test_optional
         test_assure(global_val:<int>->len() == 0);
         test_assure(global_val:<string>->len() == 1);
         test_assure(global_val:<string>[0] == "Helloworld");
+
+        let x = option::value(233);
+        let y = option::none: option<int>;
+        let m = {{1, x}, {2, y}};
+
+        match(m->get(1)->reduce())
+        {
+        value(v)? test_assure(v as int == 2);
+        none? test_assure(false);
+        }
+        match(m->get(2)->reduce())
+        {
+        value(v)? test_assure(false);
+        none? ;
+        }
     }
 
     func main()
