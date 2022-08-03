@@ -398,8 +398,8 @@ namespace wo
                 has_been_closed = true;
                 if (destructor)
                     destructor(holding_handle);
-                if (holding_value.is_gcunit())
-                    holding_value.gcunit->gc_type = gcbase::gctype::young;
+                //if (auto* unit = holding_value.get_gcunit_with_barrier())
+                //    unit->gc_type = gcbase::gctype::young;
                 return true;
             }
             return false;

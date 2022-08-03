@@ -112,7 +112,7 @@ WO_API wo_handle_t  wo_handle(const wo_value value);
 WO_API wo_ptr_t     wo_pointer(const wo_value value);
 WO_API wo_string_t  wo_string(const wo_value value);
 WO_API wo_bool_t    wo_bool(const wo_value value);
-WO_API wo_value     wo_value_of_gchandle(wo_value value);
+//WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(const wo_value value);
 
 WO_API wo_bool_t wo_is_ref(wo_value value);

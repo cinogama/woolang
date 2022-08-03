@@ -395,16 +395,16 @@ wo_bool_t wo_bool(const wo_value value)
     auto _rsvalue = WO_VAL(value);
     return _rsvalue->handle != 0;
 }
-wo_value wo_value_of_gchandle(wo_value value)
-{
-    auto _rsvalue = WO_VAL(value);
-    if (_rsvalue->type != wo::value::valuetype::gchandle_type)
-    {
-        wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a gchandle.");
-        return nullptr;
-    }
-    return CS_VAL(&_rsvalue->gchandle->holding_value);
-}
+//wo_value wo_value_of_gchandle(wo_value value)
+//{
+//    auto _rsvalue = WO_VAL(value);
+//    if (_rsvalue->type != wo::value::valuetype::gchandle_type)
+//    {
+//        wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a gchandle.");
+//        return nullptr;
+//    }
+//    return CS_VAL(&_rsvalue->gchandle->holding_value);
+//}
 
 wo_bool_t wo_is_ref(wo_value value)
 {
@@ -456,8 +456,8 @@ void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val
     if (holding_val)
     {
         handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        if (handle_ptr->holding_value.is_gcunit())
-            handle_ptr->holding_value.gcunit->gc_type = wo::gcbase::gctype::no_gc;
+        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
+        //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
     handle_ptr->destructor = destruct_func;
 }
@@ -1071,8 +1071,8 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
     if (holding_val)
     {
         handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        if (handle_ptr->holding_value.is_gcunit())
-            handle_ptr->holding_value.gcunit->gc_type = wo::gcbase::gctype::no_gc;
+        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
+        //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
     handle_ptr->destructor = destruct_func;
 
@@ -1265,8 +1265,8 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
     if (holding_val)
     {
         handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        if (handle_ptr->holding_value.is_gcunit())
-            handle_ptr->holding_value.gcunit->gc_type = wo::gcbase::gctype::no_gc;
+        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
+        //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
     handle_ptr->destructor = destruct_func;
 
@@ -1557,8 +1557,8 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
     if (holding_val)
     {
         handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        if (handle_ptr->holding_value.is_gcunit())
-            handle_ptr->holding_value.gcunit->gc_type = wo::gcbase::gctype::no_gc;
+        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
+        //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
     handle_ptr->destructor = destruct_func;
 
