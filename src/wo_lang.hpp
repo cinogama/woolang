@@ -551,21 +551,27 @@ namespace wo
                 {
                     analyze_pass1(initval);
 
-                    a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
-                    a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
+                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
 
-                    if (a_pattern_identifier->decl == ast::identifier_decl::REF)
-                        initval->is_mark_as_using_ref = true;
+                        if (a_pattern_identifier->decl == ast::identifier_decl::REF)
+                            initval->is_mark_as_using_ref = true;
+                    }
                 }
                 else
                 {
                     // Template variable!!! we just define symbol here.
-                    auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
-                    symb->is_template_symbol = true;
-                    wo_assert(symb->template_types.empty());
-                    symb->template_types = a_pattern_identifier->template_arguments;
-                    a_pattern_identifier->symbol = symb;
-                    a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                        symb->is_template_symbol = true;
+                        wo_assert(symb->template_types.empty());
+                        symb->template_types = a_pattern_identifier->template_arguments;
+                        a_pattern_identifier->symbol = symb;
+                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                    }
                 }
             }
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
@@ -1127,9 +1133,11 @@ namespace wo
                                     fully_update_type(argdef->value_type, true);
                                 }
 
-                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
-
-                                argdef->symbol->decl = argdef->decl;
+                                if (!argdef->symbol)
+                                {
+                                    argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
+                                    argdef->symbol->decl = argdef->decl;
+                                }
                             }
                         }
                         else
