@@ -1366,6 +1366,8 @@ namespace wo
 
                 re_entry_for_interrupt:
 
+                    wo_assert(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "VM STACK OVERFLOW!");
+
                     switch (rtopcode)
                     {
                     case instruct::opcode::psh:

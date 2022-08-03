@@ -498,7 +498,10 @@ stepir          si                            Execute next command.
                                 size_t vmcount = 0;
                                 for (auto vms : wo::vmbase::_alive_vm_list)
                                 {
-                                    wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " ";
+                                    wo_stdout << ANSI_HIY "thread(vm) #" ANSI_HIG << vmcount << ANSI_RST " " << vms << " " << wo_endl;
+
+                                    auto usage = ((double)(vms->stack_mem_begin - vms->sp)) / (double)vms->stack_size;
+                                    wo_stdout << "stack usage: " << usage * 100. << "%" << wo_endl;
 
                                     if (vms->env->rt_codes == vms->ip
                                         || vms->ip == vms->env->rt_codes + vms->env->rt_code_len
