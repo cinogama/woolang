@@ -5354,7 +5354,7 @@ namespace wo
                         argdef->arg_name = L"_val";
                         argdef->value_type = items->type_may_nil;
                         argdef->declear_attribute = new ast_decl_attribute;
-                        avfd_item_type_builder->argument_list->append_at_end(argdef);
+                        avfd_item_type_builder->argument_list->add_child(argdef);
                         argdef->copy_source_info(items);
 
                         if (items->gadt_out_type_may_nil)
