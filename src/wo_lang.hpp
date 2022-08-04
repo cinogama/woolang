@@ -825,6 +825,29 @@ namespace wo
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
         }
 
+        void collect_ast_nodes_for_pass1(grammar::ast_base* ast_node)
+        {
+            std::vector<grammar::ast_base*> _pass1_analyze_ast_nodes_list;
+            std::stack<grammar::ast_base*> _pending_ast_nodes;
+
+            _pending_ast_nodes.push(ast_node);
+
+            while (!_pending_ast_nodes.empty())
+            {
+                auto* cur_node = _pending_ast_nodes.top();
+                _pending_ast_nodes.pop();
+
+                if (_pass1_analyze_ast_nodes_list.end() !=
+                    std::find(_pass1_analyze_ast_nodes_list.begin(),
+                        _pass1_analyze_ast_nodes_list.end(),
+                        cur_node))
+                    // Cur node has been append to list. return!
+                    continue;
+
+                _pass1_analyze_ast_nodes_list.push_back(cur_node);
+            }
+        }
+
         void analyze_pass1(grammar::ast_base* ast_node)
         {
             entry_pass ep1(in_pass2, false);
