@@ -1398,36 +1398,6 @@ namespace wo
     WO_PASS2(ast_value_function_define)
     {
         auto* a_value_funcdef = WO_AST();
-        if (a_value_funcdef->value_type->is_pending())
-        {
-            if (!a_value_funcdef->is_template_define)
-            {
-                if (a_value_funcdef->where_constraint)
-                    analyze_pass2(a_value_funcdef->where_constraint);
-
-                if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
-                {
-                    if (a_value_funcdef->in_function_sentence)
-                    {
-                        analyze_pass2(a_value_funcdef->in_function_sentence);
-                    }
-                    if (a_value_funcdef->value_type->type_name == L"pending")
-                    {
-                        // There is no return in function  return void
-                        if (a_value_funcdef->auto_adjust_return_type)
-                        {
-                            if (a_value_funcdef->has_return_value)
-                                lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
-
-                            a_value_funcdef->value_type->set_type_with_name(L"void");
-                        }
-                    }
-                }
-                else
-                    a_value_funcdef->value_type->set_type_with_name(L"pending");
-            }
-        }
-
         if (!a_value_funcdef->is_template_define)
         {
             // return-type adjust complete. do 'return' cast;
@@ -1554,84 +1524,6 @@ namespace wo
         auto* a_value_index = WO_AST();
         analyze_pass2(a_value_index->from);
         analyze_pass2(a_value_index->index);
-
-        if (a_value_index->value_type->is_pending())
-        {
-            if (!a_value_index->from->value_type->struct_member_index.empty())
-            {
-                if (a_value_index->index->is_constant && a_value_index->index->value_type->is_string())
-                {
-                    if (auto fnd =
-                        a_value_index->from->value_type->struct_member_index.find(
-                            str_to_wstr(*a_value_index->index->get_constant_value().string)
-                        ); fnd != a_value_index->from->value_type->struct_member_index.end())
-                    {
-                        if (fnd->second.init_value_may_nil)
-                        {
-                            if (!fnd->second.init_value_may_nil->value_type->is_pending())
-                            {
-                                a_value_index->value_type = fnd->second.init_value_may_nil->value_type;
-                                a_value_index->struct_offset = fnd->second.offset;
-                            }
-                        }
-                        else
-                            lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_UNDEFINED_MEMBER,
-                                str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
-                    }
-                    else
-                    {
-                        lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_UNDEFINED_MEMBER,
-                            str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
-                    }
-                }
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
-                }
-
-            }
-            else if (a_value_index->from->value_type->is_tuple())
-            {
-                if (a_value_index->index->is_constant && a_value_index->index->value_type->is_integer())
-                {
-                    // Index tuple must with constant integer.
-                    auto index = a_value_index->index->get_constant_value().integer;
-                    if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
-                    {
-                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[index];
-                        a_value_index->struct_offset = (uint16_t)index;
-                    }
-                    else
-                        lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引 %d 项），继续",
-                            (int)a_value_index->from->value_type->template_arguments.size(), (int)index);
-                }
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, a_value_index, L"只允许使用 'int' 类型的常量索引元组，继续");
-                }
-            }
-            else if (a_value_index->from->value_type->is_string())
-            {
-                a_value_index->value_type = ast_type::create_type_at(a_value_index, L"string");
-            }
-            else if (!a_value_index->from->value_type->is_pending())
-            {
-                if (a_value_index->from->value_type->is_array())
-                {
-                    a_value_index->value_type = a_value_index->from->value_type->template_arguments[0];
-                }
-                else if (a_value_index->from->value_type->is_map())
-                {
-                    a_value_index->value_type = a_value_index->from->value_type->template_arguments[1];
-                }
-                else
-                {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, L"dynamic");
-                }
-                if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
-                    a_value_index->can_be_assign = false;
-            }
-        }
 
         if (!a_value_index->from->value_type->is_array()
             && !a_value_index->from->value_type->is_map()
@@ -1800,41 +1692,6 @@ namespace wo
         auto* a_value_arr = WO_AST();
         analyze_pass2(a_value_arr->array_items);
 
-        if (a_value_arr->value_type->is_pending())
-        {
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
-
-            ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
-            if (val)
-            {
-                if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(val->value_type);
-                else
-                    decide_array_item_type = nullptr;
-            }
-
-            while (val)
-            {
-                if (val->value_type->is_pending())
-                {
-                    decide_array_item_type = nullptr;
-                    break;
-                }
-
-                if (!decide_array_item_type->accept_type(val->value_type, false))
-                {
-                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
-                    break;
-                }
-                val = dynamic_cast<ast_value*>(val->sibling);
-            }
-
-            if (decide_array_item_type)
-            {
-                a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
-            }
-        }
-
         if (!a_value_arr->value_type->is_array())
         {
             lang_anylizer->lang_error(0x0000, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
@@ -1871,54 +1728,6 @@ namespace wo
     {
         auto* a_value_map = WO_AST();
         analyze_pass2(a_value_map->mapping_pairs);
-
-        if (a_value_map->value_type->is_pending())
-        {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
-
-            ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
-            if (map_pair)
-            {
-                if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
-                {
-                    decide_map_key_type->set_type(map_pair->key->value_type);
-                    decide_map_val_type->set_type(map_pair->val->value_type);
-                }
-                else
-                {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
-                }
-            }
-            while (map_pair)
-            {
-                if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
-                {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
-                    break;
-                }
-
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
-                {
-                    lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
-                    break;
-                }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
-                {
-                    lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
-                    break;
-                }
-                map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
-            }
-
-            if (decide_map_key_type && decide_map_val_type)
-            {
-                a_value_map->value_type->template_arguments[0] = decide_map_key_type;
-                a_value_map->value_type->template_arguments[1] = decide_map_val_type;
-            }
-        }
 
         if (!a_value_map->value_type->is_map())
         {
@@ -2770,4 +2579,29 @@ namespace wo
         }
         return true;
     }
+
+    /*
+    WO_TRY_BEGIN;
+                    //
+                    WO_TRY_PASS(ast_value_variable);
+                    WO_TRY_PASS(ast_value_function_define);
+                    WO_TRY_PASS(ast_value_assign);
+                    WO_TRY_PASS(ast_value_type_cast);
+                    WO_TRY_PASS(ast_value_type_judge);
+                    WO_TRY_PASS(ast_value_type_check);
+                    WO_TRY_PASS(ast_value_index);
+                    WO_TRY_PASS(ast_value_indexed_variadic_args);
+                    WO_TRY_PASS(ast_fakevalue_unpacked_args);
+                    WO_TRY_PASS(ast_value_binary);
+                    WO_TRY_PASS(ast_value_logical_binary);
+                    WO_TRY_PASS(ast_value_array);
+                    WO_TRY_PASS(ast_value_mapping);
+                    WO_TRY_PASS(ast_value_make_tuple_instance);
+                    WO_TRY_PASS(ast_value_make_struct_instance);
+                    WO_TRY_PASS(ast_value_trib_expr);
+                    WO_TRY_PASS(ast_value_unary);
+                    WO_TRY_PASS(ast_value_funccall);
+
+                    WO_TRY_END;
+    */
 }

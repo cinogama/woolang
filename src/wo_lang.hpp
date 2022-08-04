@@ -1252,10 +1252,885 @@ namespace wo
 
                         ast_value_check->update_constant_value(lang_anylizer);
                     }
+                    if (a_value->value_type->is_pending())
+                    {
+                        if (ast_value_variable* a_value_var = dynamic_cast<ast_value_variable*>(a_value))
+                        {
+                            auto* sym = find_value_in_this_scope(a_value_var);
+                            if (sym)
+                            {
+                                if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
+                                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+
+                                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
+                                {
+                                    sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                                    if (!sym)
+                                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
+                                }
+
+                                if (sym)
+                                {
+                                    analyze_pass2(sym->variable_value);
+                                    a_value_var->value_type = sym->variable_value->value_type;
+                                    a_value_var->symbol = sym;
+
+                                    if (a_value_var->value_type->is_pending())
+                                    {
+                                        if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
+                                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                                        else if (a_value_var->symbol->function_overload_sets.size() == 1
+                                            && !a_value_var->symbol->is_template_symbol
+                                            && a_value_var->template_reification_args.empty())
+                                        {
+                                            // only you~
+                                            auto* result = sym->function_overload_sets.front();
+                                            check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
+                                            analyze_pass2(result);
+                                            a_value_var->value_type = result->value_type;
+
+                                            if (a_value_var->value_type->is_pending())
+                                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
+                                        }
+                                        else
+                                        {
+                                            // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
+                                            /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
+                                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                                            else
+                                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+                                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+                            }
+                        }
+                        else if (ast_value_index* a_value_idx = dynamic_cast<ast_value_index*>(ast_node))
+                        {
+                            analyze_pass2(a_value_idx->from);
+                            analyze_pass2(a_value_idx->index);
+
+                            if (!a_value_idx->from->value_type->struct_member_index.empty())
+                            {
+                                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
+                                {
+                                    if (auto fnd =
+                                        a_value_idx->from->value_type->struct_member_index.find(
+                                            str_to_wstr(*a_value_idx->index->get_constant_value().string)
+                                        ); fnd != a_value_idx->from->value_type->struct_member_index.end())
+                                    {
+                                        if (fnd->second.init_value_may_nil)
+                                        {
+                                            if (!fnd->second.init_value_may_nil->value_type->is_pending())
+                                            {
+                                                a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
+                                                a_value_idx->struct_offset = fnd->second.offset;
+                                            }
+                                        }
+                                        else
+                                            lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_UNDEFINED_MEMBER,
+                                                str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
+                                    }
+                                    else
+                                    {
+                                        lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_UNDEFINED_MEMBER,
+                                            str_to_wstr(*a_value_idx->index->get_constant_value().string).c_str());
+                                    }
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_idx, WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
+                                }
+
+                            }
+                            else if (a_value_idx->from->value_type->is_tuple())
+                            {
+                                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+                                {
+                                    // Index tuple must with constant integer.
+                                    auto index = a_value_idx->index->get_constant_value().integer;
+                                    if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                                    {
+                                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
+                                        a_value_idx->struct_offset = (uint16_t)index;
+                                    }
+                                    else
+                                        lang_anylizer->lang_error(0x0000, a_value_idx, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引 %d 项），继续",
+                                            (int)a_value_idx->from->value_type->template_arguments.size(), (int)index);
+                                }
+                                else
+                                {
+                                    lang_anylizer->lang_error(0x0000, a_value_idx, L"只允许使用 'int' 类型的常量索引元组，继续");
+                                }
+                            }
+                            else if (a_value_idx->from->value_type->is_string())
+                            {
+                                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
+                            }
+                            else if (!a_value_idx->from->value_type->is_pending())
+                            {
+                                if (a_value_idx->from->value_type->is_array())
+                                {
+                                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
+                                }
+                                else if (a_value_idx->from->value_type->is_map())
+                                {
+                                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
+                                }
+                                else
+                                {
+                                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
+                                }
+                                if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
+                                    a_value_idx->can_be_assign = false;
+                            }
+                        }
+                        else if (ast_value_function_define* a_value_funcdef = dynamic_cast<ast_value_function_define*>(a_value))
+                        {
+                            if (!a_value_funcdef->is_template_define)
+                            {
+                                if (a_value_funcdef->where_constraint)
+                                    analyze_pass2(a_value_funcdef->where_constraint);
+
+                                if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
+                                {
+                                    if (a_value_funcdef->in_function_sentence)
+                                    {
+                                        analyze_pass2(a_value_funcdef->in_function_sentence);
+                                    }
+                                    if (a_value_funcdef->value_type->type_name == L"pending")
+                                    {
+                                        // There is no return in function  return void
+                                        if (a_value_funcdef->auto_adjust_return_type)
+                                        {
+                                            if (a_value_funcdef->has_return_value)
+                                                lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+
+                                            a_value_funcdef->value_type->set_type_with_name(L"void");
+                                        }
+                                    }
+                                }
+                                else
+                                    a_value_funcdef->value_type->set_type_with_name(L"pending");
+                            }
+                        }
+                        else if (ast_value_funccall* a_value_funccall = dynamic_cast<ast_value_funccall*>(ast_node))
+                        {
+                            if (a_value_funccall->callee_symbol_in_type_namespace)
+                            {
+                                analyze_pass2(a_value_funccall->directed_value_from);
+                                if (!a_value_funccall->directed_value_from->value_type->is_pending() &&
+                                    !a_value_funccall->directed_value_from->value_type->is_func())
+                                {
+                                    // trying finding type_function
+
+                                    auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+
+                                    // Is using type?
+                                    if (a_value_funccall->directed_value_from->value_type->using_type_name)
+                                    {
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
+                                            a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
+
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                        (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                            origin_namespace.begin(),
+                                            origin_namespace.end()
+                                        );
+
+                                        lang_anylizer->begin_trying_block();
+                                        analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
+                                        lang_anylizer->end_trying_block();
+
+                                        if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
+                                            || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
+                                            || (a_value_funccall->callee_symbol_in_type_namespace->symbol
+                                                && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
+                                        {
+                                            if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
+                                                a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
+                                                = old_callee_func->template_reification_args;
+
+                                            a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                            goto start_ast_op_calling;
+                                        }
+
+                                        a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
+                                    }
+                                    // base type?
+                                    else
+                                    {
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                                        (a_value_funccall->directed_value_from->value_type->type_name);
+                                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                            origin_namespace.begin(),
+                                            origin_namespace.end()
+                                        );
+
+                                        lang_anylizer->begin_trying_block();
+                                        analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
+                                        lang_anylizer->end_trying_block();
+
+
+                                        if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
+                                            || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
+                                            || (a_value_funccall->callee_symbol_in_type_namespace->symbol
+                                                && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
+                                        {
+                                            if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
+                                                a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
+                                                = old_callee_func->template_reification_args;
+
+                                            a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                                            goto start_ast_op_calling;
+                                        }
+                                    }
+
+                                    // End trying invoke from direct-type namespace
+                                }
+                            }
+                        start_ast_op_calling:
+
+                            analyze_pass2(a_value_funccall->called_func);
+                            analyze_pass2(a_value_funccall->arguments);
+
+                            // judge the function override..
+                            if (a_value_funccall->called_func->value_type->is_pending())
+                            {
+                                // function call for witch overrride not judge. do it.
+                                if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+                                {
+                                    if (nullptr == called_funcsymb->symbol)
+                                    {
+                                        // do nothing..
+                                    }
+                                    else if (!called_funcsymb->symbol->function_overload_sets.empty())
+                                    {
+
+                                        // have override set, judge with following rule:
+                                        // 1. best match <may be template>
+                                        // 2. need cast <may be template>
+                                        // 3. variadic func <may be template>
+                                        // -  bad match
+
+                                        std::vector<ast_value_function_define*> best_match_sets;
+                                        std::vector<ast_value_function_define*> best_match_sets_template;
+                                        std::vector<ast_value_function_define*> variadic_sets;
+                                        std::vector<ast_value_function_define*> variadic_sets_template;
+
+                                        std::vector<ast_value_function_define*> tried_function;
+
+                                        for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
+                                        {
+                                            if (!check_symbol_is_accessable(_override_func, _override_func->symbol, called_funcsymb->searching_begin_namespace_in_pass2, a_value_funccall, false))
+                                                continue; // In function override judge, not accessable function will be skip!
+
+                                            auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
+                                            wo_test(override_func);
+
+                                            bool with_template = false;
+                                            grammar::ast_base* real_args = nullptr;
+                                            grammar::ast_base* form_args = nullptr;
+
+                                            if (override_func->is_template_define)
+                                            {
+                                                // try judge templates..
+                                                with_template = true;
+
+                                                std::vector<ast_type*> template_args(override_func->template_type_name_list.size(), nullptr);
+
+                                                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
+                                                {
+                                                    if (variable->template_reification_args.size() > template_args.size())
+                                                        continue; // Give too many template arguments
+                                                    for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                                                    {
+                                                        template_args[index] = variable->template_reification_args[index];
+                                                    }
+                                                }
+
+                                                // finish template args spcified by : xxxxx:<a,b,c> 
+                                                // trying auto judge type..
+
+                                                std::vector<ast_type*> real_argument_types;
+                                                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                                                while (funccall_arg)
+                                                {
+                                                    real_argument_types.push_back(funccall_arg->value_type);
+                                                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                                                }
+
+                                                // begin auto template args
+                                                // FXXXXXXXXXXXXXXXXK!!!!!!
+                                                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                                                {
+                                                    auto& pending_template_arg = template_args[tempindex];
+
+                                                    if (!pending_template_arg)
+                                                    {
+                                                        for (size_t index = 0;
+                                                            index < real_argument_types.size() &&
+                                                            index < override_func->value_type->argument_types.size();
+                                                            index++)
+                                                        {
+
+                                                            fully_update_type(override_func->value_type->argument_types[index], false,
+                                                                override_func->template_type_name_list);
+                                                            //fully_update_type(real_argument_types[index], false); // USELESS
+
+                                                            pending_template_arg = analyze_template_derivation(
+                                                                override_func->template_type_name_list[tempindex],
+                                                                override_func->template_type_name_list,
+                                                                override_func->value_type->argument_types[index],
+                                                                real_argument_types[index]
+                                                            );
+
+                                                            if (pending_template_arg)
+                                                                break;
+                                                        }
+                                                    }
+                                                }
+
+                                                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                                                    continue; // failed getting each of template args, abandon this one
+
+                                                for (auto* templ_arg : template_args)
+                                                {
+                                                    fully_update_type(templ_arg, false);
+                                                    if (templ_arg->is_pending())
+                                                    {
+                                                        lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
+                                                            templ_arg->get_type_name(false).c_str());
+                                                        goto this_function_override_checking_over;
+                                                    }
+                                                }
+
+                                                override_func = analyze_pass_template_reification(override_func, template_args); //tara~ get analyze_pass_template_reification 
+                                                _override_func = override_func;
+                                            }
+                                            else if (auto callee_fun_variable = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func);
+                                                callee_fun_variable && !callee_fun_variable->template_reification_args.empty())
+                                            {
+                                                // force template call, go on..
+                                                continue;
+                                            }
+
+                                            lang_anylizer->begin_trying_block();
+                                            analyze_pass2(_override_func);
+                                            tried_function.push_back(_override_func);
+
+                                            if (!lang_anylizer->get_cur_error_frame().empty())
+                                            {
+                                                // error happend in func, abondon this overload.
+                                                if (_override_func->where_constraint == nullptr)
+                                                {
+                                                    _override_func->where_constraint = new ast_where_constraint;
+                                                    _override_func->where_constraint->copy_source_info(_override_func);
+                                                }
+
+                                                wo_assert(_override_func->where_constraint);
+                                                _override_func->where_constraint->accept = false;
+                                                _override_func->where_constraint->binded_func_define = _override_func;
+                                                _override_func->where_constraint->unmatched_constraint.insert(
+                                                    _override_func->where_constraint->unmatched_constraint.end(),
+                                                    lang_anylizer->get_cur_error_frame().begin(),
+                                                    lang_anylizer->get_cur_error_frame().end());
+                                            }
+                                            lang_anylizer->end_trying_block();
+
+                                            if (_override_func->where_constraint == nullptr
+                                                || _override_func->where_constraint->accept)
+                                            {
+                                                real_args = a_value_funccall->arguments->children;
+                                                form_args = override_func->argument_list->children;
+                                                do
+                                                {
+                                                    auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                                    auto* real_arg = dynamic_cast<ast_value*>(real_args);
+
+                                                    wo_test(real_args == real_arg);
+
+                                                    if (!form_arg)
+                                                    {
+                                                        // variadic..
+                                                        if (nullptr == real_arg) // arg count match, just like best match/ need cast match
+                                                            goto match_check_end_for_variadic_func;
+                                                        else
+                                                        {
+                                                            if (with_template)
+                                                                variadic_sets_template.push_back(override_func);
+                                                            else
+                                                                variadic_sets.push_back(override_func);
+                                                        }
+
+                                                        goto this_function_override_checking_over;
+                                                    }
+
+                                                    if (!real_arg)
+                                                        goto this_function_override_checking_over;// real_args count didn't match, break..
+
+                                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
+                                                    {
+                                                        auto ecount = a_fakevalue_unpack_args->expand_count;
+                                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                        {
+                                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                            {
+                                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                if (unpacking_tuple_type->using_type_name)
+                                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                                a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
+                                                            }
+                                                        }
+                                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                                        {
+                                                            // all in!!!
+                                                            if (with_template)
+                                                                variadic_sets.push_back(override_func);
+                                                            else
+                                                                variadic_sets_template.push_back(override_func);
+
+                                                            goto this_function_override_checking_over;
+                                                        }
+
+                                                        size_t unpack_type_index = 0; // Used for type check when unpack tuple.
+                                                        while (ecount)
+                                                        {
+                                                            if (form_arg)
+                                                            {
+                                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                                {
+                                                                    // Varify tuple type here.
+                                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                                    if (unpacking_tuple_type->using_type_name)
+                                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+
+                                                                    if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
+                                                                        // There is no enough value for tuple to expand. match failed!
+                                                                        goto this_function_override_checking_over;
+                                                                    else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
+                                                                        // Type didn't match, match failed!
+                                                                        goto this_function_override_checking_over;
+                                                                    else
+                                                                        // ok, do nothing.
+                                                                        ++unpack_type_index;
+                                                                }
+
+                                                                form_args = form_arg->sibling;
+                                                                form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
+                                                            }
+                                                            else if (form_args)
+                                                            {
+                                                                // is variadic
+                                                                if (with_template)
+                                                                    variadic_sets_template.push_back(override_func);
+                                                                else
+                                                                    variadic_sets.push_back(override_func);
+                                                                goto this_function_override_checking_over;
+                                                            }
+                                                            else
+                                                            {
+                                                                // not match , over..
+                                                                goto this_function_override_checking_over;
+                                                            }
+                                                            ecount--;
+                                                        }
+
+                                                    }
+
+                                                    if (dynamic_cast<ast_value_takeplace*>(real_arg))
+                                                        ;
+                                                    else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
+                                                        break;
+                                                    else if (form_arg->value_type->accept_type(real_arg->value_type, false))
+                                                        ;// do nothing..
+                                                    else
+                                                        break; // bad match, break..
+
+
+                                                    real_args = real_args->sibling;
+                                                match_check_end_for_variadic_func:
+                                                    if (form_args)
+                                                        form_args = form_args->sibling;
+
+
+                                                    if (form_args == nullptr)
+                                                    {
+                                                        // finish match check, add it to set
+                                                        if (real_args == nullptr)
+                                                        {
+                                                            if (with_template)
+                                                                best_match_sets_template.push_back(override_func);
+                                                            else
+                                                                best_match_sets.push_back(override_func);
+                                                        }
+                                                        // else: bad match..
+                                                    }
+                                                } while (form_args);
+                                            }
+
+                                        this_function_override_checking_over:;
+
+                                        }
+
+                                        std::vector<ast_value_function_define*>* judge_sets = nullptr;
+                                        if (best_match_sets.size())
+                                            judge_sets = &best_match_sets;
+                                        else if (best_match_sets_template.size())
+                                            judge_sets = &best_match_sets_template;
+                                        else if (variadic_sets.size())
+                                            judge_sets = &variadic_sets;
+                                        else if (variadic_sets_template.size())
+                                            judge_sets = &variadic_sets_template;
+
+                                        if (judge_sets)
+                                        {
+                                            if (judge_sets->size() > 1)
+                                            {
+                                                std::wstring acceptable_func;
+                                                for (size_t index = 0; index < judge_sets->size(); index++)
+                                                {
+                                                    acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
+                                                        + judge_sets->at(index)->value_type->get_type_name(false)
+                                                        + L"' " WO_TERM_AT L" ("
+                                                        + std::to_wstring(judge_sets->at(index)->row_no)
+                                                        + L","
+                                                        + std::to_wstring(judge_sets->at(index)->col_no)
+                                                        + L")";
+
+                                                    if (index + 1 != judge_sets->size())
+                                                    {
+                                                        acceptable_func += L" " WO_TERM_OR L" ";
+                                                    }
+                                                }
+                                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE, acceptable_func.c_str());
+                                            }
+                                            else
+                                            {
+                                                a_value_funccall->called_func = judge_sets->front();
+                                                analyze_pass2(a_value_funccall->called_func);
+                                            }
+                                        }
+                                        else
+                                        {
+                                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
+                                            for (auto* tried_func : tried_function)
+                                            {
+                                                if (tried_func->where_constraint && !tried_func->where_constraint->accept)
+                                                {
+                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"不满足函数的 'where' 约束要求，继续：");
+                                                    for (auto& error_info : tried_func->where_constraint->unmatched_constraint)
+                                                    {
+                                                        lang_anylizer->get_cur_error_frame().push_back(error_info);
+                                                    }
+                                                }
+                                                else
+                                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
+                                                        tried_func->value_type->get_type_name(false).c_str());
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!a_value_funccall->called_func->value_type->is_pending())
+                            {
+                                if (a_value_funccall->called_func->value_type->is_func())
+                                {
+                                    a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
+                                }
+                            }
+                            else
+                            {
+                                /*
+                                // for recurrence function callen, this check will cause lang error, just ignore the call type.
+                                // - if function's type can be judge, it will success outside.
+
+                                if(a_value_funccall->called_func->value_type->is_pending_function())
+                                    lang_anylizer->lang_error(0x0000, a_value, L"xxx '%s'.", a_value->value_type->get_type_name().c_str());
+                                */
+                            }
+
+                            if (a_value_funccall->called_func
+                                && a_value_funccall->called_func->value_type->is_func()
+                                && a_value_funccall->called_func->value_type->is_pending())
+                            {
+                                auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+
+                                if (funcsymb && funcsymb->auto_adjust_return_type)
+                                {
+                                    // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
+                                    if (funcsymb->has_return_value)
+                                        lang_anylizer->lang_error(0x0000, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
+
+                                    funcsymb->value_type->set_ret_type(ast_type::create_type_at(funcsymb, L"void"));
+                                    funcsymb->auto_adjust_return_type = false;
+                                }
+
+                            }
+
+                            bool failed_to_call_cur_func = false;
+
+                            if (a_value_funccall->called_func
+                                && a_value_funccall->called_func->value_type->is_func()
+                                && !a_value_funccall->called_func->value_type->is_pending())
+                            {
+                                auto* real_args = a_value_funccall->arguments->children;
+                                a_value_funccall->arguments->remove_allnode();
+
+                                for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
+                                    a_type_index != a_value_funccall->called_func->value_type->argument_types.end();)
+                                {
+                                    bool donot_move_forward = false;
+                                    if (!real_args)
+                                    {
+                                        // default arg mgr here, now just kill
+                                        failed_to_call_cur_func = true;
+                                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        break;
+                                    }
+                                    else
+                                    {
+                                        auto tmp_sib = real_args->sibling;
+
+                                        real_args->parent = nullptr;
+                                        real_args->sibling = nullptr;
+
+                                        auto* arg_val = dynamic_cast<ast_value*>(real_args);
+                                        real_args = tmp_sib;
+
+                                        if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
+                                        {
+                                            a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
+
+                                            auto ecount = a_fakevalue_unpack_args->expand_count;
+                                            if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                                            {
+                                                // all in!!!
+                                                // If unpacking type is tuple. cannot run here.
+                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                                {
+                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                                    if (unpacking_tuple_type->using_type_name)
+                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                                    ecount = unpacking_tuple_type->template_arguments.size();
+                                                    a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
+                                                else
+                                                {
+                                                    ecount =
+                                                        (wo_integer_t)(
+                                                            a_value_funccall->called_func->value_type->argument_types.end()
+                                                            - a_type_index);
+                                                    if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                                        a_fakevalue_unpack_args->expand_count = -ecount;
+                                                    else
+                                                        a_fakevalue_unpack_args->expand_count = ecount;
+                                                }
+                                            }
+                                            while (ecount)
+                                            {
+                                                if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
+                                                {
+                                                    a_type_index++;
+                                                }
+                                                else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                                {
+                                                    // is variadic
+                                                    break;
+                                                }
+                                                else
+                                                {
+                                                    failed_to_call_cur_func = true;
+                                                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                                    break;
+                                                }
+                                                ecount--;
+                                            }
+                                            donot_move_forward = true;
+                                        }
+                                        else if (dynamic_cast<ast_value_takeplace*>(arg_val))
+                                        {
+                                            // Do nothing
+                                        }
+                                        else
+                                        {
+                                            if (!arg_val->value_type->is_pending() && !(*a_type_index)->accept_type(arg_val->value_type, false))
+                                            {
+                                                failed_to_call_cur_func = true;
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                                break;
+                                            }
+                                            else
+                                            {
+                                                a_value_funccall->arguments->add_child(arg_val);
+                                            }
+                                        }
+                                    }
+                                    if (!donot_move_forward)
+                                        a_type_index++;
+                                }
+                                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                {
+                                    while (real_args)
+                                    {
+                                        auto tmp_sib = real_args->sibling;
+
+                                        real_args->parent = nullptr;
+                                        real_args->sibling = nullptr;
+
+                                        a_value_funccall->arguments->add_child(real_args);
+                                        real_args = tmp_sib;
+                                    }
+                                }
+                                if (real_args)
+                                {
+                                    if (ast_fakevalue_unpacked_args* unpackval = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
+                                    {
+                                        // TODO MARK NOT NEED EXPAND HERE
+                                        if (unpackval->unpacked_pack->value_type->is_tuple())
+                                        {
+                                            size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->using_type_name
+                                                ? unpackval->unpacked_pack->value_type->using_type_name->template_arguments.size()
+                                                : unpackval->unpacked_pack->value_type->template_arguments.size();
+
+                                            if (tuple_arg_sz != 0)
+                                            {
+                                                failed_to_call_cur_func = true;
+                                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        failed_to_call_cur_func = true;
+                                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                    }
+                                }
+                            }
+                            else if (!a_value_funccall->called_func->value_type->is_pending())
+                            {
+                                failed_to_call_cur_func = true;
+                                lang_anylizer->lang_error(0x0000, a_value, WO_ERR_TYPE_CANNOT_BE_CALL,
+                                    a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                            }
+
+                            if (failed_to_call_cur_func)
+                                a_value_funccall->value_type->set_type_with_name(L"pending");
+                        }
+                        else if (ast_value_unary* a_value_unary = dynamic_cast<ast_value_unary*>(ast_node))
+                        {
+                            analyze_pass2(a_value_unary->val);
+
+                            if (a_value_unary->operate == +lex_type::l_lnot)
+                            {
+                                a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
+                            }
+                            else if (!a_value_unary->val->value_type->is_pending())
+                                a_value_unary->value_type = a_value_unary->val->value_type;
+                            // else
+                                // not need to manage, if val is pending, other place will give error.
+                        }
+                        else if (ast_value_array* a_value_arr = dynamic_cast<ast_value_array*>(ast_node))
+                        {
+                            analyze_pass2(a_value_arr->array_items);
+                            // 
+                            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
+
+                            ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
+                            if (val)
+                            {
+                                if (!val->value_type->is_pending())
+                                    decide_array_item_type->set_type(val->value_type);
+                                else
+                                    decide_array_item_type = nullptr;
+                            }
+
+                            while (val)
+                            {
+                                if (val->value_type->is_pending())
+                                {
+                                    decide_array_item_type = nullptr;
+                                    break;
+                                }
+
+                                if (!decide_array_item_type->accept_type(val->value_type, false))
+                                {
+                                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                                    break;
+                                }
+                                val = dynamic_cast<ast_value*>(val->sibling);
+                            }
+
+                            if (decide_array_item_type)
+                            {
+                                a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
+                            }
+                        }
+                        else if (ast_value_mapping* a_value_map = dynamic_cast<ast_value_mapping*>(ast_node))
+                        {
+                            analyze_pass2(a_value_map->mapping_pairs);
+
+                            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
+                            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
+
+                            ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
+                            if (map_pair)
+                            {
+                                if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
+                                {
+                                    decide_map_key_type->set_type(map_pair->key->value_type);
+                                    decide_map_val_type->set_type(map_pair->val->value_type);
+                                }
+                                else
+                                {
+                                    decide_map_key_type = nullptr;
+                                    decide_map_val_type = nullptr;
+                                }
+                            }
+                            while (map_pair)
+                            {
+                                if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
+                                {
+                                    decide_map_key_type = nullptr;
+                                    decide_map_val_type = nullptr;
+                                    break;
+                                }
+
+                                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
+                                {
+                                    lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
+                                    break;
+                                }
+                                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
+                                {
+                                    lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
+                                    break;
+                                }
+                                map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
+                            }
+
+                            if (decide_map_key_type && decide_map_val_type)
+                            {
+                                a_value_map->value_type->template_arguments[0] = decide_map_key_type;
+                                a_value_map->value_type->template_arguments[1] = decide_map_val_type;
+                            }
+                        }
+                    }
+
+                    //
 
                     WO_TRY_BEGIN;
                     //
-                    WO_TRY_PASS(ast_value_variable);
                     WO_TRY_PASS(ast_value_function_define);
                     WO_TRY_PASS(ast_value_assign);
                     WO_TRY_PASS(ast_value_type_cast);
@@ -1271,10 +2146,9 @@ namespace wo
                     WO_TRY_PASS(ast_value_make_tuple_instance);
                     WO_TRY_PASS(ast_value_make_struct_instance);
                     WO_TRY_PASS(ast_value_trib_expr);
-                    WO_TRY_PASS(ast_value_unary);
-                    WO_TRY_PASS(ast_value_funccall);
 
                     WO_TRY_END;
+
                 }
 
 
