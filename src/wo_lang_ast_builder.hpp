@@ -2047,6 +2047,7 @@ namespace wo
                 WO_REINSTANCE(dumm->where_constraint);
                 WO_REINSTANCE(dumm->externed_func_info);
                 dumm->this_func_scope = nullptr;
+                dumm->capture_variables.clear();
 
                 return dumm;
             }
