@@ -21,7 +21,7 @@ Woolang 是一门强类型/静态类型脚本语言，内置比较完善的调�
 ```rs
 import woo.std;
 
-func main(foo: void(string))
+func main(foo: (string)=>void)
 {
         let what = "Helloworld";
         return func()
