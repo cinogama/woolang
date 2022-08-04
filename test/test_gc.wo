@@ -7,6 +7,29 @@ namespace test_gc
 {
     let mut global_list = []:array<dynamic>;
 
+    let const TEST_TIME = 35.;
+
+    func test_gchandle_work()
+    {
+        std::println("test_gchandle_work begin");
+
+        let test_begin_time = std::time();
+        while (std::time() - test_begin_time <= TEST_TIME)
+        {
+            let arr = [1];
+            for (let elem: arr)
+            {
+                let map = {{"Hello", "world"}};
+                let x = "Hello" + map["Hello"];
+
+                for (let elem: arr)
+                {
+                    // do nothing..
+                }
+            }
+        }
+    }
+
     func test_gc_parallel_work(id: int)
     {
         std::println("test_gc_co/thread id=", id, "begin");
@@ -18,7 +41,7 @@ namespace test_gc
 
         let test_begin_time = std::time();
 
-        while (std::time() - test_begin_time <= 35.)
+        while (std::time() - test_begin_time <= TEST_TIME)
         {
             global_list->add({{"Hello", "world"}}: dynamic);
             global_list->add({{"Hello", "world"}}: dynamic);
@@ -58,6 +81,7 @@ namespace test_gc
 
     func main()
     {
+        std::thread(\ = test_gchandle_work(););
         std::co(\ = test_gc_parallel_work(1););
         std::thread(\ = test_gc_parallel_work(2););
         test_gc_parallel_work(0);
