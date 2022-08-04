@@ -1279,13 +1279,11 @@ namespace wo
 
                 }
 
-
                 a_value->update_constant_value(lang_anylizer);
-                if (a_value->value_type->is_pending())
-                {
-                    // ready for update..
+
+                // update_constant_value may set 'bool', it cannot used directly. update it.
+                if(a_value->value_type->is_bool())
                     fully_update_type(a_value->value_type, false);
-                }
             }
 
             WO_TRY_BEGIN;
