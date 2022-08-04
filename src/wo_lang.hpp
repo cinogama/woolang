@@ -1252,16 +1252,19 @@ namespace wo
 
                         ast_value_check->update_constant_value(lang_anylizer);
                     }
+                    //
 
                     WO_TRY_BEGIN;
                     //
                     WO_TRY_PASS(ast_value_variable);
-                    WO_TRY_PASS(ast_value_unary);  
+                    WO_TRY_PASS(ast_value_funccall);
+                    WO_TRY_PASS(ast_value_function_define);
+                    WO_TRY_PASS(ast_value_unary);
                     WO_TRY_PASS(ast_value_assign);
-                    WO_TRY_PASS(ast_value_index);
                     WO_TRY_PASS(ast_value_type_cast);
                     WO_TRY_PASS(ast_value_type_judge);
                     WO_TRY_PASS(ast_value_type_check);
+                    WO_TRY_PASS(ast_value_index);
                     WO_TRY_PASS(ast_value_indexed_variadic_args);
                     WO_TRY_PASS(ast_fakevalue_unpacked_args);
                     WO_TRY_PASS(ast_value_binary);
@@ -1271,10 +1274,11 @@ namespace wo
                     WO_TRY_PASS(ast_value_make_tuple_instance);
                     WO_TRY_PASS(ast_value_make_struct_instance);
                     WO_TRY_PASS(ast_value_trib_expr);
-                    WO_TRY_PASS(ast_value_function_define);
-                    WO_TRY_PASS(ast_value_funccall);
+
                     WO_TRY_END;
+
                 }
+
 
                 a_value->update_constant_value(lang_anylizer);
             }

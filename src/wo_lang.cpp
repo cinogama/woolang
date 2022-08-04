@@ -1400,6 +1400,26 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
+            if (a_value_funcdef->argument_list)
+            {
+                // ast_value_function_define might be root-point created in lang.
+                auto arg_child = a_value_funcdef->argument_list->children;
+                while (arg_child)
+                {
+                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                    {
+                        if (argdef->symbol)
+                            argdef->symbol->has_been_defined_in_pass2 = true;
+                    }
+                    else
+                    {
+                        wo_assert(dynamic_cast<ast_token*>(arg_child));
+                    }
+
+                    arg_child = arg_child->sibling;
+                }
+            }
+
             // return-type adjust complete. do 'return' cast;
             if (a_value_funcdef->where_constraint)
                 analyze_pass2(a_value_funcdef->where_constraint);
@@ -2060,57 +2080,61 @@ namespace wo
     WO_PASS2(ast_value_variable)
     {
         auto* a_value_var = WO_AST();
-        auto* sym = find_value_in_this_scope(a_value_var);
-        if (sym)
+        
+        if (a_value_var->value_type->is_pending())
         {
-            if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
-                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
-
-            if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
-            {
-                sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
-                if (!sym)
-                    lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
-            }
-
+            auto* sym = find_value_in_this_scope(a_value_var);
             if (sym)
             {
-                analyze_pass2(sym->variable_value);
-                a_value_var->value_type = sym->variable_value->value_type;
-                a_value_var->symbol = sym;
+                if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
+                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
 
-                if (a_value_var->value_type->is_pending())
+                if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
-                    if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
-                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
-                    else if (a_value_var->symbol->function_overload_sets.size() == 1
-                        && !a_value_var->symbol->is_template_symbol
-                        && a_value_var->template_reification_args.empty())
-                    {
-                        // only you~
-                        auto* result = sym->function_overload_sets.front();
-                        check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
-                        analyze_pass2(result);
-                        a_value_var->value_type = result->value_type;
+                    sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
+                    if (!sym)
+                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
+                }
 
-                        if (a_value_var->value_type->is_pending())
-                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
-                    }
-                    else
+                if (sym)
+                {
+                    analyze_pass2(sym->variable_value);
+                    a_value_var->value_type = sym->variable_value->value_type;
+                    a_value_var->symbol = sym;
+
+                    if (a_value_var->value_type->is_pending())
                     {
-                        // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
-                        /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
-                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                        if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
+                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                        else if (a_value_var->symbol->function_overload_sets.size() == 1
+                            && !a_value_var->symbol->is_template_symbol
+                            && a_value_var->template_reification_args.empty())
+                        {
+                            // only you~
+                            auto* result = sym->function_overload_sets.front();
+                            check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
+                            analyze_pass2(result);
+                            a_value_var->value_type = result->value_type;
+
+                            if (a_value_var->value_type->is_pending())
+                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
+                        }
                         else
-                            lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
+                        {
+                            // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
+                            /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
+                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
+                        }
                     }
                 }
             }
-        }
-        else
-        {
-            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
-            a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+            else
+            {
+                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+            }
         }
         return true;
     }
