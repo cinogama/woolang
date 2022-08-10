@@ -26,10 +26,15 @@ else()
 endif()
 set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
-set(ASMJIT_STATIC ON CACHE BOOL "Build static-linked asmjit" FORCE)
-option(BUILD_SHARED_LIBS "Build woo as shared lib" OFF)
+option(BUILD_SHARED_LIBS "Build woo as shared lib" ON)
 option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
+
+
 option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
+if (${WO_SUPPORT_ASMJIT})
+    set(ASMJIT_STATIC ON CACHE BOOL "Build static-linked asmjit" FORCE)
+    add_subdirectory("3rd/asmjit")
+endif()
 
 if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
@@ -38,8 +43,7 @@ if(UNIX)
     endif()
 endif()
 
-if (${WO_SUPPORT_ASMJIT})
-    add_subdirectory("3rd/asmjit")
-endif()
+
+
 add_subdirectory ("src")
 add_subdirectory ("driver")

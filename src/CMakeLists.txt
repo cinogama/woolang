@@ -20,12 +20,11 @@ if(UNIX)
     endif()
 endif()
 
-if (WO_SUPPORT_ASMJIT)
-    list(APPEND woo_system_libs asmjit)
-	add_definitions(-DWO_SUPPORT_ASMJIT = 1)
-endif()
-
 add_definitions(-DWO_SRC_PATH="${PROJECT_SOURCE_DIR}")
+
+if(${WO_SUPPORT_ASMJIT})
+	add_definitions(-DWO_JIT_SUPPORT_ASMJIT=1) 
+endif()
 
 if (BUILD_SHARED_LIBS)
 	add_definitions(-DWO_SHARED_LIB)
@@ -36,6 +35,10 @@ else()
 		add_compile_options(-Wall -rdynamic)
 	endif()
 	add_library(woolang STATIC ${woo_src_cpp} ${woo_src_hpp} enum.h)
+endif()
+
+if(${WO_SUPPORT_ASMJIT})
+    list(APPEND woo_system_libs asmjit)
 endif()
 
 target_link_libraries(woolang ${woo_system_libs})

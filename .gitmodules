@@ -5,4 +5,4 @@
 [submodule "3rd/asmjit"]
 	path = 3rd/asmjit
 	url = https://gitlab.cinogama.com/mr_cino/asmjit.git
-	branch = master
+	branch = oldstable
