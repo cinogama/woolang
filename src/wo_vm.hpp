@@ -683,7 +683,7 @@ namespace wo
                         //neg
                         tmpos << *(void**)((this_command_ptr += 8) - 8);
                     else
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 8) - 8);
                     break;
                 case instruct::ret:
                     tmpos << "ret\t";
@@ -882,22 +882,22 @@ namespace wo
                             break;
                         }
                         break;
-                    //case 1:
-                    //    switch (main_command & 0b11111100)
-                    //    {
-                    //    default:
-                    //        tmpos << "??\t";
-                    //        break;
-                    //    }
-                    //    break;
-                    //case 2:
-                    //    switch (main_command & 0b11111100)
-                    //    {
-                    //    default:
-                    //        tmpos << "??\t";
-                    //        break;
-                    //    }
-                    //    break;
+                        //case 1:
+                        //    switch (main_command & 0b11111100)
+                        //    {
+                        //    default:
+                        //        tmpos << "??\t";
+                        //        break;
+                        //    }
+                        //    break;
+                        //case 2:
+                        //    switch (main_command & 0b11111100)
+                        //    {
+                        //    default:
+                        //        tmpos << "??\t";
+                        //        break;
+                        //    }
+                        //    break;
                     case 3:
                         tmpos << "flag ";
                         switch (main_command & 0b11111100)
@@ -2178,6 +2178,7 @@ namespace wo
                         else
                         {
                             const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                            rt_ip += 4; // skip reserved place.
 
                             rt_sp->type = value::valuetype::callstack;
                             rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);

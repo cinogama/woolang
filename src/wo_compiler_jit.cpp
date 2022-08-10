@@ -630,3 +630,39 @@ namespace wo
 }
 
 #endif
+
+#include "wo_compiler_jit.hpp"
+
+namespace wo
+{
+
+    struct asmjit_jit_context
+    {
+#if WO_JIT_SUPPORT_ASMJIT
+
+#else
+
+#endif
+    };
+
+    jit_compiler_x64::jit_compiler_x64() noexcept
+        : m_asmjit_context(new asmjit_jit_context)
+    {
+
+    }
+    jit_compiler_x64::~jit_compiler_x64()
+    {
+        if (m_asmjit_context)
+            delete m_asmjit_context;
+    }
+
+    void jit_compiler_x64::analyze_function(const byte_t* codebuf, runtime_env* env) noexcept
+    {
+
+    }
+
+    void jit_compiler_x64::analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
+    {
+
+    }
+}

@@ -1438,7 +1438,6 @@ namespace wo
     private:
         shared_pointer<runtime_env> finalize(size_t stacksz = 0)
         {
-            // 0. 
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
             size_t global_allign_takeplace_for_avoiding_false_shared =
@@ -1934,11 +1933,17 @@ namespace wo
                         wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
-                        auto_check_mem_allign(1, 4);
+                        auto_check_mem_allign(1, 8);
 
                         jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
                             .push_back(generated_runtime_code_buf.size() + need_fill_count + 1);
 
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+
+                        // reserve...
                         temp_this_command_code_buf.push_back(0x00);
                         temp_this_command_code_buf.push_back(0x00);
                         temp_this_command_code_buf.push_back(0x00);
@@ -1965,13 +1970,19 @@ namespace wo
                     else
                     {
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
-                        auto_check_mem_allign(1, 4);
+                        auto_check_mem_allign(1, 8);
 
                         byte_t* readptr = (byte_t*)&WO_IR.opinteger;
                         temp_this_command_code_buf.push_back(readptr[0]);
                         temp_this_command_code_buf.push_back(readptr[1]);
                         temp_this_command_code_buf.push_back(readptr[2]);
                         temp_this_command_code_buf.push_back(readptr[3]);
+
+                        // reserve...
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
+                        temp_this_command_code_buf.push_back(0x00);
                     }
                     break;
                 case instruct::opcode::ret:
@@ -2274,19 +2285,25 @@ namespace wo
             env->real_register_count = real_register_count;
             env->runtime_stack_count = runtime_stack_count;
             env->rt_code_len = generated_runtime_code_buf.size();
-            env->rt_codes = pdb_info->runtime_codes_base = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
+            byte_t* code_buf = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
 
-            wo_test(reinterpret_cast<size_t>(env->rt_codes) % 8 == 0);
+            wo_test(reinterpret_cast<size_t>(code_buf) % 8 == 0);
             pdb_info->runtime_codes_length = env->rt_code_len;
 
-            wo_assert(env->rt_codes, "Alloc memory fail.");
-            memcpy((byte_t*)env->rt_codes, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
+            wo_assert(code_buf, "Alloc memory fail.");
+            memcpy(code_buf, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
             env->program_debug_info = pdb_info;
 
             for (auto& extern_func_info : pdb_info->extern_function_map)
             {
                 extern_func_info.second = pdb_info->get_runtime_ip_by_ip(extern_func_info.second);
             }
+
+            // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
+            wo::jit_compiler_x64 jitcompiler;
+            jitcompiler.analyze_jit(code_buf, env);
+            
+            env->rt_codes = pdb_info->runtime_codes_base = code_buf;
 
             return env;
         }
