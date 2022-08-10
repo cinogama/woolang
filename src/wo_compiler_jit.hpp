@@ -1,11 +1,12 @@
 #pragma once
 
 #include "wo_basic_type.hpp"
-#include "wo_compiler_ir.hpp"
 
 namespace wo
 {
+    struct runtime_env;
     struct asmjit_jit_context;
+
     struct jit_compiler_x64
     {
         using jit_packed_func_t = wo_native_func; // x(vm, bp + 2, argc/* useless */)

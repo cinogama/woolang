@@ -632,6 +632,7 @@ namespace wo
 #endif
 
 #include "wo_compiler_jit.hpp"
+#include "wo_compiler_ir.hpp"
 
 namespace wo
 {
@@ -660,7 +661,6 @@ namespace wo
     {
 
     }
-
     void jit_compiler_x64::analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
     {
 
