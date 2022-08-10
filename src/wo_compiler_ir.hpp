@@ -1865,7 +1865,7 @@ namespace wo
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1);
+                        .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -1879,7 +1879,7 @@ namespace wo
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1);
+                        .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -1893,7 +1893,7 @@ namespace wo
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1);
+                        .push_back(generated_runtime_code_buf.size());
 
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -1913,7 +1913,7 @@ namespace wo
                         generated_runtime_code_buf.push_back(WO_OPCODE(calln, 00));
 
                         jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                            .push_back(generated_runtime_code_buf.size() + 1);
+                            .push_back(generated_runtime_code_buf.size());
 
                         generated_runtime_code_buf.push_back(0x00);
                         generated_runtime_code_buf.push_back(0x00);
@@ -1979,12 +1979,11 @@ namespace wo
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                     generated_runtime_code_buf.push_back(WO_OPCODE(jnequb));
-                    size_t opcodelen = WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
-                    opcodelen;
+                    WO_IR.op1->generate_opnum_to_buffer(generated_runtime_code_buf);
 
                     // Write jmp
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1 + opcodelen);
+                        .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -2002,7 +2001,7 @@ namespace wo
                     generated_runtime_code_buf.push_back(readptr[1]);
 
                     jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                        .push_back(generated_runtime_code_buf.size() + 1 + 2);
+                        .push_back(generated_runtime_code_buf.size());
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
                     generated_runtime_code_buf.push_back(0x00);
@@ -2064,7 +2063,7 @@ namespace wo
                                 generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(veh, 10));
 
                                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                                    .push_back(generated_runtime_code_buf.size() + 1 + 1);
+                                    .push_back(generated_runtime_code_buf.size());
                                 generated_runtime_code_buf.push_back(0x00);
                                 generated_runtime_code_buf.push_back(0x00);
                                 generated_runtime_code_buf.push_back(0x00);
@@ -2078,7 +2077,7 @@ namespace wo
                                 generated_runtime_code_buf.push_back(WO_OPCODE_EXT0(veh, 00));
 
                                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                                    .push_back(generated_runtime_code_buf.size() + 1 + 1);
+                                    .push_back(generated_runtime_code_buf.size());
 
                                 generated_runtime_code_buf.push_back(0x00);
                                 generated_runtime_code_buf.push_back(0x00);
