@@ -365,6 +365,8 @@ namespace wo
         std::atomic_size_t _created_destructable_instance_count = 0;
 
         std::vector<size_t> _functions_offsets;
+        std::vector<size_t> _calln_opcode_offsets;
+
         shared_pointer<program_debug_data_info> program_debug_info;
 
         ~runtime_env()
@@ -1908,6 +1910,9 @@ namespace wo
                 case instruct::opcode::calln:
                     if (WO_IR.op2)
                     {
+                        if (config::ENABLE_JUST_IN_TIME)
+                            env->_calln_opcode_offsets.push_back(generated_runtime_code_buf.size());
+
                         wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
@@ -1945,6 +1950,9 @@ namespace wo
                     }
                     else
                     {
+                        if (config::ENABLE_JUST_IN_TIME)
+                            env->_calln_opcode_offsets.push_back(generated_runtime_code_buf.size());
+
                         temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
 
                         byte_t* readptr = (byte_t*)&WO_IR.opinteger;
@@ -2077,7 +2085,7 @@ namespace wo
                                 // clean
                                 wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
                                 temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 00));
- 
+
                                 jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
                                     .push_back(generated_runtime_code_buf.size() + 1 + 1);
 
@@ -2139,7 +2147,7 @@ namespace wo
                         case instruct::extern_opcode_page_3::funcbegin:
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
                             env->_functions_offsets.push_back(
-                                temp_this_command_code_buf.size() 
+                                temp_this_command_code_buf.size()
                                 + generated_runtime_code_buf.size());
                             break;
                         case instruct::extern_opcode_page_3::funcend:
@@ -2244,8 +2252,8 @@ namespace wo
             }
 
             // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
-            wo::jit_compiler_x64 jitcompiler;
-            jitcompiler.analyze_jit(code_buf, env);
+            if (config::ENABLE_JUST_IN_TIME)
+                analyze_jit(code_buf, env);
 
             env->rt_codes = pdb_info->runtime_codes_base = code_buf;
 
