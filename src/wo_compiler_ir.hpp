@@ -364,6 +364,7 @@ namespace wo
         std::atomic_size_t _running_on_vm_count = 0;
         std::atomic_size_t _created_destructable_instance_count = 0;
 
+        std::vector<size_t> _functions_offsets;
         shared_pointer<program_debug_data_info> program_debug_info;
 
         ~runtime_env()
@@ -2137,6 +2138,9 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_3::funcbegin:
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
+                            env->_functions_offsets.push_back(
+                                temp_this_command_code_buf.size() 
+                                + generated_runtime_code_buf.size());
                             break;
                         case instruct::extern_opcode_page_3::funcend:
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcend));
