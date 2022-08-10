@@ -229,6 +229,8 @@ void wo_init(int argc, char** argv)
                 enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
             else if ("enable-gc" == current_arg)
                 enable_gc = atoi(argv[++command_idx]);
+            else if ("enable-code-allign" == current_arg)
+                wo::config::ENABLE_IR_CODE_ACTIVE_ALLIGN = atoi(argv[++command_idx]);
             else if ("enable-ansi-color" == current_arg)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else if ("coroutine-thread-count" == current_arg)
