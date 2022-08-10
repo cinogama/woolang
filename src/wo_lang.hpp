@@ -3388,6 +3388,9 @@ namespace wo
                     size_t funcbegin_ip = compiler->get_now_ip();
                     now_function_in_final_anylize = funcdef;
 
+                    if (config::ENABLE_JUST_IN_TIME)
+                        compiler->ext_funcbegin(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
+
                     compiler->tag(funcdef->get_ir_func_signature_tag());
                     if (funcdef->declear_attribute->is_extern_attr())
                     {
@@ -3410,10 +3413,10 @@ namespace wo
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
-                    if (config::ENABLE_JUST_IN_TIME)
-                    {
-                        wo_error("JIT-MODULE HAS BEEN REMOVED");
-                    }
+                    //if (config::ENABLE_JUST_IN_TIME)
+                    //{
+                    //    wo_error("JIT-MODULE HAS BEEN REMOVED");
+                    //}
 
                     auto res_ip = compiler->reserved_stackvalue();                      // reserved..
 
@@ -3474,7 +3477,7 @@ namespace wo
                     compiler->pdb_info->generate_func_end(funcdef, temp_reg_to_stack_count, compiler);
 
                     if (config::ENABLE_JUST_IN_TIME)
-                        compiler->ext_endjit(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
+                        compiler->ext_funcend(); // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
                     else
                         compiler->nop();
 

@@ -141,9 +141,6 @@ namespace wo
         {
             // Here to store extern_opcode. 
             // Here is no nop in extern code page.
-
-            // THIS PAGE USED FOR STORING DEBUG OPCODE
-            endjit = 0 WO_OPCODE_SPACE,     // ext(01) endjit(--)  notify jit compiler stop work.
         };
         enum extern_opcode_page_2 : uint8_t
         {
@@ -154,6 +151,12 @@ namespace wo
         {
             // Here to store extern_opcode. 
             // Here is no nop in extern code page.
+
+            // THIS PAGE USED FOR STORING FLAGS AND SHOULD NOT BE EXECUTE
+
+            // funcbegin & end flag, used for notify jit to generate functions.
+            funcbegin   = 0 WO_OPCODE_SPACE,     // ext(11) funcbegin(--)
+            funcend     = 1 WO_OPCODE_SPACE,     // ext(11) funcend(--)
 
 #undef WO_OPCODE_SPACE
         };

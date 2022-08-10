@@ -882,11 +882,30 @@ namespace wo
                             break;
                         }
                         break;
-                    case 1:
+                    //case 1:
+                    //    switch (main_command & 0b11111100)
+                    //    {
+                    //    default:
+                    //        tmpos << "??\t";
+                    //        break;
+                    //    }
+                    //    break;
+                    //case 2:
+                    //    switch (main_command & 0b11111100)
+                    //    {
+                    //    default:
+                    //        tmpos << "??\t";
+                    //        break;
+                    //    }
+                    //    break;
+                    case 3:
+                        tmpos << "flag ";
                         switch (main_command & 0b11111100)
                         {
-                        case instruct::extern_opcode_page_1::endjit:
-                            tmpos << "endjit\t"; break;
+                        case instruct::extern_opcode_page_3::funcbegin:
+                            tmpos << "funcbegin\t"; break;
+                        case instruct::extern_opcode_page_3::funcend:
+                            tmpos << "funcend\t"; break;
                         default:
                             tmpos << "??\t";
                             break;
@@ -2564,17 +2583,13 @@ namespace wo
                             }
                             break;
                         case 1:     // extern-opcode-page-1
-                            switch ((instruct::extern_opcode_page_1)(opcode))
-                            {
-                            case instruct::extern_opcode_page_1::endjit:
-                            {
-                                wo_error("Invalid instruct: 'endjit'.");
-                                break;
-                            }
-                            default:
-                                wo_error("Unknown instruct.");
-                                break;
-                            }
+                            wo_error("Invalid instruct page(empty page 1).");
+                            break;
+                        case 2:     // extern-opcode-page-2
+                            wo_error("Invalid instruct page(empty page 2).");
+                            break;
+                        case 3:     // extern-opcode-page-3
+                            wo_error("Invalid instruct page(flag page).");
                             break;
                         default:
                             wo_error("Unknown extern-opcode-page.");

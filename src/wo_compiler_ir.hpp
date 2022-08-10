@@ -1394,11 +1394,17 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::movdup;
         }
 
-        void ext_endjit()
+        void ext_funcbegin()
         {
             auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext);
-            codeb.ext_page_id = 1;
-            codeb.ext_opcode_p1 = instruct::extern_opcode_page_1::endjit;
+            codeb.ext_page_id = 3;
+            codeb.ext_opcode_p3 = instruct::extern_opcode_page_3::funcbegin;
+        }
+        void ext_funcend()
+        {
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext);
+            codeb.ext_page_id = 3;
+            codeb.ext_opcode_p3 = instruct::extern_opcode_page_3::funcend;
         }
 
         template<typename OP1T, typename OP2T>
@@ -1503,9 +1509,18 @@ namespace wo
 #define WO_OPCODE_EXT0_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, WO_IR.dr()).opcode_dr)
 #define WO_OPCODE_EXT0_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_0::OPCODE, 0b000000##DR).opcode_dr)
 
+
 #define WO_OPCODE_EXT1(...) wo_macro_overload(WO_OPCODE_EXT1,__VA_ARGS__)
 #define WO_OPCODE_EXT1_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_1::OPCODE, WO_IR.dr()).opcode_dr)
 #define WO_OPCODE_EXT1_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_1::OPCODE, 0b000000##DR).opcode_dr)
+
+#define WO_OPCODE_EXT2(...) wo_macro_overload(WO_OPCODE_EXT2,__VA_ARGS__)
+#define WO_OPCODE_EXT2_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_2::OPCODE, WO_IR.dr()).opcode_dr)
+#define WO_OPCODE_EXT2_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_2::OPCODE, 0b000000##DR).opcode_dr)
+
+#define WO_OPCODE_EXT3(...) wo_macro_overload(WO_OPCODE_EXT3,__VA_ARGS__)
+#define WO_OPCODE_EXT3_1(OPCODE) (instruct((instruct::opcode)instruct::extern_opcode_page_3::OPCODE, WO_IR.dr()).opcode_dr)
+#define WO_OPCODE_EXT3_2(OPCODE,DR) (instruct((instruct::opcode)instruct::extern_opcode_page_3::OPCODE, 0b000000##DR).opcode_dr)
 
                 cxx_vec_t<byte_t> temp_this_command_code_buf; // one command will be store here tempery for coding allign
                 size_t already_allign_tmp_sz = 0; // temp store the written sz for allign check, will be reset 0 at each command loop;
@@ -2114,28 +2129,43 @@ namespace wo
                         }
                         break;
                     }
-                    case 1:
+                    //case 1:
+                    //{
+                    //    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 01));
+                    //    switch (WO_IR.ext_opcode_p1)
+                    //    {
+                    //    default:
+                    //        wo_error("Unknown instruct.");
+                    //        break;
+                    //    }
+                    //    break;
+                    //}
+                    //case 2:
+                    //{
+                    //    temp_this_command_code_buf.push_back(WO_OPCODE(ext, 10));
+                    //    switch (WO_IR.ext_opcode_p2)
+                    //    {
+                    //    default:
+                    //        wo_error("Unknown instruct.");
+                    //        break;
+                    //    }
+                    //    break;
+                    //}
+                    case 3:
                     {
-                        temp_this_command_code_buf.push_back(WO_OPCODE(ext, 01));
-                        switch (WO_IR.ext_opcode_p1)
+                        temp_this_command_code_buf.push_back(WO_OPCODE(ext, 11));
+                        switch (WO_IR.ext_opcode_p3)
                         {
-                        case instruct::extern_opcode_page_1::endjit:
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT1(endjit));
+                        case instruct::extern_opcode_page_3::funcbegin:
+                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
+                            break;
+                        case instruct::extern_opcode_page_3::funcend:
+                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcend));
                             break;
                         default:
                             wo_error("Unknown instruct.");
                             break;
                         }
-                        break;
-                    }
-                    case 2:
-                    {
-                        temp_this_command_code_buf.push_back(WO_OPCODE(ext, 10));
-                        break;
-                    }
-                    case 3:
-                    {
-                        temp_this_command_code_buf.push_back(WO_OPCODE(ext, 11));
                         break;
                     }
                     default:
