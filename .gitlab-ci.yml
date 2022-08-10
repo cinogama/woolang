@@ -5,6 +5,7 @@ variables:
 build_release:
   stage: build
   script:
+    - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
     - rm -f CMakeCache.txt
@@ -29,6 +30,7 @@ build_release:
 test_coverage_debug:
   stage: test
   script:
+    - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
     - rm -f CMakeCache.txt
