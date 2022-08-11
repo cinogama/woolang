@@ -796,6 +796,18 @@ namespace wo
             return opnum;
         }
 
+        static asmjit::X86Gp x86_set_imm(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, const wo::value& instance)
+        {
+            // ATTENTION:
+            //  Here will no thread safe and mem-branch prevent.
+            wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)instance.type));
+
+            auto data_of_val = x86compiler.newUInt64();
+            wo_asure(!x86compiler.mov(data_of_val, instance.handle));
+            wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(val, offsetof(value, handle)), data_of_val));
+
+            return val;
+        }
         static asmjit::X86Gp x86_set_val(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
         {
             // ATTENTION:
@@ -826,7 +838,7 @@ namespace wo
         static asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
         {
             wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
-            wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0));
+            wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), asmjit::Imm(0)));
             return val;
         }
 
@@ -901,9 +913,11 @@ namespace wo
         static void x86_do_calln_vm_func(asmjit::X86Compiler& x86compiler,
             asmjit::X86Gp vm,
             function_jit_state& vm_func,
+            const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::X86Gp rt_sp,
-            asmjit::X86Gp rt_bp)
+            asmjit::X86Gp rt_bp,
+            asmjit::X86Gp rt_tc)
         {
             if (vm_func.m_state == function_jit_state::state::FINISHED)
             {
@@ -924,15 +938,27 @@ namespace wo
                 wo_assert(vm_func.m_state == function_jit_state::state::COMPILING);
                 wo_assert(vm_func.m_jitfunc);
 
+                // Set calltrace info here!
+
+                wo::value callstack;
+                callstack.type = wo::value::valuetype::callstack;
+                callstack.bp = 0;
+                callstack.ret_ip = rt_ip - codes;
+
+                x86_set_imm(x86compiler, rt_sp, callstack);
+
+                auto callargptr = x86compiler.newUIntPtr();
+                auto targc = x86compiler.newInt64();
+                x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * sizeof(value)));
+                x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_bp, offsetof(value, integer)));
+
                 auto invoke_node =
-                    x86compiler.call((size_t)&native_do_calln_vmfunc,
-                        asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
+                    x86compiler.call(vm_func.m_jitfunc->getLabel(),
+                        asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
 
                 invoke_node->setArg(0, vm);
-                invoke_node->setArg(1, vm_func.m_jitfunc->FUN);
-                invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
-                invoke_node->setArg(3, rt_sp);
-                invoke_node->setArg(4, rt_bp);
+                invoke_node->setArg(1, callargptr);
+                invoke_node->setArg(2, targc);
             }
         }
 
@@ -951,7 +977,7 @@ namespace wo
             X86Compiler x86compiler(&code_buffer);
 
             // Generate function declear
-            auto jit_func_node = x86compiler.addFunc(FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
+            state.m_jitfunc = x86compiler.addFunc(FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
             // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
             // 0. Get vmptr reg stack base global ptr.
@@ -960,6 +986,7 @@ namespace wo
             auto _vmssp = x86compiler.newUIntPtr();
             auto _vmreg = x86compiler.newUIntPtr();
             auto _vmcr = x86compiler.newUIntPtr();
+            auto _vmtc = x86compiler.newUIntPtr();
 
 
             x86compiler.setArg(0, _vmbase);
@@ -968,6 +995,7 @@ namespace wo
             wo_asure(!x86compiler.mov(_vmssp, _vmsbp));                    // let sp = bp;
             wo_asure(!x86compiler.mov(_vmreg, intptr_ptr(_vmbase, offsetof(vmbase, register_mem_begin))));
             wo_asure(!x86compiler.mov(_vmcr, intptr_ptr(_vmbase, offsetof(vmbase, cr))));
+            wo_asure(!x86compiler.mov(_vmtc, intptr_ptr(_vmbase, offsetof(vmbase, tc))));
 
             byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -1047,7 +1075,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2_REF;
 
-                    x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
+                    if (opnum2.is_constant())
+                        x86_set_imm(x86compiler, opnum1.gp_value(), *opnum2.const_value());
+                    else
+                        x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
 
                     break;
                 }
@@ -1056,7 +1087,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1_REF;
                     WO_JIT_ADDRESSING_N2_REF;
 
-                    x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
+                    if (opnum2.is_constant())
+                        x86_set_imm(x86compiler, opnum1.gp_value(), *opnum2.const_value());
+                    else
+                        x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
 
                     break;
                 }
@@ -1365,7 +1399,7 @@ namespace wo
                             return state;
                         }
 
-                        x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, rt_ip, _vmssp, _vmsbp);
+                        x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, m_codes, rt_ip, _vmssp, _vmsbp, _vmtc);
                     }
                     break;
                 }

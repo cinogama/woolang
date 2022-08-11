@@ -93,6 +93,7 @@ namespace wo
                 uint32_t bp;
                 uint32_t ret_ip;
             };
+
             const byte_t* native_function_addr;
 
             value* ref;
