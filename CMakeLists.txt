@@ -29,8 +29,12 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 option(BUILD_SHARED_LIBS "Build woo as shared lib" ON)
 option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
 
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
+else()
+    option(WO_SUPPORT_ASMJIT "Support asmjit for x64 only" OFF)
+endif()
 
-option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
 if (${WO_SUPPORT_ASMJIT})
     set(ASMJIT_STATIC ON CACHE BOOL "Build static-linked asmjit" FORCE)
     add_subdirectory("3rd/asmjit")
