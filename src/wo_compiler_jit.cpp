@@ -866,7 +866,7 @@ namespace wo
             wo_asure(!x86compiler.sub(_vmsbp, 2 * sizeof(wo::value)));
             wo_asure(!x86compiler.mov(_vmssp, _vmsbp));                    // let sp = bp;
             wo_asure(!x86compiler.mov(_vmreg, intptr_ptr(_vmbase, offsetof(vmbase, register_mem_begin))));
-            wo_asure(!x86compiler.mov(_vmreg, intptr_ptr(_vmbase, offsetof(vmbase, cr))));
+            wo_asure(!x86compiler.mov(_vmcr, intptr_ptr(_vmbase, offsetof(vmbase, cr))));
 
             byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -891,10 +891,10 @@ namespace wo
                 opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
                 dr = opcode_dr & 0b00000011u;
 
-#define WO_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, dr >> 1, _vmsbp, _vmreg, env)
-#define WO_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, dr &0b01, _vmsbp, _vmreg, env)
-#define WO_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, dr >> 1, _vmsbp, _vmreg, env)
-#define WO_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, dr &0b01, _vmsbp, _vmreg, env)
+#define WO_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
+#define WO_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
+#define WO_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
+#define WO_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
 
                 switch (opcode)
                 {
