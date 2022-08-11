@@ -24,23 +24,20 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
 }
 WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_fail(WO_FAIL_DEADLY, wo_string(args + 0));
-    return wo_ret_void(vm);
+    return wo_ret_panic(vm, wo_string(args + 0));
 }
 WO_API wo_api rslib_std_halt(wo_vm vm, wo_value args, size_t argc)
 {
-    throw wo::rsruntime_exception(WO_FAIL_HEAVY, wo_string(args + 0));
-    return wo_ret_void(vm);
+    return wo_ret_halt(vm, wo_string(args + 0));
 }
 WO_API wo_api rslib_std_throw(wo_vm vm, wo_value args, size_t argc)
 {
-    throw wo::rsruntime_exception(WO_FAIL_MEDIUM, wo_string(args + 0));
-    return wo_ret_void(vm);
+    return wo_ret_throw(vm, wo_string(args + 0));
 }
 WO_API wo_api rslib_std_fail(wo_vm vm, wo_value args, size_t argc)
 {
     wo_fail(WO_FAIL_MEDIUM, wo_string(args + 0));
-    return wo_ret_void(vm);
+    return 0;
 }
 
 WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)

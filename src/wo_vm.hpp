@@ -678,12 +678,16 @@ namespace wo
                     tmpos << "call\t"; print_opnum1(); break;
 
                 case instruct::calln:
-                    tmpos << "calln\t";
+                    if (main_command & 0b10)
+                        tmpos << "callnjit\t";
+                    else
+                        tmpos << "calln\t";
+
                     if (main_command & 0b01)
                         //neg
                         tmpos << *(void**)((this_command_ptr += 8) - 8);
                     else
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 8) - 8);
                     break;
                 case instruct::ret:
                     tmpos << "ret\t";
@@ -882,22 +886,22 @@ namespace wo
                             break;
                         }
                         break;
-                    //case 1:
-                    //    switch (main_command & 0b11111100)
-                    //    {
-                    //    default:
-                    //        tmpos << "??\t";
-                    //        break;
-                    //    }
-                    //    break;
-                    //case 2:
-                    //    switch (main_command & 0b11111100)
-                    //    {
-                    //    default:
-                    //        tmpos << "??\t";
-                    //        break;
-                    //    }
-                    //    break;
+                        //case 1:
+                        //    switch (main_command & 0b11111100)
+                        //    {
+                        //    default:
+                        //        tmpos << "??\t";
+                        //        break;
+                        //    }
+                        //    break;
+                        //case 2:
+                        //    switch (main_command & 0b11111100)
+                        //    {
+                        //    default:
+                        //        tmpos << "??\t";
+                        //        break;
+                        //    }
+                        //    break;
                     case 3:
                         tmpos << "flag ";
                         switch (main_command & 0b11111100)
@@ -1010,6 +1014,7 @@ namespace wo
         }
 
         virtual void run() = 0;
+        virtual void checkpoint(value* rtsp) = 0;
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
@@ -2150,7 +2155,7 @@ namespace wo
                     }
                     case instruct::opcode::calln:
                     {
-                        wo_assert((dr & 0b10) == 0);
+                        wo_assert(dr == 0b11 || dr == 0b01 || dr == 0b00);
 
                         if (dr)
                         {
@@ -2166,9 +2171,14 @@ namespace wo
 
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            if (dr & 0b10)
+                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            else
+                            {
+                                wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                                wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            }
 
                             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -2178,6 +2188,7 @@ namespace wo
                         else
                         {
                             const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                            rt_ip += 4; // skip reserved place.
 
                             rt_sp->type = value::valuetype::callstack;
                             rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
@@ -2614,10 +2625,7 @@ namespace wo
                         --rt_ip;    // Move back one command.
                         if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
                         {
-                            // write regist(sp) data, then clear interrupt mark.
-                            sp = rt_sp;
-                            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                                hangup();   // SLEEP UNTIL WAKE UP
+                            checkpoint(rt_sp);
                         }
                         else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
                         {
@@ -2723,6 +2731,13 @@ namespace wo
             }
         }
 
+        void checkpoint(value* rtsp) override
+        {
+            // write regist(sp) data, then clear interrupt mark.
+            sp = rtsp;
+            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                hangup();   // SLEEP UNTIL WAKE UP
+        }
 
         void run()override
         {

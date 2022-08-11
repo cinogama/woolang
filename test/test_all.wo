@@ -2,11 +2,12 @@
 import test_tool;
 
 import test_helloworld;
+import test_template;
+import test_optional;
 import test_gc;
 import test_tuple;
 import test_compile;
 import test_struct;
-import test_optional;
 import test_basic;
 import test_namespace;
 import test_bool;
@@ -17,7 +18,6 @@ import test_coroutine;
 import test_string_u8;
 import test_while;
 import test_debug_invoke;
-import test_template;
 import test_dup;
 import test_static;
 import test_enum;
