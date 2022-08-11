@@ -770,7 +770,7 @@ namespace wo
 
         }
 
-        static  may_constant_x86Gp get_opnum_ptr_ref(
+        static may_constant_x86Gp get_opnum_ptr_ref(
             asmjit::X86Compiler& x86compiler,
             const byte_t*& rt_ip,
             bool dr,
@@ -794,6 +794,28 @@ namespace wo
 
             }
             return opnum;
+        }
+
+        static void _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* cursp)
+        {
+            if (vmm->vm_interrupt & wo::vmbase::GC_INTERRUPT)
+                vmm->checkpoint(cursp);
+        }
+        static void make_checkpoint(asmjit::X86Compiler& x86compiler, asmjit::X86Gp rtvm, asmjit::X86Gp stack_sp)
+        {
+            // TODO: OPTIMIZE!
+            auto no_interrupt_label = x86compiler.newLabel();
+
+            wo_asure(!x86compiler.cmp(asmjit::x86::qword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
+            wo_asure(!x86compiler.je(no_interrupt_label));
+
+            auto invoke_node =
+                x86compiler.call((size_t)&_invoke_vm_checkpoint,
+                    asmjit::FuncSignatureT<void, vmbase*, value*>());
+            invoke_node->setArg(0, rtvm);
+            invoke_node->setArg(1, stack_sp);
+
+            wo_asure(!x86compiler.bind(no_interrupt_label));
         }
 
         static asmjit::X86Gp x86_set_imm(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, const wo::value& instance)
@@ -1329,6 +1351,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
+                        make_checkpoint(x86compiler, _vmbase, _vmssp);
                         wo_asure(!x86compiler.jmp(fnd->second));
                     }
                     else
@@ -1348,6 +1371,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
+                        make_checkpoint(x86compiler, _vmbase, _vmssp);
                         wo_asure(!x86compiler.je(fnd->second));
                     }
                     else
@@ -1367,6 +1391,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
+                        make_checkpoint(x86compiler, _vmbase, _vmssp);
                         wo_asure(!x86compiler.jne(fnd->second));
                     }
                     else
@@ -1379,6 +1404,7 @@ namespace wo
                 }
                 case instruct::calln:
                 {
+                    make_checkpoint(x86compiler, _vmbase, _vmssp);
                     if (dr)
                     {
                         // Call native

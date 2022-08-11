@@ -70,13 +70,18 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
     {
         // Just throw it..
         wo::wo_stderr << ANSI_HIY "This is a medium failure, it will be throw." ANSI_RST << wo::wo_endl;
-        throw wo::rsruntime_exception(rterrcode, reason);
+
+        if (wo::vmbase::_this_thread_vm)
+            wo_ret_throw(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
+        return;
     }
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_HEAVY)
     {
         // Just throw it..
         wo::wo_stderr << ANSI_HIY "This is a heavy failure, abort." ANSI_RST << wo::wo_endl;
-        throw wo::rsruntime_exception(rterrcode, reason);
+        if (wo::vmbase::_this_thread_vm)
+            wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
+        return;
     }
     else
     {
@@ -291,7 +296,7 @@ wo_string_t wo_exe_path()
 wo_bool_t wo_equal_byte(wo_value a, wo_value b)
 {
     auto left = WO_VAL(a), right = WO_VAL(b);
-    return left->type==right->type && left->handle == right->handle;
+    return left->type == right->type && left->handle == right->handle;
 }
 
 wo_ptr_t wo_safety_pointer_ignore_fail(wo::gchandle_t* gchandle)
