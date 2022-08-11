@@ -678,7 +678,11 @@ namespace wo
                     tmpos << "call\t"; print_opnum1(); break;
 
                 case instruct::calln:
-                    tmpos << "calln\t";
+                    if (main_command & 0b10)
+                        tmpos << "callnjit\t";
+                    else
+                        tmpos << "calln\t";
+
                     if (main_command & 0b01)
                         //neg
                         tmpos << *(void**)((this_command_ptr += 8) - 8);
