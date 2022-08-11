@@ -650,7 +650,8 @@ namespace wo
             };
 
             state m_state = state::BEGIN;
-            jit_packed_func_t m_jitfunc = nullptr;
+            jit_packed_func_t m_func = nullptr;
+            asmjit::CCFunc* m_jitfunc = nullptr;
 
             /*struct value_in_stack
             {
@@ -858,6 +859,27 @@ namespace wo
             //rt_bp = stored_bp;
         }
 
+        static void native_do_calln_vmfunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        {
+            rt_sp->type = value::valuetype::callstack;
+            rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+            rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_bp = --rt_sp;
+            vm->bp = vm->sp = rt_sp;
+
+            // May be useless?
+            vm->cr->set_nil();
+
+            vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+
+            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+            //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
+            //rt_sp = rt_bp;
+            //rt_bp = stored_bp;
+        }
+
         static void x86_do_calln_native_func(asmjit::X86Compiler& x86compiler,
             asmjit::X86Gp vm,
             wo_extern_native_func_t call_aim_native_func,
@@ -874,6 +896,44 @@ namespace wo
             invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
             invoke_node->setArg(3, rt_sp);
             invoke_node->setArg(4, rt_bp);
+        }
+
+        static void x86_do_calln_vm_func(asmjit::X86Compiler& x86compiler,
+            asmjit::X86Gp vm,
+            function_jit_state& vm_func,
+            const byte_t* rt_ip,
+            asmjit::X86Gp rt_sp,
+            asmjit::X86Gp rt_bp)
+        {
+            if (vm_func.m_state == function_jit_state::state::FINISHED)
+            {
+                wo_assert(vm_func.m_func);
+
+                auto invoke_node =
+                    x86compiler.call((size_t)&native_do_calln_vmfunc,
+                        asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
+
+                invoke_node->setArg(0, vm);
+                invoke_node->setArg(1, asmjit::Imm((size_t)vm_func.m_func));
+                invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+                invoke_node->setArg(3, rt_sp);
+                invoke_node->setArg(4, rt_bp);
+            }
+            else
+            {
+                wo_assert(vm_func.m_state == function_jit_state::state::COMPILING);
+                wo_assert(vm_func.m_jitfunc);
+
+                auto invoke_node =
+                    x86compiler.call((size_t)&native_do_calln_vmfunc,
+                        asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
+
+                invoke_node->setArg(0, vm);
+                invoke_node->setArg(1, vm_func.m_jitfunc->FUN);
+                invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+                invoke_node->setArg(3, rt_sp);
+                invoke_node->setArg(4, rt_bp);
+            }
         }
 
         function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
@@ -1294,9 +1354,6 @@ namespace wo
                     else
                     {
                         // TODO: HAVE BUG!
-                        state.m_state = function_jit_state::state::FAILED;
-                        return state;
-
                         uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip empty space;
 
@@ -1307,6 +1364,8 @@ namespace wo
                             state.m_state = function_jit_state::state::FAILED;
                             return state;
                         }
+
+                        x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, rt_ip, _vmssp, _vmsbp);
                     }
                     break;
                 }
@@ -1339,7 +1398,7 @@ namespace wo
                             wo_asure(x86compiler.endFunc());
                             wo_asure(!x86compiler.finalize());
 
-                            wo_asure(!get_jit_runtime().add(&state.m_jitfunc, &code_buffer));
+                            wo_asure(!get_jit_runtime().add(&state.m_func, &code_buffer));
                             state.m_state = function_jit_state::state::FINISHED;
                             return state;
                         }
@@ -1389,10 +1448,10 @@ namespace wo
                 auto& func_state = m_compiling_functions.at(codebuf + offset);
                 if (func_state.m_state == function_jit_state::state::FINISHED)
                 {
-                    wo_assert(func_state.m_jitfunc != nullptr);
+                    wo_assert(func_state.m_func != nullptr);
 
                     *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
-                    byte_t* jitfunc = (byte_t*)&func_state.m_jitfunc;
+                    byte_t* jitfunc = (byte_t*)&func_state.m_func;
                     byte_t* ipbuf = codebuf + calln_offset + 1;
 
                     for (size_t i = 0; i < 8; ++i)
