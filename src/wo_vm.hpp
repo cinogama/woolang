@@ -2150,7 +2150,7 @@ namespace wo
                     }
                     case instruct::opcode::calln:
                     {
-                        wo_assert((dr & 0b10) == 0);
+                        wo_assert(dr == 0b11 || dr == 0b01 || dr == 0b00);
 
                         if (dr)
                         {
@@ -2166,9 +2166,14 @@ namespace wo
 
                             ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            if (dr & 0b10)
+                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            else
+                            {
+                                wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                                wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            }
 
                             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;

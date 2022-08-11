@@ -699,7 +699,7 @@ namespace wo
         };
 
         template<typename T>
-        asmjit::X86Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
+        static asmjit::X86Mem intptr_ptr(const T& opgreg, int32_t offset = 0)
         {
 #ifdef WO_PLATFORM_64
             return asmjit::x86::qword_ptr(opgreg, offset);
@@ -708,7 +708,7 @@ namespace wo
 #endif
         }
 
-        may_constant_x86Gp get_opnum_ptr(
+        static may_constant_x86Gp get_opnum_ptr(
             asmjit::X86Compiler& x86compiler,
             const byte_t*& rt_ip,
             bool dr,
@@ -769,7 +769,7 @@ namespace wo
 
         }
 
-        may_constant_x86Gp get_opnum_ptr_ref(
+        static  may_constant_x86Gp get_opnum_ptr_ref(
             asmjit::X86Compiler& x86compiler,
             const byte_t*& rt_ip,
             bool dr,
@@ -795,7 +795,7 @@ namespace wo
             return opnum;
         }
 
-        asmjit::X86Gp x86_set_val(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
+        static asmjit::X86Gp x86_set_val(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
         {
             // ATTENTION:
             //  Here will no thread safe and mem-branch prevent.
@@ -809,7 +809,7 @@ namespace wo
 
             return val;
         }
-        asmjit::X86Gp x86_set_ref(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
+        static asmjit::X86Gp x86_set_ref(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
         {
             auto skip_self_ref_label = x86compiler.newLabel();
 
@@ -822,17 +822,58 @@ namespace wo
             return val2;
         }
 
-        asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
+        static asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
         {
             wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::invalid));
             wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), 0));
             return val;
         }
 
-        asmjit::JitRuntime& get_jit_runtime()
+        static asmjit::JitRuntime& get_jit_runtime()
         {
             static asmjit::JitRuntime jit_runtime;
             return jit_runtime;
+        }
+
+        static void native_do_calln_nativefunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        {
+            rt_sp->type = value::valuetype::callstack;
+            rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+            rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_bp = --rt_sp;
+            vm->bp = vm->sp = rt_sp;
+
+            // May be useless?
+            vm->cr->set_nil();
+
+            vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+            wo_asure(vm->interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+
+            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+            //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
+            //rt_sp = rt_bp;
+            //rt_bp = stored_bp;
+        }
+
+        static void x86_do_calln_native_func(asmjit::X86Compiler& x86compiler,
+            asmjit::X86Gp vm,
+            wo_extern_native_func_t call_aim_native_func,
+            const byte_t* rt_ip,
+            asmjit::X86Gp rt_sp,
+            asmjit::X86Gp rt_bp)
+        {
+            auto invoke_node =
+                x86compiler.call((size_t)&native_do_calln_nativefunc,
+                    asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
+
+            invoke_node->setArg(0, vm);
+            invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
+            invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+            invoke_node->setArg(3, rt_sp);
+            invoke_node->setArg(4, rt_bp);
         }
 
         function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
@@ -1223,6 +1264,52 @@ namespace wo
 
                     break;
                 }
+                case instruct::jt:
+                {
+                    wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
+
+                    uint32_t jmp_place = WO_IPVAL_MOVE_4;
+
+                    if (auto fnd = x86_label_table.find(jmp_place);
+                        fnd != x86_label_table.end())
+                    {
+                        wo_asure(!x86compiler.jne(fnd->second));
+                    }
+                    else
+                    {
+                        x86_label_table[jmp_place] = x86compiler.newLabel();
+                        wo_asure(!x86compiler.jne(x86_label_table[jmp_place]));
+                    }
+
+                    break;
+                }
+                case instruct::calln:
+                {
+                    if (dr)
+                    {
+                        // Call native
+                        jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
+                        x86_do_calln_native_func(x86compiler, _vmbase, call_aim_native_func, rt_ip, _vmssp, _vmsbp);
+                    }
+                    else
+                    {
+                        // TODO: HAVE BUG!
+                        state.m_state = function_jit_state::state::FAILED;
+                        return state;
+
+                        uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
+                        rt_ip += 4; // skip empty space;
+
+                        // Try compile this func
+                        auto& compiled_funcstat = analyze_function(m_codes + call_aim_vm_func, env);
+                        if (compiled_funcstat.m_state == function_jit_state::state::FAILED)
+                        {
+                            state.m_state = function_jit_state::state::FAILED;
+                            return state;
+                        }
+                    }
+                    break;
+                }
                 case instruct::opcode::ext:
                 {
                     // extern code page:
@@ -1304,7 +1391,7 @@ namespace wo
                 {
                     wo_assert(func_state.m_jitfunc != nullptr);
 
-                    *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b01);
+                    *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
                     byte_t* jitfunc = (byte_t*)&func_state.m_jitfunc;
                     byte_t* ipbuf = codebuf + calln_offset + 1;
 
