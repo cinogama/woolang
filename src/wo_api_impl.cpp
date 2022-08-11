@@ -238,6 +238,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else if ("coroutine-thread-count" == current_arg)
                 coroutine_mgr_thread_count = atoi(argv[++command_idx]);
+            else if ("enable-jit" == current_arg)
+                wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }

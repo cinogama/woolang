@@ -38,7 +38,7 @@ test_coverage_debug:
     - make
     - cd ..
     # Begin coverage test
-    - sudo ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - sudo ./build/woodriver_debug test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0 --enable-jit 0
     - cd build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
@@ -68,7 +68,8 @@ test_coverage_debug:
 test_release:
   stage: test
   script:
-    - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0
+    - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver test/test_all.wo --coroutine-thread-count 2 --enable-ctrlc-debug 0 --enable-jit 0
   tags:
     - ubuntu1804_cicd
   artifacts:
@@ -84,3 +85,4 @@ test_release:
   #       - "build/*"
   dependencies:
     - build_release
+    

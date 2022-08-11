@@ -88,7 +88,7 @@ namespace wo
         * --------------------------------------------------------------------
         */
         inline bool ENABLE_JUST_IN_TIME =
-#if WO_JIT_SUPPORT_ASMJIT
+#if defined(NDEBUG) && WO_JIT_SUPPORT_ASMJIT
             true
 #else
             false
