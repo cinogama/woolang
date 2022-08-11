@@ -994,6 +994,168 @@ namespace wo
 
                     break;
                 }
+                case instruct::muli:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto int_of_op2 = x86compiler.newInt64();
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                    else
+                        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                    wo_asure(!x86compiler.imul(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+
+                    break;
+                }
+                case instruct::divi:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto int_of_op2 = x86compiler.newInt64();
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                    else
+                        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                    wo_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), int_of_op2));
+
+                    break;
+                }
+                case instruct::modi:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto int_of_op2 = x86compiler.newInt64();
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                    else
+                        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+
+                    wo_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), x86::rdx));
+
+                    break;
+                }
+                case instruct::opcode::lds:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    if (opnum2.is_constant())
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
+                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
+                    }
+                    else
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.gp_value(), sizeof(value))));
+                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
+                    }
+                    break;
+                }
+                case instruct::opcode::ldsr:
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    if (opnum2.is_constant())
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
+                        x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                    }
+                    else
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.gp_value(), sizeof(value))));
+                        x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                    }
+                    break;
+                }
+                case instruct::equb:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    // <=
+
+                    auto x86_equ_jmp_label = x86compiler.newLabel();
+                    auto x86_nequ_jmp_label = x86compiler.newLabel();
+
+                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+
+                    auto int_of_op1 = x86compiler.newInt64();
+                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.jne(x86_nequ_jmp_label));
+
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
+                    wo_asure(!x86compiler.jmp(x86_equ_jmp_label));
+                    wo_asure(!x86compiler.bind(x86_nequ_jmp_label));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
+                    wo_asure(!x86compiler.bind(x86_equ_jmp_label));
+
+                    break;
+                }
+                case instruct::nequb:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    // <=
+
+                    auto x86_equ_jmp_label = x86compiler.newLabel();
+                    auto x86_nequ_jmp_label = x86compiler.newLabel();
+
+                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+
+                    auto int_of_op1 = x86compiler.newInt64();
+                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.jne(x86_nequ_jmp_label));
+
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
+                    wo_asure(!x86compiler.jmp(x86_equ_jmp_label));
+                    wo_asure(!x86compiler.bind(x86_nequ_jmp_label));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
+                    wo_asure(!x86compiler.bind(x86_equ_jmp_label));
+
+                    break;
+                }
+                case instruct::lti:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    // <=
+
+                    auto x86_equal_greater_jmp_label = x86compiler.newLabel();
+                    auto x86_less_jmp_label = x86compiler.newLabel();
+
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+
+
+                    auto int_of_op1 = x86compiler.newInt64();
+                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    x86compiler.jng(x86_equal_greater_jmp_label);
+
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
+                    x86compiler.jmp(x86_less_jmp_label);
+                    x86compiler.bind(x86_equal_greater_jmp_label);
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
+                    x86compiler.bind(x86_less_jmp_label);
+
+                    break;
+                }
                 case instruct::elti:
                 {
                     WO_JIT_ADDRESSING_N1_REF;
