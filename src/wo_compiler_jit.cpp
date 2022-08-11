@@ -1292,24 +1292,38 @@ namespace wo
                     WO_JIT_ADDRESSING_N1_REF;
                     WO_JIT_ADDRESSING_N2_REF;
 
-                    // <=
+                    // <
 
-                    auto x86_equal_greater_jmp_label = x86compiler.newLabel();
-                    auto x86_less_jmp_label = x86compiler.newLabel();
+                    auto x86_cmp_fail = x86compiler.newLabel();
+                    auto x86_cmp_end = x86compiler.newLabel();
 
                     x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
 
-
-                    auto int_of_op1 = x86compiler.newInt64();
-                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    x86compiler.jng(x86_equal_greater_jmp_label);
-
+                    if (opnum1.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                        x86compiler.jl(x86_cmp_fail);
+                    }
+                    else if (opnum2.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                        x86compiler.jge(x86_cmp_fail);
+                    }
+                    else
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                        wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                        x86compiler.jge(x86_cmp_fail);
+                    }
+                    
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
-                    x86compiler.jmp(x86_less_jmp_label);
-                    x86compiler.bind(x86_equal_greater_jmp_label);
+                    x86compiler.jmp(x86_cmp_end);
+                    x86compiler.bind(x86_cmp_fail);
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
-                    x86compiler.bind(x86_less_jmp_label);
+                    x86compiler.bind(x86_cmp_end);
 
                     break;
                 }
@@ -1320,22 +1334,116 @@ namespace wo
 
                     // <=
 
-                    auto x86_greater_jmp_label = x86compiler.newLabel();
-                    auto x86_lesseql_jmp_label = x86compiler.newLabel();
+                    auto x86_cmp_fail = x86compiler.newLabel();
+                    auto x86_cmp_end = x86compiler.newLabel();
 
                     x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
 
-
-                    auto int_of_op1 = x86compiler.newInt64();
-                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                    x86compiler.jg(x86_greater_jmp_label);
+                    if (opnum1.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                        x86compiler.jle(x86_cmp_fail);
+                    }
+                    else if (opnum2.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                        x86compiler.jg(x86_cmp_fail);
+                    }
+                    else
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                        wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                        x86compiler.jg(x86_cmp_fail);
+                    }
 
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
-                    x86compiler.jmp(x86_lesseql_jmp_label);
-                    x86compiler.bind(x86_greater_jmp_label);
+                    x86compiler.jmp(x86_cmp_end);
+                    x86compiler.bind(x86_cmp_fail);
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
-                    x86compiler.bind(x86_lesseql_jmp_label);
+                    x86compiler.bind(x86_cmp_end);
+
+                    break;
+                }
+                case instruct::gti:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    // >
+
+                    auto x86_cmp_fail = x86compiler.newLabel();
+                    auto x86_cmp_end = x86compiler.newLabel();
+
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+
+                    if (opnum1.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                        x86compiler.jg(x86_cmp_fail);
+                    }
+                    else if (opnum2.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                        x86compiler.jle(x86_cmp_fail);
+                    }
+                    else
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                        wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                        x86compiler.jle(x86_cmp_fail);
+                    }
+
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
+                    x86compiler.jmp(x86_cmp_end);
+                    x86compiler.bind(x86_cmp_fail);
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
+                    x86compiler.bind(x86_cmp_end);
+
+                    break;
+                }
+                case instruct::egti:
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    // >=
+
+                    auto x86_cmp_fail = x86compiler.newLabel();
+                    auto x86_cmp_end = x86compiler.newLabel();
+
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+
+                    if (opnum1.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
+                        x86compiler.jge(x86_cmp_fail);
+                    }
+                    else if (opnum2.is_constant())
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
+                        x86compiler.jl(x86_cmp_fail);
+                    }
+                    else
+                    {
+                        auto int_of_op1 = x86compiler.newInt64();
+                        wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                        wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                        x86compiler.jl(x86_cmp_fail);
+                    }
+
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
+                    x86compiler.jmp(x86_cmp_end);
+                    x86compiler.bind(x86_cmp_fail);
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
+                    x86compiler.bind(x86_cmp_end);
 
                     break;
                 }
