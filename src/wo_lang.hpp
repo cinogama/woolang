@@ -1646,7 +1646,8 @@ namespace wo
                 || (symb->decl == wo::ast::identifier_decl::IMMUTABLE 
                     && !symb->is_argument
                     && !symb->is_captured_variable
-                    && symb->type == lang_symbol::symbol_type::variable))
+                    && symb->type == lang_symbol::symbol_type::variable
+                    && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)))
                 return analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
