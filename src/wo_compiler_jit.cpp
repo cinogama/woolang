@@ -1047,8 +1047,13 @@ namespace wo
 #define WO_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
 #define WO_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
 
+#define WO_JIT_NOT_SUPPORT do{state.m_state = function_jit_state::state::FAILED; return state; }while(0)
+
                 switch (opcode)
                 {
+                case instruct::opcode::nop:
+                    // do nothing.
+                    break;
                 case instruct::opcode::psh:
                 {
                     if (dr & 0b01)
@@ -1510,6 +1515,14 @@ namespace wo
 
                     break;
                 }
+                case instruct::call:
+                {
+                    // Cannot invoke vm function by call.
+                    // 1. If calling function is vm-func and it was not been jit-compiled. it will make huge stack-space cost.
+                    // 2. 'call' cannot tail jit-compiled vm-func or native-func. It means vm cannot set LEAVE_INTERRUPT correctly.
+                   
+                    WO_JIT_NOT_SUPPORT;
+                }
                 case instruct::calln:
                 {
                     make_checkpoint(x86compiler, _vmbase, _vmssp);
@@ -1521,7 +1534,6 @@ namespace wo
                     }
                     else
                     {
-                        // TODO: HAVE BUG!
                         uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip empty space;
 
@@ -1537,7 +1549,85 @@ namespace wo
                     }
                     break;
                 }
-                case instruct::opcode::ext:
+                case instruct::addr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::subr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::mulr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::divr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::modr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::addh:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::subh:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::adds:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::pshr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::popr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::land:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::lor:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::lmov:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::ltx:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::gtx:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::eltx:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::egtx:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::ltr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::gtr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::eltr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::egtr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::movcast:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::setcast:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::mkclos:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::typeas:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::mkstruct:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::abrt:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::idarr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::idmap:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::mkarr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::mkmap:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::idstr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::equr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::nequr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::equs:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::nequs:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::RESERVED_0:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::jnequb:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::idstruct:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::ext:
                 {
                     // extern code page:
                     int page_index = dr;
@@ -1551,14 +1641,29 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
+                        case instruct::extern_opcode_page_0::setref:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::trans:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::packargs:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::unpackargs:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::movdup:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::veh:
+                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::mkunion:
+                            WO_JIT_NOT_SUPPORT;
                         default:
-                            state.m_state = function_jit_state::state::FAILED;
-                            return state;
+                            WO_JIT_NOT_SUPPORT;
                         }
                         break;
-                    case 3:     // extern-opcode-page-1
+                    case 3:     // extern-opcode-page-3
                         switch ((instruct::extern_opcode_page_3)(opcode))
                         {
+                        case instruct::extern_opcode_page_3::funcbegin:
+                            WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_3::funcend:
                         {
                             // This function work end!
@@ -1571,27 +1676,23 @@ namespace wo
                             return state;
                         }
                         default:
-                            state.m_state = function_jit_state::state::FAILED;
-                            return state;
+                            WO_JIT_NOT_SUPPORT;
                         }
                         break;
                     default:
-                        state.m_state = function_jit_state::state::FAILED;
-                        return state;
+                        WO_JIT_NOT_SUPPORT;
                     }
 
                     break;
                 }
                 default:
                     // Unsupport opcode here. stop compile...
-                    state.m_state = function_jit_state::state::FAILED;
-                    return state;
+                    WO_JIT_NOT_SUPPORT;
                 }
             }
             // Should not be here!
             wo_assert(false);
-            state.m_state = function_jit_state::state::FAILED;
-            return state;
+            WO_JIT_NOT_SUPPORT;
         }
         void analyze_jit(byte_t* codebuf, runtime_env* env) noexcept
         {

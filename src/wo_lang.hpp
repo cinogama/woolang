@@ -31,6 +31,7 @@ namespace wo
         bool is_constexpr = false;
         ast::identifier_decl decl = ast::identifier_decl::IMMUTABLE;
         bool is_captured_variable = false;
+        bool is_argument = false;
 
         union
         {
@@ -1641,7 +1642,11 @@ namespace wo
                 return WO_NEW_OPNUM(reg(reg::ni));
             }
 
-            if (symb->is_constexpr)
+            if (symb->is_constexpr 
+                || (symb->decl == wo::ast::identifier_decl::IMMUTABLE 
+                    && !symb->is_argument
+                    && !symb->is_captured_variable
+                    && symb->type == lang_symbol::symbol_type::variable))
                 return analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
