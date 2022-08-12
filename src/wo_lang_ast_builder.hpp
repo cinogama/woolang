@@ -661,7 +661,7 @@ namespace wo
             }
             bool is_complex_type() const
             {
-                if (is_func() || using_type_name || is_union() || is_struct())
+                if (is_func() || using_type_name || is_union() || is_struct() || is_tuple())
                     return true;
                 if (is_array() || is_map())
                 {
