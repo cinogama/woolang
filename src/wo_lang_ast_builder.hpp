@@ -205,14 +205,8 @@ namespace wo
                 {
                     // Not allowed cast template type from dynamic
                     // In fact, cast func from dynamic is dangerous too...
-
-                    if (!to->is_func() && to->has_template())
-                    {
-                        for (auto ta_type : to->template_arguments)
-                            if (!ta_type->is_dynamic())
-                                return false;
-                        return true;
-                    }
+                    if (to->is_complex_type())
+                        return false;
                     return true;
                 }
 
@@ -667,7 +661,7 @@ namespace wo
             }
             bool is_complex_type() const
             {
-                if (is_func() || using_type_name)
+                if (is_func() || using_type_name || is_union() || is_struct())
                     return true;
                 if (is_array() || is_map())
                 {
