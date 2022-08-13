@@ -1014,7 +1014,7 @@ namespace wo
         }
 
         virtual void run() = 0;
-        virtual void checkpoint(value* rtsp) = 0;
+        virtual void gc_checkpoint(value* rtsp) = 0;
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
@@ -2625,7 +2625,7 @@ namespace wo
                         --rt_ip;    // Move back one command.
                         if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
                         {
-                            checkpoint(rt_sp);
+                            gc_checkpoint(rt_sp);
                         }
                         else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
                         {
@@ -2731,7 +2731,7 @@ namespace wo
             }
         }
 
-        void checkpoint(value* rtsp) override
+        void gc_checkpoint(value* rtsp) override
         {
             // write regist(sp) data, then clear interrupt mark.
             sp = rtsp;

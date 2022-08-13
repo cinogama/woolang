@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_operator_overload;
 import test_template;
 import test_optional;
 import test_gc;
@@ -12,7 +13,6 @@ import test_basic;
 import test_namespace;
 import test_bool;
 import test_exception;
-import test_operator_overload;
 import test_return;
 import test_coroutine;
 import test_string_u8;

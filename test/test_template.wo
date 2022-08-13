@@ -204,7 +204,7 @@ namespace test_template
     {
         std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
 
-        if (func()=>T{constexpr_if_test_flag = true;return std::debug::__empty_function:<T>();}() is T)
+        if (func()=>T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
         {
             return 233;
         }
@@ -285,8 +285,9 @@ namespace test_template
 
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");
 
+        // 220813: 'is' expr will be not eval if value in expr is not dynamic;
         constexpr_if_test:<gchandle>();
-        test_assure(constexpr_if_test_flag);
+        test_assure(!constexpr_if_test_flag);
 
         test_equal(is_same:<int, int>(), true);
         test_equal(is_same:<real, int>(), false);

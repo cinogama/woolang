@@ -1739,7 +1739,7 @@ namespace wo
             }
         };
 
-        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true, bool force_value = false)
+        opnum::opnumbase& analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool need_symbol = true)
         {
             if (need_symbol)
                 compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
@@ -1747,11 +1747,11 @@ namespace wo
             auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
             using namespace ast;
             using namespace opnum;
-            if (value->is_constant && !force_value)
+            if (value->is_constant)
             {
                 if (ast_value_trib_expr* a_value_trib_expr = dynamic_cast<ast_value_trib_expr*>(value))
                     // Only generate expr if const-expr is a function call
-                    analyze_value(a_value_trib_expr->judge_expr, compiler, false, true, true);
+                    analyze_value(a_value_trib_expr->judge_expr, compiler, false, true);
 
                 auto const_value = value->get_constant_value();
                 switch (const_value.type)
@@ -1811,15 +1811,12 @@ namespace wo
             }
             else if (dynamic_cast<ast_value_literal*>(value))
             {
-                if (force_value)
-                    return analyze_value(value, compiler, get_pure_value);
-
                 wo_error("ast_value_literal should be 'constant'..");
             }
             else if (auto* a_value_binary = dynamic_cast<ast_value_binary*>(value))
             {
                 if (a_value_binary->overrided_operation_call)
-                    return analyze_value(a_value_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
+                    return analyze_value(a_value_binary->overrided_operation_call, compiler, get_pure_value, need_symbol);
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
@@ -2070,9 +2067,6 @@ namespace wo
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
-                if (force_value)
-                    return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
-
                 if (a_value_type_cast->value_type->is_bool())
                 {
                     // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
@@ -2097,9 +2091,6 @@ namespace wo
             }
             else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
             {
-                if (force_value)
-                    return analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
-
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
                 if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
@@ -2126,9 +2117,6 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (force_value)
-                    return analyze_value(a_value_type_check->_be_check_value_node, compiler, get_pure_value);
-
                 if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
@@ -2375,7 +2363,7 @@ namespace wo
             else if (auto* a_value_logical_binary = dynamic_cast<ast_value_logical_binary*>(value))
             {
                 if (a_value_logical_binary->overrided_operation_call)
-                    return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol, force_value);
+                    return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol);
 
                 value::valuetype optype = value::valuetype::invalid;
                 if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
@@ -2910,7 +2898,7 @@ namespace wo
 
         opnum::opnumbase& auto_analyze_value(ast::ast_value* value, ir_compiler* compiler, bool get_pure_value = false, bool force_value = false)
         {
-            auto& result = analyze_value(value, compiler, get_pure_value, true, force_value);
+            auto& result = analyze_value(value, compiler, get_pure_value, true);
             complete_using_all_register();
 
             return result;

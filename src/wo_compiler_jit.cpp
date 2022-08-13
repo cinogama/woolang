@@ -796,12 +796,75 @@ namespace wo
             return opnum;
         }
 
-        static void _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* cursp)
+        static int _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             if (vmm->vm_interrupt & wo::vmbase::GC_INTERRUPT)
-                vmm->checkpoint(cursp);
+                vmm->gc_checkpoint(rt_sp);
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
+            {
+                // jit not support EXCEPTION_ROLLBACK_INTERRUPT, return to last callframe.
+                return 1;
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
+            {
+                // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+                // CLEAR ABORT_INTERRUPT
+                return 1;
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::CO_YIELD_INTERRUPT)
+            {
+                wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::CO_YIELD_INTERRUPT));
+
+                wo_asure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                wo_co_yield();
+                wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
+            {
+                // wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT));
+                if (vmm->get_br_yieldable())
+                {
+                    vmm->ip = rt_ip;
+                    vmm->sp = rt_sp;
+                    vmm->bp = rt_bp; // store current context, then break out of jit function
+                    // NOTE: DONOT CLEAR BR_YIELD_INTERRUPT, IT SHOULD BE CLEAR IN VM-RUN
+                    return 1; // return 
+                }
+                else
+                    wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT)
+            {
+                // That should not be happend...
+                wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
+            }
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT)
+            {
+                // That should not be happend...
+                wo_error("Virtual machine handled a PENDING_INTERRUPT.");
+            }
+            // it should be last interrupt..
+            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::DEBUG_INTERRUPT)
+            {
+                vmm->ip = rt_ip;
+                vmm->sp = rt_sp;
+                vmm->bp = rt_bp;
+                if (auto* debuggee = vmm->current_debuggee())
+                {
+                    // check debuggee here
+                    wo_asure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                    debuggee->_vm_invoke_debuggee(vmm);
+                    wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                }
+            }
+            else
+            {
+                // a vm_interrupt is invalid now, just roll back one byte and continue~
+                // so here do nothing
+            }
+            return 0;
         }
-        static void make_checkpoint(asmjit::X86Compiler& x86compiler, asmjit::X86Gp rtvm, asmjit::X86Gp stack_sp)
+        static void make_checkpoint(asmjit::X86Compiler& x86compiler, asmjit::X86Gp rtvm, asmjit::X86Gp stack_sp, asmjit::X86Gp stack_bp, const byte_t* ip)
         {
             // TODO: OPTIMIZE!
             auto no_interrupt_label = x86compiler.newLabel();
@@ -809,11 +872,25 @@ namespace wo
             wo_asure(!x86compiler.cmp(asmjit::x86::qword_ptr(rtvm, offsetof(wo::vmbase, fast_ro_vm_interrupt)), 0));
             wo_asure(!x86compiler.je(no_interrupt_label));
 
+            auto stackbp = x86compiler.newUIntPtr();
+            wo_asure(!x86compiler.mov(stackbp, stack_bp));
+
             auto invoke_node =
                 x86compiler.call((size_t)&_invoke_vm_checkpoint,
-                    asmjit::FuncSignatureT<void, vmbase*, value*>());
-            invoke_node->setArg(0, rtvm);
-            invoke_node->setArg(1, stack_sp);
+                    asmjit::FuncSignatureT<void, vmbase*, value*, value*, const byte_t*>());
+            wo_asure(invoke_node->setArg(0, rtvm));
+            wo_asure(invoke_node->setArg(1, stack_sp));
+            wo_asure(invoke_node->setArg(2, stackbp));
+            wo_asure(invoke_node->setArg(3, asmjit::Imm((intptr_t)ip)));
+
+            auto interrupt = x86compiler.newInt32();
+            // invoke_node->setRet(0, interrupt);
+
+            // x86compiler.cmp(interrupt, wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
+            wo_asure(!x86compiler.cmp(interrupt, 0));
+            wo_asure(!x86compiler.je(no_interrupt_label));
+
+            wo_asure(x86compiler.ret()); // break this execute!!!
 
             wo_asure(!x86compiler.bind(no_interrupt_label));
         }
@@ -968,11 +1045,15 @@ namespace wo
                 callstack.ret_ip = rt_ip - codes;
 
                 x86_set_imm(x86compiler, rt_sp, callstack);
+                auto bpoffset = x86compiler.newUInt64();
+                wo_asure(!x86compiler.mov(bpoffset, intptr_ptr(vm, offsetof(wo::vmbase, bp))));
+                wo_asure(!x86compiler.sub(bpoffset, rt_bp));
+                wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, bp)), bpoffset));
 
                 auto callargptr = x86compiler.newUIntPtr();
                 auto targc = x86compiler.newInt64();
-                x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * sizeof(value)));
-                x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_bp, offsetof(value, integer)));
+                wo_asure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * sizeof(value))));
+                wo_asure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_bp, offsetof(value, integer))));
 
                 auto invoke_node =
                     x86compiler.call(vm_func.m_jitfunc->getLabel(),
@@ -982,6 +1063,14 @@ namespace wo
                 invoke_node->setArg(1, callargptr);
                 invoke_node->setArg(2, targc);
             }
+        }
+
+        static void _vmjitcall_addstring(wo::value* opnum1, wo::value* opnum2)
+        {
+            wo_assert(opnum1->type == opnum2->type
+                && opnum1->type == value::valuetype::string_type);
+
+            string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
         }
 
         function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
@@ -1308,27 +1397,27 @@ namespace wo
                     {
                         auto int_of_op1 = x86compiler.newInt64();
                         wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), opnum1.m_constant->integer));
-                        x86compiler.jl(x86_cmp_fail);
+                        wo_asure(!x86compiler.jl(x86_cmp_fail));
                     }
                     else if (opnum2.is_constant())
                     {
                         auto int_of_op1 = x86compiler.newInt64();
                         wo_asure(!x86compiler.cmp(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), opnum2.m_constant->integer));
-                        x86compiler.jge(x86_cmp_fail);
+                        wo_asure(!x86compiler.jge(x86_cmp_fail));
                     }
                     else
                     {
                         auto int_of_op1 = x86compiler.newInt64();
                         wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
                         wo_asure(!x86compiler.cmp(int_of_op1, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
-                        x86compiler.jge(x86_cmp_fail);
+                        wo_asure(!x86compiler.jge(x86_cmp_fail));
                     }
-                    
+
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 1));
-                    x86compiler.jmp(x86_cmp_end);
-                    x86compiler.bind(x86_cmp_fail);
+                    wo_asure(!x86compiler.jmp(x86_cmp_end));
+                    wo_asure(!x86compiler.bind(x86_cmp_fail));
                     wo_asure(!x86compiler.mov(x86::qword_ptr(_vmcr, offsetof(value, integer)), 0));
-                    x86compiler.bind(x86_cmp_end);
+                    wo_asure(!x86compiler.bind(x86_cmp_end));
 
                     break;
                 }
@@ -1464,7 +1553,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.jmp(fnd->second));
                     }
                     else
@@ -1484,7 +1573,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.je(fnd->second));
                     }
                     else
@@ -1504,7 +1593,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.jne(fnd->second));
                     }
                     else
@@ -1520,12 +1609,11 @@ namespace wo
                     // Cannot invoke vm function by call.
                     // 1. If calling function is vm-func and it was not been jit-compiled. it will make huge stack-space cost.
                     // 2. 'call' cannot tail jit-compiled vm-func or native-func. It means vm cannot set LEAVE_INTERRUPT correctly.
-                   
+
                     WO_JIT_NOT_SUPPORT;
                 }
                 case instruct::calln:
                 {
-                    make_checkpoint(x86compiler, _vmbase, _vmssp);
                     if (dr)
                     {
                         // Call native
@@ -1547,24 +1635,101 @@ namespace wo
 
                         x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, m_codes, rt_ip, _vmssp, _vmsbp, _vmtc);
                     }
+
+                    // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
+                    make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                     break;
                 }
                 case instruct::addr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto real_of_op2 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.addsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    break;
+                }
                 case instruct::subr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto real_of_op2 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.subsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    break;
+                }
                 case instruct::mulr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto real_of_op2 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.mulsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    break;
+                }
                 case instruct::divr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto real_of_op2 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.divsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    break;
+                }
                 case instruct::modr:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::addh:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                    else
+                    {
+                        auto handle_of_op2 = x86compiler.newUInt64();
+                        wo_asure(!x86compiler.mov(handle_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                        wo_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
+                    }
+                    break;
+                }
                 case instruct::subh:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
+                    else
+                    {
+                        auto handle_of_op2 = x86compiler.newUInt64();
+                        wo_asure(!x86compiler.mov(handle_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, handle))));
+                        wo_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), handle_of_op2));
+                    }
+                    break;
+                }
                 case instruct::adds:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto invoke_node =
+                        x86compiler.call((size_t) &_vmjitcall_addstring,
+                            asmjit::FuncSignatureT<void, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, opnum1.gp_value());
+                    invoke_node->setArg(1, opnum2.gp_value());
+
+                    break;
+                }
                 case instruct::pshr:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::popr:
