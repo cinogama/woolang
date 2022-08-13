@@ -1352,6 +1352,11 @@ wo_integer_t wo_lengthof(wo_value value)
     }
 }
 
+void wo_enable_jit(wo_bool_t option)
+{
+    wo::config::ENABLE_JUST_IN_TIME = option;
+}
+
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
 {
     return wo::create_virtual_source(wo::str_to_wstr(data), wo::str_to_wstr(filepath), enable_modify);
