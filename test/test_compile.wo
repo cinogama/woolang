@@ -158,8 +158,9 @@ namespace test_compile
             std::co(func(){}, ());
         "@);
         assure_compile_success(@"
-            let const Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
-            let const Same<A, B> = (nil: dynamic: A) is B;
+            import  woo.std;
+            let const Invokable<FT, AT> = !((std::declval:<FT>())(std::declval:<AT>()) is pending);
+            let const Same<A, B> = (std::declval:<A>()) is B;
 
             func foo<FT, AT>(x: FT, y: AT)
                 where Invokable:<FT, AT>,  

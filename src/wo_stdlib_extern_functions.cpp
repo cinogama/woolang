@@ -775,6 +775,11 @@ WO_API wo_api rslib_std_equal_byte(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, wo_equal_byte(args + 0, args + 1));
 }
 
+WO_API wo_api rslib_std_declval(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_panic(vm, "This function cannot be invoke");
+}
+
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
@@ -786,6 +791,8 @@ namespace std
     extern("rslib_std_fail") func fail(msg: string) => void;
     extern("rslib_std_halt") func halt(msg: string) => void;
     extern("rslib_std_panic") func panic(msg: string)=> void;
+
+    extern("rslib_std_declval") func declval<T>()=> T;
 }
 
 union option<T>
