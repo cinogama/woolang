@@ -2803,4 +2803,69 @@ namespace wo
 
                     WO_TRY_END;
     */
+
+    namespace ast
+    {
+        bool ast_type::is_hkt() const
+        {
+            if (is_hkt_typing())
+                return true;
+
+            if (template_arguments.empty())
+            {
+                if (symbol && symbol->is_template_symbol && is_custom())
+                    return true;
+                else if (is_array() || is_map())
+                    return true;
+            }
+            return false;
+        }
+
+        bool ast_type::is_hkt_typing() const
+        {
+            if (symbol)
+                return symbol->is_hkt_typing_symb;
+
+            return false;
+        }
+
+        lang_symbol* ast_type::base_typedef_symbol(lang_symbol* symb)
+        {
+            wo_assert(symb->type == lang_symbol::symbol_type::typing
+                || symb->type == lang_symbol::symbol_type::type_alias);
+
+            if (symb->type == lang_symbol::symbol_type::typing)
+                return symb;
+            else if (symb->type_informatiom->symbol)
+                return base_typedef_symbol(symb->type_informatiom->symbol);
+            else
+                return symb;
+        }
+
+        void ast_value_variable::update_constant_value(lexer* lex)
+        {
+            if (is_constant)
+                return;
+
+            // TODO: constant variable here..
+            if (symbol
+                && !symbol->is_captured_variable
+                && (symbol->attribute->is_constant_attr() || symbol->decl == identifier_decl::IMMUTABLE))
+            {
+                symbol->variable_value->update_constant_value(lex);
+                if (symbol->variable_value->is_constant)
+                {
+                    is_constant = true;
+                    symbol->is_constexpr = true;
+                    if (symbol->variable_value->get_constant_value().type == value::valuetype::string_type)
+                        constant_value.set_string_nogc(symbol->variable_value->get_constant_value().string->c_str());
+                    else
+                    {
+                        constant_value = symbol->variable_value->get_constant_value();
+                        wo_assert(!constant_value.is_gcunit());
+                    }
+                }
+            }
+        }
+    }
 }
