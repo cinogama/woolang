@@ -13,7 +13,7 @@ namespace wo
     {
         enum class symbol_type
         {
-            template_typing,
+            type_alias,
             typing,
 
             variable,
@@ -62,7 +62,7 @@ namespace wo
 
         bool is_type_decl() const noexcept
         {
-            return type == symbol_type::template_typing || type == symbol_type::typing;
+            return type == symbol_type::type_alias || type == symbol_type::typing;
         }
         std::string& defined_source() const noexcept
         {
@@ -220,7 +220,7 @@ namespace wo
             {
                 lang_symbol* sym = new lang_symbol;
                 sym->attribute = new ast::ast_decl_attribute();
-                sym->type = lang_symbol::symbol_type::template_typing;
+                sym->type = lang_symbol::symbol_type::type_alias;
                 sym->name = template_defines_args[index];
                 sym->type_informatiom = template_args[index];
                 sym->defined_in_scope = lang_scopes.back();
@@ -408,7 +408,7 @@ namespace wo
                         type->search_from_global_namespace ||
                         template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
                     {
-                        auto* type_sym = find_type_in_this_scope(type);
+                        lang_symbol* type_sym = find_type_in_this_scope(type);
 
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
                             return;
@@ -461,7 +461,7 @@ namespace wo
 
                             if (already_has_using_type_name)
                                 type->using_type_name = already_has_using_type_name;
-                            else if (type_sym->type != lang_symbol::symbol_type::template_typing)
+                            else if (type_sym->type != lang_symbol::symbol_type::type_alias)
                             {
                                 auto* using_type = new ast::ast_type(type_sym->name);
                                 using_type->template_arguments = type->template_arguments;
@@ -1283,7 +1283,7 @@ namespace wo
                 a_value->update_constant_value(lang_anylizer);
 
                 // update_constant_value may set 'bool', it cannot used directly. update it.
-                if(a_value->value_type->is_bool())
+                if (a_value->value_type->is_bool())
                     fully_update_type(a_value->value_type, false);
             }
 
@@ -1642,8 +1642,8 @@ namespace wo
                 return WO_NEW_OPNUM(reg(reg::ni));
             }
 
-            if (symb->is_constexpr 
-                || (symb->decl == wo::ast::identifier_decl::IMMUTABLE 
+            if (symb->is_constexpr
+                || (symb->decl == wo::ast::identifier_decl::IMMUTABLE
                     && !symb->is_argument
                     && !symb->is_captured_variable
                     && symb->type == lang_symbol::symbol_type::variable
@@ -3756,7 +3756,10 @@ namespace wo
             {
                 lang_symbol* sym = lang_scopes.back()->symbols[def->new_type_identifier] = new lang_symbol;
                 sym->attribute = attr;
-                sym->type = lang_symbol::symbol_type::typing;
+                if (def->is_alias)
+                    sym->type = lang_symbol::symbol_type::type_alias;
+                else
+                    sym->type = lang_symbol::symbol_type::typing;
                 sym->name = def->new_type_identifier;
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
@@ -4075,7 +4078,7 @@ namespace wo
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
             if (result
                 && result->type != lang_symbol::symbol_type::typing
-                && result->type != lang_symbol::symbol_type::template_typing)
+                && result->type != lang_symbol::symbol_type::type_alias)
             {
                 lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_NOT_A_TYPE, var_ident->type_name.c_str());
                 return nullptr;
@@ -4088,7 +4091,7 @@ namespace wo
 
             if (result
                 && (result->type == lang_symbol::symbol_type::typing
-                    || result->type == lang_symbol::symbol_type::template_typing))
+                    || result->type == lang_symbol::symbol_type::type_alias))
             {
                 var_ident->symbol = nullptr;
 

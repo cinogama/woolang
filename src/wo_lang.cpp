@@ -1068,7 +1068,7 @@ namespace wo
         analyze_pass2(next_func_symb_getter);
 
         if (next_func_symb_getter->symbol
-            && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::template_typing
+            && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::type_alias
             && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::typing)
         {
             ast_type* _next_executer_type = next_func_symb_getter->symbol

@@ -2945,6 +2945,8 @@ namespace wo
 
             ast_list* naming_check_list = nullptr;
 
+            bool is_alias = false;
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -4825,12 +4827,11 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // using xxx  = xxx
-
                 ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = WO_NEED_TOKEN(2).identifier;
                 using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-
+                using_type->is_alias = WO_NEED_TOKEN(1).type == +lex_type::l_alias;
                 ast_list* template_const_list = new ast_list;
 
                 if (!ast_empty::is_empty(input[3]))

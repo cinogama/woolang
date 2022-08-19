@@ -115,6 +115,14 @@ namespace wo
                             gm::nt(L"TYPE")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
 
+                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                            gm::te(gm::ttype::l_alias),
+                            gm::te(gm::ttype::l_identifier),
+                                gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                            gm::te(gm::ttype::l_assign),
+                            gm::nt(L"TYPE")}
+                    >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
+
                 //////////////////////////////////////////////////////////////////////////////////////
 
                 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
