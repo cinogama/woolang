@@ -385,8 +385,8 @@ namespace wo
             {
                 return !is_func() && type_name == L"pending";
             }
-            bool is_hkt() const;
-            bool is_hkt_typing() const;
+            inline bool is_hkt() const;
+            inline bool is_hkt_typing() const;
             bool is_pending() const
             {
                 if (is_hkt_typing())
@@ -518,7 +518,7 @@ namespace wo
                 return true;
 
             }
-            static lang_symbol* base_typedef_symbol(lang_symbol* symb);
+            inline static lang_symbol* base_typedef_symbol(lang_symbol* symb);
             bool is_same(const ast_type* another, bool ignore_using_type) const
             {
                 if (is_pending_function() || another->is_pending_function())

@@ -1866,6 +1866,7 @@ namespace std
         l_func,
         l_return,
         l_using,
+        l_alias,
         l_enum,
         l_as,
         l_is,
