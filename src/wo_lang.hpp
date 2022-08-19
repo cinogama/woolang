@@ -151,7 +151,7 @@ namespace wo
         std::map<uint32_t, ast::ast_type*> hashed_typing;
         uint32_t get_typing_hash_after_pass1(ast::ast_type* typing)
         {
-            wo_assert(!typing->is_pending());
+            wo_assert(!typing->is_pending() || typing->is_hkt());
 
             uint64_t hashval = (uint64_t)typing->value_type;
             if (typing->is_complex())
@@ -224,6 +224,14 @@ namespace wo
                 sym->name = template_defines_args[index];
                 sym->type_informatiom = template_args[index];
                 sym->defined_in_scope = lang_scopes.back();
+
+                if (sym->type_informatiom->is_hkt())
+                {
+                    // Update template setting info...
+                    wo_assert(sym->type_informatiom->symbol && sym->type_informatiom->symbol->is_template_symbol);
+                    sym->is_template_symbol = true;
+                    sym->template_types = sym->type_informatiom->symbol->template_types;
+                }
 
                 lang_symbols.push_back(current_template[sym->name] = sym);
             }
@@ -437,75 +445,99 @@ namespace wo
 
                             bool using_template = false;
                             auto using_template_args = type->template_arguments;
-                            if (type->has_template())
-                                using_template = type_sym->define_node ?
-                                begin_template_scope(type_sym->define_node, type->template_arguments)
-                                : begin_template_scope(type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments);
 
-                            auto* symboled_type = new ast::ast_type(L"pending");
-                            symboled_type->set_type(type_sym->type_informatiom);
-                            fully_update_type(symboled_type, in_pass_1, template_types);
-
-                            if (type->is_func())
-                                type->set_ret_type(symboled_type);
-                            else
-                                type->set_type(symboled_type);
-
-                            // Update member typing index;
-                            if (using_template)
-                                for (auto& [name, clsmember] : type->struct_member_index)
-                                {
-                                    if (clsmember.init_value_may_nil)
-                                        clsmember.init_value_may_nil = dynamic_cast<ast::ast_value*>(clsmember.init_value_may_nil->instance());
-                                }
-
-                            if (already_has_using_type_name)
-                                type->using_type_name = already_has_using_type_name;
-                            else if (type_sym->type != lang_symbol::symbol_type::type_alias)
+                            if (type_sym->template_types.size() != type->template_arguments.size())
                             {
-                                auto* using_type = new ast::ast_type(type_sym->name);
-                                using_type->template_arguments = type->template_arguments;
-
-                                type->using_type_name = using_type;
-                                type->using_type_name->template_arguments = using_template_args;
-
-                                // Gen namespace chain
-                                auto* inscopes = type_sym->defined_in_scope;
-                                while (inscopes && inscopes->belong_namespace)
+                                // Template count is not match.
+                                if (type->template_arguments.size() != 0)
                                 {
-                                    if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                                    // Error! if template_arguments.size() is 0, it will be 
+                                    // high-ranked-templated type.
+                                    if (type->template_arguments.size() > type_sym->template_types.size())
+                                        lang_anylizer->lang_error(0x0000, type, L"给定的泛型参数过多，无法推导类型，继续");
+                                    else
                                     {
-                                        type->using_type_name->scope_namespaces.insert(
-                                            type->using_type_name->scope_namespaces.begin(),
-                                            inscopes->scope_namespace);
+                                        wo_assert(type->template_arguments.size() < type_sym->template_types.size());
+                                        lang_anylizer->lang_error(0x0000, type, L"给定的泛型参数不足，无法推导类型，继续");
                                     }
-                                    inscopes = inscopes->belong_namespace;
+
                                 }
-
-                                type->using_type_name->symbol = type_sym;
                             }
-
-                            if (!type->template_impl_naming_checking.empty())
+                            else
                             {
-                                for (ast::ast_type* naming_type : type->template_impl_naming_checking)
+                                if (type->has_template())
+                                    using_template = type_sym->define_node 
+                                    ?
+                                    begin_template_scope(type_sym->define_node, type->template_arguments)
+                                    : (type_sym->type_informatiom->using_type_name
+                                        ? begin_template_scope(type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
+                                        : begin_template_scope(type_sym->template_types, type->template_arguments));
+
+                                auto* symboled_type = new ast::ast_type(L"pending");
+                                symboled_type->set_type(type_sym->type_informatiom);
+                                fully_update_type(symboled_type, in_pass_1, template_types);
+
+                                if (type->is_func())
+                                    type->set_ret_type(symboled_type);
+                                else
+                                    type->set_type(symboled_type);
+
+                                // Update member typing index;
+                                if (using_template)
+                                    for (auto& [name, clsmember] : type->struct_member_index)
+                                    {
+                                        if (clsmember.init_value_may_nil)
+                                            clsmember.init_value_may_nil = dynamic_cast<ast::ast_value*>(clsmember.init_value_may_nil->instance());
+                                    }
+
+                                if (already_has_using_type_name)
+                                    type->using_type_name = already_has_using_type_name;
+                                else if (type_sym->type != lang_symbol::symbol_type::type_alias)
                                 {
-                                    fully_update_type(naming_type, in_pass_1, template_types);
+                                    auto* using_type = new ast::ast_type(type_sym->name);
+                                    using_type->template_arguments = type->template_arguments;
 
-                                    check_matching_naming(type, naming_type);
+                                    type->using_type_name = using_type;
+                                    type->using_type_name->template_arguments = using_template_args;
+
+                                    // Gen namespace chain
+                                    auto* inscopes = type_sym->defined_in_scope;
+                                    while (inscopes && inscopes->belong_namespace)
+                                    {
+                                        if (inscopes->type == lang_scope::scope_type::namespace_scope)
+                                        {
+                                            type->using_type_name->scope_namespaces.insert(
+                                                type->using_type_name->scope_namespaces.begin(),
+                                                inscopes->scope_namespace);
+                                        }
+                                        inscopes = inscopes->belong_namespace;
+                                    }
+
+                                    type->using_type_name->symbol = type_sym;
                                 }
-                            }
 
-                            for (auto& naming : type_sym->naming_list)
-                            {
-                                if (in_pass_1)
-                                    analyze_pass1(type->typefrom);
-                                auto inpass2 = has_step_in_step2;
-                                analyze_pass2(naming);  // FORCE PASS2
-                                has_step_in_step2 = inpass2;
-                            }
+                                if (!type->template_impl_naming_checking.empty())
+                                {
+                                    for (ast::ast_type* naming_type : type->template_impl_naming_checking)
+                                    {
+                                        fully_update_type(naming_type, in_pass_1, template_types);
 
-                            if (using_template)
-                                end_template_scope();
+                                        check_matching_naming(type, naming_type);
+                                    }
+                                }
+
+                                for (auto& naming : type_sym->naming_list)
+                                {
+                                    if (in_pass_1)
+                                        analyze_pass1(type->typefrom);
+                                    auto inpass2 = has_step_in_step2;
+                                    analyze_pass2(naming);  // FORCE PASS2
+                                    has_step_in_step2 = inpass2;
+                                }
+
+                                if (using_template)
+                                    end_template_scope();
+                            }// end template argu check & update
                         }
                     }
                 }
@@ -1102,7 +1134,7 @@ namespace wo
                 fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
                 has_step_in_step2 = step_in_pass2;
 
-                if (temtype->is_pending())
+                if (temtype->is_pending() && !temtype->is_hkt())
                 {
                     lang_anylizer->lang_error(0x0000, temtype, WO_ERR_UNKNOWN_TYPE, temtype->get_type_name(false).c_str());
                     return nullptr;
@@ -4191,6 +4223,13 @@ namespace wo
 
     namespace ast
     {
+        inline bool ast_type::is_hkt() const
+        {
+            if (template_arguments.empty() && symbol && symbol->is_template_symbol)
+                return true;
+            return false;
+        }
+
         inline void ast_value_variable::update_constant_value(lexer* lex)
         {
             if (is_constant)

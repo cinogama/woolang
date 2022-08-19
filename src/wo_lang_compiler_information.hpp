@@ -102,7 +102,7 @@
 
 #define WO_ERR_TYPE_CANNOT_BE_CALL L"无法调用 '%ls'."
 
-#define WO_ERR_UNKNOWN_TYPE L"未知类型 '%ls'."
+#define WO_ERR_UNKNOWN_TYPE L"未知或不完整的类型 '%ls'."
 
 #define WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE L"无法找到函数 '%ls' 类型为 '%ls' 的重载"
 

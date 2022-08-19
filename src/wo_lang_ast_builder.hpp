@@ -387,6 +387,7 @@ namespace wo
             {
                 return !is_func() && type_name == L"pending";
             }
+            bool is_hkt() const;
             bool is_pending() const
             {
                 if (has_template())

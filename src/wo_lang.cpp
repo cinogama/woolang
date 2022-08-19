@@ -2352,7 +2352,7 @@ namespace wo
                                 for (auto* templ_arg : template_args)
                                 {
                                     fully_update_type(templ_arg, false);
-                                    if (templ_arg->is_pending())
+                                    if (templ_arg->is_pending() && !templ_arg->is_hkt())
                                     {
                                         lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
                                             templ_arg->get_type_name(false).c_str());
