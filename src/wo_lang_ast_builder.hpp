@@ -138,9 +138,7 @@ namespace wo
                 std::vector<size_t> union_used_template_index;
             };
             std::map<std::wstring, struct_offset> struct_member_index;
-
             ast_type* using_type_name = nullptr;
-
             ast_value* typefrom = nullptr;
 
             inline static const std::map<std::wstring, value::valuetype> name_type_pair =
@@ -388,8 +386,12 @@ namespace wo
                 return !is_func() && type_name == L"pending";
             }
             bool is_hkt() const;
+            bool is_hkt_typing() const;
             bool is_pending() const
             {
+                if (is_hkt_typing())
+                    return false;
+
                 if (has_template())
                 {
                     for (auto arg_type : template_arguments)
@@ -406,9 +408,37 @@ namespace wo
                             return true;
                     }
                 }
+
                 bool base_type_pending;
                 if (is_complex())
                     base_type_pending = complex_type->is_pending();
+                else
+                    base_type_pending = type_name == L"pending";
+
+                return is_pending_type || base_type_pending;
+            }
+            bool may_need_update() const
+            {
+                if (has_template())
+                {
+                    for (auto arg_type : template_arguments)
+                    {
+                        if (arg_type->may_need_update())
+                            return true;
+                    }
+                }
+                if (is_func())
+                {
+                    for (auto arg_type : argument_types)
+                    {
+                        if (arg_type->may_need_update())
+                            return true;
+                    }
+                }
+
+                bool base_type_pending;
+                if (is_complex())
+                    base_type_pending = complex_type->may_need_update();
                 else
                     base_type_pending = type_name == L"pending";
 
@@ -488,6 +518,7 @@ namespace wo
                 return true;
 
             }
+            static lang_symbol* base_typedef_symbol(lang_symbol* symb);
             bool is_same(const ast_type* another, bool ignore_using_type) const
             {
                 if (is_pending_function() || another->is_pending_function())
@@ -495,6 +526,13 @@ namespace wo
 
                 if (is_pending() || another->is_pending())
                     return false;
+
+                if (is_hkt_typing() && another->is_hkt_typing())
+                {
+                    if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
+                        return true;
+                    return false;
+                }
 
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
@@ -560,6 +598,14 @@ namespace wo
 
                 if (is_pending() || another->is_pending())
                     return false;
+
+                // Might HKT
+                if (is_hkt_typing() && another->is_hkt_typing())
+                {
+                    if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
+                        return true;
+                    return false;
+                }
 
                 if (another->is_anything())
                     return true; // top type, OK
@@ -739,6 +785,9 @@ namespace wo
                     }
                 }
 
+                if (is_hkt_typing())
+                    result += L"?";
+
                 return result;
             }
 
@@ -759,6 +808,9 @@ namespace wo
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, L"pending");
                 if (!child_instance) *dumm = *this;
                 ast_symbolable_base::instance(dumm);
+
+                dumm->symbol = symbol;
+                dumm->searching_begin_namespace_in_pass2 = searching_begin_namespace_in_pass2;
 
                 // Write self copy functions here..
                 dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
@@ -1419,7 +1471,6 @@ namespace wo
         struct ast_value_variable : virtual ast_value_symbolable_base
         {
             std::wstring var_name;
-
             std::vector<ast_type*> template_reification_args;
             bool directed_function_call = false;
             bool is_auto_judge_function_overload = false;
@@ -1656,6 +1707,9 @@ namespace wo
 
             static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
             {
+                if (left_v->is_anything())
+                    return right_v;
+
                 if (left_v->is_dynamic() || right_v->is_dynamic())
                 {
                     return nullptr;

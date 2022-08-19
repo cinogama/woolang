@@ -32,6 +32,7 @@ namespace wo
         ast::identifier_decl decl = ast::identifier_decl::IMMUTABLE;
         bool is_captured_variable = false;
         bool is_argument = false;
+        bool is_hkt_typing_symb = false;
 
         union
         {
@@ -166,7 +167,7 @@ namespace wo
                 hashval *= hashval;
             }
 
-            if (typing->has_template())
+            if (!typing->is_hkt_typing() && typing->has_template())
             {
                 for (auto& template_arg : typing->template_arguments)
                 {
@@ -175,6 +176,7 @@ namespace wo
                     hashval *= hashval;
                 }
             }
+
             if (typing->is_func())
             {
                 for (auto& arg : typing->argument_types)
@@ -227,10 +229,39 @@ namespace wo
 
                 if (sym->type_informatiom->is_hkt())
                 {
-                    // Update template setting info...
-                    wo_assert(sym->type_informatiom->symbol && sym->type_informatiom->symbol->is_template_symbol);
+                    sym->is_hkt_typing_symb = true;
                     sym->is_template_symbol = true;
-                    sym->template_types = sym->type_informatiom->symbol->template_types;
+
+                    sym->type_informatiom->template_arguments.clear();
+
+                    // Update template setting info...
+                    if (sym->type_informatiom->is_array())
+                    {
+                        sym->template_types = { L"VT" };
+                        sym->type_informatiom->template_arguments.push_back(
+                            new ast::ast_type(L"VT"));
+                    }
+                    else if (sym->type_informatiom->is_array())
+                    {
+                        sym->template_types = { L"KT", L"VT" };
+                        sym->type_informatiom->template_arguments.push_back(
+                            new ast::ast_type(L"KT"));
+                        sym->type_informatiom->template_arguments.push_back(
+                            new ast::ast_type(L"VT"));
+                    }
+                    else
+                    {
+                        wo_assert(sym->type_informatiom->symbol && sym->type_informatiom->symbol->is_template_symbol);
+
+                        sym->template_types = sym->type_informatiom->symbol->template_types;
+                        wo_assert(sym->type_informatiom->symbol);
+
+                        for (auto& template_def_name : sym->type_informatiom->symbol->template_types)
+                        {
+                            sym->type_informatiom->template_arguments.push_back(
+                                new ast::ast_type(template_def_name));
+                        }
+                    }
                 }
 
                 lang_symbols.push_back(current_template[sym->name] = sym);
@@ -388,14 +419,14 @@ namespace wo
                 if (type->is_complex())
                 {
                     fully_update_type(type->complex_type, in_pass_1, template_types);
-                    if (type->complex_type->is_custom())
+                    if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                         stop_update = true;
                 }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
                     {
                         fully_update_type(a_t, in_pass_1, template_types);
-                        if (a_t->is_custom())
+                        if (a_t->is_custom() && !a_t->is_hkt())
                             stop_update = true;
                     }
 
@@ -404,7 +435,7 @@ namespace wo
                     for (auto* template_type : type->template_arguments)
                     {
                         fully_update_type(template_type, in_pass_1, template_types);
-                        if (template_type->is_custom())
+                        if (template_type->is_custom() && !template_type->is_hkt())
                             stop_update = true;
                     }
                 }
@@ -437,6 +468,9 @@ namespace wo
                             }
                         };
 
+                        if (nullptr == type_sym)
+                            type_sym = type->symbol;
+
                         traving_guard g1(this, type_sym);
 
                         if (type_sym)
@@ -446,6 +480,7 @@ namespace wo
                             bool using_template = false;
                             auto using_template_args = type->template_arguments;
 
+                            type->symbol = type_sym;
                             if (type_sym->template_types.size() != type->template_arguments.size())
                             {
                                 // Template count is not match.
@@ -466,7 +501,7 @@ namespace wo
                             else
                             {
                                 if (type->has_template())
-                                    using_template = type_sym->define_node 
+                                    using_template = type_sym->define_node
                                     ?
                                     begin_template_scope(type_sym->define_node, type->template_arguments)
                                     : (type_sym->type_informatiom->using_type_name
@@ -474,7 +509,10 @@ namespace wo
                                         : begin_template_scope(type_sym->template_types, type->template_arguments));
 
                                 auto* symboled_type = new ast::ast_type(L"pending");
-                                symboled_type->set_type(type_sym->type_informatiom);
+
+                                *symboled_type = *type_sym->type_informatiom;
+                                type_sym->type_informatiom->instance(symboled_type);
+
                                 fully_update_type(symboled_type, in_pass_1, template_types);
 
                                 if (type->is_func())
@@ -1265,12 +1303,13 @@ namespace wo
                 {
                     // TODO: REPORT THE REAL UNKNOWN TYPE HERE, EXAMPLE:
                     //       'void(ERRTYPE, int)' should report 'ERRTYPE', not 'void' or 'void(ERRTYPE, int)'
-                    if (a_value->value_type->is_pending())
+                    if (a_value->value_type->may_need_update())
                     {
                         // ready for update..
                         fully_update_type(a_value->value_type, false);
 
-                        if (a_value->value_type->is_custom())
+                        if (dynamic_cast<ast_value_function_define*>(a_value) == nullptr
+                            && a_value->value_type->is_custom())
                             lang_anylizer->lang_error(0x0000, a_value, WO_ERR_UNKNOWN_TYPE
                                 , a_value->value_type->get_type_name().c_str());
                     }
@@ -1443,13 +1482,28 @@ namespace wo
                 && para->scope_namespaces.empty()
                 && !para->search_from_global_namespace)
             {
+                ast::ast_type* picked_type = nullptr;
                 if (para->is_func())
                 {
                     // T(...) should return args..
-                    return args->get_return_type();
+                    picked_type = args->get_return_type();
                 }
                 else
-                    return args;
+                    picked_type = args;
+
+                wo_assert(picked_type);
+                if (!para->template_arguments.empty())
+                {
+                    ast::ast_type* type_hkt = new ast::ast_type(L"pending");
+                    if (picked_type->using_type_name)
+                        type_hkt->set_type(picked_type->using_type_name);
+                    else
+                        type_hkt->set_type(picked_type);
+
+                    type_hkt->template_arguments.clear();
+                    return type_hkt;
+                }
+                return picked_type;
             }
 
             for (size_t index = 0;
@@ -3874,6 +3928,9 @@ namespace wo
         {
             wo_assert(lang_scopes.size());
 
+            if (var_ident->symbol)
+                return var_ident->symbol;
+
             if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
                 for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                 {
@@ -3931,9 +3988,6 @@ namespace wo
                     }
 
             }
-
-            if (var_ident->symbol)
-                return var_ident->symbol;
 
             auto* searching = var_ident->search_from_global_namespace ?
                 lang_scopes.front()
@@ -4225,11 +4279,40 @@ namespace wo
     {
         inline bool ast_type::is_hkt() const
         {
-            if (template_arguments.empty() && symbol && symbol->is_template_symbol)
+            if (is_hkt_typing())
                 return true;
+
+            if (template_arguments.empty())
+            {
+                if (symbol && symbol->is_template_symbol && is_custom())
+                    return true;
+                else if (is_array() || is_map())
+                    return true;
+            }
             return false;
         }
 
+        inline bool ast_type::is_hkt_typing() const
+        {
+            if (symbol)
+                return symbol->is_hkt_typing_symb;
+
+            return false;
+        }
+
+        inline lang_symbol* ast_type::base_typedef_symbol(lang_symbol* symb)
+        {
+            wo_assert(symb->type == lang_symbol::symbol_type::typing
+            || symb->type == lang_symbol::symbol_type::type_alias);
+
+            if (symb->type == lang_symbol::symbol_type::typing)
+                return symb;
+            else if (symb->type_informatiom->symbol)
+                return base_typedef_symbol(symb->type_informatiom->symbol);
+            else
+                return symb;
+        }
+        
         inline void ast_value_variable::update_constant_value(lexer* lex)
         {
             if (is_constant)

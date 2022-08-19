@@ -448,7 +448,10 @@ namespace wo
                     if (mixed_type)
                         decide_array_item_type->set_type_with_name(mixed_type->type_name);
                     else
+                    {
                         decide_array_item_type = nullptr;
+                        break;
+                    }
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
             }
@@ -571,7 +574,7 @@ namespace wo
                                 auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                 if (mixed_type)
                                 {
-                                    located_function_scope->function_node->value_type->set_type_with_name(mixed_type->type_name);
+                                    located_function_scope->function_node->value_type->set_ret_type(mixed_type);
                                 }
                                 else
                                 {
@@ -948,7 +951,7 @@ namespace wo
                             auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                             if (mixed_type)
                             {
-                                a_ret->located_function->value_type->set_type_with_name(mixed_type->type_name);
+                                a_ret->located_function->value_type->set_ret_type(mixed_type);
                             }
                             else
                             {
@@ -2085,6 +2088,7 @@ namespace wo
         if (a_value_var->value_type->is_pending())
         {
             auto* sym = find_value_in_this_scope(a_value_var);
+
             if (sym)
             {
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
@@ -2164,7 +2168,6 @@ namespace wo
         auto* a_value_funccall = WO_AST();
 
         if (a_value_funccall->value_type->is_pending())
-
         {
             if (a_value_funccall->callee_symbol_in_type_namespace)
             {
