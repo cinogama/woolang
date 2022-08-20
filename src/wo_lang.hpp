@@ -163,7 +163,6 @@ namespace wo
             if (lang_symbol* using_type_symb = typing->using_type_name ? find_type_in_this_scope(typing->using_type_name) : nullptr)
             {
                 using_type_symb = ast::ast_type::base_typedef_symbol(using_type_symb);
-
                 hashval <<= 1;
                 hashval += (uint64_t)using_type_symb;
                 hashval *= hashval;
@@ -483,10 +482,8 @@ namespace wo
                             auto using_template_args = type->template_arguments;
 
                             type->symbol = type_sym;
-                            bool template_update_goon = true;
                             if (type_sym->template_types.size() != type->template_arguments.size())
                             {
-                                template_update_goon = false;
                                 // Template count is not match.
                                 if (type->template_arguments.size() != 0)
                                 {
@@ -501,15 +498,8 @@ namespace wo
                                     }
 
                                 }
-                                else
-                                {
-                                    if (type_sym->type_informatiom->symbol
-                                        && type_sym->type_informatiom->symbol->is_hkt_typing_symb)
-                                        template_update_goon = true;
-                                }
                             }
-
-                            if(template_update_goon)
+                            else
                             {
                                 if (type->has_template())
                                     using_template = type_sym->define_node

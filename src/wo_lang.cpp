@@ -2084,7 +2084,7 @@ namespace wo
     WO_PASS2(ast_value_variable)
     {
         auto* a_value_var = WO_AST();
-        
+
         if (a_value_var->value_type->is_pending())
         {
             auto* sym = find_value_in_this_scope(a_value_var);
@@ -2825,7 +2825,7 @@ namespace wo
                 }
                 result += L")=>";
             }
-            else if (!ignore_using_type && using_type_name)
+            if (!ignore_using_type && using_type_name)
             {
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
@@ -2834,16 +2834,17 @@ namespace wo
             }
             else
             {
-                std::wstring cur_type_name = type_name;
-                if (is_hkt_typing())
+                if (is_hkt_typing() && symbol)
                 {
-                    if (symbol)
-                    {
-                        auto* last_symb = base_typedef_symbol(symbol);
-                        cur_type_name = last_symb->name;
-                    }
+                    auto* base_symbol = base_typedef_symbol(symbol);
+                    wo_assert(base_symbol && base_symbol->name != L"");
+                    result += base_symbol->name;
                 }
-                result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : cur_type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                else
+                {
+                    result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                }
+
                 if (has_template())
                 {
                     result += L"<";
