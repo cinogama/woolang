@@ -1753,7 +1753,9 @@ namespace wo
                     && !symb->is_argument
                     && !symb->is_captured_variable
                     && symb->type == lang_symbol::symbol_type::variable
-                    && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)))
+                    && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)
+                    // Only normal func (without capture vars) can use this way to optimize.
+                    && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)->capture_variables.empty()))
                 return analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
