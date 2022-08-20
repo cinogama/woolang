@@ -2806,6 +2806,61 @@ namespace wo
 
     namespace ast
     {
+        std::wstring ast_type::get_type_name(bool ignore_using_type) const
+        {
+            std::wstring result;
+            if (is_function_type)
+            {
+                result += L"(";
+                for (size_t index = 0; index < argument_types.size(); index++)
+                {
+                    result += argument_types[index]->get_type_name(ignore_using_type);
+                    if (index + 1 != argument_types.size() || is_variadic_function_type)
+                        result += L", ";
+                }
+
+                if (is_variadic_function_type)
+                {
+                    result += L"...";
+                }
+                result += L")=>";
+            }
+            else if (!ignore_using_type && using_type_name)
+            {
+                auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
+                    wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
+                result += (namespacechain.empty() ? L"" : namespacechain + L"::")
+                    + using_type_name->get_type_name(ignore_using_type);
+            }
+            else
+            {
+                std::wstring cur_type_name = type_name;
+                if (is_hkt_typing())
+                {
+                    if (symbol)
+                    {
+                        auto* last_symb = base_typedef_symbol(symbol);
+                        cur_type_name = last_symb->name;
+                    }
+                }
+                result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : cur_type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                if (has_template())
+                {
+                    result += L"<";
+                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    {
+                        result += template_arguments[index]->get_type_name(ignore_using_type);
+                        if (is_hkt_typing())
+                            result += L"?";
+                        if (index + 1 != template_arguments.size())
+                            result += L", ";
+                    }
+                    result += L">";
+                }
+            }
+            return result;
+        }
+
         bool ast_type::is_hkt() const
         {
             if (is_hkt_typing())

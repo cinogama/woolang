@@ -743,53 +743,7 @@ namespace wo
                 return value_type == value::valuetype::gchandle_type && !is_func();
             }
 
-            std::wstring get_type_name(bool ignore_using_type = true) const
-            {
-                std::wstring result;
-                if (is_function_type)
-                {
-                    result += L"(";
-                    for (size_t index = 0; index < argument_types.size(); index++)
-                    {
-                        result += argument_types[index]->get_type_name(ignore_using_type);
-                        if (index + 1 != argument_types.size() || is_variadic_function_type)
-                            result += L", ";
-                    }
-
-                    if (is_variadic_function_type)
-                    {
-                        result += L"...";
-                    }
-                    result += L")=>";
-                }
-                if (!ignore_using_type && using_type_name)
-                {
-                    auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
-                        wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
-                    result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                        + using_type_name->get_type_name(ignore_using_type);
-                }
-                else
-                {
-                    result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
-                    if (has_template())
-                    {
-                        result += L"<";
-                        for (size_t index = 0; index < template_arguments.size(); index++)
-                        {
-                            result += template_arguments[index]->get_type_name(ignore_using_type);
-                            if (index + 1 != template_arguments.size())
-                                result += L", ";
-                        }
-                        result += L">";
-                    }
-                }
-
-                if (is_hkt_typing())
-                    result += L"?";
-
-                return result;
-            }
+            std::wstring get_type_name(bool ignore_using_type = true) const;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
