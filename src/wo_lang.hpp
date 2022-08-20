@@ -224,12 +224,12 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        bool begin_template_scope(const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(grammar::ast_base *reporterr, const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
         {
-            wo_test(template_args.size());
+            wo_assert(reporterr);
             if (template_defines_args.size() != template_args.size())
             {
-                lang_anylizer->lang_error(0x0000, template_args.back(), WO_ERR_TEMPLATE_ARG_NOT_MATCH);
+                lang_anylizer->lang_error(0x0000, reporterr, WO_ERR_TEMPLATE_ARG_NOT_MATCH);
                 return false;
             }
 
@@ -289,9 +289,9 @@ namespace wo
             return true;
         }
 
-        bool begin_template_scope(ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(grammar::ast_base* reporterr, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>& template_args)
         {
-            return begin_template_scope(template_defines->template_type_name_list, template_args);
+            return begin_template_scope(reporterr, template_defines->template_type_name_list, template_args);
         }
 
         void end_template_scope()
@@ -523,10 +523,10 @@ namespace wo
                                 if (type->has_template())
                                     using_template = type_sym->define_node
                                     ?
-                                    begin_template_scope(type_sym->define_node, type->template_arguments)
+                                    begin_template_scope(type, type_sym->define_node, type->template_arguments)
                                     : (type_sym->type_informatiom->using_type_name
-                                        ? begin_template_scope(type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
-                                        : begin_template_scope(type_sym->template_types, type->template_arguments));
+                                        ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
+                                        : begin_template_scope(type, type_sym->template_types, type->template_arguments));
 
                                 auto* symboled_type = new ast::ast_type(L"pending");
 
@@ -1154,7 +1154,7 @@ namespace wo
                 lang_symbol* template_reification_symb = nullptr;
 
                 temporary_entry_scope_in_pass1(origin_variable->symbol->defined_in_scope);
-                if (begin_template_scope(origin_variable->symbol->template_types, template_args_types))
+                if (begin_template_scope(origin_variable, origin_variable->symbol->template_types, template_args_types))
                 {
                     auto step_in_pass2 = has_step_in_step2;
                     has_step_in_step2 = false;
@@ -1225,7 +1225,7 @@ namespace wo
                 dumpped_template_func_define;
 
             temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
-            if (begin_template_scope(origin_template_func_define, template_args_types))
+            if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
             {
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = false;

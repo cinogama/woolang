@@ -153,6 +153,7 @@ namespace test_compile
             import woo.co;
             std::co(func(x: int){}, (1, 2, 3));
         "@);
+        assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
             import woo.co;
             std::co(func(){}, ());
