@@ -1,8 +1,8 @@
 /*                                       */
 import test_tool;
 
-
 import test_helloworld;
+import test_hkt;
 import test_exception;
 import test_template;
 import test_operator_overload;

@@ -2806,6 +2806,80 @@ namespace wo
 
     namespace ast
     {
+        bool ast_type::is_same(const ast_type* another, bool ignore_using_type) const
+        {
+            if (is_pending_function() || another->is_pending_function())
+                return false;
+
+            if (is_hkt() && another->is_hkt())
+            {
+                auto* ltsymb = base_typedef_symbol(symbol);
+                auto* rtsymb = base_typedef_symbol(another->symbol);
+
+                if (ltsymb == rtsymb)
+                    return true;
+                if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
+                {
+                    // TODO: struct/pending type need check, struct!
+                    return ltsymb->type_informatiom->value_type == rtsymb->type_informatiom->value_type;
+                }
+                return false;
+            }
+
+            if (is_pending() || another->is_pending())
+                return false;
+
+
+            if (!ignore_using_type && (using_type_name || another->using_type_name))
+            {
+                if (!using_type_name || !another->using_type_name)
+                    return false;
+
+                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                    return false;
+
+                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                    return false;
+
+                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], ignore_using_type))
+                        return false;
+            }
+            if (has_template())
+            {
+                if (template_arguments.size() != another->template_arguments.size())
+                    return false;
+                for (size_t index = 0; index < template_arguments.size(); index++)
+                {
+                    if (!template_arguments[index]->is_same(another->template_arguments[index], ignore_using_type))
+                        return false;
+                }
+            }
+            if (is_func())
+            {
+                if (!another->is_func())
+                    return false;
+
+                if (argument_types.size() != another->argument_types.size())
+                    return false;
+                for (size_t index = 0; index < argument_types.size(); index++)
+                {
+                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type))
+                        return false;
+                }
+                if (is_variadic_function_type != another->is_variadic_function_type)
+                    return false;
+            }
+            else if (another->is_func())
+                return false;
+
+            if (is_complex() && another->is_complex())
+                return complex_type->is_same(another->complex_type, ignore_using_type);
+            else if (!is_complex() && !another->is_complex())
+                return get_type_name(ignore_using_type) == another->get_type_name(ignore_using_type);
+            return false;
+        }
+
         std::wstring ast_type::get_type_name(bool ignore_using_type) const
         {
             std::wstring result;

@@ -155,6 +155,25 @@ namespace wo
             wo_assert(!typing->is_pending() || typing->is_hkt());
 
             uint64_t hashval = (uint64_t)typing->value_type;
+
+            if (typing->is_hkt())
+            {
+                wo_assert(typing->symbol);
+                auto* base_type_symb = ast::ast_type::base_typedef_symbol(typing->symbol);
+
+                if (base_type_symb->type == lang_symbol::symbol_type::type_alias)
+                {
+                    if (base_type_symb->type_informatiom->using_type_name)
+                        hashval = (uint64_t)base_type_symb->type_informatiom->using_type_name->symbol;
+                    else
+                        hashval = (uint64_t)base_type_symb->type_informatiom->value_type;
+                }
+                else
+                    hashval = (uint64_t)base_type_symb;
+            }
+
+            ++hashval;
+
             if (typing->is_complex())
                 hashval += get_typing_hash_after_pass1(typing->complex_type);
 
@@ -162,7 +181,6 @@ namespace wo
 
             if (lang_symbol* using_type_symb = typing->using_type_name ? find_type_in_this_scope(typing->using_type_name) : nullptr)
             {
-                using_type_symb = ast::ast_type::base_typedef_symbol(using_type_symb);
                 hashval <<= 1;
                 hashval += (uint64_t)using_type_symb;
                 hashval *= hashval;
@@ -187,8 +205,6 @@ namespace wo
                     hashval *= hashval;
                 }
             }
-
-            hashval >>= 16;
 
             uint32_t hash32 = hashval & 0xFFFFFFFF;
             while (hashed_typing.find(hash32) != hashed_typing.end())
@@ -225,7 +241,10 @@ namespace wo
                 sym->attribute = new ast::ast_decl_attribute();
                 sym->type = lang_symbol::symbol_type::type_alias;
                 sym->name = template_defines_args[index];
-                sym->type_informatiom = template_args[index];
+                sym->type_informatiom = new ast::ast_type(L"pending");
+                
+                sym->type_informatiom->set_type(template_args[index]);
+
                 sym->defined_in_scope = lang_scopes.back();
 
                 if (sym->type_informatiom->is_hkt())
