@@ -271,14 +271,31 @@ namespace wo
     WO_PASS1(ast_value_type_check)
     {
         auto* ast_value_check = WO_AST();
-        analyze_pass1(ast_value_check->_be_check_value_node);
-        if (ast_value_check->aim_type->is_pending())
+
+
+        if (ast_value_check->aim_type->is_pure_pending())
+            ast_value_check->check_pending = true;
+        else if (ast_value_check->aim_type->is_pending())
         {
             // ready for update..
             fully_update_type(ast_value_check->aim_type, true);
         }
-        if (ast_value_check->aim_type->is_pure_pending())
-            ast_value_check->check_pending = true;
+
+        if (ast_value_check->check_pending)
+            lang_anylizer->begin_trying_block();
+
+        analyze_pass1(ast_value_check->_be_check_value_node);
+
+        if (ast_value_check->check_pending)
+        {
+            if (!lang_anylizer->get_cur_error_frame().empty())
+            {
+                // Expr has compile error, set constant.
+                ast_value_check->is_constant = true;
+                ast_value_check->constant_value.set_integer(1);
+            }
+            lang_anylizer->end_trying_block();
+        }
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -1152,7 +1169,8 @@ namespace wo
             for (auto& variable : a_foreach->foreach_patterns_vars_in_pass2)
                 // WARNING! Variable foreach_patterns_vars_in_pass should same as which in
                 //          a_foreach->iter_next_judge_expr->arguments. it will used in finalize
-                a_foreach->iter_next_judge_expr->arguments->append_at_end(variable);
+                if (variable)
+                    a_foreach->iter_next_judge_expr->arguments->append_at_end(variable);
 
             analyze_pass2(a_foreach->used_vawo_defines);
         }
@@ -1303,7 +1321,7 @@ namespace wo
                                             lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
                                     }
                                     else
-                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE);
+                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
                                 }
                             }
                         }
@@ -1461,7 +1479,8 @@ namespace wo
         {
             // Function assign, auto find overload? no! type must be case by user
             if (a_value_assi->left->value_type->is_func())
-                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE, a_value_assi->left->value_type->get_type_name(false));
+                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE,
+                    a_value_assi->left->value_type->get_type_name(false).c_str());
             else
                 lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
         }
@@ -1549,7 +1568,26 @@ namespace wo
     WO_PASS2(ast_value_type_check)
     {
         auto* a_value_type_check = WO_AST();
+
+        if (a_value_type_check->is_constant)
+            return true;
+
+        if (a_value_type_check->check_pending)
+            lang_anylizer->begin_trying_block();
+
         analyze_pass2(a_value_type_check->_be_check_value_node);
+
+        if (a_value_type_check->check_pending)
+        {
+            if (!lang_anylizer->get_cur_error_frame().empty() || a_value_type_check->_be_check_value_node->value_type->is_pending())
+            {
+                // Expr has compile error, set constant.
+                a_value_type_check->is_constant = true;
+                a_value_type_check->constant_value.set_integer(1);
+            }
+            lang_anylizer->end_trying_block();
+        }
+
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;
     }
@@ -1607,7 +1645,7 @@ namespace wo
                     }
                     else
                         lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引 %d 项），继续",
-                            (int)a_value_index->from->value_type->template_arguments.size(), (int)index);
+                            (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
                 }
                 else
                 {
@@ -2561,7 +2599,8 @@ namespace wo
                                         acceptable_func += L" " WO_TERM_OR L" ";
                                     }
                                 }
-                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE, acceptable_func.c_str());
+                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE,
+                                    acceptable_func.c_str());
                             }
                             else
                             {
@@ -2686,10 +2725,36 @@ namespace wo
                                         a_fakevalue_unpack_args->expand_count = ecount;
                                 }
                             }
+
+                            size_t unpack_tuple_index = 0;
                             while (ecount)
                             {
                                 if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
                                 {
+                                    if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                    {
+                                        // Varify tuple type here.
+                                        auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                        if (unpacking_tuple_type->using_type_name)
+                                            unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+
+                                        if (unpacking_tuple_type->template_arguments.size() <= unpack_tuple_index)
+                                        {
+                                            // There is no enough value for tuple to expand. match failed!
+                                            failed_to_call_cur_func = true;
+                                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            break;
+                                        }
+                                        else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
+                                        {
+                                            failed_to_call_cur_func = true;
+                                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            break;
+                                        }
+                                        else
+                                            // ok, do nothing.
+                                            ++unpack_tuple_index;
+                                    }
                                     a_type_index++;
                                 }
                                 else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
@@ -2705,6 +2770,10 @@ namespace wo
                                 }
                                 ecount--;
                             }
+
+                            if (failed_to_call_cur_func)
+                                break;
+
                             donot_move_forward = true;
                         }
                         else if (dynamic_cast<ast_value_takeplace*>(arg_val))
@@ -2713,7 +2782,7 @@ namespace wo
                         }
                         else
                         {
-                            if (!arg_val->value_type->is_pending() && !(*a_type_index)->accept_type(arg_val->value_type, false))
+                            if (!(*a_type_index)->accept_type(arg_val->value_type, false))
                             {
                                 failed_to_call_cur_func = true;
                                 lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());

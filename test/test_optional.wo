@@ -27,8 +27,85 @@ namespace test_optional
         }
     }
 
+    
+    union linknode<T> {
+        next((T, linknode<T>)),
+        end,
+    }
+    namespace linknode
+    {
+        func dup<T>(self: linknode<T>)=> linknode<T>
+        {
+            match(self)
+            {
+            next((elem, nextnode))?
+                return next((elem, nextnode->dup()));
+            end?
+                return end;
+            }
+        }
+        func add<T>(self: linknode<T>, addelem: T)=> linknode<T>
+        {
+            match(self)
+            {
+            next((elem, nextnode))?
+                return next((elem, add(nextnode, addelem)));
+            end?
+                return next((addelem, end));
+            }
+        }
+        func create<T>(val: array<T>)
+        {
+            let mut result = linknode::end : linknode<T>;
+            for (let elem : val)
+                result = result->add(elem);
+            return result;
+        }
+
+        using iterator<T> = struct{
+            node : linknode<T>
+        };
+        namespace iterator
+        {
+            func next<T>(self: iterator<T>, ref out_val: T)
+            {
+                match(self.node)
+                {
+                linknode::next((elem, nextnode))?
+                {
+                    self.node = nextnode;
+                    out_val = elem;
+
+                    return true;
+                }
+                end?
+                    return false;
+                }
+            }
+        }
+
+        func iter<T>(self: linknode<T>)
+        {
+            return iterator:<T>{ node = self };
+        }
+    }
+
+    func test_chain()
+    {
+        let data_from = ["Hello", "world", "woolang"];
+        let chain = linknode(data_from)->dup();
+
+        let arr = []: array<string>;
+        for(let x : chain)
+            arr->add(x);
+
+        for (let index, elem : data_from)
+            test_assure(elem == arr[index]);
+    }
     func main()
     {
+        test_chain();
+
         let mut p<T> = 0: T;
 
         p:<real> = 128.0; 

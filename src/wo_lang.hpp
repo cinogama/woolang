@@ -224,7 +224,7 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        bool begin_template_scope(grammar::ast_base *reporterr, const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(grammar::ast_base* reporterr, const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
         {
             wo_assert(reporterr);
             if (template_defines_args.size() != template_args.size())
@@ -242,7 +242,7 @@ namespace wo
                 sym->type = lang_symbol::symbol_type::type_alias;
                 sym->name = template_defines_args[index];
                 sym->type_informatiom = new ast::ast_type(L"pending");
-                
+
                 sym->type_informatiom->set_type(template_args[index]);
 
                 sym->defined_in_scope = lang_scopes.back();
@@ -2324,7 +2324,11 @@ namespace wo
                         }
 
                         if (a_fakevalue_unpacked_args->expand_count <= 0)
-                            full_unpack_arguments = true;
+                        {
+                            if (!(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple() 
+                                && a_fakevalue_unpacked_args->expand_count == 0))
+                                full_unpack_arguments = true;
+                        }
                     }
 
                     arg_list.insert(arg_list.begin(), arg_val);

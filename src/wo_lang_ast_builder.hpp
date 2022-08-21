@@ -383,7 +383,7 @@ namespace wo
             }
             bool is_pure_pending() const
             {
-                return !is_func() && type_name == L"pending";
+                return !is_func() && type_name == L"pending" && typefrom == nullptr;
             }
             bool is_hkt() const;
             bool is_hkt_typing() const;
@@ -1223,7 +1223,7 @@ namespace wo
                     }
                     if (_be_check_value_node->value_type->is_dynamic())
                     {
-                        if (!aim_type->is_dynamic())
+                        if (!aim_type->is_dynamic() && !check_pending)
                             return; // do nothing... give error in analyze_finalize
                     }
                     is_constant = true;

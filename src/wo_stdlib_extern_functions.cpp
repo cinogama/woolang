@@ -516,6 +516,16 @@ WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_ref(vm, wo_arr_add(args + 0, args + 1));
 }
 
+WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
+{
+    auto arrsz = wo_lengthof(args + 0);
+    auto ret = wo_ret_val(vm, wo_arr_get(args + 0, arrsz - 1));
+    if (arrsz)
+        wo_arr_remove(args + 0, arrsz - 1);
+
+    return ret;
+}
+
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_remove(args + 0, wo_int(args + 1));
@@ -1059,7 +1069,10 @@ namespace array
 
     extern("rslib_std_array_add") 
         func add<T>(val: array<T>, elem: T)=>T;
-  
+
+    extern("rslib_std_array_pop") 
+        func pop<T>(val: array<T>)=> T;  
+
     extern("rslib_std_array_remove")
         func remove<T>(val:array<T>, index:int)=>void;
 
