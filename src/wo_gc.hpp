@@ -210,8 +210,10 @@ namespace wo
     struct gcunit : public gcbase, public T
     {
         template<gcbase::gctype AllocType, typename ... ArgTs >
-        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
+        static gcunit<T>* gc_new(value* write_aim, ArgTs && ... args)
         {
+            static_assert(false, "TODO");
+
             ++gc_new_count;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>)))gcunit<T>(args...);

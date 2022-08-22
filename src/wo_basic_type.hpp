@@ -26,10 +26,6 @@ namespace wo
     using byte_t = uint8_t;
     using hash_t = uint64_t;
 
-    using string_t = gcunit<std::string>;
-    using mapping_t = gcunit<std::map<value, value, value_compare>>;
-    using array_t = gcunit<std::vector<value>>;
-
     template<typename ... TS>
     using cxx_vec_t = std::vector<TS...>;
     template<typename ... TS>
@@ -41,148 +37,162 @@ namespace wo
     struct closure_function;
     struct struct_values;
 
+    using string_t = gcunit<std::string>;
+    using mapping_t = gcunit<std::map<value, value, value_compare>>;
+    using array_t = gcunit<std::vector<value>>;
     using gchandle_t = gcunit<gc_handle_base_t>;
     using closure_t = gcunit<closure_function>;
     using struct_t = gcunit<struct_values>;
 
     struct value
     {
-        //  value
-        /*
-        *
-        */
-        enum class valuetype : uint8_t
+        enum type_t : uint8_t
         {
-            invalid = 0x0,
+            invalid_type = 0b000,
+            integer_type = 0b001,
+            pointer_type = 0b010,
+            float61_type = 0b011,
+            referen_type = 0b100,
+            gcpoint_type = 0b101,
 
-            integer_type,
-            real_type,
-            handle_type,
-
-            is_ref,
-            callstack,
-            nativecallstack,
-
-            need_gc = 0xF0,
-
-            string_type,
-            mapping_type,
-            array_type,
-            gchandle_type,
-            closure_type,
-
-            struct_type,
+            reserv1_type = 0b110,
+            reserv2_type = 0b111,
         };
-
+        using data_t = uint64_t;
+        static constexpr size_t TYPE_SIZE = 3;
         union
         {
-            wo_real_t      real;
-            wo_integer_t   integer;
-            wo_handle_t    handle;
-
-            gcbase* gcunit;
-            string_t* string;     // ADD-ABLE TYPE
-            array_t* array;
-            mapping_t* mapping;
-            gchandle_t* gchandle;
-            closure_t* closure;
-            struct_t* structs;
-
             struct
             {
-                uint32_t bp;
-                uint32_t ret_ip;
+                data_t m_value : 64 - TYPE_SIZE;
+                type_t m_type  : TYPE_SIZE;
             };
-
-            const byte_t* native_function_addr;
-
-            value* ref;
-
-            // std::atomic<gcbase*> atomic_gcunit_ptr;
-            uint64_t value_space;
+            uint64_t m_data;
         };
 
-        union
+        inline type_t get_type() const noexcept
         {
+            return m_type;
+        }
 
-            valuetype type;
-            // uint32_t type_hash;
-
-            // std::atomic_uint64_t atomic_type;
-            uint64_t type_space;
-        };
-
-        inline value* get() const
+        template<typename T = void>
+        inline T* get_pointer() const noexcept
         {
-            if (type == valuetype::is_ref)
+            wo_assert(get_type() == pointer_type);
+            return std::launder(reinterpret_cast<T*>(m_value >> TYPE_SIZE));
+        }
+
+        inline gcbase* get_gcpoint() const noexcept
+        {
+            wo_assert(is_gcpoint());
+            return std::launder(reinterpret_cast<gcbase*>(m_value >> TYPE_SIZE << TYPE_SIZE));
+        }
+
+        template<typename T>
+        inline T* get_gcunit_dynamically() const noexcept
+        {
+            static_assert(
+                std::is_same<string_t>::value
+                || std::is_same<mapping_t>::value
+                || std::is_same<array_t>::value
+                || std::is_same<gchandle_t>::value
+                || std::is_same<closure_t>::value
+                || std::is_same<struct_t>::value);
+
+            return dynamic_cast<T*>(get_gcpoint());
+        }
+
+        template<typename T>
+        inline T* get_gcunit() const noexcept
+        {
+            static_assert(
+                std::is_same<string_t>::value
+                || std::is_same<mapping_t>::value
+                || std::is_same<array_t>::value
+                || std::is_same<gchandle_t>::value
+                || std::is_same<closure_t>::value
+                || std::is_same<struct_t>::value);
+
+            return static_cast<T*>(get_gcpoint());
+        }
+
+        inline bool is_gcpoint() const noexcept
+        {
+            return get_type() == gcpoint_type;
+        }
+        inline bool is_referen() const noexcept
+        {
+            return get_type() == referen_type;
+        }
+        inline bool is_string_ty() const noexcept
+        {
+            if (is_gcpoint())
+                return nullptr != get_gcunit_dynamically<string_t>();
+        }
+
+        inline value* get() noexcept
+        {
+            if (is_referen())
             {
-                wo_assert(ref && ref->type != valuetype::is_ref,
+                wo_assert(get_pointer<value>() && get_pointer<value>()->get_type() != referen_type,
                     "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
-                return ref;
+                return get_pointer<value>();
             }
-            return const_cast<value*>(this);
-        }
-
-        inline value* set_gcunit_with_barrier(valuetype gcunit_type)
-        {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t*>*>(&handle)) = nullptr;
-            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-
             return this;
         }
 
-        inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
+        inline const value* get() const noexcept
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t*>*>(&handle)) = nullptr;
-            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
-
+            if (is_referen())
+            {
+                wo_assert(get_pointer<const value>() && get_pointer<const value>()->get_type() != referen_type,
+                    "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
+                return get_pointer<const value>();
+            }
             return this;
         }
 
-        inline value* set_string(const char* str)
+        inline value* set_string(const char* str) noexcept
         {
-            set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
+            string_t::gc_new<gcbase::gctype::eden>(this, str);
             return this;
         }
-        inline value* set_string_nogc(const char* str)
+        inline value* set_string_nogc(const char* str) noexcept
         {
             // You must 'delete' it manual
-            set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::no_gc>(gcunit, str);
+            string_t::gc_new<gcbase::gctype::no_gc>(this, str);
             return this;
         }
-        inline value* set_val_compile_time(value* val)
+        inline value* set_val_compile_time(value* val) noexcept
         {
-            if (val->type == valuetype::string_type)
-                return set_string_nogc(val->string->c_str());
+            if (is_string_ty())
+                return set_string_nogc(val->get_gcunit<string_t>()->c_str());
 
             wo_assert(!val->is_gcunit());
             return set_val(val);
         }
-        inline value* set_integer(wo_integer_t val)
+        inline value* set_integer(wo_integer_t val) noexcept
         {
-            type = valuetype::integer_type;
-            integer = val;
+            m_type = integer_type;
+            m_value = static_cast<data_t>(val << 3);
             return this;
         }
         inline value* set_real(wo_real_t val)
         {
-            type = valuetype::real_type;
-            real = val;
+            m_type = integer_type;
+            m_value = reinterpret_cast<uint64_t>(val);
             return this;
         }
         inline value* set_handle(wo_handle_t val)
         {
-            type = valuetype::handle_type;
-            handle = val;
+            m_type = pointer_type;
+            m_value = static_cast<data_t>(val << 3);
             return this;
         }
         inline value* set_nil()
         {
-            type = valuetype::invalid;
-            handle = 0;
+            m_type = invalid_type;
+            m_value = 0;
             return this;
         }
         inline value* set_native_callstack(const wo::byte_t* ipplace)
@@ -307,6 +317,7 @@ namespace wo
         inline value* set_dup(value* from);
     };
     static_assert(sizeof(value) == 16);
+    static_assert(sizeof(value) == sizeof(_wo_value));
     static_assert(sizeof(std::atomic<gcbase*>) == sizeof(gcbase*));
     static_assert(std::atomic<gcbase*>::is_always_lock_free);
     static_assert(sizeof(std::atomic<byte_t>) == sizeof(byte_t));
