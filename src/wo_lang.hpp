@@ -491,6 +491,14 @@ namespace wo
                         if (nullptr == type_sym)
                             type_sym = type->symbol;
 
+                        if (type_sym
+                            &&type_sym->type != lang_symbol::symbol_type::typing
+                            && type_sym->type != lang_symbol::symbol_type::type_alias)
+                        {
+                            lang_anylizer->lang_error(0x0000, type, WO_ERR_IS_NOT_A_TYPE, type_sym->name.c_str());
+                            type_sym = nullptr;
+                        }
+
                         traving_guard g1(this, type_sym);
 
                         if (type_sym)
