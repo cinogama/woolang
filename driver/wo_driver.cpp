@@ -4,6 +4,7 @@
 #include <string>
 #include <locale.h>
 
+#if 0
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
@@ -39,3 +40,26 @@ int main(int argc, char** argv)
     wo_finish();
     return 0;
 }
+
+#else
+int main(int argc, char** argv)
+{
+    wo_init(argc, argv);
+
+    wo_vm vm = wo_create_vm();
+    bool result = wo_load_source(vm, "virtual.wo", 
+        R"(
+let x = 0;
+
+)");
+
+    if (result)
+        wo_run(vm);
+    else
+        printf("%s\n", wo_get_compile_error(vm, WO_NEED_COLOR));
+
+    wo_finish();
+    return 0;
+}
+#endif
+

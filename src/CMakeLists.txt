@@ -5,8 +5,8 @@ cmake_minimum_required (VERSION 3.8)
 include_directories("../include")
 include_directories("../3rd/asmjit/src")
 
-file(GLOB_RECURSE woo_src_cpp *.cpp)
-file(GLOB_RECURSE woo_src_hpp *.hpp)
+file(GLOB_RECURSE woo_src_cpp *.cpp parser/*.cpp)
+file(GLOB_RECURSE woo_src_hpp *.hpp parser/*.hpp)
 
 if (WIN32)
 	list(APPEND woo_system_libs "")
