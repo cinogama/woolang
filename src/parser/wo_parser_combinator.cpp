@@ -67,12 +67,35 @@ namespace wo::parser
         using Handle = struct HandleTy { };
         using String = struct StringTy { };
 
-        struct MapTy { Res<Type> keyty; Res<Type> valty; };
-        struct ArrayTy { Res<Type> elemty; };
-        struct StructTy { map<wstring, Res<Type>> membertys; };
-        struct TupleTy { vector<Res<Type>> elemtys; };
-        struct FunctionTy { vector<Res<Type>> elemtys; bool variadic; Res<Type> returnty; };
+        struct MapTy { Res<Type> keyty; Res<Type> valty; }
+        Map(const Type& kty, const Type& vty);
 
-        variant<PendingTy, VoidTy, NilTy, AnythingTy, IntTy, RealTy, HandleTy, StringTy, MapTy, ArrayTy, StructTy, TupleTy, FunctionTy> basety;
+        struct ArrayTy { Res<Type> elemty; }
+        Array(const Type& ety);
+
+        struct StructTy { map<wstring, Res<Type>> membertys; } 
+        Struct(...); // TODO
+
+        struct TupleTy { vector<Res<Type>> elemtys; }
+        Tuple(...); // TODO
+        struct FunctionTy { vector<Res<Type>> elemtys; bool variadic; Res<Type> returnty; }
+        Function(...); // TODO
+
+        using BaseTy = variant<
+            PendingTy,
+            VoidTy, 
+            NilTy, 
+            AnythingTy,
+            IntTy,
+            RealTy, 
+            HandleTy, 
+            StringTy, 
+            MapTy, ArrayTy, 
+            StructTy, 
+            TupleTy, 
+            FunctionTy
+        >;
+
+        BaseTy basety;
     };
 }
