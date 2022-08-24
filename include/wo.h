@@ -244,6 +244,8 @@ WO_API void         wo_break_yield(wo_vm vm);
 
 WO_API wo_int_t     wo_lengthof(wo_value value);
 
+WO_API wchar_t      wo_str_get_char(wo_string_t str, wo_int_t index);
+
 WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
 
 WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);

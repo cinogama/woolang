@@ -11,6 +11,6 @@ namespace wo
 
     size_t u8strlen(wo_string_t u8str);
     wo_string_t u8stridxstr(wo_string_t u8str, size_t chidx);
-    size_t u8stridx(wo_string_t u8str, size_t chidx);
+    wchar_t u8stridx(wo_string_t u8str, size_t chidx);
     wo_string_t u8substr(wo_string_t u8str, size_t from, size_t length, size_t* out_sub_len);
 }

@@ -4118,6 +4118,7 @@ namespace wo
 
                     ast_namespace* result = new ast_namespace();
                     result->scope_name = name->tokens.identifier;
+                    result->copy_source_info(name);
 
                     if (last_namespace)
                     {

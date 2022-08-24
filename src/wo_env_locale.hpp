@@ -58,10 +58,10 @@ namespace wo
 
     inline std::string wstr_to_str(const std::wstring& wstr)
     {
-        size_t mstr_byte_length = wcstombs(nullptr, wstr.c_str(), 0) + 1;
-        char* mstr_buffer = new char[mstr_byte_length];
-        memset(mstr_buffer, 0, mstr_byte_length);
+        size_t mstr_byte_length = wcstombs(nullptr, wstr.c_str(), 0);
+        char* mstr_buffer = new char[mstr_byte_length + 1];
         wcstombs(mstr_buffer, wstr.c_str(), mstr_byte_length);
+        mstr_buffer[mstr_byte_length] = 0;
         std::string result = mstr_buffer;
         delete[]mstr_buffer;
 
@@ -70,10 +70,10 @@ namespace wo
 
     inline std::wstring str_to_wstr(const std::string& str)
     {
-        size_t wstr_length = mbstowcs(nullptr, str.c_str(), 0) + 1;
-        wchar_t* wstr_buffer = new wchar_t[wstr_length];
-        wmemset(wstr_buffer, 0, wstr_length);
+        size_t wstr_length = mbstowcs(nullptr, str.c_str(), 0);
+        wchar_t* wstr_buffer = new wchar_t[wstr_length + 1];
         mbstowcs(wstr_buffer, str.c_str(), wstr_length);
+        wstr_buffer[wstr_length] = 0;
         std::wstring result = wstr_buffer;
         delete[]wstr_buffer;
 

@@ -1352,6 +1352,11 @@ wo_integer_t wo_lengthof(wo_value value)
     }
 }
 
+wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
+{
+    return wo::u8stridx(str, index);
+}
+
 void wo_enable_jit(wo_bool_t option)
 {
     wo::config::ENABLE_JUST_IN_TIME = option;

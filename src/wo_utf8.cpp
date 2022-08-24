@@ -40,9 +40,13 @@ namespace wo
         }
         return u8str;
     }
-    size_t u8stridx(wo_string_t u8str, size_t chidx)
+    wchar_t u8stridx(wo_string_t u8str, size_t chidx)
     {
-        return u8stridxstr(u8str, chidx) - u8str;
+        std::mbstate_t mb = {};
+        wchar_t wc;
+        if (std::mbrtowc(&wc, u8stridxstr(u8str, chidx), strlen(u8str), &mb) > 0)
+            return wc;
+        return 0;
     }
     wo_string_t u8substr(wo_string_t u8str, size_t from, size_t length, size_t* out_sub_len)
     {

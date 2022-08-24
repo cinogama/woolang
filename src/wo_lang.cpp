@@ -1649,7 +1649,7 @@ namespace wo
                         a_value_index->struct_offset = (uint16_t)index;
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引 %d 项），继续",
+                        lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项），继续",
                             (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
                 }
                 else
