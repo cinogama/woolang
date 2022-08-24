@@ -86,6 +86,7 @@ namespace wo
         };
 
         scope_type type;
+        grammar::ast_base* last_entry_ast;
         lang_scope* belong_namespace;
         lang_scope* parent_scope;
         std::wstring scope_namespace;
@@ -316,7 +317,11 @@ namespace wo
             lang_anylizer(&lex)
         {
             _this_thread_lang_context = this;
-            begin_namespace(L"");   // global namespace
+            ast::ast_namespace* global = new ast::ast_namespace;
+            global->source_file = "::";
+            global->col_no = 1;
+            global->row_no = 1;
+            begin_namespace(global);   // global namespace
 
             // Define 'bool' as built-in type
             ast::ast_using_type_as* using_type_def_bool = new ast::ast_using_type_as();
@@ -403,7 +408,11 @@ namespace wo
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
         {
             if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
+            {
                 type->searching_begin_namespace_in_pass2 = now_scope();
+                if (type->source_file == "")
+                    type->copy_source_info(type->searching_begin_namespace_in_pass2->last_entry_ast);
+            }
 
             if (type->typefrom)
             {
@@ -492,7 +501,7 @@ namespace wo
                             type_sym = type->symbol;
 
                         if (type_sym
-                            &&type_sym->type != lang_symbol::symbol_type::typing
+                            && type_sym->type != lang_symbol::symbol_type::typing
                             && type_sym->type != lang_symbol::symbol_type::type_alias)
                         {
                             lang_anylizer->lang_error(0x0000, type, WO_ERR_IS_NOT_A_TYPE, type_sym->name.c_str());
@@ -1025,6 +1034,8 @@ namespace wo
             if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
             {
                 a_symbol_ob->searching_begin_namespace_in_pass2 = now_scope();
+                if (a_symbol_ob->source_file == "")
+                    a_symbol_ob->copy_source_info(a_symbol_ob->searching_begin_namespace_in_pass2->last_entry_ast);
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
@@ -2333,7 +2344,7 @@ namespace wo
 
                         if (a_fakevalue_unpacked_args->expand_count <= 0)
                         {
-                            if (!(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple() 
+                            if (!(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
                                 && a_fakevalue_unpacked_args->expand_count == 0))
                                 full_unpack_arguments = true;
                         }
@@ -3607,15 +3618,18 @@ namespace wo
             wo::grammar::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);
         }
 
-        lang_scope* begin_namespace(const std::wstring& scope_namespace)
+        lang_scope* begin_namespace(ast::ast_namespace* a_namespace)
         {
+            wo_assert(a_namespace->source_file != "");
             if (lang_scopes.size())
             {
-                auto fnd = lang_scopes.back()->sub_namespaces.find(scope_namespace);
+                auto fnd = lang_scopes.back()->sub_namespaces.find(a_namespace->scope_name);
                 if (fnd != lang_scopes.back()->sub_namespaces.end())
                 {
                     lang_scopes.push_back(fnd->second);
-                    return now_namespace = lang_scopes.back();
+                    now_namespace = lang_scopes.back();
+                    now_namespace->last_entry_ast = a_namespace;
+                    return now_namespace;
                 }
             }
 
@@ -3626,13 +3640,15 @@ namespace wo
             scope->type = lang_scope::scope_type::namespace_scope;
             scope->belong_namespace = now_namespace;
             scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
-            scope->scope_namespace = scope_namespace;
+            scope->scope_namespace = a_namespace->scope_name;
 
             if (lang_scopes.size())
-                lang_scopes.back()->sub_namespaces[scope_namespace] = scope;
+                lang_scopes.back()->sub_namespaces[a_namespace->scope_name] = scope;
 
             lang_scopes.push_back(scope);
-            return now_namespace = lang_scopes.back();
+            now_namespace = lang_scopes.back();
+            now_namespace->last_entry_ast = a_namespace;
+            return now_namespace;
         }
 
         void end_namespace()
@@ -3643,11 +3659,13 @@ namespace wo
             lang_scopes.pop_back();
         }
 
-        lang_scope* begin_scope()
+        lang_scope* begin_scope(grammar::ast_base* block_beginer)
         {
             lang_scope* scope = new lang_scope;
             lang_scopes_buffers.push_back(scope);
 
+            scope->last_entry_ast = block_beginer;
+            wo_assert(block_beginer->source_file != "");
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::just_scope;
             scope->belong_namespace = now_namespace;
@@ -3674,7 +3692,8 @@ namespace wo
             bool already_created_func_scope = ast_value_funcdef->this_func_scope;
             lang_scope* scope =
                 already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
-
+            scope->last_entry_ast = ast_value_funcdef;
+            wo_assert(ast_value_funcdef->source_file != "");
             if (!already_created_func_scope)
             {
                 lang_scopes_buffers.push_back(scope);
@@ -3985,8 +4004,11 @@ namespace wo
                         finding_from_type = var_ident->searching_from_type->using_type_name;
 
                     if (finding_from_type->symbol)
+                    {
                         var_ident->searching_begin_namespace_in_pass2 =
-                        finding_from_type->symbol->defined_in_scope;
+                            finding_from_type->symbol->defined_in_scope;
+                        wo_assert(var_ident->source_file != "");
+                    }
                     else
                         var_ident->search_from_global_namespace = true;
 
@@ -4012,7 +4034,10 @@ namespace wo
                                 fnd_template_type = fnd_template_type->using_type_name;
 
                             if (fnd_template_type->symbol)
+                            {
                                 var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
+                                wo_assert(var_ident->source_file != "");
+                            }
                             else
                                 var_ident->search_from_global_namespace = true;
 
@@ -4070,6 +4095,10 @@ namespace wo
             {
                 for (auto* a_using_namespace : _searching_in_all->used_namespace)
                 {
+                    wo_assert(a_using_namespace->source_file != "");
+                    if (a_using_namespace->source_file != var_ident->source_file)
+                        continue;
+
                     if (!a_using_namespace->from_global_namespace)
                     {
                         auto* finding_namespace = _searching_in_all;

@@ -3504,10 +3504,12 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 wo_assert(input.size() == 6);
+                ast_decl_attribute* union_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
 
                 ast_list* bind_type_and_decl_list = new ast_list;
 
                 ast_namespace* enum_scope = new ast_namespace;
+                enum_scope->copy_source_info(union_arttribute);
                 ast_list* decl_list = new ast_list;
 
                 // TODO: Enum attribute should be apply here!
@@ -3524,7 +3526,7 @@ namespace wo
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
-                vardefs->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                vardefs->declear_attribute = union_arttribute;
                 wo_assert(vardefs->declear_attribute);
 
                 for (auto& enumitem : enum_items->enum_items)
@@ -5204,6 +5206,7 @@ namespace wo
 
                 ast_namespace* union_scope = new ast_namespace;
                 union_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                union_scope->copy_source_info(union_arttribute);
                 union_scope->in_scope_sentence = new ast_list;
 
                 // Get templates here(If have?)

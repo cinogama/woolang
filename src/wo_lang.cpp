@@ -11,7 +11,7 @@ namespace wo
     {
         auto* a_namespace = WO_AST();
 
-        begin_namespace(a_namespace->scope_name);
+        begin_namespace(a_namespace);
         a_namespace->add_child(a_namespace->in_scope_sentence);
         grammar::ast_base* child = a_namespace->in_scope_sentence->children;
         while (child)
@@ -631,7 +631,7 @@ namespace wo
     WO_PASS1(ast_sentence_block)
     {
         auto* a_sentence_blk = WO_AST();
-        this->begin_scope();
+        this->begin_scope(a_sentence_blk);
         analyze_pass1(a_sentence_blk->sentence_list);
         this->end_scope();
 
@@ -677,7 +677,7 @@ namespace wo
     WO_PASS1(ast_forloop)
     {
         auto* a_forloop = WO_AST();
-        begin_scope();
+        begin_scope(a_forloop);
 
         analyze_pass1(a_forloop->pre_execute);
         analyze_pass1(a_forloop->judgement_expr);
@@ -737,7 +737,7 @@ namespace wo
     WO_PASS1(ast_using_type_as)
     {
         auto* a_using_type_as = WO_AST();
-        // now_scope()->used_namespace.push_back(a_using_namespace);
+
         fully_update_type(a_using_type_as->old_type, true);
 
         auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
@@ -747,7 +747,7 @@ namespace wo
     WO_PASS1(ast_foreach)
     {
         auto* a_foreach = WO_AST();
-        begin_scope();
+        begin_scope(a_foreach);
 
         a_foreach->used_iter_define->copy_source_info(a_foreach);
         analyze_pass1(a_foreach->used_iter_define);
@@ -796,7 +796,7 @@ namespace wo
     {
         auto* a_match = WO_AST();
         analyze_pass1(a_match->match_value);
-        a_match->match_scope_in_pass = begin_scope();
+        a_match->match_scope_in_pass = begin_scope(a_match);
 
         if (a_match->match_value->value_type->is_union()
             && !a_match->match_value->value_type->is_pending()
@@ -808,6 +808,7 @@ namespace wo
             ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
             ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
             ast_using->from_global_namespace = true;
+            ast_using->copy_source_info(a_match);
             now_scope()->used_namespace.push_back(ast_using);
             a_match->has_using_namespace = true;
         }
@@ -831,14 +832,17 @@ namespace wo
     WO_PASS1(ast_match_union_case)
     {
         auto* a_match_union_case = WO_AST();
-        begin_scope();
+        begin_scope(a_match_union_case);
         wo_assert(a_match_union_case->in_match);
 
         if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
         {
             // Cannot pass a_match_union_case->union_pattern by analyze_pass1, we will set template in pass2.
             if (!a_pattern_union_value->union_expr->search_from_global_namespace)
+            {
                 a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = now_scope();
+                wo_assert(a_pattern_union_value->union_expr->source_file != "");
+            }
 
             // Calc type in pass2, here just define the variable with ast_value_takeplace
             if (a_pattern_union_value->pattern_arg_in_union_may_nil)
@@ -1238,6 +1242,7 @@ namespace wo
                 ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
                 ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
                 ast_using->from_global_namespace = true;
+                ast_using->copy_source_info(a_match);
                 now_scope()->used_namespace.push_back(ast_using);
                 a_match->has_using_namespace = true;
             }
