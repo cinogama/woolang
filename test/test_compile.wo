@@ -250,6 +250,11 @@ namespace test_compile
         // invalid export
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
 
+        // using namespace
+        std::vm::virtual_source("test/usingnamespace.wo", @"using std;"@, false);
+        assure_compile_fail(@"import woo.std; import test.usingnamespace; println("This should not been displayed!");"@);
+        assure_compile_success(@"import woo.std; import test.usingnamespace; using std; println("Helloworld!");"@);
+
         // redefine
         assure_compile_fail(@"let a = 0; let a = 1;"@);
         assure_compile_fail(@"func a(){} let a = 1;"@);
