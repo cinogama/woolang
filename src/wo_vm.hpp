@@ -2101,11 +2101,7 @@ namespace wo
                     {
                         WO_ADDRESSING_N1_REF;
 
-                        if (!opnum1->handle)
-                        {
-                            WO_VM_FAIL(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
-                            break;
-                        }
+                        wo_assert(0 != opnum1->handle && 0 != opnum1->closure);
 
                         if (opnum1->type == value::valuetype::closure_type)
                         {
@@ -2242,20 +2238,16 @@ namespace wo
                         WO_ADDRESSING_N2_REF; // Struct
                         uint16_t offset = WO_IPVAL_MOVE_2;
 
-                        if (opnum2->type != value::valuetype::struct_type && nullptr == opnum2->structs)
-                            wo_fail(WO_FAIL_ACCESS_NIL, "Cannot index from non-struct value.");
-                        else if (offset >= opnum2->structs->m_count)
-                            wo_fail(WO_FAIL_ACCESS_NIL, "Out of struct range.");
-                        else
-                        {
-                            // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
-                            gcbase::gc_read_guard gwg1(opnum2->structs);
+                        wo_assert(opnum2->structs != nullptr);
+                        wo_assert(offset < opnum2->structs->m_count);
 
-                            auto* result = opnum2->structs->m_values[offset].get();
-                            if (wo::gc::gc_is_marking())
-                                opnum2->structs->add_memo(result);
-                            opnum1->set_ref(result);
-                        }
+                        // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
+                        gcbase::gc_read_guard gwg1(opnum2->structs);
+
+                        auto* result = opnum2->structs->m_values[offset].get();
+                        if (wo::gc::gc_is_marking())
+                            opnum2->structs->add_memo(result);
+                        opnum1->set_ref(result);
 
                         break;
                     }
@@ -2318,32 +2310,26 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (nullptr == opnum1->gcunit)
+                        wo_assert(nullptr != opnum1->gcunit);
+
+                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                        wo_assert(opnum1->type == value::valuetype::array_type);
+                        wo_assert(opnum2->type == value::valuetype::integer_type);
+
+                        size_t index = opnum2->integer;
+                        if (opnum2->integer < 0)
+                            index = opnum1->array->size() + opnum2->integer;
+                        if (index >= opnum1->array->size())
                         {
-                            WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to index from 'nil', expecting array.");
+                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                             rt_cr->set_nil();
                         }
                         else
                         {
-                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                            wo_assert(opnum1->type == value::valuetype::array_type);
-                            wo_assert(opnum2->type == value::valuetype::integer_type);
-
-                            size_t index = opnum2->integer;
-                            if (opnum2->integer < 0)
-                                index = opnum1->array->size() + opnum2->integer;
-                            if (index >= opnum1->array->size())
-                            {
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                                rt_cr->set_nil();
-                            }
-                            else
-                            {
-                                auto* result = opnum1->array->at(index).get();
-                                if (wo::gc::gc_is_marking())
-                                    opnum1->array->add_memo(result);
-                                rt_cr->set_ref(result);
-                            }
+                            auto* result = opnum1->array->at(index).get();
+                            if (wo::gc::gc_is_marking())
+                                opnum1->array->add_memo(result);
+                            rt_cr->set_ref(result);
                         }
                         break;
                     }
@@ -2352,34 +2338,28 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        if (nullptr == opnum1->gcunit)
+                        wo_assert(nullptr != opnum1->gcunit);
+                        wo_assert(opnum1->type == value::valuetype::mapping_type);
+                        do
                         {
-                            WO_VM_FAIL(WO_FAIL_ACCESS_NIL, "Trying to index from 'nil', expecting map.");
-                            rt_cr->set_nil();
-                        }
-                        else
-                        {
-                            wo_assert(opnum1->type == value::valuetype::mapping_type);
-                            do
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                            auto fnd = opnum1->mapping->find(*opnum2);
+                            if (fnd != opnum1->mapping->end())
                             {
-                                gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                                auto fnd = opnum1->mapping->find(*opnum2);
-                                if (fnd != opnum1->mapping->end())
-                                {
-                                    auto* result = fnd->second.get();
-                                    if (wo::gc::gc_is_marking())
-                                        opnum1->mapping->add_memo(result);
-                                    rt_cr->set_ref(result);
-                                    break;
-                                }
-                            } while (0);
-                            // TODO: Should report error here to make sure 'nil-safe'
-                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
-                            if (wo::gc::gc_is_marking())
-                                opnum1->mapping->add_memo(result);
-                            rt_cr->set_ref(result);
-                        }
+                                auto* result = fnd->second.get();
+                                if (wo::gc::gc_is_marking())
+                                    opnum1->mapping->add_memo(result);
+                                rt_cr->set_ref(result);
+                                break;
+                            }
+                        } while (0);
+                        // TODO: Should report error here to make sure 'nil-safe'
+                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                        auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
+                        if (wo::gc::gc_is_marking())
+                            opnum1->mapping->add_memo(result);
+                        rt_cr->set_ref(result);
+
                         break;
                     }
                     case instruct::opcode::idstr:
