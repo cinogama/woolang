@@ -43,8 +43,9 @@ WO_FORCE_CAPI
 
 typedef int64_t     wo_integer_t, wo_int_t;
 typedef uint64_t    wo_handle_t;
-typedef void* wo_ptr_t;
+typedef void*       wo_ptr_t;
 typedef const char* wo_string_t;
+typedef const wchar_t* wo_wstring_t;
 typedef double      wo_real_t;
 typedef size_t      wo_result_t, wo_api, wo_size_t;
 typedef bool        wo_bool_t;
@@ -245,6 +246,8 @@ WO_API void         wo_break_yield(wo_vm vm);
 WO_API wo_int_t     wo_lengthof(wo_value value);
 
 WO_API wchar_t      wo_str_get_char(wo_string_t str, wo_int_t index);
+WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
+WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
 
 WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
 

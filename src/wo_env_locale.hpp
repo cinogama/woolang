@@ -56,26 +56,40 @@ namespace wo
             printf(ANSI_RST);
     }
 
-    inline std::string wstr_to_str(const std::wstring& wstr)
+    inline wo_string_t wstr_to_str_ptr(const std::wstring& wstr)
     {
         size_t mstr_byte_length = wcstombs(nullptr, wstr.c_str(), 0);
         char* mstr_buffer = new char[mstr_byte_length + 1];
         wcstombs(mstr_buffer, wstr.c_str(), mstr_byte_length);
         mstr_buffer[mstr_byte_length] = 0;
-        std::string result = mstr_buffer;
-        delete[]mstr_buffer;
+
+        return mstr_buffer;
+    }
+
+    inline wo_wstring_t str_to_wstr_ptr(const std::string& str)
+    {
+        size_t wstr_length = mbstowcs(nullptr, str.c_str(), 0);
+        wchar_t* wstr_buffer = new wchar_t[wstr_length + 1];
+        mbstowcs(wstr_buffer, str.c_str(), wstr_length);
+        wstr_buffer[wstr_length] = 0;
+
+        return wstr_buffer;
+    }
+
+    inline std::string wstr_to_str(const std::wstring& wstr)
+    {
+        auto buf = wstr_to_str_ptr(wstr);
+        std::string result = buf;
+        delete[]buf;
 
         return result;
     }
 
     inline std::wstring str_to_wstr(const std::string& str)
     {
-        size_t wstr_length = mbstowcs(nullptr, str.c_str(), 0);
-        wchar_t* wstr_buffer = new wchar_t[wstr_length + 1];
-        mbstowcs(wstr_buffer, str.c_str(), wstr_length);
-        wstr_buffer[wstr_length] = 0;
-        std::wstring result = wstr_buffer;
-        delete[]wstr_buffer;
+        auto buf = str_to_wstr_ptr(str);
+        std::wstring result = buf;
+        delete[]buf;
 
         return result;
     }
@@ -135,6 +149,6 @@ namespace wo
         memcpy(_work_path, _only_file_loc.c_str(), _only_file_loc.size() + 1);
 
         return _work_path;
-}
+    }
 
-}
+    }

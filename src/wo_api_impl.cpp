@@ -1357,6 +1357,18 @@ wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
     return wo::u8stridx(str, index);
 }
 
+wo_wstring_t wo_str_to_wstr(wo_string_t str)
+{
+    static thread_local std::wstring wstr_buf;
+    return (wstr_buf = wo::str_to_wstr(str)).c_str();
+}
+
+wo_string_t  wo_wstr_to_str(wo_wstring_t str)
+{
+    static thread_local std::string str_buf;
+    return (str_buf = wo::wstr_to_str(str)).c_str();
+}
+
 void wo_enable_jit(wo_bool_t option)
 {
     wo::config::ENABLE_JUST_IN_TIME = option;
