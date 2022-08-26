@@ -569,7 +569,7 @@ namespace wo
 #include "wo_compiler_jit.hpp"
 #include "wo_compiler_ir.hpp"
 
-#ifdef WO_SUPPORT_ASMJIT
+#if WO_JIT_SUPPORT_ASMJIT
 
 #define ASMJIT_STATIC
 #include "asmjit/asmjit.h"
