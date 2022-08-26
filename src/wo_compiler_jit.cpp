@@ -5,8 +5,7 @@
 #include "wo_instruct.hpp"
 #include "wo_vm.hpp"
 
-#define ASMJIT_STATIC
-#include "asmjit/asmjit.h"
+
 
 #undef FAILED
 
@@ -569,6 +568,11 @@ namespace wo
 
 #include "wo_compiler_jit.hpp"
 #include "wo_compiler_ir.hpp"
+
+#ifdef WO_SUPPORT_ASMJIT
+
+#define ASMJIT_STATIC
+#include "asmjit/asmjit.h"
 
 #include <unordered_map>
 
@@ -1722,7 +1726,7 @@ namespace wo
                     WO_JIT_ADDRESSING_N2_REF;
 
                     auto invoke_node =
-                        x86compiler.call((size_t) &_vmjitcall_addstring,
+                        x86compiler.call((size_t)&_vmjitcall_addstring,
                             asmjit::FuncSignatureT<void, wo::value*, wo::value*>());
 
                     invoke_node->setArg(0, opnum1.gp_value());
@@ -1903,3 +1907,17 @@ namespace wo
         compiler.analyze_jit(codebuf, env);
     }
 }
+#else
+
+namespace wo
+{
+    struct runtime_env;
+    void analyze_jit(byte_t* codebuf, runtime_env* env)
+    {
+        // Do nothing.
+        wo_error("No jit function support.");
+    }
+}
+
+
+#endif
