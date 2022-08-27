@@ -2248,7 +2248,7 @@ namespace wo
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_check->value_type->is_complex_type())
+                    if (a_value_type_check->aim_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_check, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
                     if (!a_value_type_check->aim_type->is_dynamic())
