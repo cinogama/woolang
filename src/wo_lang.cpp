@@ -1075,6 +1075,7 @@ namespace wo
     {
         auto* a_foreach = WO_AST();
         analyze_pass2(a_foreach->used_iter_define);
+
         /*
         for (auto& variable : a_foreach->foreach_var)
             analyze_pass2(variable);
@@ -1246,8 +1247,13 @@ namespace wo
                 now_scope()->used_namespace.push_back(ast_using);
                 a_match->has_using_namespace = true;
             }
+            else
+            {
+                lang_anylizer->lang_error(0x0000, a_match->match_value, L"不允许使用 'match' 语句匹配 '%ls' 类型的值，继续",
+                    a_match->match_value->value_type->get_type_name(false).c_str());
+            }
         }
-
+        
         analyze_pass2(a_match->cases);
 
         // Must walk all possiable case, and no repeat case!
@@ -1357,9 +1363,9 @@ namespace wo
             }
             else
                 lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
-
-            analyze_pass2(a_match_union_case->in_case_sentence);
         }
+
+        analyze_pass2(a_match_union_case->in_case_sentence);
 
         return true;
     }
@@ -1424,6 +1430,9 @@ namespace wo
     WO_PASS2(ast_value_function_define)
     {
         auto* a_value_funcdef = WO_AST();
+
+        if (a_value_funcdef->source_file == "E:/CINOGAMA_PROJECTS/joyengineecs/build/builtin/Editor/project/serialize.wo")
+            printf("");
 
         if (!a_value_funcdef->is_template_define)
         {

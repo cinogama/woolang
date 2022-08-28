@@ -3047,6 +3047,8 @@ namespace wo
 
         void real_analyze_finalize(grammar::ast_base* ast_node, ir_compiler* compiler)
         {
+            wo_assert(ast_node->completed_in_pass2);
+
             compiler->pdb_info->generate_debug_info_at_astnode(ast_node, compiler);
 
             if (traving_node.find(ast_node) != traving_node.end())
@@ -3323,7 +3325,6 @@ namespace wo
                     ++pattern_val_takeplace_id;
                 }
 
-
                 real_analyze_finalize(a_foreach->execute_sentences, compiler);
 
                 compiler->jmp(tag(foreach_begin_tag));
@@ -3509,6 +3510,8 @@ namespace wo
                     // If current is template, the node will not be compile, just skip it.
                     if (funcdef->is_template_define)
                         continue;
+
+                    wo_assert(funcdef->completed_in_pass2);
 
                     size_t funcbegin_ip = compiler->get_now_ip();
                     now_function_in_final_anylize = funcdef;
