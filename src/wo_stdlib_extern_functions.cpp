@@ -665,6 +665,22 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, true);
 }
 
+WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t argc)
+{
+    std::wstring buf;
+    wo_int_t size = wo_lengthof(args + 0);
+
+    for (wo_int_t i = 0; i < size; ++i)
+        buf += (wchar_t)wo_int(wo_arr_get(args + 0, i));
+
+    return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
+}
+
+WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_int(vm, (wo_int_t)wo_str_get_char(wo_string(args + 0), wo_int(args + 1)));
+}
+
 WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
 {
     if (wo_valuetype(args + 0) == WO_STRING_TYPE)
@@ -840,24 +856,24 @@ namespace option
             return option::none;
         }
     }
-    func map<T, R>(self: option<T>, functor: (T)=>R, or_functor: ()=>R) => option<R>
+    func map<T, R>(self: option<T>, functor: (T)=>R, orfunctor: ()=>R) => R
     {
         match(self)
         {
         value(x)?
-            return value(functor(x));
+            return functor(x);
         none?
-            return value(or_functor());
+            return orfunctor();
         }
     }
-    func or<T>(self: option<T>, functor: ()=>T)
+    func or<T>(self: option<T>, orfunctor: ()=>T)
     {
         match(self)
         {
         value(x)?
             return self;
         none?
-            return value(functor());
+            return value(orfunctor());
         }
     }
     func valor<T>(self: option<T>, default_val: T)
@@ -973,8 +989,14 @@ namespace std
 
 namespace string
 {
+    extern("rslib_std_create_str_by_asciis") 
+    func ascii(buf: array<int>)=> string;
+
+    extern("rslib_std_get_ascii_val_from_str") 
+    func getch(val:string, index: int)=> int;
+
     extern("rslib_std_lengthof") 
-        func len(val:string)=>int;
+        func len(val:string)=> int;
 
     extern("rslib_std_sub")
         func sub(val:string, begin:int)=>string;

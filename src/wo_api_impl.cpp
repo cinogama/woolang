@@ -858,93 +858,121 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
     }
     case wo::value::valuetype::mapping_type:
     {
-        if (wo::mapping_t* map = _rsvalue->mapping)
+        wo::mapping_t* map = _rsvalue->mapping;
+        wo::gcbase::gc_read_guard rg1(map);
+
+
+        if ((*traveled_gcunit)[map] >= 1)
         {
-            wo::gcbase::gc_read_guard rg1(_rsvalue->mapping);
-            if ((*traveled_gcunit)[map] >= 1)
+            _fit_layout = true;
+            if ((*traveled_gcunit)[map] >= 2)
             {
-                _fit_layout = true;
-                if ((*traveled_gcunit)[map] >= 2)
-                {
-                    *out_str += "{ ... }";
-                    return;
-                }
+                *out_str += "{...}";
+                return;
             }
-            (*traveled_gcunit)[map]++;
-
-            *out_str += _fit_layout ? "{" : "{\n";
-            bool first_kv_pair = true;
-            for (auto& [v_key, v_val] : *map)
-            {
-                if (!first_kv_pair)
-                    *out_str += _fit_layout ? ", " : ",\n";
-                first_kv_pair = false;
-
-                for (int i = 0; !_fit_layout && i <= depth; i++)
-                    *out_str += "    ";
-                _wo_cast_string(const_cast<wo::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1, true);
-                *out_str += _fit_layout ? ":" : " : ";
-                _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
-
-            }
-            if (!_fit_layout)
-                *out_str += "\n";
-            for (int i = 0; !_fit_layout && i < depth; i++)
-                *out_str += "    ";
-            *out_str += "}";
-
-            (*traveled_gcunit)[map]--;
         }
-        else
-            *out_str += "nil";
+        (*traveled_gcunit)[map]++;
+
+        *out_str += _fit_layout ? "{" : "{\n";
+        bool first_kv_pair = true;
+        for (auto& [v_key, v_val] : *map)
+        {
+            if (!first_kv_pair)
+                *out_str += _fit_layout ? ", " : ",\n";
+            first_kv_pair = false;
+
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+            _wo_cast_string(const_cast<wo::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1, true);
+            *out_str += _fit_layout ? ":" : " : ";
+            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+
+        }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
+        *out_str += "}";
+
+        (*traveled_gcunit)[map]--;
+
         return;
     }
     case wo::value::valuetype::array_type:
     {
-        if (wo::array_t* arr = _rsvalue->array)
+        wo::array_t* arr = _rsvalue->array;
+        wo::gcbase::gc_read_guard rg1(_rsvalue->array);
+        if ((*traveled_gcunit)[arr] >= 1)
         {
-            wo::gcbase::gc_read_guard rg1(_rsvalue->array);
-            if ((*traveled_gcunit)[arr] >= 1)
+            _fit_layout = true;
+            if ((*traveled_gcunit)[arr] >= 2)
             {
-                _fit_layout = true;
-                if ((*traveled_gcunit)[arr] >= 2)
-                {
-                    *out_str += "[ ... ]";
-                    return;
-                }
+                *out_str += "[...]";
+                return;
             }
-            (*traveled_gcunit)[arr]++;
-
-            *out_str += _fit_layout ? "[" : "[\n";
-            bool first_value = true;
-            for (auto& v_val : *arr)
-            {
-                if (!first_value)
-                    *out_str += _fit_layout ? "," : ",\n";
-                first_value = false;
-
-                for (int i = 0; !_fit_layout && i <= depth; i++)
-                    *out_str += "    ";
-                _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
-            }
-            if (!_fit_layout)
-                *out_str += "\n";
-            for (int i = 0; !_fit_layout && i < depth; i++)
-                *out_str += "    ";
-            *out_str += "]";
-
-            (*traveled_gcunit)[arr]--;
         }
-        else
-            *out_str += "nil";
+        (*traveled_gcunit)[arr]++;
+
+        *out_str += _fit_layout ? "[" : "[\n";
+        bool first_value = true;
+        for (auto& v_val : *arr)
+        {
+            if (!first_value)
+                *out_str += _fit_layout ? "," : ",\n";
+            first_value = false;
+
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+        }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
+        *out_str += "]";
+
+        (*traveled_gcunit)[arr]--;
         return;
     }
     case wo::value::valuetype::closure_type:
         *out_str += "<closure function>";
         return;
     case wo::value::valuetype::struct_type:
-        *out_str += "<struct value>";
+    {
+        wo::struct_t* struc = _rsvalue->structs;
+        wo::gcbase::gc_read_guard rg1(struc);
+
+        if ((*traveled_gcunit)[struc] >= 1)
+        {
+            _fit_layout = true;
+            if ((*traveled_gcunit)[struc] >= 2)
+            {
+                *out_str += "struct{...}";
+                return;
+            }
+        }
+
+        *out_str += _fit_layout ? "struct{" : "struct {\n";
+        bool first_value = true;
+        for (uint16_t i = 0; i < _rsvalue->structs->m_count; ++i)
+        {
+            if (!first_value)
+                *out_str += _fit_layout ? "," : ",\n";
+            first_value = false;
+
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+
+            *out_str += "+" + std::to_string(i) + (_fit_layout ? "=" : " = ");
+            _wo_cast_string(&_rsvalue->structs->m_values[i], traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+        }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
+        *out_str += "}";
         return;
+    }
     case wo::value::valuetype::invalid:
         *out_str += "nil";
         return;
@@ -981,19 +1009,6 @@ wo_string_t wo_cast_string(const wo_value value)
     }
     case wo::value::valuetype::closure_type:
         return "<closure function>";
-    case wo::value::valuetype::struct_type:
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->structs);
-        std::string tmp_buf = "struct {\n";
-        for (uint16_t i = 0; i < _rsvalue->structs->m_count; ++i)
-        {
-            // TODO: Struct may recursive, handle it..
-            tmp_buf += "    +" + std::to_string(i) + " : " + wo_cast_string(CS_VAL(&_rsvalue->structs->m_values[i])) + ",\n";
-        }
-        tmp_buf += "}";
-        _buf = tmp_buf;
-        return _buf.c_str();
-    }
     case wo::value::valuetype::invalid:
         return "nil";
     default:

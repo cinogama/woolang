@@ -2045,7 +2045,8 @@ namespace wo
 
                 WO_REINSTANCE(dumm->return_value);
 
-                wo_assert(!located_function);
+                dumm->located_function = nullptr;
+                // wo_assert(!located_function);
 
                 return dumm;
             }
