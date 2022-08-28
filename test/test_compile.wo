@@ -272,6 +272,10 @@ namespace test_compile
         assure_compile_fail(@"let (a, b) = (1,);"@);
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
+        assure_compile_success(@"import woo.std; match(option::value(1)){option::value((a,))?;option::none?;}"@);
+        assure_compile_success(@"import woo.std; match(option::value(1)){value(a)?;none?;}"@);
+        assure_compile_fail(@"match(option::value(1)){option::value((a,))?;option::none?;}"@);
+        assure_compile_fail(@"match(1){value((a,))?;none?;}"@);
     
         assure_compile_fail(@"import woo.std; let const a = []: array<int>; a->add(0);"@);
         assure_compile_fail(@"let i = 0; i += 5;"@);
