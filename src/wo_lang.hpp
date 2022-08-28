@@ -821,7 +821,7 @@ namespace wo
                     if (initval->value_type->is_pending())
                         lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：值类型未决，继续");
                     else if (!initval->value_type->is_tuple())
-                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：期待给定一个tuple类型，但给定的是 '%s'，继续",
+                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：期待给定一个tuple类型，但给定的是 '%ls'，继续",
                             initval->value_type->get_type_name(false).c_str());
                     else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
                         lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：tuple元素数量不符，期待获取%d个值，但给定了%d个，继续",
