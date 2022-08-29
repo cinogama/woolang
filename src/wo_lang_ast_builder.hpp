@@ -1899,11 +1899,6 @@ namespace wo
             ast_extern_info* externed_func_info = nullptr;
             bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
-
-            // USED FOR EXTERN SYMBOL CHECK,
-            size_t argc;
-            bool variadis;
-
             ast_where_constraint* where_constraint = nullptr;
 
             bool is_closure_function()const noexcept
