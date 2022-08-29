@@ -1862,10 +1862,10 @@ namespace wo
                     x86compiler.mov(asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
                     if (opnum2.is_constant())
                     {
-                       if(opnum2.const_value()->integer)
-                           x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 1);
-                       else
-                           x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0);
+                        if (opnum2.const_value()->integer)
+                            x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 1);
+                        else
+                            x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0);
                     }
                     else
                     {
@@ -1907,7 +1907,22 @@ namespace wo
                 case instruct::typeas:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkstruct:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    uint16_t size = WO_IPVAL_MOVE_2;
+
+                    auto op1 = opnum1.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&vm::make_struct_impl,
+                            asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, asmjit::Imm(size));
+                    invoke_node->setArg(2, _vmssp);
+                    invoke_node->setRet(0, _vmssp);
+                    break;
+                }
                 case instruct::abrt:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::idarr:
@@ -1915,9 +1930,41 @@ namespace wo
                 case instruct::idmap:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkarr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&vm::make_array_impl,
+                            asmjit::FuncSignatureT< wo::value*, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, _vmssp);
+                    invoke_node->setRet(0, _vmssp);
+                    break;
+                }
                 case instruct::mkmap:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N2_REF;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&vm::make_map_impl,
+                            asmjit::FuncSignatureT< wo::value*, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, _vmssp);
+                    invoke_node->setRet(0, _vmssp);
+                    break;
+                }
                 case instruct::idstr:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::equr:

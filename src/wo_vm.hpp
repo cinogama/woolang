@@ -1236,7 +1236,7 @@ namespace wo
             wo_error("No 'veh' in this vm.");
         }
     }
-    inline void  exception_recovery::ok(vmbase* _vm)
+    inline void exception_recovery::ok(vmbase* _vm)
     {
         auto veh = _vm->veh;
         _vm->veh = veh->last;
@@ -1257,6 +1257,54 @@ namespace wo
         }
 
     public:
+
+        inline static value* make_array_impl(value* opnum1, value* opnum2, value* rt_sp)
+        {
+            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
+            auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+            // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
+
+            gcbase::gc_write_guard gwg1(created_array);
+
+            created_array->resize((size_t)opnum2->integer);
+            for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+            {
+                auto* arr_val = ++rt_sp;
+                (*created_array)[i].set_trans(arr_val);
+            }
+            return rt_sp;
+        }
+        inline static value* make_map_impl(value* opnum1, value* opnum2, value* rt_sp)
+        {
+            opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
+            auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+            // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
+
+            gcbase::gc_write_guard gwg1(created_map);
+
+            for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+            {
+                value* val = ++rt_sp;
+                value* key = ++rt_sp;
+                (*created_map)[*(key->get())].set_trans(val);
+            }
+            return rt_sp;
+        }
+        inline static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp)
+        {
+            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
+            struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+            gcbase::gc_write_guard gwg1(new_struct);
+
+            for (size_t i = 0; i < size; i++)
+                new_struct->m_values[i].set_trans(rt_sp + 1 + i);
+
+            return rt_sp + size;
+        }
 
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
@@ -2221,15 +2269,7 @@ namespace wo
                         WO_ADDRESSING_N1_REF; // Aim
                         uint16_t size = WO_IPVAL_MOVE_2;
 
-                        opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-                        struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
-                        gcbase::gc_write_guard gwg1(new_struct);
-
-                        for (size_t i = 0; i < size; i++)
-                            new_struct->m_values[i].set_trans(rt_sp + 1 + i);
-
-                        rt_sp += size;
-
+                        rt_sp = make_struct_impl(opnum1, size, rt_sp);
                         break;
                     }
                     case instruct::opcode::idstruct:
@@ -2268,20 +2308,7 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                        auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
-
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
-
-                        gcbase::gc_write_guard gwg1(created_array);
-
-                        created_array->resize((size_t)opnum2->integer);
-                        for (size_t i = 0; i < (size_t)opnum2->integer; i++)
-                        {
-                            auto* arr_val = ++rt_sp;
-                            (*created_array)[i].set_trans(arr_val);
-                        }
+                        rt_sp = make_array_impl(opnum1, opnum2, rt_sp);
                         break;
                     }
                     case instruct::opcode::mkmap:
@@ -2289,20 +2316,7 @@ namespace wo
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
-                        opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
-                        auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
-
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
-
-                        gcbase::gc_write_guard gwg1(created_map);
-
-                        for (size_t i = 0; i < (size_t)opnum2->integer; i++)
-                        {
-                            value* val = ++rt_sp;
-                            value* key = ++rt_sp;
-                            (*created_map)[*(key->get())].set_trans(val);
-                        }
+                        rt_sp = make_map_impl(opnum1, opnum2, rt_sp);
                         break;
                     }
                     case instruct::opcode::idarr:
