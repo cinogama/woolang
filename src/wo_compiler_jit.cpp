@@ -1725,12 +1725,15 @@ namespace wo
                     WO_JIT_ADDRESSING_N1_REF;
                     WO_JIT_ADDRESSING_N2_REF;
 
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
                     auto invoke_node =
                         x86compiler.call((size_t)&_vmjitcall_addstring,
                             asmjit::FuncSignatureT<void, wo::value*, wo::value*>());
 
-                    invoke_node->setArg(0, opnum1.gp_value());
-                    invoke_node->setArg(1, opnum2.gp_value());
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
 
                     break;
                 }
@@ -1869,7 +1872,11 @@ namespace wo
 
             // 1. for all function, trying to jit compile them:
             for (size_t func_offset : env->_functions_offsets)
-                analyze_function(codebuf + func_offset, env);
+                if (auto& stat = analyze_function(codebuf + func_offset, env); stat.m_state == function_jit_state::FINISHED)
+                {
+                    wo_assert(nullptr != stat.m_jitfunc);
+                    env->_jit_functions.push_back(stat.m_jitfunc);
+                }
 
             for (size_t calln_offset : env->_calln_opcode_offsets)
             {
@@ -1906,6 +1913,12 @@ namespace wo
         asmjit_compiler_x64 compiler;
         compiler.analyze_jit(codebuf, env);
     }
+
+    void free_jit(runtime_env* env)
+    {
+        for (auto& jitfunc : env->_jit_functions)
+            asmjit_compiler_x64::get_jit_runtime().release(jitfunc);
+    }
 }
 #else
 
@@ -1914,8 +1927,12 @@ namespace wo
     struct runtime_env;
     void analyze_jit(byte_t* codebuf, runtime_env* env)
     {
-        // Do nothing.
         wo_error("No jit function support.");
+    }
+
+    void free_jit(runtime_env* env)
+    {
+        // Do nothing...
     }
 }
 

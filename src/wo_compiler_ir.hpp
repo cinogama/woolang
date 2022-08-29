@@ -366,11 +366,14 @@ namespace wo
 
         std::vector<size_t> _functions_offsets;
         std::vector<size_t> _calln_opcode_offsets;
+        std::vector<void*> _jit_functions;
 
         shared_pointer<program_debug_data_info> program_debug_info;
 
         ~runtime_env()
         {
+            free_jit(this);
+
             if (constant_global_reg_rtstack)
                 free64(constant_global_reg_rtstack);
 
