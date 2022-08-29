@@ -2256,7 +2256,7 @@ namespace wo
                         // is dynamic do check..
                         auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
 
-                        wo_test(a_value_type_check->aim_type->value_type != value::valuetype::invalid);
+                        wo_assert(!a_value_type_check->aim_type->is_pending());
                         compiler->typeis(result, a_value_type_check->aim_type->value_type);
 
                         return WO_NEW_OPNUM(reg(reg::cr));

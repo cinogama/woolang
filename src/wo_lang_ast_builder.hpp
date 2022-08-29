@@ -5164,6 +5164,7 @@ namespace wo
                 ast_value_trib_expr* expr = new ast_value_trib_expr;
 
                 wo_assert(input.size() == 5);
+                expr->value_type = new ast_type(L"pending");
                 expr->judge_expr = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 expr->val_if_true = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                 expr->val_or = dynamic_cast<ast_value*>(WO_NEED_AST(4));
