@@ -344,6 +344,7 @@ namespace wo
                 a_value_func->where_constraint->binded_func_define = a_value_func;
                 analyze_pass1(a_value_func->where_constraint);
             }
+
             if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
             {
                 if (a_value_func->in_function_sentence)
@@ -374,9 +375,6 @@ namespace wo
                         else
                             a_value_func->is_constant = true;
                     }
-
-                    extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
-                        .push_back(a_value_func);
                 }
                 else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
                 {
@@ -387,6 +385,15 @@ namespace wo
             else
                 a_value_func->value_type->set_type_with_name(L"pending");
         }
+
+        if (a_value_func->externed_func_info)
+        {
+            // FIX 220829: If a extern function with template, wo should check it.
+            //             Make sure if this function has different arg count, we should set 'tc'
+            extern_symb_func_definee[a_value_func->externed_func_info->externed_func]
+                .push_back(a_value_func);
+        }
+
         end_function();
         return true;
     }

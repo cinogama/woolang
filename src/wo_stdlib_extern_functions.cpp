@@ -1340,23 +1340,21 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
 {
     wo_vm new_thread_vm = wo_sub_vm(vm, reinterpret_cast<wo::vmbase*>(vm)->stack_size);
 
-    wo_value wo_calling_function = wo_push_valref(new_thread_vm, args);
+    wo_value wo_calling_function = wo_push_val(new_thread_vm, args + 0);
+    wo_int_t arg_count = 0;
 
-    for (size_t argidx = argc - 1; argidx > 0; argidx--)
-        wo_push_valref(new_thread_vm, args + argidx);
+    if (argc == 2)
+    {
+        wo_value arg_pack = args + 1;
+        arg_count = wo_lengthof(arg_pack);
 
+        for (size_t i = arg_count; i > 0; i--)
+            wo_push_valref(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
+    }
 
     auto* _vmthread = new std::thread([=]() {
-        try
-        {
-            wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, argc - 1);
-            wo_pop_stack((wo_vm)new_thread_vm);
-        }
-        catch (...)
-        {
-            // ?
-        }
-
+        wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, arg_count);
+        wo_pop_stack((wo_vm)new_thread_vm);
         wo_close_vm(new_thread_vm);
         });
 
@@ -1368,6 +1366,7 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
             if (((wo_thread_pack*)wo_thread_pack_ptr)->_thread->joinable())
                 ((wo_thread_pack*)wo_thread_pack_ptr)->_thread->detach();
             delete ((wo_thread_pack*)wo_thread_pack_ptr)->_thread;
+            delete (wo_thread_pack*)wo_thread_pack_ptr;
         });
 }
 
@@ -1487,7 +1486,12 @@ namespace std
     namespace thread
     {
         extern("rslib_std_thread_create")
-            func create<FuncT>(thread_work:FuncT, ...)=>thread;
+        func create<FuncT, ArgTs>(thread_work: FuncT)=>thread
+            where !(thread_work() is pending);
+
+        extern("rslib_std_thread_create")
+        func create<FuncT, ArgTs>(thread_work: FuncT, args: ArgTs)=>thread
+            where !(thread_work(args...) is pending);
 
         extern("rslib_std_thread_wait")
             func wait(threadhandle : thread)=>void;
@@ -1570,6 +1574,8 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
     // rslib_std_roroutine_launch(...)   
     auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<wo::vmbase*>(vm));
     wo_int_t arg_count = 0;
+
+    wo_value wo_calling_function = wo_push_val((wo_vm)_nvm, args + 0);
 
     if (argc == 2)
     {
