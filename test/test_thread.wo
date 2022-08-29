@@ -31,7 +31,7 @@ namespace test_thread
                             c+=1;
                         }
                         std::println("Thread:", id, "complete");
-                    }, i     
+                    }, (i,)     
             ));
             i+=1;
         }
@@ -59,7 +59,7 @@ namespace test_thread
                 {
                     i+=1;
                 }
-            }, ref summ);
+            }, (ref summ,));
         std::sleep(0.2);
         th->abort();
         th->wait();

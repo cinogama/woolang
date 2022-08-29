@@ -1486,7 +1486,7 @@ namespace std
     namespace thread
     {
         extern("rslib_std_thread_create")
-        func create<FuncT, ArgTs>(thread_work: FuncT)=>thread
+        func create<FuncT>(thread_work: FuncT)=>thread
             where !(thread_work() is pending);
 
         extern("rslib_std_thread_create")
