@@ -45,6 +45,12 @@ namespace test_helloworld
         test_assure(b[9] == "3world");
         test_assure(b[10] == "6hello");
         test_assure(b[11] == "6world");
+
+        "Helloworld"->std::println;
+
+        "Hello"
+            ->\m:string = m + "world";
+            ->\m:string = std::println(m);;
     }
 
     func main()
