@@ -46,6 +46,8 @@ namespace test_helloworld
         test_assure(b[10] == "6hello");
         test_assure(b[11] == "6world");
 
+        test_assure("Helloworld" = "Helloworld"->chars->str);
+
         "Helloworld"->std::println;
 
         "Hello"

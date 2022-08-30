@@ -681,6 +681,14 @@ WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t 
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
+{
+    std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
+    for (wchar_t ch : buf)
+        wo_set_int(wo_arr_add(args + 1, nullptr), (wo_int_t)ch);
+
+    return wo_ret_val(vm, args + 1);
+}
 
 WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t argc)
 {
@@ -1003,7 +1011,7 @@ namespace std
     extern("rslib_std_make_dup")
     func dup<T>(dupval: T)=> T;
 }
-
+using char = int;
 namespace string
 {
     func tomap(val:string)=> option<map<dynamic, dynamic>>
@@ -1023,11 +1031,16 @@ namespace string
         return _toarray(val, []);
     }
 
-    extern("rslib_std_create_str_by_asciis") 
-    func ascii(buf: array<int>)=> string;
+    func chars(buf: string)=> array<char>
+    {
+        extern("rslib_std_create_chars_from_str") 
+        func _chars(buf: string, out_result: array<char>)=> array<char>;
+
+        return _chars(buf, []);
+    }
 
     extern("rslib_std_get_ascii_val_from_str") 
-    func getch(val:string, index: int)=> int;
+    func getch(val:string, index: int)=> char;
 
     extern("rslib_std_lengthof") 
         func len(val:string)=> int;
@@ -1103,6 +1116,9 @@ namespace string
 
 namespace array
 {
+    extern("rslib_std_create_str_by_asciis") 
+    func str(buf: array<char>)=> string;
+
     extern("rslib_std_lengthof") 
         func len<T>(val: array<T>)=> int;
 
