@@ -581,29 +581,27 @@ namespace wo
 
                 // NOTE: DONOT JUDGE FUNCTION'S RETURN VAL TYPE IN PASS1 TO AVOID TYPE MIXED IN CONSTEXPR IF
 
-                if (located_function_scope->function_node->auto_adjust_return_type)
+                if (a_ret->located_function->auto_adjust_return_type)
                 {
-                    if (a_ret->return_value->value_type->is_pending() == false)
+                    if (a_ret->located_function->delay_adjust_return_type
+                        && a_ret->return_value->value_type->is_pending() == false)
                     {
-                        auto* func_return_type = located_function_scope->function_node->value_type->get_return_type();
+                        auto* func_return_type = a_ret->located_function->value_type->get_return_type();
 
                         if (func_return_type->is_pending())
-                        {
-                            located_function_scope->function_node->value_type->set_ret_type(a_ret->return_value->value_type);
-                        }
+                            a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
                         else
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
                                 auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                                 if (mixed_type)
-                                {
-                                    located_function_scope->function_node->value_type->set_ret_type(mixed_type);
-                                }
+                                    a_ret->located_function->value_type->set_ret_type(mixed_type);
                                 else
                                 {
-                                    located_function_scope->function_node->value_type->set_type_with_name(L"dynamic");
-                                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                                    // current function might has constexpr if, set delay_return_type_judge flag
+                                    a_ret->located_function->value_type->set_type_with_name(L"pending");
+                                    a_ret->located_function->delay_adjust_return_type = true;
                                 }
                             }
                         }
@@ -649,9 +647,7 @@ namespace wo
         auto* ast_if_sentence = WO_AST();
         analyze_pass1(ast_if_sentence->judgement_value);
 
-        if (ast_if_sentence->judgement_value->is_constant
-            && in_function()
-            && in_function()->function_node->is_template_reification)
+        if (ast_if_sentence->judgement_value->is_constant)
         {
             ast_if_sentence->is_constexpr_if = true;
 
@@ -978,9 +974,7 @@ namespace wo
                         {
                             auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
                             if (mixed_type)
-                            {
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
-                            }
                             else
                             {
                                 a_ret->located_function->value_type->set_type_with_name(L"dynamic");
@@ -1032,8 +1026,10 @@ namespace wo
         auto* ast_if_sentence = WO_AST();
         analyze_pass2(ast_if_sentence->judgement_value);
 
-        if (ast_if_sentence->is_constexpr_if)
+        if (ast_if_sentence->judgement_value->is_constant)
         {
+            ast_if_sentence->is_constexpr_if = true;
+
             if (ast_if_sentence->judgement_value->get_constant_value().integer)
                 analyze_pass2(ast_if_sentence->execute_if_true);
             else if (ast_if_sentence->execute_else)
@@ -1260,7 +1256,7 @@ namespace wo
                     a_match->match_value->value_type->get_type_name(false).c_str());
             }
         }
-        
+
         analyze_pass2(a_match->cases);
 
         // Must walk all possiable case, and no repeat case!
@@ -1437,9 +1433,6 @@ namespace wo
     WO_PASS2(ast_value_function_define)
     {
         auto* a_value_funcdef = WO_AST();
-
-        if (a_value_funcdef->source_file == "E:/CINOGAMA_PROJECTS/joyengineecs/build/builtin/Editor/project/serialize.wo")
-            printf("");
 
         if (!a_value_funcdef->is_template_define)
         {
