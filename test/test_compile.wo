@@ -77,6 +77,7 @@ namespace test_compile
 
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
+        assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);
 
         // extern symbol must be found 
         assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);
@@ -281,6 +282,14 @@ namespace test_compile
         assure_compile_fail(@"let i = 0; i += 5;"@);
         assure_compile_fail(@"func foo(x:array<int>){} let const v = []:array<int>; foo(v);"@);
         assure_compile_fail(@"func foo(){let const x = []:array<int>; return x;}"@);
+
+        // constexpr if
+        assure_compile_fail(@"let mut a = 2; func(){if(a == 1)return "";else return 1;};"@);
+        assure_compile_fail(@"let mut a = 1; func(){if(a == 1)return "";else return 1;};"@);
+        assure_compile_success(@"let const a = 1; func(){if(a == 1)return "";else return 1;};"@);
+        assure_compile_success(@"let const a = 2; func(){if(a == 1)return "";else return 1;};"@);
+        assure_compile_success(@"let const a = 1; let b = a == 1 ? "" | 1; b as string;"@);
+        assure_compile_success(@"let const a = 2; let b = a == 1 ? "" | 1; b as int;"@);
 
         for (let mut i=0; i<1000; i+=1)
         {
