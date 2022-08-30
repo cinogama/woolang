@@ -1881,6 +1881,7 @@ namespace wo
             ast_list* argument_list = nullptr;
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
+            bool delay_adjust_return_type = false;
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
             std::string ir_func_signature_tag = "";
@@ -3314,7 +3315,7 @@ namespace wo
                         if (val_if_true->is_constant)
                         {
                             is_constant = true;
-                            constant_value.set_val(&val_if_true->get_constant_value());
+                            constant_value.set_val_compile_time(&val_if_true->get_constant_value());
                         }
                     }
                     else
