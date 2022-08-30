@@ -1434,9 +1434,6 @@ namespace wo
     {
         auto* a_value_funcdef = WO_AST();
 
-        if (a_value_funcdef->source_file == "E:/CINOGAMA_PROJECTS/joyengineecs/build/builtin/Editor/project/serialize.wo")
-            printf("");
-
         if (!a_value_funcdef->is_template_define)
         {
             if (a_value_funcdef->argument_list)
