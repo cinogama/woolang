@@ -235,17 +235,6 @@ namespace wo
                         || from->value_type == value::valuetype::string_type)
                         return true;
                 }
-
-                if (from->value_type == value::valuetype::string_type)
-                {
-                    if (to->is_array() && ((!to->has_template()) || to->template_arguments[0]->is_dynamic()))
-                        return true;
-                    if (to->is_map() && ((!to->has_template()) || (
-                        (to->template_arguments[0]->is_dynamic() || to->template_arguments[0]->is_string())
-                        && to->template_arguments[1]->is_dynamic()
-                        )))
-                        return true;
-                }
                 return false;
             }
 

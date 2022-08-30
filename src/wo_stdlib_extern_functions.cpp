@@ -665,6 +665,23 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, true);
 }
 
+WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
+{
+    // TODO: wo_cast_value_from_str will create map/array, to make sure gc-safe, wo should let gc pending when call this function.
+    if (wo_cast_value_from_str(args + 1, wo_string(args + 0), WO_MAPPING_TYPE))
+        return wo_ret_option_val(vm, args + 1);
+    return wo_ret_option_none(vm);
+}
+
+WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
+{
+    // TODO: wo_cast_value_from_str will create map/array, to make sure gc-safe, wo should let gc pending when call this function.
+    if (wo_cast_value_from_str(args + 1, wo_string(args + 0), WO_ARRAY_TYPE))
+        return wo_ret_option_val(vm, args + 1);
+    return wo_ret_option_none(vm);
+}
+
+
 WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t argc)
 {
     std::wstring buf;
@@ -989,6 +1006,23 @@ namespace std
 
 namespace string
 {
+    func tomap(val:string)=> option<map<dynamic, dynamic>>
+    {
+        extern("rslib_std_parse_map_from_string") 
+        func _tomap(val: string, out_result: map<dynamic, dynamic>)
+            => option<map<dynamic, dynamic>>;
+
+        return _tomap(val, {});
+    }
+    func toarray(val:string)=> option<array<dynamic>>
+    {
+        extern("rslib_std_parse_array_from_string") 
+        func _toarray(val: string, out_result: array<dynamic>)
+            => option<array<dynamic>>;
+
+        return _toarray(val, []);
+    }
+
     extern("rslib_std_create_str_by_asciis") 
     func ascii(buf: array<int>)=> string;
 

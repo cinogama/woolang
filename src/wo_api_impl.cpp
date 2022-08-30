@@ -716,8 +716,8 @@ std::string _destring(const std::string& dstr)
     }
     return result;
 }
-void _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
-void _wo_cast_array(wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
+wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
 {
     wo::array_t* rsarr;
     wo::array_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsarr));
@@ -731,7 +731,8 @@ void _wo_cast_array(wo::value* value, wo::lexer* lex)
             break;
         }
 
-        _wo_cast_value(value, lex, wo::value::valuetype::invalid); // key!
+        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid)) // val!
+            return false;
         rsarr->push_back(*value);
 
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
@@ -739,8 +740,9 @@ void _wo_cast_array(wo::value* value, wo::lexer* lex)
     }
 
     value->set_gcunit_with_barrier(wo::value::valuetype::array_type, rsarr);
+    return true;
 }
-void _wo_cast_map(wo::value* value, wo::lexer* lex)
+wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
 {
     wo::mapping_t* rsmap;
     wo::mapping_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
@@ -755,30 +757,40 @@ void _wo_cast_map(wo::value* value, wo::lexer* lex)
             break;
         }
 
-        _wo_cast_value(value, lex, wo::value::valuetype::invalid); // key!
+        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid))// key!
+            return false;
         auto& val_place = (*rsmap)[*value];
 
         lex_type = lex->next(nullptr);
         if (lex_type != +wo::lex_type::l_typecast)
-            wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
+            //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
+            return false;
 
-        _wo_cast_value(&val_place, lex, wo::value::valuetype::invalid); // value!
+        if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
+            return false;
 
         if (lex->peek(nullptr) == +wo::lex_type::l_comma)
             lex->next(nullptr);
     }
 
     value->set_gcunit_with_barrier(wo::value::valuetype::mapping_type, rsmap);
+    return true;
 }
-void _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
+wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
 {
     std::wstring wstr;
     auto lex_type = lex->next(&wstr);
     if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
-        _wo_cast_map(value, lex);
+    {
+        if (!_wo_cast_map(value, lex))
+            return false;
+    }
     else if (lex_type == +wo::lex_type::l_index_begin) // is array
-        _wo_cast_array(value, lex);
-    else if (lex_type == +wo::lex_type::l_literal_string) // is string
+    {
+        if (!_wo_cast_array(value, lex))
+            return false;
+    }
+    else if (lex_type == +wo::lex_type::l_literal_string) // is string   
         value->set_string(wo::wstr_to_str(wstr).c_str());
     else if (lex_type == +wo::lex_type::l_add
         || lex_type == +wo::lex_type::l_sub
@@ -794,7 +806,8 @@ void _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype excep
 
             if (lex_type != +wo::lex_type::l_literal_integer
                 && lex_type != +wo::lex_type::l_literal_real)
-                wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+                // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+                return false;
         }
 
         if (lex_type == +wo::lex_type::l_literal_integer) // is real
@@ -816,17 +829,20 @@ void _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype excep
     else if (wstr == L"null")
         value->set_nil();// null
     else
-        wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+        //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+        return false;
 
     if (except_type != wo::value::valuetype::invalid && except_type != value->type)
-        wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
+        // wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
+        return false;
+    return true;
 
 }
-void wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type)
+wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type)
 {
     wo::lexer lex(wo::str_to_wstr(str), "json");
 
-    _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
 void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth, bool force_to_be_str)
@@ -1803,7 +1819,7 @@ wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
-        if ((size_t)place < _arr->array->size())
+        if ((size_t)place <= _arr->array->size())
         {
             auto index = _arr->array->insert(_arr->array->begin() + place, wo::value());
             if (val)
@@ -1879,8 +1895,14 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
         auto fnd = std::find_if(_arr->array->begin(), _arr->array->end(),
             [&](const wo::value& _elem)->bool
             {
-                return _elem.type == _aim->type
-                    && _elem.handle == _aim->handle;
+                auto* v = _elem.get();
+                if (v->type == _aim->type)
+                {
+                    if (v->type == wo::value::valuetype::string_type)
+                        return *v->string == *_aim->string;
+                    return _elem.handle == _aim->handle;
+                }
+                return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
