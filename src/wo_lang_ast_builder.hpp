@@ -4042,11 +4042,11 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 4);
+                wo_test(input.size() == 2);
 
                 auto* result = new ast_value_funccall;
 
-                result->arguments = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+                result->arguments = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
                 if (ast_directed_values* adv = dynamic_cast<ast_directed_values*>(WO_NEED_AST(0)))
                 {
