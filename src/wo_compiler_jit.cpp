@@ -1975,7 +1975,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::nequs:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::RESERVED_0:
+                case instruct::sidmap:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::jnequb:
                     WO_JIT_NOT_SUPPORT;

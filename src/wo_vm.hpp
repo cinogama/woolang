@@ -2357,7 +2357,40 @@ namespace wo
                                 WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current mapping.");
 
                         } while (0);
-                        
+
+                        break;
+                    }
+                    case instruct::opcode::sidmap:
+                    {
+                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N2_REF;
+
+                        wo_assert(nullptr != opnum1->gcunit);
+                        wo_assert(opnum1->type == value::valuetype::mapping_type);
+
+                        do
+                        {
+                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                            auto fnd = opnum1->mapping->find(*opnum2);
+                            if (fnd != opnum1->mapping->end())
+                            {
+                                auto* result = fnd->second.get();
+                                if (wo::gc::gc_is_marking())
+                                    opnum1->mapping->add_memo(result);
+                                rt_cr->set_ref(result);
+                                goto _vm_run_impl__sidmap_readend;
+                            }
+                        } while (0);
+                        do
+                        {
+                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                            auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
+                            if (wo::gc::gc_is_marking())
+                                opnum1->mapping->add_memo(result);
+                            rt_cr->set_ref(result);
+                        } while (0);
+
+                    _vm_run_impl__sidmap_readend:
                         break;
                     }
                     case instruct::opcode::idstr:

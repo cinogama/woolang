@@ -2542,6 +2542,7 @@ namespace wo
             ast_value* from = nullptr;
             ast_value* index = nullptr;
 
+            bool using_sidmap_to_store_value = false;
             uint16_t struct_offset = 0xFFFF;
 
             ast_value_index()

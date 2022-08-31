@@ -97,18 +97,18 @@ namespace wo
             abrt = 51 WO_OPCODE_SPACE,  // abrt(0_1/0)  (0xcc 0xcd can use it to abort)     
                                         // end(1_1/0)   1 byte
 
-            idarr = 52 WO_OPCODE_SPACE,  // idarr(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
-            idmap = 53 WO_OPCODE_SPACE,  // idmap(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idarr = 52 WO_OPCODE_SPACE,  // idarr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idmap = 53 WO_OPCODE_SPACE,  // idmap(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
             mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-            idstr = 56 WO_OPCODE_SPACE,     // idstr(dr_dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idstr = 56 WO_OPCODE_SPACE,     // idstr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
 
             equr = 57 WO_OPCODE_SPACE,      // equr(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             nequr = 58 WO_OPCODE_SPACE,     // nequr
             equs = 59 WO_OPCODE_SPACE,      // equs
             nequs = 60 WO_OPCODE_SPACE,     // nequs
-            RESERVED_0 = 61 WO_OPCODE_SPACE,      // 
+            sidmap = 61 WO_OPCODE_SPACE,    // sidmap(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF 3-9 byte
 
             jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
             idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte

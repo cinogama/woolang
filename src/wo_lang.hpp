@@ -2052,6 +2052,12 @@ namespace wo
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
+                bool using_sidmap_to_store_value = false;
+                auto* a_value_index_map = dynamic_cast<ast_value_index*>(a_value_assign->left);
+                if (a_value_index_map && a_value_index_map->from->value_type->is_map())
+                    // a[xx] = val; generate 'sidmap' opcode!
+                    a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
+
                 // if mixed type, do opx
                 bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
                 value::valuetype optype = value::valuetype::invalid;
@@ -2069,6 +2075,7 @@ namespace wo
                 auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
 
                 if (is_cr_reg(*beoped_left_opnum_ptr)
+                    //      FUNC CALL                           A + B ...                       A[X] (.E.G)
                     && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
                 {
                     complete_using_register(*beoped_left_opnum_ptr);
@@ -2764,7 +2771,12 @@ namespace wo
                     if (a_value_index->from->value_type->is_array())
                         compiler->idarr(beoped_left_opnum, op_right_opnum);
                     else if (a_value_index->from->value_type->is_map())
-                        compiler->idmap(beoped_left_opnum, op_right_opnum);
+                    {
+                        if (a_value_index->using_sidmap_to_store_value)
+                            compiler->sidmap(beoped_left_opnum, op_right_opnum);
+                        else
+                            compiler->idmap(beoped_left_opnum, op_right_opnum);
+                    }
                     else if (a_value_index->from->value_type->is_string())
                         compiler->idstr(beoped_left_opnum, op_right_opnum);
                     else
