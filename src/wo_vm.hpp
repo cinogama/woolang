@@ -819,6 +819,8 @@ namespace wo
                     tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::idmap:
                     tmpos << "idmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::sidmap:
+                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::idstr:
                     tmpos << "idstr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::equr:
