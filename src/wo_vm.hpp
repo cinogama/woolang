@@ -2353,8 +2353,11 @@ namespace wo
                                 rt_cr->set_ref(result);
                                 break;
                             }
+                            else
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current mapping.");
+
                         } while (0);
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current mapping.");
+                        
                         break;
                     }
                     case instruct::opcode::idstr:
