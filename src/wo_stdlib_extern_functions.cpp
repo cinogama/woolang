@@ -586,6 +586,11 @@ WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, wo_map_find(args + 0, args + 1));
 }
 
+WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_ref(vm, wo_map_set(args + 0, args + 1, args + 2));
+}
+
 WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value result = wo_map_get(args + 0, args + 1);
@@ -864,10 +869,8 @@ namespace option
     {
         match(self)
         {
-        value(u)?
-            return u->reduce();
-        none?
-            return none;
+        value(u)? return u->reduce();
+        none? return none;
         }
     }
 
@@ -1195,28 +1198,30 @@ namespace array
 
 namespace map
 {
+    extern("rslib_std_map_set") 
+        func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
     extern("rslib_std_lengthof") 
-        func len<KT, VT>(val: map<KT, VT>)=>int;
+        func len<KT, VT>(self: map<KT, VT>)=>int;
     extern("rslib_std_make_dup")
-        func dup<KT, VT>(val: map<KT, VT>)=> map<KT, VT>;
+        func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
     extern("rslib_std_map_find") 
-        func find<KT, VT>(val: map<KT, VT>, index: KT)=> bool;
+        func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
     extern("rslib_std_map_only_get") 
-        func get<KT, VT>(m: map<KT, VT>, index: KT)=> option<VT>;
+        func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern("rslib_std_map_contain") 
-        func contain<KT, VT>(m: map<KT, VT>, index: KT)=>bool;
+        func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
     extern("rslib_std_map_get_by_default") 
-        func get<KT, VT>(m: map<KT, VT>, index: KT, default_val: VT)=>VT;
+        func get<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
     extern("rslib_std_map_get_or_default") 
-        func get_or_default<KT, VT>(m: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        func get_or_default<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_empty")
-        func empty<KT, VT>(val: map<KT, VT>)=> bool;
+        func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        func remove<KT, VT>(val: map<KT, VT>, index: int)=> void;
+        func remove<KT, VT>(self: map<KT, VT>, index: int)=> void;
     extern("rslib_std_map_clear")
-        func clear<KT, VT>(val: map<KT, VT>)=> void;
+        func clear<KT, VT>(self: map<KT, VT>)=> void;
 
     using iterator<KT, VT> = gchandle;
     namespace iterator 
@@ -1228,7 +1233,30 @@ namespace map
     }
 
     extern("rslib_std_map_iter")
-        func iter<KT, VT>(val:map<KT, VT>)=>iterator<KT, VT>;
+        func iter<KT, VT>(self:map<KT, VT>)=>iterator<KT, VT>;
+
+    func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
+    {
+        let result = []: array<KT>;
+        for (let key, val : self)
+            result->add(key);
+        return result;
+    }
+    func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
+    {
+        let result = []: array<VT>;
+        for (let key, val : self)
+            result->add(val);
+        return result;
+    }
+    func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
+    {
+        let result = {}: map<KT, VT>;
+        for (let key, val : self)
+            if (functor(key, val))
+                result[key] = val;
+        return result;
+    }
 }
 
 namespace gchandle

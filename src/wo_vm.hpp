@@ -2354,13 +2354,7 @@ namespace wo
                                 break;
                             }
                         } while (0);
-                        // TODO: Should report error here to make sure 'nil-safe'
-                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                        auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
-                        if (wo::gc::gc_is_marking())
-                            opnum1->mapping->add_memo(result);
-                        rt_cr->set_ref(result);
-
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current mapping.");
                         break;
                     }
                     case instruct::opcode::idstr:
