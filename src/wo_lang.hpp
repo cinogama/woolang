@@ -2054,7 +2054,9 @@ namespace wo
             {
                 bool using_sidmap_to_store_value = false;
                 auto* a_value_index_map = dynamic_cast<ast_value_index*>(a_value_assign->left);
-                if (a_value_index_map && a_value_index_map->from->value_type->is_map())
+                if (a_value_index_map
+                    && a_value_index_map->from->value_type->is_map()
+                    && a_value_assign->operate == +lex_type::l_assign)
                     // a[xx] = val; generate 'sidmap' opcode!
                     a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
 
