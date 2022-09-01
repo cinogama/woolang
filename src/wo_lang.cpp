@@ -98,14 +98,12 @@ namespace wo
                         str_to_wstr(*a_value_idx->index->get_constant_value().string)
                     ); fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
-                    if (fnd->second.init_value_may_nil)
+                    if (!fnd->second.member_type->is_pending())
                     {
-                        if (!fnd->second.init_value_may_nil->value_type->is_pending())
-                        {
-                            a_value_idx->value_type = fnd->second.init_value_may_nil->value_type;
-                            a_value_idx->struct_offset = fnd->second.offset;
-                        }
+                        a_value_idx->value_type = fnd->second.member_type;
+                        a_value_idx->struct_offset = fnd->second.offset;
                     }
+
                 }
             }
         }
@@ -910,7 +908,11 @@ namespace wo
     WO_PASS1(ast_struct_member_define)
     {
         auto* a_struct_member_define = WO_AST();
-        analyze_pass1(a_struct_member_define->member_val_or_type_tkplace);
+
+        if (a_struct_member_define->is_value_pair)
+            analyze_pass1(a_struct_member_define->member_value_pair);
+        else
+            fully_update_type(a_struct_member_define->member_type, true);
 
         return true;
     }
@@ -1375,7 +1377,11 @@ namespace wo
     WO_PASS2(ast_struct_member_define)
     {
         auto* a_struct_member_define = WO_AST();
-        analyze_pass2(a_struct_member_define->member_val_or_type_tkplace);
+
+        if (a_struct_member_define->is_value_pair)
+            analyze_pass2(a_struct_member_define->member_value_pair);
+        else
+            fully_update_type(a_struct_member_define->member_type, false);
 
         return true;
     }
@@ -1622,17 +1628,11 @@ namespace wo
                             str_to_wstr(*a_value_index->index->get_constant_value().string)
                         ); fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
-                        if (fnd->second.init_value_may_nil)
+                        if (!fnd->second.member_type->is_pending())
                         {
-                            if (!fnd->second.init_value_may_nil->value_type->is_pending())
-                            {
-                                a_value_index->value_type = fnd->second.init_value_may_nil->value_type;
-                                a_value_index->struct_offset = fnd->second.offset;
-                            }
+                            a_value_index->value_type = fnd->second.member_type;
+                            a_value_index->struct_offset = fnd->second.offset;
                         }
-                        else
-                            lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_UNDEFINED_MEMBER,
-                                str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
                     }
                     else
                     {
@@ -2060,14 +2060,16 @@ namespace wo
                     auto fnd = a_value_make_struct_instance->value_type->struct_member_index.find(membpair->member_name);
                     if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
                     {
+                        wo_assert(membpair->is_value_pair);
+
                         membpair->member_offset = fnd->second.offset;
-                        fully_update_type(fnd->second.init_value_may_nil->value_type, false);
-                        if (!fnd->second.init_value_may_nil->value_type->accept_type(membpair->member_val_or_type_tkplace->value_type, false))
+                        fully_update_type(fnd->second.member_type, false);
+                        if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
                                 , membpair->member_name.c_str()
-                                , fnd->second.init_value_may_nil->value_type->get_type_name(false).c_str()
-                                , membpair->member_val_or_type_tkplace->value_type->get_type_name(false).c_str());
+                                , fnd->second.member_type->get_type_name(false).c_str()
+                                , membpair->member_value_pair->value_type->get_type_name(false).c_str());
                         }
                     }
                     else
@@ -2903,9 +2905,9 @@ namespace wo
                     return true;
                 if (ltsymb == nullptr || rtsymb == nullptr)
                 {
-                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias) 
+                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias)
                     {
-                        wo_assert(another->value_type==wo::value::valuetype::mapping_type 
+                        wo_assert(another->value_type == wo::value::valuetype::mapping_type
                             || another->value_type == wo::value::valuetype::array_type);
                         return ltsymb->type_informatiom->value_type == another->value_type;
                     }

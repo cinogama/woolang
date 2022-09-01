@@ -133,11 +133,14 @@ namespace wo
 
             struct struct_offset
             {
-                ast_value* init_value_may_nil = nullptr;
+                ast_type* member_type = nullptr;
                 uint16_t offset = (uint16_t)0xFFFF;
                 std::vector<size_t> union_used_template_index;
             };
-            std::map<std::wstring, struct_offset> struct_member_index;
+
+            using struct_member_infos_t = std::map<std::wstring, struct_offset>;
+            struct_member_infos_t struct_member_index;
+
             ast_type* using_type_name = nullptr;
             ast_value* typefrom = nullptr;
 
@@ -766,10 +769,11 @@ namespace wo
             {
                 WO_REINSTANCE(argtype);
             }
-            for (auto& memberinfo : dumm->struct_member_index)
-            {
-                WO_REINSTANCE(memberinfo.second.init_value_may_nil);
-            }
+            // Do not reinstance, or using st = struct {x: array<st>} will stack overflow
+            //for (auto& memberinfo : dumm->struct_member_index)
+            //{
+            //    WO_REINSTANCE(memberinfo.second.init_value_may_nil);
+            //}
             WO_REINSTANCE(dumm->using_type_name);
 
             return dumm;
@@ -3221,7 +3225,13 @@ namespace wo
         struct ast_struct_member_define : virtual public grammar::ast_base
         {
             std::wstring member_name;
-            ast_value* member_val_or_type_tkplace;
+
+            bool is_value_pair;
+            union
+            {
+                ast_type* member_type;
+                ast_value* member_value_pair;
+            };
 
             uint16_t member_offset;
 
@@ -3233,7 +3243,14 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->member_val_or_type_tkplace);
+                if (is_value_pair)
+                {
+                    WO_REINSTANCE(dumm->member_value_pair);
+                }
+                else
+                {
+                    WO_REINSTANCE(dumm->member_type);
+                }
 
                 return dumm;
             }
@@ -5518,16 +5535,17 @@ namespace wo
                 if (input.size() == 2)
                 {
                     // identifier TYPE_DECLEAR
-                    result->member_val_or_type_tkplace = new ast_value_takeplace;//  dynamic_cast<ast_list*>(WO_NEED_AST(5));
-                    result->member_val_or_type_tkplace->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-                    wo_assert(result->member_val_or_type_tkplace->value_type);
+                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                    result->is_value_pair = false;
+                    wo_assert(result->member_type);
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
                     // identifier = VALUE
-                    result->member_val_or_type_tkplace = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    wo_assert(result->member_val_or_type_tkplace);
+                    result->member_value_pair = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                    result->is_value_pair = true;
+                    wo_assert(result->member_value_pair);
                 }
                 return (ast_basic*)result;
             }
@@ -5548,12 +5566,12 @@ namespace wo
                     auto* member_pair = dynamic_cast<ast_struct_member_define*>(members);
                     wo_assert(member_pair);
 
-                    struct_type->struct_member_index[member_pair->member_name].init_value_may_nil
-                        = dynamic_cast<ast_value_takeplace*>(member_pair->member_val_or_type_tkplace);
+                    struct_type->struct_member_index[member_pair->member_name].member_type
+                        = member_pair->member_type;
                     struct_type->struct_member_index[member_pair->member_name].offset
                         = membid++;
 
-                    wo_assert(struct_type->struct_member_index[member_pair->member_name].init_value_may_nil);
+                    wo_assert(struct_type->struct_member_index[member_pair->member_name].member_type);
 
                     members = members->sibling;
                 }

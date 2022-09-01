@@ -50,7 +50,11 @@ namespace wo
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<std::wstring> template_types;
+
         std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
+
+        std::map<std::vector<uint32_t>, ast::ast_type::struct_member_infos_t> template_struct_index_infos_list;
+        ast::ast_type::struct_member_infos_t template_origin_struct_index_infos;
 
         void apply_template_setting(ast::ast_defines* defs)
         {
@@ -340,6 +344,35 @@ namespace wo
             clean_and_close_lang();
         }
 
+        bool generate_struct_index_infos_by_templates(ast::ast_type* type, lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
+        {
+            std::vector<uint32_t> hashs;
+            for (auto& template_type : templates)
+            {
+                if (template_type->is_pending())
+                    return false;
+
+                hashs.push_back(get_typing_hash_after_pass1(template_type));
+            }
+            wo_assert(type->is_struct());
+
+            auto fnd = symb->template_struct_index_infos_list.find(hashs);
+            if (fnd == symb->template_struct_index_infos_list.end())
+            {
+                auto& list = symb->template_struct_index_infos_list[hashs];
+                list = symb->template_origin_struct_index_infos;
+
+                for (auto& [_, info] : list)
+                {
+                    wo_assert(info.member_type != nullptr);
+                    info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
+                }
+            }
+            type->struct_member_index = symb->template_struct_index_infos_list[hashs];
+            return true;
+        }
+
+
         bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
         {
             bool result = true;
@@ -380,15 +413,15 @@ namespace wo
             // Check member
             for (auto& [naming_memb_name, naming_memb_name_val] : naming->struct_member_index)
             {
-                wo_assert(naming_memb_name_val.init_value_may_nil);
+                wo_assert(naming_memb_name_val.member_type);
                 if (auto fnd = clstype->struct_member_index.find(naming_memb_name); fnd != clstype->struct_member_index.end())
                 {
-                    wo_assert(fnd->second.init_value_may_nil);
+                    wo_assert(fnd->second.member_type);
 
-                    if (naming_memb_name_val.init_value_may_nil->value_type->is_pending())
+                    if (naming_memb_name_val.member_type->is_pending())
                         ; // member type not computed, just pass
-                    else if (fnd->second.init_value_may_nil->value_type->is_pending()
-                        || !fnd->second.init_value_may_nil->value_type->is_same(naming_memb_name_val.init_value_may_nil->value_type, false))
+                    else if (fnd->second.member_type->is_pending()
+                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -482,6 +515,9 @@ namespace wo
                     {
                         lang_symbol* type_sym = find_type_in_this_scope(type);
 
+                        if (nullptr == type_sym)
+                            type_sym = type->symbol;
+
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
                             return;
 
@@ -500,9 +536,6 @@ namespace wo
                                 _lang->traving_symbols.erase(_tving_node);
                             }
                         };
-
-                        if (nullptr == type_sym)
-                            type_sym = type->symbol;
 
                         if (type_sym
                             && type_sym->type != lang_symbol::symbol_type::typing
@@ -554,20 +587,19 @@ namespace wo
                                 *symboled_type = *type_sym->type_informatiom;
                                 type_sym->type_informatiom->instance(symboled_type);
 
+                                if (using_template && symboled_type->is_struct())
+                                {
+                                    // template arguments not anlyzed.
+                                    if (!generate_struct_index_infos_by_templates(symboled_type, type_sym, type->template_arguments))
+                                        return;
+                                }
+
                                 fully_update_type(symboled_type, in_pass_1, template_types);
 
                                 if (type->is_func())
                                     type->set_ret_type(symboled_type);
                                 else
                                     type->set_type(symboled_type);
-
-                                // Update member typing index;
-                                if (using_template)
-                                    for (auto& [name, clsmember] : type->struct_member_index)
-                                    {
-                                        if (clsmember.init_value_may_nil)
-                                            clsmember.init_value_may_nil = dynamic_cast<ast::ast_value*>(clsmember.init_value_may_nil->instance());
-                                    }
 
                                 if (already_has_using_type_name)
                                     type->using_type_name = already_has_using_type_name;
@@ -624,12 +656,12 @@ namespace wo
 
             for (auto& [name, struct_info] : type->struct_member_index)
             {
-                if (struct_info.init_value_may_nil)
+                if (struct_info.member_type)
                 {
                     if (in_pass_1)
-                        analyze_pass1(struct_info.init_value_may_nil);
+                        fully_update_type(struct_info.member_type, in_pass_1, template_types);
                     if (has_step_in_step2)
-                        analyze_pass2(struct_info.init_value_may_nil);
+                        fully_update_type(struct_info.member_type, in_pass_1, template_types);
                 }
             }
 
@@ -2965,10 +2997,10 @@ namespace wo
                 while (init_mem_val_pair)
                 {
                     auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
-                    wo_assert(membpair);
+                    wo_assert(membpair && membpair->is_value_pair);
                     init_mem_val_pair = init_mem_val_pair->sibling;
 
-                    memb_values[membpair->member_offset] = membpair->member_val_or_type_tkplace;
+                    memb_values[membpair->member_offset] = membpair->member_value_pair;
                 }
 
                 for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
@@ -3933,6 +3965,16 @@ namespace wo
                     {
                         sym->naming_list.push_back(naming);
                         naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
+                    }
+                }
+
+                if (def->is_template_define && as_type->is_struct())
+                {
+                    sym->template_origin_struct_index_infos = as_type->struct_member_index;
+                    for (auto& [_, info] : sym->template_origin_struct_index_infos)
+                    {
+                        wo_assert(info.member_type != nullptr);
+                        info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
                     }
                 }
 
