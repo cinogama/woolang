@@ -2896,12 +2896,33 @@ namespace wo
 
             if (is_hkt() && another->is_hkt())
             {
-                auto* ltsymb = base_typedef_symbol(symbol);
-                auto* rtsymb = base_typedef_symbol(another->symbol);
+                auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
+                auto* rtsymb = another->symbol ? base_typedef_symbol(another->symbol) : nullptr;
 
-                if (ltsymb == rtsymb)
+                if (ltsymb && rtsymb && ltsymb == rtsymb)
                     return true;
-                if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
+                if (ltsymb == nullptr || rtsymb == nullptr)
+                {
+                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias) 
+                    {
+                        wo_assert(another->value_type==wo::value::valuetype::mapping_type 
+                            || another->value_type == wo::value::valuetype::array_type);
+                        return ltsymb->type_informatiom->value_type == another->value_type;
+                    }
+                    if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
+                    {
+                        wo_assert(value_type == wo::value::valuetype::mapping_type
+                            || value_type == wo::value::valuetype::array_type);
+                        return rtsymb->type_informatiom->value_type == value_type;
+                    }
+                    // both nullptr, check base type
+                    wo_assert(another->value_type == wo::value::valuetype::mapping_type
+                        || another->value_type == wo::value::valuetype::array_type);
+                    wo_assert(value_type == wo::value::valuetype::mapping_type
+                        || value_type == wo::value::valuetype::array_type);
+                    return value_type == another->value_type;
+                }
+                else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
                 {
                     // TODO: struct/pending type need check, struct!
                     return ltsymb->type_informatiom->value_type == rtsymb->type_informatiom->value_type;

@@ -260,8 +260,26 @@ namespace test_template
         return template_func_symb_inside_impl:<T>();
     }
 
+    func hkt_foo<HKT, T, B>(v: HKT<T<B>>)
+        where std::declval:<B>() is int;
+    {
+        B as int;
+        return []: array<string>: T<string>;
+    }
+
     func main()
     {
+        using myarr<T> = array<T>;
+
+        foo([[1]: myarr<int>]) as myarr<string>;
+        foo([[1]]) as array<string>;
+
+        using sparr<T> = array<string>;
+        alias alarr<T> = array<array<string>>;
+
+        foo([["Hello"]: sparr<int>]) as sparr<string>;
+        foo([[]: array<array<string>>: alarr<int>]) as alarr<string>;
+
         let mins = mtest:<string>();
         mins.c = 66;
         

@@ -159,18 +159,22 @@ namespace wo
 
             if (typing->is_hkt())
             {
-                wo_assert(typing->symbol);
-                auto* base_type_symb = ast::ast_type::base_typedef_symbol(typing->symbol);
-
-                if (base_type_symb->type == lang_symbol::symbol_type::type_alias)
+                if (typing->value_type != wo::value::valuetype::array_type
+                    && typing->value_type != wo::value::valuetype::mapping_type)
                 {
-                    if (base_type_symb->type_informatiom->using_type_name)
-                        hashval = (uint64_t)base_type_symb->type_informatiom->using_type_name->symbol;
+                    wo_assert(typing->symbol);
+                    auto* base_type_symb = ast::ast_type::base_typedef_symbol(typing->symbol);
+
+                    if (base_type_symb->type == lang_symbol::symbol_type::type_alias)
+                    {
+                        if (base_type_symb->type_informatiom->using_type_name)
+                            hashval = (uint64_t)base_type_symb->type_informatiom->using_type_name->symbol;
+                        else
+                            hashval = (uint64_t)base_type_symb->type_informatiom->value_type;
+                    }
                     else
-                        hashval = (uint64_t)base_type_symb->type_informatiom->value_type;
+                        hashval = (uint64_t)base_type_symb;
                 }
-                else
-                    hashval = (uint64_t)base_type_symb;
             }
 
             ++hashval;
