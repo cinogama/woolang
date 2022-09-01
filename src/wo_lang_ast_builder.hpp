@@ -682,32 +682,7 @@ namespace wo
                     << ANSI_HIM << get_type_name() << ANSI_RST << L" >" << std::endl;
             }
 
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, L"pending");
-                if (!child_instance) *dumm = *this;
-                ast_symbolable_base::instance(dumm);
-
-                dumm->symbol = symbol;
-                dumm->searching_begin_namespace_in_pass2 = searching_begin_namespace_in_pass2;
-
-                // Write self copy functions here..
-                dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
-                WO_REINSTANCE(dumm->complex_type);
-
-                for (auto& argtype : dumm->argument_types)
-                {
-                    WO_REINSTANCE(argtype);
-                }
-                for (auto& argtype : dumm->template_arguments)
-                {
-                    WO_REINSTANCE(argtype);
-                }
-                WO_REINSTANCE(dumm->using_type_name);
-
-                return dumm;
-            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
         struct ast_value : virtual public grammar::ast_base
@@ -768,6 +743,37 @@ namespace wo
                 return dumm;
             }
         };
+
+        inline grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        {
+            using astnode_type = decltype(MAKE_INSTANCE(this));
+            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, L"pending");
+            if (!child_instance) *dumm = *this;
+            ast_symbolable_base::instance(dumm);
+
+            dumm->symbol = symbol;
+            dumm->searching_begin_namespace_in_pass2 = searching_begin_namespace_in_pass2;
+
+            // Write self copy functions here..
+            dumm->typefrom = dude_dump_ast_value(dumm->typefrom);
+            WO_REINSTANCE(dumm->complex_type);
+
+            for (auto& argtype : dumm->argument_types)
+            {
+                WO_REINSTANCE(argtype);
+            }
+            for (auto& argtype : dumm->template_arguments)
+            {
+                WO_REINSTANCE(argtype);
+            }
+            for (auto& memberinfo : dumm->struct_member_index)
+            {
+                WO_REINSTANCE(memberinfo.second.init_value_may_nil);
+            }
+            WO_REINSTANCE(dumm->using_type_name);
+
+            return dumm;
+        }
 
         struct ast_value_takeplace : virtual public ast_value
         {
