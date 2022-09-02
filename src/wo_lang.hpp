@@ -52,9 +52,7 @@ namespace wo
         std::vector<std::wstring> template_types;
 
         std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
-
-        std::map<std::vector<uint32_t>, ast::ast_type::struct_member_infos_t> template_struct_index_infos_list;
-        ast::ast_type::struct_member_infos_t template_origin_struct_index_infos;
+        std::map<std::vector<uint32_t>, ast::ast_type*> template_type_instances;
 
         void apply_template_setting(ast::ast_defines* defs)
         {
