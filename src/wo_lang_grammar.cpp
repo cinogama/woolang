@@ -123,6 +123,26 @@ namespace wo
                             gm::nt(L"TYPE")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
 
+                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                            gm::te(gm::ttype::l_alias),
+                            gm::te(gm::ttype::l_identifier),
+                                gm::nt(L"DEFINE_TEMPLATE_ITEM"),
+                            gm::te(gm::ttype::l_where),
+                            gm::nt(L"FORALL_TYPE_CONCEPTS")}
+                    >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"FORALL_TYPE_CONCEPTS") >> gm::symlist{gm::nt(L"FORALL_TYPE_CONCEPT")}
+                    >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+                gm::nt(L"FORALL_TYPE_CONCEPTS") >> gm::symlist{gm::nt(L"FORALL_TYPE_CONCEPTS"), gm::te(gm::ttype::l_comma), gm::nt(L"FORALL_TYPE_CONCEPT")}
+                    >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
+
+                gm::nt(L"FORALL_TYPE_CONCEPT") >> gm::symlist{
+                    gm::te(gm::ttype::l_direct), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR")}
+                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"FORALL_TYPE_CONCEPT") >> gm::symlist{
+                    gm::te(gm::ttype::l_index_point), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR")}
+                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 //////////////////////////////////////////////////////////////////////////////////////
 
                 gm::nt(L"IMPORT_IDENTIFIER") >> gm::symlist{gm::te(gm::ttype::l_identifier)}
