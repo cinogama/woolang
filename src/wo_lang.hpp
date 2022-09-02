@@ -4374,23 +4374,38 @@ namespace wo
                         current_func_defined_in_function->type != wo::lang_scope::scope_type::function_scope)
                         current_func_defined_in_function = current_func_defined_in_function->parent_scope;
 
-                    if (current_func_defined_in_function != symb_defined_in_func)
+                    std::vector<lang_scope*> need_capture_func_list;
+
+                    while (current_func_defined_in_function
+                        && current_func_defined_in_function != symb_defined_in_func)
                     {
-                        // TODO: Enable capture from outside function more than 1 layers
-                        // Only capture 1 layer
-                        lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_IN_OUTSIDE_FUNC,
-                            result->name.c_str());
+                        need_capture_func_list.insert(need_capture_func_list.begin(), current_func_defined_in_function);
+
+                        // goto last function
+                        current_func_defined_in_function = current_func_defined_in_function->parent_scope;
+                        while (current_func_defined_in_function->parent_scope &&
+                            current_func_defined_in_function->type != wo::lang_scope::scope_type::function_scope)
+                            current_func_defined_in_function = current_func_defined_in_function->parent_scope;
                     }
+                    need_capture_func_list.push_back(current_function);
 
                     // Add symbol to capture list.
-                    auto& capture_list = current_function->function_node->capture_variables;
-                    if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
+                    for (auto* cur_capture_func_scope : need_capture_func_list)
                     {
-                        capture_list.push_back(result);
-                        // Define a closure symbol instead of current one.
-                        var_ident->symbol = result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, capture_list.size() - 1);
-                    }
+                        auto& capture_list = cur_capture_func_scope->function_node->capture_variables;
+                        wo_assert(std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end()
+                            || cur_capture_func_scope == cur_capture_func_scope);
 
+                        if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
+                        {
+                            capture_list.push_back(result);
+                            // Define a closure symbol instead of current one.
+                            temporary_entry_scope_in_pass1(cur_capture_func_scope);
+                            result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, capture_list.size() - 1);
+                            temporary_leave_scope_in_pass1();
+                        }
+                    }
+                    var_ident->symbol = result;
                 }
             }
             return result;
