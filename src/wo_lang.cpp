@@ -466,7 +466,7 @@ namespace wo
 
                 if (!decide_array_item_type->accept_type(val->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_array_item_type, val->value_type);
+                    auto* mixed_type = ast_value_binary::mix_types(decide_array_item_type, val->value_type);
                     if (mixed_type)
                         decide_array_item_type->set_type_with_name(mixed_type->type_name);
                     else
@@ -520,7 +520,7 @@ namespace wo
                 }
                 if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_key_type, map_pair->key->value_type);
+                    auto* mixed_type = ast_value_binary::mix_types(decide_map_key_type, map_pair->key->value_type);
                     if (mixed_type)
                     {
                         decide_map_key_type->set_type_with_name(mixed_type->type_name);
@@ -533,7 +533,7 @@ namespace wo
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::binary_upper_type(decide_map_val_type, map_pair->val->value_type);
+                    auto* mixed_type = ast_value_binary::mix_types(decide_map_val_type, map_pair->val->value_type);
                     if (mixed_type)
                     {
                         decide_map_val_type->set_type_with_name(mixed_type->type_name);
@@ -592,7 +592,7 @@ namespace wo
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
-                                auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                                auto* mixed_type = ast_value_binary::mix_types(func_return_type, a_ret->return_value->value_type);
                                 if (mixed_type)
                                     a_ret->located_function->value_type->set_ret_type(mixed_type);
                                 else
@@ -929,9 +929,12 @@ namespace wo
         analyze_pass1(a_value_trib_expr->val_if_true);
         analyze_pass1(a_value_trib_expr->val_or);
 
-        if (a_value_trib_expr->val_if_true->value_type->is_same(
-            a_value_trib_expr->val_or->value_type, false))
-            a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
+
+        if (auto* updated_type = ast_value_binary::mix_types(a_value_trib_expr->val_if_true->value_type, a_value_trib_expr->val_or->value_type))
+        {
+            a_value_trib_expr->value_type = updated_type;
+            updated_type->copy_source_info(a_value_trib_expr);
+        }
         else
             a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, L"pending");
 
@@ -974,7 +977,7 @@ namespace wo
                     {
                         if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                         {
-                            auto* mixed_type = ast_value_binary::binary_upper_type(func_return_type, a_ret->return_value->value_type);
+                            auto* mixed_type = ast_value_binary::mix_types(func_return_type, a_ret->return_value->value_type);
                             if (mixed_type)
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
@@ -1863,7 +1866,7 @@ namespace wo
             if (val)
             {
                 if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(val->value_type);
+                    decide_array_item_type->set_type(ast_value_binary::mix_types(decide_array_item_type, val->value_type));
                 else
                     decide_array_item_type = nullptr;
             }
@@ -1937,8 +1940,8 @@ namespace wo
             {
                 if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type->set_type(map_pair->key->value_type);
-                    decide_map_val_type->set_type(map_pair->val->value_type);
+                    decide_map_key_type->set_type(ast_value_binary::mix_types(decide_map_key_type, map_pair->key->value_type));
+                    decide_map_val_type->set_type(ast_value_binary::mix_types(decide_map_val_type, map_pair->val->value_type));
                 }
                 else
                 {
@@ -2120,17 +2123,20 @@ namespace wo
             analyze_pass2(a_value_trib_expr->val_if_true);
             analyze_pass2(a_value_trib_expr->val_or);
 
-            if (a_value_trib_expr->val_if_true->value_type->is_same(
-                a_value_trib_expr->val_or->value_type, false))
+            if (a_value_trib_expr->value_type->is_pending())
             {
-                a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
-            }
-            else
-            {
-                lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的不同分支的值应该有相同的类型，但此处分别是 '%ls' 和 '%ls'，继续"
-                    , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
-                    , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
-            }
+                if (auto* updated_type = ast_value_binary::mix_types(a_value_trib_expr->val_if_true->value_type, a_value_trib_expr->val_or->value_type))
+                {
+                    a_value_trib_expr->value_type = updated_type;
+                    updated_type->copy_source_info(a_value_trib_expr);
+                }
+                else
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的不同分支的值应该有相同的类型，但此处分别是 '%ls' 和 '%ls'，继续"
+                        , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
+                        , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
+                }
+            }          
         }
         return true;
     }

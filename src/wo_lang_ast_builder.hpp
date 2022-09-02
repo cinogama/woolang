@@ -1621,6 +1621,35 @@ namespace wo
                 return nullptr;
             }
 
+            static ast_type* mix_types(ast_type* left_v, ast_type* right_v)
+            {
+                if (left_v->is_pending() || right_v->is_pending())
+                    return nullptr;
+
+                if (left_v->is_same(right_v, false))
+                {
+                    ast_type* type = new ast_type(L"pending");
+                    type->set_type(left_v);
+                    return type;
+                }
+                if (left_v->accept_type(right_v, false))
+                {
+                    wo_assert(!right_v->accept_type(left_v, false));
+                    ast_type* type = new ast_type(L"pending");
+                    type->set_type(left_v);
+                    return type;
+                }
+                if (right_v->accept_type(left_v, false))
+                {
+                    wo_assert(!left_v->accept_type(right_v, false));
+                    ast_type* type = new ast_type(L"pending");
+                    type->set_type(right_v);
+                    return type;
+                }
+
+                return nullptr;
+            }
+
             static ast_type* binary_upper_type_with_operator(ast_type* left_v, ast_type* right_v, lex_type op)
             {
                 if (left_v->is_custom() || right_v->is_custom())
