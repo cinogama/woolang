@@ -342,7 +342,7 @@ namespace wo
             clean_and_close_lang();
         }
 
-        ast::ast_type* generate_type_instance_by_templates(ast::ast_type* type, lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
+        ast::ast_type* generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
         {
             std::vector<uint32_t> hashs;
             for (auto& template_type : templates)
@@ -358,12 +358,14 @@ namespace wo
             {
                 auto& list = symb->template_type_instances[hashs];
                 list = new ast::ast_type(L"pending");
+
                 list->set_type(symb->type_informatiom);
+                symb->type_informatiom->instance(list);
 
                 for (auto& [_, info] : list->struct_member_index)
                 {
-                    wo_assert(info.member_type != nullptr);
-                    info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
+                    if (info.member_type)
+                        info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
                 }
             }
             return symb->template_type_instances[hashs];
@@ -586,23 +588,19 @@ namespace wo
                                 {
                                     // template arguments not anlyzed.
                                     if (auto* template_instance_type =
-                                        generate_type_instance_by_templates(symboled_type, type_sym, type->template_arguments))
+                                        generate_type_instance_by_templates(type_sym, type->template_arguments))
                                     {
                                         if (template_instance_type->is_pending())
                                             fully_update_type(template_instance_type, in_pass_1, template_types);
 
-                                        *symboled_type = *template_instance_type;
-                                        type_sym->type_informatiom->instance(template_instance_type);
+                                        symboled_type->set_type(template_instance_type);
                                     }
                                     else
                                         // Failed to instance current template type, skip.
                                         return;
                                 }
                                 else
-                                {
                                     *symboled_type = *type_sym->type_informatiom;
-                                    type_sym->type_informatiom->instance(symboled_type);
-                                }
 
                                 fully_update_type(symboled_type, in_pass_1, template_types);
 
