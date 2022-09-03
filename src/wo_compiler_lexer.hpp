@@ -22,7 +22,6 @@
 #define ANSI_WIDE_CHAR_SIGN L
 #endif
 
-
 namespace wo
 {
     BETTER_ENUM(lex_type, int,
@@ -512,13 +511,13 @@ namespace wo
             swprintf(describe, 255, fmt, args...);
 
             lex_error_msg msg = lex_error_msg
-                {
-                    0x1000 + errorno,
-                    now_file_rowno,
-                    now_file_colno,
-                    describe,
-                    source_file
-                };
+            {
+                0x1000 + errorno,
+                now_file_rowno,
+                now_file_colno,
+                describe,
+                source_file
+            };
             just_have_err = true;
             get_cur_error_frame().emplace_back(msg);
             skip_error_line();
@@ -532,13 +531,13 @@ namespace wo
             swprintf(describe, 255, fmt, args...);
 
             lex_error_msg msg = lex_error_msg
-                {
-                    0x1000 + errorno,
-                    next_file_rowno,
-                    next_file_colno,
-                    describe,
-                    source_file
-                };
+            {
+                0x1000 + errorno,
+                next_file_rowno,
+                next_file_colno,
+                describe,
+                source_file
+            };
 
             just_have_err = true;
             get_cur_error_frame().emplace_back(msg);
@@ -555,13 +554,13 @@ namespace wo
             swprintf(describe, 255, fmt, args...);
 
             lex_error_msg msg = lex_error_msg
-                {
-                    0x1000 + errorno,
-                    row_no,
-                    col_no,
-                    describe,
-                    tree_node->source_file
-                };
+            {
+                0x1000 + errorno,
+                row_no,
+                col_no,
+                describe,
+                tree_node->source_file
+            };
 
             just_have_err = true;
             get_cur_error_frame().emplace_back(msg);
@@ -1277,41 +1276,6 @@ namespace wo
                         return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
                 }
             }
-            else if (lex_isidentbeg(readed_ch))
-            {
-                // l_identifier or key world..
-                write_result(readed_ch);
-
-                int following_ch;
-                while (true)
-                {
-                    following_ch = peek_one();
-                    if (lex_isident(following_ch))
-                        write_result(next_one());
-                    else
-                        break;
-                }
-                // TODO: Check it, does this str is a keyword?
-                if (used_macro_list)
-                {
-                    auto fnd = used_macro_list->find(read_result());
-                    if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
-                    {
-                        auto symb = wo_extern_symb(fnd->second->_macro_action_vm,
-                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
-                        wo_assert(symb);
-
-                        wo_push_pointer(fnd->second->_macro_action_vm, this);
-                        wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
-
-                        return next(out_literal);
-                    }
-                }
-                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
-                    return lex_type::l_identifier;
-                else
-                    return keyword_type;
-            }
             else if (lex_isoperatorch(readed_ch))
             {
             checking_valid_operator:
@@ -1410,6 +1374,41 @@ namespace wo
             else if (readed_ch == EOF)
             {
                 return lex_type::l_eof;
+            }
+            else if (lex_isidentbeg(readed_ch))
+            {
+                // l_identifier or key world..
+                write_result(readed_ch);
+
+                int following_ch;
+                while (true)
+                {
+                    following_ch = peek_one();
+                    if (lex_isident(following_ch))
+                        write_result(next_one());
+                    else
+                        break;
+                }
+                // TODO: Check it, does this str is a keyword?
+                if (used_macro_list)
+                {
+                    auto fnd = used_macro_list->find(read_result());
+                    if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
+                    {
+                        auto symb = wo_extern_symb(fnd->second->_macro_action_vm,
+                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
+                        wo_assert(symb);
+
+                        wo_push_pointer(fnd->second->_macro_action_vm, this);
+                        wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+
+                        return next(out_literal);
+                    }
+                }
+                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
+                    return lex_type::l_identifier;
+                else
+                    return keyword_type;
             }
             ///////////////////////////////////////////////////////////////////////////////////////
             return lex_error(0x000, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH, readed_ch);
