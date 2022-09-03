@@ -4260,28 +4260,41 @@ namespace wo
 
             if (searching_result.size() > 1)
             {
-                std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
-                size_t fnd_count = 0;
-                for (auto fnd_result : searching_result)
-                {
-                    auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
-                    if (_full_namespace_ == L"")
-                        err_info += WO_TERM_GLOBAL_NAMESPACE;
-                    else
-                        err_info += L"'" + _full_namespace_ + L"'";
-                    fnd_count++;
-                    if (fnd_count + 1 == searching_result.size())
-                        err_info += L" " WO_TERM_AND L" ";
-                    else
-                        err_info += L", ";
-                }
+                // Result might have un-accessable type? remove them
+                std::set<lang_symbol*> selecting_results;
+                selecting_results.swap(searching_result);
+                for (auto fnd_result : selecting_results)
+                    if (check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                        searching_result.insert(fnd_result);
 
-                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str.c_str());
+                if (searching_result.empty())
+                    return nullptr;
+                else if (searching_result.size() > 1)
+                {
+                    std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
+                    size_t fnd_count = 0;
+                    for (auto fnd_result : searching_result)
+                    {
+                        auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
+                        if (_full_namespace_ == L"")
+                            err_info += WO_TERM_GLOBAL_NAMESPACE;
+                        else
+                            err_info += L"'" + _full_namespace_ + L"'";
+                        fnd_count++;
+                        if (fnd_count + 1 == searching_result.size())
+                            err_info += L" " WO_TERM_AND L" ";
+                        else
+                            err_info += L", ";
+                    }
+
+                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str.c_str());
+                }
             }
             // Check symbol is accessable?
             auto* result = *searching_result.begin();
-            check_symbol_is_accessable(result, searching_from_scope, var_ident);
-            return result;
+            if (check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
+                return result;
+            return nullptr;
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {

@@ -974,7 +974,7 @@ namespace std
         func rand(from:real, to:real)=>real;
 
     extern("rslib_std_break_yield") 
-        func break_yield()=>void;
+        func yield()=>void;
 
     extern("rslib_std_thread_sleep")
         func sleep(tm:real)=>void;
