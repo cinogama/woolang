@@ -8,7 +8,7 @@ using test_func_pair = struct{
 let test_function_set = []:array<test_func_pair>;
 let mut test_success_count = 0, mut test_failed_count = 0;
 
-func test_function(func_name:string, test_func:()=>void)
+public func test_function(func_name:string, test_func:()=>void)
 {
     test_function_set->add(test_func_pair{
             name = func_name,
@@ -16,7 +16,7 @@ func test_function(func_name:string, test_func:()=>void)
         });
 }
 
-func execute_all_test()
+public func execute_all_test()
 {
     let mut i = 0;
     while (i < test_function_set->len())
@@ -49,7 +49,7 @@ private func _test_compare<AT, BT>(a: AT, b :BT)
     return std::equalbyte(a, b);
 }
 
-func test_equal<AT, BT>(a: AT, b: BT)
+public func test_equal<AT, BT>(a: AT, b: BT)
 {
     let result = _test_compare(a, b);
 
@@ -63,7 +63,7 @@ func test_equal<AT, BT>(a: AT, b: BT)
     }
 }
 
-func test_assure(a: bool)
+public func test_assure(a: bool)
 {
     if (a)
         test_success_count += 1;

@@ -849,7 +849,7 @@ namespace wo
             if (a_pattern_union_value->pattern_arg_in_union_may_nil)
             {
                 a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
-
+                a_match_union_case->take_place_value_may_nil->copy_source_info(a_pattern_union_value->pattern_arg_in_union_may_nil);
                 if (auto* a_pattern_identifier = dynamic_cast<ast::ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
                 {
                     if (a_pattern_identifier->decl == identifier_decl::REF)

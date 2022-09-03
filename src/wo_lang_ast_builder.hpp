@@ -3575,6 +3575,7 @@ namespace wo
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
 
                 ast_varref_defines* vardefs = new ast_varref_defines;
+                vardefs->copy_source_info(enum_items);
                 vardefs->declear_attribute = union_arttribute;
                 wo_assert(vardefs->declear_attribute);
 
@@ -3582,11 +3583,13 @@ namespace wo
                 {
                     ast_value_literal* const_val = new ast_value_literal(
                         token{ +lex_type::l_literal_integer, std::to_wstring(enumitem->enum_val) });
+                    const_val->copy_source_info(enumitem);
 
                     auto* define_enum_item = new ast_pattern_identifier;
                     define_enum_item->identifier = enumitem->enum_ident;
                     define_enum_item->attr = new ast_decl_attribute();
                     define_enum_item->attr->add_attribute(&lex, +lex_type::l_const);
+                    define_enum_item->copy_source_info(enumitem);
 
                     vardefs->var_refs.push_back(
                         { define_enum_item, const_val });
@@ -4955,13 +4958,9 @@ namespace wo
                 exp_dir_iter_call->arguments->append_at_head(be_iter_value);
                 exp_dir_iter_call->directed_value_from = be_iter_value;
 
-                exp_dir_iter_call->called_func->source_file = be_iter_value->source_file;
-                exp_dir_iter_call->called_func->row_no = be_iter_value->row_no;
-                exp_dir_iter_call->called_func->col_no = be_iter_value->col_no;
+                exp_dir_iter_call->called_func->copy_source_info(be_iter_value);
 
-                exp_dir_iter_call->source_file = be_iter_value->source_file;
-                exp_dir_iter_call->row_no = be_iter_value->row_no;
-                exp_dir_iter_call->col_no = be_iter_value->col_no;
+                exp_dir_iter_call->copy_source_info(be_iter_value);
 
                 afor->iter_getting_funccall = exp_dir_iter_call;
 
@@ -4971,6 +4970,8 @@ namespace wo
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = L"_iter";
                 afor_iter_define->attr = new ast_decl_attribute();
+
+                afor_iter_define->copy_source_info(be_iter_value);
 
                 afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
 
@@ -4987,8 +4988,9 @@ namespace wo
                         if (a_identi->decl == identifier_decl::REF)
                             lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
                     }
-
-                    afor->used_vawo_defines->var_refs.push_back({ a_var_defs, new ast_value_takeplace() });
+                    ast_value_takeplace * tkpalce_variable = new ast_value_takeplace();
+                    tkpalce_variable->copy_source_info(a_var_defs);
+                    afor->used_vawo_defines->var_refs.push_back({ a_var_defs, tkpalce_variable });
                     a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
                 }
 
@@ -5005,16 +5007,14 @@ namespace wo
                 iter_dir_next_call->directed_value_from = new ast_value_variable(L"_iter");
 
 
-                iter_dir_next_call->called_func->source_file = be_iter_value->source_file;
-                iter_dir_next_call->called_func->row_no = be_iter_value->row_no;
-                iter_dir_next_call->called_func->col_no = be_iter_value->col_no;
+                iter_dir_next_call->called_func->copy_source_info(be_iter_value);
 
-                iter_dir_next_call->source_file = be_iter_value->source_file;
-                iter_dir_next_call->row_no = be_iter_value->row_no;
-                iter_dir_next_call->col_no = be_iter_value->col_no;
+                iter_dir_next_call->copy_source_info(be_iter_value);
 
                 afor->iter_next_judge_expr = iter_dir_next_call;
                 afor->iterator_var = new ast_value_variable(L"_iter");
+                afor->iterator_var->copy_source_info(be_iter_value);
+
                 afor->iterator_var->is_mark_as_using_ref = true;
 
                 afor->execute_sentences = WO_NEED_AST(8);
@@ -5425,7 +5425,7 @@ namespace wo
 
                         auto* union_item_define = new ast_pattern_identifier;
                         union_item_define->identifier = items->identifier;
-                        union_item_define->attr = new ast_decl_attribute();
+                        union_item_define->attr = union_arttribute;
 
                         if (using_type->is_template_define)
                         {
@@ -5497,6 +5497,7 @@ namespace wo
                         result->tuple_patterns.push_back(child_pattern);
 
                         ast_value_takeplace* val_take_place = new ast_value_takeplace;
+                        val_take_place->copy_source_info(child_pattern);
                         if (ast_pattern_identifier* ipat = dynamic_cast<ast_pattern_identifier*>(child_pattern))
                             val_take_place->as_ref = (ipat->decl == identifier_decl::REF);
                         else

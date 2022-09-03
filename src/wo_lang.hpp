@@ -334,6 +334,7 @@ namespace wo
             using_type_def_bool->new_type_identifier = L"bool";
             using_type_def_bool->old_type = new ast::ast_type(L"int");
             using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
+            using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
             define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
         }
         ~lang()
@@ -3833,6 +3834,7 @@ namespace wo
                         sym->name = names;
                         sym->defined_in_scope = lang_scopes.back();
                         sym->attribute = new ast::ast_decl_attribute();
+                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_public);
                         sym->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
 
                         auto* pending_function = new ast::ast_value_function_define;
