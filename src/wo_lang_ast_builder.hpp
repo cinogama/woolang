@@ -1286,12 +1286,18 @@ namespace wo
 
             bool is_private_attr() const
             {
-                return attributes.find(+lex_type::l_private) != attributes.end();
+                return attributes.find(+lex_type::l_private) != attributes.end()
+                    || (!is_protected_attr() && !is_public_attr());
             }
 
             bool is_protected_attr() const
             {
                 return attributes.find(+lex_type::l_protected) != attributes.end();
+            }
+
+            bool is_public_attr() const
+            {
+                return attributes.find(+lex_type::l_public) != attributes.end();
             }
 
             bool is_extern_attr() const
