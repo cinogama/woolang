@@ -839,32 +839,32 @@ WO_API wo_api rslib_std_declval(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-let const true = 1: bool, const false = 0: bool;
+public let const true = 1: bool, const false = 0: bool;
 
 namespace std
 {
-    extern("rslib_std_throw") func throw(msg: string) => void;
-    extern("rslib_std_fail") func fail(msg: string) => void;
-    extern("rslib_std_halt") func halt(msg: string) => void;
-    extern("rslib_std_panic") func panic(msg: string)=> void;
+    extern("rslib_std_throw") public func throw(msg: string) => void;
+    extern("rslib_std_fail") public func fail(msg: string) => void;
+    extern("rslib_std_halt") public func halt(msg: string) => void;
+    extern("rslib_std_panic") public func panic(msg: string)=> void;
 
-    extern("rslib_std_declval") func declval<T>()=> T;
+    extern("rslib_std_declval") public func declval<T>()=> T;
 }
 
-union option<T>
+public union option<T>
 {
     value(T),
     none
 }
 namespace option
 {
-    func reduce<T>(self: option<T>)=> option<T>
+    public func reduce<T>(self: option<T>)=> option<T>
         where !(self->val() is option<void>);
     {
         return self;
     }
 
-    func reduce<T>(self: option<T>)=> typeof(self->val()->reduce())
+    public func reduce<T>(self: option<T>)=> typeof(self->val()->reduce())
         where self->val() is option<void>;
     {
         match(self)
@@ -874,7 +874,7 @@ namespace option
         }
     }
 
-    func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
+    public func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
     {
         match(self)
         {
@@ -884,7 +884,7 @@ namespace option
             return option::none;
         }
     }
-    func map<T, R>(self: option<T>, functor: (T)=>R, orfunctor: ()=>R) => R
+    public func map<T, R>(self: option<T>, functor: (T)=>R, orfunctor: ()=>R) => R
     {
         match(self)
         {
@@ -894,7 +894,7 @@ namespace option
             return orfunctor();
         }
     }
-    func or<T>(self: option<T>, orfunctor: ()=>T)
+    public func or<T>(self: option<T>, orfunctor: ()=>T)
     {
         match(self)
         {
@@ -904,7 +904,7 @@ namespace option
             return value(orfunctor());
         }
     }
-    func valor<T>(self: option<T>, default_val: T)
+    public func valor<T>(self: option<T>, default_val: T)
     {
         match(self)
         {
@@ -914,7 +914,7 @@ namespace option
             return default_val;
         }
     }
-    func val<T>(self: option<T>)
+    public func val<T>(self: option<T>)
     {
         match(self)
         {
@@ -924,7 +924,7 @@ namespace option
             std::panic("Expect 'value' here, but get 'none'.");
         }
     }
-    func has<T>(self: option<T>)
+    public func has<T>(self: option<T>)
     {
         match(self)
         {
@@ -935,14 +935,14 @@ namespace option
         }
     }
 }
-union result<T, F>
+public union result<T, F>
 {
     ok(T),
     err(F),
 }
 namespace result
 {
-    func unwarp<T, F>(r: result<T, F>)=> T
+    public func unwarp<T, F>(r: result<T, F>)=> T
     {
         match(r)
         {
@@ -954,13 +954,13 @@ namespace result
 
 namespace std
 {
-    extern("rslib_std_print") func print(...)=>int;
-    extern("rslib_std_time_sec") func time()=>real;
+    extern("rslib_std_print") public func print(...)=>int;
+    extern("rslib_std_time_sec") public func time()=>real;
 
     extern("rslib_std_atomic_cas") 
-        func atomic_cas<T>(ref val:T, ref excepted:T, swapval:T)=>T;
+        public func atomic_cas<T>(ref val:T, ref excepted:T, swapval:T)=>T;
 
-    func println(...)
+    public func println(...)
     {
         let c = print((...)...);
         print("\n");
@@ -968,27 +968,27 @@ namespace std
     }
 
     extern("rslib_std_randomint") 
-        func rand(from: int, to: int)=>int;
+        public func rand(from: int, to: int)=>int;
 
     extern("rslib_std_randomreal") 
-        func rand(from:real, to:real)=>real;
+        public func rand(from:real, to:real)=>real;
 
     extern("rslib_std_break_yield") 
-        func yield()=>void;
+        public func yield()=>void;
 
     extern("rslib_std_thread_sleep")
-        func sleep(tm:real)=>void;
+        public func sleep(tm:real)=>void;
    
     extern("rslib_std_get_exe_path")
-        func exepath()=>string;
+        public func exepath()=>string;
 
     extern("rslib_std_get_extern_symb")
-        func extern_symbol<T>(fullname:string)=> option<T>;
+        public func extern_symbol<T>(fullname:string)=> option<T>;
 
     extern("rslib_std_equal_byte")
-    func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
+    public func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
 
-    func max<T>(a:T, b:T)
+    public func max<T>(a:T, b:T)
         where (a<b) is bool;
     {
         if (a < b)
@@ -996,7 +996,7 @@ namespace std
         return a;
     }
 
-    func min<T>(a:T, b:T)
+    public func min<T>(a:T, b:T)
         where (a<b) is bool;
     {
         if (a < b)
@@ -1004,7 +1004,7 @@ namespace std
         return b;
     }
 
-    func swap<T>(ref a: T, ref b: T)
+    public func swap<T>(ref a: T, ref b: T)
     {
         let t = b;
         b = a;
@@ -1012,12 +1012,12 @@ namespace std
     }
 
     extern("rslib_std_make_dup")
-    func dup<T>(dupval: T)=> T;
+    public func dup<T>(dupval: T)=> T;
 }
-using char = int;
+public using char = int;
 namespace string
 {
-    func tomap(val:string)=> option<map<dynamic, dynamic>>
+    public func tomap(val:string)=> option<map<dynamic, dynamic>>
     {
         extern("rslib_std_parse_map_from_string") 
         func _tomap(val: string, out_result: map<dynamic, dynamic>)
@@ -1025,7 +1025,7 @@ namespace string
 
         return _tomap(val, {});
     }
-    func toarray(val:string)=> option<array<dynamic>>
+    public func toarray(val:string)=> option<array<dynamic>>
     {
         extern("rslib_std_parse_array_from_string") 
         func _toarray(val: string, out_result: array<dynamic>)
@@ -1034,7 +1034,7 @@ namespace string
         return _toarray(val, []);
     }
 
-    func chars(buf: string)=> array<char>
+    public func chars(buf: string)=> array<char>
     {
         extern("rslib_std_create_chars_from_str") 
         func _chars(buf: string, out_result: array<char>)=> array<char>;
@@ -1043,72 +1043,72 @@ namespace string
     }
 
     extern("rslib_std_get_ascii_val_from_str") 
-    func getch(val:string, index: int)=> char;
+    public func getch(val:string, index: int)=> char;
 
     extern("rslib_std_lengthof") 
-        func len(val:string)=> int;
+        public func len(val:string)=> int;
 
     extern("rslib_std_sub")
-        func sub(val:string, begin:int)=>string;
+        public func sub(val:string, begin:int)=>string;
 
     extern("rslib_std_sub")
-        func sub(val:string, begin:int, length:int)=>string;
+        public func sub(val:string, begin:int, length:int)=>string;
     
     extern("rslib_std_string_toupper")
-        func upper(val:string)=>string;
+        public func upper(val:string)=>string;
 
     extern("rslib_std_string_tolower")
-        func lower(val:string)=>string;
+        public func lower(val:string)=>string;
 
     extern("rslib_std_string_isspace")
-        func isspace(val:string)=>bool;
+        public func isspace(val:string)=>bool;
 
     extern("rslib_std_string_isalpha")
-        func isalpha(val:string)=> bool;
+        public func isalpha(val:string)=> bool;
 
     extern("rslib_std_string_isalnum")
-        func isalnum(val:string)=> bool;
+        public func isalnum(val:string)=> bool;
 
     extern("rslib_std_string_isnumber")
-        func isnumber(val:string)=> bool;
+        public func isnumber(val:string)=> bool;
 
     extern("rslib_std_string_ishex")
-        func ishex(val:string)=> bool;
+        public func ishex(val:string)=> bool;
 
     extern("rslib_std_string_isoct")
-        func isoct(val:string)=> bool;
+        public func isoct(val:string)=> bool;
 
     extern("rslib_std_string_enstring")
-        func enstring(val:string)=>string;
+        public func enstring(val:string)=>string;
 
     extern("rslib_std_string_destring")
-        func destring(val:string)=> string;
+        public func destring(val:string)=> string;
 
     extern("rslib_std_string_beginwith")
-        func beginwith(val:string, str:string)=> bool;
+        public func beginwith(val:string, str:string)=> bool;
 
     extern("rslib_std_string_endwith")
-        func endwith(val:string, str:string)=> bool;
+        public func endwith(val:string, str:string)=> bool;
 
     extern("rslib_std_string_replace")
-        func replace(val:string, match_aim:string, str:string)=> string;
+        public func replace(val:string, match_aim:string, str:string)=> string;
 
     extern("rslib_std_string_find")
-        func find(val:string, match_aim:string)=> int;
+        public func find(val:string, match_aim:string)=> int;
 
     extern("rslib_std_string_find_from")
-        func find(val:string, match_aim:string, from: int)=> int;
+        public func find(val:string, match_aim:string, from: int)=> int;
 
     extern("rslib_std_string_rfind")
-        func rfind(val:string, match_aim:string)=> int;
+        public func rfind(val:string, match_aim:string)=> int;
 
     extern("rslib_std_string_rfind_from")
-        func rfind(val:string, match_aim:string, from: int)=> int;
+        public func rfind(val:string, match_aim:string, from: int)=> int;
 
     extern("rslib_std_string_trim")
-        func trim(val:string)=>string;
+        public func trim(val:string)=>string;
 
-    func split(val:string, spliter:string)
+    public func split(val:string, spliter:string)
     {
         extern("rslib_std_string_split")
             private func _split(val:string, spliter:string, out_result:array<string>)=>array<string>;
@@ -1120,44 +1120,44 @@ namespace string
 namespace array
 {
     extern("rslib_std_create_str_by_asciis") 
-    func str(buf: array<char>)=> string;
+        public func str(buf: array<char>)=> string;
 
     extern("rslib_std_lengthof") 
-        func len<T>(val: array<T>)=> int;
+        public func len<T>(val: array<T>)=> int;
 
     extern("rslib_std_make_dup")
-        func dup<T>(val: array<T>)=> array<T>;
+        public func dup<T>(val: array<T>)=> array<T>;
 
     extern("rslib_std_array_empty")
-        func empty<T>(val: array<T>)=> bool;
+        public func empty<T>(val: array<T>)=> bool;
 
     extern("rslib_std_array_resize") 
-        func resize<T>(val: array<T>, newsz: int, init_val: T)=> void;
+        public func resize<T>(val: array<T>, newsz: int, init_val: T)=> void;
 
     extern("rslib_std_array_insert") 
-        func insert<T>(val: array<T>, insert_place: int, insert_val: T)=> T;
+        public func insert<T>(val: array<T>, insert_place: int, insert_val: T)=> T;
 
-    func get<T>(a: array<T>, index: int)
+    public func get<T>(a: array<T>, index: int)
     {
         return ref a[index];
     }
 
     extern("rslib_std_array_add") 
-        func add<T>(val: array<T>, elem: T)=>T;
+        public func add<T>(val: array<T>, elem: T)=>T;
 
     extern("rslib_std_array_pop") 
-        func pop<T>(val: array<T>)=> T;  
+        public func pop<T>(val: array<T>)=> T;  
 
     extern("rslib_std_array_remove")
-        func remove<T>(val:array<T>, index:int)=>void;
+        public func remove<T>(val:array<T>, index:int)=>void;
 
     extern("rslib_std_array_find")
-        func find<T>(val:array<T>, elem:T)=>int;
+        public func find<T>(val:array<T>, elem:T)=>int;
 
     extern("rslib_std_array_clear")
-        func clear<T>(val:array<T>)=>void;
+        public func clear<T>(val:array<T>)=>void;
 
-    func forall<T>(val: array<T>, functor: (T)=>bool)
+    public func forall<T>(val: array<T>, functor: (T)=>bool)
     {
         let result = []: array<T>;
         for (let elem : val)
@@ -1166,7 +1166,7 @@ namespace array
         return result;
     }
 
-    func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
+    public func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
         let result = []: array<R>;
         for (let elem : val)
@@ -1175,7 +1175,7 @@ namespace array
         return result;
     }
 
-    func trans<T, R>(val: array<T>, functor: (T)=>R)
+    public func trans<T, R>(val: array<T>, functor: (T)=>R)
     {
         let result = []: array<R>;
         for (let elem : val)
@@ -1183,73 +1183,73 @@ namespace array
         return result;
     }
 
-    using iterator<T> = gchandle;
+    public using iterator<T> = gchandle;
     namespace iterator 
     {
         extern("rslib_std_array_iter_next")
-            func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T)=>bool;
+            public func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T)=>bool;
     
-        func iter<T>(iter:iterator<T>) { return iter; }
+        public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        func iter<T>(val:array<T>)=>iterator<T>;
+        public func iter<T>(val:array<T>)=>iterator<T>;
 }
 
 namespace map
 {
     extern("rslib_std_map_set") 
-        func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
+        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
     extern("rslib_std_lengthof") 
-        func len<KT, VT>(self: map<KT, VT>)=>int;
+        public func len<KT, VT>(self: map<KT, VT>)=>int;
     extern("rslib_std_make_dup")
-        func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
+        public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
     extern("rslib_std_map_find") 
-        func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+        public func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
     extern("rslib_std_map_only_get") 
-        func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern("rslib_std_map_contain") 
-        func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
+        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
     extern("rslib_std_map_get_by_default") 
-        func get<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
     extern("rslib_std_map_get_or_default") 
-        func get_or_default<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func get_or_default<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_empty")
-        func empty<KT, VT>(self: map<KT, VT>)=> bool;
+        public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        func remove<KT, VT>(self: map<KT, VT>, index: int)=> void;
+        public func remove<KT, VT>(self: map<KT, VT>, index: int)=> void;
     extern("rslib_std_map_clear")
-        func clear<KT, VT>(self: map<KT, VT>)=> void;
+        public func clear<KT, VT>(self: map<KT, VT>)=> void;
 
-    using iterator<KT, VT> = gchandle;
+    public using iterator<KT, VT> = gchandle;
     namespace iterator 
     {
         extern("rslib_std_map_iter_next")
-            func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT)=>bool;
+            public func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT)=>bool;
 
-        func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
+        public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        func iter<KT, VT>(self:map<KT, VT>)=>iterator<KT, VT>;
+        public func iter<KT, VT>(self:map<KT, VT>)=>iterator<KT, VT>;
 
-    func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
+    public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
     {
         let result = []: array<KT>;
         for (let key, val : self)
             result->add(key);
         return result;
     }
-    func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
+    public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
         let result = []: array<VT>;
         for (let key, val : self)
             result->add(val);
         return result;
     }
-    func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
         let result = {}: map<KT, VT>;
         for (let key, val : self)
@@ -1262,15 +1262,15 @@ namespace map
 namespace gchandle
 {
     extern("rslib_std_gchandle_close")
-        func close(handle:gchandle)=>void;
+        public func close(handle:gchandle)=>void;
 }
 
-func assert(val: bool)
+public func assert(val: bool)
 {
     if (!val)
         std::panic("Assert failed.");
 }
-func assert(val: bool, msg: string)
+public func assert(val: bool, msg: string)
 {
     if (!val)
         std::panic(F"Assert failed: {msg}");
@@ -1322,23 +1322,23 @@ namespace std
     namespace debug
     {
         extern("rslib_std_debug_breakpoint")
-            func breakpoint()=>void;
+            public func breakpoint()=>void;
 
         extern("rslib_std_debug_attach_default_debuggee")
-            func attach_debuggee()=>void;
+            public func attach_debuggee()=>void;
         extern("rslib_std_debug_disattach_default_debuggee")
-            func disattach_debuggee()=>void;
+            public func disattach_debuggee()=>void;
 
-        func breakdown()
+        public func breakdown()
         {
             attach_debuggee();
             breakpoint();
         }
 
         extern("rslib_std_debug_callstack_trace")
-            func callstack(layer:int) => string;
+            public func callstack(layer:int) => string;
 
-        func run<FT>(foo: FT, ...)
+        public func run<FT>(foo: FT, ...)
         {
             attach_debuggee();
             let result = (foo:(...)=>dynamic)(......);
@@ -1348,11 +1348,11 @@ namespace std
         }
 
         extern("rslib_std_debug_invoke")
-        func invoke<FT>(foo:FT, ...)=>typeof(foo(......));
+        public func invoke<FT>(foo:FT, ...)=>typeof(foo(......));
 
         // Used for create a value with specify type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
-        func __empty_function<T>()=>T;
+        public func __empty_function<T>()=>T;
     }
 }
 )" };
@@ -1363,10 +1363,10 @@ u8R"(
 import woo.std;
 namespace std
 {
-    using vm = gchandle;
+    public using vm = gchandle;
     namespace vm
     {
-        enum info_style
+        public enum info_style
         {
             WO_DEFAULT = 0,
 
@@ -1375,32 +1375,32 @@ namespace std
         }
 
         extern("rslib_std_vm_create")
-        func create()=>vm;
+        public func create()=>vm;
 
         extern("rslib_std_vm_load_src")
-        func load_source(vmhandle:vm, src:string)=>bool;
+        public func load_source(vmhandle:vm, src:string)=>bool;
         extern("rslib_std_vm_load_src")
-        func load_source(vmhandle:vm, vfilepath:string, src:string)=>bool;
+        public func load_source(vmhandle:vm, vfilepath:string, src:string)=>bool;
 
         extern("rslib_std_vm_load_file")
-        func load_file(vmhandle:vm, vfilepath:string)=>bool;
+        public func load_file(vmhandle:vm, vfilepath:string)=>bool;
 
         extern("rslib_std_vm_run")
-        func run(vmhandle:vm)=> option<dynamic>;
+        public func run(vmhandle:vm)=> option<dynamic>;
         
         extern("rslib_std_vm_has_compile_error")
-        func has_error(vmhandle:vm)=>bool;
+        public func has_error(vmhandle:vm)=>bool;
 
         extern("rslib_std_vm_get_compile_error")
-        func error_msg(vmhandle:vm)=>string;
+        public func error_msg(vmhandle:vm)=>string;
 
         extern("rslib_std_vm_get_compile_error")
-        func error_msg(vmhandle:vm, style:info_style)=>string;
+        public func error_msg(vmhandle:vm, style:info_style)=>string;
 
         extern("rslib_std_vm_virtual_source")
-        func virtual_source(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
+        public func virtual_source(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
 
-        func close(self: vm)
+        public func close(self: vm)
         {
             self:gchandle->close();
         }
@@ -1560,60 +1560,60 @@ const char* wo_stdlib_thread_src_data = {
 u8R"(
 namespace std
 {
-    using thread = gchandle;
+    public using thread = gchandle;
     namespace thread
     {
         extern("rslib_std_thread_create")
-        func create<FuncT>(thread_work: FuncT)=>thread
+        public func create<FuncT>(thread_work: FuncT)=>thread
             where !(thread_work() is pending);
 
         extern("rslib_std_thread_create")
-        func create<FuncT, ArgTs>(thread_work: FuncT, args: ArgTs)=>thread
+        public func create<FuncT, ArgTs>(thread_work: FuncT, args: ArgTs)=>thread
             where !(thread_work(args...) is pending);
 
         extern("rslib_std_thread_wait")
-            func wait(threadhandle : thread)=>void;
+            public func wait(threadhandle : thread)=>void;
 
         extern("rslib_std_thread_abort")
-            func abort(threadhandle : thread)=>bool;
+            public func abort(threadhandle : thread)=>bool;
     }
 
-    using mutex = gchandle;
+    public using mutex = gchandle;
     namespace mutex
     {
         extern("rslib_std_thread_mutex_create")
-            func create()=>mutex;
+            public func create()=>mutex;
 
         extern("rslib_std_thread_mutex_read")
-            func read(mtx : mutex)=>void;
+            public  func read(mtx : mutex)=>void;
 
         extern("rslib_std_thread_mutex_write")
-            func lock(mtx : mutex)=>void;
+            public func lock(mtx : mutex)=>void;
 
         extern("rslib_std_thread_mutex_read_end")
-            func unread(mtx : mutex)=>void;
+            public func unread(mtx : mutex)=>void;
 
         extern("rslib_std_thread_mutex_write_end")
-            func unlock(mtx : mutex)=>void;
+            public func unlock(mtx : mutex)=>void;
     }
 
-    using spin = gchandle;
+    public using spin = gchandle;
     namespace spin
     {
         extern("rslib_std_thread_spin_create")
-            func create()=>spin;
+            public func create()=>spin;
 
         extern("rslib_std_thread_spin_read")
-            func read(mtx : spin)=>void;
+            public func read(mtx : spin)=>void;
 
         extern("rslib_std_thread_spin_write")
-            func lock(mtx : spin)=>void;
+            public func lock(mtx : spin)=>void;
 
         extern("rslib_std_thread_spin_read_end")
-            func unread(mtx : spin)=>void;
+            public func unread(mtx : spin)=>void;
 
         extern("rslib_std_thread_spin_write_end")
-            func unlock(mtx : spin)=>void;
+            public func unlock(mtx : spin)=>void;
     }
 }
 
@@ -1748,48 +1748,48 @@ const char* wo_stdlib_roroutine_src_data = {
 u8R"(
 namespace std
 {
-    using co = gchandle;
+    public using co = gchandle;
 
-    using waitable = gchandle;
+    public using waitable = gchandle;
 
     namespace co
     {
         extern("rslib_std_roroutine_launch")
-            func create<FT>(f: FT)=> co
+            public func create<FT>(f: FT)=> co
             where !(f() is pending);
 
         extern("rslib_std_roroutine_launch")
-            func create<FT, ArgTs>(f: FT, args: ArgTs)=> co 
+            public func create<FT, ArgTs>(f: FT, args: ArgTs)=> co 
             where !(f(args...) is pending);
         
         extern("rslib_std_roroutine_abort")
-            func abort(co:co)=>void;
+            public func abort(co:co)=>void;
 
         extern("rslib_std_roroutine_completed")
-            func completed(co:co)=>bool;
+            public func completed(co:co)=>bool;
 
         // Static functions:
 
         extern("rslib_std_roroutine_pause_all")
-            func pause_all()=>void;
+            public func pause_all()=>void;
 
         extern("rslib_std_roroutine_resume_all")
-            func resume_all()=>void;
+            public func resume_all()=>void;
 
         extern("rslib_std_roroutine_stop_all")
-            func stop_all()=>void;
+            public func stop_all()=>void;
 
         extern("rslib_std_roroutine_sleep")
-            func sleep(time:real)=>void;
+            public func sleep(time:real)=>void;
 
         extern("rslib_std_thread_yield")
-            func yield()=>bool;
+            public func yield()=>bool;
 
         extern("rslib_std_roroutine_wait")
-            func wait(condi:waitable)=>void;
+            public func wait(condi:waitable)=>void;
 
         extern("rslib_std_roroutine_wait")
-            func wait(condi:co)=>void;
+            public func wait(condi:co)=>void;
     }
 }
 
@@ -1910,7 +1910,7 @@ import woo.std;
 
 namespace std
 {
-    enum token_type
+    public enum token_type
     {
          l_eof = -1,
         l_error = 0,
@@ -2010,37 +2010,37 @@ namespace std
         l_struct
     }
 
-    using lexer = handle;
+    public using lexer = handle;
     namespace lexer
     {
         extern("rslib_std_macro_lexer_lex")
-            func lex(lex:lexer, src:string)=>void;
+            public func lex(lex:lexer, src:string)=>void;
 
         extern("rslib_std_macro_lexer_error")
-            func error(lex:lexer, msg:string)=>void;
+            public func error(lex:lexer, msg:string)=>void;
 
         extern("rslib_std_macro_lexer_peek")
-            func peek(lex:lexer, ref out_token:string)=>token_type;
+            public func peek(lex:lexer, ref out_token:string)=>token_type;
 
         extern("rslib_std_macro_lexer_next")
-            func next(lex:lexer, ref out_token:string)=>token_type;
+            public func next(lex:lexer, ref out_token:string)=>token_type;
 
         extern("rslib_std_macro_lexer_nextch")
-            func nextch(lex:lexer) => string;
+            public func nextch(lex:lexer) => string;
 
         extern("rslib_std_macro_lexer_peekch")
-            func peekch(lex:lexer) => string;
+            public func peekch(lex:lexer) => string;
 
         extern("rslib_std_macro_lexer_current_path")
-            func path(lex:lexer) => string;
+            public func path(lex:lexer) => string;
 
         extern("rslib_std_macro_lexer_current_rowno")
-            func row(lex:lexer) => int;
+            public func row(lex:lexer) => int;
 
         extern("rslib_std_macro_lexer_current_colno")
-            func col(lex:lexer) => int;
+            public func col(lex:lexer) => int;
 
-        func try(self: lexer, token: token_type)=> option<string>
+        public func try(self: lexer, token: token_type)=> option<string>
         {
             let mut result = "";
             if (token == self->peek(ref result))
@@ -2050,7 +2050,7 @@ namespace std
             }
             return option::none;
         }
-        func expected(self: lexer, token: token_type)=> option<string>
+        public func expected(self: lexer, token: token_type)=> option<string>
         {
             let result = self->try(token);
             match(result)
