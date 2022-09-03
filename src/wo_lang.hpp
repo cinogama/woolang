@@ -52,9 +52,7 @@ namespace wo
         std::vector<std::wstring> template_types;
 
         std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
-
-        std::map<std::vector<uint32_t>, ast::ast_type::struct_member_infos_t> template_struct_index_infos_list;
-        ast::ast_type::struct_member_infos_t template_origin_struct_index_infos;
+        std::map<std::vector<uint32_t>, ast::ast_type*> template_type_instances;
 
         void apply_template_setting(ast::ast_defines* defs)
         {
@@ -344,32 +342,33 @@ namespace wo
             clean_and_close_lang();
         }
 
-        bool generate_struct_index_infos_by_templates(ast::ast_type* type, lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
+        ast::ast_type* generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates)
         {
             std::vector<uint32_t> hashs;
             for (auto& template_type : templates)
             {
                 if (template_type->is_pending())
-                    return false;
+                    return nullptr;
 
                 hashs.push_back(get_typing_hash_after_pass1(template_type));
             }
-            wo_assert(type->is_struct());
 
-            auto fnd = symb->template_struct_index_infos_list.find(hashs);
-            if (fnd == symb->template_struct_index_infos_list.end())
+            auto fnd = symb->template_type_instances.find(hashs);
+            if (fnd == symb->template_type_instances.end())
             {
-                auto& list = symb->template_struct_index_infos_list[hashs];
-                list = symb->template_origin_struct_index_infos;
+                auto& list = symb->template_type_instances[hashs];
+                list = new ast::ast_type(L"pending");
 
-                for (auto& [_, info] : list)
+                list->set_type(symb->type_informatiom);
+                symb->type_informatiom->instance(list);
+
+                for (auto& [_, info] : list->struct_member_index)
                 {
-                    wo_assert(info.member_type != nullptr);
-                    info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
+                    if (info.member_type)
+                        info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
                 }
             }
-            type->struct_member_index = symb->template_struct_index_infos_list[hashs];
-            return true;
+            return symb->template_type_instances[hashs];
         }
 
 
@@ -558,7 +557,7 @@ namespace wo
                             if (type_sym->template_types.size() != type->template_arguments.size())
                             {
                                 // Template count is not match.
-                                if (type->template_arguments.size() != 0)
+                                if (type->has_template())
                                 {
                                     // Error! if template_arguments.size() is 0, it will be 
                                     // high-ranked-templated type.
@@ -584,15 +583,24 @@ namespace wo
 
                                 auto* symboled_type = new ast::ast_type(L"pending");
 
-                                *symboled_type = *type_sym->type_informatiom;
-                                type_sym->type_informatiom->instance(symboled_type);
 
-                                if (using_template && symboled_type->is_struct())
+                                if (using_template)
                                 {
                                     // template arguments not anlyzed.
-                                    if (!generate_struct_index_infos_by_templates(symboled_type, type_sym, type->template_arguments))
+                                    if (auto* template_instance_type =
+                                        generate_type_instance_by_templates(type_sym, type->template_arguments))
+                                    {
+                                        if (template_instance_type->is_pending())
+                                            fully_update_type(template_instance_type, in_pass_1, template_types);
+
+                                        symboled_type->set_type(template_instance_type);
+                                    }
+                                    else
+                                        // Failed to instance current template type, skip.
                                         return;
                                 }
+                                else
+                                    *symboled_type = *type_sym->type_informatiom;
 
                                 fully_update_type(symboled_type, in_pass_1, template_types);
 
@@ -3965,16 +3973,6 @@ namespace wo
                     {
                         sym->naming_list.push_back(naming);
                         naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
-                    }
-                }
-
-                if (def->is_template_define && as_type->is_struct())
-                {
-                    sym->template_origin_struct_index_infos = as_type->struct_member_index;
-                    for (auto& [_, info] : sym->template_origin_struct_index_infos)
-                    {
-                        wo_assert(info.member_type != nullptr);
-                        info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
                     }
                 }
 
