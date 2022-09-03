@@ -4005,7 +4005,8 @@ namespace wo
                     if (ast->source_file == astdefine->source_file)
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(), 
+                            wo::str_to_wstr(astdefine->source_file).c_str());
                     return false;
                 }
             }
@@ -4033,7 +4034,8 @@ namespace wo
                     if (ast->source_file == symbol->defined_source())
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(), 
+                            wo::str_to_wstr(symbol->defined_source()).c_str());
                     return false;
                 }
             }

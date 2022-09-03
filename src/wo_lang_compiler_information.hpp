@@ -194,7 +194,7 @@
 
 #define WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION L"函数符号 '%ls' 此前已经被导出，导出同一命名空间下的同名函数是不允许的"
 
-#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在定义所在的源文件中访问"
+#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在源文件 '%ls' 中访问"
 
 #define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个保护对象，只能在定义所在的命名空间中访问"
 
@@ -403,7 +403,7 @@
 
 #define WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION L"函数符号 '%ls' 此前已经被导出，导出同一命名空间下的同名函数是不允许的"
 
-#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在定义所在的源文件中访问"
+#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个私有对象，只能在源文件 '%ls' 中访问"
 
 #define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个保护对象，只能在定义所在的命名空间中访问"
 
