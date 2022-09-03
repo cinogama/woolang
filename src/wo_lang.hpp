@@ -4024,7 +4024,7 @@ namespace wo
                     }
                     if (give_error)
                         lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name.c_str());
-                    return true;
+                    return false;
                 }
                 if (symbol->attribute->is_private_attr())
                 {
@@ -4144,7 +4144,10 @@ namespace wo
 
                 if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
                     fnd != indet_finding_namespace->symbols.end())
-                    return var_ident->symbol = fnd->second;
+                {
+                    if (check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                        return var_ident->symbol = fnd->second;
+                }
 
             TRY_UPPER_SCOPE:
                 _first_searching = _first_searching->parent_scope;
@@ -4241,7 +4244,7 @@ namespace wo
                     if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
-                        searching_result.insert(var_ident->symbol = fnd->second);
+                        searching_result.insert(fnd->second);
                         goto next_searching_point;
                     }
 
@@ -4256,7 +4259,7 @@ namespace wo
             }
 
             if (searching_result.empty())
-                return nullptr;
+                return var_ident->symbol = nullptr;
 
             if (searching_result.size() > 1)
             {
@@ -4268,7 +4271,7 @@ namespace wo
                         searching_result.insert(fnd_result);
 
                 if (searching_result.empty())
-                    return nullptr;
+                    return var_ident->symbol = nullptr;
                 else if (searching_result.size() > 1)
                 {
                     std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
@@ -4293,8 +4296,8 @@ namespace wo
             // Check symbol is accessable?
             auto* result = *searching_result.begin();
             if (check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
-                return result;
-            return nullptr;
+                return var_ident->symbol = result;
+            return var_ident->symbol = nullptr;
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
