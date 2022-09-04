@@ -446,11 +446,11 @@ namespace wo
             }
             bool is_void() const
             {
-                return type_name == L"void";
+                return type_name == L"void" && !is_func();
             }
             bool is_nil() const
             {
-                return type_name == L"nil";
+                return type_name == L"nil" && !is_func();
             }
             bool is_gc_type() const
             {
