@@ -74,6 +74,8 @@ namespace test_compile
         "@);
         assure_compile_fail(@"let t = int{a = ""};"@);
         assure_compile_fail(@"let t = y{a = ""};"@);
+        assure_compile_fail(@"alias List<T> = (T, List<T>);"@); // Not crash!
+        assure_compile_fail(@"import woo.std; alias List<T> = option<(T, List<T>)>;"@); // Not crash!
 
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);

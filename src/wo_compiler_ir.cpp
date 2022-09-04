@@ -33,7 +33,10 @@ namespace wo
             || dynamic_cast<ast::ast_namespace*>(ast_node)
             || dynamic_cast<ast::ast_sentence_block*>(ast_node)
             || dynamic_cast<ast::ast_if*>(ast_node)
-            || dynamic_cast<ast::ast_while*>(ast_node))
+            || dynamic_cast<ast::ast_while*>(ast_node)
+            || dynamic_cast<ast::ast_forloop*>(ast_node)
+            || dynamic_cast<ast::ast_foreach*>(ast_node)
+            || dynamic_cast<ast::ast_match*>(ast_node))
             return;
 
 
