@@ -859,13 +859,13 @@ public union option<T>
 namespace option
 {
     public func reduce<T>(self: option<T>)=> option<T>
-        where !(self->val() is option<void>);
+        where !(self->val() is option<anything>);
     {
         return self;
     }
 
     public func reduce<T>(self: option<T>)=> typeof(self->val()->reduce())
-        where self->val() is option<void>;
+        where self->val() is option<anything>;
     {
         match(self)
         {

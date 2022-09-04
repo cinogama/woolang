@@ -2313,7 +2313,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
+                if (a_value_type_check->_be_check_value_node->value_type->accept_type(a_value_type_check->aim_type, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {

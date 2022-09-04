@@ -1251,7 +1251,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
                 {
-                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
+                    auto result = _be_check_value_node->value_type->accept_type(aim_type, false);
                     if (result)
                     {
                         is_constant = true;

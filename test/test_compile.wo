@@ -243,8 +243,8 @@ namespace test_compile
         assure_compile_success(@"[3,2,1] as array<void>;"@);
         assure_compile_success(@"[1,2,3] is array<void>;"@);
         assure_compile_fail(@"[3,2,1] as array<anything>;"@);
-        test_assure(!([1,2,3] is array<anything>));
-        test_assure([1,2,3] is array<void>);
+        test_assure([1,2,3] is array<anything>);
+        test_assure(!([1,2,3] is array<void>));
 
         // if/while/for only accept bool
         assure_compile_fail(@"if (0){}"@);
