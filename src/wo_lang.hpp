@@ -442,8 +442,12 @@ namespace wo
             return result;
         }
 
-        void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
+        bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types, std::unordered_set<ast::ast_type*> s)
         {
+            if (s.find(type) != s.end())
+                return true;
+            s.insert(type);
+
             if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
             {
                 type->searching_begin_namespace_in_pass2 = now_scope();
@@ -484,25 +488,28 @@ namespace wo
                 bool stop_update = false;
                 if (type->is_complex())
                 {
-                    fully_update_type(type->complex_type, in_pass_1, template_types);
                     if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
-                        stop_update = true;
+                        if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
+                            if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
+                                stop_update = true;
                 }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
                     {
-                        fully_update_type(a_t, in_pass_1, template_types);
                         if (a_t->is_custom() && !a_t->is_hkt())
-                            stop_update = true;
+                            if (fully_update_type(a_t, in_pass_1, template_types, s))
+                                if (a_t->is_custom() && !a_t->is_hkt())
+                                    stop_update = true;
                     }
 
                 if (type->has_template())
                 {
                     for (auto* template_type : type->template_arguments)
                     {
-                        fully_update_type(template_type, in_pass_1, template_types);
                         if (template_type->is_custom() && !template_type->is_hkt())
-                            stop_update = true;
+                            if (fully_update_type(template_type, in_pass_1, template_types, s))
+                                if (template_type->is_custom() && !template_type->is_hkt())
+                                    stop_update = true;
                     }
                 }
 
@@ -519,7 +526,7 @@ namespace wo
                             type_sym = type->symbol;
 
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
-                            return;
+                            return true;
 
                         struct traving_guard
                         {
@@ -592,18 +599,18 @@ namespace wo
                                         generate_type_instance_by_templates(type_sym, type->template_arguments))
                                     {
                                         if (template_instance_type->is_pending())
-                                            fully_update_type(template_instance_type, in_pass_1, template_types);
+                                            fully_update_type(template_instance_type, in_pass_1, template_types, s);
 
                                         symboled_type->set_type(template_instance_type);
                                     }
                                     else
                                         // Failed to instance current template type, skip.
-                                        return;
+                                        return false;
                                 }
                                 else
                                     *symboled_type = *type_sym->type_informatiom;
 
-                                fully_update_type(symboled_type, in_pass_1, template_types);
+                                fully_update_type(symboled_type, in_pass_1, template_types, s);
 
                                 if (type->is_func())
                                     type->set_ret_type(symboled_type);
@@ -640,7 +647,7 @@ namespace wo
                                 {
                                     for (ast::ast_type* naming_type : type->template_impl_naming_checking)
                                     {
-                                        fully_update_type(naming_type, in_pass_1, template_types);
+                                        fully_update_type(naming_type, in_pass_1, template_types, s);
 
                                         check_matching_naming(type, naming_type);
                                     }
@@ -668,13 +675,21 @@ namespace wo
                 if (struct_info.member_type)
                 {
                     if (in_pass_1)
-                        fully_update_type(struct_info.member_type, in_pass_1, template_types);
+                        fully_update_type(struct_info.member_type, in_pass_1, template_types, s);
                     if (has_step_in_step2)
-                        fully_update_type(struct_info.member_type, in_pass_1, template_types);
+                        fully_update_type(struct_info.member_type, in_pass_1, template_types, s);
                 }
             }
 
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
+
+            return false;
+        }
+
+        void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
+        {
+            std::unordered_set<ast::ast_type*> us;
+            wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
         }
 
         std::vector<bool> in_pass2 = { false };
@@ -4005,7 +4020,7 @@ namespace wo
                     if (ast->source_file == astdefine->source_file)
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(), 
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
                             wo::str_to_wstr(astdefine->source_file).c_str());
                     return false;
                 }
@@ -4034,7 +4049,7 @@ namespace wo
                     if (ast->source_file == symbol->defined_source())
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(), 
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
                             wo::str_to_wstr(symbol->defined_source()).c_str());
                     return false;
                 }

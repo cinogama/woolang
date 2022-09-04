@@ -2992,15 +2992,19 @@ namespace wo
             return false;
         }
 
-        std::wstring ast_type::get_type_name(bool ignore_using_type) const
+        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type) const
         {
+            if (s.find(this) != s.end())
+                return L"..";
+            s.insert(this);
+
             std::wstring result;
             if (is_function_type)
             {
                 result += L"(";
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    result += argument_types[index]->get_type_name(ignore_using_type);
+                    result += argument_types[index]->get_type_name(s, ignore_using_type);
                     if (index + 1 != argument_types.size() || is_variadic_function_type)
                         result += L", ";
                 }
@@ -3016,7 +3020,7 @@ namespace wo
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
                 result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name(ignore_using_type);
+                    + using_type_name->get_type_name(s, ignore_using_type);
             }
             else
             {
@@ -3028,7 +3032,7 @@ namespace wo
                 }
                 else
                 {
-                    result += (is_complex() ? complex_type->get_type_name(ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 }
 
                 if (has_template())
@@ -3036,7 +3040,7 @@ namespace wo
                     result += L"<";
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        result += template_arguments[index]->get_type_name(ignore_using_type);
+                        result += template_arguments[index]->get_type_name(s, ignore_using_type);
                         if (is_hkt_typing())
                             result += L"?";
                         if (index + 1 != template_arguments.size())
@@ -3048,8 +3052,27 @@ namespace wo
             return result;
         }
 
-        bool ast_type::is_hkt() const
+        std::wstring ast_type::get_type_name(bool ignore_using_type) const
         {
+            std::unordered_set<const ast_type*> us;
+            return get_type_name(us, ignore_using_type);
+        }
+
+        bool ast_type::is_hkt(std::unordered_set<const ast_type*>& s) const
+        {
+            if (s.find(this) != s.end())
+                return false;
+            s.insert(this);
+
+            if (is_func())
+            {
+                for (auto* argt : argument_types)
+                {
+                    if (argt->is_pending() && !argt->is_hkt(s))
+                        return false;
+                }
+            }
+
             if (is_hkt_typing())
                 return true;
 

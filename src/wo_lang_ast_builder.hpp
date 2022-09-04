@@ -13,6 +13,7 @@
 #include <type_traits>
 #include <cmath>
 #include <unordered_map>
+#include <unordered_set>
 #include <algorithm>
 
 namespace wo
@@ -350,13 +351,17 @@ namespace wo
             {
                 return !is_func() && type_name == L"dynamic";
             }
-            bool is_custom() const
+            bool is_custom(std::unordered_set<const ast_type*>& s) const
             {
+                if (s.find(this) != s.end())
+                    return false;
+                s.insert(this);
+
                 if (has_template())
                 {
                     for (auto arg_type : template_arguments)
                     {
-                        if (arg_type->is_custom())
+                        if (arg_type->is_custom(s))
                             return true;
                     }
                 }
@@ -364,23 +369,42 @@ namespace wo
                 {
                     for (auto arg_type : argument_types)
                     {
-                        if (arg_type->is_custom())
+                        if (arg_type->is_custom(s))
                             return true;
                     }
                 }
                 if (is_complex())
-                    return complex_type->is_custom();
+                    return complex_type->is_custom(s);
                 else
                     return is_custom_type(type_name);
             }
+
+            bool is_custom() const
+            {
+                std::unordered_set<const ast_type*> us;
+                return is_custom(us);
+            }
+
             bool is_pure_pending() const
             {
                 return !is_func() && type_name == L"pending" && typefrom == nullptr;
             }
-            bool is_hkt() const;
-            bool is_hkt_typing() const;
-            bool is_pending() const
+
+
+            bool is_hkt(std::unordered_set<const ast_type*>& s) const;
+            bool is_hkt() const
             {
+                std::unordered_set<const ast_type*> us;
+                return is_hkt(us);
+            }
+            bool is_hkt_typing() const;
+
+            bool is_pending(std::unordered_set<const ast_type*>& s) const
+            {
+                if (s.find(this) != s.end())
+                    return false;
+                s.insert(this);
+
                 if (is_hkt_typing())
                     return false;
 
@@ -388,7 +412,7 @@ namespace wo
                 {
                     for (auto arg_type : template_arguments)
                     {
-                        if (arg_type->is_pending())
+                        if (arg_type->is_pending(s))
                             return true;
                     }
                 }
@@ -396,21 +420,32 @@ namespace wo
                 {
                     for (auto arg_type : argument_types)
                     {
-                        if (arg_type->is_pending())
+                        if (arg_type->is_pending(s))
                             return true;
                     }
                 }
 
                 bool base_type_pending;
                 if (is_complex())
-                    base_type_pending = complex_type->is_pending();
+                    base_type_pending = complex_type->is_pending(s);
                 else
                     base_type_pending = type_name == L"pending";
 
                 return is_pending_type || base_type_pending;
             }
-            bool may_need_update() const
+
+            bool is_pending() const
             {
+                std::unordered_set<const ast_type*> us;
+                return is_pending(us);
+            }
+
+            bool may_need_update(std::unordered_set<const ast_type*>& s) const
+            {
+                if (s.find(this) != s.end())
+                    return false;
+                s.insert(this);
+
                 if (has_template())
                 {
                     for (auto arg_type : template_arguments)
@@ -436,6 +471,13 @@ namespace wo
 
                 return is_pending_type || base_type_pending;
             }
+
+            bool may_need_update() const
+            {
+                std::unordered_set<const ast_type*> us;
+                return may_need_update(us);
+            }
+
             bool is_pending_function() const
             {
                 if (is_func())
@@ -672,6 +714,7 @@ namespace wo
                 return value_type == value::valuetype::gchandle_type && !is_func();
             }
 
+            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type) const;
             std::wstring get_type_name(bool ignore_using_type = true) const;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -4988,7 +5031,7 @@ namespace wo
                         if (a_identi->decl == identifier_decl::REF)
                             lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
                     }
-                    ast_value_takeplace * tkpalce_variable = new ast_value_takeplace();
+                    ast_value_takeplace* tkpalce_variable = new ast_value_takeplace();
                     tkpalce_variable->copy_source_info(a_var_defs);
                     afor->used_vawo_defines->var_refs.push_back({ a_var_defs, tkpalce_variable });
                     a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
