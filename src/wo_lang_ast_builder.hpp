@@ -390,13 +390,7 @@ namespace wo
                 return !is_func() && type_name == L"pending" && typefrom == nullptr;
             }
 
-
-            bool is_hkt(std::unordered_set<const ast_type*>& s) const;
-            bool is_hkt() const
-            {
-                std::unordered_set<const ast_type*> us;
-                return is_hkt(us);
-            }
+            bool is_hkt() const;
             bool is_hkt_typing() const;
 
             bool is_pending(std::unordered_set<const ast_type*>& s) const

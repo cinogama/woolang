@@ -3058,20 +3058,10 @@ namespace wo
             return get_type_name(us, ignore_using_type);
         }
 
-        bool ast_type::is_hkt(std::unordered_set<const ast_type*>& s) const
+        bool ast_type::is_hkt() const
         {
-            if (s.find(this) != s.end())
-                return false;
-            s.insert(this);
-
             if (is_func())
-            {
-                for (auto* argt : argument_types)
-                {
-                    if (argt->is_pending() && !argt->is_hkt(s))
-                        return false;
-                }
-            }
+                return false;   // HKT cannot be return-type of function
 
             if (is_hkt_typing())
                 return true;
