@@ -1565,11 +1565,11 @@ namespace std
     {
         extern("rslib_std_thread_create")
         public func create<FuncT>(thread_work: FuncT)=>thread
-            where !(thread_work() is pending);
+            where thread_work() is anything;
 
         extern("rslib_std_thread_create")
         public func create<FuncT, ArgTs>(thread_work: FuncT, args: ArgTs)=>thread
-            where !(thread_work(args...) is pending);
+            where thread_work(args...) is anything;
 
         extern("rslib_std_thread_wait")
             public func wait(threadhandle : thread)=>void;
@@ -1756,11 +1756,11 @@ namespace std
     {
         extern("rslib_std_roroutine_launch")
             public func create<FT>(f: FT)=> co
-            where !(f() is pending);
+            where f() is anything;
 
         extern("rslib_std_roroutine_launch")
             public func create<FT, ArgTs>(f: FT, args: ArgTs)=> co 
-            where !(f(args...) is pending);
+            where f(args...) is anything;
         
         extern("rslib_std_roroutine_abort")
             public func abort(co:co)=>void;

@@ -164,7 +164,7 @@ namespace test_compile
         "@);
         assure_compile_success(@"
             import  woo.std;
-            let const Invokable<FT, AT> = !((std::declval:<FT>())(std::declval:<AT>()) is pending);
+            let const Invokable<FT, AT> = (std::declval:<FT>())(std::declval:<AT>()) is anything;
             let const Same<A, B> = (std::declval:<A>()) is B;
 
             func foo<FT, AT>(x: FT, y: AT)
