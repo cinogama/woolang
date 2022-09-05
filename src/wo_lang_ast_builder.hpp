@@ -770,7 +770,7 @@ namespace wo
                         result->set_type_with_name(L"void");
                         return result;
                     }
-                    if (type_name == another->type_name || another->type_name == L"anything")
+                    if (another->type_name == L"anything")
                     {
                         result->set_type(this);
                         return result;
@@ -778,6 +778,15 @@ namespace wo
                     if (type_name == L"anything")
                     {
                         result->set_type(another);
+                        return result;
+                    }
+                    if (type_name == another->type_name)
+                    {
+                        wo_assert(!is_pending_type);
+                        result->type_name = type_name;
+                        result->value_type = value_type;
+                        result->struct_member_index = struct_member_index;
+                        result->typefrom = typefrom;
                         return result;
                     }
                 }
