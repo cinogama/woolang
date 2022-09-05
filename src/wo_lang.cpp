@@ -466,7 +466,7 @@ namespace wo
 
                 if (!decide_array_item_type->accept_type(val->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::mix_types(decide_array_item_type, val->value_type);
+                    auto* mixed_type = decide_array_item_type->mix_types(val->value_type);
                     if (mixed_type)
                         decide_array_item_type->set_type_with_name(mixed_type->type_name);
                     else
@@ -520,7 +520,7 @@ namespace wo
                 }
                 if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::mix_types(decide_map_key_type, map_pair->key->value_type);
+                    auto* mixed_type = decide_map_key_type->mix_types(map_pair->key->value_type);
                     if (mixed_type)
                     {
                         decide_map_key_type->set_type_with_name(mixed_type->type_name);
@@ -533,7 +533,7 @@ namespace wo
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                 {
-                    auto* mixed_type = ast_value_binary::mix_types(decide_map_val_type, map_pair->val->value_type);
+                    auto* mixed_type = decide_map_val_type->mix_types(map_pair->val->value_type);
                     if (mixed_type)
                     {
                         decide_map_val_type->set_type_with_name(mixed_type->type_name);
@@ -592,7 +592,7 @@ namespace wo
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
-                                auto* mixed_type = ast_value_binary::mix_types(func_return_type, a_ret->return_value->value_type);
+                                auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
                                 if (mixed_type)
                                     a_ret->located_function->value_type->set_ret_type(mixed_type);
                                 else
@@ -930,7 +930,7 @@ namespace wo
         analyze_pass1(a_value_trib_expr->val_or);
 
 
-        if (auto* updated_type = ast_value_binary::mix_types(a_value_trib_expr->val_if_true->value_type, a_value_trib_expr->val_or->value_type))
+        if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type))
         {
             a_value_trib_expr->value_type = updated_type;
             updated_type->copy_source_info(a_value_trib_expr);
@@ -977,7 +977,7 @@ namespace wo
                     {
                         if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                         {
-                            auto* mixed_type = ast_value_binary::mix_types(func_return_type, a_ret->return_value->value_type);
+                            auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
                             if (mixed_type)
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
@@ -1866,7 +1866,7 @@ namespace wo
             if (val)
             {
                 if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(ast_value_binary::mix_types(decide_array_item_type, val->value_type));
+                    decide_array_item_type->set_type(decide_array_item_type->mix_types(val->value_type));
                 else
                     decide_array_item_type = nullptr;
             }
@@ -1940,8 +1940,8 @@ namespace wo
             {
                 if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type->set_type(ast_value_binary::mix_types(decide_map_key_type, map_pair->key->value_type));
-                    decide_map_val_type->set_type(ast_value_binary::mix_types(decide_map_val_type, map_pair->val->value_type));
+                    decide_map_key_type->set_type(decide_map_key_type->mix_types(map_pair->key->value_type));
+                    decide_map_val_type->set_type(decide_map_val_type->mix_types(map_pair->val->value_type));
                 }
                 else
                 {
@@ -2125,7 +2125,7 @@ namespace wo
 
             if (a_value_trib_expr->value_type->is_pending())
             {
-                if (auto* updated_type = ast_value_binary::mix_types(a_value_trib_expr->val_if_true->value_type, a_value_trib_expr->val_or->value_type))
+                if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type))
                 {
                     a_value_trib_expr->value_type = updated_type;
                     updated_type->copy_source_info(a_value_trib_expr);
@@ -3049,6 +3049,7 @@ namespace wo
                     result += L">";
                 }
             }
+            s.erase(this);
             return result;
         }
 
