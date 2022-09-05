@@ -623,7 +623,9 @@ namespace wo
                 if (is_complex() && another->is_complex())
                     return complex_type->accept_type(another->complex_type, ignore_using_type);
                 else if (!is_complex() && !another->is_complex())
-                    return type_name == another->type_name;
+                {
+                    return type_name == L"void" || another->type_name == L"anything" || type_name == another->type_name;
+                }
                 return false;
             }
             bool is_func() const
