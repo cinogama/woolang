@@ -21,9 +21,10 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <unordered_map>
 #include <map>
 
+#define WOOLANG_LR1_OPTIMIZE_LR1_TABLE 1
+
 namespace wo
 {
-
     struct token
     {
         lex_type type;
@@ -681,10 +682,43 @@ namespace wo
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
 
-        using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
+        using lr1table_t = std::map<size_t, std::map<sym, std::set<action>>>;
         lr1table_t LR1_TABLE;
 
         using te_nt_index_t = signed int;
+
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+
+        const int* LR1_GOTO_CACHE = nullptr;
+        const int* LR1_R_S_CACHE = nullptr;
+
+        const int(*LR1_GOTO_RS_MAP)[2] = nullptr;
+
+        size_t LR1_GOTO_CACHE_SZ = 0;
+        size_t LR1_R_S_CACHE_SZ = 0;
+
+        size_t LR1_ACCEPT_STATE = 0;
+        te_nt_index_t LR1_ACCEPT_TERM = 0;
+
+        const lex_type* LR1_TERM_LIST = nullptr;
+        const wchar_t** LR1_NONTERM_LIST = nullptr;
+
+        bool lr1_fast_cache_enabled() const noexcept
+        {
+            if (LR1_GOTO_CACHE)
+            {
+                wo_assert(LR1_R_S_CACHE);
+                wo_assert(LR1_GOTO_RS_MAP);
+                wo_assert(LR1_GOTO_CACHE_SZ);
+                wo_assert(LR1_R_S_CACHE_SZ);
+                wo_assert(!NONTERM_MAP.empty());
+                wo_assert(!TERM_MAP.empty());
+                return true;
+            }
+            return false;
+        }
+#endif
+
         struct rt_rule
         {
             te_nt_index_t production_aim;
@@ -697,8 +731,41 @@ namespace wo
 
         // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
 
-        const action& LR1_TABLE_READ(size_t a, te_nt_index_t b) const
+        action LR1_TABLE_READ(size_t a, te_nt_index_t b) const
         {
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+            if (lr1_fast_cache_enabled())
+            {
+                if (b >= 0)
+                {
+                    // Is Terminate, b did'nt need add 1, l_error is 0 and not able to exist in cache.
+
+                    if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
+                        return action(action::act_type::accept, +lex_type::l_error, 0);
+
+                    auto state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[a][1] * LR1_R_S_CACHE_SZ + b];
+                    if (state == 0)
+                        // No action for this state&te, return error.
+                        return action{};
+                    else if (state > 0)
+                        // Push!
+                        return action(action::act_type::push_stack, +lex_type::l_error, state - 1);
+                    else
+                        // Reduce!
+                        return action(action::act_type::reduction, +lex_type::l_error, (-state) - 1);
+                }
+                else
+                {
+                    // Is NonTerminate
+                    auto state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[a][0] * LR1_GOTO_CACHE_SZ + (-b)];
+                    if (state == -1)
+                        // No action for this state&nt, return error.
+                        return action{};
+                    return action(action::act_type::state_goto, +lex_type::l_error, state);
+                }
+
+            }
+#endif
             return RT_LR1_TABLE[a][b];
         }
 
@@ -1087,46 +1154,53 @@ namespace wo
             size_t maxim_state_count = 0;
             te_nt_index_t nt_te_index = 0;
 
-            lex_type leof = lex_type::l_eof;
-            TERM_MAP[leof] = ++nt_te_index;
-
-            for (auto& [_state, act_list] : LR1_TABLE)
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+            if (!lr1_fast_cache_enabled())
             {
-                for (auto& [symb, _action] : act_list)
-                {
-                    if (std::holds_alternative<te>(symb))
-                    {
-                        if (TERM_MAP.find(std::get<te>(symb).t_type) == TERM_MAP.end())
-                            TERM_MAP[std::get<te>(symb).t_type] = ++nt_te_index;
-                    }
-                    else
-                    {
-                        if (NONTERM_MAP.find(std::get<nt>(symb).nt_name) == NONTERM_MAP.end())
-                            NONTERM_MAP[std::get<nt>(symb).nt_name] = ++nt_te_index;
-                    }
+#endif
+                lex_type leof = lex_type::l_eof;
+                TERM_MAP[leof] = ++nt_te_index;
 
-                    // In face, we can just LR1_TABLE.end()-1).first to get this value
-                    // but i just want to do so~~
-                    if (_state > maxim_state_count)
-                        maxim_state_count = _state;
-                }
-            }
-
-            RT_LR1_TABLE.resize(maxim_state_count + 1);
-            for (auto& [_state, act_list] : LR1_TABLE)
-            {
-                RT_LR1_TABLE[_state].resize(nt_te_index + 1);
-                for (auto& [symb, _action] : act_list)
+                for (auto& [_state, act_list] : LR1_TABLE)
                 {
-                    if (!_action.empty())
+                    for (auto& [symb, _action] : act_list)
                     {
                         if (std::holds_alternative<te>(symb))
-                            RT_LR1_TABLE[_state][TERM_MAP[std::get<te>(symb).t_type]] = *_action.begin();
+                        {
+                            if (TERM_MAP.find(std::get<te>(symb).t_type) == TERM_MAP.end())
+                                TERM_MAP[std::get<te>(symb).t_type] = ++nt_te_index;
+                        }
                         else
-                            RT_LR1_TABLE[_state][NONTERM_MAP[std::get<nt>(symb).nt_name]] = *_action.begin();
+                        {
+                            if (NONTERM_MAP.find(std::get<nt>(symb).nt_name) == NONTERM_MAP.end())
+                                NONTERM_MAP[std::get<nt>(symb).nt_name] = ++nt_te_index;
+                        }
+
+                        // In face, we can just LR1_TABLE.end()-1).first to get this value
+                        // but i just want to do so~~
+                        if (_state > maxim_state_count)
+                            maxim_state_count = _state;
                     }
                 }
+
+                RT_LR1_TABLE.resize(maxim_state_count + 1);
+                for (auto& [_state, act_list] : LR1_TABLE)
+                {
+                    RT_LR1_TABLE[_state].resize(nt_te_index + 1);
+                    for (auto& [symb, _action] : act_list)
+                    {
+                        if (!_action.empty())
+                        {
+                            if (std::holds_alternative<te>(symb))
+                                RT_LR1_TABLE[_state][TERM_MAP[std::get<te>(symb).t_type]] = *_action.begin();
+                            else
+                                RT_LR1_TABLE[_state][NONTERM_MAP[std::get<nt>(symb).nt_name]] = *_action.begin();
+                        }
+                    }
+                }
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
             }
+#endif
 
             // OK Then RT_PRODUCTION 
             RT_PRODUCTION.resize(ORGIN_P.size());
@@ -1224,7 +1298,6 @@ namespace wo
             }*/
 
         }
-
 
         bool check(lexer& tkr)
         {
@@ -1348,8 +1421,6 @@ namespace wo
             return false;
         }
 
-
-
         ast_base* gen(lexer& tkr) const
         {
             size_t last_error_rowno = 0;
@@ -1382,14 +1453,12 @@ namespace wo
                 }
 
                 auto top_symbo =
-                    (state_stack.size() == sym_stack.size() ?
-                        TERM_MAP.at(type)
-                        :
-                        NOW_STACK_SYMBO());
+                    (state_stack.size() == sym_stack.size()
+                        ? TERM_MAP.at(type)
+                        : NOW_STACK_SYMBO());
 
-
-                const auto& actions = LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo);// .at().at();
-                auto& e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index);// LR1_TABLE.at(NOW_STACK_STATE()).at();
+                const auto actions = LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo);// .at().at();
+                const auto e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index);// LR1_TABLE.at(NOW_STACK_STATE()).at();
 
                 if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
                 {
@@ -1499,20 +1568,31 @@ namespace wo
                 }
                 else
                 {
-
                 error_handle:
                     std::vector<te> should_be;
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+                    if (lr1_fast_cache_enabled())
+                    {
+                        auto cur_state = NOW_STACK_STATE();
 
-                    if (LR1_TABLE.find(NOW_STACK_STATE()) != LR1_TABLE.end())
-                        for (auto& actslist : LR1_TABLE.at(NOW_STACK_STATE()))
-                        {
-                            if (std::holds_alternative<te>(actslist.first) &&
-                                actslist.second.size() &&
-                                (actslist.second.begin()->act != action::act_type::error && actslist.second.begin()->act != action::act_type::state_goto))
+                        for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
+                            if (LR1_R_S_CACHE[LR1_GOTO_RS_MAP[cur_state][1] * LR1_R_S_CACHE_SZ + i] != 0)
+                                should_be.push_back(LR1_TERM_LIST[i]);
+                    }
+                    else
+#endif
+                    {
+                        if (LR1_TABLE.find(NOW_STACK_STATE()) != LR1_TABLE.end())
+                            for (auto& actslist : LR1_TABLE.at(NOW_STACK_STATE()))
                             {
-                                should_be.push_back(std::get<te>(actslist.first));
+                                if (std::holds_alternative<te>(actslist.first) &&
+                                    actslist.second.size() &&
+                                    (actslist.second.begin()->act != action::act_type::error && actslist.second.begin()->act != action::act_type::state_goto))
+                                {
+                                    should_be.push_back(std::get<te>(actslist.first));
+                                }
                             }
-                        }
+                    }
 
                     std::wstring advise = L"";
 
@@ -1597,72 +1677,100 @@ namespace wo
 
                     }
 
-
-
                     //tokens_queue.front();// CURRENT TOKEN ERROR HAPPEND
                     // FIND USABLE STATE A TO REDUCE.
                     while (!state_stack.empty())
                     {
                         size_t stateid = state_stack.top();
-                        if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+
+                        struct fake_reduce_actions
+                        {
+                            nt m_nt;
+                            size_t m_next_state;
+                        };
+
+                        std::vector<fake_reduce_actions> reduceables;
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+                        if (lr1_fast_cache_enabled())
+                        {
+                            for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_GOTO_CACHE_SZ; i++)
+                            {
+                                int state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[stateid][0] * LR1_GOTO_CACHE_SZ + i];
+                                if (state != -1)
+                                    reduceables.push_back(fake_reduce_actions{ nt(LR1_NONTERM_LIST[i]), (size_t)state });
+                            }
+                        }
+                        else
+#endif
                         {
                             for (auto act : LR1_TABLE.at(stateid))
+                                if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+                                    if (std::holds_alternative<nt>(act.first))
+                                        if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
+                                            reduceables.push_back(fake_reduce_actions{ std::get<nt>(act.first) , act.second.begin()->state });
+                        }
+
+                        if (!reduceables.empty())
+                        {
+                            for (const fake_reduce_actions& fr : reduceables)
                             {
-                                if (std::holds_alternative<nt>(act.first))
+                                // FIND NON-TE AND IT'S FOLLOW
+                                auto& follow_set = FOLLOW_READ(fr.m_nt);
+
+                                wo::lex_type out_lex = lex_type::l_empty;
+                                std::wstring out_str;
+                                while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
+                                {
+                                    out_lex = tkr.next(&out_str);
+
+                                    auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
+
+                                        return t.t_name == L"" ?
+                                            t.t_type == out_lex
+                                            :
+                                            t.t_name == out_str &&
+                                            t.t_type == out_lex;
+
+                                        });
+                                    if (place != follow_set.end())
+                                    {
+                                        // FAKE REDUCE
+
+                                        auto& red_rule = RT_PRODUCTION[fr.m_next_state];
+
+                                        state_stack.push(fr.m_next_state);
+                                        sym_stack.push(red_rule.production_aim);
+                                        node_stack.push(token{ +lex_type::l_error });
+
+                                        goto error_progress_end;
+                                    }
+                                }
+
+                                goto error_handle_fail;
+                            }
+
+
+                            std::vector<te> _termi_want_to_inserts;
+
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+                            if (lr1_fast_cache_enabled())
+                            {
+                                for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
+                                    if (LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i] != 0)
+                                        _termi_want_to_inserts.push_back(LR1_TERM_LIST[i]);
+                            }
+                            else
+#endif
+                            {
+                                for (auto act : LR1_TABLE.at(stateid))
                                 {
                                     if (act.second.size())
                                     {
-                                        if (act.second.begin()->act == action::act_type::reduction)
+                                        if (std::holds_alternative<te>(act.first))
                                         {
-                                            // FIND NON-TE AND IT'S FOLLOW
-                                            auto& follow_set = FOLLOW_READ(std::get<nt>(act.first));
-
-                                            wo::lex_type out_lex = lex_type::l_empty;
-                                            std::wstring out_str;
-                                            while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
-                                            {
-                                                out_lex = tkr.next(&out_str);
-
-                                                auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
-
-                                                    return t.t_name == L"" ?
-                                                        t.t_type == out_lex
-                                                        :
-                                                        t.t_name == out_str &&
-                                                        t.t_type == out_lex;
-
-                                                    });
-                                                if (place != follow_set.end())
-                                                {
-                                                    // FAKE REDUCE
-
-                                                    auto& red_rule = RT_PRODUCTION[act.second.begin()->state];
-
-                                                    state_stack.push(act.second.begin()->state);
-                                                    sym_stack.push(red_rule.production_aim);
-                                                    node_stack.push(token{ +lex_type::l_error });
-
-                                                    goto error_progress_end;
-                                                }
-                                            }
-
-                                            goto error_handle_fail;
+                                            auto& tk_type = std::get<te>(act.first).t_type;
+                                            _termi_want_to_inserts.push_back(tk_type);
                                         }
-                                    }
-                                }
-                            }
-
-                            // FAIL TO REDUCTION TRY SET VIRTUAL OP
-
-                            std::vector<te> _termi_want_to_inserts;
-                            for (auto act : LR1_TABLE.at(stateid))
-                            {
-                                if (act.second.size())
-                                {
-                                    if (std::holds_alternative<te>(act.first))
-                                    {
-                                        auto& tk_type = std::get<te>(act.first).t_type;
-                                        _termi_want_to_inserts.push_back(tk_type);
                                     }
                                 }
                             }
@@ -1690,7 +1798,6 @@ namespace wo
                             }
 
                         }
-
 
                         if (node_stack.size())
                         {

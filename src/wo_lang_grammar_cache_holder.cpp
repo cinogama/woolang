@@ -8,11 +8,36 @@
 
 namespace wo
 {
+    void wo_read_lr1_cache(wo::grammar& gram)
+    {
+#if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
+        gram.LR1_GOTO_CACHE = (const int*)woolang_lr1_act_goto;
+        gram.LR1_R_S_CACHE = (const int*)woolang_lr1_act_stack_reduce;
+        gram.LR1_GOTO_CACHE_SZ = sizeof(woolang_lr1_act_goto[0]) / sizeof(woolang_lr1_act_goto[0][0]);
+        gram.LR1_R_S_CACHE_SZ = sizeof(woolang_lr1_act_stack_reduce[0]) / sizeof(woolang_lr1_act_stack_reduce[0][0]);
+        gram.LR1_GOTO_RS_MAP = woolang_lr1_goto_rs_map;
+
+        gram.LR1_ACCEPT_STATE = (size_t)woolang_accept_state;
+        gram.LR1_ACCEPT_TERM = (grammar::te_nt_index_t)woolang_accept_term;
+
+        gram.LR1_TERM_LIST = woolang_id_term_list;
+        gram.LR1_NONTERM_LIST = woolang_id_nonterm_list;
+
+        for (int i = 1; i < (int)(sizeof(woolang_id_nonterm_list) / sizeof(woolang_id_nonterm_list[0])); i++)
+        {
+            wo_assert(woolang_id_nonterm_list[i] != nullptr);
+            gram.NONTERM_MAP[woolang_id_nonterm_list[i]] = -i;
+
+        }
+        for (int i = 0; i < (int)(sizeof(woolang_id_term_list) / sizeof(woolang_id_term_list[0])); i++)
+            gram.TERM_MAP[woolang_id_term_list[i]] = i;
+#endif
+
+    }
     void wo_read_lr1_to(wo::grammar::lr1table_t& out_lr1table)
     {
+#if !WOOLANG_LR1_OPTIMIZE_LR1_TABLE
         // READ GOTO
-        out_lr1table.reserve(WO_LR1_ACT_STACK_SIZE + 1);
-
         for (auto& goto_act : woolang_lr1_act_goto)
         {
             for (size_t i = 1; i < sizeof(goto_act) / sizeof(goto_act[0]); i++)
@@ -57,6 +82,7 @@ namespace wo
             .insert(grammar::action{ grammar::action::act_type::accept,
                         grammar::te{lex_type::l_eof},
                         (size_t)0 });
+#endif
     }
     void wo_read_follow_set_to(wo::grammar::sym_nts_t& out_followset)
     {
