@@ -2273,7 +2273,7 @@ namespace wo
                 }
 
                 if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, false)
+                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
