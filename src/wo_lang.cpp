@@ -1445,6 +1445,8 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
+            size_t anylizer_error_count =lang_anylizer->get_cur_error_frame().size();
+
             if (a_value_funcdef->argument_list)
             {
                 // ast_value_function_define might be root-point created in lang.
@@ -1489,6 +1491,31 @@ namespace wo
             }
             else
                 a_value_funcdef->value_type->set_type_with_name(L"pending");
+
+            if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
+            {
+                wo_assert(lang_anylizer->get_cur_error_frame().size()> anylizer_error_count);
+
+                if (!a_value_funcdef->where_constraint)
+                {
+                    a_value_funcdef->where_constraint = new ast_where_constraint;
+                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
+                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
+                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                }
+
+                a_value_funcdef->where_constraint->accept = false;
+
+                for (; anylizer_error_count< lang_anylizer->get_cur_error_frame().size();++anylizer_error_count)
+                {
+                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
+                        lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
+                }
+                
+
+                // Error happend in cur function
+                a_value_funcdef->value_type->set_type_with_name(L"pending");
+            }
         }
         return true;
     }

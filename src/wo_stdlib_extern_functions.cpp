@@ -557,7 +557,8 @@ struct array_iter
 WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
 {
     wo::value* arr = reinterpret_cast<wo::value*>(args)->get();
-
+    if (arr->type != wo::value::valuetype::array_type)
+        return wo_ret_panic(vm, "DEBUG!");
     return wo_ret_gchandle(vm,
         new array_iter{ arr->array->begin(), arr->array->end(), 0 },
         args + 0,
