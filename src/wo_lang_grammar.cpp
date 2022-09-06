@@ -47,6 +47,7 @@ namespace wo
         load_from_buffer:
             wo_grammar = new grammar;
 
+            wo_read_lr1_cache(*wo_grammar);
             wo_read_lr1_to(wo_grammar->LR1_TABLE);
             wo_read_follow_set_to(wo_grammar->FOLLOW_SET);
             wo_read_origin_p_to(wo_grammar->ORGIN_P);
@@ -1189,10 +1190,13 @@ namespace wo
                 ///////////////////////////////////////////////////////////////////////
                 // Generate LR(1) action table;
 
+                std::vector<std::pair<int, int>> STATE_GOTO_R_S_INDEX_MAP(wo_grammar->LR1_TABLE.size(), std::pair<int, int>(-1,-1));
+
                 // GOTO : only nt have goto, 
                 cachefile << L"const int woolang_lr1_act_goto[][" << nonte_list.size() << L" + 1] = {" << endl;
                 cachefile << L"// {   STATE_ID,  NT_ID1, NT_ID2, ...  }" << endl;
                 size_t WO_LR1_ACT_GOTO_SIZE = 0;
+                size_t WO_GENERATE_INDEX = 0;
                 for (auto& [state_id, te_sym_list] : wo_grammar->LR1_TABLE)
                 {
                     std::vector<int> nt_goto_state(nonte_list.size() + 1, -1);
@@ -1213,6 +1217,11 @@ namespace wo
 
                     if (has_action)
                     {
+                        if (STATE_GOTO_R_S_INDEX_MAP.size() <= state_id)
+                            STATE_GOTO_R_S_INDEX_MAP.resize(state_id, std::pair<int, int>(-1, -1));
+
+                        STATE_GOTO_R_S_INDEX_MAP[state_id].first = (int)(WO_GENERATE_INDEX++);
+
                         ++WO_LR1_ACT_GOTO_SIZE;
                         cachefile << L" {   " << state_id << L",  ";
                         for (size_t i = 1; i < nt_goto_state.size(); i++)
@@ -1234,6 +1243,7 @@ namespace wo
                 bool has_acc = false;
                 int acc_state = 0, acc_term = 0;
                 size_t WO_LR1_ACT_STACK_SIZE = 0;
+                WO_GENERATE_INDEX = 0;
                 for (auto& [state_id, te_sym_list] : wo_grammar->LR1_TABLE)
                 {
                     std::vector<int> te_stack_reduce_state(te_list.size() + 1, 0);
@@ -1274,6 +1284,11 @@ namespace wo
 
                     if (has_action)
                     {
+                        if (STATE_GOTO_R_S_INDEX_MAP.size() <= state_id)
+                            STATE_GOTO_R_S_INDEX_MAP.resize(state_id, std::pair<int, int>(-1, -1));
+
+                        STATE_GOTO_R_S_INDEX_MAP[state_id].second = (int)(WO_GENERATE_INDEX++);
+
                         ++WO_LR1_ACT_STACK_SIZE;
                         cachefile << L" {   " << state_id << L",  ";
                         for (size_t i = 1; i < te_stack_reduce_state.size(); i++)
@@ -1288,6 +1303,14 @@ namespace wo
 
                 cachefile << L"#define WO_LR1_ACT_STACK_SIZE (" << WO_LR1_ACT_STACK_SIZE << ")" << endl;
 
+                // Stack/Reduce
+                cachefile << L"const int woolang_lr1_goto_rs_map[][2] = {" << endl;
+                cachefile << L"// { GOTO_INDEX, RS_INDEX }" << endl;
+                for (auto& [gotoidx, rsidx] : STATE_GOTO_R_S_INDEX_MAP)
+                {
+                    cachefile << L"    { " << gotoidx << L", " << rsidx << L" }," << endl;
+                }
+                cachefile << L"};" << endl;
                 ///////////////////////////////////////////////////////////////////////
                 // Generate FOLLOW
                 cachefile << L"const int woolang_follow_sets[][" << te_list.size() << L" + 1] = {" << endl;
@@ -1336,6 +1359,7 @@ namespace wo
                 cachefile << L"int woolang_accept_state = " << acc_state << L";" << std::endl;
                 cachefile << L"int woolang_accept_term = " << acc_term << L";" << std::endl;
                 cachefile << L"#else" << endl;
+                cachefile << L"void wo_read_lr1_cache(wo::grammar & gram);" << endl;
                 cachefile << L"void wo_read_lr1_to(wo::grammar::lr1table_t & out_lr1table);" << endl;
                 cachefile << L"void wo_read_follow_set_to(wo::grammar::sym_nts_t & out_followset);" << endl;
                 cachefile << L"void wo_read_origin_p_to(std::vector<wo::grammar::rule> & out_origin_p);" << endl;
