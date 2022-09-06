@@ -108,13 +108,18 @@ namespace wo
                             gm::nt(L"LEFTVARIABLE")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_namespace),
 
-                    gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                    gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                             gm::te(gm::ttype::l_using),
                             gm::te(gm::ttype::l_identifier),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                             gm::te(gm::ttype::l_assign),
-                            gm::nt(L"TYPE")}
+                            gm::nt(L"TYPE"), gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
+
+                gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_semicolon)}
+                    >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{ gm::nt(L"SENTENCE_BLOCK") }
+                    >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                             gm::te(gm::ttype::l_alias),

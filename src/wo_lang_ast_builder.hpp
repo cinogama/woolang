@@ -692,7 +692,7 @@ namespace wo
                         return result;
                     }
                     return nullptr;
-                }                
+                }
 
                 if (using_type_name || another->using_type_name)
                 {
@@ -5002,13 +5002,15 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                // using xxx  = xxx
+                // attrib using/alias xxx <>  = xxx ;/{...}
                 ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = WO_NEED_TOKEN(2).identifier;
                 using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 using_type->is_alias = WO_NEED_TOKEN(1).type == +lex_type::l_alias;
                 ast_list* template_const_list = new ast_list;
+
+                using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
 
                 if (!ast_empty::is_empty(input[3]))
                 {
@@ -5039,6 +5041,23 @@ namespace wo
                 }
 
                 using_type->naming_check_list = template_const_list;
+
+                if (WO_IS_AST(6))
+                {
+                    ast_sentence_block* in_namespace = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(6));
+                    wo_assert(in_namespace);
+
+                    ast_namespace* tname_scope = new ast_namespace;
+                    tname_scope->copy_source_info(in_namespace);
+                    tname_scope->scope_name = using_type->new_type_identifier;
+                    tname_scope->in_scope_sentence = in_namespace->sentence_list;
+
+                    auto result = new ast_list;
+                    result->append_at_end(using_type);
+                    result->append_at_end(tname_scope);
+
+                    return (ast_basic*)result;
+                }
 
                 return (ast_basic*)using_type;
             }
