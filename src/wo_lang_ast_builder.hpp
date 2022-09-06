@@ -5042,7 +5042,7 @@ namespace wo
 
                 using_type->naming_check_list = template_const_list;
 
-                if (WO_IS_AST(6))
+                if (WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
                 {
                     ast_sentence_block* in_namespace = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(6));
                     wo_assert(in_namespace);
