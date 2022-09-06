@@ -1184,8 +1184,7 @@ namespace array
         return result;
     }
 
-    public using iterator<T> = gchandle;
-    namespace iterator 
+    public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
             public func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T)=>bool;
@@ -1224,8 +1223,7 @@ namespace map
     extern("rslib_std_map_clear")
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
 
-    public using iterator<KT, VT> = gchandle;
-    namespace iterator 
+    public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
             public func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT)=>bool;
@@ -1364,8 +1362,7 @@ u8R"(
 import woo.std;
 namespace std
 {
-    public using vm = gchandle;
-    namespace vm
+    public using vm = gchandle
     {
         public enum info_style
         {
@@ -1561,8 +1558,7 @@ const char* wo_stdlib_thread_src_data = {
 u8R"(
 namespace std
 {
-    public using thread = gchandle;
-    namespace thread
+    public using thread = gchandle
     {
         extern("rslib_std_thread_create")
         public func create<FuncT>(thread_work: FuncT)=>thread
@@ -1579,8 +1575,7 @@ namespace std
             public func abort(threadhandle : thread)=>bool;
     }
 
-    public using mutex = gchandle;
-    namespace mutex
+    public using mutex = gchandle
     {
         extern("rslib_std_thread_mutex_create")
             public func create()=>mutex;
@@ -1598,8 +1593,7 @@ namespace std
             public func unlock(mtx : mutex)=>void;
     }
 
-    public using spin = gchandle;
-    namespace spin
+    public using spin = gchandle
     {
         extern("rslib_std_thread_spin_create")
             public func create()=>spin;
@@ -1749,11 +1743,9 @@ const char* wo_stdlib_roroutine_src_data = {
 u8R"(
 namespace std
 {
-    public using co = gchandle;
-
     public using waitable = gchandle;
 
-    namespace co
+    public using co = gchandle
     {
         extern("rslib_std_roroutine_launch")
             public func create<FT>(f: FT)=> co
@@ -2011,8 +2003,7 @@ namespace std
         l_struct
     }
 
-    public using lexer = handle;
-    namespace lexer
+    public using lexer = handle
     {
         extern("rslib_std_macro_lexer_lex")
             public func lex(lex:lexer, src:string)=>void;
