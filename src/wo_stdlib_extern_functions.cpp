@@ -1198,6 +1198,14 @@ namespace array
 
 namespace map
 {
+    public func create<K, V>(val: array<(K, V)>)
+    {
+        let result = {}: map<K, V>;
+        for (let (k, v) : val)
+            result[k] = v;
+        return result;
+    }
+
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
     extern("rslib_std_lengthof") 
