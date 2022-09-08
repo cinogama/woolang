@@ -53,6 +53,13 @@ namespace test_helloworld
         "Hello"
             ->\m:string = m + "world";
             ->\m:string = std::println(m);;
+
+        func invoker(f: (int)=>int)
+        {
+            return f(2);
+        }
+
+        test_assure(invoker(\=a[2];) == 3);
     }
 
     func main()

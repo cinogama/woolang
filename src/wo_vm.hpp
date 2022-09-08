@@ -1177,7 +1177,6 @@ namespace wo
                         ip = env->rt_codes + wo_func_closure->m_vm_func;
                         tc->set_integer(argc);
                         run();
-
                     }
 
                     ip = return_ip;
