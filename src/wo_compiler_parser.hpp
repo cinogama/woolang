@@ -1692,10 +1692,10 @@ namespace wo
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
                         if (lr1_fast_cache_enabled())
                         {
-                            for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_GOTO_CACHE_SZ; i++)
+                            for (size_t i = 1/* 0 is l_error/state, skip it */; i < LR1_R_S_CACHE_SZ; i++)
                             {
-                                int state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[stateid][0] * LR1_GOTO_CACHE_SZ + i];
-                                if (state != -1)
+                                int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
+                                if (state < 0)
                                     reduceables.push_back(fake_reduce_actions{ nt(LR1_NONTERM_LIST[i]), (size_t)state });
                             }
                         }
@@ -1734,11 +1734,8 @@ namespace wo
                                     if (place != follow_set.end())
                                     {
                                         // FAKE REDUCE
-
-                                        auto& red_rule = RT_PRODUCTION[fr.m_next_state];
-
                                         state_stack.push(fr.m_next_state);
-                                        sym_stack.push(red_rule.production_aim);
+                                        sym_stack.push(NONTERM_MAP.at(fr.m_nt.nt_name));
                                         node_stack.push(token{ +lex_type::l_error });
 
                                         goto error_progress_end;

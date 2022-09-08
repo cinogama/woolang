@@ -683,11 +683,14 @@ namespace wo
                     else
                         tmpos << "calln\t";
 
-                    if (main_command & 0b01)
+                    if (main_command & 0b01 || main_command & 0b10)
                         //neg
                         tmpos << *(void**)((this_command_ptr += 8) - 8);
                     else
-                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 8) - 8);
+                    {
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        this_command_ptr += 4;
+                    }
                     break;
                 case instruct::ret:
                     tmpos << "ret\t";
@@ -760,8 +763,15 @@ namespace wo
                 case instruct::mkclos:
                     tmpos << "mkclos\t";
                     tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
-                    tmpos << ",\t+";
-                    tmpos << *(uint32_t*)((this_command_ptr += 4) - 4);
+                    tmpos << ",\t";
+                    if (main_command & 0b10)
+                        tmpos << *(void**)((this_command_ptr += 8) - 8);
+                    else
+                    {
+                        tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
+                        this_command_ptr += 4;
+                    }
+
                     break;
                 case instruct::typeas:
                     if (main_command & 0b01)
@@ -1047,7 +1057,7 @@ namespace wo
             else
             {
                 wo::gcbase::gc_read_guard rg1(wo_func_addr);
-                if (!wo_func_addr->m_function_addr)
+                if (!wo_func_addr->m_vm_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else
                 {
@@ -1059,7 +1069,7 @@ namespace wo
                         (sp--)->set_trans(&*idx);
 
                     (sp--)->set_native_callstack(ip);
-                    ip = env->rt_codes + wo_func_addr->m_function_addr;
+                    ip = env->rt_codes + wo_func_addr->m_vm_func;
                     tc->set_integer(argc);
                     bp = sp;
 
@@ -1139,7 +1149,7 @@ namespace wo
             else
             {
                 wo::gcbase::gc_read_guard rg1(wo_func_closure);
-                if (!wo_func_closure->m_function_addr)
+                if (!wo_func_closure->m_vm_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else
                 {
@@ -1153,11 +1163,22 @@ namespace wo
                         (sp--)->set_trans(&*idx);
 
                     (sp--)->set_native_callstack(ip);
-                    ip = env->rt_codes + wo_func_closure->m_function_addr;
-                    tc->set_integer(argc);
                     bp = sp;
 
-                    run();
+                    if (wo_func_closure->m_native_call)
+                    {
+                        wo_func_closure->m_native_func(
+                            reinterpret_cast<wo_vm>(this),
+                            reinterpret_cast<wo_value>(sp + 2),
+                            argc);
+                    }
+                    else
+                    {
+                        ip = env->rt_codes + wo_func_closure->m_vm_func;
+                        tc->set_integer(argc);
+                        run();
+
+                    }
 
                     ip = return_ip;
                     sp = return_sp;
@@ -2182,7 +2203,16 @@ namespace wo
                         else
                         {
                             wo_assert(opnum1->type == value::valuetype::closure_type);
-                            rt_ip = rt_env->rt_codes + opnum1->closure->m_function_addr;
+                            if (opnum1->closure->m_native_call)
+                            {
+                                opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                                wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                                value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                                rt_sp = rt_bp;
+                                rt_bp = stored_bp;
+                            }
+                            else
+                                rt_ip = rt_env->rt_codes + opnum1->closure->m_vm_func;
                         }
                         break;
                     }
@@ -2413,13 +2443,25 @@ namespace wo
                     case instruct::opcode::mkclos:
                     {
                         uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-                        uint32_t function_address = WO_IPVAL_MOVE_4;
+
+                        wo_assert((dr & 0b01) == 0);
 
                         rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
                         auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
 
                         gcbase::gc_write_guard gwg1(created_closure);
-                        created_closure->m_function_addr = function_address;
+
+                        created_closure->m_native_call = !!dr;
+                        created_closure->m_closure_args_count = closure_arg_count;
+
+                        if (dr)
+                            created_closure->m_native_func = (wo_native_func)WO_IPVAL_MOVE_8;
+                        else
+                        {
+                            created_closure->m_vm_func = WO_IPVAL_MOVE_4;
+                            ip += 4;
+                        }
+
                         created_closure->m_closure_args.resize(closure_arg_count);
                         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
                         {

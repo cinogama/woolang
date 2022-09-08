@@ -377,7 +377,14 @@ namespace wo
 
     struct closure_function
     {
-        wo_integer_t m_function_addr;
+        bool m_native_call;
+        uint16_t m_closure_args_count;
+        union
+        {
+            wo_integer_t m_vm_func;
+            wo_native_func m_native_func;
+        };
+        // TODO: Optimize, donot use vector to store args
         std::vector<value> m_closure_args;
     };
 

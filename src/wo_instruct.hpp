@@ -85,7 +85,7 @@ namespace wo
 
             movcast = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
-            mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
+            mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00)       FUNC(8BYTE) CAPTURE_ARG_COUNT(2BYTE) 11 byte
 
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte
                                             //  typeis(dr_1)
