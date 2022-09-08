@@ -59,7 +59,7 @@ namespace test_helloworld
             return f(2);
         }
 
-        test_assure(invoker(\=a[2];) == 3);
+        test_assure(invoker(\n: int=a[n];) == 3);
     }
 
     func main()
