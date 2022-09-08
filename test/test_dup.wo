@@ -8,7 +8,7 @@ namespace test_dup
         let arr = [1];
         let dup_arr = arr->dup();
 
-        let map = {{"key", "val"}};
+        let map = {["key"] = "val"};
         let dup_map = map->dup();
 
         dup_arr[0] = 233;

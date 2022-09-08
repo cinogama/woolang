@@ -1471,7 +1471,6 @@ namespace wo
 
                     if (take_action.act == grammar::action::act_type::push_stack)
                     {
-
                         state_stack.push(take_action.state);
                         if (e_rule)
                         {

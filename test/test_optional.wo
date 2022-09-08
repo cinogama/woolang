@@ -13,7 +13,7 @@ namespace test_optional
 
         let x = option::value(233);
         let y = option::none: option<int>;
-        let m = {{1, x}, {2, y}};
+        let m = {[1] = x, [2] = y};
 
         match(m->get(1)->reduce())
         {

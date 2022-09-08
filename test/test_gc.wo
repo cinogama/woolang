@@ -19,7 +19,7 @@ namespace test_gc
             let arr = [1];
             for (let elem: arr)
             {
-                let map = {{"Hello", "world"}};
+                let map = {["Hello"] = "world"};
                 let x = "Hello" + map["Hello"];
 
                 for (let elem: arr)
@@ -42,9 +42,9 @@ namespace test_gc
 
         while (std::time() - test_begin_time <= TEST_TIME)
         {
-            global_list->add({{"Hello", "world"}}: dynamic);
-            global_list->add({{"Hello", "world"}}: dynamic);
-            global_list->add({{"Hello", "world"}}: dynamic);
+            global_list->add({["Hello"] = "world"}: dynamic);
+            global_list->add({["Hello"] = "world"}: dynamic);
+            global_list->add({["Hello"] = "world"}: dynamic);
 
             if (std::rand(1, 100000) == 233)
                 global_list->clear();

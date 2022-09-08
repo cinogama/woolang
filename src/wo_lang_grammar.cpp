@@ -792,9 +792,10 @@ namespace wo
 
                 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_left_curly_braces),
-                                                    gm::nt(L"RIGHT"), gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_VALUE"),
-                                                    gm::te(gm::ttype::l_right_curly_braces) }
+                gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{
+                                                gm::nt(L"CONSTANT_ARRAY"),
+                                                gm::te(gm::ttype::l_assign), 
+                                                gm::nt(L"MAY_REF_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }

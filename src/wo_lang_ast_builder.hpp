@@ -3878,12 +3878,22 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 5);
-                // { x , x }
+                wo_test(input.size() == 3);
+                // [x] = x
+
+                // Check 
+                ast_value_array* key = dynamic_cast<ast_value_array*>(WO_NEED_AST(0));
+                wo_assert(key);
+
+                if (key->array_items->children == nullptr || key->array_items->children->sibling != nullptr)
+                    return lex.parser_error(0x0000, L"创建map时遇到了非法的键表达式，继续");
+
+                ast_value* keyval = dynamic_cast<ast_value*>(key->array_items->children);
+                wo_assert(keyval);
 
                 return (grammar::ast_base*)new ast_mapping_pair(
-                    dynamic_cast<ast_value*>(WO_NEED_AST(1)),
-                    dynamic_cast<ast_value*>(WO_NEED_AST(3)));
+                    dynamic_cast<ast_value*>(keyval),
+                    dynamic_cast<ast_value*>(WO_NEED_AST(2)));
             }
         };
 
