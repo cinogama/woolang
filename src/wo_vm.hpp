@@ -1057,7 +1057,7 @@ namespace wo
             else
             {
                 wo::gcbase::gc_read_guard rg1(wo_func_addr);
-                if (!wo_func_addr->m_vm_func)
+                if (!wo_func_addr->m_vm_func && !wo_func_addr->m_native_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else
                 {

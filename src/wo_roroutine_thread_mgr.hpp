@@ -106,17 +106,30 @@ namespace wo
             m_virtualmachine = _vm;
             if (_vm->co_pre_invoke(vm_funcaddr, argc))
             {
-                m_fthread = new fthread(
-                    [=]() {
-                        m_virtualmachine->run();
+                if (vm_funcaddr->m_native_call)
+                    m_fthread = new fthread(
+                        [=]() {
+                            m_virtualmachine->invoke(
+                                reinterpret_cast<wo_handle_t>(vm_funcaddr->m_native_func),
+                                argc);
 
-                        if (_waitter)
-                        {
-                            _waitter->complete();
-                        }
-                        m_finish_flag = true;
-                    }
-                );
+                            if (_waitter)
+                            {
+                                _waitter->complete();
+                            }
+                            m_finish_flag = true;
+                        });
+                else
+                    m_fthread = new fthread(
+                        [=]() {
+                            m_virtualmachine->run();
+
+                            if (_waitter)
+                            {
+                                _waitter->complete();
+                            }
+                            m_finish_flag = true;
+                        });
             }
         }
         vmthread(wo::vmbase* _vm, wo_handle_t native_funcaddr, size_t argc, wo::shared_pointer<RSCO_Waitter> _waitter = nullptr)
