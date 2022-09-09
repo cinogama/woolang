@@ -242,9 +242,9 @@ namespace test_compile
         assure_compile_success(@"[1,2,3] is array<int>;"@);
         assure_compile_success(@"[3,2,1] as array<void>;"@);
         assure_compile_success(@"[1,2,3] is array<void>;"@);
-        assure_compile_fail(@"[3,2,1] as array<anything>;"@);
+        assure_compile_fail(@"[3,2,1] as array<nothing>;"@);
         test_assure([1,2,3] is array<anything>);
-        test_assure(!([1,2,3] is array<void>));
+        test_assure(!([1,2,3] is array<nothing>));
 
         // if/while/for only accept bool
         assure_compile_fail(@"if (0){}"@);
@@ -316,12 +316,12 @@ namespace test_compile
         assure_compile_fail(@"
             import woo.std;
             func foo(f: ((int)=>string)=>int) {}
-            foo(std::declval:<(anything)=>int>());
+            foo(std::declval:<(nothing)=>int>());
             "@);
         assure_compile_fail(@"
             import woo.std;
             func foo(f: ((int)=>string)=>int) {}
-            foo(std::declval:<((int)=>anything)=>int>());
+            foo(std::declval:<((int)=>nothing)=>int>());
             "@);
         assure_compile_success(@"
             import woo.std;
@@ -348,13 +348,13 @@ namespace test_compile
             func foo(f: ((int)=>string)=>int) {}
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
 
-            foo(std::declval:<anything>());
+            foo(std::declval:<nothing>());
             foo(std::declval:<(void)=>int>());
             foo(std::declval:<((void)=>void)=>int>());
-            foo2(std::declval:<anything>());
+            foo2(std::declval:<nothing>());
             foo2(std::declval:<((int)=>string)=>(real, string)=>(real,)>());
-            foo2(std::declval:<((int)=>string)=>(real, string)=>anything>());
-            foo2(std::declval:<((int)=>string)=>anything>());
+            foo2(std::declval:<((int)=>string)=>(real, string)=>nothing>());
+            foo2(std::declval:<((int)=>string)=>nothing>());
             "@);
         assure_compile_success(@"
             import woo.std;
@@ -366,13 +366,13 @@ namespace test_compile
             assert_type:<int, int>();   // OK
 
             let mut a = true;
-            assert_type:<typeof(a ? std::declval:<void>() | std::declval:<anything>()), void>();
+            assert_type:<typeof(a ? std::declval:<void>() | std::declval:<nothing>()), void>();
             assert_type:<typeof(a ? std::declval:<()=>int>() | std::declval:<()=>void>()), ()=>void>();
             assert_type:<typeof(a ? std::declval:<()=>array<int>>() | std::declval:<()=>void>()), ()=>void>();
-            assert_type:<typeof(a ? std::declval:<()=>(array<real>)=>array<int>>() | std::declval:<()=>(array<anything>)=>void>()), ()=>(array<anything>)=>void>();     // ERROR RESULT TODO;
-            assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<anything>>()), ()=>array<real>>();
-            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(anything)=>int>()), (anything)=>void>();
-            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<anything>)=>int>()), (array<anything>)=>void>();
+            assert_type:<typeof(a ? std::declval:<()=>(array<real>)=>array<int>>() | std::declval:<()=>(array<nothing>)=>void>()), ()=>(array<nothing>)=>void>();     // ERROR RESULT TODO;
+            assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<nothing>>()), ()=>array<real>>();
+            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(nothing)=>int>()), (nothing)=>void>();
+            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<nothing>)=>int>()), (array<nothing>)=>void>();
             "@);
 
         std::println("Compile 1000 vm!");

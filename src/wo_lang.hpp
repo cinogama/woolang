@@ -336,6 +336,14 @@ namespace wo
             using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
             using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
             define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
+
+            ast::ast_using_type_as* using_type_def_anything = new ast::ast_using_type_as();
+            using_type_def_anything->is_alias = true;
+            using_type_def_anything->new_type_identifier = L"anything";
+            using_type_def_anything->old_type = new ast::ast_type(L"void");
+            using_type_def_anything->declear_attribute = new ast::ast_decl_attribute();
+            using_type_def_anything->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
+            define_type_in_this_scope(using_type_def_anything, using_type_def_anything->old_type, using_type_def_anything->declear_attribute);
         }
         ~lang()
         {
@@ -2313,7 +2321,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->_be_check_value_node->value_type->accept_type(a_value_type_check->aim_type, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {

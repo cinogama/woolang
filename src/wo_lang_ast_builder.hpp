@@ -161,8 +161,8 @@ namespace wo
                 {L"struct", value::valuetype::invalid},
                 {L"tuple", value::valuetype::invalid},
 
-                {L"void", value::valuetype::invalid},
-                {L"anything", value::valuetype::invalid}, // Top type.
+                {L"void", value::valuetype::invalid}, // Button type
+                {L"nothing", value::valuetype::invalid}, // Top type.
                 {L"pending", value::valuetype::invalid},
                 {L"dynamic", value::valuetype::invalid},
             };
@@ -572,7 +572,7 @@ namespace wo
                     return false;
                 }
 
-                if (another->is_anything())
+                if (another->is_nothing())
                     return true; // top type, OK
                 if (is_void())
                     return true; // button type, OK
@@ -588,8 +588,8 @@ namespace wo
                     {
                         // NOTE: Argument accept will inverse,
                         // void accept anyother type,
-                        // but (void)=>anything cannot accept (int)=> anything
-                        // and (option<int>) cannot accept (option<anything>)=>anything, too.
+                        // but (void)=>x cannot accept (int)=> x
+                        // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                         if (flipped)
                         {
                             if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true))
@@ -611,7 +611,7 @@ namespace wo
                 }
                 else
                 {
-                    if (type_name == L"void" || another->type_name == L"anything")
+                    if (type_name == L"void" || another->type_name == L"nothing")
                         return true;
                     else
                     {
@@ -710,7 +710,7 @@ namespace wo
                         result->set_type_with_name(L"void");
                     return result;
                 }
-                if (another->is_anything())
+                if (another->is_nothing())
                 {
                     if (flip)
                         result->set_type(another);
@@ -718,7 +718,7 @@ namespace wo
                         result->set_type(this);
                     return result;
                 }
-                if (is_anything())
+                if (is_nothing())
                 {
                     if (flip)
                         result->set_type(this);
@@ -751,8 +751,8 @@ namespace wo
                     {
                         // NOTE: Argument accept will inverse,
                         // void accept anyother type,
-                        // but (void)=>anything cannot accept (int)=> anything
-                        // and (option<int>) cannot accept (option<anything>)=>anything, too.
+                        // but (void)=>nothing cannot accept (int)=> nothing
+                        // and (option<int>)=>nothing cannot accept (option<nothing>)=>nothing, too.
                         if (flip)
                         {
                             if (auto* mix_type = argument_types[index]->mix_types(another->argument_types[index], true))
@@ -802,18 +802,18 @@ namespace wo
                             result->set_ret_type(new ast_type(L"void"));
                         return result;
                     }
-                    else if (another->type_name == L"anything")
+                    else if (another->type_name == L"nothing")
                     {
                         if (flip)
-                            result->set_ret_type(new ast_type(L"anything"));
+                            result->set_ret_type(new ast_type(L"nothing"));
                         else
                             result->set_ret_type(this->get_return_type());
                         return result;
                     }
-                    else if (type_name == L"anything")
+                    else if (type_name == L"nothing")
                     {
                         if (flip)
-                            result->set_ret_type(new ast_type(L"anything"));
+                            result->set_ret_type(new ast_type(L"nothing"));
                         else
                             result->set_ret_type(another->get_return_type());
                         return result;
@@ -890,10 +890,10 @@ namespace wo
                 return !is_func() &&
                     (type_name == L"tuple");
             }
-            bool is_anything() const
+            bool is_nothing() const
             {
                 return !is_func() &&
-                    (type_name == L"anything");
+                    (type_name == L"nothing");
             }
             bool is_struct() const
             {
@@ -1496,7 +1496,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
                 {
-                    auto result = _be_check_value_node->value_type->accept_type(aim_type, false);
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
                     if (result)
                     {
                         is_constant = true;
@@ -1885,8 +1885,10 @@ namespace wo
 
             static ast_type* binary_upper_type(ast_type* left_v, ast_type* right_v)
             {
-                if (left_v->is_anything())
+                if (left_v->is_nothing())
                     return right_v;
+                if (right_v->is_nothing())
+                    return left_v;
 
                 if (left_v->is_dynamic() || right_v->is_dynamic())
                 {
@@ -1921,7 +1923,7 @@ namespace wo
                     return nullptr;
                 if (left_v->is_array() || right_v->is_array())
                     return nullptr;
-                if (left_v->is_anything() || right_v->is_anything())
+                if (left_v->is_nothing() || right_v->is_nothing())
                     return nullptr;
                 if (left_v->is_bool() || right_v->is_bool())
                     return nullptr;
@@ -5609,7 +5611,7 @@ namespace wo
                                 union_type_with_template->template_arguments.push_back(new ast_type(ident));
                             else
                                 // Not used template-type, 
-                                union_type_with_template->template_arguments.push_back(new ast_type(L"anything"));
+                                union_type_with_template->template_arguments.push_back(new ast_type(L"nothing"));
                         }
                         return union_type_with_template;
                     };

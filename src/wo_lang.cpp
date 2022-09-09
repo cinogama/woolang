@@ -445,7 +445,7 @@ namespace wo
         if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
         {
             // 
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
+            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"nothing");
 
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
@@ -493,8 +493,8 @@ namespace wo
 
         if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
+            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"nothing");
+            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"nothing");
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
@@ -1888,7 +1888,7 @@ namespace wo
 
         if (a_value_arr->value_type->is_pending())
         {
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"anything");
+            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"nothing");
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
             {
@@ -1959,8 +1959,8 @@ namespace wo
 
         if (a_value_map->value_type->is_pending())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"anything");
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"anything");
+            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"nothing");
+            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"nothing");
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
