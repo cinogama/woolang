@@ -294,6 +294,89 @@ namespace test_compile
         assure_compile_success(@"let const a = 1; let b = a == 1 ? "" | 1; b as string;"@);
         assure_compile_success(@"let const a = 2; let b = a == 1 ? "" | 1; b as int;"@);
 
+        // Type judge
+        assure_compile_success(@"
+            func foo(){}
+            let mut a = 0; let b = a == 1 ? foo() | 1; b as void;"@);
+        assure_compile_success(@"
+            func foo(){}
+            let mut a = 0; let b = a == 1 ? foo() | 1; b as void;"@);
+        assure_compile_success(@"
+            func foo(){}
+            let mut a = 0; let b = a == 1 ? foo() | func(){return func(){};}; b as void;"@);
+        assure_compile_success(@"
+            import woo.std;
+            func foo(){}
+            using sp_t = string;
+            let v = 
+                option::value(0)
+                    ->map(\n:int=foo();)
+                    ->or(\="":sp_t;);
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo(f: ((int)=>string)=>int) {}
+            foo(std::declval:<(anything)=>int>());
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo(f: ((int)=>string)=>int) {}
+            foo(std::declval:<((int)=>anything)=>int>());
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo(f: ((int)=>string)=>int) {}
+            foo(std::declval:<((void)=>string)=>int>());
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            foo2(std::declval:<((int)=>string)=>(real, string)=>void>());
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            foo2(std::declval:<((int)=>string)=>(real, string)=>(void,)>());
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            foo2(std::declval:<((int)=>string)=>void>());
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+            func foo(f: ((int)=>string)=>int) {}
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+
+            foo(std::declval:<anything>());
+            foo(std::declval:<(void)=>int>());
+            foo(std::declval:<((anything)=>void)=>int>());
+            foo2(std::declval:<anything>());
+            foo2(std::declval:<((int)=>string)=>(real, string)=>(real,)>());
+            foo2(std::declval:<((int)=>string)=>(real, string)=>anything>());
+            foo2(std::declval:<((int)=>string)=>anything>());
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+
+            func assert_type<A, B>()
+                where (std::declval:<A>() is B) && (std::declval:<B>() is A);
+            {}
+
+            assert_type:<int, int>();   // OK
+
+            let mut a = true;
+            assert_type:<typeof(a ? std::declval:<void>() | std::declval:<anything>()), void>();
+            assert_type:<typeof(a ? std::declval:<()=>int>() | std::declval:<()=>void>()), ()=>void>();
+            assert_type:<typeof(a ? std::declval:<()=>array<int>>() | std::declval:<()=>void>()), ()=>void>();
+            assert_type:<typeof(a ? std::declval:<()=>(array<real>)=>array<int>>() | std::declval:<()=>(array<anything>)=>void>()), ()=>(array<anything>)=>void>();     // ERROR RESULT TODO;
+            assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<anything>>()), ()=>array<real>>();
+            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(anything)=>int>()), (int)=>void>();
+            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<anything>)=>int>()), (array<real>)=>void>();
+            "@);
+
+        std::println("Compile 1000 vm!");
+
         for (let mut i=0; i<1000; i+=1)
         {
             assure_compile_success(@"

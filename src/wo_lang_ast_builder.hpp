@@ -564,7 +564,7 @@ namespace wo
                 if (is_pending() || another->is_pending())
                     return false;
 
-                // Might HKT
+                // Might HKT: HKT << HKT?
                 if (is_hkt_typing() && another->is_hkt_typing())
                 {
                     if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
@@ -576,6 +576,49 @@ namespace wo
                     return true; // top type, OK
                 if (is_void())
                     return true; // button type, OK
+
+                if (is_func())
+                {
+                    if (!another->is_func())
+                        return false;
+
+                    if (argument_types.size() != another->argument_types.size())
+                        return false;
+                    for (size_t index = 0; index < argument_types.size(); index++)
+                    {
+                        // NOTE: Argument accept will inverse,
+                        // void accept anyother type,
+                        // but (void)=>anything cannot accept (int)=> anything
+                        // and (option<int>) cannot accept (option<anything>)=>anything, too.
+                        if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type))
+                            return false;
+                    }
+                    if (is_variadic_function_type != another->is_variadic_function_type)
+                        return false;
+                }
+                else if (another->is_func())
+                    return false;
+
+                if (is_complex() && another->is_complex())
+                {
+                    if (!complex_type->accept_type(another->complex_type, ignore_using_type))
+                        return false;
+                }
+                else
+                {
+                    if (type_name == L"void" || another->type_name == L"anything")
+                        return true;
+                    else
+                    {
+                        if (!is_complex() && !another->is_complex())
+                        {
+                            if (type_name != another->type_name)
+                                return false;
+                        }
+                        else
+                            return false;
+                    }
+                }
 
                 if (!ignore_using_type && (using_type_name || another->using_type_name))
                 {
@@ -602,35 +645,8 @@ namespace wo
                             return false;
                     }
                 }
-                if (is_func())
-                {
-                    if (!another->is_func())
-                        return false;
 
-                    if (argument_types.size() != another->argument_types.size())
-                        return false;
-                    for (size_t index = 0; index < argument_types.size(); index++)
-                    {
-                        // NOTE: Argument accept will inverse,
-                        // void accept anyother type,
-                        // but (void)=>anything cannot accept (int)=> anything
-                        // and (option<int>) cannot accept (option<anything>)=>anything, too.
-                        if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type))
-                            return false;
-                    }
-                    if (is_variadic_function_type != another->is_variadic_function_type)
-                        return false;
-                }
-                else if (another->is_func())
-                    return false;
-
-                if (is_complex() && another->is_complex())
-                    return complex_type->accept_type(another->complex_type, ignore_using_type);
-                else if (!is_complex() && !another->is_complex())
-                {
-                    return type_name == L"void" || another->type_name == L"anything" || type_name == another->type_name;
-                }
-                return false;
+                return true;
             }
 
             ast_type* mix_types(ast_type* another)
@@ -694,40 +710,6 @@ namespace wo
                     return nullptr;
                 }
 
-                if (using_type_name || another->using_type_name)
-                {
-                    if (!using_type_name || !another->using_type_name)
-                        return nullptr;
-
-                    if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                        return nullptr;
-
-                    if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
-                        return nullptr;
-
-                    auto* using_type = new ast_type(using_type_name->type_name);
-                    using_type->symbol = using_type_name->symbol;
-
-                    for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i]))
-                            using_type->template_arguments.push_back(mix_type);
-                        else
-                            return nullptr;
-
-                    result->using_type_name = using_type;
-                }
-                if (has_template())
-                {
-                    if (template_arguments.size() != another->template_arguments.size())
-                        return nullptr;
-                    for (size_t index = 0; index < template_arguments.size(); index++)
-                    {
-                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index]))
-                            result->template_arguments.push_back(mix_type);
-                        else
-                            return nullptr;
-                    }
-                }
                 if (is_func())
                 {
                     result->set_as_function_type();
@@ -763,34 +745,74 @@ namespace wo
                     else
                         return nullptr;
                 }
-                else if (!is_complex() && !another->is_complex())
+                else
                 {
                     if (type_name == L"void" || another->type_name == L"void")
                     {
-                        result->set_type_with_name(L"void");
+                        result->set_ret_type(new ast_type(L"void"));
                         return result;
                     }
-                    if (another->type_name == L"anything")
+                    else if (another->type_name == L"anything")
                     {
-                        result->set_type(this);
+                        result->set_ret_type(this->get_return_type());
                         return result;
                     }
-                    if (type_name == L"anything")
+                    else if (type_name == L"anything")
                     {
-                        result->set_type(another);
+                        result->set_ret_type(another->get_return_type());
                         return result;
                     }
-                    if (type_name == another->type_name)
+                    else if (!is_complex() && !another->is_complex())
                     {
+                        if (type_name != another->type_name)
+                            return nullptr;
+
                         wo_assert(!is_pending_type);
                         result->type_name = type_name;
                         result->value_type = value_type;
                         result->struct_member_index = struct_member_index;
                         result->typefrom = typefrom;
-                        return result;
+                    }
+                    else
+                        return nullptr;
+                }
+
+                if (using_type_name || another->using_type_name)
+                {
+                    if (!using_type_name || !another->using_type_name)
+                        return nullptr;
+
+                    if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                        return nullptr;
+
+                    if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                        return nullptr;
+
+                    auto* using_type = new ast_type(using_type_name->type_name);
+                    using_type->symbol = using_type_name->symbol;
+
+                    for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i]))
+                            using_type->template_arguments.push_back(mix_type);
+                        else
+                            return nullptr;
+
+                    result->using_type_name = using_type;
+                }
+                if (has_template())
+                {
+                    if (template_arguments.size() != another->template_arguments.size())
+                        return nullptr;
+                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    {
+                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index]))
+                            result->template_arguments.push_back(mix_type);
+                        else
+                            return nullptr;
                     }
                 }
-                return nullptr;
+
+                return result;
             }
 
             bool is_func() const
