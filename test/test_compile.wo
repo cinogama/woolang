@@ -323,7 +323,7 @@ namespace test_compile
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((int)=>anything)=>int>());
             "@);
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo.std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((void)=>string)=>int>());
@@ -350,7 +350,7 @@ namespace test_compile
 
             foo(std::declval:<anything>());
             foo(std::declval:<(void)=>int>());
-            foo(std::declval:<((anything)=>void)=>int>());
+            foo(std::declval:<((void)=>void)=>int>());
             foo2(std::declval:<anything>());
             foo2(std::declval:<((int)=>string)=>(real, string)=>(real,)>());
             foo2(std::declval:<((int)=>string)=>(real, string)=>anything>());
@@ -371,8 +371,8 @@ namespace test_compile
             assert_type:<typeof(a ? std::declval:<()=>array<int>>() | std::declval:<()=>void>()), ()=>void>();
             assert_type:<typeof(a ? std::declval:<()=>(array<real>)=>array<int>>() | std::declval:<()=>(array<anything>)=>void>()), ()=>(array<anything>)=>void>();     // ERROR RESULT TODO;
             assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<anything>>()), ()=>array<real>>();
-            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(anything)=>int>()), (int)=>void>();
-            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<anything>)=>int>()), (array<real>)=>void>();
+            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(anything)=>int>()), (anything)=>void>();
+            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<anything>)=>int>()), (array<anything>)=>void>();
             "@);
 
         std::println("Compile 1000 vm!");

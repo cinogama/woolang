@@ -556,7 +556,7 @@ namespace wo
                     return false;
                 return true;
             }
-            bool accept_type(const ast_type* another, bool ignore_using_type) const
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool flipped = false) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -590,7 +590,12 @@ namespace wo
                         // void accept anyother type,
                         // but (void)=>anything cannot accept (int)=> anything
                         // and (option<int>) cannot accept (option<anything>)=>anything, too.
-                        if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type))
+                        if (flipped)
+                        {
+                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true))
+                                return false;
+                        }
+                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
@@ -601,7 +606,7 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (!complex_type->accept_type(another->complex_type, ignore_using_type))
+                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, flipped))
                         return false;
                 }
                 else
@@ -632,7 +637,7 @@ namespace wo
                         return false;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type))
+                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, flipped))
                             return false;
                 }
                 if (has_template())
@@ -641,7 +646,7 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type))
+                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, flipped))
                             return false;
                     }
                 }
@@ -649,7 +654,7 @@ namespace wo
                 return true;
             }
 
-            ast_type* mix_types(ast_type* another)
+            ast_type* mix_types(ast_type* another, bool flip = false)
             {
                 // 1. if type accept able for each other, just return the copy of cur type.
                 if (is_pending() || another->is_pending())
@@ -665,13 +670,19 @@ namespace wo
                 if (accept_type(another, false))
                 {
                     wo_assert(!another->accept_type(this, false));
-                    result->set_type(this);
+                    if (flip)
+                        result->set_type(another);
+                    else
+                        result->set_type(this);
                     return result;
                 }
                 if (another->accept_type(this, false))
                 {
                     wo_assert(!accept_type(another, false));
-                    result->set_type(another);
+                    if (flip)
+                        result->set_type(this);
+                    else
+                        result->set_type(another);
                     return result;
                 }
 
@@ -683,19 +694,36 @@ namespace wo
                 if (is_pending() || another->is_pending())
                     return nullptr;
 
-                if (is_void() || another->is_void())
+                if (is_void())
                 {
-                    result->set_type_with_name(L"void");
+                    if (flip)
+                        result->set_type(another);
+                    else
+                        result->set_type_with_name(L"void");
+                    return result;
+                }
+                if (another->is_void())
+                {
+                    if (flip)
+                        result->set_type(this);
+                    else
+                        result->set_type_with_name(L"void");
                     return result;
                 }
                 if (another->is_anything())
                 {
-                    result->set_type(this);
+                    if (flip)
+                        result->set_type(another);
+                    else
+                        result->set_type(this);
                     return result;
                 }
                 if (is_anything())
                 {
-                    result->set_type(another);
+                    if (flip)
+                        result->set_type(this);
+                    else
+                        result->set_type(another);
                     return result;
                 }
 
@@ -725,10 +753,21 @@ namespace wo
                         // void accept anyother type,
                         // but (void)=>anything cannot accept (int)=> anything
                         // and (option<int>) cannot accept (option<anything>)=>anything, too.
-                        if (auto* mix_type = another->argument_types[index]->mix_types(argument_types[index]))
-                            result->argument_types.push_back(mix_type);
+                        if (flip)
+                        {
+                            if (auto* mix_type = argument_types[index]->mix_types(another->argument_types[index], true))
+                                result->argument_types.push_back(mix_type);
+                            else
+                                return nullptr;
+                        }
                         else
-                            return nullptr;
+                        {
+                            if (auto* mix_type = another->argument_types[index]->mix_types(argument_types[index], true))
+                                result->argument_types.push_back(mix_type);
+                            else
+                                return nullptr;
+                        }
+
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
                         return nullptr;
@@ -740,26 +779,43 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (auto* mix_type = complex_type->mix_types(another->complex_type))
+                    if (auto* mix_type = complex_type->mix_types(another->complex_type, flip))
                         result->set_ret_type(mix_type);
                     else
                         return nullptr;
                 }
                 else
                 {
-                    if (type_name == L"void" || another->type_name == L"void")
+                    if (type_name == L"void")
                     {
-                        result->set_ret_type(new ast_type(L"void"));
+                        if (flip)
+                            result->set_ret_type(another->get_return_type());
+                        else
+                            result->set_ret_type(new ast_type(L"void"));
+                        return result;
+                    }
+                    if (another->type_name == L"void")
+                    {
+                        if (flip)
+                            result->set_ret_type(this->get_return_type());
+                        else
+                            result->set_ret_type(new ast_type(L"void"));
                         return result;
                     }
                     else if (another->type_name == L"anything")
                     {
-                        result->set_ret_type(this->get_return_type());
+                        if (flip)
+                            result->set_ret_type(new ast_type(L"anything"));
+                        else
+                            result->set_ret_type(this->get_return_type());
                         return result;
                     }
                     else if (type_name == L"anything")
                     {
-                        result->set_ret_type(another->get_return_type());
+                        if (flip)
+                            result->set_ret_type(new ast_type(L"anything"));
+                        else
+                            result->set_ret_type(another->get_return_type());
                         return result;
                     }
                     else if (!is_complex() && !another->is_complex())
@@ -792,7 +848,7 @@ namespace wo
                     using_type->symbol = using_type_name->symbol;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i]))
+                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i], flip))
                             using_type->template_arguments.push_back(mix_type);
                         else
                             return nullptr;
@@ -805,7 +861,7 @@ namespace wo
                         return nullptr;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index]))
+                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index], flip))
                             result->template_arguments.push_back(mix_type);
                         else
                             return nullptr;
