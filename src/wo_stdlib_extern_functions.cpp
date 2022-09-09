@@ -943,12 +943,60 @@ public union result<T, F>
 }
 namespace result
 {
-    public func unwarp<T, F>(r: result<T, F>)=> T
+    public func unwarp<T, F>(self: result<T, F>)=> T
     {
-        match(r)
+        match(self)
         {
         ok(v)? return v;
         err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        }
+    }
+    public func isok<T, F>(self: result<T, F>)=> bool
+    {
+        match(self)
+        {
+        ok(_)? return true;
+        err(_)? return false;
+        }
+    }
+    public func iserr<T, F>(self: result<T, F>)=> bool
+    {
+        match(self)
+        {
+        ok(_)? return false;
+        err(_)? return true;
+        }
+    }
+    public func okay<T, F>(self: result<T, F>)=> option<T>
+    {
+        match(self)
+        {
+        ok(v)? return option::value(v);
+        err(_)? return option::none;
+        }
+    }
+    public func error<T, F>(self: result<T, F>)=> option<F>
+    {
+        match(self)
+        {
+        ok(_)? return option::none;
+        err(e)? return option::value(e);
+        }
+    }
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<U, F>
+    {
+        match(self)
+        {
+        ok(v)? return ok(functor(v));
+        err(e)? return err(e);
+        }
+    }
+    public func or<T, F, U>(self: result<T, F>, functor: (F)=>U)=> result<T, U>
+    {
+        match(self)
+        {
+        ok(v)? return ok(v);
+        err(e)? return err(functor(e));
         }
     }
 }
