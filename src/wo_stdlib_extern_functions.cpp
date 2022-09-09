@@ -874,7 +874,18 @@ namespace option
         none? return none;
         }
     }
-
+    public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)=> option<R>
+    {
+        match(self)
+        {
+        value(u)? return functor(u);
+        none? return none;
+        }
+    }
+    public func ret<T>(value: T)
+    {
+        return option::value(value);
+    }
     public func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
     {
         match(self)
