@@ -1243,6 +1243,14 @@ namespace array
         return result;
     }
 
+    public func mapping<K, V>(val: array<(K, V)>)
+    {
+        let result = {}: map<K, V>;
+        for (let (k, v) : val)
+            result[k] = v;
+        return result;
+    }
+
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
@@ -1257,14 +1265,6 @@ namespace array
 
 namespace map
 {
-    public func create<K, V>(val: array<(K, V)>)
-    {
-        let result = {}: map<K, V>;
-        for (let (k, v) : val)
-            result[k] = v;
-        return result;
-    }
-
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
     extern("rslib_std_lengthof") 
@@ -1321,6 +1321,23 @@ namespace map
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
+        return result;
+    }
+    public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
+    {
+        let result = {}: map<AT, BT>;
+        for (let key, val : self)
+        {
+            let (nk, nv) = functor(key, val);
+            result[nk] = nv;
+        }
+        return result;
+    }
+    public func list<KT, VT>(self: map<KT, VT>)=> array<(AT, BT)>
+    {
+        let result = []: array<(AT, BT)>;
+        for (let key, val : self)
+            result->add((key, val));
         return result;
     }
 }
