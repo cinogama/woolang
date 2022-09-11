@@ -1073,6 +1073,42 @@ namespace std
 
     extern("rslib_std_make_dup")
     public func dup<T>(dupval: T)=> T;
+
+    using range = (int ,int, int)
+    {
+        func create(from: int, to: int)
+        {
+            return (from, to, from > to ?  -1 | 1): range;
+        }
+        func create(from: int, to: int, step: int)
+        {
+            return (from, to, step): range;
+        }
+        func iter(self: range)
+        {
+            return self;
+        }
+        func next(self: range, ref out_val: int)
+        {
+            let (ref cur, aim, step) = self;
+            if (step > 0)
+            {
+                if (cur <= aim)
+                {
+                    out_val = cur;
+                    cur += step;
+                    return true;
+                }
+            }
+            else if (cur >= aim)
+            {
+                out_val = cur;
+                cur += step;
+                return true;
+            }
+            return false;
+        }
+    }
 }
 public using char = int;
 namespace string
