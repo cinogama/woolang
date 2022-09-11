@@ -743,6 +743,9 @@ namespace wo
                     if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
                         return action(action::act_type::accept, +lex_type::l_error, 0);
 
+                    if (LR1_GOTO_RS_MAP[a][1] == -1)
+                        return action{};
+
                     auto state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[a][1] * LR1_R_S_CACHE_SZ + b];
                     if (state == 0)
                         // No action for this state&te, return error.
@@ -757,10 +760,15 @@ namespace wo
                 else
                 {
                     // Is NonTerminate
+                    if (LR1_GOTO_RS_MAP[a][0] == -1)
+                        return action{};
+
                     auto state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[a][0] * LR1_GOTO_CACHE_SZ + (-b)];
                     if (state == -1)
                         // No action for this state&nt, return error.
                         return action{};
+                    if (state > 10000)
+                        printf("xx");
                     return action(action::act_type::state_goto, +lex_type::l_error, state);
                 }
 
