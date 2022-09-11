@@ -1333,7 +1333,7 @@ namespace map
         }
         return result;
     }
-    public func list<KT, VT>(self: map<KT, VT>)=> array<(AT, BT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(AT, BT)>
     {
         let result = []: array<(AT, BT)>;
         for (let key, val : self)
