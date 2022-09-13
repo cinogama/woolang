@@ -522,10 +522,10 @@ namespace wo
                 gm::te(gm::ttype::l_lambda),
                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                 gm::nt(L"ARGDEFINE"),
-                gm::te(gm::ttype::l_assign),
+                gm::te(gm::ttype::l_index_begin),
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA"),
                 gm::nt(L"WHERE_DECL_FOR_LAMBDA"),
-                gm::te(gm::ttype::l_semicolon), }
+                gm::te(gm::ttype::l_index_end), }
                 >> WO_ASTBUILDER_INDEX(ast::pass_function_define),
                 // May empty
 

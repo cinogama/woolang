@@ -94,7 +94,7 @@ namespace test_compile
 
         // Capture lambda itself is invalid.
         assure_compile_fail(@"func main(){let f = func(){f();};}"@);
-        assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int = foo(f);;}"@);
+        assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int[foo(f)];}"@);
 
         // func cannot return different type from marked type
         assure_compile_fail(@"func xx: void(){return 1;}"@);
@@ -157,7 +157,7 @@ namespace test_compile
             import woo.co;
             std::co(func(x: int){}, (1, 2, 3));
         "@);
-        assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
+        assure_compile_fail(@"let p<T> = \x: T[x];p("Helloworld");"@);
         assure_compile_success(@"
             import woo.co;
             std::co(func(){}, ());
@@ -310,8 +310,8 @@ namespace test_compile
             using sp_t = string;
             let v = 
                 option::value(0)
-                    ->map(\n:int=foo();)
-                    ->or(\="":sp_t;);
+                    ->map(\n:int[foo()])
+                    ->or(\["":sp_t]);
             "@);
         assure_compile_fail(@"
             import woo.std;
