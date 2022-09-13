@@ -262,7 +262,7 @@ namespace test_template
 
     func hkt_foo<HKT, T, B>(v: HKT<T<B>>)
     {
-        return \[std::declval:<T<string>>()];
+        return \{std::declval:<T<string>>()};
     }
 
     func main()

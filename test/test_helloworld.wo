@@ -27,11 +27,11 @@ namespace test_helloworld
     {
         let a = [1,2,3];
 
-        let b = a->collect(\x:int[[x, x * 2]])
-                 ->trans(\x:int[x: string])
-                 ->collect(\x:string[[x + "hello", x + "world"]]);
+        let b = a->collect(\x:int{[x, x * 2]})
+                 ->trans(\x:int{x: string})
+                 ->collect(\x:string{[x + "hello", x + "world"]});
 
-        b->trans(\x:string[std::println(x)]);
+        b->trans(\x:string{std::println(x)});
 
         test_assure(b[0] == "1hello");
         test_assure(b[1] == "1world");
@@ -51,15 +51,15 @@ namespace test_helloworld
         "Helloworld"->std::println;
 
         "Hello"
-            ->\m:string [m + "world"]
-            ->\m:string [std::println(m)];
+            ->\m:string {m + "world"}
+            ->\m:string {std::println(m)};
 
         func invoker(f: (int)=>int)
         {
             return f(2);
         }
 
-        test_assure(invoker(\n: int[a[n]]) == 3);
+        test_assure(invoker(\n: int{a[n]}) == 3);
     }
 
     func main()

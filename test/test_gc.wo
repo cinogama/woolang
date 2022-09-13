@@ -82,9 +82,9 @@ namespace test_gc
     {
         global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]: array<dynamic>;
         
-        std::thread(\[test_gchandle_work()]);
-        std::co(\[test_gc_parallel_work(1)]);
-        std::thread(\[test_gc_parallel_work(2)]);
+        std::thread(\{test_gchandle_work()});
+        std::co(\{test_gc_parallel_work(1)});
+        std::thread(\{test_gc_parallel_work(2)});
         test_gc_parallel_work(0);
     }
 }
