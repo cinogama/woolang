@@ -5173,11 +5173,6 @@ namespace wo
                         result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
                     }
                 }
-                else if (input.size() == 3)
-                {
-                    result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    result->return_value->is_mark_as_using_ref = true;
-                }
                 else
                 {
                     wo_assert(input.size() == 1);

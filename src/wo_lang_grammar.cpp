@@ -464,12 +464,12 @@ namespace wo
                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_ref), gm::nt(L"EXPRESSION")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_return),
+                //gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_ref), gm::nt(L"EXPRESSION")}
+                //>> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"MAY_REF_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::nt(L"EXPRESSION") }
@@ -760,20 +760,11 @@ namespace wo
 
                 gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_brackets),
-                                        gm::nt(L"RIGHT"),
+                                        gm::nt(L"MAY_REF_VALUE"),
                                         gm::te(gm::ttype::l_comma),
                                         gm::nt(L"COMMA_EXPR"),
                                         gm::te(gm::ttype::l_right_brackets) }
                                         >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 3>),
-
-                gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
-                                        gm::te(gm::ttype::l_left_brackets),
-                                        gm::te(gm::ttype::l_ref),
-                                        gm::nt(L"RIGHT"),
-                                        gm::te(gm::ttype::l_comma),
-                                        gm::nt(L"COMMA_EXPR"),
-                                        gm::te(gm::ttype::l_right_brackets) }
-                                        >> WO_ASTBUILDER_INDEX(ast::pass_append_list_for_ref_tuple_maker),
 
                 ///////////////////////
 
@@ -848,11 +839,11 @@ namespace wo
                 gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
-                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
+                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::te(gm::ttype::l_ref), gm::nt(L"FACTOR_TYPE_JUDGEMENT"),gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_ref),
+                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"REAL_REF_VALUE") ,gm::te(gm::ttype::l_right_brackets) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 gm::nt(L"NORMAL_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -889,9 +880,6 @@ namespace wo
 
                 gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"REAL_REF_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"REAL_REF_VALUE"), gm::nt(L"AS_TYPE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_type_judgement),
 
                 gm::nt(L"REAL_REF_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::nt(L"LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_ref),

@@ -682,7 +682,7 @@ namespace wo
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
 
-        using lr1table_t = std::map<size_t, std::map<sym, std::set<action>>>;
+        using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
         lr1table_t LR1_TABLE;
 
         using te_nt_index_t = signed int;
