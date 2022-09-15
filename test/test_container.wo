@@ -20,7 +20,7 @@ namespace test_container
         test_assure(b->len == 3);
 
         a->copy(b);
-        b[1] = 233
+        b[1] = 233;
 
         test_assure(a[0] == 1);
         test_assure(a[1] == 2);
