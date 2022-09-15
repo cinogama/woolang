@@ -506,6 +506,44 @@ WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_ref(vm, wo_arr_insert(args + 0, wo_int(args + 1), args + 2));
 }
 
+WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+
+    std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
+
+    if (wo::gc::gc_is_marking())
+    {
+        for (auto& elem : *arr1->array)
+            arr1->array->add_memo(&elem);
+        for (auto& elem : *arr2->array)
+            arr2->array->add_memo(&elem);
+    }
+
+    arr1->array->swap(*arr2->array);
+
+    return wo_ret_void(vm);
+}
+
+WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+
+    std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
+
+    if (wo::gc::gc_is_marking())
+    {
+        for (auto& elem : *arr1->array)
+            arr1->array->add_memo(&elem);
+    }
+
+    *arr1->array = *arr2->array;
+
+    return wo_ret_void(vm);
+}
+
 WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
@@ -618,6 +656,54 @@ WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_ref(vm, wo_map_get_or_default(args + 0, args + 1, args + 2));
 }
+
+WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1)->get();
+
+    std::scoped_lock ssg1(map1->mapping->gc_read_write_mx, map2->mapping->gc_read_write_mx);
+
+    if (wo::gc::gc_is_marking())
+    {
+        for (auto& [key, elem] : *map1->mapping)
+        {
+            map1->array->add_memo(&key);
+            map1->array->add_memo(&elem);
+        }
+        for (auto& [key, elem] : *map2->mapping)
+        {
+            map2->array->add_memo(&key);
+            map2->array->add_memo(&elem);
+        }
+    }
+
+    map1->mapping->swap(*map2->mapping);
+
+    return wo_ret_void(vm);
+}
+
+WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
+{
+    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1)->get();
+
+    std::scoped_lock ssg1(map1->mapping->gc_read_write_mx, map2->mapping->gc_read_write_mx);
+
+    if (wo::gc::gc_is_marking())
+    {
+        for (auto& [key, elem] : *map1->mapping)
+        {
+            map1->array->add_memo(&key);
+            map1->array->add_memo(&elem);
+        }
+    }
+
+    *map1->mapping = *map2->mapping;
+
+    return wo_ret_void(vm);
+}
+
 
 WO_API wo_api rslib_std_map_remove(wo_vm vm, wo_value args, size_t argc)
 {
@@ -1233,6 +1319,12 @@ namespace array
     extern("rslib_std_array_insert") 
         public func insert<T>(val: array<T>, insert_place: int, insert_val: T)=> T;
 
+    extern("rslib_std_array_swap") 
+        public func swap<T>(val: array<T>, another: array<T>)=> void;
+
+    extern("rslib_std_array_copy") 
+        public func copy<T>(val: array<T>, another: array<T>)=> void;
+
     public func get<T>(a: array<T>, index: int)
     {
         return ref a[index];
@@ -1317,6 +1409,10 @@ namespace map
         public func get<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
     extern("rslib_std_map_get_or_default") 
         public func get_or_default<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+    extern("rslib_std_map_swap") 
+        public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
+    extern("rslib_std_map_copy") 
+        public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;

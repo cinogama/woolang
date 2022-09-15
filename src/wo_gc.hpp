@@ -51,6 +51,18 @@ namespace wo
             std::atomic_flag _sspin_write_flag = {};
             std::atomic_uint _sspin_read_flag = {};
 
+            inline bool try_lock() noexcept
+            {
+                if (_sspin_write_flag.test_and_set())
+                    return false;
+                if (_sspin_read_flag)
+                {
+                    _sspin_write_flag.clear();
+                    return false;
+                }
+                return true;
+            }
+
             inline void lock() noexcept
             {
                 while (_sspin_write_flag.test_and_set());

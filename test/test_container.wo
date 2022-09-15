@@ -1,0 +1,66 @@
+import woo.std;
+import test_tool;
+
+namespace test_container
+{
+    func test_array_swap_copy()
+    {
+        let a = [1, 2, 3];
+        let b = [4, 5];
+
+        a->swap(b);
+
+        test_assure(a[0] == 4);
+        test_assure(a[1] == 5);
+        test_assure(a->len == 2);
+
+        test_assure(b[0] == 1);
+        test_assure(b[1] == 2);
+        test_assure(b[2] == 3);
+        test_assure(b->len == 3);
+
+        a->copy(b);
+        b[1] = 233
+
+        test_assure(a[0] == 1);
+        test_assure(a[1] == 2);
+        test_assure(a[2] == 3);
+        test_assure(a->len == 3);
+
+        test_assure(b[0] == 1);
+        test_assure(b[1] == 233);
+        test_assure(b[2] == 3);
+        test_assure(b->len == 3);
+    }
+    func test_map_swap_copy()
+    {
+        let a = {["pi"] = 3.14};
+        let b = {["e"] = 2.718, ["sqrt2"] = 1.414};
+
+        a->swap(b);
+
+        test_assure(a["e"] == 2.718);
+        test_assure(a["sqrt2"] == 1.414);
+        test_assure(a->len == 2);
+
+        test_assure(b["pi"] == 3.14);
+        test_assure(b->len == 1);
+
+        a->copy(b);
+        b["gratio"] = 0.618;
+
+        test_assure(a["pi"] == 3.14);
+        test_assure(a->len == 1);
+
+        test_assure(b["pi"] == 3.14);
+        test_assure(b["gratio"] == 0.618);
+        test_assure(b->len == 2);
+    }
+    func main()
+    {
+        test_array_swap_copy();
+        test_map_swap_copy();
+    }
+}
+
+test_function("test_container.main", test_container::main);
