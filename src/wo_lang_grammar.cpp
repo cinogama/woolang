@@ -1020,6 +1020,9 @@ namespace wo
                 gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::nt(L"TYPE_DECLEAR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
 
+                gm::nt(L"STRUCT_MEMBER_PAIR") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::te(gm::ttype::l_identifier), gm::nt(L"TYPE_DECLEAR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
+
                 ////////////////////////////////////////////////////////
 
                 gm::nt(L"UNIT") >> gm::symlist{gm::nt(L"STRUCT_TYPE"), // Here we use Callable left stand for type. so we cannot support x here...
@@ -1044,7 +1047,7 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
                 gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"RIGHT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_def),
+                >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_init_pair),
 
                 ////////////////////////////////////////////////////
 

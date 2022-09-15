@@ -5,7 +5,7 @@ namespace test_struct
 {
     using chstruct<T> = struct{
         a: string,
-        b: T
+        mut b: T
     };
     using mystruct<T> = struct{
         a: int,
