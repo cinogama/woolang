@@ -136,6 +136,7 @@ namespace wo
             {
                 ast_type* member_type = nullptr;
                 uint16_t offset = (uint16_t)0xFFFF;
+                bool is_mutable = false;
                 std::vector<size_t> union_used_template_index;
             };
 
@@ -3517,6 +3518,7 @@ namespace wo
             std::wstring member_name;
 
             bool is_value_pair;
+            bool is_mutable_decl;
             union
             {
                 ast_type* member_type;
@@ -5846,22 +5848,42 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
-                result->member_name = WO_NEED_TOKEN(0).identifier;
+                result->is_mutable_decl = false;
+                result->is_value_pair = false;
+               
                 if (input.size() == 2)
                 {
                     // identifier TYPE_DECLEAR
+                    result->member_name = WO_NEED_TOKEN(0).identifier;
                     result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-                    result->is_value_pair = false;
                     wo_assert(result->member_type);
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
-                    // identifier = VALUE
-                    result->member_value_pair = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    result->is_value_pair = true;
-                    wo_assert(result->member_value_pair);
+                    // mut identifier TYPE_DECLEAR
+                    result->member_name = WO_NEED_TOKEN(1).identifier;
+                    result->is_mutable_decl = true;
+                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                    wo_assert(result->member_type);
                 }
+                return (ast_basic*)result;
+            }
+        };
+
+        struct pass_struct_member_init_pair : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* result = new ast_struct_member_define;
+                result->member_name = WO_NEED_TOKEN(0).identifier;
+
+                wo_assert(input.size() == 3);
+                // identifier = VALUE
+                result->member_value_pair = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                result->is_value_pair = true;
+                wo_assert(result->member_value_pair);
+
                 return (ast_basic*)result;
             }
         };
@@ -5885,6 +5907,8 @@ namespace wo
                         = member_pair->member_type;
                     struct_type->struct_member_index[member_pair->member_name].offset
                         = membid++;
+                    struct_type->struct_member_index[member_pair->member_name].is_mutable
+                        = member_pair->is_mutable_decl;
 
                     wo_assert(struct_type->struct_member_index[member_pair->member_name].member_type);
 
@@ -6125,6 +6149,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern>] = _register_builder<pass_tuple_pattern>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
+            _registed_builder_function_id_list[meta::type_hash<pass_struct_member_init_pair>] = _register_builder<pass_struct_member_init_pair>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_type_define>] = _register_builder<pass_struct_type_define>();
             _registed_builder_function_id_list[meta::type_hash<pass_make_struct_instance>] = _register_builder<pass_make_struct_instance>();
 

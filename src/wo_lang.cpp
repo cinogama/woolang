@@ -102,6 +102,7 @@ namespace wo
                     {
                         a_value_idx->value_type = fnd->second.member_type;
                         a_value_idx->struct_offset = fnd->second.offset;
+                        a_value_idx->can_be_assign = fnd->second.is_mutable;
                     }
 
                 }
@@ -1662,6 +1663,7 @@ namespace wo
                         {
                             a_value_index->value_type = fnd->second.member_type;
                             a_value_index->struct_offset = fnd->second.offset;
+                            a_value_index->can_be_assign = fnd->second.is_mutable;
                         }
                     }
                     else

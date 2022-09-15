@@ -63,7 +63,7 @@ namespace test_optional
         }
 
         using iterator<T> = struct{
-            node : linknode<T>
+            mut node : linknode<T>
         };
         namespace iterator
         {

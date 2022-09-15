@@ -236,7 +236,7 @@ namespace test_template
     }
 
     using mtest<T> = struct {
-        c : typeof(for_m_test_foo:<T>(0)),
+        mut c : typeof(for_m_test_foo:<T>(0)),
     };
     namespace mtest
     {

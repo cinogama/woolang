@@ -121,6 +121,20 @@ namespace test_compile
             let mut i = "a"; 
             let b = s[i];
         "@);
+        // immutable member cannot be assign
+        assure_compile_fail(@"
+            using st = struct{a: int}; 
+            let s = st{a = 1}; 
+            s.a = 25;
+        "@);
+
+          // immutable member cannot be assign
+        assure_compile_success(@"
+            using st = struct{mut a: int}; 
+            let s = st{a = 1}; 
+            s.a = 25;
+        "@);
+
 
         // Cannot index unindexable type or invalid index
         assure_compile_fail(@"let a = 5; let b = a[7];"@);
