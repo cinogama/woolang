@@ -1618,9 +1618,9 @@ namespace map
         }
         return result;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(AT, BT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
-        let result = []: array<(AT, BT)>;
+        let result = []: array<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
         return result;
