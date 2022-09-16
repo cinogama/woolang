@@ -520,6 +520,15 @@ namespace wo
             string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
         }
 
+        struct WooJitErrorHandler :public asmjit::ErrorHandler
+        {
+            bool handleError(asmjit::Error err, const char* message, asmjit::CodeEmitter* origin) override
+            {
+                printf("AsmJit error: %s\n", message);
+                return true;
+            }
+        };
+
         function_jit_state& analyze_function(const byte_t* rt_ip, runtime_env* env) noexcept
         {
             function_jit_state& state = m_compiling_functions[rt_ip];
@@ -530,8 +539,12 @@ namespace wo
 
             using namespace asmjit;
 
+            WooJitErrorHandler woo_jit_error_handler;
+
             CodeHolder code_buffer;
             code_buffer.init(get_jit_runtime().getCodeInfo());
+            code_buffer.setErrorHandler(&woo_jit_error_handler);
+
             X86Compiler x86compiler(&code_buffer);
 
             // Generate function declear
@@ -725,21 +738,23 @@ namespace wo
                     break;
                 }
                 case instruct::modi:
-                {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_NOT_SUPPORT;
+                    // Following code have bug, need to remake...
+                    //{
+                    //    WO_JIT_ADDRESSING_N1_REF;
+                    //    WO_JIT_ADDRESSING_N2_REF;
 
-                    auto int_of_op2 = x86compiler.newInt64();
-                    if (opnum2.is_constant())
-                        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
-                    else
-                        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    //    auto int_of_op2 = x86compiler.newInt64();
+                    //    if (opnum2.is_constant())
+                    //        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                    //    else
+                    //        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
 
-                    wo_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), x86::rdx));
+                    //    wo_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    //    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), x86::rdx));
 
-                    break;
-                }
+                    //    break;
+                    //}
                 case instruct::opcode::lds:
                 {
                     WO_JIT_ADDRESSING_N1_REF;

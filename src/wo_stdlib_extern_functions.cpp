@@ -459,6 +459,62 @@ WO_API wo_api rslib_std_atomic_cas(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, ((std::atomic<wo_handle_t>*) & aim->handle)->compare_exchange_weak(excepted->handle, swapval->handle));
 }
 
+WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
+{
+    // Read int value from keyboard, always return valid input result;
+    wo_int_t result;
+
+    while (!(std::cin >> result))
+    {
+        char _useless_for_clear = 0;
+        std::cin.clear();
+        while (std::cin.readsome(&_useless_for_clear, 1));
+    }
+    return wo_ret_int(vm, result);
+}
+
+WO_API wo_api rslib_std_input_readreal(wo_vm vm, wo_value args, size_t argc)
+{
+    // Read real value from keyboard, always return valid input result;
+    wo_real_t result;
+
+    while (!(std::cin >> result))
+    {
+        char _useless_for_clear = 0;
+        std::cin.clear();
+        while (std::cin.readsome(&_useless_for_clear, 1));
+    }
+    return wo_ret_real(vm, result);
+}
+
+WO_API wo_api rslib_std_input_readstring(wo_vm vm, wo_value args, size_t argc)
+{
+    // Read real value from keyboard, always return valid input result;
+    std::string result;
+
+    while (!(std::cin >> result))
+    {
+        char _useless_for_clear = 0;
+        std::cin.clear();
+        while (std::cin.readsome(&_useless_for_clear, 1));
+    }
+    return wo_ret_string(vm, result.c_str());
+}
+
+WO_API wo_api rslib_std_input_readline(wo_vm vm, wo_value args, size_t argc)
+{
+    // Read real value from keyboard, always return valid input result;
+    std::string result;
+
+    while (!(std::getline(std::cin, result)))
+    {
+        char _useless_for_clear = 0;
+        std::cin.clear();
+        while (std::cin.readsome(&_useless_for_clear, 1));
+    }
+    return wo_ret_string(vm, result.c_str());
+}
+
 WO_API wo_api rslib_std_randomint(wo_vm vm, wo_value args, size_t argc)
 {
     static std::random_device rd;
@@ -1131,6 +1187,60 @@ namespace std
         return c;
     }
 
+    public func input<T>(validator: (T)=>bool)
+        where std::declval:<T>() is int
+            || std::declval:<T>() is real
+            || std::declval:<T>() is string;
+    {
+        while (true)
+        {
+            if (std::declval:<T>() is int)
+            {
+                extern("rslib_std_input_readint") 
+                public func _input_int()=>int;
+
+                let result = _input_int();
+                if (validator(result))
+                    return result;
+            }
+            else if (std::declval:<T>() is real)
+            {
+                extern("rslib_std_input_readreal") 
+                public func _input_real()=>real;
+
+                let result = _input_real();
+                if (validator(result))
+                    return result;
+            }
+            else
+            {
+                extern("rslib_std_input_readstring") 
+                public func _input_string()=>string;
+
+                let result = _input_string();
+                if (validator(result))
+                    return result;
+            }
+        }
+    }
+
+    public func input<T>(parser: (string)=>option<T>)
+    {
+        while (true)
+        {
+            extern("rslib_std_input_readline") 
+            public func _input_line()=>string;
+
+            match (parser(_input_line()))
+            {
+            value(result)?
+                return result;
+            none?
+                ; // do nothing
+            }
+        }
+    }
+
     extern("rslib_std_randomint") 
         public func rand(from: int, to: int)=>int;
 
@@ -1316,7 +1426,7 @@ namespace string
         return _split(val, spliter, []:array<string>);
     }
 }
-
+)" R"(
 namespace array
 {
     extern("rslib_std_create_str_by_asciis") 
@@ -1395,6 +1505,31 @@ namespace array
         for (let (k, v) : val)
             result[k] = v;
         return result;
+    }
+
+    public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
+    {
+        if (self->empty)
+            return option::none;
+        
+        let mut result = self[0];
+        for (let mut i = 1; i < self->len; i+=1)
+            result = reducer(result, self[i]);
+
+        return option::value(result);
+    }
+
+    public func rreduce<T>(self: array<T>, reducer: (T, T)=>T)
+    {
+        if (self->empty)
+            return option::none;
+        
+        let len = self->len;
+        let mut result = self[len-1];
+        for (let mut i = len-2; i >= 0; i-=1)
+            result = reducer(self[i], result);
+
+        return option::value(result);
     }
 
     public using iterator<T> = gchandle

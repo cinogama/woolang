@@ -56,10 +56,20 @@ namespace test_container
         test_assure(b["gratio"] == 0.618);
         test_assure(b->len == 2);
     }
+    func test_reduce()
+    {
+        let a = [1, 6, 2, 7, 8, 10, 12, 23];
+        test_assure(a->reduce(\lv:int, rv:int = lv>rv?lv|rv;)->val == 23);
+        test_assure(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)->val == 6);
+        test_assure(a->rreduce(\lv:int, rv:int = rv%2==0?rv|lv;)->val == 12);
+        test_assure(![]->reduce(\_1:void,_2:void=option::none->val;)->has);
+        test_assure(![]->rreduce(\_1:void,_2:void=option::none->val;)->has);
+    }
     func main()
     {
         test_array_swap_copy();
         test_map_swap_copy();
+        test_reduce();
     }
 }
 
