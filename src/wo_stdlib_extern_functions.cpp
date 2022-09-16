@@ -938,6 +938,24 @@ namespace std
     extern("rslib_std_declval") public func declval<T>()=> T;
 }
 
+public using mutable<T> = struct {
+    mut val : T
+}
+{
+    public func create<T>(val: T)
+    {
+        return mutable:<T>{val = val};
+    }
+    public func set<T>(self: mutable<T>, val: T)
+    {
+        self.val = val;
+    }
+    public func get<T>(self: mutable<T>)
+    {
+        return self.val;
+    }
+}
+
 public union option<T>
 {
     value(T),
