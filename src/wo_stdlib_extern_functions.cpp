@@ -1470,6 +1470,14 @@ namespace array
     extern("rslib_std_array_find")
         public func find<T>(val:array<T>, elem:T)=>int;
 
+    public func findif<T>(val:array<T>, judger:(T)=>bool)
+    {
+        for (let i, v : val)
+            if (judger(v))
+                return i;
+        return -1;            
+    }
+
     extern("rslib_std_array_clear")
         public func clear<T>(val:array<T>)=>void;
 
@@ -1554,6 +1562,15 @@ namespace map
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
     extern("rslib_std_map_find") 
         public func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+
+    public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=>bool)
+    {
+        for (let k, _ : self)
+            if (judger(k))
+                return option::value(k);
+        return option::none;            
+    }
+
     extern("rslib_std_map_only_get") 
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
     extern("rslib_std_map_contain") 
