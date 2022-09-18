@@ -529,6 +529,8 @@ namespace wo
         std::map<std::set<lr_item>, std::set<lr_item>>CLOSURE_SET;
         std::vector<std::set<lr_item>> C_SET;
 
+        using te_nt_index_t = signed int;
+
         std::set< te>& FIRST(const sym& _sym)
         {
             if (std::holds_alternative<te>(_sym))//_sym is te
@@ -554,6 +556,16 @@ namespace wo
             if (FOLLOW_SET.find(noterim) == FOLLOW_SET.end())
                 return empty_set;
             return FOLLOW_SET.at(noterim);
+        }
+        const std::set< te>& FOLLOW_READ(te_nt_index_t ntidx)const
+        {
+            for (auto& [ntname, idx] : NONTERM_MAP)
+            {
+                if (idx == ntidx)
+                    return FOLLOW_READ(nt(ntname));
+            }
+            // Should not be here.
+            abort();
         }
 
         std::set<lr_item>& CLOSURE(const std::set<lr_item>& i)
@@ -684,8 +696,6 @@ namespace wo
 
         using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
         lr1table_t LR1_TABLE;
-
-        using te_nt_index_t = signed int;
 
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
 
@@ -1692,8 +1702,7 @@ namespace wo
 
                         struct fake_reduce_actions
                         {
-                            nt m_nt;
-                            size_t m_next_state;
+                            te_nt_index_t m_nt;
                         };
 
                         std::vector<fake_reduce_actions> reduceables;
@@ -1704,31 +1713,28 @@ namespace wo
                             {
                                 int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
                                 if (state < 0)
-                                    reduceables.push_back(fake_reduce_actions{ nt(LR1_NONTERM_LIST[i]), (size_t)state });
+                                    reduceables.push_back(fake_reduce_actions{ RT_PRODUCTION[(-state)-1].production_aim });
                             }
                         }
                         else
 #endif
                         {
-                            for (auto act : LR1_TABLE.at(stateid))
-                                if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
-                                    if (std::holds_alternative<nt>(act.first))
-                                        if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
-                                            reduceables.push_back(fake_reduce_actions{ std::get<nt>(act.first) , act.second.begin()->state });
+                            if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
+                                for (auto act : LR1_TABLE.at(stateid))
+                                    if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
+                                        reduceables.push_back(fake_reduce_actions{ RT_PRODUCTION[act.second.begin()->state].production_aim });
                         }
 
                         if (!reduceables.empty())
                         {
-                            for (const fake_reduce_actions& fr : reduceables)
+                            wo::lex_type out_lex = lex_type::l_empty;
+                            std::wstring out_str;
+                            while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
                             {
-                                // FIND NON-TE AND IT'S FOLLOW
-                                auto& follow_set = FOLLOW_READ(fr.m_nt);
-
-                                wo::lex_type out_lex = lex_type::l_empty;
-                                std::wstring out_str;
-                                while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
+                                for (const fake_reduce_actions& fr : reduceables)
                                 {
-                                    out_lex = tkr.next(&out_str);
+                                    // FIND NON-TE AND IT'S FOLLOW
+                                    auto& follow_set = FOLLOW_READ(fr.m_nt);
 
                                     auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
 
@@ -1740,20 +1746,13 @@ namespace wo
 
                                         });
                                     if (place != follow_set.end())
-                                    {
-                                        // FAKE REDUCE
-                                        state_stack.push(fr.m_next_state);
-                                        sym_stack.push(NONTERM_MAP.at(fr.m_nt.nt_name));
-                                        node_stack.push(token{ +lex_type::l_error });
-
                                         goto error_progress_end;
-                                    }
                                 }
-
-                                goto error_handle_fail;
+                                tkr.next(nullptr);
                             }
+                            goto error_handle_fail;
 
-
+#if 0
                             std::vector<te> _termi_want_to_inserts;
 
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
@@ -1800,7 +1799,7 @@ namespace wo
                                 tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
                                 goto error_progress_end;
                             }
-
+#endif
                         }
 
                         if (node_stack.size())
