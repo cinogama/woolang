@@ -19,6 +19,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <any>
 #include <forward_list>
 #include <unordered_map>
+#include <unordered_set>
 #include <map>
 
 #define WOOLANG_LR1_OPTIMIZE_LR1_TABLE 1
@@ -1700,12 +1701,7 @@ namespace wo
                     {
                         size_t stateid = state_stack.top();
 
-                        struct fake_reduce_actions
-                        {
-                            te_nt_index_t m_nt;
-                        };
-
-                        std::vector<fake_reduce_actions> reduceables;
+                        std::unordered_set<te_nt_index_t> reduceables;
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
                         if (lr1_fast_cache_enabled())
                         {
@@ -1713,7 +1709,7 @@ namespace wo
                             {
                                 int state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[stateid][1] * LR1_R_S_CACHE_SZ + i];
                                 if (state < 0)
-                                    reduceables.push_back(fake_reduce_actions{ RT_PRODUCTION[(-state)-1].production_aim });
+                                    reduceables.insert(RT_PRODUCTION[(-state) - 1].production_aim);
                             }
                         }
                         else
@@ -1722,7 +1718,7 @@ namespace wo
                             if (LR1_TABLE.find(stateid) != LR1_TABLE.end())
                                 for (auto act : LR1_TABLE.at(stateid))
                                     if (act.second.size() && act.second.begin()->act == action::act_type::reduction)
-                                        reduceables.push_back(fake_reduce_actions{ RT_PRODUCTION[act.second.begin()->state].production_aim });
+                                        reduceables.insert(RT_PRODUCTION[act.second.begin()->state].production_aim);
                         }
 
                         if (!reduceables.empty())
@@ -1731,10 +1727,10 @@ namespace wo
                             std::wstring out_str;
                             while ((out_lex = tkr.peek(&out_str)) != +lex_type::l_eof)
                             {
-                                for (const fake_reduce_actions& fr : reduceables)
+                                for (te_nt_index_t fr : reduceables)
                                 {
                                     // FIND NON-TE AND IT'S FOLLOW
-                                    auto& follow_set = FOLLOW_READ(fr.m_nt);
+                                    auto& follow_set = FOLLOW_READ(fr);
 
                                     auto place = std::find_if(follow_set.begin(), follow_set.end(), [&](const te& t) {
 
