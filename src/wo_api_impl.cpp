@@ -744,8 +744,8 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
 }
 wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
 {
-    wo::mapping_t* rsmap;
-    wo::mapping_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
+    wo::dict_t* rsmap;
+    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
 
     while (true)
     {
@@ -773,7 +773,7 @@ wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
             lex->next(nullptr);
     }
 
-    value->set_gcunit_with_barrier(wo::value::valuetype::mapping_type, rsmap);
+    value->set_gcunit_with_barrier(wo::value::valuetype::dict_type, rsmap);
     return true;
 }
 wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
@@ -872,9 +872,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
         *out_str += _enstring(*_rsvalue->string, true);
         return;
     }
-    case wo::value::valuetype::mapping_type:
+    case wo::value::valuetype::dict_type:
     {
-        wo::mapping_t* map = _rsvalue->mapping;
+        wo::dict_t* map = _rsvalue->dict;
         wo::gcbase::gc_read_guard rg1(map);
 
 
@@ -1052,8 +1052,8 @@ wo_string_t wo_type_name(const wo_value value)
         return "string";
     case wo::value::valuetype::array_type:
         return "array";
-    case wo::value::valuetype::mapping_type:
-        return "map";
+    case wo::value::valuetype::dict_type:
+        return "dict";
     case wo::value::valuetype::gchandle_type:
         return "gchandle";
     case wo::value::valuetype::closure_type:
@@ -1361,10 +1361,10 @@ wo_integer_t wo_lengthof(wo_value value)
         wo::gcbase::gc_read_guard rg1(_rsvalue->array);
         return _rsvalue->array->size();
     }
-    else if (_rsvalue->type == wo::value::valuetype::mapping_type)
+    else if (_rsvalue->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->mapping);
-        return _rsvalue->mapping->size();
+        wo::gcbase::gc_read_guard rg1(_rsvalue->dict);
+        return _rsvalue->dict->size();
     }
     else if (_rsvalue->type == wo::value::valuetype::string_type)
     {
@@ -1975,12 +1975,12 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_read_guard g1(_map->mapping);
+        wo::gcbase::gc_read_guard g1(_map->dict);
         if (index)
-            return _map->mapping->find(*WO_VAL(index)) != _map->mapping->end();
-        return  _map->mapping->find(wo::value()) != _map->mapping->end();
+            return _map->dict->find(*WO_VAL(index)) != _map->dict->end();
+        return  _map->dict->find(wo::value()) != _map->dict->end();
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
@@ -1993,28 +1993,28 @@ wo_value wo_map_get_by_default(wo_value map, wo_value index, wo_value default_va
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::value* result = nullptr;
-        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::gcbase::gc_write_guard g1(_map->dict);
         do
         {
-            auto fnd = _map->mapping->find(*WO_VAL(index));
-            if (fnd != _map->mapping->end())
+            auto fnd = _map->dict->find(*WO_VAL(index));
+            if (fnd != _map->dict->end())
                 result = &fnd->second;
         } while (false);
         if (!result)
         {
             if (default_value)
-                result = &((*_map->mapping)[*WO_VAL(index)] = *WO_VAL(default_value));
+                result = &((*_map->dict)[*WO_VAL(index)] = *WO_VAL(default_value));
             else
             {
-                result = &((*_map->mapping)[*WO_VAL(index)]);
+                result = &((*_map->dict)[*WO_VAL(index)]);
                 result->set_nil();
             }
         }
         if (wo::gc::gc_is_marking())
-            _map->mapping->add_memo(result);
+            _map->dict->add_memo(result);
 
         return CS_VAL(result);
     }
@@ -2029,14 +2029,14 @@ wo_value wo_map_get_or_default(wo_value map, wo_value index, wo_value default_va
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::value* result = nullptr;
-        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::gcbase::gc_write_guard g1(_map->dict);
         do
         {
-            auto fnd = _map->mapping->find(*WO_VAL(index));
-            if (fnd != _map->mapping->end())
+            auto fnd = _map->dict->find(*WO_VAL(index));
+            if (fnd != _map->dict->end())
                 result = &fnd->second;
         } while (false);
 
@@ -2044,7 +2044,7 @@ wo_value wo_map_get_or_default(wo_value map, wo_value index, wo_value default_va
             return CS_VAL(default_value);
 
         if (wo::gc::gc_is_marking())
-            _map->mapping->add_memo(result);
+            _map->dict->add_memo(result);
 
         return CS_VAL(result);
     }
@@ -2059,14 +2059,14 @@ wo_value wo_map_get(wo_value map, wo_value index)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_read_guard g1(_map->mapping);
-        auto fnd = _map->mapping->find(*WO_VAL(index));
-        if (fnd != _map->mapping->end())
+        wo::gcbase::gc_read_guard g1(_map->dict);
+        auto fnd = _map->dict->find(*WO_VAL(index));
+        if (fnd != _map->dict->end())
         {
             if (wo::gc::gc_is_marking())
-                _map->mapping->add_memo(&fnd->second);
+                _map->dict->add_memo(&fnd->second);
             return CS_VAL(&fnd->second);
         }
         return nullptr;
@@ -2082,14 +2082,14 @@ wo_value wo_map_set(wo_value map, wo_value index, wo_value val)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::gcbase::gc_write_guard g1(_map->dict);
         wo::value* result;
         if (val)
-            result = (*_map->mapping)[*WO_VAL(index)].set_val(WO_VAL(val));
+            result = (*_map->dict)[*WO_VAL(index)].set_val(WO_VAL(val));
         else
-            result = (*_map->mapping)[*WO_VAL(index)].set_nil();
+            result = (*_map->dict)[*WO_VAL(index)].set_nil();
 
         return CS_VAL(result);
     }
@@ -2104,19 +2104,19 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::gcbase::gc_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
         {
-            auto fnd = _map->mapping->find(*WO_VAL(index));
-            if (fnd != _map->mapping->end())
+            auto fnd = _map->dict->find(*WO_VAL(index));
+            if (fnd != _map->dict->end())
             {
-                _map->mapping->add_memo(&fnd->first);
-                _map->mapping->add_memo(&fnd->second);
+                _map->dict->add_memo(&fnd->first);
+                _map->dict->add_memo(&fnd->second);
             }
         }
-        return 0 != _map->mapping->erase(*WO_VAL(index));
+        return 0 != _map->dict->erase(*WO_VAL(index));
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
@@ -2128,18 +2128,18 @@ void wo_map_clear(wo_value map)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->mapping);
+        wo::gcbase::gc_write_guard g1(_map->dict);
         if (wo::gc::gc_is_marking())
         {
-            for (auto& kvpair : *_map->mapping)
+            for (auto& kvpair : *_map->dict)
             {
-                _map->mapping->add_memo(&kvpair.first);
-                _map->mapping->add_memo(&kvpair.second);
+                _map->dict->add_memo(&kvpair.first);
+                _map->dict->add_memo(&kvpair.second);
             }
         }
-        _map->mapping->clear();
+        _map->dict->clear();
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
@@ -2150,10 +2150,10 @@ wo_bool_t wo_map_is_empty(wo_value map)
     auto _map = WO_VAL(map);
     if (_map->is_nil())
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
-    else if (_map->type == wo::value::valuetype::mapping_type)
+    else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::gcbase::gc_write_guard g1(_map->mapping);
-        return _map->mapping->empty();
+        wo::gcbase::gc_write_guard g1(_map->dict);
+        return _map->dict->empty();
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");

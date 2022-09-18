@@ -726,8 +726,8 @@ namespace wo
                         tmpos << "string"; break;
                     case value::valuetype::array_type:
                         tmpos << "array"; break;
-                    case value::valuetype::mapping_type:
-                        tmpos << "map"; break;
+                    case value::valuetype::dict_type:
+                        tmpos << "dict"; break;
                     case value::valuetype::gchandle_type:
                         tmpos << "gchandle"; break;
                     default:
@@ -751,8 +751,8 @@ namespace wo
                         tmpos << "string"; break;
                     case value::valuetype::array_type:
                         tmpos << "array"; break;
-                    case value::valuetype::mapping_type:
-                        tmpos << "map"; break;
+                    case value::valuetype::dict_type:
+                        tmpos << "dict"; break;
                     case value::valuetype::gchandle_type:
                         tmpos << "gchandle"; break;
                     default:
@@ -792,8 +792,8 @@ namespace wo
                         tmpos << "string"; break;
                     case value::valuetype::array_type:
                         tmpos << "array"; break;
-                    case value::valuetype::mapping_type:
-                        tmpos << "map"; break;
+                    case value::valuetype::dict_type:
+                        tmpos << "dict"; break;
                     case value::valuetype::gchandle_type:
                         tmpos << "gchandle"; break;
                     default:
@@ -827,10 +827,8 @@ namespace wo
                     tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
                 case instruct::idarr:
                     tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::idmap:
-                    tmpos << "idmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::sidmap:
-                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                case instruct::iddict:
+                    tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::idstr:
                     tmpos << "idstr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::equr:
@@ -1300,8 +1298,8 @@ namespace wo
         }
         inline static value* make_map_impl(value* opnum1, value* opnum2, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
-            auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+            opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
+            auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
 
             wo_assert(opnum2->type == value::valuetype::integer_type);
             // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
@@ -1736,7 +1734,7 @@ namespace wo
                             case value::valuetype::array_type:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
-                            case value::valuetype::mapping_type:
+                            case value::valuetype::dict_type:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
@@ -1807,7 +1805,7 @@ namespace wo
                             case value::valuetype::array_type:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                                 break;
-                            case value::valuetype::mapping_type:
+                            case value::valuetype::dict_type:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
                                 break;
                             case value::valuetype::gchandle_type:
@@ -2366,63 +2364,30 @@ namespace wo
                         }
                         break;
                     }
-                    case instruct::opcode::idmap:
+                    case instruct::opcode::iddict:
                     {
                         WO_ADDRESSING_N1_REF;
                         WO_ADDRESSING_N2_REF;
 
                         wo_assert(nullptr != opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::mapping_type);
+                        wo_assert(opnum1->type == value::valuetype::dict_type);
                         do
                         {
                             gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                            auto fnd = opnum1->mapping->find(*opnum2);
-                            if (fnd != opnum1->mapping->end())
+                            auto fnd = opnum1->dict->find(*opnum2);
+                            if (fnd != opnum1->dict->end())
                             {
                                 auto* result = fnd->second.get();
                                 if (wo::gc::gc_is_marking())
-                                    opnum1->mapping->add_memo(result);
+                                    opnum1->dict->add_memo(result);
                                 rt_cr->set_ref(result);
                                 break;
                             }
                             else
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current mapping.");
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
                         } while (0);
 
-                        break;
-                    }
-                    case instruct::opcode::sidmap:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::mapping_type);
-
-                        do
-                        {
-                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                            auto fnd = opnum1->mapping->find(*opnum2);
-                            if (fnd != opnum1->mapping->end())
-                            {
-                                auto* result = fnd->second.get();
-                                if (wo::gc::gc_is_marking())
-                                    opnum1->mapping->add_memo(result);
-                                rt_cr->set_ref(result);
-                                goto _vm_run_impl__sidmap_readend;
-                            }
-                        } while (0);
-                        do
-                        {
-                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &(*opnum1->mapping)[*opnum2]/*.get()*/;
-                            if (wo::gc::gc_is_marking())
-                                opnum1->mapping->add_memo(result);
-                            rt_cr->set_ref(result);
-                        } while (0);
-
-                    _vm_run_impl__sidmap_readend:
                         break;
                     }
                     case instruct::opcode::idstr:
@@ -2501,7 +2466,7 @@ namespace wo
                             /*case instruct::extern_opcode_page_0::mknilmap:
                             {
                                 WO_ADDRESSING_N1_REF;
-                                opnum1->set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
                                 rt_cr->set_ref(opnum1);
                                 break;
                             }*/

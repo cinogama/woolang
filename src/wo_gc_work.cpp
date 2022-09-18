@@ -120,7 +120,7 @@ namespace wo
                         gc_mark_unit_as_gray(workerid, gcunit_addr);
                 }
             }
-            else if (mapping_t* wo_map = dynamic_cast<mapping_t*>(unit))
+            else if (dict_t* wo_map = dynamic_cast<dict_t*>(unit))
             {
                 for (auto& [key, val] : *wo_map)
                 {

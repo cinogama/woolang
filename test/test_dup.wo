@@ -5,17 +5,17 @@ namespace test_dup
 {
     func main()
     {
-        let arr = [1];
+        let arr = mut [1];
         let dup_arr = arr->dup();
 
-        let map = {["key"] = "val"};
-        let dup_map = map->dup();
+        let dict = mut {["key"] = "val"};
+        let dup_map = dict->dup();
 
         dup_arr[0] = 233;
         dup_map["key"] = "modify";
 
         test_equal(arr[0], 1);
-        test_equal(map["key"], "val");
+        test_equal(dict["key"], "val");
     }
 }
 

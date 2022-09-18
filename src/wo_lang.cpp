@@ -89,6 +89,13 @@ namespace wo
         analyze_pass1(a_value_idx->from);
         analyze_pass1(a_value_idx->index);
 
+        if (!a_value_idx->from->value_type->is_pending()
+            &&
+            !(a_value_idx->from->value_type->is_map()
+                || a_value_idx->from->value_type->is_vec()
+                || a_value_idx->from->value_type->is_struct()))
+            a_value_idx->can_be_assign = false;
+
         if (!a_value_idx->from->value_type->struct_member_index.empty())
         {
             if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
@@ -129,11 +136,11 @@ namespace wo
         }
         else if (!a_value_idx->from->value_type->is_pending())
         {
-            if (a_value_idx->from->value_type->is_array())
+            if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
             {
                 a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
             }
-            else if (a_value_idx->from->value_type->is_map())
+            else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
             {
                 a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
             }
@@ -1446,7 +1453,7 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
-            size_t anylizer_error_count =lang_anylizer->get_cur_error_frame().size();
+            size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
 
             if (a_value_funcdef->argument_list)
             {
@@ -1495,7 +1502,7 @@ namespace wo
 
             if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
             {
-                wo_assert(lang_anylizer->get_cur_error_frame().size()> anylizer_error_count);
+                wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
 
                 if (!a_value_funcdef->where_constraint)
                 {
@@ -1507,12 +1514,12 @@ namespace wo
 
                 a_value_funcdef->where_constraint->accept = false;
 
-                for (; anylizer_error_count< lang_anylizer->get_cur_error_frame().size();++anylizer_error_count)
+                for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
                 {
                     a_value_funcdef->where_constraint->unmatched_constraint.push_back(
                         lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
                 }
-                
+
 
                 // Error happend in cur function
                 a_value_funcdef->value_type->set_type_with_name(L"pending");
@@ -1648,6 +1655,11 @@ namespace wo
         analyze_pass2(a_value_index->from);
         analyze_pass2(a_value_index->index);
 
+        if (!(a_value_index->from->value_type->is_map()
+            || a_value_index->from->value_type->is_vec()
+            || a_value_index->from->value_type->is_struct()))
+            a_value_index->can_be_assign = false;
+
         if (a_value_index->value_type->is_pending())
         {
             if (!a_value_index->from->value_type->struct_member_index.empty())
@@ -1704,11 +1716,11 @@ namespace wo
             }
             else if (!a_value_index->from->value_type->is_pending())
             {
-                if (a_value_index->from->value_type->is_array())
+                if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                 {
                     a_value_index->value_type = a_value_index->from->value_type->template_arguments[0];
                 }
-                else if (a_value_index->from->value_type->is_map())
+                else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
                 {
                     a_value_index->value_type = a_value_index->from->value_type->template_arguments[1];
                 }
@@ -1722,6 +1734,8 @@ namespace wo
         }
 
         if (!a_value_index->from->value_type->is_array()
+            && !a_value_index->from->value_type->is_dict()
+            && !a_value_index->from->value_type->is_vec()
             && !a_value_index->from->value_type->is_map()
             && !a_value_index->from->value_type->is_string()
             && !a_value_index->from->value_type->is_struct()
@@ -1731,7 +1745,7 @@ namespace wo
                 , a_value_index->from->value_type->get_type_name().c_str());
         }
 
-        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_string())
+        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
         {
             if (!a_value_index->index->value_type->is_integer())
             {
@@ -1739,7 +1753,7 @@ namespace wo
                     , a_value_index->from->value_type->get_type_name().c_str());
             }
         }
-        if (a_value_index->from->value_type->is_map())
+        if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
         {
             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false))
             {
@@ -1772,7 +1786,7 @@ namespace wo
         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array" WO_TERM_OR L"tuple");
+            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
         return true;
     }
@@ -1910,7 +1924,10 @@ namespace wo
 
                 if (!decide_array_item_type->accept_type(val->value_type, false))
                 {
-                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                    if (!a_value_arr->is_mutable_vector)
+                        lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                    else
+                        lang_anylizer->lang_error(0x0000, val, L"'vec' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
                     break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
@@ -1922,10 +1939,17 @@ namespace wo
             }
         }
 
-        if (!a_value_arr->value_type->is_array())
+        if (!a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_array())
         {
             lang_anylizer->lang_error(0x0000, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"array",
+                L"array<...>",
+                a_value_arr->value_type->get_type_name().c_str()
+            );
+        }
+        else if (a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_vec())
+        {
+            lang_anylizer->lang_error(0x0000, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                L"vec<...>",
                 a_value_arr->value_type->get_type_name().c_str()
             );
         }
@@ -1938,7 +1962,12 @@ namespace wo
             while (val)
             {
                 if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
-                    lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
+                {
+                    if (!a_value_arr->is_mutable_vector)
+                        lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
+                    else
+                        lang_anylizer->lang_error(0x0000, val, L"'vec' 序列中的值类型与泛型参数中指定的不一致，继续");
+                }
                 reenplace_array_items.push_back(val);
 
                 val = dynamic_cast<ast_value*>(val->sibling);
@@ -1989,12 +2018,18 @@ namespace wo
 
                 if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                 {
-                    lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
+                    if (!a_value_map->is_mutable_map)
+                        lang_anylizer->lang_error(0x0000, map_pair->key, L"'dict' 序列中的键类型不一致，无法为 'dict' 推导类型，继续");
+                    else
+                        lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
                     break;
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                 {
-                    lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
+                    if (!a_value_map->is_mutable_map)
+                        lang_anylizer->lang_error(0x0000, map_pair->val, L"'dict' 序列中的值类型不一致，无法为 'dict' 推导类型，继续");
+                    else
+                        lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
                     break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
@@ -2007,10 +2042,17 @@ namespace wo
             }
         }
 
-        if (!a_value_map->value_type->is_map())
+        if (!a_value_map->is_mutable_map && !a_value_map->value_type->is_dict())
         {
             lang_anylizer->lang_error(0x0000, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                L"map",
+                L"dict<..., ...>",
+                a_value_map->value_type->get_type_name().c_str()
+            );
+        }
+        else if (a_value_map->is_mutable_map && !a_value_map->value_type->is_map())
+        {
+            lang_anylizer->lang_error(0x0000, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                L"map<..., ...>",
                 a_value_map->value_type->get_type_name().c_str()
             );
         }
@@ -2030,9 +2072,19 @@ namespace wo
                 else
                 {
                     if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
-                        lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
+                    {
+                        if (!a_value_map->is_mutable_map)
+                            lang_anylizer->lang_error(0x0000, pairs->key, L"'dict' 序列中的键类型与泛型参数中指定的不一致，继续");
+                        else
+                            lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
+                    }
                     if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
-                        lang_anylizer->lang_error(0x0000, pairs->val, L"'map' 序列中的值类型与泛型参数中指定的不一致，继续");
+                    {
+                        if (!a_value_map->is_mutable_map)
+                            lang_anylizer->lang_error(0x0000, pairs->val, L"'dict' 序列中的值类型与泛型参数中指定的不一致，继续");
+                        else
+                            lang_anylizer->lang_error(0x0000, pairs->val, L"'map' 序列中的值类型与泛型参数中指定的不一致，继续");
+                    }
 
                 }
                 pairs = dynamic_cast<ast_mapping_pair*>(pairs->sibling);
@@ -2165,7 +2217,7 @@ namespace wo
                         , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
                         , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
                 }
-            }          
+            }
         }
         return true;
     }
@@ -2942,20 +2994,20 @@ namespace wo
                 {
                     if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias)
                     {
-                        wo_assert(another->value_type == wo::value::valuetype::mapping_type
+                        wo_assert(another->value_type == wo::value::valuetype::dict_type
                             || another->value_type == wo::value::valuetype::array_type);
                         return ltsymb->type_informatiom->value_type == another->value_type;
                     }
                     if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
                     {
-                        wo_assert(value_type == wo::value::valuetype::mapping_type
+                        wo_assert(value_type == wo::value::valuetype::dict_type
                             || value_type == wo::value::valuetype::array_type);
                         return rtsymb->type_informatiom->value_type == value_type;
                     }
                     // both nullptr, check base type
-                    wo_assert(another->value_type == wo::value::valuetype::mapping_type
+                    wo_assert(another->value_type == wo::value::valuetype::dict_type
                         || another->value_type == wo::value::valuetype::array_type);
-                    wo_assert(value_type == wo::value::valuetype::mapping_type
+                    wo_assert(value_type == wo::value::valuetype::dict_type
                         || value_type == wo::value::valuetype::array_type);
                     return value_type == another->value_type;
                 }
@@ -3100,7 +3152,7 @@ namespace wo
             {
                 if (symbol && symbol->is_template_symbol && is_custom())
                     return true;
-                else if (is_array() || is_map())
+                else if (is_array() || is_dict())
                     return true;
             }
             return false;

@@ -152,8 +152,10 @@ namespace wo
                 {L"handle", value::valuetype::handle_type},
                 {L"real", value::valuetype::real_type},
                 {L"string", value::valuetype::string_type},
-                {L"map", value::valuetype::mapping_type},
+                {L"dict", value::valuetype::dict_type},
                 {L"array", value::valuetype::array_type},
+                {L"map", value::valuetype::dict_type},
+                {L"vec", value::valuetype::array_type},
                 {L"gchandle", value::valuetype::gchandle_type},
                 {L"nil", value::valuetype::invalid},
 
@@ -174,12 +176,8 @@ namespace wo
                     return L"nil";
 
                 for (auto& [tname, vtype] : name_type_pair)
-                {
                     if (vtype == _type)
-                    {
                         return tname;
-                    }
-                }
 
                 return L"pending";
             }
@@ -264,7 +262,7 @@ namespace wo
                 {
                     template_arguments.push_back(new ast_type(L"dynamic"));
                 }
-                else if (value_type == value::valuetype::mapping_type)
+                else if (value_type == value::valuetype::dict_type)
                 {
                     template_arguments.push_back(new ast_type(L"dynamic"));
                     template_arguments.push_back(new ast_type(L"dynamic"));
@@ -913,15 +911,11 @@ namespace wo
             {
                 return value_type == value::valuetype::string_type && !is_func();
             }
-            bool is_array() const
-            {
-                return value_type == value::valuetype::array_type && !is_func();
-            }
             bool is_complex_type() const
             {
                 if (is_func() || using_type_name || is_union() || is_struct() || is_tuple())
                     return true;
-                if (is_array() || is_map())
+                if (is_array() || is_dict())
                 {
                     for (auto* temp : template_arguments)
                     {
@@ -933,9 +927,25 @@ namespace wo
 
                 return has_template();
             }
+            bool is_array() const
+            {
+                return value_type == value::valuetype::array_type && !is_func() && 
+                    (type_name == L"array" || (using_type_name && using_type_name->type_name == L"array"));
+            }
+            bool is_dict() const
+            {
+                return value_type == value::valuetype::dict_type && !is_func() &&
+                    (type_name == L"dict" || (using_type_name && using_type_name->type_name == L"dict"));
+            }
+            bool is_vec() const
+            {
+                return value_type == value::valuetype::array_type && !is_func() && 
+                    (type_name == L"vec" || (using_type_name && using_type_name->type_name == L"vec"));
+            }
             bool is_map() const
             {
-                return value_type == value::valuetype::mapping_type && !is_func();
+                return value_type == value::valuetype::dict_type && !is_func() &&
+                    (type_name == L"map" || (using_type_name && using_type_name->type_name == L"map"));
             }
             bool is_integer() const
             {
@@ -1249,8 +1259,8 @@ namespace wo
                 case value::valuetype::string_type:
                     os << L"string";
                     break;
-                case value::valuetype::mapping_type:
-                    os << L"map";
+                case value::valuetype::dict_type:
+                    os << L"dict";
                     break;
                 case value::valuetype::gchandle_type:
                     os << L"gchandle";
@@ -1364,10 +1374,10 @@ namespace wo
                                     goto try_cast_nil_to_int_handle_real_str;
                                 constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
                                 break;
-                            case value::valuetype::mapping_type:
+                            case value::valuetype::dict_type:
                                 if (last_value.is_nil())
                                 {
-                                    constant_value.set_gcunit_with_barrier(value::valuetype::mapping_type);
+                                    constant_value.set_gcunit_with_barrier(value::valuetype::dict_type);
                                     break;
                                 }
                                 if (last_value.type != value::valuetype::string_type)
@@ -1920,7 +1930,7 @@ namespace wo
                     return nullptr;
                 if ((left_v->is_string() || right_v->is_string()) && op != +lex_type::l_add && op != +lex_type::l_add_assign)
                     return nullptr;
-                if (left_v->is_map() || right_v->is_map())
+                if (left_v->is_dict() || right_v->is_dict())
                     return nullptr;
                 if (left_v->is_array() || right_v->is_array())
                     return nullptr;
@@ -2399,11 +2409,13 @@ namespace wo
         struct ast_value_array : virtual public ast_value
         {
             ast_list* array_items;
-            ast_value_array(ast_list* _items)
+            bool is_mutable_vector;
+            ast_value_array(ast_list* _items, bool is_mutable)
                 : array_items(_items)
+                , is_mutable_vector(is_mutable)
             {
                 wo_test(array_items);
-                value_type = new ast_type(L"array");
+                value_type = is_mutable ? new ast_type(L"vec") : new ast_type(L"array");
                 value_type->template_arguments[0]->set_type_with_name(L"pending");
             }
 
@@ -2436,12 +2448,13 @@ namespace wo
         struct ast_value_mapping : virtual public ast_value
         {
             ast_list* mapping_pairs;
-
-            ast_value_mapping(ast_list* _items)
+            bool is_mutable_map;
+            ast_value_mapping(ast_list* _items, bool is_mutable)
                 : mapping_pairs(_items)
+                , is_mutable_map(is_mutable)
             {
                 wo_test(mapping_pairs);
-                value_type = new ast_type(L"map");
+                value_type = is_mutable ? new ast_type(L"map") : new ast_type(L"dict");
                 value_type->template_arguments[0]->set_type_with_name(L"pending");
                 value_type->template_arguments[1]->set_type_with_name(L"pending");
             }
@@ -2449,7 +2462,7 @@ namespace wo
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
-                os << L"< " << ANSI_HIY << "map" << ANSI_RST << L" >" << std::endl;
+                os << L"< " << ANSI_HIY << "dict" << ANSI_RST << L" >" << std::endl;
                 mapping_pairs->display(os, lay + 1);
             }
 
@@ -2842,8 +2855,6 @@ namespace wo
         {
             ast_value* from = nullptr;
             ast_value* index = nullptr;
-
-            bool using_sidmap_to_store_value = false;
             uint16_t struct_offset = 0xFFFF;
 
             ast_value_index()
@@ -4094,8 +4105,13 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 3);
-                return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(1)));
+                if (input.size() == 3)
+                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(1)), false);
+                else
+                {
+                    wo_assert(input.size() == 4);
+                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                }
             }
         };
 
@@ -4103,8 +4119,13 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 3);
-                return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(1)));
+                if (input.size() == 3)
+                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(1)), false);
+                else
+                {
+                    wo_assert(input.size() == 4);
+                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                }
             }
         };
 
@@ -4578,6 +4599,18 @@ namespace wo
                 if ((value_node = dynamic_cast<ast_value*>(WO_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(WO_NEED_AST(1))))
                 {
                     if (type_node->is_array())
+                        if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
+                        {
+                            array_builder->value_type = type_node;
+                            return (ast_basic*)array_builder;
+                        }
+                    if (type_node->is_dict())
+                        if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
+                        {
+                            map_builder->value_type = type_node;
+                            return (ast_basic*)map_builder;
+                        }
+                    if (type_node->is_vec())
                         if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
                         {
                             array_builder->value_type = type_node;
@@ -5081,7 +5114,7 @@ namespace wo
                     if (result->is_array())
                         if (result->template_arguments.size() != 1)
                             lex.parser_error(0x0000, WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
-                    if (result->is_map())
+                    if (result->is_dict())
                         if (result->template_arguments.size() != 2)
                             lex.parser_error(0x0000, WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
 
@@ -5850,7 +5883,7 @@ namespace wo
                 auto* result = new ast_struct_member_define;
                 result->is_mutable_decl = false;
                 result->is_value_pair = false;
-               
+
                 if (input.size() == 2)
                 {
                     // identifier TYPE_DECLEAR
