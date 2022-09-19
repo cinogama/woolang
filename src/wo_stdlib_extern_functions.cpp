@@ -416,7 +416,9 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
-    wo_value arr = args + 2;
+    wo_value arr = wo_push_empty(vm);
+
+    wo_set_arr(arr, 0);
 
     size_t matchlen = strlen(match);
     size_t split_begin = 0;
@@ -620,6 +622,16 @@ WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
     return ret;
 }
 
+WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
+{
+    auto arrsz = wo_lengthof(args + 0);
+    auto ret = wo_ret_val(vm, wo_arr_get(args + 0, 0));
+    if (arrsz)
+        wo_arr_remove(args + 0, 0);
+
+    return ret;
+}
+
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_remove(args + 0, wo_int(args + 1));
@@ -816,26 +828,31 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
 {
     // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
-    if (wo_cast_value_from_str(args + 1, wo_string(args + 0), WO_MAPPING_TYPE))
-        return wo_ret_option_val(vm, args + 1);
+    wo_value result_dict = wo_push_empty(vm);
+    if (wo_cast_value_from_str(result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
+        return wo_ret_option_val(vm, result_dict);
     return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
 {
     // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
-    if (wo_cast_value_from_str(args + 1, wo_string(args + 0), WO_ARRAY_TYPE))
-        return wo_ret_option_val(vm, args + 1);
+    wo_value result_arr = wo_push_empty(vm);
+    if (wo_cast_value_from_str(result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
+        return wo_ret_option_val(vm, result_arr);
     return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
 {
     std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
-    for (wchar_t ch : buf)
-        wo_set_int(wo_arr_add(args + 1, nullptr), (wo_int_t)ch);
+    wo_value result_array = wo_push_empty(vm);
+    wo_set_arr(result_array, buf.size());
 
-    return wo_ret_val(vm, args + 1);
+    for (size_t i = 0; i < buf.size(); ++i)
+        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)buf[i]);
+
+    return wo_ret_val(vm, result_array);
 }
 
 WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t argc)
@@ -1293,21 +1310,21 @@ namespace std
     extern("rslib_std_make_dup")
     public func dup<T>(dupval: T)=> T;
 
-    using range = (int ,int, int)
+    public using range = (int ,int, int)
     {
-        func create(from: int, to: int)
+        public func create(from: int, to: int)
         {
             return (from, to, from > to ?  -1 | 1): range;
         }
-        func create(from: int, to: int, step: int)
+        public func create(from: int, to: int, step: int)
         {
             return (from, to, step): range;
         }
-        func iter(self: range)
+        public func iter(self: range)
         {
             return self;
         }
-        func next(self: range, ref out_val: int)
+        public func next(self: range, ref out_val: int)
         {
             let (ref cur, aim, step) = self;
             if (step > 0)
@@ -1335,26 +1352,24 @@ namespace string
     public func todict(val:string)=> option<dict<dynamic, dynamic>>
     {
         extern("rslib_std_parse_map_from_string") 
-        func _tomap(val: string, out_result: dict<dynamic, dynamic>)
-            => option<dict<dynamic, dynamic>>;
+        func _tomap(val: string)=> option<dict<dynamic, dynamic>>;
 
-        return _tomap(val, {});
+        return _tomap(val);
     }
     public func toarray(val:string)=> option<array<dynamic>>
     {
         extern("rslib_std_parse_array_from_string") 
-        func _toarray(val: string, out_result: array<dynamic>)
-            => option<array<dynamic>>;
+        func _toarray(val: string)=> option<array<dynamic>>;
 
-        return _toarray(val, []);
+        return _toarray(val);
     }
 
     public func chars(buf: string)=> array<char>
     {
         extern("rslib_std_create_chars_from_str") 
-        func _chars(buf: string, out_result: array<char>)=> array<char>;
+        func _chars(buf: string)=> array<char>;
 
-        return _chars(buf, []);
+        return _chars(buf);
     }
 
     extern("rslib_std_get_ascii_val_from_str") 
@@ -1426,9 +1441,9 @@ namespace string
     public func split(val:string, spliter:string)
     {
         extern("rslib_std_string_split")
-            private func _split(val:string, spliter:string, out_result:array<string>)=>array<string>;
+            private func _split(val:string, spliter:string)=> array<string>;
 
-        return _split(val, spliter, []:array<string>);
+        return _split(val, spliter);
     }
 }
 )" R"(
@@ -1440,10 +1455,17 @@ namespace array
             private func asvec<T>(val: array<T>)=> vec<T>;
     }
 
-    public func append<T>(self: array<T>, elem: T)
+    public func add<T>(self: array<T>, elem: T)
     {
         let newarr = self->tovec;
         newarr->add(elem);
+
+        return newarr->unsafe::asarray;
+    }
+    public func remove<T>(self: array<T>, index: int)
+    {
+        let newarr = self->tovec;
+        newarr->remove(index);
 
         return newarr->unsafe::asarray;
     }
@@ -1595,6 +1617,9 @@ namespace vec
 
     extern("rslib_std_array_pop") 
         public func pop<T>(val: vec<T>)=> T;  
+
+    extern("rslib_std_array_dequeue") 
+        public func dequeue<T>(val: vec<T>)=> T;  
 
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=>void;

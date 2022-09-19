@@ -43,7 +43,7 @@ WO_FORCE_CAPI
 
 typedef int64_t     wo_integer_t, wo_int_t;
 typedef uint64_t    wo_handle_t;
-typedef void*       wo_ptr_t;
+typedef void* wo_ptr_t;
 typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
 typedef double      wo_real_t;
@@ -129,6 +129,8 @@ WO_API void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value hold
 WO_API void wo_set_val(wo_value value, wo_value val);
 WO_API void wo_set_ref(wo_value value, wo_value val);
 WO_API void wo_set_struct(wo_value value, uint16_t structsz);
+WO_API void wo_set_arr(wo_value value, wo_int_t count);
+WO_API void wo_set_map(wo_value value);
 
 WO_API wo_integer_t wo_cast_int(const wo_value value);
 WO_API wo_real_t    wo_cast_real(const wo_value value);
@@ -171,6 +173,15 @@ WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_ref(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
+// Not safe, if wo_ret_val(vm, wo_set_ret_option_arr(vm, 0)) may get error result;
+//WO_API wo_value wo_set_ret_arr(wo_vm vm, wo_int_t count);
+//WO_API wo_value wo_set_ret_struct(wo_vm vm, uint16_t count);
+//WO_API wo_value wo_set_ret_map(wo_vm vm);
+//
+//WO_API wo_value wo_set_ret_option_arr(wo_vm vm, wo_int_t count);
+//WO_API wo_value wo_set_ret_option_struct(wo_vm vm, uint16_t count);
+//WO_API wo_value wo_set_ret_option_map(wo_vm vm);
+
 WO_API void         wo_coroutine_pauseall();
 WO_API void         wo_coroutine_resumeall();
 WO_API void         wo_coroutine_stopall();
@@ -180,7 +191,7 @@ WO_API void         wo_co_sleep(double time);
 typedef void* wo_waitter_t;
 WO_API wo_waitter_t        wo_co_create_waitter();
 WO_API void                wo_co_awake_waitter(wo_waitter_t waitter, void* val);
-WO_API void*               wo_co_wait_for(wo_waitter_t waitter);
+WO_API void* wo_co_wait_for(wo_waitter_t waitter);
 
 WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
 
@@ -251,23 +262,27 @@ WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
 
 WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
 
-WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
-WO_API wo_value     wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
-WO_API wo_value     wo_arr_add(wo_value arr, wo_value elem);
+// Read operation
 WO_API wo_value     wo_arr_get(wo_value arr, wo_int_t index);
 WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
-WO_API void         wo_arr_remove(wo_value arr, wo_int_t index);
-WO_API void         wo_arr_clear(wo_value arr);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
-WO_API wo_value     wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value);
 WO_API wo_value     wo_map_get_or_default(wo_value map, wo_value index, wo_value default_value);
 WO_API wo_value     wo_map_get(wo_value map, wo_value index);
+WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
+
+// Write operation
+WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
+WO_API wo_value     wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
+WO_API wo_value     wo_arr_add(wo_value arr, wo_value elem);
+WO_API void         wo_arr_remove(wo_value arr, wo_int_t index);
+WO_API void         wo_arr_clear(wo_value arr);
+
 WO_API wo_value     wo_map_set(wo_value map, wo_value index, wo_value val);
+WO_API wo_value     wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
-WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_gchandle_close(wo_value gchandle);
 

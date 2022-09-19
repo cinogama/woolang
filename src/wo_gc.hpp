@@ -227,9 +227,9 @@ namespace wo
             ++gc_new_count;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>)))gcunit<T>(args...);
-            created_gcnuit->gc_type = AllocType;
-
             *reinterpret_cast<std::atomic<gcbase*>*>(&write_aim) = created_gcnuit;
+
+            created_gcnuit->gc_type = AllocType;
 
             switch (AllocType)
             {

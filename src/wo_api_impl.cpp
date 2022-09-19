@@ -490,6 +490,47 @@ void wo_set_struct(wo_value value, uint16_t structsz)
     wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, structsz);
 }
 
+void wo_set_arr(wo_value value, wo_int_t count)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
+
+    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+}
+
+void wo_set_map(wo_value value)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
+
+    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+}
+
+//wo_value wo_set_ret_arr(wo_vm vm, wo_int_t count)
+//{
+//    auto* _rsvalue = WO_VM(vm)->cr;
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
+//
+//    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+//    return CS_VAL(_rsvalue);
+//}
+//wo_value wo_set_ret_struct(wo_vm vm, uint16_t count)
+//{
+//    auto* _rsvalue = WO_VM(vm)->cr;
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+//
+//    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+//    return CS_VAL(_rsvalue);
+//}
+//wo_value wo_set_ret_map(wo_vm vm)
+//{
+//    auto* _rsvalue = WO_VM(vm)->cr;
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
+//
+//    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+//    return CS_VAL(_rsvalue);
+//}
+
 wo_integer_t wo_cast_int(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
@@ -1308,6 +1349,55 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
 
     return 0;
 }
+
+//wo_value wo_set_ret_option_arr(wo_vm vm, wo_int_t count)
+//{
+//    auto* wovm = WO_VM(vm);
+//
+//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+//    wo::gcbase::gc_write_guard gwg1(structptr);
+//
+//    structptr->m_values[0].set_integer(1);
+//
+//    auto* _rsvalue = &structptr->m_values[1];
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
+//
+//    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+//    return CS_VAL(_rsvalue);
+//}
+//wo_value  wo_set_ret_option_struct(wo_vm vm, uint16_t count)
+//{
+//    auto* wovm = WO_VM(vm);
+//
+//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+//    wo::gcbase::gc_write_guard gwg1(structptr);
+//
+//    structptr->m_values[0].set_integer(1);
+//
+//    auto* _rsvalue = &structptr->m_values[1];
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+//
+//    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+//    return CS_VAL(_rsvalue);
+//}
+//wo_value  wo_set_ret_option_map(wo_vm vm)
+//{
+//    auto* wovm = WO_VM(vm);
+//
+//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+//    wo::gcbase::gc_write_guard gwg1(structptr);
+//
+//    structptr->m_values[0].set_integer(1);
+//
+//    auto* _rsvalue = &structptr->m_values[1];
+//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
+//
+//    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+//    return CS_VAL(_rsvalue);
+//}
 
 void wo_coroutine_pauseall()
 {
