@@ -2120,6 +2120,14 @@ namespace wo
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
+                bool using_sidmap_to_store_value = false;
+                auto* a_value_index_map = dynamic_cast<ast_value_index*>(a_value_assign->left);
+                if (a_value_index_map
+                    && a_value_index_map->from->value_type->is_map()
+                    && a_value_assign->operate == +lex_type::l_assign)
+                    // a[xx] = val; generate 'sidmap' opcode!
+                    a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
+
                 // if mixed type, do opx
                 bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
                 value::valuetype optype = value::valuetype::invalid;
@@ -2833,7 +2841,12 @@ namespace wo
                     if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                         compiler->idarr(beoped_left_opnum, op_right_opnum);
                     else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
-                        compiler->iddict(beoped_left_opnum, op_right_opnum);
+                    {
+                        if (a_value_index->using_sidmap_to_store_value)
+                            compiler->sidmap(beoped_left_opnum, op_right_opnum);
+                        else
+                            compiler->iddict(beoped_left_opnum, op_right_opnum);
+                    }
                     else if (a_value_index->from->value_type->is_string())
                         compiler->idstr(beoped_left_opnum, op_right_opnum);
                     else

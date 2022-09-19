@@ -1348,6 +1348,15 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::iddict, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
+        void sidmap(const OP1T& op1, const OP2T& op2)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
+        template<typename OP1T, typename OP2T>
         void idstr(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -1855,6 +1864,11 @@ namespace wo
                     break;
                 case instruct::opcode::iddict:
                     temp_this_command_code_buf.push_back(WO_OPCODE(iddict));
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    break;
+                case instruct::opcode::sidmap:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;

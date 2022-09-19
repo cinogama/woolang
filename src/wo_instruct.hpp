@@ -108,7 +108,7 @@ namespace wo
             nequr = 58 WO_OPCODE_SPACE,     // nequr
             equs = 59 WO_OPCODE_SPACE,      // equs
             nequs = 60 WO_OPCODE_SPACE,     // nequs
-            RESERVE_0 = 61 WO_OPCODE_SPACE,    // sidmap(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF 3-9 byte
+            sidmap = 61 WO_OPCODE_SPACE,    // sidmap(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF 3-9 byte
 
             jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
             idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte

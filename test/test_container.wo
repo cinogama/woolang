@@ -48,7 +48,7 @@ namespace test_container
         test_assure(b->len == 1);
 
         a->copy(b);
-        b->set("gratio", 0.618);
+        b["gratio"] = 0.618;
 
         test_assure(a["pi"] == 3.14);
         test_assure(a->len == 1);
