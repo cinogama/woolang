@@ -1469,6 +1469,13 @@ namespace array
 
         return newarr->unsafe::asarray;
     }
+    public func insert<T>(self: array<T>, index: int, insert_value: T)
+    {
+        let newarr = self->tovec;
+        newarr->insert(index, insert_value);
+
+        return newarr->unsafe::asarray;
+    }
 
     extern("rslib_std_create_str_by_asciis") 
         public func str(buf: array<char>)=> string;
