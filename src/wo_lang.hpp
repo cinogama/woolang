@@ -162,7 +162,7 @@ namespace wo
             if (typing->is_hkt())
             {
                 if (typing->value_type != wo::value::valuetype::array_type
-                    && typing->value_type != wo::value::valuetype::mapping_type)
+                    && typing->value_type != wo::value::valuetype::dict_type)
                 {
                     wo_assert(typing->symbol);
                     auto* base_type_symb = ast::ast_type::base_typedef_symbol(typing->symbol);
@@ -1648,7 +1648,7 @@ namespace wo
             return nullptr;
         }
 
-        // register mapping.... fxxk
+        // register dict.... fxxk
         enum class RegisterUsingState : uint8_t
         {
             FREE,
@@ -1697,7 +1697,7 @@ namespace wo
         {
             if (val->is_const_value && (
                 val->value_type->is_dynamic()
-                || val->value_type->is_map()
+                || val->value_type->is_dict()
                 || val->value_type->is_array()
                 || val->value_type->is_struct()))
                 return true;
@@ -1989,7 +1989,7 @@ namespace wo
                     }
                 case value::valuetype::invalid:  // for nil
                 case value::valuetype::array_type:  // for nil
-                case value::valuetype::mapping_type:  // for nil
+                case value::valuetype::dict_type:  // for nil
                 case value::valuetype::gchandle_type:  // for nil
                     if (!get_pure_value)
                         return WO_NEW_OPNUM(reg(reg::ni));
@@ -2838,14 +2838,14 @@ namespace wo
 
                     last_value_stored_to_cr_flag.write_to_cr();
 
-                    if (a_value_index->from->value_type->is_array())
+                    if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                         compiler->idarr(beoped_left_opnum, op_right_opnum);
-                    else if (a_value_index->from->value_type->is_map())
+                    else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
                     {
                         if (a_value_index->using_sidmap_to_store_value)
                             compiler->sidmap(beoped_left_opnum, op_right_opnum);
                         else
-                            compiler->idmap(beoped_left_opnum, op_right_opnum);
+                            compiler->iddict(beoped_left_opnum, op_right_opnum);
                     }
                     else if (a_value_index->from->value_type->is_string())
                         compiler->idstr(beoped_left_opnum, op_right_opnum);

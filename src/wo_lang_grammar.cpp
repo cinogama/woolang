@@ -744,6 +744,13 @@ namespace wo
                                         gm::te(gm::ttype::l_index_end) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_array_builder),
 
+                gm::nt(L"CONSTANT_ARRAY") >> gm::symlist{
+                                        gm::te(gm::ttype::l_mut),
+                                        gm::te(gm::ttype::l_index_begin),
+                                        gm::nt(L"CONSTANT_ARRAY_ITEMS"),
+                                        gm::te(gm::ttype::l_index_end) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_array_builder),
+
                 gm::nt(L"CONSTANT_ARRAY_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -769,6 +776,13 @@ namespace wo
                 ///////////////////////
 
                 gm::nt(L"CONSTANT_MAP") >> gm::symlist{
+                                        gm::te(gm::ttype::l_left_curly_braces),
+                                        gm::nt(L"CONSTANT_MAP_PAIRS"),
+                                        gm::te(gm::ttype::l_right_curly_braces) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_map_builder),
+
+                gm::nt(L"CONSTANT_MAP") >> gm::symlist{
+                                        gm::te(gm::ttype::l_mut),
                                         gm::te(gm::ttype::l_left_curly_braces),
                                         gm::nt(L"CONSTANT_MAP_PAIRS"),
                                         gm::te(gm::ttype::l_right_curly_braces) }

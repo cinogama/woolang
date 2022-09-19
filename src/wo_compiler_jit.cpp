@@ -1385,7 +1385,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::idarr:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::idmap:
+                case instruct::iddict:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkarr:
                 {

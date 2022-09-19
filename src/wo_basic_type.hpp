@@ -27,7 +27,7 @@ namespace wo
     using hash_t = uint64_t;
 
     using string_t = gcunit<std::string>;
-    using mapping_t = gcunit<std::map<value, value, value_compare>>;
+    using dict_t = gcunit<std::map<value, value, value_compare>>;
     using array_t = gcunit<std::vector<value>>;
 
     template<typename ... TS>
@@ -66,7 +66,7 @@ namespace wo
             need_gc = 0xF0,
 
             string_type,
-            mapping_type,
+            dict_type,
             array_type,
             gchandle_type,
             closure_type,
@@ -83,7 +83,7 @@ namespace wo
             gcbase* gcunit;
             string_t* string;     // ADD-ABLE TYPE
             array_t* array;
-            mapping_t* mapping;
+            dict_t* dict;
             gchandle_t* gchandle;
             closure_t* closure;
             struct_t* structs;
@@ -292,8 +292,8 @@ namespace wo
                 return "string";
             case valuetype::array_type:
                 return "array";
-            case valuetype::mapping_type:
-                return "map";
+            case valuetype::dict_type:
+                return "dict";
             case valuetype::invalid:
                 return "nil";
             case valuetype::is_ref:
@@ -345,7 +345,7 @@ namespace wo
     static_assert((int)value::valuetype::nativecallstack == WO_NATIVE_CALLSTACK_TYPE);
     static_assert((int)value::valuetype::need_gc == WO_NEED_GC_FLAG);
     static_assert((int)value::valuetype::string_type == WO_STRING_TYPE);
-    static_assert((int)value::valuetype::mapping_type == WO_MAPPING_TYPE);
+    static_assert((int)value::valuetype::dict_type == WO_MAPPING_TYPE);
     static_assert((int)value::valuetype::array_type == WO_ARRAY_TYPE);
     static_assert((int)value::valuetype::gchandle_type == WO_GCHANDLE_TYPE);
     static_assert((int)value::valuetype::closure_type == WO_CLOSURE_TYPE);
@@ -437,15 +437,15 @@ namespace wo
                 set_nil();
 
         }
-        else if (from->type == valuetype::mapping_type)
+        else if (from->type == valuetype::dict_type)
         {
-            auto* dup_mapping = from->mapping;
+            auto* dup_mapping = from->dict;
             if (dup_mapping)
             {
                 gcbase::gc_read_guard g1(dup_mapping);
-                set_gcunit_with_barrier(valuetype::mapping_type);
+                set_gcunit_with_barrier(valuetype::dict_type);
 
-                auto* created_map = mapping_t::gc_new<gcbase::gctype::eden>(gcunit);
+                auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(gcunit);
                 *created_map = *dup_mapping;
             }
             else

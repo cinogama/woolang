@@ -3,7 +3,7 @@ import test_tool;
 
 namespace test_optional
 {
-    let global_val<T> = []: array<T>;
+    let global_val<T> = mut []: vec<T>;
 
     func foo()
     {
@@ -95,7 +95,7 @@ namespace test_optional
         let data_from = ["Hello", "world", "woolang"];
         let chain = linknode(data_from)->dup();
 
-        let arr = []: array<string>;
+        let arr = mut []: vec<string>;
         for(let x : chain)
             arr->add(x);
 
@@ -118,19 +118,19 @@ namespace test_optional
         test_assure(p:<int> == 5);
         test_assure(p:<handle> == 0x147H);
 
-        let g = global_val:<string> as array<string>;
+        let g = global_val:<string> as vec<string>;
         g->add("Helloworld");
 
         foo();
 
-        let mut gval = option::none as option<array<string>>;
-        gval = option::value([]: array<string>);
+        let mut gval = option::none as option<vec<string>>;
+        gval = option::value(mut []: vec<string>);
 
         match(gval)
         {
             option::value(x)?
             {
-                x as array<string>;
+                x as vec<string>;
                 x->add("Helloworld");
                 x[0] as string;
                 test_assure(x->len() == 1);

@@ -97,12 +97,12 @@ namespace wo
             abrt = 51 WO_OPCODE_SPACE,  // abrt(0_1/0)  (0xcc 0xcd can use it to abort)     
                                         // end(1_1/0)   1 byte
 
-            idarr = 52 WO_OPCODE_SPACE,  // idarr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
-            idmap = 53 WO_OPCODE_SPACE,  // idmap(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idarr = 52 WO_OPCODE_SPACE,  // idarr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for array]
+            iddict = 53 WO_OPCODE_SPACE,  // iddict(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for dict]
 
             mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
             mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-            idstr = 56 WO_OPCODE_SPACE,     // idstr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string array mapping]
+            idstr = 56 WO_OPCODE_SPACE,     // idstr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string]
 
             equr = 57 WO_OPCODE_SPACE,      // equr(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
             nequr = 58 WO_OPCODE_SPACE,     // nequr
