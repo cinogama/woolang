@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX ""
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 4, 0);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 4, 0) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 5, 0);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 5, 0) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -1738,7 +1738,31 @@ wo_value wo_push_valref(wo_vm vm, wo_value val)
         return CS_VAL((WO_VM(vm)->sp--)->set_trans(WO_ORIGIN_VAL(val)));
     return CS_VAL((WO_VM(vm)->sp--)->set_nil());
 }
+wo_value wo_push_arr(wo_vm vm, wo_int_t count)
+{
+    auto* _rsvalue = WO_VM(vm)->sp--;
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
+    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+    return CS_VAL(_rsvalue);
+
+}
+wo_value wo_push_struct(wo_vm vm, uint16_t count)
+{
+    auto* _rsvalue = WO_VM(vm)->sp--;
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+
+    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+    return CS_VAL(_rsvalue);
+}
+wo_value wo_push_map(wo_vm vm)
+{
+    auto* _rsvalue = WO_VM(vm)->sp--;
+    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
+
+    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+    return CS_VAL(_rsvalue);
+}
 
 wo_value wo_top_stack(wo_vm vm)
 {

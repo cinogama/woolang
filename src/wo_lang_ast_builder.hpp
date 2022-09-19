@@ -915,7 +915,7 @@ namespace wo
             {
                 if (is_func() || using_type_name || is_union() || is_struct() || is_tuple())
                     return true;
-                if (is_array() || is_dict())
+                if (is_array() || is_dict() || is_vec() || is_map())
                 {
                     for (auto* temp : template_arguments)
                     {
@@ -5113,10 +5113,10 @@ namespace wo
                         type = dynamic_cast<ast_type*>(type->sibling);
                     }
                     result->template_arguments = template_args;
-                    if (result->is_array())
+                    if (result->is_array() || result->is_vec())
                         if (result->template_arguments.size() != 1)
                             lex.parser_error(0x0000, WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
-                    if (result->is_dict())
+                    if (result->is_dict() || result->is_map())
                         if (result->template_arguments.size() != 2)
                             lex.parser_error(0x0000, WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
 

@@ -239,6 +239,9 @@ WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_ref(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_valref(wo_vm vm, wo_value val);
+WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
+WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
+WO_API wo_value     wo_push_map(wo_vm vm);
 
 WO_API wo_value     wo_top_stack(wo_vm vm);
 WO_API void         wo_pop_stack(wo_vm vm);

@@ -990,7 +990,7 @@ namespace wo
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
                             {
-                                a_ret->located_function->value_type->set_type_with_name(L"dynamic");
+                                a_ret->located_function->value_type->set_type_with_name(L"void");
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }

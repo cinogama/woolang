@@ -1455,21 +1455,21 @@ namespace array
             private func asvec<T>(val: array<T>)=> vec<T>;
     }
 
-    public func add<T>(self: array<T>, elem: T)
+    public func append<T>(self: array<T>, elem: T)
     {
         let newarr = self->tovec;
         newarr->add(elem);
 
         return newarr->unsafe::asarray;
     }
-    public func remove<T>(self: array<T>, index: int)
+    public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
         newarr->remove(index);
 
         return newarr->unsafe::asarray;
     }
-    public func insert<T>(self: array<T>, index: int, insert_value: T)
+    public func inlay<T>(self: array<T>, index: int, insert_value: T)
     {
         let newarr = self->tovec;
         newarr->insert(index, insert_value);
@@ -1613,6 +1613,8 @@ namespace vec
 
     extern("rslib_std_array_copy") 
         public func copy<T>(val: vec<T>, another: vec<T>)=> void;
+    extern("rslib_std_array_copy") 
+        public func copy<T>(val: vec<T>, another: array<T>)=> void;
 
     public func get<T>(a: vec<T>, index: int)
     {
@@ -1724,7 +1726,7 @@ namespace dict
             public func asmap<KT, VT>(val: dict<KT, VT>)=> map<KT, VT>;
     }
 
-    public func append<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
+    public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
     {
         let newmap = self->tomap;
         newmap[key] = val;
@@ -1821,7 +1823,7 @@ namespace map
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            public func asdict<KT, VT>(val: dict<KT, VT>)=> dict<KT, VT>;
+            public func asdict<KT, VT>(val: map<KT, VT>)=> dict<KT, VT>;
     }
 
     extern("rslib_std_map_set") 
