@@ -1584,7 +1584,7 @@ namespace vec
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            public func asarray<T>(val: vec<T>)=> array<T>;
+            private func asarray<T>(val: vec<T>)=> array<T>;
     }
 
     extern("rslib_std_create_str_by_asciis") 
@@ -1723,7 +1723,7 @@ namespace dict
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            public func asmap<KT, VT>(val: dict<KT, VT>)=> map<KT, VT>;
+            private func asmap<KT, VT>(val: dict<KT, VT>)=> map<KT, VT>;
     }
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
@@ -1823,7 +1823,7 @@ namespace map
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            public func asdict<KT, VT>(val: map<KT, VT>)=> dict<KT, VT>;
+            private func asdict<KT, VT>(val: map<KT, VT>)=> dict<KT, VT>;
     }
 
     extern("rslib_std_map_set") 
@@ -1836,7 +1836,7 @@ namespace map
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
 
     extern("rslib_std_make_dup")
-        public func todict<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
+        public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_map_find") 
         public func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
