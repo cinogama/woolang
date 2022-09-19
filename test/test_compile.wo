@@ -389,6 +389,23 @@ namespace test_compile
             assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<nothing>)=>int>()), (array<nothing>)=>void>();
             "@);
 
+        // array/dict is not modifiable
+        assure_compile_fail(@"
+            let a = [1,2,3];
+            a[0] = 6;
+        "@);
+        assure_compile_fail(@"
+            let a = {[0] = 1};
+            a[0] = 6;
+        "@);
+        // vec/map can be modified;
+        assure_compile_success(@"
+            let a = mut[1,2,3];
+            let b = mut{[0] = 1};
+            
+            a[0] = 6;
+            b[0] = 6;
+        "@);
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)

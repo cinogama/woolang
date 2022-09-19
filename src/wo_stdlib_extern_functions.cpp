@@ -849,6 +849,11 @@ WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t arg
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
 
+WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_val(vm, args + 0);
+}
+
 WO_API wo_api rslib_std_get_ascii_val_from_str(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_int(vm, (wo_int_t)wo_str_get_char(wo_string(args + 0), wo_int(args + 1)));
@@ -1429,31 +1434,18 @@ namespace string
 )" R"(
 namespace array
 {
-    namespace debug
+    namespace unsafe
     {
-        extern("rslib_std_array_resize") 
-            private func resize<T>(val: array<T>, newsz: int, init_val: T)=> void;
+        extern("rslib_std_return_itself") 
+            private func asvec<T>(val: array<T>)=> vec<T>;
+    }
 
-        extern("rslib_std_array_insert") 
-            private func insert<T>(val: array<T>, insert_place: int, insert_val: T)=> T;
+    public func append<T>(self: array<T>, elem: T)
+    {
+        let newarr = self->tovec;
+        newarr->add(elem);
 
-        extern("rslib_std_array_swap") 
-            private func swap<T>(val: array<T>, another: array<T>)=> void;
-
-        extern("rslib_std_array_copy") 
-            private func copy<T>(val: array<T>, another: array<T>)=> void;
-
-        extern("rslib_std_array_add") 
-            private func add<T>(val: array<T>, elem: T)=>T;
-
-        extern("rslib_std_array_pop") 
-            private func pop<T>(val: array<T>)=> T;  
-
-        extern("rslib_std_array_remove")
-            private func remove<T>(val:array<T>, index:int)=>void;
-
-        extern("rslib_std_array_clear")
-            private func clear<T>(val:array<T>)=>void;
+        return newarr->unsafe::asarray;
     }
 
     extern("rslib_std_create_str_by_asciis") 
@@ -1464,6 +1456,9 @@ namespace array
 
     extern("rslib_std_make_dup")
         public func dup<T>(val: array<T>)=> array<T>;
+
+    extern("rslib_std_make_dup")
+        public func tovec<T>(val: array<T>)=> vec<T>;
 
     extern("rslib_std_array_empty")
         public func empty<T>(val: array<T>)=> bool;
@@ -1486,36 +1481,36 @@ namespace array
 
     public func forall<T>(val: array<T>, functor: (T)=>bool)
     {
-        let result = []: array<T>;
+        let result = mut []: vec<T>;
         for (let elem : val)
             if (functor(elem))
-                result->debug::add(elem);
-        return result;
+                result->add(elem);
+        return result->unsafe::asarray;
     }
 
     public func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
-        let result = []: array<R>;
+        let result = mut []: vec<R>;
         for (let elem : val)
             for (let insert : functor(elem))
-                result->debug::add(insert);
-        return result;
+                result->add(insert);
+        return result->unsafe::asarray;
     }
 
     public func trans<T, R>(val: array<T>, functor: (T)=>R)
     {
-        let result = []: array<R>;
+        let result = mut []: vec<R>;
         for (let elem : val)
-            result->debug::add(functor(elem));
-        return result;
+            result->add(functor(elem));
+        return result->unsafe::asarray;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}: dict<K, V>;
+        let result = mut {}: map<K, V>;
         for (let (k, v) : val)
             result[k] = v;
-        return result;
+        return result->unsafe::asdict;
     }
 
     public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -1557,6 +1552,12 @@ namespace array
 
 namespace vec
 {
+    namespace unsafe
+    {   
+        extern("rslib_std_return_itself") 
+            public func asarray<T>(val: vec<T>)=> array<T>;
+    }
+
     extern("rslib_std_create_str_by_asciis") 
         public func str(buf: vec<char>)=> string;
 
@@ -1565,6 +1566,9 @@ namespace vec
 
     extern("rslib_std_make_dup")
         public func dup<T>(val: vec<T>)=> vec<T>;
+
+    extern("rslib_std_make_dup")
+        public func toarray<T>(val: vec<T>)=> array<T>;
 
     extern("rslib_std_array_empty")
         public func empty<T>(val: vec<T>)=> bool;
@@ -1637,10 +1641,10 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = mut {}: map<K, V>;
+        let result =  mut {}: map<K, V>;
         for (let (k, v) : val)
             result[k] = v;
-        return result;
+        return result->unsafe::asdict;
     }
 
     public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
@@ -1682,23 +1686,18 @@ namespace vec
 
 namespace dict
 {
-    namespace debug
+    namespace unsafe
     {   
-        // 
-        extern("rslib_std_map_set") 
-            private func set<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)=> VT;
+        extern("rslib_std_return_itself") 
+            public func asmap<KT, VT>(val: dict<KT, VT>)=> map<KT, VT>;
+    }
 
-        extern("rslib_std_map_swap") 
-            private func swap<KT, VT>(val: dict<KT, VT>, another: dict<KT, VT>)=> void;
+    public func append<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
+    {
+        let newmap = self->tomap;
+        newmap[key] = val;
 
-        extern("rslib_std_map_copy") 
-            private func copy<KT, VT>(val: dict<KT, VT>, another: dict<KT, VT>)=> void;
-
-        extern("rslib_std_map_remove")
-            private func remove<KT, VT>(self: dict<KT, VT>, index: int)=> void;
-
-        extern("rslib_std_map_clear")
-            private func clear<KT, VT>(self: dict<KT, VT>)=> void;
+        return newmap->unsafe::asdict;
     }
 
     extern("rslib_std_lengthof") 
@@ -1706,6 +1705,9 @@ namespace dict
 
     extern("rslib_std_make_dup")
         public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
+
+    extern("rslib_std_make_dup")
+        public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
     extern("rslib_std_map_find") 
         public func find<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
@@ -1743,47 +1745,53 @@ namespace dict
 
     public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
     {
-        let result = []: array<KT>;
+        let result = mut []: vec<KT>;
         for (let key, val : self)
             result->add(key);
-        return result;
+        return result->unsafe::asarray;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
-        let result = []: array<VT>;
+        let result = mut []: vec<VT>;
         for (let key, val : self)
             result->add(val);
-        return result;
+        return result->unsafe::asarray;
     }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
     {
-        let result = {}: dict<KT, VT>;
+        let result = mut {}: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                result->debug::set(key, val);
-        return result;
+                result[key] = val;
+        return result->unsafe::asdict;
     }
     public func trans<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
     {
-        let result = {}: dict<AT, BT>;
+        let result = mut{}: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
             result[nk] = nv;
         }
-        return result;
+        return result->unsafe::asdict;
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
-        let result = []: array<(KT, VT)>;
+        let result = mut[]: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
-        return result;
+        return result->unsafe::asarray;
     }
 }
 
 namespace map
 {
+    namespace unsafe
+    {   
+        extern("rslib_std_return_itself") 
+            public func asdict<KT, VT>(val: dict<KT, VT>)=> dict<KT, VT>;
+    }
+
     extern("rslib_std_map_set") 
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
 
@@ -1792,6 +1800,9 @@ namespace map
 
     extern("rslib_std_make_dup")
         public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
+
+    extern("rslib_std_make_dup")
+        public func todict<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_map_find") 
         public func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
@@ -1844,21 +1855,21 @@ namespace map
 
     public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
     {
-        let result = []: array<KT>;
+        let result = mut []: vec<KT>;
         for (let key, val : self)
             result->add(key);
-        return result;
+        return result->unsafe::asarray;
     }
     public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
-        let result = []: array<VT>;
+        let result = mut []: vec<VT>;
         for (let key, val : self)
             result->add(val);
-        return result;
+        return result->unsafe::asarray;
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
-        let result = {}: map<KT, VT>;
+        let result = mut {}: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
@@ -1866,7 +1877,7 @@ namespace map
     }
     public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
-        let result = {}: map<AT, BT>;
+        let result = mut {}: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
@@ -1876,10 +1887,10 @@ namespace map
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
-        let result = []: array<(KT, VT)>;
+        let result = mut []: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
-        return result;
+        return result->unsafe::asarray;
     }
 }
 
