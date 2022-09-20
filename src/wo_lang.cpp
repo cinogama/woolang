@@ -747,7 +747,7 @@ namespace wo
     {
         auto* a_using_type_as = WO_AST();
 
-        fully_update_type(a_using_type_as->old_type, true);
+        fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
 
         auto* typing_symb = define_type_in_this_scope(a_using_type_as, a_using_type_as->old_type, a_using_type_as->declear_attribute);
         typing_symb->apply_template_setting(a_using_type_as);

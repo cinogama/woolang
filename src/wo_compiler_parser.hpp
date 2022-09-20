@@ -778,8 +778,6 @@ namespace wo
                     if (state == -1)
                         // No action for this state&nt, return error.
                         return action{};
-                    if (state > 10000)
-                        printf("xx");
                     return action(action::act_type::state_goto, +lex_type::l_error, state);
                 }
 

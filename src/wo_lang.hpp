@@ -3986,6 +3986,7 @@ namespace wo
                 else
                     sym->type = lang_symbol::symbol_type::typing;
                 sym->name = def->new_type_identifier;
+
                 sym->type_informatiom = as_type;
                 sym->defined_in_scope = lang_scopes.back();
                 sym->define_node = def;

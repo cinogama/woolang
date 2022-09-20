@@ -4313,18 +4313,13 @@ namespace wo
 
                 if (return_type)
                 {
-                    ast_func->value_type = return_type;
+                    ast_func->value_type = new ast_type(return_type); // complex type;;
                     ast_func->auto_adjust_return_type = false;
                 }
                 else
                 {
                     ast_func->value_type = new ast_type(L"pending");
                     ast_func->auto_adjust_return_type = true;
-                }
-
-                if (ast_func->value_type->is_func())
-                {
-                    ast_func->value_type = new ast_type(ast_func->value_type); // complex type;;
                 }
 
                 ast_func->value_type->set_as_function_type();
@@ -5657,9 +5652,9 @@ namespace wo
                         argdef->copy_source_info(items);
 
                         if (items->gadt_out_type_may_nil)
-                            avfd_item_type_builder->value_type = items->gadt_out_type_may_nil;
+                            avfd_item_type_builder->value_type = new ast_type(items->gadt_out_type_may_nil);
                         else
-                            avfd_item_type_builder->value_type = create_union_type();
+                            avfd_item_type_builder->value_type = new ast_type(create_union_type());
 
                         avfd_item_type_builder->value_type->set_as_function_type();
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
@@ -5701,9 +5696,9 @@ namespace wo
                         avfd_item_type_builder->argument_list = new ast_list;
                         avfd_item_type_builder->declear_attribute = union_arttribute;
                         if (items->gadt_out_type_may_nil)
-                            avfd_item_type_builder->value_type = items->gadt_out_type_may_nil;
+                            avfd_item_type_builder->value_type = new ast_type(items->gadt_out_type_may_nil);
                         else
-                            avfd_item_type_builder->value_type = create_union_type();
+                            avfd_item_type_builder->value_type = new ast_type(create_union_type());
                         avfd_item_type_builder->value_type->set_as_function_type();
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
