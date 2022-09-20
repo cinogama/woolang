@@ -276,21 +276,11 @@ namespace wo
             {
                 wo_test(is_func());
 
-                if (_type->is_func())
-                {
-                    type_name = L"complex";
-                    complex_type = new ast_type(*_type);
-                    is_pending_type = false; // reset state;
-                }
-                else
-                {
-                    // simplx
-                    set_type_with_name(_type->type_name);
-                    using_type_name = _type->using_type_name;
-                    template_arguments = _type->template_arguments;
-                    struct_member_index = _type->struct_member_index;
-                    template_impl_naming_checking = _type->template_impl_naming_checking;
-                }
+                type_name = L"complex";
+                complex_type = new ast_type(*_type);
+                is_pending_type = false; // reset state;
+                value_type = value::valuetype::invalid;
+                template_arguments.clear();
             }
 
             ast_type(const std::wstring& _type_name)
@@ -375,7 +365,7 @@ namespace wo
                 if (is_complex())
                     return complex_type->is_custom(s);
                 else
-                    return is_custom_type(type_name);
+                    return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
             }
 
             bool is_custom() const
@@ -443,7 +433,7 @@ namespace wo
                 {
                     for (auto arg_type : template_arguments)
                     {
-                        if (arg_type->may_need_update())
+                        if (arg_type->may_need_update(s))
                             return true;
                     }
                 }
@@ -451,14 +441,14 @@ namespace wo
                 {
                     for (auto arg_type : argument_types)
                     {
-                        if (arg_type->may_need_update())
+                        if (arg_type->may_need_update(s))
                             return true;
                     }
                 }
 
                 bool base_type_pending;
                 if (is_complex())
-                    base_type_pending = complex_type->may_need_update();
+                    base_type_pending = complex_type->may_need_update(s);
                 else
                     base_type_pending = type_name == L"pending";
 
@@ -929,7 +919,7 @@ namespace wo
             }
             bool is_array() const
             {
-                return value_type == value::valuetype::array_type && !is_func() && 
+                return value_type == value::valuetype::array_type && !is_func() &&
                     (type_name == L"array" || (using_type_name && using_type_name->type_name == L"array"));
             }
             bool is_dict() const
@@ -939,7 +929,7 @@ namespace wo
             }
             bool is_vec() const
             {
-                return value_type == value::valuetype::array_type && !is_func() && 
+                return value_type == value::valuetype::array_type && !is_func() &&
                     (type_name == L"vec" || (using_type_name && using_type_name->type_name == L"vec"));
             }
             bool is_map() const
@@ -5052,10 +5042,7 @@ namespace wo
 
                 wo_test(complex_type);
 
-                if (complex_type->is_func())
-                    result = new ast_type(complex_type);
-                else
-                    result = complex_type;
+                result = new ast_type(complex_type);
 
                 result->set_as_function_type();
                 auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));

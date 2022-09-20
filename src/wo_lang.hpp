@@ -534,7 +534,7 @@ namespace wo
                             type_sym = type->symbol;
 
                         if (traving_symbols.find(type_sym) != traving_symbols.end())
-                            return true;
+                            return false;
 
                         struct traving_guard
                         {

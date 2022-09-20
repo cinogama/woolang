@@ -3080,22 +3080,7 @@ namespace wo
             s.insert(this);
 
             std::wstring result;
-            if (is_function_type)
-            {
-                result += L"(";
-                for (size_t index = 0; index < argument_types.size(); index++)
-                {
-                    result += argument_types[index]->get_type_name(s, ignore_using_type);
-                    if (index + 1 != argument_types.size() || is_variadic_function_type)
-                        result += L", ";
-                }
 
-                if (is_variadic_function_type)
-                {
-                    result += L"...";
-                }
-                result += L")=>";
-            }
             if (!ignore_using_type && using_type_name)
             {
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
@@ -3105,6 +3090,22 @@ namespace wo
             }
             else
             {
+                if (is_function_type)
+                {
+                    result += L"(";
+                    for (size_t index = 0; index < argument_types.size(); index++)
+                    {
+                        result += argument_types[index]->get_type_name(s, ignore_using_type);
+                        if (index + 1 != argument_types.size() || is_variadic_function_type)
+                            result += L", ";
+                    }
+
+                    if (is_variadic_function_type)
+                    {
+                        result += L"...";
+                    }
+                    result += L")=>";
+                }
                 if (is_hkt_typing() && symbol)
                 {
                     auto* base_symbol = base_typedef_symbol(symbol);
