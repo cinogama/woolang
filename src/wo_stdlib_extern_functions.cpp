@@ -1452,7 +1452,7 @@ namespace array
     namespace unsafe
     {
         extern("rslib_std_return_itself") 
-            private func asvec<T>(val: array<T>)=> vec<T>;
+            private func astype<AimT, T>(val: array<T>)=> AimT;
     }
 
     public func append<T>(self: array<T>, elem: T)
@@ -1460,21 +1460,21 @@ namespace array
         let newarr = self->tovec;
         newarr->add(elem);
 
-        return newarr->unsafe::asarray;
+        return newarr->unsafe::astype:<array<T>>;
     }
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
         newarr->remove(index);
 
-        return newarr->unsafe::asarray;
+        return newarr->unsafe::astype:<array<T>>;
     }
     public func inlay<T>(self: array<T>, index: int, insert_value: T)
     {
         let newarr = self->tovec;
         newarr->insert(index, insert_value);
 
-        return newarr->unsafe::asarray;
+        return newarr->unsafe::astype:<array<T>>;
     }
 
     extern("rslib_std_create_str_by_asciis") 
@@ -1514,7 +1514,7 @@ namespace array
         for (let elem : val)
             if (functor(elem))
                 result->add(elem);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<T>>;
     }
 
     public func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
@@ -1523,7 +1523,7 @@ namespace array
         for (let elem : val)
             for (let insert : functor(elem))
                 result->add(insert);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<T>>;
     }
 
     public func trans<T, R>(val: array<T>, functor: (T)=>R)
@@ -1531,15 +1531,15 @@ namespace array
         let result = []mut: vec<R>;
         for (let elem : val)
             result->add(functor(elem));
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<T>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: map<K, mut V>;
         for (let (k, v) : val)
             result[k] = v;
-        return result->unsafe::asdict;
+        return result->unsafe::astype:<dict<K, T>>;
     }
 
     public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -1584,7 +1584,7 @@ namespace vec
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            private func asarray<T>(val: vec<T>)=> array<T>;
+            private func astype<AimT, T>(val: vec<T>)=> AimT;
     }
 
     extern("rslib_std_create_str_by_asciis") 
@@ -1675,10 +1675,10 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: map<K, mut V>;
         for (let (k, v) : val)
             result[k] = v;
-        return result->unsafe::asdict;
+        return result->unsafe::astype:<dict<K, V>>;
     }
 
     public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
@@ -1723,7 +1723,7 @@ namespace dict
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            private func asmap<KT, VT>(val: dict<KT, VT>)=> map<KT, VT>;
+            private func astype<AimT, KT, VT>(val: dict<KT, VT>)=> AimT;
     }
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
@@ -1731,7 +1731,7 @@ namespace dict
         let newmap = self->tomap;
         newmap[key] = val;
 
-        return newmap->unsafe::asdict;
+        return newmap->unsafe::astype:<dict<K, V>>;
     }
 
     extern("rslib_std_lengthof") 
@@ -1782,39 +1782,39 @@ namespace dict
         let result = []mut: vec<KT>;
         for (let key, val : self)
             result->add(key);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<KT>>;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
         let result = []mut: vec<VT>;
         for (let key, val : self)
             result->add(val);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<VT>>;
     }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
     {
-        let result = {}mut: map<KT, VT>;
+        let result = {}mut: map<KT, mut VT>;
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
-        return result->unsafe::asdict;
+        return result->unsafe::astype:<dict<KT, VT>>;
     }
     public func trans<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
     {
-        let result = {}mut: map<AT, BT>;
+        let result = {}mut: map<AT, mut BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
             result[nk] = nv;
         }
-        return result->unsafe::asdict;
+        return result->unsafe::astype:<dict<AT, BT>>;
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<(KT, VT)>>;
     }
 }
 
@@ -1823,7 +1823,7 @@ namespace map
     namespace unsafe
     {   
         extern("rslib_std_return_itself") 
-            private func asdict<KT, VT>(val: map<KT, VT>)=> dict<KT, VT>;
+            private func astype<AimT, KT, VT>(val: map<KT, VT>)=> AimT;
     }
 
     extern("rslib_std_map_set") 
@@ -1892,18 +1892,18 @@ namespace map
         let result = []mut: vec<KT>;
         for (let key, val : self)
             result->add(key);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<KT>>;
     }
     public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
         let result = []mut: vec<VT>;
         for (let key, val : self)
             result->add(val);
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<VT>>;
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
-        let result = {}mut: map<KT, VT>;
+        let result = {}mut: map<KT, mut VT>;
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
@@ -1911,20 +1911,20 @@ namespace map
     }
     public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
-        let result = {}mut: map<AT, BT>;
+        let result = {}mut: map<AT, mut BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
             result[nk] = nv;
         }
-        return result;
+        return result->unsafe::astype:<dict<AT, BT>>;
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
-        return result->unsafe::asarray;
+        return result->unsafe::astype:<array<(KT, VT)>>;
     }
 }
 
