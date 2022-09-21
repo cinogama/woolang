@@ -216,7 +216,7 @@ namespace wo
             uint32_t hash32 = hashval & 0xFFFFFFFF;
             while (hashed_typing.find(hash32) != hashed_typing.end())
             {
-                if (hashed_typing[hash32]->is_same(typing, false))
+                if (hashed_typing[hash32]->is_same(typing, false, false))
                     return hash32;
                 hash32++;
             }
@@ -429,7 +429,7 @@ namespace wo
                     if (naming_memb_name_val.member_type->is_pending())
                         ; // member type not computed, just pass
                     else if (fnd->second.member_type->is_pending()
-                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false))
+                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false, false))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -2030,7 +2030,7 @@ namespace wo
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false))
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false, true))
                     optype = a_value_binary->left->value_type->value_type;
 
                 auto& beoped_left_opnum = analyze_value(a_value_binary->left, compiler, true);
@@ -2589,10 +2589,10 @@ namespace wo
                     return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol);
 
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
                     optype = a_value_logical_binary->left->value_type->value_type;
 
-                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
+                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
                 {
                     if (!((a_value_logical_binary->left->value_type->is_integer() ||
                         a_value_logical_binary->left->value_type->is_real()) &&

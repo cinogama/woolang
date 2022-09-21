@@ -566,7 +566,7 @@ namespace wo
 
             }
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
-            bool is_same(const ast_type* another, bool ignore_using_type) const;
+            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
             bool is_builtin_basic_type()
             {
                 if (is_bool())
@@ -689,7 +689,7 @@ namespace wo
 
                 ast_type* result = new ast_type(L"pending");
 
-                if (is_same(another, false))
+                if (is_same(another, false, false))
                 {
                     result->set_type(this);
                     return result;
@@ -995,8 +995,8 @@ namespace wo
                 return value_type == value::valuetype::gchandle_type && !is_func();
             }
 
-            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type) const;
-            std::wstring get_type_name(bool ignore_using_type = true) const;
+            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const;
+            std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut= false) const;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -1945,7 +1945,7 @@ namespace wo
                 auto left_t = left_v->value_type;
                 auto right_t = right_v->value_type;
 
-                if (left_v->is_same(right_v, false))
+                if (left_v->is_same(right_v, false, true))
                 {
                     ast_type* type = new ast_type(L"pending");
                     type->set_type(left_v);
@@ -2785,7 +2785,7 @@ namespace wo
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
 
-                if (!left->value_type->is_same(right->value_type, false))
+                if (!left->value_type->is_same(right->value_type, false, true))
                     return;
 
                 // if left/right is custom, donot calculate them 
@@ -4696,7 +4696,7 @@ namespace wo
                 {
                     return new ast_value_type_judge(value_node, type_node);
                 }
-                else if (!value_node->value_type->is_same(type_node, false))
+                else if (!value_node->value_type->is_same(type_node, false, false))
                 {
                     lex.parser_error(0x0000, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;

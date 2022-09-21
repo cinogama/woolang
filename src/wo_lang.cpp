@@ -199,7 +199,7 @@ namespace wo
                 || a_value_logic_bin->left->value_type->is_real()
                 || a_value_logic_bin->left->value_type->is_string()
                 || a_value_logic_bin->left->value_type->is_gchandle())
-                && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
+                && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
             {
                 a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
                 has_default_op = true;
@@ -790,7 +790,7 @@ namespace wo
         {
             if (a_check_naming->naming_const->is_pending() || namings->is_pending())
                 break; // Continue..
-            if (namings->is_same(a_check_naming->naming_const, false))
+            if (namings->is_same(a_check_naming->naming_const, false, false))
                 goto checking_naming_end;
         }
     checking_naming_end:;
@@ -1229,7 +1229,7 @@ namespace wo
         {
             if (a_check_naming->naming_const->is_pending() || namings->is_pending())
                 break;
-            if (namings->is_same(a_check_naming->naming_const, false))
+            if (namings->is_same(a_check_naming->naming_const, false, false))
                 goto checking_naming_end;
         }
         lang_anylizer->lang_error(0x0000, a_check_naming, L"泛型参数'%ls'没有具名'%ls'约束，继续",
@@ -1584,7 +1584,7 @@ namespace wo
                             continue; // In function override judge, not accessable function will be skip!
 
                         auto* overload_func = dynamic_cast<ast_value_function_define*>(func_overload);
-                        if (overload_func->value_type->is_same(a_value_typecast->value_type, false))
+                        if (overload_func->value_type->is_same(a_value_typecast->value_type, false, false))
                         {
                             a_value_typecast->_be_cast_value_node = overload_func;
                             break;
@@ -1759,7 +1759,7 @@ namespace wo
         }
         if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
         {
-            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false))
+            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false, true))
             {
                 lang_anylizer->lang_error(0x0000, a_value_index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
                     , a_value_index->from->value_type->get_type_name().c_str()
@@ -1824,7 +1824,7 @@ namespace wo
                     a_value_bin->value_type = a_value_bin->overrided_operation_call->value_type;
                 else if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
-                else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false))
+                else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false, false))
                     lang_anylizer->lang_error(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
             }
 
@@ -1863,7 +1863,7 @@ namespace wo
                     a_value_logic_bin->value_type = a_value_logic_bin->overrided_operation_call->value_type;
                 else if (a_value_logic_bin->value_type->is_pending())
                     a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
-                else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type, false))
+                else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type, false, false))
                     lang_anylizer->lang_error(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
             }
 
@@ -1886,7 +1886,7 @@ namespace wo
                     || a_value_logic_bin->left->value_type->is_real()
                     || a_value_logic_bin->left->value_type->is_string()
                     || a_value_logic_bin->left->value_type->is_gchandle())
-                    && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false))
+                    && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
                     type_ok = true;
             }
 
@@ -2986,12 +2986,12 @@ namespace wo
 
     namespace ast
     {
-        bool ast_type::is_same(const ast_type* another, bool ignore_using_type) const
+        bool ast_type::is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
-            if (is_mutable() != another->is_mutable())
+            if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
             if (is_hkt() && another->is_hkt())
@@ -3033,7 +3033,6 @@ namespace wo
             if (is_pending() || another->is_pending())
                 return false;
 
-
             if (!ignore_using_type && (using_type_name || another->using_type_name))
             {
                 if (!using_type_name || !another->using_type_name)
@@ -3046,7 +3045,7 @@ namespace wo
                     return false;
 
                 for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], ignore_using_type))
+                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], ignore_using_type, false))
                         return false;
             }
             if (has_template())
@@ -3055,7 +3054,7 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < template_arguments.size(); index++)
                 {
-                    if (!template_arguments[index]->is_same(another->template_arguments[index], ignore_using_type))
+                    if (!template_arguments[index]->is_same(another->template_arguments[index], ignore_using_type, false))
                         return false;
                 }
             }
@@ -3068,7 +3067,7 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type))
+                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, false))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
@@ -3078,27 +3077,29 @@ namespace wo
                 return false;
 
             if (is_complex() && another->is_complex())
-                return complex_type->is_same(another->complex_type, ignore_using_type);
+                return complex_type->is_same(another->complex_type, ignore_using_type, false);
             else if (!is_complex() && !another->is_complex())
-                return get_type_name(ignore_using_type) == another->get_type_name(ignore_using_type);
+                return get_type_name(ignore_using_type, ignore_mutable) == another->get_type_name(ignore_using_type, ignore_mutable);
             return false;
         }
 
-        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type) const
+        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const
         {
             if (s.find(this) != s.end())
                 return L"..";
             s.insert(this);
 
             std::wstring result;
-            if (is_mutable())
+            if (is_mutable() && !ignore_mut)
                 result += L"mut ";
             if (!ignore_using_type && using_type_name)
             {
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
                 result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name(s, ignore_using_type);
+                    + using_type_name->get_type_name(s, ignore_using_type, ignore_mut);
+
+                wo_assert(!using_type_name->is_mutable());
             }
             else
             {
@@ -3107,7 +3108,7 @@ namespace wo
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
-                        result += argument_types[index]->get_type_name(s, ignore_using_type);
+                        result += argument_types[index]->get_type_name(s, ignore_using_type, false);
                         if (index + 1 != argument_types.size() || is_variadic_function_type)
                             result += L", ";
                     }
@@ -3126,7 +3127,7 @@ namespace wo
                 }
                 else
                 {
-                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type, false) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 }
 
                 if (has_template())
@@ -3134,7 +3135,7 @@ namespace wo
                     result += L"<";
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        result += template_arguments[index]->get_type_name(s, ignore_using_type);
+                        result += template_arguments[index]->get_type_name(s, ignore_using_type, false);
                         if (is_hkt_typing())
                             result += L"?";
                         if (index + 1 != template_arguments.size())
@@ -3147,10 +3148,10 @@ namespace wo
             return result;
         }
 
-        std::wstring ast_type::get_type_name(bool ignore_using_type) const
+        std::wstring ast_type::get_type_name(bool ignore_using_type, bool ignore_mut) const
         {
             std::unordered_set<const ast_type*> us;
-            return get_type_name(us, ignore_using_type);
+            return get_type_name(us, ignore_using_type, ignore_mut);
         }
 
         bool ast_type::is_hkt() const
