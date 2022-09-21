@@ -11,7 +11,7 @@ namespace test_tuple
     
     func foo1()
     {
-        let t = (1, 2, 3);
+        let t = (mut 1, 2, mut 3);
         let (ref a, mut b, ref c) = t;
 
         a = b = c = 233;
@@ -26,7 +26,7 @@ namespace test_tuple
         test_equal(t[1], 2);
         test_equal(t[2], 233);
 
-        let o = option::value("Hello");
+        let o = option::value(mut "Hello");
         match(o)
         {
             value(ref str)?
@@ -37,7 +37,7 @@ namespace test_tuple
 
         test_equal(o->val(), "world");
 
-        let p = option::value((1, 2, (3, 4)));
+        let p = option::value((mut 1, 2, (3, mut 4)));
         match(p)
         {
             value((ref a, mut b, (mut c, ref d)))?

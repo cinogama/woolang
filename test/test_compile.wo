@@ -288,8 +288,13 @@ namespace test_compile
 
         // invalid match for tuple
         assure_compile_fail(@"let (a, b) = (1,);"@);
+        assure_compile_fail(@"let (a, ref b) = (1, 2);"@);
+        assure_compile_fail(@"let (ref a, ref b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
+        
+        // TODO: It is dangerous...
+        assure_compile_success(@"let (a, ref b) = (1, mut 2);"@);
         assure_compile_success(@"import woo.std; match(option::value(1)){option::value(a)?;option::none?;}"@);
         assure_compile_success(@"import woo.std; match(option::value(1)){value(a)?;none?;}"@);
         assure_compile_fail(@"match(option::value(1)){option::value((a,))?;option::none?;}"@);

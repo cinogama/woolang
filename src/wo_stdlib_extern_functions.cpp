@@ -1310,15 +1310,15 @@ namespace std
     extern("rslib_std_make_dup")
     public func dup<T>(dupval: T)=> T;
 
-    public using range = (int ,int, int)
+    public using range = (mut int ,int, int)
     {
         public func create(from: int, to: int)
         {
-            return (from, to, from > to ?  -1 | 1): range;
+            return (mut from, to, from > to ?  -1 | 1): range;
         }
         public func create(from: int, to: int, step: int)
         {
-            return (from, to, step): range;
+            return (mut from, to, step): range;
         }
         public func iter(self: range)
         {

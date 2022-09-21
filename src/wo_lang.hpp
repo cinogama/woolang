@@ -882,13 +882,10 @@ namespace wo
                     && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
                 {
                     for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    {
                         a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                    }
                     for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    {
                         analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
-                    }
+
                 }
                 else
                 {
@@ -1498,6 +1495,12 @@ namespace wo
                     fully_update_type(a_value->value_type, false);
                 if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
                     a_value->value_type->is_mutable_type = true;
+
+                if (a_value->is_mark_as_using_ref)
+                {
+                    if (!a_value->can_be_assign && !a_value->value_type->is_mutable())
+                        lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
+                }
             }
 
             WO_TRY_BEGIN;
@@ -1541,12 +1544,6 @@ namespace wo
                         a_value_base->can_be_assign = false;
                     }
                 }
-                if (a_value_base->is_mark_as_using_ref)
-                {
-                    if (!a_value_base->symbol || !a_value_base->can_be_assign)
-                        lang_anylizer->lang_error(0x0000, a_value_base, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                }
-
                 // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
                 // DECIDED BY a_value_base->symbol->is_ref
 
