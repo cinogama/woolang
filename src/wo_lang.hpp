@@ -1163,11 +1163,16 @@ namespace wo
                 }
                 else
                 {
-                    if (a_val->value_type->is_pending() && !dynamic_cast<ast_value_function_define*>(a_val))
+                    if (a_val->value_type->is_pending())
                     {
-                        // ready for update..
-                        fully_update_type(a_val->value_type, true);
+                        if (!dynamic_cast<ast_value_function_define*>(a_val))
+                            // ready for update..
+                            fully_update_type(a_val->value_type, true);
                     }
+                    
+                    if (!a_val->value_type->is_pending())
+                        if (a_val->is_mark_as_using_mut)
+                            a_val->value_type->is_mutable_type = true;
                     // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
                     a_val->update_constant_value(lang_anylizer);
@@ -1463,6 +1468,8 @@ namespace wo
                 // update_constant_value may set 'bool', it cannot used directly. update it.
                 if (a_value->value_type->is_bool())
                     fully_update_type(a_value->value_type, false);
+                if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
+                    a_value->value_type->is_mutable_type = true;
             }
 
             WO_TRY_BEGIN;

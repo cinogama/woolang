@@ -246,7 +246,11 @@ namespace wo
                 // Here is template variable, delay it's type calc.
             }
             else
-                a_value_var->value_type = sym->variable_value->value_type;
+            {
+                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+                a_value_var->value_type->set_type(sym->variable_value->value_type);
+                a_value_var->value_type->is_mutable_type = sym->decl != ast::identifier_decl::IMMUTABLE;
+            }
         }
         for (auto* a_type : a_value_var->template_reification_args)
         {
@@ -2245,7 +2249,11 @@ namespace wo
                 if (sym)
                 {
                     analyze_pass2(sym->variable_value);
-                    a_value_var->value_type = sym->variable_value->value_type;
+
+                    a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+                    a_value_var->value_type->set_type(sym->variable_value->value_type);
+                    a_value_var->value_type->is_mutable_type = sym->decl != ast::identifier_decl::IMMUTABLE;
+
                     a_value_var->symbol = sym;
 
                     if (a_value_var->value_type->is_pending())

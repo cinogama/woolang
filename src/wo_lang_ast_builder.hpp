@@ -550,7 +550,7 @@ namespace wo
                     return false;
                 return true;
             }
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool flipped = false) const
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool flipped = false, bool check_mutable_for_assign = true) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -571,7 +571,12 @@ namespace wo
                 if (is_void())
                     return true; // button type, OK
 
-                if (is_mutable() != another->is_mutable())
+                if (check_mutable_for_assign)
+                {
+                    if (!is_mutable())
+                        return false;
+                }
+                else if (is_mutable() != another->is_mutable())
                     return false;
 
                 if (is_func())
@@ -589,10 +594,10 @@ namespace wo
                         // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                         if (flipped)
                         {
-                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true))
+                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, false))
                                 return false;
                         }
-                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true))
+                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, false))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
@@ -603,7 +608,7 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, flipped))
+                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, flipped, false))
                         return false;
                 }
                 else
@@ -634,7 +639,7 @@ namespace wo
                         return false;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, flipped))
+                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, flipped, false))
                             return false;
                 }
                 if (has_template())
@@ -643,7 +648,7 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, flipped))
+                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, flipped, false))
                             return false;
                     }
                 }
