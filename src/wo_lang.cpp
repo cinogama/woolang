@@ -89,13 +89,6 @@ namespace wo
         analyze_pass1(a_value_idx->from);
         analyze_pass1(a_value_idx->index);
 
-        if (!a_value_idx->from->value_type->is_pending()
-            &&
-            !(a_value_idx->from->value_type->is_map()
-                || a_value_idx->from->value_type->is_vec()
-                || a_value_idx->from->value_type->is_struct()))
-            a_value_idx->can_be_assign = false;
-
         if (!a_value_idx->from->value_type->struct_member_index.empty())
         {
             if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_string())
@@ -115,40 +108,52 @@ namespace wo
                 }
             }
         }
-        else if (a_value_idx->from->value_type->is_tuple())
+        else
         {
-            if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+            if (a_value_idx->from->value_type->is_tuple())
             {
-                // Index tuple must with constant integer.
-                auto index = a_value_idx->index->get_constant_value().integer;
-                if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
                 {
-                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
-                    a_value_idx->struct_offset = (uint16_t)index;
+                    // Index tuple must with constant integer.
+                    auto index = a_value_idx->index->get_constant_value().integer;
+                    if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                    {
+                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
+                        a_value_idx->struct_offset = (uint16_t)index;
+                    }
+                    else
+                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"pending");
+                }
+            }
+            else if (a_value_idx->from->value_type->is_string())
+            {
+                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
+            }
+            else if (!a_value_idx->from->value_type->is_pending())
+            {
+                if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
+                {
+                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
+                }
+                else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
+                {
+                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
                 }
                 else
-                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"pending");
+                {
+                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
+                }
+                if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
+                    a_value_idx->can_be_assign = false;
             }
-        }
-        else if (a_value_idx->from->value_type->is_string())
-        {
-            a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
-        }
-        else if (!a_value_idx->from->value_type->is_pending())
-        {
-            if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
+
+            if (a_value_idx->value_type->is_mutable())
             {
-                a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
-            }
-            else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
-            {
-                a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
+                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->value_type);
+                a_value_idx->value_type->is_mutable_type = false;
+                a_value_idx->can_be_assign = true;
             }
             else
-            {
-                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
-            }
-            if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
                 a_value_idx->can_be_assign = false;
         }
         return true;
@@ -247,9 +252,7 @@ namespace wo
             }
             else
             {
-                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
-                a_value_var->value_type->set_type(sym->variable_value->value_type);
-                a_value_var->value_type->is_mutable_type = sym->decl != ast::identifier_decl::IMMUTABLE;
+                a_value_var->value_type = sym->variable_value->value_type;
             }
         }
         for (auto* a_type : a_value_var->template_reification_args)
@@ -1659,11 +1662,6 @@ namespace wo
         analyze_pass2(a_value_index->from);
         analyze_pass2(a_value_index->index);
 
-        if (!(a_value_index->from->value_type->is_map()
-            || a_value_index->from->value_type->is_vec()
-            || a_value_index->from->value_type->is_struct()))
-            a_value_index->can_be_assign = false;
-
         if (a_value_index->value_type->is_pending())
         {
             if (!a_value_index->from->value_type->struct_member_index.empty())
@@ -1694,45 +1692,57 @@ namespace wo
                 }
 
             }
-            else if (a_value_index->from->value_type->is_tuple())
+            else
             {
-                if (a_value_index->index->is_constant && a_value_index->index->value_type->is_integer())
+                if (a_value_index->from->value_type->is_tuple())
                 {
-                    // Index tuple must with constant integer.
-                    auto index = a_value_index->index->get_constant_value().integer;
-                    if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
+                    if (a_value_index->index->is_constant && a_value_index->index->value_type->is_integer())
                     {
-                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[index];
-                        a_value_index->struct_offset = (uint16_t)index;
+                        // Index tuple must with constant integer.
+                        auto index = a_value_index->index->get_constant_value().integer;
+                        if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
+                        {
+                            a_value_index->value_type = a_value_index->from->value_type->template_arguments[index];
+                            a_value_index->struct_offset = (uint16_t)index;
+                        }
+                        else
+                            lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项），继续",
+                                (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项），继续",
-                            (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
+                    {
+                        lang_anylizer->lang_error(0x0000, a_value_index, L"只允许使用 'int' 类型的常量索引元组，继续");
+                    }
+                }
+                else if (a_value_index->from->value_type->is_string())
+                {
+                    a_value_index->value_type = ast_type::create_type_at(a_value_index, L"string");
+                }
+                else if (!a_value_index->from->value_type->is_pending())
+                {
+                    if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
+                    {
+                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[0];
+                    }
+                    else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
+                    {
+                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[1];
+                    }
+                    else
+                    {
+                        a_value_index->value_type = ast_type::create_type_at(a_value_index, L"dynamic");
+                    }
+                    if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
+                        a_value_index->can_be_assign = false;
+                }
+
+                if (a_value_index->value_type->is_mutable())
+                {
+                    a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->value_type);
+                    a_value_index->value_type->is_mutable_type = false;
+                    a_value_index->can_be_assign = true;
                 }
                 else
-                {
-                    lang_anylizer->lang_error(0x0000, a_value_index, L"只允许使用 'int' 类型的常量索引元组，继续");
-                }
-            }
-            else if (a_value_index->from->value_type->is_string())
-            {
-                a_value_index->value_type = ast_type::create_type_at(a_value_index, L"string");
-            }
-            else if (!a_value_index->from->value_type->is_pending())
-            {
-                if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                {
-                    a_value_index->value_type = a_value_index->from->value_type->template_arguments[0];
-                }
-                else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
-                {
-                    a_value_index->value_type = a_value_index->from->value_type->template_arguments[1];
-                }
-                else
-                {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, L"dynamic");
-                }
-                if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
                     a_value_index->can_be_assign = false;
             }
         }
@@ -2249,10 +2259,7 @@ namespace wo
                 if (sym)
                 {
                     analyze_pass2(sym->variable_value);
-
-                    a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
-                    a_value_var->value_type->set_type(sym->variable_value->value_type);
-                    a_value_var->value_type->is_mutable_type = sym->decl != ast::identifier_decl::IMMUTABLE;
+                    a_value_var->value_type = sym->variable_value->value_type;
 
                     a_value_var->symbol = sym;
 
