@@ -565,6 +565,7 @@ namespace wo
                         if (type_sym)
                         {
                             auto already_has_using_type_name = type->using_type_name;
+                            auto type_has_mutable_mark = type->is_mutable();
 
                             bool using_template = false;
                             auto using_template_args = type->template_arguments;
@@ -599,7 +600,6 @@ namespace wo
 
                                 auto* symboled_type = new ast::ast_type(L"pending");
 
-
                                 if (using_template)
                                 {
                                     // template arguments not anlyzed.
@@ -624,6 +624,12 @@ namespace wo
                                     type->set_ret_type(symboled_type);
                                 else
                                     type->set_type(symboled_type);
+
+                                if (type_has_mutable_mark)
+                                {
+                                    // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
+                                    type->is_mutable_type = true;
+                                }
 
                                 if (already_has_using_type_name)
                                     type->using_type_name = already_has_using_type_name;
@@ -1581,6 +1587,8 @@ namespace wo
                 else
                     return nullptr;
             }
+            if (para->is_mutable() && !args->is_mutable())
+                return nullptr;
 
             if (para->is_complex() && args->is_complex())
             {
@@ -2136,7 +2144,7 @@ namespace wo
                     a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
 
                 // if mixed type, do opx
-                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
+                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, true);
                 value::valuetype optype = value::valuetype::invalid;
                 if (same_type)
                     optype = a_value_assign->left->value_type->value_type;
@@ -2168,7 +2176,7 @@ namespace wo
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
-                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
+                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, true));
                     if (is_need_dup_when_mov(a_value_assign->right))
                         // TODO Right may be 'nil', do not dup nil..
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
@@ -2288,7 +2296,7 @@ namespace wo
                 }
 
                 if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
+                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true, false)
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
@@ -2304,7 +2312,7 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
-                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
+                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
@@ -2328,7 +2336,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {

@@ -552,7 +552,7 @@ namespace wo
 
                 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") }
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_tuple_type),
 
                 gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST_ITEMS") ,gm::te(gm::ttype::l_right_brackets) }
@@ -578,16 +578,22 @@ namespace wo
 
                 ///////////////////////////////////////////////////
 
-                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
+                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"ORIGIN_TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"ORIGIN_TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_mutable_type),
+
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
 
-                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 
-                gm::nt(L"TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") , gm::te(gm::ttype::l_function_result) , gm::nt(L"TYPE"), }
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") , gm::te(gm::ttype::l_function_result) , gm::nt(L"TYPE"), }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_function_type),
 
                 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -1022,7 +1028,7 @@ namespace wo
 
                 //////////////////////////////////////////////////////////////////////////////////////
 
-                gm::nt(L"TYPE") >> gm::symlist{gm::te(gm::ttype::l_struct),
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{gm::te(gm::ttype::l_struct),
                     gm::te(gm::ttype::l_left_curly_braces),
                     gm::nt(L"STRUCT_MEMBER_DEFINES"),
                     gm::te(gm::ttype::l_right_curly_braces), }

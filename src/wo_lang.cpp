@@ -476,7 +476,7 @@ namespace wo
                     break;
                 }
 
-                if (!decide_array_item_type->accept_type(val->value_type, false))
+                if (!decide_array_item_type->accept_type(val->value_type, false, false))
                 {
                     auto* mixed_type = decide_array_item_type->mix_types(val->value_type);
                     if (mixed_type)
@@ -530,7 +530,7 @@ namespace wo
                     decide_map_val_type = nullptr;
                     break;
                 }
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false, false))
                 {
                     auto* mixed_type = decide_map_key_type->mix_types(map_pair->key->value_type);
                     if (mixed_type)
@@ -543,7 +543,7 @@ namespace wo
                         // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
                     }
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false, false))
                 {
                     auto* mixed_type = decide_map_val_type->mix_types(map_pair->val->value_type);
                     if (mixed_type)
@@ -602,7 +602,7 @@ namespace wo
                             a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
                         else
                         {
-                            if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
+                            if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                             {
                                 auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
                                 if (mixed_type)
@@ -987,7 +987,7 @@ namespace wo
                     }
                     else
                     {
-                        if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
+                        if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                         {
                             auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
                             if (mixed_type)
@@ -1003,7 +1003,7 @@ namespace wo
                 else
                 {
                     if (!func_return_type->is_pending()
-                        && !func_return_type->accept_type(a_ret->return_value->value_type, false))
+                        && !func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                     {
                         lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                     }
@@ -1547,7 +1547,7 @@ namespace wo
                 lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
         }
 
-        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
+        if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false, true))
         {
             lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
                 a_value_assi->right->value_type->get_type_name(false).c_str(),
@@ -1926,7 +1926,7 @@ namespace wo
                     break;
                 }
 
-                if (!decide_array_item_type->accept_type(val->value_type, false))
+                if (!decide_array_item_type->accept_type(val->value_type, false, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
                         lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
@@ -1965,7 +1965,7 @@ namespace wo
 
             while (val)
             {
-                if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
+                if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
                         lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
@@ -2020,7 +2020,7 @@ namespace wo
                     break;
                 }
 
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false, false))
                 {
                     if (!a_value_map->is_mutable_map)
                         lang_anylizer->lang_error(0x0000, map_pair->key, L"'dict' 序列中的键类型不一致，无法为 'dict' 推导类型，继续");
@@ -2028,7 +2028,7 @@ namespace wo
                         lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
                     break;
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false, false))
                 {
                     if (!a_value_map->is_mutable_map)
                         lang_anylizer->lang_error(0x0000, map_pair->val, L"'dict' 序列中的值类型不一致，无法为 'dict' 推导类型，继续");
@@ -2075,14 +2075,14 @@ namespace wo
                 }
                 else
                 {
-                    if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
+                    if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false, false))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(0x0000, pairs->key, L"'dict' 序列中的键类型与泛型参数中指定的不一致，继续");
                         else
                             lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
                     }
-                    if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
+                    if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false, false))
                     {
                         if (!a_value_map->is_mutable_map)
                             lang_anylizer->lang_error(0x0000, pairs->val, L"'dict' 序列中的值类型与泛型参数中指定的不一致，继续");
@@ -2152,7 +2152,7 @@ namespace wo
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
-                        if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
+                        if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
                                 , membpair->member_name.c_str()
@@ -2615,7 +2615,7 @@ namespace wo
                                                     if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
                                                         // There is no enough value for tuple to expand. match failed!
                                                         goto this_function_override_checking_over;
-                                                    else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
+                                                    else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false, false))
                                                         // Type didn't match, match failed!
                                                         goto this_function_override_checking_over;
                                                     else
@@ -2649,7 +2649,7 @@ namespace wo
                                         ;
                                     else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
                                         break;
-                                    else if (form_arg->value_type->accept_type(real_arg->value_type, false))
+                                    else if (form_arg->value_type->accept_type(real_arg->value_type, false, false))
                                         ;// do nothing..
                                     else
                                         break; // bad match, break..
@@ -2856,7 +2856,7 @@ namespace wo
                                             lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                             break;
                                         }
-                                        else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
+                                        else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false, false))
                                         {
                                             failed_to_call_cur_func = true;
                                             lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
@@ -2893,7 +2893,7 @@ namespace wo
                         }
                         else
                         {
-                            if (!(*a_type_index)->accept_type(arg_val->value_type, false))
+                            if (!(*a_type_index)->accept_type(arg_val->value_type, false, false))
                             {
                                 failed_to_call_cur_func = true;
                                 lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
