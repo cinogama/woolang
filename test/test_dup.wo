@@ -5,10 +5,10 @@ namespace test_dup
 {
     func main()
     {
-        let arr = [1]mut;
+        let arr = [mut 1]mut;
         let dup_arr = arr->dup();
 
-        let dict = {["key"] = "val"}mut;
+        let dict = {["key"] = mut "val"}mut;
         let dup_map = dict->dup();
 
         dup_arr[0] = 233;

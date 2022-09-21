@@ -35,8 +35,8 @@ namespace test_container
     }
     func test_map_swap_copy()
     {
-        let a = {["pi"] = 3.14}mut;
-        let b = {["e"] = 2.718, ["sqrt2"] = 1.414}mut;
+        let a = {["pi"] = mut 3.14}mut;
+        let b = {["e"] = mut 2.718, ["sqrt2"] = mut 1.414}mut;
 
         a->swap(b);
 

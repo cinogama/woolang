@@ -1442,6 +1442,28 @@ namespace wo
 
                         ast_value_check->update_constant_value(lang_anylizer);
                     }
+                    else if (ast_value_type_cast* ast_value_cast = dynamic_cast<ast_value_type_cast*>(a_value))
+                    {
+                        // ready for update..
+                        fully_update_type(ast_value_cast->aim_type, false);
+
+                        if (ast_value_cast->aim_type->is_custom())
+                            lang_anylizer->lang_error(0x0000, ast_value_cast, WO_ERR_UNKNOWN_TYPE
+                                , ast_value_cast->aim_type->get_type_name().c_str());
+
+                        ast_value_cast->update_constant_value(lang_anylizer);
+                    }
+                    else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(a_value))
+                    {
+                        // ready for update..
+                        fully_update_type(ast_value_judge->aim_type, false);
+
+                        if (ast_value_judge->aim_type->is_custom())
+                            lang_anylizer->lang_error(0x0000, ast_value_judge, WO_ERR_UNKNOWN_TYPE
+                                , ast_value_judge->aim_type->get_type_name().c_str());
+
+                        ast_value_judge->update_constant_value(lang_anylizer);
+                    }
                     //
 
                     WO_TRY_BEGIN;
@@ -2144,7 +2166,7 @@ namespace wo
                     a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
 
                 // if mixed type, do opx
-                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, true);
+                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
                 value::valuetype optype = value::valuetype::invalid;
                 if (same_type)
                     optype = a_value_assign->left->value_type->value_type;
@@ -2176,7 +2198,7 @@ namespace wo
                 switch (a_value_assign->operate)
                 {
                 case lex_type::l_assign:
-                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false, true));
+                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
                     if (is_need_dup_when_mov(a_value_assign->right))
                         // TODO Right may be 'nil', do not dup nil..
                         compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
@@ -2286,7 +2308,7 @@ namespace wo
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
-                if (a_value_type_cast->value_type->is_bool())
+                if (a_value_type_cast->aim_type->is_bool())
                 {
                     // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
                     auto& treg = get_useable_register_for_pure_value();
@@ -2295,16 +2317,16 @@ namespace wo
                     return treg;
                 }
 
-                if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true, false)
-                    || a_value_type_cast->value_type->is_func())
+                if (a_value_type_cast->aim_type->is_dynamic()
+                    || a_value_type_cast->aim_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
+                    || a_value_type_cast->aim_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
-                    a_value_type_cast->value_type->value_type);
+                    a_value_type_cast->aim_type->value_type);
                 return treg;
 
             }
@@ -2312,17 +2334,17 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
-                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false, false))
+                if (a_value_type_judge->aim_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->value_type->is_complex_type())
+                    if (a_value_type_judge->aim_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_judge, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
-                    if (!a_value_type_judge->value_type->is_dynamic())
+                    if (!a_value_type_judge->aim_type->is_dynamic())
                     {
-                        wo_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
-                        compiler->typeas(result, a_value_type_judge->value_type->value_type);
+                        wo_test(a_value_type_judge->aim_type->value_type != value::valuetype::invalid);
+                        compiler->typeas(result, a_value_type_judge->aim_type->value_type);
 
                         return result;
                     }
@@ -2336,7 +2358,7 @@ namespace wo
             }
             else if (ast_value_type_check* a_value_type_check = dynamic_cast<ast_value_type_check*>(value))
             {
-                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false, false))
+                if (a_value_type_check->aim_type->accept_type(a_value_type_check->_be_check_value_node->value_type, false))
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {

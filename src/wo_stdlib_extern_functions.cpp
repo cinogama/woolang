@@ -1618,7 +1618,7 @@ namespace vec
 
     public func get<T>(a: vec<T>, index: int)
     {
-        return ref a[index];
+        return a[index];
     }
 
     extern("rslib_std_array_add") 

@@ -216,14 +216,14 @@ namespace wo
                     return true;
                 }
 
-                if (to->accept_type(from, false, false))
+                if (to->accept_type(from, false))
                     return true;
 
                 // Forbid 'nil' cast to any other value
                 if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                     return false;
 
-                if (from->accept_type(to, true, false))
+                if (from->accept_type(to, true))
                     return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
 
                 if (from->is_func() || to->is_func())
@@ -575,7 +575,7 @@ namespace wo
                     return false;
                 return true;
             }
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool check_mutable_for_assign, bool flipped = false) const
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -596,12 +596,7 @@ namespace wo
                 if (is_void())
                     return true; // button type, OK
 
-                if (check_mutable_for_assign)
-                {
-                    if (!is_mutable())
-                        return false;
-                }
-                else if (is_mutable() != another->is_mutable())
+                if (!ignore_mutable && is_mutable() != another->is_mutable())
                     return false;
 
                 if (is_func())
@@ -1326,11 +1321,13 @@ namespace wo
         struct ast_value_type_cast : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
+            ast_type* aim_type;
             ast_value_type_cast(ast_value* value, ast_type* type)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
                 value_type = type;
+                aim_type = ast_type::create_type_at(value, *type);
             }
 
             ast_value_type_cast() {}
@@ -1343,6 +1340,7 @@ namespace wo
 
                 // Write self copy functions here..
                 WO_REINSTANCE(dumm->_be_cast_value_node);
+                WO_REINSTANCE(dumm->aim_type);
 
                 return dumm;
             }
@@ -1354,7 +1352,7 @@ namespace wo
 
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"to "
-                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+                    << ANSI_HIM << aim_type->get_type_name() << ANSI_RST;
 
                 os << L" >" << std::endl;
             }
@@ -1366,20 +1364,20 @@ namespace wo
 
                 _be_cast_value_node->update_constant_value(lex);
 
-                if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
+                if (!_be_cast_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
                     if (_be_cast_value_node->is_constant)
                     {
                         // just cast the value!
                         value last_value = _be_cast_value_node->get_constant_value();
 
-                        if (value_type->is_bool())
+                        if (aim_type->is_bool())
                             // Set bool (1 or 0)
                             constant_value.set_integer(last_value.integer ? 1 : 0);
                         else
                         {
-                            value::valuetype aim_real_type = value_type->value_type;
-                            if (value_type->is_dynamic())
+                            value::valuetype aim_real_type = aim_type->value_type;
+                            if (aim_type->is_dynamic())
                             {
                                 aim_real_type = last_value.type;
                             }
@@ -1434,7 +1432,7 @@ namespace wo
                                 return; // cast it in runtime
                             default:
                             try_cast_nil_to_int_handle_real_str:
-                                if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
+                                if (aim_type->is_dynamic() || (last_value.is_nil() && aim_type->is_func()))
                                 {
                                     constant_value.set_val(&last_value);
                                 }
@@ -1454,10 +1452,12 @@ namespace wo
         struct ast_value_type_judge : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
+            ast_type* aim_type;
             ast_value_type_judge(ast_value* value, ast_type* type)
             {
                 _be_cast_value_node = value;
                 value_type = type;
+                aim_type = ast_type::create_type_at(value, *type);
             }
             ast_value_type_judge() {}
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -1469,6 +1469,7 @@ namespace wo
 
                 // Write self copy functions here..
                 WO_REINSTANCE(dumm->_be_cast_value_node);
+                WO_REINSTANCE(dumm->aim_type);
 
                 return dumm;
             }
@@ -1493,7 +1494,7 @@ namespace wo
                 _be_cast_value_node->update_constant_value(lex);
                 if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
                 {
-                    if (value_type->accept_type(_be_cast_value_node->value_type, false, false))
+                    if (aim_type->accept_type(_be_cast_value_node->value_type, false))
                     {
                         constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
                         is_constant = true;
@@ -1539,7 +1540,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
                 {
-                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false, false);
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
                     if (result)
                     {
                         is_constant = true;

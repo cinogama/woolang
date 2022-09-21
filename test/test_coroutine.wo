@@ -107,7 +107,7 @@ namespace test_coroutine
         vm->close();
 
         let mut aim_value = false;
-        let _pack = [ref aim_value]mut;
+        let _pack = [mut ref aim_value]mut;
 
         let mut co1 = std::co(func(){ _pack[0] = true });
         while(!co1->completed())
