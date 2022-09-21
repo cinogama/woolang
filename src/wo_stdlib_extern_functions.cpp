@@ -1531,7 +1531,7 @@ namespace array
         let result = []mut: vec<R>;
         for (let elem : val)
             result->add(functor(elem));
-        return result->unsafe::astype:<array<T>>;
+        return result->unsafe::astype:<array<R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
@@ -1917,7 +1917,7 @@ namespace map
             let (nk, nv) = functor(key, val);
             result[nk] = nv;
         }
-        return result->unsafe::astype:<dict<AT, BT>>;
+        return result->unsafe::astype:<map<AT, BT>>;
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
