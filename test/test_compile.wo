@@ -135,6 +135,21 @@ namespace test_compile
             s.a = 25;
         "@);
 
+        assure_compile_success(@"
+        let mut dd = 0;
+
+        union result<T, F>
+        {
+            ok(T), err(F)
+        }
+
+        let mut opt = \x: anything = 
+            dd == 1
+            ? result::ok(233.5)
+            | result::err("fuck");;
+
+        opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
+        "@);
 
         // Cannot index unindexable type or invalid index
         assure_compile_fail(@"let a = 5; let b = a[7];"@);

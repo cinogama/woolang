@@ -892,7 +892,7 @@ namespace wo
                             return nullptr;
                     }
                 }
-
+                result->is_pending_type = false;
                 return result;
             }
 
@@ -3897,6 +3897,8 @@ namespace wo
                 using_enum_as_int->new_type_identifier = enum_scope->scope_name;
                 using_enum_as_int->old_type = new ast_type(L"int");
                 bind_type_and_decl_list->append_at_end(using_enum_as_int);
+                using_enum_as_int->copy_source_info(union_arttribute);
+                using_enum_as_int->old_type->copy_source_info(union_arttribute);
 
                 enum_scope->in_scope_sentence = decl_list;
                 ast_enum_items_list* enum_items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(4));
@@ -5641,6 +5643,8 @@ namespace wo
                 using_type->new_type_identifier = union_scope->scope_name;
                 using_type->old_type = new ast_type(L"union");
                 using_type->declear_attribute = union_arttribute;
+                using_type->copy_source_info(union_arttribute);
+                using_type->old_type->copy_source_info(union_arttribute);
 
                 std::vector <std::wstring>& template_arg_defines = using_type->template_type_name_list;
                 if (defined_template_args)
