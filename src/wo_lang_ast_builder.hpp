@@ -117,6 +117,8 @@ namespace wo
 
         struct ast_type : virtual public ast_symbolable_base
         {
+            bool is_mutable_type = false;
+
             bool is_function_type = false;
             bool is_variadic_function_type = false;
 
@@ -194,6 +196,9 @@ namespace wo
                 // MUST BE FORCE CAST HERE!
 
                 if (to->is_pending() || (to->is_void() && !to->is_func()))
+                    return false;
+
+                if (from->is_mutable() != to->is_mutable())
                     return false;
 
                 if (to->is_bool())
@@ -278,6 +283,7 @@ namespace wo
 
                 type_name = L"complex";
                 complex_type = new ast_type(*_type);
+                complex_type->is_mutable_type = false; // Return type cannot be mut
                 is_pending_type = false; // reset state;
                 value_type = value::valuetype::invalid;
                 template_arguments.clear();
@@ -301,6 +307,7 @@ namespace wo
                 value_type = value::valuetype::invalid;
 
                 complex_type = _val;
+                complex_type->is_mutable_type = false;
             }
 
             template<typename ... ArgTs>
@@ -335,7 +342,10 @@ namespace wo
             {
                 is_variadic_function_type = true;
             }
-
+            bool is_mutable() const
+            {
+                return is_mutable_type;
+            }
             bool is_dynamic() const
             {
                 return !is_func() && type_name == L"dynamic";
@@ -530,13 +540,33 @@ namespace wo
                         || type_name != another->type_name)
                         return false;
                 }
-                if (out_para)*out_para = const_cast<ast_type*>(this);
-                if (out_args)*out_args = const_cast<ast_type*>(another);
+
+                if (is_mutable())
+                {
+                    if (!another->is_mutable())
+                        return false;
+
+                    if (out_para)
+                    {
+                        *out_para = dynamic_cast<ast_type*>(this->instance());
+                        (**out_para).is_mutable_type = false;
+                    }
+                    if (out_args)
+                    {
+                        *out_args = dynamic_cast<ast_type*>(another->instance());
+                        (**out_args).is_mutable_type = false;
+                    }
+                }
+                else
+                {
+                    if (out_para)*out_para = const_cast<ast_type*>(this);
+                    if (out_args)*out_args = const_cast<ast_type*>(another);
+                }
                 return true;
 
             }
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
-            bool is_same(const ast_type* another, bool ignore_using_type) const;
+            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
             bool is_builtin_basic_type()
             {
                 if (is_bool())
@@ -545,7 +575,7 @@ namespace wo
                     return false;
                 return true;
             }
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool flipped = false) const
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -566,6 +596,9 @@ namespace wo
                 if (is_void())
                     return true; // button type, OK
 
+                if (!ignore_mutable && is_mutable() != another->is_mutable())
+                    return false;
+
                 if (is_func())
                 {
                     if (!another->is_func())
@@ -581,10 +614,10 @@ namespace wo
                         // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                         if (flipped)
                         {
-                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true))
+                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, false, true))
                                 return false;
                         }
-                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true))
+                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, false, true))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
@@ -595,7 +628,7 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, flipped))
+                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
                         return false;
                 }
                 else
@@ -626,7 +659,7 @@ namespace wo
                         return false;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, flipped))
+                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
                             return false;
                 }
                 if (has_template())
@@ -635,7 +668,7 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, flipped))
+                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
                             return false;
                     }
                 }
@@ -651,23 +684,23 @@ namespace wo
 
                 ast_type* result = new ast_type(L"pending");
 
-                if (is_same(another, false))
+                if (is_same(another, false, false))
                 {
                     result->set_type(this);
                     return result;
                 }
-                if (accept_type(another, false))
+                if (accept_type(another, false, false))
                 {
-                    wo_assert(!another->accept_type(this, false));
+                    wo_assert(!another->accept_type(this, false, false));
                     if (flip)
                         result->set_type(another);
                     else
                         result->set_type(this);
                     return result;
                 }
-                if (another->accept_type(this, false))
+                if (another->accept_type(this, false, false))
                 {
-                    wo_assert(!accept_type(another, false));
+                    wo_assert(!accept_type(another, false, false));
                     if (flip)
                         result->set_type(this);
                     else
@@ -715,6 +748,9 @@ namespace wo
                         result->set_type(another);
                     return result;
                 }
+
+                if (is_mutable() != another->is_mutable())
+                    return nullptr;
 
                 // Might HKT
                 if (is_hkt_typing() && another->is_hkt_typing())
@@ -954,8 +990,8 @@ namespace wo
                 return value_type == value::valuetype::gchandle_type && !is_func();
             }
 
-            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type) const;
-            std::wstring get_type_name(bool ignore_using_type = true) const;
+            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const;
+            std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut= false) const;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -978,6 +1014,7 @@ namespace wo
             ast_type* value_type = nullptr;
 
             bool is_mark_as_using_ref = false;
+            bool is_mark_as_using_mut = false;
             bool is_ref_ob_in_finalize = false;
 
             bool is_const_value = false;
@@ -1284,11 +1321,13 @@ namespace wo
         struct ast_value_type_cast : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
+            ast_type* aim_type;
             ast_value_type_cast(ast_value* value, ast_type* type)
             {
                 is_constant = false;
                 _be_cast_value_node = value;
                 value_type = type;
+                aim_type = ast_type::create_type_at(value, *type);
             }
 
             ast_value_type_cast() {}
@@ -1301,6 +1340,7 @@ namespace wo
 
                 // Write self copy functions here..
                 WO_REINSTANCE(dumm->_be_cast_value_node);
+                WO_REINSTANCE(dumm->aim_type);
 
                 return dumm;
             }
@@ -1312,7 +1352,7 @@ namespace wo
 
                 space(os, lay);
                 os << L"< " << ANSI_HIR << L"to "
-                    << ANSI_HIM << value_type->get_type_name() << ANSI_RST;
+                    << ANSI_HIM << aim_type->get_type_name() << ANSI_RST;
 
                 os << L" >" << std::endl;
             }
@@ -1324,20 +1364,20 @@ namespace wo
 
                 _be_cast_value_node->update_constant_value(lex);
 
-                if (!_be_cast_value_node->value_type->is_pending() && !value_type->is_pending())
+                if (!_be_cast_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
                     if (_be_cast_value_node->is_constant)
                     {
                         // just cast the value!
                         value last_value = _be_cast_value_node->get_constant_value();
 
-                        if (value_type->is_bool())
+                        if (aim_type->is_bool())
                             // Set bool (1 or 0)
                             constant_value.set_integer(last_value.integer ? 1 : 0);
                         else
                         {
-                            value::valuetype aim_real_type = value_type->value_type;
-                            if (value_type->is_dynamic())
+                            value::valuetype aim_real_type = aim_type->value_type;
+                            if (aim_type->is_dynamic())
                             {
                                 aim_real_type = last_value.type;
                             }
@@ -1392,7 +1432,7 @@ namespace wo
                                 return; // cast it in runtime
                             default:
                             try_cast_nil_to_int_handle_real_str:
-                                if (value_type->is_dynamic() || (last_value.is_nil() && value_type->is_func()))
+                                if (aim_type->is_dynamic() || (last_value.is_nil() && aim_type->is_func()))
                                 {
                                     constant_value.set_val(&last_value);
                                 }
@@ -1412,10 +1452,12 @@ namespace wo
         struct ast_value_type_judge : public virtual ast_value
         {
             ast_value* _be_cast_value_node;
+            ast_type* aim_type;
             ast_value_type_judge(ast_value* value, ast_type* type)
             {
                 _be_cast_value_node = value;
                 value_type = type;
+                aim_type = ast_type::create_type_at(value, *type);
             }
             ast_value_type_judge() {}
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -1427,6 +1469,7 @@ namespace wo
 
                 // Write self copy functions here..
                 WO_REINSTANCE(dumm->_be_cast_value_node);
+                WO_REINSTANCE(dumm->aim_type);
 
                 return dumm;
             }
@@ -1451,7 +1494,7 @@ namespace wo
                 _be_cast_value_node->update_constant_value(lex);
                 if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
                 {
-                    if (value_type->accept_type(_be_cast_value_node->value_type, false))
+                    if (aim_type->accept_type(_be_cast_value_node->value_type, false))
                     {
                         constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
                         is_constant = true;
@@ -1903,7 +1946,7 @@ namespace wo
                 auto left_t = left_v->value_type;
                 auto right_t = right_v->value_type;
 
-                if (left_v->is_same(right_v, false))
+                if (left_v->is_same(right_v, false, true))
                 {
                     ast_type* type = new ast_type(L"pending");
                     type->set_type(left_v);
@@ -2743,7 +2786,7 @@ namespace wo
                 left->update_constant_value(lex);
                 right->update_constant_value(lex);
 
-                if (!left->value_type->is_same(right->value_type, false))
+                if (!left->value_type->is_same(right->value_type, false, true))
                     return;
 
                 // if left/right is custom, donot calculate them 
@@ -2852,7 +2895,7 @@ namespace wo
             ast_value_index()
             {
                 value_type = new ast_type(L"pending");
-                can_be_assign = true;
+                can_be_assign = false;
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -3701,6 +3744,16 @@ namespace wo
 
         };
 
+        struct pass_build_mutable_type : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                type->is_mutable_type = true;
+                return (ast_basic*)type;
+            }
+        };
+
         struct pass_template_reification : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -3788,6 +3841,20 @@ namespace wo
                 }
                 items->next_enum_val = enum_item->enum_val + 1;
                 return (ast_basic*)items;
+            }
+        };
+
+        struct pass_mark_value_as_mut : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // MAY_REF_FACTOR_TYPE_CASTING -> 4
+                wo_assert(input.size() == 2);
+
+                ast_value* val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
+                val->is_mark_as_using_mut = true;
+
+                return (ast_basic*)val;
             }
         };
 
@@ -4102,7 +4169,7 @@ namespace wo
                 else
                 {
                     wo_assert(input.size() == 4);
-                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(1)), true);
                 }
             }
         };
@@ -4116,7 +4183,7 @@ namespace wo
                 else
                 {
                     wo_assert(input.size() == 4);
-                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(1)), true);
                 }
             }
         };
@@ -4630,7 +4697,7 @@ namespace wo
                 {
                     return new ast_value_type_judge(value_node, type_node);
                 }
-                else if (!value_node->value_type->is_same(type_node, false))
+                else if (!value_node->value_type->is_same(type_node, false, false))
                 {
                     lex.parser_error(0x0000, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;
@@ -6035,7 +6102,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_foreach>] = _register_builder<pass_foreach>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
-
+            _registed_builder_function_id_list[meta::type_hash<pass_build_mutable_type>] = _register_builder<pass_build_mutable_type>();
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();
@@ -6045,6 +6112,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>] = _register_builder<pass_type_judgement>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_ref>] = _register_builder<pass_mark_value_as_ref>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
 

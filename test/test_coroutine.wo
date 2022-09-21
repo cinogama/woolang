@@ -32,7 +32,7 @@ namespace test_coroutine
     }
     func finish_co()
     {
-        let co_list = mut []: vec<std::co>;
+        let co_list = []mut: vec<std::co>;
 
         for(let mut i = 0;i < 1000;i += 1)
         {
@@ -107,7 +107,7 @@ namespace test_coroutine
         vm->close();
 
         let mut aim_value = false;
-        let _pack = mut [ref aim_value];
+        let _pack = [mut ref aim_value]mut;
 
         let mut co1 = std::co(func(){ _pack[0] = true });
         while(!co1->completed())

@@ -5,7 +5,7 @@ import test_tool;
 
 namespace test_gc
 {
-    let mut global_list = mut []: vec<dynamic>;
+    let mut global_list = []mut: vec<dynamic>;
 
     let const TEST_TIME = 35.;
 
@@ -34,9 +34,9 @@ namespace test_gc
     {
         std::println("test_gc_co/thread id=", id, "begin");
 
-        let local_list = mut [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]: vec<dynamic>;
-        let tmp = mut []: vec<vec<int>>;
-        let arr_a = mut [mut [12345678],], arr_b = mut []: vec<vec<int>>;
+        let local_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
+        let tmp = []mut: vec<vec<int>>;
+        let arr_a = [[12345678]mut,]mut, arr_b = []mut: vec<vec<int>>;
 
         let test_begin_time = std::time();
 
@@ -80,7 +80,7 @@ namespace test_gc
 
     func main()
     {
-        global_list = mut [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]: vec<dynamic>;
+        global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
         
         std::thread(\ = test_gchandle_work(););
         std::co(\ = test_gc_parallel_work(1););

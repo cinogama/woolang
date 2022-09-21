@@ -216,7 +216,7 @@ namespace wo
             uint32_t hash32 = hashval & 0xFFFFFFFF;
             while (hashed_typing.find(hash32) != hashed_typing.end())
             {
-                if (hashed_typing[hash32]->is_same(typing, false))
+                if (hashed_typing[hash32]->is_same(typing, false, false))
                     return hash32;
                 hash32++;
             }
@@ -429,7 +429,7 @@ namespace wo
                     if (naming_memb_name_val.member_type->is_pending())
                         ; // member type not computed, just pass
                     else if (fnd->second.member_type->is_pending()
-                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false))
+                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false, false))
                     {
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
@@ -565,6 +565,7 @@ namespace wo
                         if (type_sym)
                         {
                             auto already_has_using_type_name = type->using_type_name;
+                            auto type_has_mutable_mark = type->is_mutable();
 
                             bool using_template = false;
                             auto using_template_args = type->template_arguments;
@@ -599,7 +600,6 @@ namespace wo
 
                                 auto* symboled_type = new ast::ast_type(L"pending");
 
-
                                 if (using_template)
                                 {
                                     // template arguments not anlyzed.
@@ -624,6 +624,12 @@ namespace wo
                                     type->set_ret_type(symboled_type);
                                 else
                                     type->set_type(symboled_type);
+
+                                if (type_has_mutable_mark)
+                                {
+                                    // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
+                                    type->is_mutable_type = true;
+                                }
 
                                 if (already_has_using_type_name)
                                     type->using_type_name = already_has_using_type_name;
@@ -1163,11 +1169,16 @@ namespace wo
                 }
                 else
                 {
-                    if (a_val->value_type->is_pending() && !dynamic_cast<ast_value_function_define*>(a_val))
+                    if (a_val->value_type->is_pending())
                     {
-                        // ready for update..
-                        fully_update_type(a_val->value_type, true);
+                        if (!dynamic_cast<ast_value_function_define*>(a_val))
+                            // ready for update..
+                            fully_update_type(a_val->value_type, true);
                     }
+                    
+                    if (!a_val->value_type->is_pending())
+                        if (a_val->is_mark_as_using_mut)
+                            a_val->value_type->is_mutable_type = true;
                     // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
                     a_val->update_constant_value(lang_anylizer);
@@ -1431,6 +1442,28 @@ namespace wo
 
                         ast_value_check->update_constant_value(lang_anylizer);
                     }
+                    else if (ast_value_type_cast* ast_value_cast = dynamic_cast<ast_value_type_cast*>(a_value))
+                    {
+                        // ready for update..
+                        fully_update_type(ast_value_cast->aim_type, false);
+
+                        if (ast_value_cast->aim_type->is_custom())
+                            lang_anylizer->lang_error(0x0000, ast_value_cast, WO_ERR_UNKNOWN_TYPE
+                                , ast_value_cast->aim_type->get_type_name().c_str());
+
+                        ast_value_cast->update_constant_value(lang_anylizer);
+                    }
+                    else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(a_value))
+                    {
+                        // ready for update..
+                        fully_update_type(ast_value_judge->aim_type, false);
+
+                        if (ast_value_judge->aim_type->is_custom())
+                            lang_anylizer->lang_error(0x0000, ast_value_judge, WO_ERR_UNKNOWN_TYPE
+                                , ast_value_judge->aim_type->get_type_name().c_str());
+
+                        ast_value_judge->update_constant_value(lang_anylizer);
+                    }
                     //
 
                     WO_TRY_BEGIN;
@@ -1463,6 +1496,8 @@ namespace wo
                 // update_constant_value may set 'bool', it cannot used directly. update it.
                 if (a_value->value_type->is_bool())
                     fully_update_type(a_value->value_type, false);
+                if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
+                    a_value->value_type->is_mutable_type = true;
             }
 
             WO_TRY_BEGIN;
@@ -1574,6 +1609,8 @@ namespace wo
                 else
                     return nullptr;
             }
+            if (para->is_mutable() && !args->is_mutable())
+                return nullptr;
 
             if (para->is_complex() && args->is_complex())
             {
@@ -2015,7 +2052,7 @@ namespace wo
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false))
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false, true))
                     optype = a_value_binary->left->value_type->value_type;
 
                 auto& beoped_left_opnum = analyze_value(a_value_binary->left, compiler, true);
@@ -2271,7 +2308,7 @@ namespace wo
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
-                if (a_value_type_cast->value_type->is_bool())
+                if (a_value_type_cast->aim_type->is_bool())
                 {
                     // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
                     auto& treg = get_useable_register_for_pure_value();
@@ -2280,16 +2317,16 @@ namespace wo
                     return treg;
                 }
 
-                if (a_value_type_cast->value_type->is_dynamic()
-                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
-                    || a_value_type_cast->value_type->is_func())
+                if (a_value_type_cast->aim_type->is_dynamic()
+                    || a_value_type_cast->aim_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
+                    || a_value_type_cast->aim_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->setcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
-                    a_value_type_cast->value_type->value_type);
+                    a_value_type_cast->aim_type->value_type);
                 return treg;
 
             }
@@ -2297,17 +2334,17 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
 
-                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
+                if (a_value_type_judge->aim_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->value_type->is_complex_type())
+                    if (a_value_type_judge->aim_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_judge, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
-                    if (!a_value_type_judge->value_type->is_dynamic())
+                    if (!a_value_type_judge->aim_type->is_dynamic())
                     {
-                        wo_test(a_value_type_judge->value_type->value_type != value::valuetype::invalid);
-                        compiler->typeas(result, a_value_type_judge->value_type->value_type);
+                        wo_test(a_value_type_judge->aim_type->value_type != value::valuetype::invalid);
+                        compiler->typeas(result, a_value_type_judge->aim_type->value_type);
 
                         return result;
                     }
@@ -2574,10 +2611,10 @@ namespace wo
                     return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value, need_symbol);
 
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
                     optype = a_value_logical_binary->left->value_type->value_type;
 
-                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false))
+                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
                 {
                     if (!((a_value_logical_binary->left->value_type->is_integer() ||
                         a_value_logical_binary->left->value_type->is_real()) &&

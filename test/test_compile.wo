@@ -400,8 +400,8 @@ namespace test_compile
         "@);
         // vec/map can be modified;
         assure_compile_success(@"
-            let a = mut[1,2,3];
-            let b = mut{[0] = 1};
+            let a = [mut 1, mut 2,mut 3];
+            let b = {[0] = mut 1};
             
             a[0] = 6;
             b[0] = 6;
