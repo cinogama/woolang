@@ -1523,7 +1523,7 @@ namespace array
         for (let elem : val)
             for (let insert : functor(elem))
                 result->add(insert);
-        return result->unsafe::astype:<array<T>>;
+        return result->unsafe::astype:<array<R>>;
     }
 
     public func trans<T, R>(val: array<T>, functor: (T)=>R)
@@ -1539,7 +1539,7 @@ namespace array
         let result = {}mut: map<K, mut V>;
         for (let (k, v) : val)
             result[k] = v;
-        return result->unsafe::astype:<dict<K, T>>;
+        return result->unsafe::astype:<dict<K, V>>;
     }
 
     public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
