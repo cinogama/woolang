@@ -614,10 +614,10 @@ namespace wo
                         // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                         if (flipped)
                         {
-                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, false, true))
+                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
                                 return false;
                         }
-                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, false, true))
+                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
@@ -676,7 +676,7 @@ namespace wo
                 return true;
             }
 
-            ast_type* mix_types(ast_type* another, bool flip = false)
+            ast_type* mix_types(ast_type* another, bool ignore_mutable, bool flip = false)
             {
                 // 1. if type accept able for each other, just return the copy of cur type.
                 if (is_pending() || another->is_pending())
@@ -684,23 +684,23 @@ namespace wo
 
                 ast_type* result = new ast_type(L"pending");
 
-                if (is_same(another, false, false))
+                if (is_same(another, false, ignore_mutable))
                 {
                     result->set_type(this);
                     return result;
                 }
-                if (accept_type(another, false, false))
+                if (accept_type(another, false, ignore_mutable))
                 {
-                    wo_assert(!another->accept_type(this, false, false));
+                    wo_assert(!another->accept_type(this, false, ignore_mutable));
                     if (flip)
                         result->set_type(another);
                     else
                         result->set_type(this);
                     return result;
                 }
-                if (another->accept_type(this, false, false))
+                if (another->accept_type(this, false, ignore_mutable))
                 {
-                    wo_assert(!accept_type(another, false, false));
+                    wo_assert(!accept_type(another, false, ignore_mutable));
                     if (flip)
                         result->set_type(this);
                     else
@@ -780,14 +780,14 @@ namespace wo
                         // and (option<int>)=>nothing cannot accept (option<nothing>)=>nothing, too.
                         if (flip)
                         {
-                            if (auto* mix_type = argument_types[index]->mix_types(another->argument_types[index], true))
+                            if (auto* mix_type = argument_types[index]->mix_types(another->argument_types[index], true, true))
                                 result->argument_types.push_back(mix_type);
                             else
                                 return nullptr;
                         }
                         else
                         {
-                            if (auto* mix_type = another->argument_types[index]->mix_types(argument_types[index], true))
+                            if (auto* mix_type = another->argument_types[index]->mix_types(argument_types[index], true, true))
                                 result->argument_types.push_back(mix_type);
                             else
                                 return nullptr;
@@ -804,7 +804,7 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (auto* mix_type = complex_type->mix_types(another->complex_type, flip))
+                    if (auto* mix_type = complex_type->mix_types(another->complex_type, false, flip))
                         result->set_ret_type(mix_type);
                     else
                         return nullptr;
@@ -873,7 +873,7 @@ namespace wo
                     using_type->symbol = using_type_name->symbol;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i], flip))
+                        if (auto* mix_type = using_type_name->template_arguments[i]->mix_types(another->using_type_name->template_arguments[i], false, flip))
                             using_type->template_arguments.push_back(mix_type);
                         else
                             return nullptr;
@@ -886,7 +886,7 @@ namespace wo
                         return nullptr;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index], flip))
+                        if (auto* mix_type = template_arguments[index]->mix_types(another->template_arguments[index], false, flip))
                             result->template_arguments.push_back(mix_type);
                         else
                             return nullptr;
@@ -991,7 +991,7 @@ namespace wo
             }
 
             std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const;
-            std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut= false) const;
+            std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {

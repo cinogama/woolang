@@ -65,6 +65,10 @@ namespace test_container
         test_assure(a->rreduce(\lv:int, rv:int = rv%2==0?rv|lv;)->val == 12);
         test_assure(![]->reduce(\_1:void,_2:void=option::none->val;)->has);
         test_assure(![]->rreduce(\_1:void,_2:void=option::none->val;)->has);
+
+        [mut true]->trans(\f: bool = 1;);
+        {["k"] = mut false}->trans(\k:string, v: bool = (0, 0););
+        {["k"] = mut false}->trans(\k:string, v: bool = (0, mut 0);) as dict<int, mut int>;
     }
     func main()
     {

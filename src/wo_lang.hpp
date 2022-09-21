@@ -625,12 +625,6 @@ namespace wo
                                 else
                                     type->set_type(symboled_type);
 
-                                if (type_has_mutable_mark)
-                                {
-                                    // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
-                                    type->is_mutable_type = true;
-                                }
-
                                 if (already_has_using_type_name)
                                     type->using_type_name = already_has_using_type_name;
                                 else if (type_sym->type != lang_symbol::symbol_type::type_alias)
@@ -657,12 +651,15 @@ namespace wo
                                     type->using_type_name->symbol = type_sym;
                                 }
 
+                                if (type_has_mutable_mark)
+                                    // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
+                                    type->is_mutable_type = true;
+
                                 if (!type->template_impl_naming_checking.empty())
                                 {
                                     for (ast::ast_type* naming_type : type->template_impl_naming_checking)
                                     {
                                         fully_update_type(naming_type, in_pass_1, template_types, s);
-
                                         check_matching_naming(type, naming_type);
                                     }
                                 }
@@ -694,6 +691,9 @@ namespace wo
                         fully_update_type(struct_info.member_type, in_pass_1, template_types, s);
                 }
             }
+
+            if (type->using_type_name && type->is_mutable())
+                type->using_type_name->is_mutable_type = true;
 
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
 
@@ -1175,7 +1175,9 @@ namespace wo
                     
                     if (!a_val->value_type->is_pending())
                         if (a_val->is_mark_as_using_mut)
+                        {
                             a_val->value_type->is_mutable_type = true;
+                        }
                     // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
                     a_val->update_constant_value(lang_anylizer);

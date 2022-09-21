@@ -100,7 +100,7 @@ namespace wo
                 {
                     if (!fnd->second.member_type->is_pending())
                     {
-                        a_value_idx->value_type = fnd->second.member_type;
+                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *fnd->second.member_type);
                         a_value_idx->struct_offset = fnd->second.offset;
                         a_value_idx->can_be_assign = fnd->second.is_mutable;
                     }
@@ -118,7 +118,7 @@ namespace wo
                     auto index = a_value_idx->index->get_constant_value().integer;
                     if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
                     {
-                        a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[index];
+                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[index]);
                         a_value_idx->struct_offset = (uint16_t)index;
                     }
                     else
@@ -133,11 +133,11 @@ namespace wo
             {
                 if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
                 {
-                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[0];
+                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[0]);
                 }
                 else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
                 {
-                    a_value_idx->value_type = a_value_idx->from->value_type->template_arguments[1];
+                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[1]);
                 }
                 else
                 {
@@ -251,9 +251,7 @@ namespace wo
                 // Here is template variable, delay it's type calc.
             }
             else
-            {
-                a_value_var->value_type = sym->variable_value->value_type;
-            }
+                a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
         }
         for (auto* a_type : a_value_var->template_reification_args)
         {
@@ -483,7 +481,7 @@ namespace wo
 
                 if (!decide_array_item_type->accept_type(val->value_type, false))
                 {
-                    auto* mixed_type = decide_array_item_type->mix_types(val->value_type);
+                    auto* mixed_type = decide_array_item_type->mix_types(val->value_type, false);
                     if (mixed_type)
                         decide_array_item_type->set_type_with_name(mixed_type->type_name);
                     else
@@ -537,7 +535,7 @@ namespace wo
                 }
                 if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                 {
-                    auto* mixed_type = decide_map_key_type->mix_types(map_pair->key->value_type);
+                    auto* mixed_type = decide_map_key_type->mix_types(map_pair->key->value_type, false);
                     if (mixed_type)
                     {
                         decide_map_key_type->set_type_with_name(mixed_type->type_name);
@@ -550,7 +548,7 @@ namespace wo
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                 {
-                    auto* mixed_type = decide_map_val_type->mix_types(map_pair->val->value_type);
+                    auto* mixed_type = decide_map_val_type->mix_types(map_pair->val->value_type, false);
                     if (mixed_type)
                     {
                         decide_map_val_type->set_type_with_name(mixed_type->type_name);
@@ -609,7 +607,7 @@ namespace wo
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
-                                auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
+                                auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type, false);
                                 if (mixed_type)
                                     a_ret->located_function->value_type->set_ret_type(mixed_type);
                                 else
@@ -714,7 +712,7 @@ namespace wo
             a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
         else if (!a_value_unary->val->value_type->is_pending())
         {
-            a_value_unary->value_type = a_value_unary->val->value_type;
+            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
         }
         return true;
     }
@@ -947,7 +945,7 @@ namespace wo
         analyze_pass1(a_value_trib_expr->val_or);
 
 
-        if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type))
+        if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type, false))
         {
             a_value_trib_expr->value_type = updated_type;
             updated_type->copy_source_info(a_value_trib_expr);
@@ -994,7 +992,7 @@ namespace wo
                     {
                         if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                         {
-                            auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type);
+                            auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type, false);
                             if (mixed_type)
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
@@ -1678,7 +1676,7 @@ namespace wo
                     {
                         if (!fnd->second.member_type->is_pending())
                         {
-                            a_value_index->value_type = fnd->second.member_type;
+                            a_value_index->value_type = ast_type::create_type_at(a_value_index, *fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
                             a_value_index->can_be_assign = fnd->second.is_mutable;
                         }
@@ -1705,7 +1703,7 @@ namespace wo
                         auto index = a_value_index->index->get_constant_value().integer;
                         if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
                         {
-                            a_value_index->value_type = a_value_index->from->value_type->template_arguments[index];
+                            a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[index]);
                             a_value_index->struct_offset = (uint16_t)index;
                         }
                         else
@@ -1725,11 +1723,11 @@ namespace wo
                 {
                     if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                     {
-                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[0];
+                        a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[0]);
                     }
                     else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
                     {
-                        a_value_index->value_type = a_value_index->from->value_type->template_arguments[1];
+                        a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[1]);
                     }
                     else
                     {
@@ -1834,7 +1832,7 @@ namespace wo
             {
                 // Apply this type to func
                 if (nullptr == a_value_bin->value_type)
-                    a_value_bin->value_type = a_value_bin->overrided_operation_call->value_type;
+                    a_value_bin->value_type = ast_type::create_type_at(a_value_bin, *a_value_bin->overrided_operation_call->value_type);
                 else if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
                 else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false, false))
@@ -1926,7 +1924,7 @@ namespace wo
             if (val)
             {
                 if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(decide_array_item_type->mix_types(val->value_type));
+                    decide_array_item_type->set_type(decide_array_item_type->mix_types(val->value_type, false));
                 else
                     decide_array_item_type = nullptr;
             }
@@ -2015,8 +2013,8 @@ namespace wo
             {
                 if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type->set_type(decide_map_key_type->mix_types(map_pair->key->value_type));
-                    decide_map_val_type->set_type(decide_map_val_type->mix_types(map_pair->val->value_type));
+                    decide_map_key_type->set_type(decide_map_key_type->mix_types(map_pair->key->value_type, false));
+                    decide_map_val_type->set_type(decide_map_val_type->mix_types(map_pair->val->value_type, false));
                 }
                 else
                 {
@@ -2208,12 +2206,12 @@ namespace wo
             if (a_value_trib_expr->judge_expr->get_constant_value().integer)
             {
                 analyze_pass2(a_value_trib_expr->val_if_true);
-                a_value_trib_expr->value_type = a_value_trib_expr->val_if_true->value_type;
+                a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, *a_value_trib_expr->val_if_true->value_type);
             }
             else
             {
                 analyze_pass2(a_value_trib_expr->val_or);
-                a_value_trib_expr->value_type = a_value_trib_expr->val_or->value_type;
+                a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, *a_value_trib_expr->val_or->value_type);
             }
         }
         else
@@ -2223,7 +2221,7 @@ namespace wo
 
             if (a_value_trib_expr->value_type->is_pending())
             {
-                if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type))
+                if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type, false))
                 {
                     a_value_trib_expr->value_type = updated_type;
                     updated_type->copy_source_info(a_value_trib_expr);
@@ -2262,7 +2260,7 @@ namespace wo
                 if (sym)
                 {
                     analyze_pass2(sym->variable_value);
-                    a_value_var->value_type = sym->variable_value->value_type;
+                    a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
 
                     a_value_var->symbol = sym;
 
@@ -2278,7 +2276,7 @@ namespace wo
                             auto* result = sym->function_overload_sets.front();
                             check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
                             analyze_pass2(result);
-                            a_value_var->value_type = result->value_type;
+                            a_value_var->value_type = ast_type::create_type_at(a_value_var, *result->value_type);
 
                             if (a_value_var->value_type->is_pending())
                                 lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
@@ -2314,7 +2312,7 @@ namespace wo
             fully_update_type(a_value_unary->value_type, false);
         }
         else if (!a_value_unary->val->value_type->is_pending())
-            a_value_unary->value_type = a_value_unary->val->value_type;
+            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
         // else
             // not need to manage, if val is pending, other place will give error.
 
@@ -3077,7 +3075,7 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, false))
+                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, true))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
@@ -3100,16 +3098,16 @@ namespace wo
             s.insert(this);
 
             std::wstring result;
+
             if (is_mutable() && !ignore_mut)
                 result += L"mut ";
+
             if (!ignore_using_type && using_type_name)
             {
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
                 result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name(s, ignore_using_type, ignore_mut);
-
-                wo_assert(!using_type_name->is_mutable());
+                    + using_type_name->get_type_name(s, ignore_using_type, true);
             }
             else
             {

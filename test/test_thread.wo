@@ -50,7 +50,7 @@ namespace test_thread
         // Thread should be abort-able..
         summ = 0;
         let mut this_should_be_true = false;
-        let __pack = [ref this_should_be_true]mut;
+        let __pack = [mut ref this_should_be_true]mut;
         let th = std::thread::create(
             func(ref i: int)
             {
