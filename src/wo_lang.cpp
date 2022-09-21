@@ -2983,6 +2983,9 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
+            if (is_mutable() != another->is_mutable())
+                return false;
+
             if (is_hkt() && another->is_hkt())
             {
                 auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
@@ -3080,7 +3083,8 @@ namespace wo
             s.insert(this);
 
             std::wstring result;
-
+            if (is_mutable())
+                result += L"mut ";
             if (!ignore_using_type && using_type_name)
             {
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +

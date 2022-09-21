@@ -117,6 +117,8 @@ namespace wo
 
         struct ast_type : virtual public ast_symbolable_base
         {
+            bool is_mutable_type = false;
+
             bool is_function_type = false;
             bool is_variadic_function_type = false;
 
@@ -335,7 +337,10 @@ namespace wo
             {
                 is_variadic_function_type = true;
             }
-
+            bool is_mutable() const
+            {
+                return is_mutable_type;
+            }
             bool is_dynamic() const
             {
                 return !is_func() && type_name == L"dynamic";
@@ -566,6 +571,9 @@ namespace wo
                 if (is_void())
                     return true; // button type, OK
 
+                if (is_mutable() != another->is_mutable())
+                    return false;
+
                 if (is_func())
                 {
                     if (!another->is_func())
@@ -715,6 +723,9 @@ namespace wo
                         result->set_type(another);
                     return result;
                 }
+
+                if (is_mutable() != another->is_mutable())
+                    return nullptr;
 
                 // Might HKT
                 if (is_hkt_typing() && another->is_hkt_typing())
@@ -978,6 +989,7 @@ namespace wo
             ast_type* value_type = nullptr;
 
             bool is_mark_as_using_ref = false;
+            bool is_mark_as_using_mut = false;
             bool is_ref_ob_in_finalize = false;
 
             bool is_const_value = false;
@@ -3791,6 +3803,20 @@ namespace wo
             }
         };
 
+        struct pass_mark_value_as_mut : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // MAY_REF_FACTOR_TYPE_CASTING -> 4
+                wo_assert(input.size() == 2);
+
+                ast_value* val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
+                val->is_mark_as_using_mut = true;
+
+                return (ast_basic*)val;
+            }
+        };
+
         struct pass_mark_value_as_ref : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -4102,7 +4128,7 @@ namespace wo
                 else
                 {
                     wo_assert(input.size() == 4);
-                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                    return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(1)), true);
                 }
             }
         };
@@ -4116,7 +4142,7 @@ namespace wo
                 else
                 {
                     wo_assert(input.size() == 4);
-                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(2)), true);
+                    return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(1)), true);
                 }
             }
         };
@@ -6046,6 +6072,8 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_ref>] = _register_builder<pass_mark_value_as_ref>();
 
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
+            
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_enum_item_create>] = _register_builder<pass_enum_item_create>();

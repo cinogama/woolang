@@ -1510,7 +1510,7 @@ namespace array
 
     public func forall<T>(val: array<T>, functor: (T)=>bool)
     {
-        let result = mut []: vec<T>;
+        let result = []mut: vec<T>;
         for (let elem : val)
             if (functor(elem))
                 result->add(elem);
@@ -1519,7 +1519,7 @@ namespace array
 
     public func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
-        let result = mut []: vec<R>;
+        let result = []mut: vec<R>;
         for (let elem : val)
             for (let insert : functor(elem))
                 result->add(insert);
@@ -1528,7 +1528,7 @@ namespace array
 
     public func trans<T, R>(val: array<T>, functor: (T)=>R)
     {
-        let result = mut []: vec<R>;
+        let result = []mut: vec<R>;
         for (let elem : val)
             result->add(functor(elem));
         return result->unsafe::asarray;
@@ -1536,7 +1536,7 @@ namespace array
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = mut {}: map<K, V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
             result[k] = v;
         return result->unsafe::asdict;
@@ -1649,7 +1649,7 @@ namespace vec
 
     public func forall<T>(val: vec<T>, functor: (T)=>bool)
     {
-        let result = mut []: vec<T>;
+        let result = []mut: vec<T>;
         for (let elem : val)
             if (functor(elem))
                 result->add(elem);
@@ -1658,7 +1658,7 @@ namespace vec
 
     public func collect<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
-        let result = mut []: vec<R>;
+        let result = []mut: vec<R>;
         for (let elem : val)
             for (let insert : functor(elem))
                 result->add(insert);
@@ -1667,7 +1667,7 @@ namespace vec
 
     public func trans<T, R>(val: vec<T>, functor: (T)=>R)
     {
-        let result = mut []: vec<R>;
+        let result = []mut: vec<R>;
         for (let elem : val)
             result->add(functor(elem));
         return result;
@@ -1675,7 +1675,7 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result =  mut {}: map<K, V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
             result[k] = v;
         return result->unsafe::asdict;
@@ -1779,21 +1779,21 @@ namespace dict
 
     public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
     {
-        let result = mut []: vec<KT>;
+        let result = []mut: vec<KT>;
         for (let key, val : self)
             result->add(key);
         return result->unsafe::asarray;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
-        let result = mut []: vec<VT>;
+        let result = []mut: vec<VT>;
         for (let key, val : self)
             result->add(val);
         return result->unsafe::asarray;
     }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
     {
-        let result = mut {}: map<KT, VT>;
+        let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
@@ -1801,7 +1801,7 @@ namespace dict
     }
     public func trans<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
     {
-        let result = mut{}: map<AT, BT>;
+        let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
@@ -1811,7 +1811,7 @@ namespace dict
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
-        let result = mut[]: vec<(KT, VT)>;
+        let result = []mut: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
         return result->unsafe::asarray;
@@ -1889,21 +1889,21 @@ namespace map
 
     public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
     {
-        let result = mut []: vec<KT>;
+        let result = []mut: vec<KT>;
         for (let key, val : self)
             result->add(key);
         return result->unsafe::asarray;
     }
     public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
-        let result = mut []: vec<VT>;
+        let result = []mut: vec<VT>;
         for (let key, val : self)
             result->add(val);
         return result->unsafe::asarray;
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
-        let result = mut {}: map<KT, VT>;
+        let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
                 result[key] = val;
@@ -1911,7 +1911,7 @@ namespace map
     }
     public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
-        let result = mut {}: map<AT, BT>;
+        let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
@@ -1921,7 +1921,7 @@ namespace map
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
-        let result = mut []: vec<(KT, VT)>;
+        let result = []mut: vec<(KT, VT)>;
         for (let key, val : self)
             result->add((key, val));
         return result->unsafe::asarray;

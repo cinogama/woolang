@@ -5,7 +5,7 @@ using test_func_pair = struct{
     name: string,
     function: ()=>void,
 };
-let test_function_set = mut []: vec<test_func_pair>;
+let test_function_set = []mut: vec<test_func_pair>;
 let mut test_success_count = 0, mut test_failed_count = 0;
 
 public func test_function(func_name:string, test_func:()=>void)

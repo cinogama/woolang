@@ -5,8 +5,8 @@ namespace test_container
 {
     func test_array_swap_copy()
     {
-        let a = mut [1, 2, 3];
-        let b = mut [4, 5];
+        let a = [1, 2, 3]mut;
+        let b = [4, 5]mut;
 
         a->swap(b);
 
@@ -35,8 +35,8 @@ namespace test_container
     }
     func test_map_swap_copy()
     {
-        let a = mut {["pi"] = 3.14};
-        let b = mut {["e"] = 2.718, ["sqrt2"] = 1.414};
+        let a = {["pi"] = 3.14}mut;
+        let b = {["e"] = 2.718, ["sqrt2"] = 1.414}mut;
 
         a->swap(b);
 
