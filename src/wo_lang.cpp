@@ -2708,9 +2708,9 @@ namespace wo
                                     acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
                                         + judge_sets->at(index)->value_type->get_type_name(false)
                                         + L"' " WO_TERM_AT L" ("
-                                        + std::to_wstring(judge_sets->at(index)->row_no)
+                                        + std::to_wstring(judge_sets->at(index)->row_end_no)
                                         + L","
-                                        + std::to_wstring(judge_sets->at(index)->col_no)
+                                        + std::to_wstring(judge_sets->at(index)->col_end_no)
                                         + L")";
 
                                     if (index + 1 != judge_sets->size())

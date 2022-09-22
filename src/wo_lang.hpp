@@ -325,8 +325,10 @@ namespace wo
             _this_thread_lang_context = this;
             ast::ast_namespace* global = new ast::ast_namespace;
             global->source_file = "::";
-            global->col_no = 1;
-            global->row_no = 1;
+            global->col_begin_no =
+                global->col_end_no =
+                global->row_begin_no =
+                global->row_end_no = 1;
             begin_namespace(global);   // global namespace
 
             // Define 'bool' as built-in type
@@ -1172,7 +1174,7 @@ namespace wo
                             // ready for update..
                             fully_update_type(a_val->value_type, true);
                     }
-                    
+
                     if (!a_val->value_type->is_pending())
                         if (a_val->is_mark_as_using_mut)
                         {
@@ -3728,7 +3730,7 @@ namespace wo
                         compiler->nop();
 
                     for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
-                        compiler->pdb_info->add_func_variable(funcdef, funcvar->name, funcvar->variable_value->row_no, funcvar->stackvalue_index_in_funcs);
+                        compiler->pdb_info->add_func_variable(funcdef, funcvar->name, funcvar->variable_value->row_end_no, funcvar->stackvalue_index_in_funcs);
 
                 }
             }

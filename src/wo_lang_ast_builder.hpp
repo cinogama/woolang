@@ -4425,9 +4425,8 @@ namespace wo
                             acheck->template_type = new ast_type(template_type->template_ident);
                             acheck->naming_const = new ast_type(L"pending");
                             acheck->naming_const->set_type(template_type->naming_const);
-                            acheck->row_no = template_type->row_no;
-                            acheck->col_no = template_type->col_no;
-                            acheck->source_file = template_type->source_file;
+                            acheck->copy_source_info(template_type);
+
                             template_const_list->append_at_end(acheck);
                         }
 
@@ -5208,9 +5207,7 @@ namespace wo
                             acheck->template_type = new ast_type(template_type->template_ident);
                             acheck->naming_const = new ast_type(L"pending");
                             acheck->naming_const->set_type(template_type->naming_const);
-                            acheck->row_no = template_type->row_no;
-                            acheck->col_no = template_type->col_no;
-                            acheck->source_file = template_type->source_file;
+                            acheck->copy_source_info(template_type);
                             template_const_list->append_at_end(acheck);
                         }
 
@@ -5485,9 +5482,8 @@ namespace wo
 
                     auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
 
-                    cast_right->row_no = left->row_no = right->row_no;
-                    cast_right->col_no = left->col_no = right->col_no;
-                    cast_right->source_file = left->source_file = right->source_file;
+                    left->copy_source_info(right);
+                    cast_right->copy_source_info(left);
 
                     ast_value_binary* vbin = new ast_value_binary();
                     vbin->left = left;
@@ -5503,9 +5499,8 @@ namespace wo
 
                     auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
 
-                    cast_right->row_no = left->row_no = right->row_no;
-                    cast_right->col_no = left->col_no = right->col_no;
-                    cast_right->source_file = left->source_file = right->source_file;
+                    left->copy_source_info(right);
+                    cast_right->copy_source_info(left);
 
                     ast_value_binary* vbin = new ast_value_binary();
                     vbin->left = left;
@@ -5515,9 +5510,7 @@ namespace wo
 
                     auto* origin_list = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
-                    vbin->row_no = origin_list->row_no;
-                    vbin->col_no = origin_list->col_no;
-                    vbin->source_file = origin_list->source_file;
+                    vbin->copy_source_info(origin_list);
 
                     ast_value_binary* vbinresult = new ast_value_binary();
                     vbinresult->left = origin_list;
@@ -5665,9 +5658,7 @@ namespace wo
                             acheck->template_type = new ast_type(template_type->template_ident);
                             acheck->naming_const = new ast_type(L"pending");
                             acheck->naming_const->set_type(template_type->naming_const);
-                            acheck->row_no = template_type->row_no;
-                            acheck->col_no = template_type->col_no;
-                            acheck->source_file = template_type->source_file;
+                            acheck->copy_source_info(template_type);
                             template_const_list->append_at_end(acheck);
                         }
 

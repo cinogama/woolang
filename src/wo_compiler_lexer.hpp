@@ -435,8 +435,10 @@ namespace wo
         struct lex_error_msg
         {
             uint32_t errorno;
-            size_t   row;
-            size_t   col;
+            size_t   begin_row;
+            size_t   end_row;
+            size_t   begin_col;
+            size_t   end_col;
             std::wstring describe;
             std::string filename;
 
@@ -448,11 +450,11 @@ namespace wo
                 swprintf(error_num_str, 10, L"%04X", errorno);
                 if (need_ansi_describe)
                     return (ANSI_HIR L"error" ANSI_RST)
-                    + (L" (" + std::to_wstring(row) + L"," + std::to_wstring(col))
+                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
                     + (L") " + describe);
                 else
                     return (L"error")
-                    + (L" (" + std::to_wstring(row) + L"," + std::to_wstring(col))
+                    + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
                     + (L") " + describe);
             }
         };
@@ -487,8 +489,10 @@ namespace wo
         template<typename AstT, typename ... TS>
         lex_error_msg make_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
-            size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
+            size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
+            size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
+            size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
+            size_t end_col_no = tree_node->col_end_no ? tree_node->col_end_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
@@ -497,8 +501,10 @@ namespace wo
                 lex_error_msg
             {
                 0x1000 + errorno,
-                row_no,
-                col_no,
+                begin_row_no,
+                end_row_no,
+                begin_col_no,
+                end_col_no,
                 describe,
                 tree_node->source_file
             };
@@ -514,7 +520,9 @@ namespace wo
             {
                 0x1000 + errorno,
                 now_file_rowno,
+                next_file_rowno,
                 now_file_colno,
+                next_file_colno,
                 describe,
                 source_file
             };
@@ -533,7 +541,9 @@ namespace wo
             lex_error_msg msg = lex_error_msg
             {
                 0x1000 + errorno,
+                now_file_rowno,
                 next_file_rowno,
+                now_file_colno,
                 next_file_colno,
                 describe,
                 source_file
@@ -547,8 +557,10 @@ namespace wo
         template<typename AstT, typename ... TS>
         lex_type lang_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
-            size_t row_no = tree_node->row_no ? tree_node->row_no : next_file_rowno;
-            size_t col_no = tree_node->col_no ? tree_node->col_no : next_file_colno;
+            size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
+            size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
+            size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
+            size_t end_col_no = tree_node->col_end_no ? tree_node->col_end_no : next_file_colno;
 
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
@@ -556,8 +568,10 @@ namespace wo
             lex_error_msg msg = lex_error_msg
             {
                 0x1000 + errorno,
-                row_no,
-                col_no,
+                begin_row_no,
+                end_row_no,
+                begin_col_no,
+                end_col_no,
                 describe,
                 tree_node->source_file
             };

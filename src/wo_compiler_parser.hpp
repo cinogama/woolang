@@ -159,8 +159,8 @@ namespace wo
             ast_base* sibling;
             ast_base* last;
 
-            size_t row_no;
-            size_t col_no;
+            size_t row_begin_no, row_end_no;
+            size_t col_begin_no, col_end_no;
             std::string source_file;
 
             std::wstring marking_label;
@@ -172,8 +172,10 @@ namespace wo
                 , children(nullptr)
                 , sibling(nullptr)
                 , last(nullptr)
-                , row_no(0)
-                , col_no(0)
+                , row_begin_no(0)
+                , row_end_no(0)
+                , col_begin_no(0)
+                , col_end_no(0)
             {
                 if (!list)
                     list = new std::forward_list<ast_base*>;
@@ -248,23 +250,18 @@ namespace wo
             }
             void copy_source_info(const ast_base* ast_node)
             {
-                if (ast_node->row_no)
+                if (ast_node->row_begin_no)
                 {
-                    row_no = ast_node->row_no;
-                    col_no = ast_node->col_no;
+                    row_begin_no = ast_node->row_begin_no;
+                    row_end_no = ast_node->row_end_no;
+                    col_begin_no = ast_node->col_begin_no;
+                    col_end_no = ast_node->col_end_no;
                     source_file = ast_node->source_file;
                 }
                 else if (ast_node->parent)
                     copy_source_info(ast_node->parent);
                 else
                     wo_assert(0, "Failed to copy source info.");
-
-            }
-            void copy_source_info(const lexer* lex)
-            {
-                row_no = lex->now_file_rowno;
-                col_no = lex->now_file_colno;
-                source_file = lex->source_file;
             }
         public:
             static void space(std::wostream& os, size_t layer)
@@ -284,8 +281,10 @@ namespace wo
             {
                 auto* instance = new T(args...);
 
-                instance->row_no = datfrom->row_no;
-                instance->col_no = datfrom->col_no;
+                instance->row_begin_no = datfrom->row_begin_no;
+                instance->col_begin_no = datfrom->col_begin_no;
+                instance->row_end_no = datfrom->row_end_no;
+                instance->col_end_no = datfrom->col_end_no;
                 instance->source_file = datfrom->source_file;
                 instance->marking_label = datfrom->marking_label;
 
@@ -1444,9 +1443,15 @@ namespace wo
             size_t last_error_colno = 0;
             size_t try_recover_count = 0;
 
+            struct source_info
+            {
+                size_t row_no;
+                size_t col_no;
+            };
+
             std::stack<size_t> state_stack;
             std::stack<te_nt_index_t> sym_stack;
-            std::stack<std::any> node_stack;
+            std::stack<std::pair<source_info, std::any>> node_stack;
 
             const te_nt_index_t te_leof_index = TERM_MAP.at(+lex_type::l_eof);
             const te_nt_index_t te_lempty_index = TERM_MAP.at(+lex_type::l_empty);
@@ -1491,12 +1496,12 @@ namespace wo
                         state_stack.push(take_action.state);
                         if (e_rule)
                         {
-                            node_stack.push(token{ grammar::ttype::l_empty });
+                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ grammar::ttype::l_empty }));
                             sym_stack.push(te_lempty_index);
                         }
                         else
                         {
-                            node_stack.push(token{ type, out_indentifier });
+                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ type, out_indentifier }));
                             sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
 
@@ -1508,17 +1513,20 @@ namespace wo
                     {
                         auto& red_rule = RT_PRODUCTION[take_action.state];
 
-                        std::vector<std::any> bnodes(red_rule.rule_right_count);
+                        std::vector<source_info> srcinfo_bnodes(red_rule.rule_right_count);
+                        std::vector<std::any> te_or_nt_bnodes(red_rule.rule_right_count);
+
                         for (size_t i = red_rule.rule_right_count; i > 0; i--)
                         {
                             state_stack.pop();
                             sym_stack.pop();
-                            bnodes[i - 1] = std::move(node_stack.top());
+                            srcinfo_bnodes[i - 1] = std::move(node_stack.top().first);
+                            te_or_nt_bnodes[i - 1] = std::move(node_stack.top().second);
                             node_stack.pop();
                         }
                         sym_stack.push(red_rule.production_aim);
 
-                        if (std::find_if(bnodes.begin(), bnodes.end(), [](std::any& astn) {
+                        if (std::find_if(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](std::any& astn) {
 
                             if (astn.type() == typeid(token))
                             {
@@ -1536,21 +1544,33 @@ namespace wo
                             }
 
                             return false;
-                            }) != bnodes.end())//bnodes CONTAIN L_ERROR
+                            }) != te_or_nt_bnodes.end())//bnodes CONTAIN L_ERROR
                         {
-                            node_stack.push(token{ +lex_type::l_error });
+                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ +lex_type::l_error }));
                             // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
                         }
                         else
                         {
-                            auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, bnodes);
+                            auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, te_or_nt_bnodes);
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
-                                ast_node_->row_no = tkr.next_file_rowno;
-                                ast_node_->col_no = tkr.next_file_colno;
+                                ast_node_->row_end_no = tkr.next_file_rowno;
+                                ast_node_->col_end_no = tkr.next_file_colno;
+
+                                if (srcinfo_bnodes.empty())
+                                {
+                                    ast_node_->row_begin_no = tkr.next_file_rowno;
+                                    ast_node_->col_begin_no = tkr.next_file_colno;
+                                }
+                                else
+                                {
+                                    ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
+                                    ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                }
+
                                 ast_node_->source_file = tkr.source_file;
                             }
-                            node_stack.push(astnode);
+                            node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                         }
 
                         // std::wcout << "reduce: " << grammar::lr_item{ ORGIN_P[take_action.state] ,size_t(-1) ,{grammar::ttype::l_eof} } << std::endl;
@@ -1562,7 +1582,7 @@ namespace wo
                             return nullptr;
 
                         ast_base* result;
-                        if (cast_any_to<ast_base*>(node_stack.top(), result))
+                        if (cast_any_to<ast_base*>(node_stack.top().second, result))
                         {
                             return result;
                         }
@@ -1794,7 +1814,7 @@ namespace wo
                                 goto error_progress_end;
                             }
 #endif
-                        }
+                                }
 
                         if (node_stack.size())
                         {
@@ -1806,21 +1826,21 @@ namespace wo
                         {
                             goto error_handle_fail;
                         }
-                    }
+                            }
                 error_handle_fail:
                     tkr.parser_error(0x0000, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
+                        }
+
+                    } while (true);
+
+                    tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
+
+                    return nullptr;
                 }
-
-            } while (true);
-
-            tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
-
-            return nullptr;
-        }
-    };
+            };
 
     inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
@@ -1908,4 +1928,4 @@ namespace wo
 
         return ost;
     }
-}
+        }

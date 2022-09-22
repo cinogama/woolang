@@ -1628,7 +1628,7 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
     return false;
 }
 
-std::wstring _dump_src_info(const std::string& path, size_t aimrow, size_t pointplace, _wo_inform_style style)
+std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
 {
     std::wstring srcfile, src_full_path, result;
     if (wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path)))
@@ -1636,7 +1636,7 @@ std::wstring _dump_src_info(const std::string& path, size_t aimrow, size_t point
         constexpr size_t UP_DOWN_SHOWN_LINE = 2;
         size_t current_row_no = 1;
         size_t current_col_no = 1;
-        size_t from = aimrow > UP_DOWN_SHOWN_LINE ? aimrow - UP_DOWN_SHOWN_LINE : 0;
+        size_t from = beginaimrow > UP_DOWN_SHOWN_LINE ? beginaimrow - UP_DOWN_SHOWN_LINE : 0;
         size_t to = aimrow + UP_DOWN_SHOWN_LINE;
 
         bool first_line = true;
@@ -1737,7 +1737,8 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
             _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
 
             // Print source informations..
-            _vm_compile_errors += wo::wstr_to_str(_dump_src_info(src_file_path, err_info.row, err_info.col, style)) + "\n";
+            _vm_compile_errors += wo::wstr_to_str(
+                _dump_src_info(src_file_path, err_info.begin_row, err_info.begin_col, err_info.end_row, err_info.end_col, style)) + "\n";
 
             // Todo: comment
         }
