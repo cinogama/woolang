@@ -1797,45 +1797,7 @@ namespace wo
             }
         };
 
-        struct ast_empty : virtual public grammar::ast_base
-        {
-            // used for stand fro l_empty
-            // some passer will ignore this xx
-
-            static bool is_empty(std::any& any)
-            {
-                if (grammar::ast_base* _node; cast_any_to<grammar::ast_base*>(any, _node))
-                {
-                    if (dynamic_cast<ast_empty*>(_node))
-                    {
-                        return true;
-                    }
-                }
-                if (token _node = { lex_type::l_error }; cast_any_to<token>(any, _node))
-                {
-                    if (_node.type == +lex_type::l_empty)
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
-            {
-                /*display nothing*/
-            }
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value_symbolable_base::instance(dumm);
-                // Write self copy functions here..
-
-                return dumm;
-            }
-        };
+        using ast_empty = grammar::ast_empty;
 
         struct ast_value_funccall;
 

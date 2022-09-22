@@ -1652,7 +1652,8 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                 swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
             result += buf;
         };
-        auto print_notify_line = [&result, &first_line, pointplace, style]() {
+
+        auto print_notify_line = [&result, &first_line, &current_row_no, beginpointplace, pointplace, style, beginaimrow, aimrow](size_t line_end_place) {
             wchar_t buf[20] = {};
             if (first_line)
             {
@@ -1667,10 +1668,34 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             if (style == _wo_inform_style::WO_NEED_COLOR)
                 result += wo::str_to_wstr(ANSI_HIR);
 
-            for (size_t i = 2; i < pointplace; i++)
-                result += L"~";
-            result += L" \\ HERE";
-
+            if (current_row_no == beginaimrow && current_row_no == aimrow)
+            {
+                size_t i = 2;
+                for (; i < beginpointplace; i++)
+                    result += L" ";
+                for (; i < pointplace; i++)
+                    result += L"~";
+                result += L"~\\ HERE";
+            }
+            else if (current_row_no == beginaimrow)
+            {
+                size_t i = 2;
+                for (; i < beginpointplace; i++)
+                    result += L" ";
+                for (; i < line_end_place; i++)
+                    result += L"~";
+            }
+            else if (current_row_no == aimrow)
+            {
+                for (size_t i = 2; i < pointplace; i++)
+                    result += L"~";
+                result += L"~\\ HERE";
+            }
+            else
+            {
+                for (size_t i = 2; i < line_end_place; i++)
+                    result += L"~";
+            }
             if (style == _wo_inform_style::WO_NEED_COLOR)
                 result += wo::str_to_wstr(ANSI_RST);
 
@@ -1682,32 +1707,32 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
         {
             if (srcfile[index] == L'\n')
             {
+                if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+                    print_notify_line(current_col_no);
                 current_col_no = 1;
-                if (current_row_no++ == aimrow)
-                    print_notify_line();
-
+                current_row_no++;
                 if (from <= current_row_no && current_row_no <= to)
                     print_src_file_print_lineno();
                 continue;
             }
             else if (srcfile[index] == L'\r')
             {
+                if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+                    print_notify_line(current_col_no);
                 current_col_no = 1;
-                if (current_row_no++ == aimrow)
-                    print_notify_line();
-
+                current_row_no++;
                 if (from <= current_row_no && current_row_no <= to)
                     print_src_file_print_lineno();
                 if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                     index++;
                 continue;
             }
-
+            ++current_col_no;
             if (from <= current_row_no && current_row_no <= to && srcfile[index])
                 result += srcfile[index];
         }
-        if (current_row_no == aimrow)
-            print_notify_line();
+        if (current_row_no >= beginaimrow && current_row_no <= aimrow)
+            print_notify_line(current_col_no);
         result += L"\n";
     }
     return result;

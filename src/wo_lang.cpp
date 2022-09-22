@@ -2195,7 +2195,7 @@ namespace wo
         analyze_pass2(a_value_trib_expr->judge_expr);
         if (!a_value_trib_expr->judge_expr->value_type->is_bool())
         {
-            lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'，继续"
+            lang_anylizer->lang_error(0x0000, a_value_trib_expr->judge_expr, L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'，继续"
                 , a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
         }
 

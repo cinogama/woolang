@@ -347,6 +347,46 @@ namespace wo
             }
         };
 
+        struct ast_empty : virtual public ast_base
+        {
+            // used for stand fro l_empty
+            // some passer will ignore this xx
+
+            static bool is_empty(std::any& any)
+            {
+                if (grammar::ast_base* _node; cast_any_to<grammar::ast_base*>(any, _node))
+                {
+                    if (dynamic_cast<ast_empty*>(_node))
+                    {
+                        return true;
+                    }
+                }
+                if (token _node = { lex_type::l_error }; cast_any_to<token>(any, _node))
+                {
+                    if (_node.type == +lex_type::l_empty)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
+            {
+                /*display nothing*/
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                // ast_value_symbolable_base::instance(dumm);
+                // Write self copy functions here..
+
+                return dumm;
+            }
+        };
+
         struct nonterminal
         {
             std::wstring nt_name;
@@ -1496,12 +1536,12 @@ namespace wo
                         state_stack.push(take_action.state);
                         if (e_rule)
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ grammar::ttype::l_empty }));
+                            node_stack.push(std::make_pair(source_info{ tkr.after_pick_next_file_rowno, tkr.after_pick_next_file_colno }, token{ grammar::ttype::l_empty }));
                             sym_stack.push(te_lempty_index);
                         }
                         else
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ type, out_indentifier }));
+                            node_stack.push(std::make_pair(source_info{ tkr.after_pick_next_file_rowno, tkr.after_pick_next_file_colno }, token{ type, out_indentifier }));
                             sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
 
@@ -1546,28 +1586,42 @@ namespace wo
                             return false;
                             }) != te_or_nt_bnodes.end())//bnodes CONTAIN L_ERROR
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.now_file_rowno, tkr.now_file_colno }, token{ +lex_type::l_error }));
+                            node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ +lex_type::l_error }));
                             // std::wcout << ANSI_HIR "reduce: err happend, just go.." ANSI_RST << std::endl;
                         }
                         else
                         {
                             auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, te_or_nt_bnodes);
+
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
-                                ast_node_->row_end_no = tkr.next_file_rowno;
-                                ast_node_->col_end_no = tkr.next_file_colno;
-
-                                if (srcinfo_bnodes.empty())
+                                wo_assert(!te_or_nt_bnodes.empty());
+                                if (te_or_nt_bnodes.size() == 1 && ast_empty::is_empty(te_or_nt_bnodes[0]))
                                 {
-                                    ast_node_->row_begin_no = tkr.next_file_rowno;
-                                    ast_node_->col_begin_no = tkr.next_file_colno;
+                                    ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_end_no = tkr.after_pick_next_file_colno;
+                                    ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
                                 }
                                 else
                                 {
-                                    ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
-                                    ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                    for (size_t i = 0; i < srcinfo_bnodes.size(); ++i)
+                                    {
+                                        if (!ast_empty::is_empty(te_or_nt_bnodes[i]))
+                                        {
+                                            ast_node_->row_end_no = tkr.now_file_rowno;
+                                            ast_node_->col_end_no = tkr.now_file_colno;
+                                            ast_node_->row_begin_no = srcinfo_bnodes[i].row_no;
+                                            ast_node_->col_begin_no = srcinfo_bnodes[i].col_no;
+                                            goto apply_src_info_end;
+                                        }
+                                    }
+                                    ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_end_no = tkr.after_pick_next_file_colno;
+                                    ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
+                                apply_src_info_end:;
                                 }
-
                                 ast_node_->source_file = tkr.source_file;
                             }
                             node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
@@ -1814,7 +1868,7 @@ namespace wo
                                 goto error_progress_end;
                             }
 #endif
-                                }
+                        }
 
                         if (node_stack.size())
                         {
@@ -1826,21 +1880,21 @@ namespace wo
                         {
                             goto error_handle_fail;
                         }
-                            }
+                    }
                 error_handle_fail:
                     tkr.parser_error(0x0000, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
-                        }
-
-                    } while (true);
-
-                    tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
-
-                    return nullptr;
                 }
-            };
+
+            } while (true);
+
+            tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
+
+            return nullptr;
+        }
+    };
 
     inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
@@ -1928,4 +1982,4 @@ namespace wo
 
         return ost;
     }
-        }
+}
