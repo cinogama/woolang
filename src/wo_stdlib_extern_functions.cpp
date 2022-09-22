@@ -1729,7 +1729,7 @@ namespace dict
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
     {
         let newmap = self->tomap;
-        newmap[key] = val;
+        newmap->set(key, val);
 
         return newmap->unsafe::astype:<dict<K, V>>;
     }
@@ -1793,19 +1793,19 @@ namespace dict
     }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
     {
-        let result = {}mut: map<KT, mut VT>;
+        let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                result[key] = val;
+                result->set(key, val);
         return result->unsafe::astype:<dict<KT, VT>>;
     }
     public func trans<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
     {
-        let result = {}mut: map<AT, mut BT>;
+        let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            result[nk] = nv;
+            result->set(nk, nv);
         }
         return result->unsafe::astype:<dict<AT, BT>>;
     }
@@ -1903,19 +1903,19 @@ namespace map
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
-        let result = {}mut: map<KT, mut VT>;
+        let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                result[key] = val;
+                result->set(key, val);
         return result;
     }
     public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
-        let result = {}mut: map<AT, mut BT>;
+        let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            result[nk] = nv;
+            result->set(nk, nv);
         }
         return result->unsafe::astype:<map<AT, BT>>;
     }

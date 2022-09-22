@@ -88,6 +88,9 @@ namespace test_helloworld
         _should_be_set_flag = _should_not_be_set_flag = false;
 
         test_no_return_recursive(true) as void;
+        test_no_return_recursive as (bool)=>void;
+
+        \=func(){}; as (void)=>(void)=>void;
     }
 }
 

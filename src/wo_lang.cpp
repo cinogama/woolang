@@ -629,7 +629,7 @@ namespace wo
                 {
                     if (located_function_scope->function_node->value_type->is_pending())
                     {
-                        located_function_scope->function_node->value_type->set_type_with_name(L"void");
+                        located_function_scope->function_node->value_type->set_ret_type(ast_type::create_type_at(located_function_scope->function_node, L"void"));
                         located_function_scope->function_node->auto_adjust_return_type = false;
                     }
                     else
@@ -997,7 +997,7 @@ namespace wo
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
                             {
-                                a_ret->located_function->value_type->set_type_with_name(L"void");
+                                a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, L"void"));
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }
@@ -1019,7 +1019,7 @@ namespace wo
             {
                 if (a_ret->located_function->value_type->is_pending())
                 {
-                    a_ret->located_function->value_type->set_type_with_name(L"void");
+                    a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, L"void"));
                     a_ret->located_function->auto_adjust_return_type = false;
                 }
                 else
@@ -1500,7 +1500,7 @@ namespace wo
                         if (a_value_funcdef->has_return_value)
                             lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
 
-                        a_value_funcdef->value_type->set_type_with_name(L"void");
+                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, L"void"));
                     }
                 }
             }
