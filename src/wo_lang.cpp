@@ -1559,7 +1559,7 @@ namespace wo
 
         if (!a_value_assi->left->can_be_assign)
         {
-            lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
+            lang_anylizer->lang_error(0x0000, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
         }
         a_value_assi->value_type->set_type(a_value_assi->left->value_type);
         return true;

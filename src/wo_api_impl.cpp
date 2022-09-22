@@ -1628,6 +1628,91 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
     return false;
 }
 
+std::wstring _dump_src_info(const std::string& path, size_t aimrow, size_t pointplace, _wo_inform_style style)
+{
+    std::wstring srcfile, src_full_path, result;
+    if (wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path)))
+    {
+        constexpr size_t UP_DOWN_SHOWN_LINE = 2;
+        size_t current_row_no = 1;
+        size_t current_col_no = 1;
+        size_t from = aimrow > UP_DOWN_SHOWN_LINE ? aimrow - UP_DOWN_SHOWN_LINE : 0;
+        size_t to = aimrow + UP_DOWN_SHOWN_LINE;
+
+        bool first_line = true;
+
+        auto print_src_file_print_lineno = [&current_row_no, &result, &first_line]() {
+            wchar_t buf[20] = {};
+            if (first_line)
+            {
+                first_line = false;
+                swprintf(buf, 19, L"%-5zu | ", current_row_no);
+            }
+            else
+                swprintf(buf, 19, L"\n%-5zu | ", current_row_no);
+            result += buf;
+        };
+        auto print_notify_line = [&result, &first_line, pointplace, style]() {
+            wchar_t buf[20] = {};
+            if (first_line)
+            {
+                first_line = false;
+                swprintf(buf, 19, L"      | ");
+            }
+            else
+                swprintf(buf, 19, L"\n      | ");
+
+            result += buf;
+
+            if (style == _wo_inform_style::WO_NEED_COLOR)
+                result += wo::str_to_wstr(ANSI_HIR);
+
+            for (size_t i = 2; i < pointplace; i++)
+                result += L"~";
+            result += L" \\ HERE";
+
+            if (style == _wo_inform_style::WO_NEED_COLOR)
+                result += wo::str_to_wstr(ANSI_RST);
+
+        };
+
+        if (from <= current_row_no && current_row_no <= to)
+            print_src_file_print_lineno();
+        for (size_t index = 0; index < srcfile.size(); index++)
+        {
+            if (srcfile[index] == L'\n')
+            {
+                current_col_no = 1;
+                if (current_row_no++ == aimrow)
+                    print_notify_line();
+
+                if (from <= current_row_no && current_row_no <= to)
+                    print_src_file_print_lineno();
+                continue;
+            }
+            else if (srcfile[index] == L'\r')
+            {
+                current_col_no = 1;
+                if (current_row_no++ == aimrow)
+                    print_notify_line();
+
+                if (from <= current_row_no && current_row_no <= to)
+                    print_src_file_print_lineno();
+                if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
+                    index++;
+                continue;
+            }
+
+            if (from <= current_row_no && current_row_no <= to && srcfile[index])
+                result += srcfile[index];
+        }
+        if (current_row_no == aimrow)
+            print_notify_line();
+        result += L"\n";
+    }
+    return result;
+}
+
 wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
 {
     if (style == WO_DEFAULT)
@@ -1638,7 +1723,6 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
     if (vm && WO_VM(vm)->compile_info)
     {
         auto& lex = *WO_VM(vm)->compile_info;
-
 
         std::string src_file_path = "";
         for (auto& err_info : lex.lex_error_list)
@@ -1651,14 +1735,12 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
                     _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
             }
             _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
+
+            // Print source informations..
+            _vm_compile_errors += wo::wstr_to_str(_dump_src_info(src_file_path, err_info.row, err_info.col, style)) + "\n";
+
+            // Todo: comment
         }
-        /*src_file_path = "";
-        for (auto& war_info : lex.lex_warn_list)
-        {
-            if (src_file_path != war_info.filename)
-                wo::wo_stderr << ANSI_HIY "In file: '" ANSI_RST << (src_file_path = war_info.filename) << ANSI_HIY "'" ANSI_RST << wo::wo_endl;
-            wo_wstderr << war_info.to_wstring() << wo::wo_endl;
-        }*/
     }
     return _vm_compile_errors.c_str();
 }
