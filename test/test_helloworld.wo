@@ -90,7 +90,7 @@ namespace test_helloworld
         test_no_return_recursive(true) as void;
         test_no_return_recursive as (bool)=>void;
 
-        \=func(){}; as (void)=>(void)=>void;
+        \=func(){}; as ()=>()=>void;
     }
 }
 
