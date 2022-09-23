@@ -8,6 +8,7 @@
 #include "wo_source_file_manager.hpp"
 #include "wo_utf8.hpp"
 #include "wo_memory.hpp"
+#include "wo_const_string_pool.hpp"
 
 #include <any>
 #include <type_traits>

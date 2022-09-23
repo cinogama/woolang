@@ -1,10 +1,12 @@
 /*                                       */
 import test_tool;
 
-import test_helloworld;
+import test_compile;
+
+/*import test_helloworld;
 import test_container;
 import test_hkt;
-import test_compile;
+
 import test_exception;
 import test_template;
 import test_operator_overload;
@@ -24,7 +26,7 @@ import test_dup;
 import test_static;
 import test_enum;
 import test_vm;
-import test_thread;
+import test_thread;*/
 /*                                       */
 ///////////////////////////////////////////
 /*    TODO-LIST

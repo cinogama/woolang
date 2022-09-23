@@ -246,6 +246,7 @@ void wo_init(int argc, char** argv)
     }
 
     wo::wo_init_locale(basic_env_local);
+    wo::wstring_pool::init_global_str_pool();
 
     if (enable_gc)
         wo::gc::gc_start(); // I dont know who will disable gc..

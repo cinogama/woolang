@@ -10,6 +10,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include "wo_compiler_lexer.hpp"
 #include "wo_lang_compiler_information.hpp"
 #include "wo_meta.hpp"
+#include "wo_const_string_pool.hpp"
 
 #include <variant>
 #include <functional>
