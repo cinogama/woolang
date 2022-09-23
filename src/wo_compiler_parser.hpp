@@ -1644,16 +1644,13 @@ namespace wo
                                 }
                                 else
                                 {
-                                    for (size_t i = 0; i < srcinfo_bnodes.size(); ++i)
+                                    if (!srcinfo_bnodes.empty())
                                     {
-                                        if (!ast_empty::is_empty(te_or_nt_bnodes[i]))
-                                        {
-                                            ast_node_->row_end_no = tkr.now_file_rowno;
-                                            ast_node_->col_end_no = tkr.now_file_colno;
-                                            ast_node_->row_begin_no = srcinfo_bnodes[i].row_no;
-                                            ast_node_->col_begin_no = srcinfo_bnodes[i].col_no;
-                                            goto apply_src_info_end;
-                                        }
+                                        ast_node_->row_end_no = tkr.now_file_rowno;
+                                        ast_node_->col_end_no = tkr.now_file_colno;
+                                        ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
+                                        ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                        goto apply_src_info_end;
                                     }
                                     ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
                                     ast_node_->col_end_no = tkr.after_pick_next_file_colno;
@@ -1905,9 +1902,9 @@ namespace wo
                             {
                                 tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
                                 goto error_progress_end;
-                        }
+                            }
 #endif
-                    }
+                        }
 
                         if (node_stack.size())
                         {
@@ -1919,21 +1916,21 @@ namespace wo
                         {
                             goto error_handle_fail;
                         }
-                }
+                    }
                 error_handle_fail:
                     tkr.parser_error(0x0000, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
-            }
+                }
 
-        } while (true);
+            } while (true);
 
-        tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
+            tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
 
-        return nullptr;
-    }
-};
+            return nullptr;
+        }
+    };
 
     inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
@@ -2021,4 +2018,4 @@ namespace wo
 
         return ost;
     }
-        }
+}
