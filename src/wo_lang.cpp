@@ -3088,7 +3088,7 @@ namespace wo
             if (is_complex() && another->is_complex())
                 return complex_type->is_same(another->complex_type, ignore_using_type, false);
             else if (!is_complex() && !another->is_complex())
-                return get_type_name(ignore_using_type, ignore_mutable) == another->get_type_name(ignore_using_type, ignore_mutable);
+                return this->value_type == another->value_type && this->type_name == another->type_name;
             return false;
         }
 
