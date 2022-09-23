@@ -1581,7 +1581,7 @@ namespace wo
                         }
                         else
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.after_pick_next_file_rowno, tkr.after_pick_next_file_colno }, token{ type, out_indentifier }));
+                            node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ type, out_indentifier }));
                             sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
 

@@ -1683,42 +1683,54 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             else
                 swprintf(buf, 19, L"\n      | ");
 
-            result += buf;
+            std::wstring append_result = buf;
 
             if (style == _wo_inform_style::WO_NEED_COLOR)
-                result += wo::str_to_wstr(ANSI_HIR);
+                append_result += wo::str_to_wstr(ANSI_HIR);
 
             if (current_row_no == beginaimrow && current_row_no == aimrow)
             {
-                size_t i = 2;
+                size_t i = 1;
                 for (; i < beginpointplace; i++)
-                    result += L" ";
+                    append_result += L" ";
                 for (; i < pointplace; i++)
-                    result += L"~";
-                result += L"~\\ HERE";
+                    append_result += L"~";
+                append_result += L"\\ HERE";
             }
             else if (current_row_no == beginaimrow)
             {
-                size_t i = 2;
+                size_t i = 1;
                 for (; i < beginpointplace; i++)
-                    result += L" ";
-                for (; i < line_end_place; i++)
-                    result += L"~";
+                    append_result += L" ";
+                if (i < line_end_place)
+                {
+                    for (; i < line_end_place; i++)
+                        append_result += L"~";
+                }
+                else
+                    return;
             }
             else if (current_row_no == aimrow)
             {
-                for (size_t i = 2; i < pointplace; i++)
-                    result += L"~";
-                result += L"~\\ HERE";
+                for (size_t i = 1; i < pointplace; i++)
+                    append_result += L"~";
+                append_result += L"\\ HERE";
             }
             else
             {
-                for (size_t i = 2; i < line_end_place; i++)
-                    result += L"~";
+                size_t i = 1;
+                if (i < line_end_place)
+                {
+                    for (; i < line_end_place; i++)
+                        append_result += L"~";
+                }
+                else
+                    return;
             }
             if (style == _wo_inform_style::WO_NEED_COLOR)
-                result += wo::str_to_wstr(ANSI_RST);
+                append_result += wo::str_to_wstr(ANSI_RST);
 
+            result += append_result;
         };
 
         if (from <= current_row_no && current_row_no <= to)

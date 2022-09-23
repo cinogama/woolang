@@ -404,10 +404,13 @@ namespace wo
             , next_file_colno(1)
             , format_string_count(0)
             , curly_count(0)
-            , source_file(wstring_pool::get_pstr(str_to_wstr(_source_file)))
             , used_macro_list(nullptr)
         {
             // read_stream.peek
+            if (wstring_pool::_m_this_thread_pool)
+                source_file = wstring_pool::get_pstr(str_to_wstr(_source_file));
+            else
+                source_file = nullptr;
         }
         lexer(const std::string _source_file)
             : next_reading_index(0)
