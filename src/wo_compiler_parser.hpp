@@ -733,7 +733,11 @@ namespace wo
 
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
-
+        struct no_prospect_action
+        {
+            action::act_type act;
+            size_t state;
+        };
         using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
         lr1table_t LR1_TABLE;
 
@@ -781,7 +785,7 @@ namespace wo
 
         // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
 
-        action LR1_TABLE_READ(size_t a, te_nt_index_t b) const
+        void LR1_TABLE_READ(size_t a, te_nt_index_t b, no_prospect_action* write_act) const
         {
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
             if (lr1_fast_cache_enabled())
@@ -791,38 +795,72 @@ namespace wo
                     // Is Terminate, b did'nt need add 1, l_error is 0 and not able to exist in cache.
 
                     if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
-                        return action(action::act_type::accept, +lex_type::l_error, 0);
+                    {
+                        write_act->act = action::act_type::accept;
+                        write_act->state = 0;
+                        return;
+                    }
 
                     if (LR1_GOTO_RS_MAP[a][1] == -1)
-                        return action{};
+                    {
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
 
                     auto state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[a][1] * LR1_R_S_CACHE_SZ + b];
                     if (state == 0)
+                    {
                         // No action for this state&te, return error.
-                        return action{};
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
                     else if (state > 0)
+                    {
                         // Push!
-                        return action(action::act_type::push_stack, +lex_type::l_error, state - 1);
+                        write_act->act = action::act_type::push_stack;
+                        write_act->state = state - 1;
+                        return;
+                    }
                     else
+                    {
                         // Reduce!
-                        return action(action::act_type::reduction, +lex_type::l_error, (-state) - 1);
+                        write_act->act = action::act_type::reduction;
+                        write_act->state = (-state) - 1;
+                        return;
+                    }
                 }
                 else
                 {
                     // Is NonTerminate
                     if (LR1_GOTO_RS_MAP[a][0] == -1)
-                        return action{};
+                    {
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
 
                     auto state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[a][0] * LR1_GOTO_CACHE_SZ + (-b)];
                     if (state == -1)
+                    {
                         // No action for this state&nt, return error.
-                        return action{};
-                    return action(action::act_type::state_goto, +lex_type::l_error, state);
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
+
+                    write_act->act = action::act_type::state_goto;
+                    write_act->state = state;
+                    return;
                 }
 
             }
 #endif
-            return RT_LR1_TABLE[a][b];
+            auto& action = RT_LR1_TABLE[a][b];
+            write_act->act = action.act;
+            write_act->state = action.state;
+            return;
         }
 
         grammar()
@@ -1519,8 +1557,9 @@ namespace wo
                         ? TERM_MAP.at(type)
                         : NOW_STACK_SYMBO());
 
-                const auto actions = LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo);// .at().at();
-                const auto e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index);// LR1_TABLE.at(NOW_STACK_STATE()).at();
+                no_prospect_action actions, e_actions;
+                LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);// .at().at();
+                LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);// LR1_TABLE.at(NOW_STACK_STATE()).at();
 
                 if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
                 {
@@ -1866,9 +1905,9 @@ namespace wo
                             {
                                 tkr.push_temp_for_error_recover(lex_type::l_right_curly_braces, L"");
                                 goto error_progress_end;
-                            }
-#endif
                         }
+#endif
+                    }
 
                         if (node_stack.size())
                         {
@@ -1880,21 +1919,21 @@ namespace wo
                         {
                             goto error_handle_fail;
                         }
-                    }
+                }
                 error_handle_fail:
                     tkr.parser_error(0x0000, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
-                }
+            }
 
-            } while (true);
+        } while (true);
 
-            tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
+        tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
 
-            return nullptr;
-        }
-    };
+        return nullptr;
+    }
+};
 
     inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
@@ -1982,4 +2021,4 @@ namespace wo
 
         return ost;
     }
-}
+        }
