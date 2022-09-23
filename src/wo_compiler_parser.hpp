@@ -1659,7 +1659,7 @@ namespace wo
                                     ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
                                 apply_src_info_end:;
                                 }
-                                ast_node_->source_file = wstring_pool::get_pstr(wo::str_to_wstr(tkr.source_file));
+                                ast_node_->source_file = tkr.source_file;
                             }
                             node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                         }

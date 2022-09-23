@@ -16,6 +16,7 @@
 
 #include "wo_lang_compiler_information.hpp"
 #include "wo_source_file_manager.hpp"
+#include "wo_const_string_pool.hpp"
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN
@@ -166,13 +167,13 @@ namespace wo
         int         format_string_count;
         int         curly_count;
 
-        std::string   source_file;
+        wo_pstring_t   source_file;
 
-        std::set<std::wstring> imported_file_list;
+        std::set<wo_pstring_t> imported_file_list;
 
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
 
-        bool has_been_imported(const std::wstring& full_path)
+        bool has_been_imported(wo_pstring_t full_path)
         {
             if (imported_file_list.find(full_path) == imported_file_list.end())
                 imported_file_list.insert(full_path);
@@ -403,7 +404,7 @@ namespace wo
             , next_file_colno(1)
             , format_string_count(0)
             , curly_count(0)
-            , source_file(_source_file)
+            , source_file(wstring_pool::get_pstr(str_to_wstr(_source_file)))
             , used_macro_list(nullptr)
         {
             // read_stream.peek
@@ -416,19 +417,19 @@ namespace wo
             , next_file_colno(1)
             , format_string_count(0)
             , curly_count(0)
-            , source_file(_source_file)
+            , source_file(wstring_pool::get_pstr(str_to_wstr(_source_file)))
             , used_macro_list(nullptr)
         {
             // read_stream.peek
             std::wstring readed_real_path;
-            std::wstring input_path = wo::str_to_wstr(_source_file);
+            std::wstring input_path = *source_file;
             if (!wo::read_virtual_source(&reading_buffer, &readed_real_path, input_path))
             {
                 lex_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
             }
             else
             {
-                source_file = wo::wstr_to_str(readed_real_path);
+                source_file = wstring_pool::get_pstr(readed_real_path);
             }
         }
     public:
@@ -524,7 +525,7 @@ namespace wo
                 now_file_colno,
                 next_file_colno,
                 describe,
-                source_file
+                wstr_to_str(*source_file)
             };
             just_have_err = true;
             get_cur_error_frame().emplace_back(msg);
@@ -546,7 +547,7 @@ namespace wo
                 now_file_colno,
                 next_file_colno,
                 describe,
-                source_file
+                wstr_to_str(*source_file)
             };
 
             just_have_err = true;

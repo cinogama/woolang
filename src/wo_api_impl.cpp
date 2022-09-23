@@ -1593,7 +1593,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
     else
         lex = new wo::lexer(virtual_src_path);
 
-    lex->has_been_imported(wo::str_to_wstr(lex->source_file));
+    lex->has_been_imported(lex->source_file);
 
     std::forward_list<wo::grammar::ast_base*> m_last_context;
     bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);

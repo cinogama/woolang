@@ -45,7 +45,7 @@ namespace wo
         {
             if (lex)
             {
-                auto src_file_loc = wo::get_file_loc(lex->source_file);
+                auto src_file_loc = wo::get_file_loc(wstr_to_str(*lex->source_file));
                 *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
                 std::wifstream src_1(wstr_to_str(*out_real_read_path));
 

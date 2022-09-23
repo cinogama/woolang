@@ -3963,7 +3963,7 @@ namespace wo
                         return lex.parser_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
                 }
 
-                if (!lex.has_been_imported(src_full_path))
+                if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
