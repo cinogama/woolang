@@ -51,8 +51,15 @@ namespace wo
                 return hasher(*str);
             }
         };
+        struct pstr_equal
+        {
+            size_t operator ()(const wo_pstring_t& left, const wo_pstring_t& right) const noexcept
+            {
+                return *left == *right;
+            }
+        };
 
-        std::unordered_set<wo_pstring_t, pstr_hasher> _m_string_pool;
+        std::unordered_set<wo_pstring_t, pstr_hasher, pstr_equal> _m_string_pool;
 
         static void init_global_str_pool()
         {

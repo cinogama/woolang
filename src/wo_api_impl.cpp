@@ -248,6 +248,22 @@ void wo_init(int argc, char** argv)
     wo::wo_init_locale(basic_env_local);
     wo::wstring_pool::init_global_str_pool();
 
+#ifdef _DEBUG
+    wo::wstring_pool::begin_new_pool();
+
+    std::wstring test_instance_a = L"Helloworld";
+    std::wstring test_instance_b = test_instance_a;
+
+    wo_assert(&test_instance_a != &test_instance_b);
+
+    auto* p_a = wo::wstring_pool::get_pstr(test_instance_a);
+    auto* p_b = wo::wstring_pool::get_pstr(test_instance_b);
+
+    wo_assert(p_a == p_b);
+
+    wo::wstring_pool::end_pool();
+#endif
+
     if (enable_gc)
         wo::gc::gc_start(); // I dont know who will disable gc..
 
