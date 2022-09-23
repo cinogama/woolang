@@ -7,7 +7,7 @@
 
 using wo_pstring_t = const std::wstring*;
 
-#define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str = new std::wstring(L#str);
+#define WO_GLOBAL_PSTR(str) inline wo_pstring_t _global_##str = new std::wstring(L ## #str);
 
 #define WO_GLOBAL_PSTR_LIST \
 WO_GLOBAL_PSTR(int)\
