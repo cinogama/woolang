@@ -284,7 +284,7 @@ namespace wo
         {
             size_t      row_no;
             size_t      col_no;
-            std::string source_file = "not_found";
+            std::wstring source_file = L"not_found";
         };
         struct function_symbol_infor
         {
@@ -313,7 +313,7 @@ namespace wo
             }
         };
 
-        using filename_rowno_colno_ip_info_t = std::map<std::string, std::map<size_t, std::map<size_t, size_t>>>;
+        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::map<size_t, std::map<size_t, size_t>>>;
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
@@ -340,7 +340,7 @@ namespace wo
         void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc);
 
         const location& get_src_location_by_runtime_ip(const  byte_t* rt_pos) const;
-        size_t get_ip_by_src_location(const std::string& src_name, size_t rowno, bool strict = false)const;
+        size_t get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict = false)const;
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;

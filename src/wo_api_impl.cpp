@@ -249,19 +249,20 @@ void wo_init(int argc, char** argv)
     wo::wstring_pool::init_global_str_pool();
 
 #ifdef _DEBUG
-    wo::wstring_pool::begin_new_pool();
+    do
+    {
+        wo::start_string_pool_guard sg;
 
-    std::wstring test_instance_a = L"Helloworld";
-    std::wstring test_instance_b = test_instance_a;
+        std::wstring test_instance_a = L"Helloworld";
+        std::wstring test_instance_b = test_instance_a;
 
-    wo_assert(&test_instance_a != &test_instance_b);
+        wo_assert(&test_instance_a != &test_instance_b);
 
-    auto* p_a = wo::wstring_pool::get_pstr(test_instance_a);
-    auto* p_b = wo::wstring_pool::get_pstr(test_instance_b);
+        auto* p_a = wo::wstring_pool::get_pstr(test_instance_a);
+        auto* p_b = wo::wstring_pool::get_pstr(test_instance_b);
 
-    wo_assert(p_a == p_b);
-
-    wo::wstring_pool::end_pool();
+        wo_assert(p_a == p_b);
+    } while (0);
 #endif
 
     if (enable_gc)
@@ -1583,6 +1584,8 @@ void* wo_co_wait_for(wo_waitter_t waitter)
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
+    wo::start_string_pool_guard sg;
+
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
     if (src)

@@ -162,9 +162,9 @@ namespace wo
 
             size_t row_begin_no, row_end_no;
             size_t col_begin_no, col_end_no;
-            std::string source_file;
+            wo_pstring_t source_file = nullptr;
 
-            std::wstring marking_label;
+            wo_pstring_t marking_label = nullptr;
 
             virtual ~ast_base() = default;
             ast_base(const ast_base&) = default;
@@ -1659,7 +1659,7 @@ namespace wo
                                     ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
                                 apply_src_info_end:;
                                 }
-                                ast_node_->source_file = tkr.source_file;
+                                ast_node_->source_file = wstring_pool::get_pstr(wo::str_to_wstr(tkr.source_file));
                             }
                             node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
                         }

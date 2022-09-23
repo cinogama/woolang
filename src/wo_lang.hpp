@@ -67,7 +67,7 @@ namespace wo
         {
             return type == symbol_type::type_alias || type == symbol_type::typing;
         }
-        std::string& defined_source() const noexcept
+        wo_pstring_t defined_source() const noexcept
         {
             if (is_type_decl())
                 return type_informatiom->source_file;
@@ -248,7 +248,7 @@ namespace wo
                 sym->attribute = new ast::ast_decl_attribute();
                 sym->type = lang_symbol::symbol_type::type_alias;
                 sym->name = template_defines_args[index];
-                sym->type_informatiom = new ast::ast_type(L"pending");
+                sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
 
                 sym->type_informatiom->set_type(template_args[index]);
 
@@ -266,15 +266,15 @@ namespace wo
                     {
                         sym->template_types = { L"VT" };
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(L"VT"));
+                            new ast::ast_type(wstring_pool::get_pstr(L"VT")));
                     }
                     else if (sym->type_informatiom->is_array())
                     {
                         sym->template_types = { L"KT", L"VT" };
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(L"KT"));
+                            new ast::ast_type(wstring_pool::get_pstr(L"KT")));
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(L"VT"));
+                            new ast::ast_type(wstring_pool::get_pstr(L"VT")));
                     }
                     else
                     {
@@ -286,7 +286,7 @@ namespace wo
                         for (auto& template_def_name : sym->type_informatiom->symbol->template_types)
                         {
                             sym->type_informatiom->template_arguments.push_back(
-                                new ast::ast_type(template_def_name));
+                                new ast::ast_type(wstring_pool::get_pstr(template_def_name)));
                         }
                     }
                 }
@@ -324,7 +324,7 @@ namespace wo
         {
             _this_thread_lang_context = this;
             ast::ast_namespace* global = new ast::ast_namespace;
-            global->source_file = "::";
+            global->source_file = wstring_pool::get_pstr(L"::");
             global->col_begin_no =
                 global->col_end_no =
                 global->row_begin_no =
@@ -334,7 +334,7 @@ namespace wo
             // Define 'bool' as built-in type
             ast::ast_using_type_as* using_type_def_bool = new ast::ast_using_type_as();
             using_type_def_bool->new_type_identifier = L"bool";
-            using_type_def_bool->old_type = new ast::ast_type(L"int");
+            using_type_def_bool->old_type = new ast::ast_type(WO_PSTR(int));
             using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
             using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
             define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
@@ -342,7 +342,7 @@ namespace wo
             ast::ast_using_type_as* using_type_def_anything = new ast::ast_using_type_as();
             using_type_def_anything->is_alias = true;
             using_type_def_anything->new_type_identifier = L"anything";
-            using_type_def_anything->old_type = new ast::ast_type(L"void");
+            using_type_def_anything->old_type = new ast::ast_type(WO_PSTR(void));
             using_type_def_anything->declear_attribute = new ast::ast_decl_attribute();
             using_type_def_anything->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
             define_type_in_this_scope(using_type_def_anything, using_type_def_anything->old_type, using_type_def_anything->declear_attribute);
@@ -368,7 +368,7 @@ namespace wo
             if (fnd == symb->template_type_instances.end())
             {
                 auto& list = symb->template_type_instances[hashs];
-                list = new ast::ast_type(L"pending");
+                list = new ast::ast_type(WO_PSTR(pending));
 
                 list->set_type(symb->type_informatiom);
                 symb->type_informatiom->instance(list);
@@ -461,7 +461,7 @@ namespace wo
             if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
             {
                 type->searching_begin_namespace_in_pass2 = now_scope();
-                if (type->source_file == "")
+                if (type->source_file == nullptr)
                     type->copy_source_info(type->searching_begin_namespace_in_pass2->last_entry_ast);
             }
 
@@ -528,7 +528,7 @@ namespace wo
                 {
                     if (!type->scope_namespaces.empty() ||
                         type->search_from_global_namespace ||
-                        template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
+                        template_types.end() == std::find(template_types.begin(), template_types.end(), *type->type_name))
                     {
                         lang_symbol* type_sym = find_type_in_this_scope(type);
 
@@ -600,7 +600,7 @@ namespace wo
                                         ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
                                         : begin_template_scope(type, type_sym->template_types, type->template_arguments));
 
-                                auto* symboled_type = new ast::ast_type(L"pending");
+                                auto* symboled_type = new ast::ast_type(WO_PSTR(pending));
 
                                 if (using_template)
                                 {
@@ -631,7 +631,7 @@ namespace wo
                                     type->using_type_name = already_has_using_type_name;
                                 else if (type_sym->type != lang_symbol::symbol_type::type_alias)
                                 {
-                                    auto* using_type = new ast::ast_type(type_sym->name);
+                                    auto* using_type = new ast::ast_type(wstring_pool::get_pstr(type_sym->name));
                                     using_type->template_arguments = type->template_arguments;
 
                                     type->using_type_name = using_type;
@@ -1107,7 +1107,7 @@ namespace wo
             if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
             {
                 a_symbol_ob->searching_begin_namespace_in_pass2 = now_scope();
-                if (a_symbol_ob->source_file == "")
+                if (a_symbol_ob->source_file == nullptr)
                     a_symbol_ob->copy_source_info(a_symbol_ob->searching_begin_namespace_in_pass2->last_entry_ast);
             }
 
@@ -1603,7 +1603,7 @@ namespace wo
                     && !para->has_template()
                     && para->scope_namespaces.empty()
                     && !para->search_from_global_namespace
-                    && para->type_name == temp_form)
+                    && *para->type_name == temp_form)
                 {
                     // do nothing..
                 }
@@ -1623,7 +1623,7 @@ namespace wo
                     return derivation_result;
             }
 
-            if (para->type_name == temp_form
+            if (*para->type_name == temp_form
                 && para->scope_namespaces.empty()
                 && !para->search_from_global_namespace)
             {
@@ -1639,7 +1639,7 @@ namespace wo
                 wo_assert(picked_type);
                 if (!para->template_arguments.empty())
                 {
-                    ast::ast_type* type_hkt = new ast::ast_type(L"pending");
+                    ast::ast_type* type_hkt = new ast::ast_type(WO_PSTR(pending));
                     if (picked_type->using_type_name)
                         type_hkt->set_type(picked_type->using_type_name);
                     else
@@ -3157,7 +3157,7 @@ namespace wo
 
         struct loop_label_info
         {
-            std::wstring current_loop_label;
+            wo_pstring_t current_loop_label;
 
             std::string current_loop_break_aim_tag;
             std::string current_loop_continue_aim_tag;
@@ -3454,7 +3454,7 @@ namespace wo
             }
             else if (ast_break* a_break = dynamic_cast<ast_break*>(ast_node))
             {
-                if (a_break->label == L"")
+                if (a_break->label == nullptr)
                 {
                     if (loop_stack_for_break_and_continue.empty())
                         lang_anylizer->lang_error(0x0000, a_break, WO_ERR_INVALID_OPERATE, L"break");
@@ -3482,7 +3482,7 @@ namespace wo
             }
             else if (ast_continue* a_continue = dynamic_cast<ast_continue*>(ast_node))
             {
-                if (a_continue->label == L"")
+                if (a_continue->label == nullptr)
                 {
                     if (loop_stack_for_break_and_continue.empty())
                         lang_anylizer->lang_error(0x0000, a_continue, WO_ERR_INVALID_OPERATE, L"continue");
@@ -3743,7 +3743,7 @@ namespace wo
 
         lang_scope* begin_namespace(ast::ast_namespace* a_namespace)
         {
-            wo_assert(a_namespace->source_file != "");
+            wo_assert(a_namespace->source_file != nullptr);
             if (lang_scopes.size())
             {
                 auto fnd = lang_scopes.back()->sub_namespaces.find(a_namespace->scope_name);
@@ -3788,7 +3788,7 @@ namespace wo
             lang_scopes_buffers.push_back(scope);
 
             scope->last_entry_ast = block_beginer;
-            wo_assert(block_beginer->source_file != "");
+            wo_assert(block_beginer->source_file != nullptr);
             scope->stop_searching_in_last_scope_flag = false;
             scope->type = lang_scope::scope_type::just_scope;
             scope->belong_namespace = now_namespace;
@@ -3816,7 +3816,7 @@ namespace wo
             lang_scope* scope =
                 already_created_func_scope ? ast_value_funcdef->this_func_scope : new lang_scope;
             scope->last_entry_ast = ast_value_funcdef;
-            wo_assert(ast_value_funcdef->source_file != "");
+            wo_assert(ast_value_funcdef->source_file != nullptr);
             if (!already_created_func_scope)
             {
                 lang_scopes_buffers.push_back(scope);
@@ -3899,7 +3899,7 @@ namespace wo
                         sym->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
 
                         auto* pending_function = new ast::ast_value_function_define;
-                        pending_function->value_type = new ast::ast_type(L"pending");
+                        pending_function->value_type = new ast::ast_type(WO_PSTR(pending));
                         pending_function->value_type->set_as_function_type();
                         pending_function->value_type->set_as_variadic_arg_func();
                         pending_function->in_function_sentence = nullptr;
@@ -4068,7 +4068,7 @@ namespace wo
                         return true;
                     if (give_error)
                         lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
-                            wo::str_to_wstr(astdefine->source_file).c_str());
+                            astdefine->source_file->c_str());
                     return false;
                 }
             }
@@ -4097,7 +4097,7 @@ namespace wo
                         return true;
                     if (give_error)
                         lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
-                            wo::str_to_wstr(symbol->defined_source()).c_str());
+                            symbol->defined_source()->c_str());
                     return false;
                 }
             }
@@ -4134,13 +4134,13 @@ namespace wo
                     {
                         var_ident->searching_begin_namespace_in_pass2 =
                             finding_from_type->symbol->defined_in_scope;
-                        wo_assert(var_ident->source_file != "");
+                        wo_assert(var_ident->source_file != nullptr);
                     }
                     else
                         var_ident->search_from_global_namespace = true;
 
                     var_ident->scope_namespaces.insert(var_ident->scope_namespaces.begin(),
-                        finding_from_type->type_name);
+                        *finding_from_type->type_name);
 
                     var_ident->searching_from_type = nullptr;
                 }
@@ -4163,12 +4163,12 @@ namespace wo
                             if (fnd_template_type->symbol)
                             {
                                 var_ident->searching_begin_namespace_in_pass2 = fnd_template_type->symbol->defined_in_scope;
-                                wo_assert(var_ident->source_file != "");
+                                wo_assert(var_ident->source_file != nullptr);
                             }
                             else
                                 var_ident->search_from_global_namespace = true;
 
-                            var_ident->scope_namespaces[0] = fnd_template_type->type_name;;
+                            var_ident->scope_namespaces[0] = *fnd_template_type->type_name;
                             break;
                         }
                     }
@@ -4225,7 +4225,7 @@ namespace wo
             {
                 for (auto* a_using_namespace : _searching_in_all->used_namespace)
                 {
-                    wo_assert(a_using_namespace->source_file != "");
+                    wo_assert(a_using_namespace->source_file != nullptr);
                     if (a_using_namespace->source_file != var_ident->source_file)
                         continue;
 
@@ -4367,12 +4367,12 @@ namespace wo
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
+            auto* result = find_symbol_in_this_scope(var_ident, *var_ident->type_name);
             if (result
                 && result->type != lang_symbol::symbol_type::typing
                 && result->type != lang_symbol::symbol_type::type_alias)
             {
-                lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_NOT_A_TYPE, var_ident->type_name.c_str());
+                lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_NOT_A_TYPE, var_ident->type_name->c_str());
                 return nullptr;
             }
             return result;
@@ -4400,7 +4400,7 @@ namespace wo
                     if (typing_index->using_type_name)
                         typing_index = typing_index->using_type_name;
 
-                    used_template_impl_typing_name = typing_index->type_name;
+                    used_template_impl_typing_name = *typing_index->type_name;
 
                     var_ident->scope_namespaces = typing_index->scope_namespaces;
                     var_ident->template_reification_args = typing_index->template_arguments;

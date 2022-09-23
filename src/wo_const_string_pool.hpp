@@ -26,7 +26,11 @@ WO_GLOBAL_PSTR(tuple)\
 WO_GLOBAL_PSTR(void)\
 WO_GLOBAL_PSTR(nothing)\
 WO_GLOBAL_PSTR(pending)\
-WO_GLOBAL_PSTR(dynamic)
+WO_GLOBAL_PSTR(dynamic)\
+WO_GLOBAL_PSTR(complex)\
+WO_GLOBAL_PSTR(bool)\
+WO_GLOBAL_PSTR(anything)\
+// end
 
 #define WO_PSTR(str) (wo::fixstr::_global_##str)
 
@@ -143,6 +147,23 @@ namespace wo
         {
             wo_assert(_m_this_thread_pool);
             return _m_this_thread_pool->find_or_add(str);
+        }
+    };
+
+    struct start_string_pool_guard
+    {
+        start_string_pool_guard(start_string_pool_guard&) = delete;
+        start_string_pool_guard(start_string_pool_guard&&) = delete;
+        start_string_pool_guard& operator = (start_string_pool_guard&) = delete;
+        start_string_pool_guard& operator = (start_string_pool_guard&&) = delete;
+
+        start_string_pool_guard()
+        {
+            wstring_pool::begin_new_pool();
+        }
+        ~start_string_pool_guard()
+        {
+            wstring_pool::end_pool();
         }
     };
 }

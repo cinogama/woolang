@@ -506,7 +506,7 @@ namespace wo
                 begin_col_no,
                 end_col_no,
                 describe,
-                tree_node->source_file
+                tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
             };
         }
 
@@ -573,7 +573,7 @@ namespace wo
                 begin_col_no,
                 end_col_no,
                 describe,
-                tree_node->source_file
+                tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
             };
 
             just_have_err = true;
