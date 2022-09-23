@@ -966,7 +966,7 @@ namespace wo
             size_t call_trace_count = 0;
 
             os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-            os << "\t--at " << src_location_info->source_file << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+            os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -983,7 +983,7 @@ namespace wo
 
                     os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
                         env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
-                    os << "\t--at " << src_location_info->source_file << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
                     base_callstackinfo_ptr++;

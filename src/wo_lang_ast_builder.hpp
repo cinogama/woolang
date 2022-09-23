@@ -8,6 +8,7 @@
 #include "wo_source_file_manager.hpp"
 #include "wo_utf8.hpp"
 #include "wo_memory.hpp"
+#include "wo_const_string_pool.hpp"
 
 #include <any>
 #include <type_traits>
@@ -87,7 +88,7 @@ namespace wo
 
         struct ast_symbolable_base : virtual grammar::ast_base
         {
-            std::vector<std::wstring> scope_namespaces;
+            std::vector<wo_pstring_t> scope_namespaces;
             bool search_from_global_namespace = false;
 
             ast_type* searching_from_type = nullptr;
@@ -123,7 +124,7 @@ namespace wo
             bool is_variadic_function_type = false;
 
             // if this type is function, following type information will describe the return type;
-            std::wstring type_name;
+            wo_pstring_t type_name = nullptr;
             ast_type* complex_type = nullptr;
 
             value::valuetype value_type;
@@ -142,49 +143,49 @@ namespace wo
                 std::vector<size_t> union_used_template_index;
             };
 
-            using struct_member_infos_t = std::map<std::wstring, struct_offset>;
+            using struct_member_infos_t = std::map<wo_pstring_t, struct_offset>;
             struct_member_infos_t struct_member_index;
 
             ast_type* using_type_name = nullptr;
             ast_value* typefrom = nullptr;
 
-            inline static const std::map<std::wstring, value::valuetype> name_type_pair =
+            inline static const std::map<wo_pstring_t, value::valuetype> name_type_pair =
             {
-                {L"int", value::valuetype::integer_type},
-                {L"handle", value::valuetype::handle_type},
-                {L"real", value::valuetype::real_type},
-                {L"string", value::valuetype::string_type},
-                {L"dict", value::valuetype::dict_type},
-                {L"array", value::valuetype::array_type},
-                {L"map", value::valuetype::dict_type},
-                {L"vec", value::valuetype::array_type},
-                {L"gchandle", value::valuetype::gchandle_type},
-                {L"nil", value::valuetype::invalid},
+                {WO_PSTR(int), value::valuetype::integer_type},
+                {WO_PSTR(handle), value::valuetype::handle_type},
+                {WO_PSTR(real), value::valuetype::real_type},
+                {WO_PSTR(string), value::valuetype::string_type},
+                {WO_PSTR(dict), value::valuetype::dict_type},
+                {WO_PSTR(array), value::valuetype::array_type},
+                {WO_PSTR(map), value::valuetype::dict_type},
+                {WO_PSTR(vec), value::valuetype::array_type},
+                {WO_PSTR(gchandle), value::valuetype::gchandle_type},
+                {WO_PSTR(nil), value::valuetype::invalid},
 
                 // special type
-                {L"union", value::valuetype::invalid},
-                {L"struct", value::valuetype::invalid},
-                {L"tuple", value::valuetype::invalid},
+                {WO_PSTR(union), value::valuetype::invalid},
+                {WO_PSTR(struct), value::valuetype::invalid},
+                {WO_PSTR(tuple), value::valuetype::invalid},
 
-                {L"void", value::valuetype::invalid}, // Button type
-                {L"nothing", value::valuetype::invalid}, // Top type.
-                {L"pending", value::valuetype::invalid},
-                {L"dynamic", value::valuetype::invalid},
+                {WO_PSTR(void), value::valuetype::invalid}, // Button type
+                {WO_PSTR(nothing), value::valuetype::invalid}, // Top type.
+                {WO_PSTR(pending), value::valuetype::invalid},
+                {WO_PSTR(dynamic), value::valuetype::invalid},
             };
 
-            static std::wstring get_name_from_type(value::valuetype _type)
+            static wo_pstring_t get_name_from_type(value::valuetype _type)
             {
                 if (_type == value::valuetype::invalid)
-                    return L"nil";
+                    return WO_PSTR(nil);
 
                 for (auto& [tname, vtype] : name_type_pair)
                     if (vtype == _type)
                         return tname;
 
-                return L"pending";
+                return WO_PSTR(pending);
             }
 
-            static value::valuetype get_type_from_name(const std::wstring& name)
+            static value::valuetype get_type_from_name(wo_pstring_t name)
             {
                 if (name_type_pair.find(name) != name_type_pair.end())
                     return name_type_pair.at(name);
@@ -246,31 +247,31 @@ namespace wo
                 return false;
             }
 
-            static bool is_custom_type(const std::wstring& name)
+            static bool is_custom_type(wo_pstring_t name)
             {
                 if (name_type_pair.find(name) != name_type_pair.end())
                     return false;
                 return true;
             }
 
-            void set_type_with_name(const std::wstring& _type_name)
+            void set_type_with_name(wo_pstring_t _type_name)
             {
                 complex_type = nullptr;
                 type_name = _type_name;
                 value_type = get_type_from_name(_type_name);
-                is_pending_type = _type_name == L"pending"; // reset state;
+                is_pending_type = _type_name == WO_PSTR(pending); // reset state;
 
                 using_type_name = nullptr;
                 template_arguments.clear();
 
                 if (value_type == value::valuetype::array_type)
                 {
-                    template_arguments.push_back(new ast_type(L"dynamic"));
+                    template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
                 }
                 else if (value_type == value::valuetype::dict_type)
                 {
-                    template_arguments.push_back(new ast_type(L"dynamic"));
-                    template_arguments.push_back(new ast_type(L"dynamic"));
+                    template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
+                    template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
                 }
             }
             void set_type(const ast_type* _type)
@@ -281,7 +282,7 @@ namespace wo
             {
                 wo_test(is_func());
 
-                type_name = L"complex";
+                type_name = WO_PSTR(complex);
                 complex_type = new ast_type(*_type);
                 complex_type->is_mutable_type = false; // Return type cannot be mut
                 is_pending_type = false; // reset state;
@@ -289,7 +290,7 @@ namespace wo
                 template_arguments.clear();
             }
 
-            ast_type(const std::wstring& _type_name)
+            ast_type(wo_pstring_t _type_name)
             {
                 set_type_with_name(_type_name);
                 if (is_custom_type(_type_name))
@@ -303,7 +304,7 @@ namespace wo
             ast_type(ast_type* _val)
             {
                 // complex_type
-                type_name = L"complex";
+                type_name = WO_PSTR(complex);
                 value_type = value::valuetype::invalid;
 
                 complex_type = _val;
@@ -348,7 +349,7 @@ namespace wo
             }
             bool is_dynamic() const
             {
-                return !is_func() && type_name == L"dynamic";
+                return !is_func() && type_name == WO_PSTR(dynamic);
             }
             bool is_custom(std::unordered_set<const ast_type*>& s) const
             {
@@ -386,7 +387,7 @@ namespace wo
 
             bool is_pure_pending() const
             {
-                return !is_func() && type_name == L"pending" && typefrom == nullptr;
+                return !is_func() && type_name == WO_PSTR(pending) && typefrom == nullptr;
             }
 
             bool is_hkt() const;
@@ -422,7 +423,7 @@ namespace wo
                 if (is_complex())
                     base_type_pending = complex_type->is_pending(s);
                 else
-                    base_type_pending = type_name == L"pending";
+                    base_type_pending = type_name == WO_PSTR(pending);
 
                 return is_pending_type || base_type_pending;
             }
@@ -460,7 +461,7 @@ namespace wo
                 if (is_complex())
                     base_type_pending = complex_type->may_need_update(s);
                 else
-                    base_type_pending = type_name == L"pending";
+                    base_type_pending = type_name == WO_PSTR(pending);
 
                 return is_pending_type || base_type_pending;
             }
@@ -481,17 +482,17 @@ namespace wo
             }
             bool is_void() const
             {
-                return type_name == L"void" && !is_func();
+                return type_name == WO_PSTR(void) && !is_func();
             }
             bool is_nil() const
             {
-                return type_name == L"nil" && !is_func();
+                return type_name == WO_PSTR(nil) && !is_func();
             }
             bool is_gc_type() const
             {
                 return (uint8_t)value_type & (uint8_t)value::valuetype::need_gc;
             }
-            bool is_like(const ast_type* another, const std::vector<std::wstring>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
+            bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
             {
                 // Only used after pass1
 
@@ -633,7 +634,7 @@ namespace wo
                 }
                 else
                 {
-                    if (type_name == L"void" || another->type_name == L"nothing")
+                    if (type_name == WO_PSTR(void) || another->type_name == WO_PSTR(nothing))
                         return true;
                     else
                     {
@@ -682,7 +683,7 @@ namespace wo
                 if (is_pending() || another->is_pending())
                     return nullptr;
 
-                ast_type* result = new ast_type(L"pending");
+                ast_type* result = new ast_type(WO_PSTR(pending));
 
                 if (is_same(another, false, ignore_mutable))
                 {
@@ -721,7 +722,7 @@ namespace wo
                     if (flip)
                         result->set_type(another);
                     else
-                        result->set_type_with_name(L"void");
+                        result->set_type_with_name(WO_PSTR(void));
                     return result;
                 }
                 if (another->is_void())
@@ -729,7 +730,7 @@ namespace wo
                     if (flip)
                         result->set_type(this);
                     else
-                        result->set_type_with_name(L"void");
+                        result->set_type_with_name(WO_PSTR(void));
                     return result;
                 }
                 if (another->is_nothing())
@@ -811,34 +812,34 @@ namespace wo
                 }
                 else
                 {
-                    if (type_name == L"void")
+                    if (type_name == WO_PSTR(void))
                     {
                         if (flip)
                             result->set_ret_type(another->get_return_type());
                         else
-                            result->set_ret_type(new ast_type(L"void"));
+                            result->set_ret_type(new ast_type(WO_PSTR(void)));
                         return result;
                     }
-                    if (another->type_name == L"void")
+                    if (another->type_name == WO_PSTR(void))
                     {
                         if (flip)
                             result->set_ret_type(this->get_return_type());
                         else
-                            result->set_ret_type(new ast_type(L"void"));
+                            result->set_ret_type(new ast_type(WO_PSTR(void)));
                         return result;
                     }
-                    else if (another->type_name == L"nothing")
+                    else if (another->type_name == WO_PSTR(nothing))
                     {
                         if (flip)
-                            result->set_ret_type(new ast_type(L"nothing"));
+                            result->set_ret_type(new ast_type(WO_PSTR(nothing)));
                         else
                             result->set_ret_type(this->get_return_type());
                         return result;
                     }
-                    else if (type_name == L"nothing")
+                    else if (type_name == WO_PSTR(nothing))
                     {
                         if (flip)
-                            result->set_ret_type(new ast_type(L"nothing"));
+                            result->set_ret_type(new ast_type(WO_PSTR(nothing)));
                         else
                             result->set_ret_type(another->get_return_type());
                         return result;
@@ -903,27 +904,27 @@ namespace wo
             bool is_bool() const
             {
                 return !is_func() &&
-                    (type_name == L"bool" || (using_type_name && using_type_name->type_name == L"bool"));
+                    (type_name == WO_PSTR(bool) || (using_type_name && using_type_name->type_name == WO_PSTR(bool)));
             }
             bool is_union() const
             {
                 return !is_func() &&
-                    (type_name == L"union");
+                    (type_name == WO_PSTR(union));
             }
             bool is_tuple() const
             {
                 return !is_func() &&
-                    (type_name == L"tuple");
+                    (type_name == WO_PSTR(tuple));
             }
             bool is_nothing() const
             {
                 return !is_func() &&
-                    (type_name == L"nothing");
+                    (type_name == WO_PSTR(nothing));
             }
             bool is_struct() const
             {
                 return !is_func() &&
-                    (type_name == L"struct");
+                    (type_name == WO_PSTR(struct));
             }
             bool has_template() const
             {
@@ -956,22 +957,22 @@ namespace wo
             bool is_array() const
             {
                 return value_type == value::valuetype::array_type && !is_func() &&
-                    (type_name == L"array" || (using_type_name && using_type_name->type_name == L"array"));
+                    (type_name == WO_PSTR(array) || (using_type_name && using_type_name->type_name == WO_PSTR(array)));
             }
             bool is_dict() const
             {
                 return value_type == value::valuetype::dict_type && !is_func() &&
-                    (type_name == L"dict" || (using_type_name && using_type_name->type_name == L"dict"));
+                    (type_name == WO_PSTR(dict) || (using_type_name && using_type_name->type_name == WO_PSTR(dict)));
             }
             bool is_vec() const
             {
                 return value_type == value::valuetype::array_type && !is_func() &&
-                    (type_name == L"vec" || (using_type_name && using_type_name->type_name == L"vec"));
+                    (type_name == WO_PSTR(vec) || (using_type_name && using_type_name->type_name == WO_PSTR(vec)));
             }
             bool is_map() const
             {
                 return value_type == value::valuetype::dict_type && !is_func() &&
-                    (type_name == L"map" || (using_type_name && using_type_name->type_name == L"map"));
+                    (type_name == WO_PSTR(map) || (using_type_name && using_type_name->type_name == WO_PSTR(map)));
             }
             bool is_integer() const
             {
@@ -1070,7 +1071,7 @@ namespace wo
         inline grammar::ast_base* ast_type::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, L"pending");
+            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, WO_PSTR(pending));
             if (!child_instance) *dumm = *this;
             ast_symbolable_base::instance(dumm);
 
@@ -1105,7 +1106,7 @@ namespace wo
             opnum::opnumbase* used_reg = nullptr;
             ast_value_takeplace()
             {
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
             }
             void update_constant_value(lexer* lex) override
             {
@@ -1514,7 +1515,7 @@ namespace wo
                 _be_check_value_node = value;
                 aim_type = type;
 
-                value_type = new ast_type(L"bool");
+                value_type = new ast_type(WO_PSTR(bool));
             }
             ast_value_type_check() {}
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -1653,7 +1654,7 @@ namespace wo
             bool is_template_reification = false; // if is_template_reification == true, symbol will not put to overset..
             lang_symbol* this_reification_lang_symbol = nullptr;
             std::vector<ast_type*> this_reification_template_args;
-            std::vector<std::wstring> template_type_name_list;
+            std::vector<wo_pstring_t> template_type_name_list;
             std::map<std::vector<uint32_t>, ast_defines*> template_typehashs_reification_instance_list;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -1692,14 +1693,14 @@ namespace wo
 
         struct ast_value_variable : virtual ast_value_symbolable_base
         {
-            std::wstring var_name;
+            wo_pstring_t var_name = nullptr;
             std::vector<ast_type*> template_reification_args;
             bool directed_function_call = false;
             bool is_auto_judge_function_overload = false;
-            ast_value_variable(const std::wstring& _var_name)
+            ast_value_variable(wo_pstring_t _var_name)
             {
                 var_name = _var_name;
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
                 can_be_assign = true;
             }
             ast_value_variable() {}
@@ -1812,7 +1813,7 @@ namespace wo
 
             ast_value_binary()
             {
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -1910,7 +1911,7 @@ namespace wo
 
                 if (left_v->is_same(right_v, false, true))
                 {
-                    ast_type* type = new ast_type(L"pending");
+                    ast_type* type = new ast_type(WO_PSTR(pending));
                     type->set_type(left_v);
                     return type;
                 }
@@ -1972,7 +1973,7 @@ namespace wo
                     // Donot give error here.
 
                     // lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
-                    value_type = new ast_type(L"pending");
+                    value_type = new ast_type(WO_PSTR(pending));
 
                     return;
                 }
@@ -2029,7 +2030,7 @@ namespace wo
 
         struct ast_namespace : virtual public grammar::ast_base
         {
-            std::wstring scope_name;
+            wo_pstring_t scope_name = nullptr;
             ast_list* in_scope_sentence;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2112,7 +2113,7 @@ namespace wo
         struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
-            std::wstring arg_name;
+            wo_pstring_t arg_name = nullptr;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -2183,7 +2184,7 @@ namespace wo
         };
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
-            std::wstring function_name;
+            wo_pstring_t function_name = nullptr;
             ast_list* argument_list = nullptr;
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
@@ -2212,8 +2213,8 @@ namespace wo
                     ir_func_signature_tag =
                         spacename.empty() ? "func " : ("func " + spacename + "::");
 
-                    if (function_name != L"")
-                        ir_func_signature_tag += wstr_to_str(function_name);
+                    if (function_name != nullptr)
+                        ir_func_signature_tag += wstr_to_str(*function_name);
                     else
                         ir_func_signature_tag += std::to_string((uint64_t)this);
 
@@ -2383,7 +2384,7 @@ namespace wo
                 // Write self copy functions here..
 
                 ast_value_function_define* called_func_def = dynamic_cast<ast_value_function_define*>(dumm->called_func);
-                if (!called_func_def || called_func_def->function_name == L"")
+                if (!called_func_def || called_func_def->function_name == nullptr)
                 {
                     WO_REINSTANCE(dumm->called_func);
                 }
@@ -2410,8 +2411,8 @@ namespace wo
                 , is_mutable_vector(is_mutable)
             {
                 wo_test(array_items);
-                value_type = is_mutable ? new ast_type(L"vec") : new ast_type(L"array");
-                value_type->template_arguments[0]->set_type_with_name(L"pending");
+                value_type = is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array));
+                value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2449,9 +2450,9 @@ namespace wo
                 , is_mutable_map(is_mutable)
             {
                 wo_test(mapping_pairs);
-                value_type = is_mutable ? new ast_type(L"map") : new ast_type(L"dict");
-                value_type->template_arguments[0]->set_type_with_name(L"pending");
-                value_type->template_arguments[1]->set_type_with_name(L"pending");
+                value_type = is_mutable ? new ast_type(WO_PSTR(map)) : new ast_type(WO_PSTR(dict));
+                value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
+                value_type->template_arguments[1]->set_type_with_name(WO_PSTR(pending));
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2657,7 +2658,7 @@ namespace wo
 
             ast_value_assign()
             {
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2707,7 +2708,7 @@ namespace wo
 
             ast_value_logical_binary()
             {
-                value_type = new ast_type(L"bool");
+                value_type = new ast_type(WO_PSTR(bool));
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2768,7 +2769,7 @@ namespace wo
                 if (left->is_constant && right->is_constant)
                 {
                     is_constant = true;
-                    value_type = new ast_type(L"bool");
+                    value_type = new ast_type(WO_PSTR(bool));
 
                     switch (operate)
                     {
@@ -2856,7 +2857,7 @@ namespace wo
 
             ast_value_index()
             {
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
                 can_be_assign = true; // or a[0]=x will be an error when lex
             }
 
@@ -2910,7 +2911,7 @@ namespace wo
                     if (from->value_type->is_string())
                     {
                         is_constant = true;
-                        value_type = new ast_type(L"string");
+                        value_type = new ast_type(WO_PSTR(string));
 
                         if (!index->value_type->is_integer() && !index->value_type->is_handle())
                         {
@@ -2932,7 +2933,7 @@ namespace wo
         {
             ast_value_packed_variadic_args()
             {
-                value_type = new ast_type(L"array");
+                value_type = new ast_type(WO_PSTR(array));
             }
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -2958,7 +2959,7 @@ namespace wo
                 : argindex(arg_index)
             {
                 wo_assert(argindex);
-                value_type = new ast_type(L"dynamic");
+                value_type = new ast_type(WO_PSTR(dynamic));
                 can_be_assign = false;
             }
 
@@ -2994,7 +2995,7 @@ namespace wo
                 expand_count(_expand_count)
             {
                 wo_assert(unpacked_pack && _expand_count >= 0);
-                value_type = new ast_type(L"dynamic");
+                value_type = new ast_type(WO_PSTR(dynamic));
             }
 
             ast_fakevalue_unpacked_args() {}
@@ -3069,7 +3070,7 @@ namespace wo
                     {
                         if (val->value_type->is_bool())
                         {
-                            value_type = new ast_type(L"bool");
+                            value_type = new ast_type(WO_PSTR(bool));
                             constant_value.set_integer(!val->get_constant_value().handle);
                         }
                         else
@@ -3107,7 +3108,7 @@ namespace wo
         struct ast_using_namespace : virtual public grammar::ast_base
         {
             bool from_global_namespace;
-            std::vector<std::wstring> used_namespace_chain;
+            std::vector<wo_pstring_t> used_namespace_chain;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3123,7 +3124,7 @@ namespace wo
 
         struct ast_enum_item : virtual public grammar::ast_base
         {
-            std::wstring enum_ident;
+            wo_pstring_t enum_ident = nullptr;
             wo_integer_t enum_val;
             bool need_assign_val = true;
 
@@ -3183,7 +3184,7 @@ namespace wo
 
         struct ast_using_type_as : virtual public ast_defines
         {
-            std::wstring new_type_identifier;
+            wo_pstring_t new_type_identifier = nullptr;
             ast_type* old_type;
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
@@ -3300,7 +3301,7 @@ namespace wo
 
         struct ast_break : virtual public grammar::ast_base
         {
-            std::wstring label;
+            wo_pstring_t label = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3316,7 +3317,7 @@ namespace wo
 
         struct ast_continue : virtual public grammar::ast_base
         {
-            std::wstring label;
+            wo_pstring_t label = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3332,7 +3333,7 @@ namespace wo
 
         struct ast_template_define_with_naming : virtual public grammar::ast_base
         {
-            std::wstring template_ident;
+            wo_pstring_t template_ident = nullptr;
             ast_type* naming_const;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -3351,7 +3352,7 @@ namespace wo
 
         struct ast_union_item : virtual public grammar::ast_base
         {
-            std::wstring identifier;
+            wo_pstring_t identifier = nullptr;
             ast_type* type_may_nil = nullptr;
             ast_type* gadt_out_type_may_nil = nullptr;
 
@@ -3392,11 +3393,11 @@ namespace wo
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
 
-            std::wstring identifier;
+            wo_pstring_t identifier = nullptr;
             lang_symbol* symbol = nullptr;
             ast_decl_attribute* attr = nullptr;
 
-            std::vector<std::wstring> template_arguments;
+            std::vector<wo_pstring_t> template_arguments;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3523,7 +3524,7 @@ namespace wo
 
         struct ast_struct_member_define : virtual public grammar::ast_base
         {
-            std::wstring member_name;
+            wo_pstring_t member_name = nullptr;
 
             bool is_value_pair;
             bool is_mutable_decl;
@@ -3583,7 +3584,7 @@ namespace wo
             ast_list* tuple_member_vals;
             ast_value_make_tuple_instance()
             {
-                value_type = new ast_type(L"pending");
+                value_type = new ast_type(WO_PSTR(pending));
             }
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3696,7 +3697,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                auto* att = new ast_type(L"pending");
+                auto* att = new ast_type(WO_PSTR(pending));
                 att->typefrom = dynamic_cast<ast_value*>(WO_NEED_AST(2));
 
                 wo_assert(att->typefrom);
@@ -3750,7 +3751,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_enum_item* item = new ast_enum_item;
-                item->enum_ident = WO_NEED_TOKEN(0).identifier;
+                item->enum_ident = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                 if (input.size() == 3)
                 {
                     item->need_assign_val = false;
@@ -3853,11 +3854,11 @@ namespace wo
                 // TODO: Enum attribute should be apply here!
                 //       WO_NEED_AST(0)
 
-                enum_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                enum_scope->scope_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
 
                 auto* using_enum_as_int = new ast_using_type_as;
                 using_enum_as_int->new_type_identifier = enum_scope->scope_name;
-                using_enum_as_int->old_type = new ast_type(L"int");
+                using_enum_as_int->old_type = new ast_type(WO_PSTR(int));
                 bind_type_and_decl_list->append_at_end(using_enum_as_int);
                 using_enum_as_int->copy_source_info(union_arttribute);
                 using_enum_as_int->old_type->copy_source_info(union_arttribute);
@@ -3926,7 +3927,7 @@ namespace wo
                 /*
                  // In ast build pass, all left value's type cannot judge, so it was useless..
 
-                ast_type* result_type = new ast_type(L"pending");
+                ast_type* result_type = new ast_type(WO_PSTR(pending));
                 result_type->set_type(left_v->value_type);
 
                 vbin->value_type = result_type;
@@ -3962,7 +3963,7 @@ namespace wo
                         return lex.parser_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
                 }
 
-                if (!lex.has_been_imported(src_full_path))
+                if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
@@ -4166,7 +4167,7 @@ namespace wo
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                     wo_assert(ast_func->declear_attribute);
 
-                    ast_func->function_name = WO_NEED_TOKEN(2).identifier;
+                    ast_func->function_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
 
                     if (!ast_empty::is_empty(input[3]))
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(3));
@@ -4195,7 +4196,7 @@ namespace wo
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(2));
                     }
 
-                    ast_func->function_name = L""; // just get a fucking name
+                    ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
 
                     return_type = dynamic_cast<ast_type*>(WO_NEED_AST(6));
@@ -4215,7 +4216,7 @@ namespace wo
                         ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                         wo_assert(ast_func->declear_attribute);
 
-                        ast_func->function_name = L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier;
+                        ast_func->function_name = wstring_pool::get_pstr(L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier);
 
                         if (!ast_empty::is_empty(input[4]))
                             template_types = dynamic_cast<ast_list*>(WO_NEED_AST(4));
@@ -4246,7 +4247,7 @@ namespace wo
                         ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
                         wo_assert(ast_func->declear_attribute);
 
-                        ast_func->function_name = WO_NEED_TOKEN(3).identifier;
+                        ast_func->function_name = wstring_pool::get_pstr(WO_NEED_TOKEN(3).identifier);
 
                         if (!ast_empty::is_empty(input[4]))
                         {
@@ -4274,7 +4275,7 @@ namespace wo
                     ast_func->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
                     wo_assert(ast_func->declear_attribute);
 
-                    ast_func->function_name = L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier;
+                    ast_func->function_name = wstring_pool::get_pstr(L"operator " + dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier);
 
                     if (!ast_empty::is_empty(input[5]))
                     {
@@ -4319,7 +4320,7 @@ namespace wo
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(1));
                     }
 
-                    ast_func->function_name = L""; // just get a fucking name
+                    ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(2));
 
                     return_type = nullptr;
@@ -4349,7 +4350,7 @@ namespace wo
                 }
                 else
                 {
-                    ast_func->value_type = new ast_type(L"pending");
+                    ast_func->value_type = new ast_type(WO_PSTR(pending));
                     ast_func->auto_adjust_return_type = true;
                 }
 
@@ -4385,7 +4386,7 @@ namespace wo
                         {
                             ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
                             acheck->template_type = new ast_type(template_type->template_ident);
-                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const = new ast_type(WO_PSTR(pending));
                             acheck->naming_const->set_type(template_type->naming_const);
                             acheck->copy_source_info(template_type);
 
@@ -4425,7 +4426,7 @@ namespace wo
                 else
                     result->called_func = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
-                result->value_type = new ast_type(L"pending");
+                result->value_type = new ast_type(WO_PSTR(pending));
                 //  result->called_func->value_type->get_return_type(); // just get pending..
                 result->can_be_assign = true;
                 return (ast_basic*)result;
@@ -4474,7 +4475,7 @@ namespace wo
                     wo_assert(name);
 
                     ast_namespace* result = new ast_namespace();
-                    result->scope_name = name->tokens.identifier;
+                    result->scope_name = wstring_pool::get_pstr(name->tokens.identifier);
                     result->copy_source_info(name);
 
                     if (last_namespace)
@@ -4719,7 +4720,7 @@ namespace wo
                 token tk = WO_NEED_TOKEN(0);
 
                 wo_test(tk.type == +lex_type::l_identifier);
-                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
+                return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
 
@@ -4734,7 +4735,7 @@ namespace wo
 
                 wo_assert(tk.type == +lex_type::l_identifier && result);
 
-                result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+                result->scope_namespaces.insert(result->scope_namespaces.begin(), wstring_pool::get_pstr(tk.identifier));
 
                 return (grammar::ast_base*)result;
             }
@@ -4772,7 +4773,7 @@ namespace wo
                     wo_assert((tk.type == +lex_type::l_identifier || tk.type == +lex_type::l_empty) && result);
                     if (tk.type == +lex_type::l_identifier)
                     {
-                        result->scope_namespaces.insert(result->scope_namespaces.begin(), tk.identifier);
+                        result->scope_namespaces.insert(result->scope_namespaces.begin(), wstring_pool::get_pstr(tk.identifier));
                     }
                     else
                     {
@@ -4802,7 +4803,7 @@ namespace wo
 
                 wo_test(tk.type == +lex_type::l_identifier);
 
-                return (grammar::ast_base*)new ast_value_variable(tk.identifier);
+                return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
 
@@ -4962,7 +4963,7 @@ namespace wo
                 /*
                  // In ast build pass, all left value's type cannot judge, so it was useless..
 
-                ast_type* result_type = new ast_type(L"pending");
+                ast_type* result_type = new ast_type(WO_PSTR(pending));
                 result_type->set_type(left_v->value_type);
 
                 vbin->value_type = result_type;
@@ -4994,7 +4995,7 @@ namespace wo
                 /*
                  // In ast build pass, all left value's type cannot judge, so it was useless..
 
-                ast_type* result_type = new ast_type(L"pending");
+                ast_type* result_type = new ast_type(WO_PSTR(pending));
                 result_type->set_type(left_v->value_type);
 
                 vbin->value_type = result_type;
@@ -5038,7 +5039,7 @@ namespace wo
                     wo_test(left_v && right_tk.type == +lex_type::l_identifier);
 
                     ast_value_literal* const_result = new ast_value_literal();
-                    const_result->value_type = new ast_type(L"string");
+                    const_result->value_type = new ast_type(WO_PSTR(string));
                     const_result->constant_value.set_string_nogc(
                         wstr_to_str(right_tk.identifier).c_str());
 
@@ -5143,7 +5144,7 @@ namespace wo
             {
                 // attrib using/alias xxx <>  = xxx ;/{...}
                 ast_using_type_as* using_type = new ast_using_type_as;
-                using_type->new_type_identifier = WO_NEED_TOKEN(2).identifier;
+                using_type->new_type_identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
                 using_type->old_type = dynamic_cast<ast_type*>(WO_NEED_AST(5));
                 using_type->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 using_type->is_alias = WO_NEED_TOKEN(1).type == +lex_type::l_alias;
@@ -5167,7 +5168,7 @@ namespace wo
                         {
                             ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
                             acheck->template_type = new ast_type(template_type->template_ident);
-                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const = new ast_type(WO_PSTR(pending));
                             acheck->naming_const->set_type(template_type->naming_const);
                             acheck->copy_source_info(template_type);
                             template_const_list->append_at_end(acheck);
@@ -5247,14 +5248,14 @@ namespace wo
                         arg_def->decl = identifier_decl::MUTABLE;
                     }
 
-                    arg_def->arg_name = WO_NEED_TOKEN(2).identifier;
+                    arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
 
-                    arg_def->arg_name = WO_NEED_TOKEN(1).identifier;
+                    arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
                     arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 }
 
@@ -5279,8 +5280,8 @@ namespace wo
 
                 ast_value_funccall* exp_dir_iter_call = new ast_value_funccall();
                 exp_dir_iter_call->arguments = new ast_list();
-                exp_dir_iter_call->value_type = new ast_type(L"pending");
-                exp_dir_iter_call->called_func = new ast_value_variable(L"iter");
+                exp_dir_iter_call->value_type = new ast_type(WO_PSTR(pending));
+                exp_dir_iter_call->called_func = new ast_value_variable(WO_PSTR(iter));
                 exp_dir_iter_call->arguments->append_at_head(be_iter_value);
                 exp_dir_iter_call->directed_value_from = be_iter_value;
 
@@ -5294,7 +5295,7 @@ namespace wo
                 afor->used_iter_define->declear_attribute = new ast_decl_attribute;
 
                 auto* afor_iter_define = new ast_pattern_identifier;
-                afor_iter_define->identifier = L"_iter";
+                afor_iter_define->identifier = WO_PSTR(_iter);
                 afor_iter_define->attr = new ast_decl_attribute();
 
                 afor_iter_define->copy_source_info(be_iter_value);
@@ -5328,9 +5329,9 @@ namespace wo
 
                 ast_value_funccall* iter_dir_next_call = new ast_value_funccall();
                 iter_dir_next_call->arguments = new ast_list();
-                iter_dir_next_call->value_type = new ast_type(L"pending");
-                iter_dir_next_call->called_func = new ast_value_variable(L"next");
-                iter_dir_next_call->directed_value_from = new ast_value_variable(L"_iter");
+                iter_dir_next_call->value_type = new ast_type(WO_PSTR(pending));
+                iter_dir_next_call->called_func = new ast_value_variable(WO_PSTR(next));
+                iter_dir_next_call->directed_value_from = new ast_value_variable(WO_PSTR(_iter));
 
 
                 iter_dir_next_call->called_func->copy_source_info(be_iter_value);
@@ -5338,7 +5339,7 @@ namespace wo
                 iter_dir_next_call->copy_source_info(be_iter_value);
 
                 afor->iter_next_judge_expr = iter_dir_next_call;
-                afor->iterator_var = new ast_value_variable(L"_iter");
+                afor->iterator_var = new ast_value_variable(WO_PSTR(_iter));
                 afor->iterator_var->copy_source_info(be_iter_value);
 
                 afor->iterator_var->is_mark_as_using_ref = true;
@@ -5389,7 +5390,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = WO_NEED_AST(2);
-                result->marking_label = WO_NEED_TOKEN(0).identifier;
+                result->marking_label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                 return (ast_basic*)result;
             }
 
@@ -5402,7 +5403,7 @@ namespace wo
                 if (input.size() == 1)
                     return (ast_basic*)new ast_break;
                 auto result = new ast_break;
-                result->label = WO_NEED_TOKEN(1).identifier;
+                result->label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
                 return (ast_basic*)result;
             }
         };
@@ -5413,7 +5414,7 @@ namespace wo
                 if (input.size() == 1)
                     return (ast_basic*)new ast_continue;
                 auto result = new ast_continue;
-                result->label = WO_NEED_TOKEN(1).identifier;
+                result->label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
                 return (ast_basic*)result;
             }
         };
@@ -5422,7 +5423,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_template_define_with_naming* atn = new ast_template_define_with_naming;
-                atn->template_ident = WO_NEED_TOKEN(0).identifier;
+                atn->template_ident = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                 if (ast_empty::is_empty(input[1]))
                     atn->naming_const = nullptr;
                 else
@@ -5442,7 +5443,7 @@ namespace wo
                     auto* left = new ast_value_literal(WO_NEED_TOKEN(0));
                     auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
 
                     left->copy_source_info(right);
                     cast_right->copy_source_info(left);
@@ -5459,7 +5460,7 @@ namespace wo
                     auto* left = new ast_value_literal(WO_NEED_TOKEN(1));
                     auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(2));
 
-                    auto cast_right = new ast_value_type_cast(right, new ast_type(L"string"));
+                    auto cast_right = new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
 
                     left->copy_source_info(right);
                     cast_right->copy_source_info(left);
@@ -5512,7 +5513,7 @@ namespace wo
                 {
                     // identifier : type
                     // => const var identifier<A...> = func(){...}();
-                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                     result->gadt_out_type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(1));
                 }
                 else
@@ -5520,7 +5521,7 @@ namespace wo
                     // identifier ( TYPE ) : type
                     // => func identifier<A...>(var v: TYPE){...}
                     wo_assert(input.size() == 5);
-                    result->identifier = WO_NEED_TOKEN(0).identifier;
+                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                     result->type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                     result->gadt_out_type_may_nil = dynamic_cast<ast_type*>(WO_NEED_AST(4));
                     wo_assert(result->type_may_nil);
@@ -5535,7 +5536,7 @@ namespace wo
                 ast_value_trib_expr* expr = new ast_value_trib_expr;
 
                 wo_assert(input.size() == 5);
-                expr->value_type = new ast_type(L"pending");
+                expr->value_type = new ast_type(WO_PSTR(pending));
                 expr->judge_expr = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 expr->val_if_true = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                 expr->val_or = dynamic_cast<ast_value*>(WO_NEED_AST(4));
@@ -5548,8 +5549,8 @@ namespace wo
         {
             static void find_used_template(
                 ast_type* type_decl,
-                const std::vector<std::wstring>& template_defines,
-                std::set<std::wstring>& out_used_type)
+                const std::vector<wo_pstring_t>& template_defines,
+                std::set<wo_pstring_t>& out_used_type)
             {
                 // No need for checking using-type.
                 if (type_decl->scope_namespaces.empty()
@@ -5578,7 +5579,7 @@ namespace wo
                 ast_list* bind_using_type_namespace_result = new ast_list;
 
                 ast_namespace* union_scope = new ast_namespace;
-                union_scope->scope_name = WO_NEED_TOKEN(2).identifier;
+                union_scope->scope_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
                 union_scope->copy_source_info(union_arttribute);
                 union_scope->in_scope_sentence = new ast_list;
 
@@ -5596,12 +5597,12 @@ namespace wo
                 // Then we decl a using-type here;
                 ast_using_type_as* using_type = new ast_using_type_as;
                 using_type->new_type_identifier = union_scope->scope_name;
-                using_type->old_type = new ast_type(L"union");
+                using_type->old_type = new ast_type(WO_PSTR(union));
                 using_type->declear_attribute = union_arttribute;
                 using_type->copy_source_info(union_arttribute);
                 using_type->old_type->copy_source_info(union_arttribute);
 
-                std::vector <std::wstring>& template_arg_defines = using_type->template_type_name_list;
+                std::vector<wo_pstring_t>& template_arg_defines = using_type->template_type_name_list;
                 if (defined_template_args)
                 {
                     ast_list* template_const_list = new ast_list;
@@ -5618,7 +5619,7 @@ namespace wo
                         {
                             ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
                             acheck->template_type = new ast_type(template_type->template_ident);
-                            acheck->naming_const = new ast_type(L"pending");
+                            acheck->naming_const = new ast_type(WO_PSTR(pending));
                             acheck->naming_const->set_type(template_type->naming_const);
                             acheck->copy_source_info(template_type);
                             template_const_list->append_at_end(acheck);
@@ -5638,7 +5639,7 @@ namespace wo
 
                 while (items)
                 {
-                    std::set<std::wstring> used_template_args;
+                    std::set<wo_pstring_t> used_template_args;
 
                     auto create_union_type = [&]() {
                         ast_type* union_type_with_template = new ast_type(using_type->new_type_identifier);
@@ -5649,7 +5650,7 @@ namespace wo
                                 union_type_with_template->template_arguments.push_back(new ast_type(ident));
                             else
                                 // Not used template-type, 
-                                union_type_with_template->template_arguments.push_back(new ast_type(L"nothing"));
+                                union_type_with_template->template_arguments.push_back(new ast_type(WO_PSTR(nothing)));
                         }
                         return union_type_with_template;
                     };
@@ -5669,7 +5670,7 @@ namespace wo
                         avfd_item_type_builder->declear_attribute = union_arttribute;
 
                         ast_value_arg_define* argdef = new ast_value_arg_define;
-                        argdef->arg_name = L"_val";
+                        argdef->arg_name = WO_PSTR(_val);
                         argdef->value_type = items->type_may_nil;
                         argdef->declear_attribute = new ast_decl_attribute;
                         avfd_item_type_builder->argument_list->add_child(argdef);
@@ -5716,7 +5717,7 @@ namespace wo
                     {
                         // Generate const here!
                         ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
-                        avfd_item_type_builder->function_name = L""; // Is a lambda function!
+                        avfd_item_type_builder->function_name = nullptr; // Is a lambda function!
                         avfd_item_type_builder->argument_list = new ast_list;
                         avfd_item_type_builder->declear_attribute = union_arttribute;
                         if (items->gadt_out_type_may_nil)
@@ -5740,7 +5741,7 @@ namespace wo
                         funccall->copy_source_info(avfd_item_type_builder);
                         funccall->called_func = avfd_item_type_builder;
                         funccall->arguments = new ast_list();
-                        funccall->value_type = new ast_type(L"pending");
+                        funccall->value_type = new ast_type(WO_PSTR(pending));
 
                         ast_varref_defines* define_union_item = new ast_varref_defines();
                         define_union_item->copy_source_info(items);
@@ -5791,12 +5792,12 @@ namespace wo
                     }
 
                     result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
-                    result->identifier = WO_NEED_TOKEN(2).identifier;
+                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
                 }
                 else
                 {
                     result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                    result->identifier = WO_NEED_TOKEN(1).identifier;
+                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
                 }
                 return (ast_basic*)result;
             }
@@ -5895,7 +5896,7 @@ namespace wo
                 if (input.size() == 2)
                 {
                     // identifier TYPE_DECLEAR
-                    result->member_name = WO_NEED_TOKEN(0).identifier;
+                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
                     result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
                     wo_assert(result->member_type);
                 }
@@ -5903,7 +5904,7 @@ namespace wo
                 {
                     wo_assert(input.size() == 3);
                     // mut identifier TYPE_DECLEAR
-                    result->member_name = WO_NEED_TOKEN(1).identifier;
+                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
                     result->is_mutable_decl = true;
                     result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                     wo_assert(result->member_type);
@@ -5917,7 +5918,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
-                result->member_name = WO_NEED_TOKEN(0).identifier;
+                result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
 
                 wo_assert(input.size() == 3);
                 // identifier = VALUE
@@ -5936,7 +5937,7 @@ namespace wo
                 wo_assert(input.size() == 4);
                 // struct{ members }
                 //   0   1     2   3 
-                ast_type* struct_type = new ast_type(L"struct");
+                ast_type* struct_type = new ast_type(WO_PSTR(struct));
                 uint16_t membid = 0;
                 auto* members = WO_NEED_AST(2)->children;
                 while (members)
@@ -5985,7 +5986,7 @@ namespace wo
                 // ( LIST )
 
                 wo_assert(input.size() == 1);
-                ast_type* tuple_type = new ast_type(L"tuple");
+                ast_type* tuple_type = new ast_type(WO_PSTR(tuple));
 
                 if (!ast_empty::is_empty(input[0]))
                 {

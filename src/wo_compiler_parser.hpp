@@ -10,6 +10,7 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include "wo_compiler_lexer.hpp"
 #include "wo_lang_compiler_information.hpp"
 #include "wo_meta.hpp"
+#include "wo_const_string_pool.hpp"
 
 #include <variant>
 #include <functional>
@@ -161,9 +162,9 @@ namespace wo
 
             size_t row_begin_no, row_end_no;
             size_t col_begin_no, col_end_no;
-            std::string source_file;
+            wo_pstring_t source_file = nullptr;
 
-            std::wstring marking_label;
+            wo_pstring_t marking_label = nullptr;
 
             virtual ~ast_base() = default;
             ast_base(const ast_base&) = default;
@@ -733,7 +734,11 @@ namespace wo
 
             friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
-
+        struct no_prospect_action
+        {
+            action::act_type act;
+            size_t state;
+        };
         using lr1table_t = std::unordered_map<size_t, std::unordered_map<sym, std::set<action>, hash_symbol>>;
         lr1table_t LR1_TABLE;
 
@@ -781,7 +786,7 @@ namespace wo
 
         // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
 
-        action LR1_TABLE_READ(size_t a, te_nt_index_t b) const
+        void LR1_TABLE_READ(size_t a, te_nt_index_t b, no_prospect_action* write_act) const
         {
 #if WOOLANG_LR1_OPTIMIZE_LR1_TABLE
             if (lr1_fast_cache_enabled())
@@ -791,38 +796,72 @@ namespace wo
                     // Is Terminate, b did'nt need add 1, l_error is 0 and not able to exist in cache.
 
                     if (a == LR1_ACCEPT_STATE && b == LR1_ACCEPT_TERM)
-                        return action(action::act_type::accept, +lex_type::l_error, 0);
+                    {
+                        write_act->act = action::act_type::accept;
+                        write_act->state = 0;
+                        return;
+                    }
 
                     if (LR1_GOTO_RS_MAP[a][1] == -1)
-                        return action{};
+                    {
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
 
                     auto state = LR1_R_S_CACHE[LR1_GOTO_RS_MAP[a][1] * LR1_R_S_CACHE_SZ + b];
                     if (state == 0)
+                    {
                         // No action for this state&te, return error.
-                        return action{};
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
                     else if (state > 0)
+                    {
                         // Push!
-                        return action(action::act_type::push_stack, +lex_type::l_error, state - 1);
+                        write_act->act = action::act_type::push_stack;
+                        write_act->state = state - 1;
+                        return;
+                    }
                     else
+                    {
                         // Reduce!
-                        return action(action::act_type::reduction, +lex_type::l_error, (-state) - 1);
+                        write_act->act = action::act_type::reduction;
+                        write_act->state = (-state) - 1;
+                        return;
+                    }
                 }
                 else
                 {
                     // Is NonTerminate
                     if (LR1_GOTO_RS_MAP[a][0] == -1)
-                        return action{};
+                    {
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
 
                     auto state = LR1_GOTO_CACHE[LR1_GOTO_RS_MAP[a][0] * LR1_GOTO_CACHE_SZ + (-b)];
                     if (state == -1)
+                    {
                         // No action for this state&nt, return error.
-                        return action{};
-                    return action(action::act_type::state_goto, +lex_type::l_error, state);
+                        write_act->act = action::act_type::error;
+                        write_act->state = -1;
+                        return;
+                    }
+
+                    write_act->act = action::act_type::state_goto;
+                    write_act->state = state;
+                    return;
                 }
 
             }
 #endif
-            return RT_LR1_TABLE[a][b];
+            auto& action = RT_LR1_TABLE[a][b];
+            write_act->act = action.act;
+            write_act->state = action.state;
+            return;
         }
 
         grammar()
@@ -1519,8 +1558,9 @@ namespace wo
                         ? TERM_MAP.at(type)
                         : NOW_STACK_SYMBO());
 
-                const auto actions = LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo);// .at().at();
-                const auto e_actions = LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index);// LR1_TABLE.at(NOW_STACK_STATE()).at();
+                no_prospect_action actions, e_actions;
+                LR1_TABLE_READ(NOW_STACK_STATE(), top_symbo, &actions);// .at().at();
+                LR1_TABLE_READ(NOW_STACK_STATE(), te_lempty_index, &e_actions);// LR1_TABLE.at(NOW_STACK_STATE()).at();
 
                 if (actions.act != action::act_type::error || e_actions.act != action::act_type::error)
                 {
@@ -1605,16 +1645,13 @@ namespace wo
                                 }
                                 else
                                 {
-                                    for (size_t i = 0; i < srcinfo_bnodes.size(); ++i)
+                                    if (!srcinfo_bnodes.empty())
                                     {
-                                        if (!ast_empty::is_empty(te_or_nt_bnodes[i]))
-                                        {
-                                            ast_node_->row_end_no = tkr.now_file_rowno;
-                                            ast_node_->col_end_no = tkr.now_file_colno;
-                                            ast_node_->row_begin_no = srcinfo_bnodes[i].row_no;
-                                            ast_node_->col_begin_no = srcinfo_bnodes[i].col_no;
-                                            goto apply_src_info_end;
-                                        }
+                                        ast_node_->row_end_no = tkr.now_file_rowno;
+                                        ast_node_->col_end_no = tkr.now_file_colno;
+                                        ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
+                                        ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                        goto apply_src_info_end;
                                     }
                                     ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
                                     ast_node_->col_end_no = tkr.after_pick_next_file_colno;

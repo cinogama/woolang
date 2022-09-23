@@ -2462,9 +2462,7 @@ WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    wo::lexer tmp_lex(wo::str_to_wstr(
-        wo_string(args + 1)
-    ), "macro" + lex->source_file + "_impl.wo");
+    wo::lexer tmp_lex(wo::str_to_wstr(wo_string(args + 1)), "macro" + wo::wstr_to_str(*lex->source_file) + "_impl.wo");
 
     std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
 
@@ -2550,7 +2548,7 @@ WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t argc)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_string(vm, lex->source_file.c_str());
+    return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
 }
 
 WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)

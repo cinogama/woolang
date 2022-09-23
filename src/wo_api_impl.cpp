@@ -246,6 +246,24 @@ void wo_init(int argc, char** argv)
     }
 
     wo::wo_init_locale(basic_env_local);
+    wo::wstring_pool::init_global_str_pool();
+
+#ifdef _DEBUG
+    do
+    {
+        wo::start_string_pool_guard sg;
+
+        std::wstring test_instance_a = L"Helloworld";
+        std::wstring test_instance_b = test_instance_a;
+
+        wo_assert(&test_instance_a != &test_instance_b);
+
+        auto* p_a = wo::wstring_pool::get_pstr(test_instance_a);
+        auto* p_b = wo::wstring_pool::get_pstr(test_instance_b);
+
+        wo_assert(p_a == p_b);
+    } while (0);
+#endif
 
     if (enable_gc)
         wo::gc::gc_start(); // I dont know who will disable gc..
@@ -1566,6 +1584,8 @@ void* wo_co_wait_for(wo_waitter_t waitter)
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
+    wo::start_string_pool_guard sg;
+
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
     if (src)
@@ -1573,7 +1593,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
     else
         lex = new wo::lexer(virtual_src_path);
 
-    lex->has_been_imported(wo::str_to_wstr(lex->source_file));
+    lex->has_been_imported(lex->source_file);
 
     std::forward_list<wo::grammar::ast_base*> m_last_context;
     bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);

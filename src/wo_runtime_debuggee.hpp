@@ -12,7 +12,7 @@ namespace wo
         runtime_env* _env = nullptr;
 
         std::set<size_t> break_point_traps;
-        std::map<std::string, std::map<size_t, bool>> template_breakpoint;
+        std::map<std::wstring, std::map<size_t, bool>> template_breakpoint;
 
         inline static std::atomic_bool stop_attach_debuggee_for_exit_flag = false;
 
@@ -21,7 +21,7 @@ namespace wo
         {
 
         }
-        bool set_breakpoint(const std::string& src_file, size_t rowno)
+        bool set_breakpoint(const std::wstring& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
             if (_env)
@@ -40,7 +40,7 @@ namespace wo
 
             return true;
         }
-        void clear_breakpoint(const std::string& src_file, size_t rowno)
+        void clear_breakpoint(const std::wstring& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
             if (_env)
@@ -175,7 +175,7 @@ stepir          si                            Execute next command.
         size_t breakdown_temp_for_next_callstackdepth = 0;
 
         size_t breakdown_temp_for_step_lineno = 0;
-        std::string breakdown_temp_for_step_srcfile = "";
+        std::wstring breakdown_temp_for_step_srcfile = L"";
 
         const wo::byte_t* current_runtime_ip;
         wo::value* current_frame_sp;
@@ -300,7 +300,7 @@ stepir          si                            Execute next command.
                         bool result = false;
 
                         if (need_possiable_input(inputbuf, lineno))
-                            result = set_breakpoint(filename_or_funcname, lineno);
+                            result = set_breakpoint(str_to_wstr(filename_or_funcname), lineno);
                         else
                         {
                             for (auto ch : filename_or_funcname)
@@ -446,14 +446,14 @@ stepir          si                            Execute next command.
                         {
                             if (!lexer::lex_isdigit(ch))
                             {
-                                print_src_file(filename, (filename == loc.source_file ? loc.row_no : 0));
+                                print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.row_no : 0));
                                 goto need_next_command;
                             }
                         }
                         display_range = std::stoull(filename);
                     }
 
-                    print_src_file(loc.source_file, display_rowno,
+                    print_src_file(wstr_to_str(loc.source_file), display_rowno,
                         (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
 
 
@@ -471,7 +471,7 @@ stepir          si                            Execute next command.
                                 auto& file_loc =
                                     _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
                                         _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                                wo_stdout << (id++) << " :\t" << file_loc.source_file << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << wo_endl;;
+                                wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << wo_endl;;
                             }
                         }
                         else if (list_what == "var")
@@ -556,7 +556,7 @@ stepir          si                            Execute next command.
         }
         size_t print_src_file_print_lineno(const std::string& filepath, size_t current_row_no)
         {
-            auto ip = _env->program_debug_info->get_ip_by_src_location(filepath, current_row_no, true);
+            auto ip = _env->program_debug_info->get_ip_by_src_location(str_to_wstr(filepath), current_row_no, true);
             std::lock_guard g1(_mx);
 
             if (auto fnd = break_point_traps.find(ip); fnd == break_point_traps.end())
@@ -709,7 +709,7 @@ stepir          si                            Execute next command.
 
 
                     printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
-                        loc.source_file.c_str(), loc.row_no, loc.col_no,
+                        wstr_to_str(loc.source_file).c_str(), loc.row_no, loc.col_no,
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
                     );
 

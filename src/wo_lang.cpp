@@ -53,16 +53,17 @@ namespace wo
 
         if (nullptr == a_value_bin->value_type)
         {
-            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
+            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, WO_PSTR(pending));
 
             ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
             try_operator_func_overload->copy_source_info(a_value_bin);
 
             try_operator_func_overload->try_invoke_operator_override_function = true;
             try_operator_func_overload->arguments = new ast_list();
-            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
+            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
 
-            try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
+            try_operator_func_overload->called_func = new ast_value_variable(
+                wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate)));
             try_operator_func_overload->called_func->copy_source_info(a_value_bin);
 
             try_operator_func_overload->directed_value_from = a_value_bin->left;
@@ -95,8 +96,8 @@ namespace wo
             {
                 if (auto fnd =
                     a_value_idx->from->value_type->struct_member_index.find(
-                        str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                    ); fnd != a_value_idx->from->value_type->struct_member_index.end())
+                        wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
+                    fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
                     if (!fnd->second.member_type->is_pending())
                     {
@@ -122,12 +123,12 @@ namespace wo
                         a_value_idx->struct_offset = (uint16_t)index;
                     }
                     else
-                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"pending");
+                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(pending));
                 }
             }
             else if (a_value_idx->from->value_type->is_string())
             {
-                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"string");
+                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(string));
             }
             else if (!a_value_idx->from->value_type->is_pending())
             {
@@ -141,7 +142,7 @@ namespace wo
                 }
                 else
                 {
-                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, L"dynamic");
+                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(dynamic));
                 }
                 if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
                     a_value_idx->can_be_assign = false;
@@ -168,7 +169,7 @@ namespace wo
         a_value_assi->add_child(a_value_assi->left);
         a_value_assi->add_child(a_value_assi->right);
 
-        a_value_assi->value_type = ast_type::create_type_at(a_value_assi, L"pending");
+        a_value_assi->value_type = ast_type::create_type_at(a_value_assi, WO_PSTR(pending));
 
         auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
         if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
@@ -195,7 +196,7 @@ namespace wo
             {
                 if (a_value_logic_bin->left->value_type->is_bool() && a_value_logic_bin->right->value_type->is_bool())
                 {
-                    a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                    a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
                     has_default_op = true;
                 }
             }
@@ -206,22 +207,23 @@ namespace wo
                 || a_value_logic_bin->left->value_type->is_gchandle())
                 && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
             {
-                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
                 has_default_op = true;
             }
 
         }
         if (!has_default_op)
         {
-            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"pending");
+            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(pending));
             ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
             try_operator_func_overload->copy_source_info(a_value_logic_bin);
 
             try_operator_func_overload->try_invoke_operator_override_function = true;
             try_operator_func_overload->arguments = new ast_list();
-            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, L"pending");
+            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
 
-            try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
+            try_operator_func_overload->called_func = new ast_value_variable(
+                wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate)));
             try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
 
             try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
@@ -372,9 +374,10 @@ namespace wo
                         if (!a_value_func->externed_func_info->externed_func)
                         {
                             // Load lib,
+                            wo_assert(a_value_func->source_file != nullptr);
                             a_value_func->externed_func_info->externed_func =
                                 rslib_extern_symbols::get_lib_symbol(
-                                    a_value_func->source_file.c_str(),
+                                    wstr_to_str(*a_value_func->source_file).c_str(),
                                     wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
                                     wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
                                     extern_libs);
@@ -389,14 +392,14 @@ namespace wo
                             a_value_func->is_constant = true;
                     }
                 }
-                else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == L"pending")
+                else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
                 {
                     // This function has no return, set it as void
-                    a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, L"void"));
+                    a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
                 }
             }
             else
-                a_value_func->value_type->set_type_with_name(L"pending");
+                a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
         }
 
         if (a_value_func->externed_func_info)
@@ -460,7 +463,7 @@ namespace wo
         if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
         {
             // 
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"nothing");
+            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, WO_PSTR(nothing));
 
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
@@ -508,8 +511,8 @@ namespace wo
 
         if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"nothing");
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"nothing");
+            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
+            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
@@ -542,7 +545,7 @@ namespace wo
                     }
                     else
                     {
-                        decide_map_key_type->set_type_with_name(L"dynamic");
+                        decide_map_key_type->set_type_with_name(WO_PSTR(dynamic));
                         // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
                     }
                 }
@@ -555,7 +558,7 @@ namespace wo
                     }
                     else
                     {
-                        decide_map_val_type->set_type_with_name(L"dynamic");
+                        decide_map_val_type->set_type_with_name(WO_PSTR(dynamic));
                         // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
                     }
                 }
@@ -613,7 +616,7 @@ namespace wo
                                 else
                                 {
                                     // current function might has constexpr if, set delay_return_type_judge flag
-                                    a_ret->located_function->value_type->set_type_with_name(L"pending");
+                                    a_ret->located_function->value_type->set_type_with_name(WO_PSTR(pending));
                                     a_ret->located_function->delay_adjust_return_type = true;
                                 }
                             }
@@ -629,18 +632,18 @@ namespace wo
                 {
                     if (located_function_scope->function_node->value_type->is_pending())
                     {
-                        located_function_scope->function_node->value_type->set_ret_type(ast_type::create_type_at(located_function_scope->function_node, L"void"));
+                        located_function_scope->function_node->value_type->set_ret_type(ast_type::create_type_at(located_function_scope->function_node, WO_PSTR(void)));
                         located_function_scope->function_node->auto_adjust_return_type = false;
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name.c_str());
+                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name.c_str());
+                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
                 }
             }
         }
@@ -709,7 +712,7 @@ namespace wo
         analyze_pass1(a_value_unary->val);
 
         if (a_value_unary->operate == +lex_type::l_lnot)
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
+            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
         else if (!a_value_unary->val->value_type->is_pending())
         {
             a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
@@ -857,7 +860,7 @@ namespace wo
             if (!a_pattern_union_value->union_expr->search_from_global_namespace)
             {
                 a_pattern_union_value->union_expr->searching_begin_namespace_in_pass2 = now_scope();
-                wo_assert(a_pattern_union_value->union_expr->source_file != "");
+                wo_assert(a_pattern_union_value->union_expr->source_file != nullptr);
             }
 
             // Calc type in pass2, here just define the variable with ast_value_takeplace
@@ -911,12 +914,12 @@ namespace wo
         }
         if (tuple_type_not_pending)
         {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
+            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(tuple));
             a_value_make_tuple_instance->value_type->template_arguments = types;
         }
         else
         {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"pending");
+            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(pending));
         }
         return true;
     }
@@ -951,7 +954,7 @@ namespace wo
             updated_type->copy_source_info(a_value_trib_expr);
         }
         else
-            a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, L"pending");
+            a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, WO_PSTR(pending));
 
         return true;
     }
@@ -997,7 +1000,7 @@ namespace wo
                                 a_ret->located_function->value_type->set_ret_type(mixed_type);
                             else
                             {
-                                a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, L"void"));
+                                a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, WO_PSTR(void)));
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }
@@ -1019,18 +1022,18 @@ namespace wo
             {
                 if (a_ret->located_function->value_type->is_pending())
                 {
-                    a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, L"void"));
+                    a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, WO_PSTR(void)));
                     a_ret->located_function->auto_adjust_return_type = false;
                 }
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name.c_str());
+                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
                 }
             }
             else
             {
                 if (!a_ret->located_function->value_type->get_return_type()->is_void())
-                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name.c_str());
+                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
             }
         }
         return true;
@@ -1110,7 +1113,7 @@ namespace wo
 
         // Try Getting next Function
 
-        ast_value_variable* next_func_symb_getter = new ast_value_variable(L"next");
+        ast_value_variable* next_func_symb_getter = new ast_value_variable(WO_PSTR(next));
         next_func_symb_getter->copy_source_info(a_foreach);
         next_func_symb_getter->searching_from_type = a_foreach->iter_next_judge_expr->directed_value_from->value_type;
         analyze_pass2(next_func_symb_getter);
@@ -1280,7 +1283,7 @@ namespace wo
         analyze_pass2(a_match->cases);
 
         // Must walk all possiable case, and no repeat case!
-        std::set<std::wstring> case_names;
+        std::set<wo_pstring_t> case_names;
         auto* cases = a_match->cases->children;
         while (cases)
         {
@@ -1323,7 +1326,7 @@ namespace wo
                             if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
                             {
                                 lang_anylizer->lang_error(0x0000, a_pattern_union_value, L"'%ls' 不是 '%ls' 的合法项，继续",
-                                    a_pattern_union_value->union_expr->symbol->name.c_str(),
+                                    a_pattern_union_value->union_expr->symbol->name->c_str(),
                                     a_match_union_case->in_match->match_value->value_type->get_type_name(false).c_str());
                             }
                             else
@@ -1492,7 +1495,7 @@ namespace wo
                 {
                     analyze_pass2(a_value_funcdef->in_function_sentence);
                 }
-                if (a_value_funcdef->value_type->type_name == L"pending")
+                if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
                 {
                     // There is no return in function  return void
                     if (a_value_funcdef->auto_adjust_return_type)
@@ -1500,12 +1503,12 @@ namespace wo
                         if (a_value_funcdef->has_return_value)
                             lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
 
-                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, L"void"));
+                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
                     }
                 }
             }
             else
-                a_value_funcdef->value_type->set_type_with_name(L"pending");
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
 
             if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
             {
@@ -1529,7 +1532,7 @@ namespace wo
 
 
                 // Error happend in cur function
-                a_value_funcdef->value_type->set_type_with_name(L"pending");
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
         return true;
@@ -1604,7 +1607,7 @@ namespace wo
             if (a_value_typecast->_be_cast_value_node->value_type->is_pending())
             {
                 lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE,
-                    a_variable_sym->var_name.c_str(),
+                    a_variable_sym->var_name->c_str(),
                     a_value_typecast->value_type->get_type_name().c_str());
             }
         }
@@ -1617,7 +1620,7 @@ namespace wo
                     origin_value->value_type->get_type_name(false).c_str(),
                     a_value_typecast->aim_type->get_type_name(false).c_str()
                 );
-                a_value_typecast->aim_type = ast_type::create_type_at(a_value_typecast, L"pending");
+                a_value_typecast->aim_type = ast_type::create_type_at(a_value_typecast, WO_PSTR(pending));
             }
         }
         return true;
@@ -1671,8 +1674,7 @@ namespace wo
                 {
                     if (auto fnd =
                         a_value_index->from->value_type->struct_member_index.find(
-                            str_to_wstr(*a_value_index->index->get_constant_value().string)
-                        ); fnd != a_value_index->from->value_type->struct_member_index.end())
+                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         if (!fnd->second.member_type->is_pending())
                         {
@@ -1717,7 +1719,7 @@ namespace wo
                 }
                 else if (a_value_index->from->value_type->is_string())
                 {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, L"string");
+                    a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(string));
                 }
                 else if (!a_value_index->from->value_type->is_pending())
                 {
@@ -1731,7 +1733,7 @@ namespace wo
                     }
                     else
                     {
-                        a_value_index->value_type = ast_type::create_type_at(a_value_index, L"dynamic");
+                        a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(dynamic));
                     }
                     if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
                         a_value_index->can_be_assign = false;
@@ -1846,7 +1848,7 @@ namespace wo
             lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                 a_value_bin->left->value_type->get_type_name(false).c_str(),
                 a_value_bin->right->value_type->get_type_name(false).c_str());
-            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, L"pending");
+            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, WO_PSTR(pending));
         }
         return true;
     }
@@ -1906,7 +1908,7 @@ namespace wo
                     a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
                     a_value_logic_bin->right->value_type->get_type_name(false).c_str());
             else
-                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, L"bool");
+                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
             fully_update_type(a_value_logic_bin->value_type, false);
         }
 
@@ -1919,7 +1921,7 @@ namespace wo
 
         if (a_value_arr->value_type->is_pending())
         {
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, L"nothing");
+            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, WO_PSTR(nothing));
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
             {
@@ -2005,8 +2007,8 @@ namespace wo
 
         if (a_value_map->value_type->is_pending())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, L"nothing");
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, L"nothing");
+            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
+            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
@@ -2128,7 +2130,7 @@ namespace wo
         }
         if (tuple_type_not_pending)
         {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, L"tuple");
+            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(tuple));
             a_value_make_tuple_instance->value_type->template_arguments = types;
         }
         else
@@ -2166,7 +2168,7 @@ namespace wo
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
-                                , membpair->member_name.c_str()
+                                , membpair->member_name->c_str()
                                 , fnd->second.member_type->get_type_name(false).c_str()
                                 , membpair->member_value_pair->value_type->get_type_name(false).c_str());
                         }
@@ -2174,7 +2176,7 @@ namespace wo
                     else
                         lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
                             a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
-                            membpair->member_name.c_str());
+                            membpair->member_name->c_str());
                 }
 
                 if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
@@ -2248,13 +2250,14 @@ namespace wo
             if (sym)
             {
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
-                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
 
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                     if (!sym)
-                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
+                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续",
+                            a_value_var->var_name->c_str());
                 }
 
                 if (sym)
@@ -2279,7 +2282,8 @@ namespace wo
                             a_value_var->value_type = ast_type::create_type_at(a_value_var, *result->value_type);
 
                             if (a_value_var->value_type->is_pending())
-                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
+                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
+                                    a_value_var->var_name->c_str());
                         }
                         else
                         {
@@ -2294,8 +2298,9 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
-                a_value_var->value_type = ast_type::create_type_at(a_value_var, L"pending");
+                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, 
+                    a_value_var->var_name->c_str());
+                a_value_var->value_type = ast_type::create_type_at(a_value_var, WO_PSTR(pending));
             }
         }
         return true;
@@ -2308,7 +2313,7 @@ namespace wo
 
         if (a_value_unary->operate == +lex_type::l_lnot)
         {
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, L"bool");
+            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
             fully_update_type(a_value_unary->value_type, false);
         }
         else if (!a_value_unary->val->value_type->is_pending())
@@ -2705,7 +2710,7 @@ namespace wo
                                 std::wstring acceptable_func;
                                 for (size_t index = 0; index < judge_sets->size(); index++)
                                 {
-                                    acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
+                                    acceptable_func += L"'" + *judge_sets->at(index)->function_name + L":"
                                         + judge_sets->at(index)->value_type->get_type_name(false)
                                         + L"' " WO_TERM_AT L" ("
                                         + std::to_wstring(judge_sets->at(index)->row_end_no)
@@ -2779,7 +2784,7 @@ namespace wo
                     if (funcsymb->has_return_value)
                         lang_anylizer->lang_error(0x0000, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
-                    funcsymb->value_type->set_ret_type(ast_type::create_type_at(funcsymb, L"void"));
+                    funcsymb->value_type->set_ret_type(ast_type::create_type_at(funcsymb, WO_PSTR(void)));
                     funcsymb->auto_adjust_return_type = false;
                 }
 
@@ -2962,7 +2967,7 @@ namespace wo
             }
 
             if (failed_to_call_cur_func)
-                a_value_funccall->value_type->set_type_with_name(L"pending");
+                a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
         }
         return true;
     }
@@ -3087,7 +3092,7 @@ namespace wo
             if (is_complex() && another->is_complex())
                 return complex_type->is_same(another->complex_type, ignore_using_type, false);
             else if (!is_complex() && !another->is_complex())
-                return get_type_name(ignore_using_type, ignore_mutable) == another->get_type_name(ignore_using_type, ignore_mutable);
+                return this->value_type == another->value_type && this->type_name == another->type_name;
             return false;
         }
 
@@ -3130,12 +3135,12 @@ namespace wo
                 if (is_hkt_typing() && symbol)
                 {
                     auto* base_symbol = base_typedef_symbol(symbol);
-                    wo_assert(base_symbol && base_symbol->name != L"");
-                    result += base_symbol->name;
+                    wo_assert(base_symbol && base_symbol->name != nullptr);
+                    result += *base_symbol->name;
                 }
                 else
                 {
-                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type, false) : type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
+                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type, false) : *type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
                 }
 
                 if (has_template())
