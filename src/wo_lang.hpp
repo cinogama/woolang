@@ -20,7 +20,7 @@ namespace wo
             function,
         };
         symbol_type type;
-        std::wstring name;
+        wo_pstring_t name;
 
         ast::ast_defines* define_node = nullptr;
         ast::ast_decl_attribute* attribute;
@@ -49,7 +49,7 @@ namespace wo
         std::vector<ast::ast_value_function_define*> function_overload_sets;
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
-        std::vector<std::wstring> template_types;
+        std::vector<wo_pstring_t> template_types;
 
         std::map<std::vector<uint32_t>, lang_symbol*> template_typehashs_reification_instance_symbol_list;
         std::map<std::vector<uint32_t>, ast::ast_type*> template_type_instances;
@@ -91,11 +91,11 @@ namespace wo
         grammar::ast_base* last_entry_ast;
         lang_scope* belong_namespace;
         lang_scope* parent_scope;
-        std::wstring scope_namespace;
-        std::unordered_map<std::wstring, lang_symbol*> symbols;
+        wo_pstring_t scope_namespace = nullptr;
+        std::unordered_map<wo_pstring_t, lang_symbol*> symbols;
 
         // Only used when this scope is a namespace.
-        std::unordered_map<std::wstring, lang_scope*> sub_namespaces;
+        std::unordered_map<wo_pstring_t, lang_scope*> sub_namespaces;
 
         std::vector<ast::ast_using_namespace*> used_namespace;
         std::vector<lang_symbol*> in_function_symbols;
@@ -140,7 +140,7 @@ namespace wo
     class lang
     {
     private:
-        using template_type_map = std::map<std::wstring, lang_symbol*>;
+        using template_type_map = std::map<wo_pstring_t, lang_symbol*>;
 
         lexer* lang_anylizer;
         std::vector<lang_scope*> lang_scopes_buffers;
@@ -231,7 +231,7 @@ namespace wo
 
         rslib_extern_symbols::extern_lib_set extern_libs;
 
-        bool begin_template_scope(grammar::ast_base* reporterr, const std::vector<std::wstring>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
+        bool begin_template_scope(grammar::ast_base* reporterr, const std::vector<wo_pstring_t>& template_defines_args, const std::vector<ast::ast_type*>& template_args)
         {
             wo_assert(reporterr);
             if (template_defines_args.size() != template_args.size())
@@ -264,17 +264,17 @@ namespace wo
                     // Update template setting info...
                     if (sym->type_informatiom->is_array())
                     {
-                        sym->template_types = { L"VT" };
+                        sym->template_types = { WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(wstring_pool::get_pstr(L"VT")));
+                            new ast::ast_type(WO_PSTR(VT)));
                     }
                     else if (sym->type_informatiom->is_array())
                     {
-                        sym->template_types = { L"KT", L"VT" };
+                        sym->template_types = { WO_PSTR(KT), WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(wstring_pool::get_pstr(L"KT")));
+                            new ast::ast_type(WO_PSTR(KT)));
                         sym->type_informatiom->template_arguments.push_back(
-                            new ast::ast_type(wstring_pool::get_pstr(L"VT")));
+                            new ast::ast_type(WO_PSTR(VT)));
                     }
                     else
                     {
@@ -286,7 +286,7 @@ namespace wo
                         for (auto& template_def_name : sym->type_informatiom->symbol->template_types)
                         {
                             sym->type_informatiom->template_arguments.push_back(
-                                new ast::ast_type(wstring_pool::get_pstr(template_def_name)));
+                                new ast::ast_type(template_def_name));
                         }
                     }
                 }
@@ -324,6 +324,7 @@ namespace wo
         {
             _this_thread_lang_context = this;
             ast::ast_namespace* global = new ast::ast_namespace;
+            global->scope_name = wstring_pool::get_pstr(L"");
             global->source_file = wstring_pool::get_pstr(L"::");
             global->col_begin_no =
                 global->col_end_no =
@@ -333,7 +334,7 @@ namespace wo
 
             // Define 'bool' as built-in type
             ast::ast_using_type_as* using_type_def_bool = new ast::ast_using_type_as();
-            using_type_def_bool->new_type_identifier = L"bool";
+            using_type_def_bool->new_type_identifier = WO_PSTR(bool);
             using_type_def_bool->old_type = new ast::ast_type(WO_PSTR(int));
             using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
             using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
@@ -341,7 +342,7 @@ namespace wo
 
             ast::ast_using_type_as* using_type_def_anything = new ast::ast_using_type_as();
             using_type_def_anything->is_alias = true;
-            using_type_def_anything->new_type_identifier = L"anything";
+            using_type_def_anything->new_type_identifier = WO_PSTR(anything);
             using_type_def_anything->old_type = new ast::ast_type(WO_PSTR(void));
             using_type_def_anything->declear_attribute = new ast::ast_decl_attribute();
             using_type_def_anything->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
@@ -436,7 +437,7 @@ namespace wo
                         lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
                             clstype->get_type_name(false).c_str(),
                             naming->get_type_name(false).c_str(),
-                            naming_memb_name.c_str());
+                            naming_memb_name->c_str());
                         result = false;
                     }
                 }
@@ -445,14 +446,14 @@ namespace wo
                     lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 缺少成员%ls，继续",
                         clstype->get_type_name(false).c_str(),
                         naming->get_type_name(false).c_str(),
-                        naming_memb_name.c_str());
+                        naming_memb_name->c_str());
                     result = false;
                 }
             }
             return result;
         }
 
-        bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types, std::unordered_set<ast::ast_type*> s)
+        bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*> s)
         {
             if (s.find(type) != s.end())
                 return true;
@@ -528,7 +529,7 @@ namespace wo
                 {
                     if (!type->scope_namespaces.empty() ||
                         type->search_from_global_namespace ||
-                        template_types.end() == std::find(template_types.begin(), template_types.end(), *type->type_name))
+                        template_types.end() == std::find(template_types.begin(), template_types.end(), type->type_name))
                     {
                         lang_symbol* type_sym = find_type_in_this_scope(type);
 
@@ -558,7 +559,7 @@ namespace wo
                             && type_sym->type != lang_symbol::symbol_type::typing
                             && type_sym->type != lang_symbol::symbol_type::type_alias)
                         {
-                            lang_anylizer->lang_error(0x0000, type, WO_ERR_IS_NOT_A_TYPE, type_sym->name.c_str());
+                            lang_anylizer->lang_error(0x0000, type, WO_ERR_IS_NOT_A_TYPE, type_sym->name->c_str());
                             type_sym = nullptr;
                         }
 
@@ -631,7 +632,7 @@ namespace wo
                                     type->using_type_name = already_has_using_type_name;
                                 else if (type_sym->type != lang_symbol::symbol_type::type_alias)
                                 {
-                                    auto* using_type = new ast::ast_type(wstring_pool::get_pstr(type_sym->name));
+                                    auto* using_type = new ast::ast_type(type_sym->name);
                                     using_type->template_arguments = type->template_arguments;
 
                                     type->using_type_name = using_type;
@@ -702,7 +703,7 @@ namespace wo
             return false;
         }
 
-        void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<std::wstring>& template_types = {})
+        void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {})
         {
             std::unordered_set<ast::ast_type*> us;
             wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
@@ -1198,7 +1199,7 @@ namespace wo
 
             if (!origin_variable->symbol)
             {
-                lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_UNKNOWN_IDENTIFIER, origin_variable->var_name.c_str());
+                lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_UNKNOWN_IDENTIFIER, origin_variable->var_name->c_str());
                 return nullptr;
             }
 
@@ -1592,8 +1593,8 @@ namespace wo
         }
 
         ast::ast_type* analyze_template_derivation(
-            const std::wstring& temp_form,
-            const std::vector<std::wstring>& termplate_set,
+            wo_pstring_t temp_form,
+            const std::vector<wo_pstring_t>& termplate_set,
             ast::ast_type* para, ast::ast_type* args)
         {
             // Must match all formal
@@ -1603,7 +1604,7 @@ namespace wo
                     && !para->has_template()
                     && para->scope_namespaces.empty()
                     && !para->search_from_global_namespace
-                    && *para->type_name == temp_form)
+                    && para->type_name == temp_form)
                 {
                     // do nothing..
                 }
@@ -1623,7 +1624,7 @@ namespace wo
                     return derivation_result;
             }
 
-            if (*para->type_name == temp_form
+            if (para->type_name == temp_form
                 && para->scope_namespaces.empty()
                 && !para->search_from_global_namespace)
             {
@@ -3645,7 +3646,7 @@ namespace wo
                         // this function is externed, put it into extern-table and update the value in ir-compiler
                         auto&& spacename = funcdef->get_namespace_chain();
 
-                        auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(funcdef->function_name);
+                        auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
                         if (compiler->pdb_info->extern_function_map.find(fname)
                             != compiler->pdb_info->extern_function_map.end())
                         {
@@ -3730,7 +3731,7 @@ namespace wo
                         compiler->nop();
 
                     for (auto funcvar : funcdef->this_func_scope->in_function_symbols)
-                        compiler->pdb_info->add_func_variable(funcdef, funcvar->name, funcvar->variable_value->row_end_no, funcvar->stackvalue_index_in_funcs);
+                        compiler->pdb_info->add_func_variable(funcdef, *funcvar->name, funcvar->variable_value->row_end_no, funcvar->stackvalue_index_in_funcs);
 
                 }
             }
@@ -3827,7 +3828,7 @@ namespace wo
                 scope->parent_scope = lang_scopes.empty() ? nullptr : lang_scopes.back();
                 scope->function_node = ast_value_funcdef;
 
-                if (ast_value_funcdef->function_name != L"" && !ast_value_funcdef->is_template_reification)
+                if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
                     define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
@@ -3868,13 +3869,13 @@ namespace wo
             IS_TEMPLATE_VARIABLE_IMPL
         };
 
-        lang_symbol* define_variable_in_this_scope(const std::wstring& names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, template_style is_template_value, size_t captureindex = (size_t)-1)
+        lang_symbol* define_variable_in_this_scope(wo_pstring_t names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, template_style is_template_value, size_t captureindex = (size_t)-1)
         {
             wo_assert(lang_scopes.size());
 
             if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
             {
-                if (func_def->function_name != L"")
+                if (func_def->function_name != nullptr)
                 {
                     wo_assert(template_style::NORMAL == is_template_value);
 
@@ -3884,7 +3885,7 @@ namespace wo
                         sym = lang_scopes.back()->symbols[names];
                         if (sym->type != lang_symbol::symbol_type::function)
                         {
-                            lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names.c_str());
+                            lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
                             return sym;
                         }
                     }
@@ -3912,7 +3913,7 @@ namespace wo
                     }
 
                     if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
-                        && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != L"")
+                        && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != nullptr)
                     {
                         func_def->symbol = sym;
                         sym->function_overload_sets.push_back(func_def);
@@ -3931,7 +3932,7 @@ namespace wo
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
-                lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names.c_str());
+                lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
                 return last_func_symbol;
             }
             else
@@ -4012,7 +4013,7 @@ namespace wo
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[def->new_type_identifier];
 
-                lang_anylizer->lang_error(0x0000, as_type, WO_ERR_REDEFINED, def->new_type_identifier.c_str());
+                lang_anylizer->lang_error(0x0000, as_type, WO_ERR_REDEFINED, def->new_type_identifier->c_str());
                 return last_func_symbol;
             }
             else
@@ -4059,7 +4060,7 @@ namespace wo
                         current_scope = current_scope->parent_scope;
                     }
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
                     return false;
                 }
                 if (astdefine->declear_attribute->is_private_attr())
@@ -4067,7 +4068,7 @@ namespace wo
                     if (ast->source_file == astdefine->source_file)
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name->c_str(),
                             astdefine->source_file->c_str());
                     return false;
                 }
@@ -4088,7 +4089,7 @@ namespace wo
                         current_scope = current_scope->parent_scope;
                     }
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name.c_str());
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
                     return false;
                 }
                 if (symbol->attribute->is_private_attr())
@@ -4096,7 +4097,7 @@ namespace wo
                     if (ast->source_file == symbol->defined_source())
                         return true;
                     if (give_error)
-                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name.c_str(),
+                        lang_anylizer->lang_error(0x0000, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name->c_str(),
                             symbol->defined_source()->c_str());
                     return false;
                 }
@@ -4104,7 +4105,7 @@ namespace wo
             return true;
         }
 
-        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, const std::wstring& ident_str)
+        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str)
         {
             wo_assert(lang_scopes.size());
 
@@ -4140,7 +4141,7 @@ namespace wo
                         var_ident->search_from_global_namespace = true;
 
                     var_ident->scope_namespaces.insert(var_ident->scope_namespaces.begin(),
-                        *finding_from_type->type_name);
+                        finding_from_type->type_name);
 
                     var_ident->searching_from_type = nullptr;
                 }
@@ -4168,7 +4169,7 @@ namespace wo
                             else
                                 var_ident->search_from_global_namespace = true;
 
-                            var_ident->scope_namespaces[0] = *fnd_template_type->type_name;
+                            var_ident->scope_namespaces[0] = fnd_template_type->type_name;
                             break;
                         }
                     }
@@ -4356,7 +4357,7 @@ namespace wo
                             err_info += L", ";
                     }
 
-                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str.c_str());
+                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
                 }
             }
             // Check symbol is accessable?
@@ -4367,7 +4368,7 @@ namespace wo
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, *var_ident->type_name);
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
             if (result
                 && result->type != lang_symbol::symbol_type::typing
                 && result->type != lang_symbol::symbol_type::type_alias)
@@ -4387,7 +4388,7 @@ namespace wo
             {
                 var_ident->symbol = nullptr;
 
-                std::wstring used_template_impl_typing_name;
+                wo_pstring_t used_template_impl_typing_name;
 
                 ast::ast_type* typing_index = nullptr;
 
@@ -4400,7 +4401,7 @@ namespace wo
                     if (typing_index->using_type_name)
                         typing_index = typing_index->using_type_name;
 
-                    used_template_impl_typing_name = *typing_index->type_name;
+                    used_template_impl_typing_name = typing_index->type_name;
 
                     var_ident->scope_namespaces = typing_index->scope_namespaces;
                     var_ident->template_reification_args = typing_index->template_arguments;
@@ -4409,12 +4410,12 @@ namespace wo
 
                 var_ident->scope_namespaces.push_back(used_template_impl_typing_name);
                 auto type_name = var_ident->var_name;
-                var_ident->var_name = L"create";
+                var_ident->var_name = WO_PSTR(create);
 
                 result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
                 if (!result)
                     lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
-                        used_template_impl_typing_name.c_str()
+                        used_template_impl_typing_name->c_str()
                     );
             }
             if (result)
@@ -4444,10 +4445,10 @@ namespace wo
                     && symb_defined_in_func->function_node != current_function->function_node)
                 {
                     // The variable is not static and define outside the function. ready to capture it!
-                    if (current_function->function_node->function_name != L"")
+                    if (current_function->function_node->function_name != nullptr)
                         // Only anonymous can capture variablel;
                         lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC,
-                            result->name.c_str());
+                            result->name->c_str());
 
                     auto* current_func_defined_in_function = current_function->parent_scope;
                     while (current_func_defined_in_function->parent_scope &&

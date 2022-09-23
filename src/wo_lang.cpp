@@ -62,7 +62,8 @@ namespace wo
             try_operator_func_overload->arguments = new ast_list();
             try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
 
-            try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate));
+            try_operator_func_overload->called_func = new ast_value_variable(
+                wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate)));
             try_operator_func_overload->called_func->copy_source_info(a_value_bin);
 
             try_operator_func_overload->directed_value_from = a_value_bin->left;
@@ -95,8 +96,8 @@ namespace wo
             {
                 if (auto fnd =
                     a_value_idx->from->value_type->struct_member_index.find(
-                        str_to_wstr(*a_value_idx->index->get_constant_value().string)
-                    ); fnd != a_value_idx->from->value_type->struct_member_index.end())
+                        wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
+                    fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
                     if (!fnd->second.member_type->is_pending())
                     {
@@ -221,7 +222,8 @@ namespace wo
             try_operator_func_overload->arguments = new ast_list();
             try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
 
-            try_operator_func_overload->called_func = new ast_value_variable(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate));
+            try_operator_func_overload->called_func = new ast_value_variable(
+                wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate)));
             try_operator_func_overload->called_func->copy_source_info(a_value_logic_bin);
 
             try_operator_func_overload->directed_value_from = a_value_logic_bin->left;
@@ -372,7 +374,7 @@ namespace wo
                         if (!a_value_func->externed_func_info->externed_func)
                         {
                             // Load lib,
-                            wo_assert(a_value_func->source_file!=nullptr);
+                            wo_assert(a_value_func->source_file != nullptr);
                             a_value_func->externed_func_info->externed_func =
                                 rslib_extern_symbols::get_lib_symbol(
                                     wstr_to_str(*a_value_func->source_file).c_str(),
@@ -823,7 +825,7 @@ namespace wo
 
             ast_using_namespace* ast_using = new ast_using_namespace;
             ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
-            ast_using->used_namespace_chain.push_back(*a_match->match_value->value_type->using_type_name->type_name);
+            ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
             ast_using->from_global_namespace = true;
             ast_using->copy_source_info(a_match);
             now_scope()->used_namespace.push_back(ast_using);
@@ -1111,7 +1113,7 @@ namespace wo
 
         // Try Getting next Function
 
-        ast_value_variable* next_func_symb_getter = new ast_value_variable(L"next");
+        ast_value_variable* next_func_symb_getter = new ast_value_variable(WO_PSTR(next));
         next_func_symb_getter->copy_source_info(a_foreach);
         next_func_symb_getter->searching_from_type = a_foreach->iter_next_judge_expr->directed_value_from->value_type;
         analyze_pass2(next_func_symb_getter);
@@ -1265,7 +1267,7 @@ namespace wo
 
                 ast_using_namespace* ast_using = new ast_using_namespace;
                 ast_using->used_namespace_chain = a_match->match_value->value_type->using_type_name->scope_namespaces;
-                ast_using->used_namespace_chain.push_back(*a_match->match_value->value_type->using_type_name->type_name);
+                ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
                 ast_using->from_global_namespace = true;
                 ast_using->copy_source_info(a_match);
                 now_scope()->used_namespace.push_back(ast_using);
@@ -1281,7 +1283,7 @@ namespace wo
         analyze_pass2(a_match->cases);
 
         // Must walk all possiable case, and no repeat case!
-        std::set<std::wstring> case_names;
+        std::set<wo_pstring_t> case_names;
         auto* cases = a_match->cases->children;
         while (cases)
         {
@@ -1324,7 +1326,7 @@ namespace wo
                             if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
                             {
                                 lang_anylizer->lang_error(0x0000, a_pattern_union_value, L"'%ls' 不是 '%ls' 的合法项，继续",
-                                    a_pattern_union_value->union_expr->symbol->name.c_str(),
+                                    a_pattern_union_value->union_expr->symbol->name->c_str(),
                                     a_match_union_case->in_match->match_value->value_type->get_type_name(false).c_str());
                             }
                             else
@@ -1605,7 +1607,7 @@ namespace wo
             if (a_value_typecast->_be_cast_value_node->value_type->is_pending())
             {
                 lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE,
-                    a_variable_sym->var_name.c_str(),
+                    a_variable_sym->var_name->c_str(),
                     a_value_typecast->value_type->get_type_name().c_str());
             }
         }
@@ -1672,8 +1674,7 @@ namespace wo
                 {
                     if (auto fnd =
                         a_value_index->from->value_type->struct_member_index.find(
-                            str_to_wstr(*a_value_index->index->get_constant_value().string)
-                        ); fnd != a_value_index->from->value_type->struct_member_index.end())
+                            wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
                         if (!fnd->second.member_type->is_pending())
                         {
@@ -2167,7 +2168,7 @@ namespace wo
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
-                                , membpair->member_name.c_str()
+                                , membpair->member_name->c_str()
                                 , fnd->second.member_type->get_type_name(false).c_str()
                                 , membpair->member_value_pair->value_type->get_type_name(false).c_str());
                         }
@@ -2175,7 +2176,7 @@ namespace wo
                     else
                         lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
                             a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
-                            membpair->member_name.c_str());
+                            membpair->member_name->c_str());
                 }
 
                 if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
@@ -2249,13 +2250,14 @@ namespace wo
             if (sym)
             {
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
-                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
 
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                     if (!sym)
-                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续", a_value_var->var_name.c_str());
+                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续",
+                            a_value_var->var_name->c_str());
                 }
 
                 if (sym)
@@ -2280,7 +2282,8 @@ namespace wo
                             a_value_var->value_type = ast_type::create_type_at(a_value_var, *result->value_type);
 
                             if (a_value_var->value_type->is_pending())
-                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, a_value_var->var_name.c_str());
+                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
+                                    a_value_var->var_name->c_str());
                         }
                         else
                         {
@@ -2295,7 +2298,8 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name.c_str());
+                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, 
+                    a_value_var->var_name->c_str());
                 a_value_var->value_type = ast_type::create_type_at(a_value_var, WO_PSTR(pending));
             }
         }
@@ -2344,7 +2348,7 @@ namespace wo
                             a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
 
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                        (*a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+                        (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
 
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
@@ -2376,7 +2380,7 @@ namespace wo
                     {
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                        (*a_value_funccall->directed_value_from->value_type->type_name);
+                        (a_value_funccall->directed_value_from->value_type->type_name);
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
                             origin_namespace.begin(),
@@ -2706,7 +2710,7 @@ namespace wo
                                 std::wstring acceptable_func;
                                 for (size_t index = 0; index < judge_sets->size(); index++)
                                 {
-                                    acceptable_func += L"'" + judge_sets->at(index)->function_name + L":"
+                                    acceptable_func += L"'" + *judge_sets->at(index)->function_name + L":"
                                         + judge_sets->at(index)->value_type->get_type_name(false)
                                         + L"' " WO_TERM_AT L" ("
                                         + std::to_wstring(judge_sets->at(index)->row_end_no)
@@ -3131,8 +3135,8 @@ namespace wo
                 if (is_hkt_typing() && symbol)
                 {
                     auto* base_symbol = base_typedef_symbol(symbol);
-                    wo_assert(base_symbol && base_symbol->name != L"");
-                    result += base_symbol->name;
+                    wo_assert(base_symbol && base_symbol->name != nullptr);
+                    result += *base_symbol->name;
                 }
                 else
                 {
