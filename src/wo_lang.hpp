@@ -91,7 +91,7 @@ namespace wo
         grammar::ast_base* last_entry_ast;
         lang_scope* belong_namespace;
         lang_scope* parent_scope;
-        wo_pstring_t scope_namespace;
+        wo_pstring_t scope_namespace = nullptr;
         std::unordered_map<wo_pstring_t, lang_symbol*> symbols;
 
         // Only used when this scope is a namespace.
@@ -324,6 +324,7 @@ namespace wo
         {
             _this_thread_lang_context = this;
             ast::ast_namespace* global = new ast::ast_namespace;
+            global->scope_name = wstring_pool::get_pstr(L"");
             global->source_file = wstring_pool::get_pstr(L"::");
             global->col_begin_no =
                 global->col_end_no =

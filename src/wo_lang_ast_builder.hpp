@@ -124,7 +124,7 @@ namespace wo
             bool is_variadic_function_type = false;
 
             // if this type is function, following type information will describe the return type;
-            wo_pstring_t type_name;
+            wo_pstring_t type_name = nullptr;
             ast_type* complex_type = nullptr;
 
             value::valuetype value_type;
@@ -1693,7 +1693,7 @@ namespace wo
 
         struct ast_value_variable : virtual ast_value_symbolable_base
         {
-            wo_pstring_t var_name;
+            wo_pstring_t var_name = nullptr;
             std::vector<ast_type*> template_reification_args;
             bool directed_function_call = false;
             bool is_auto_judge_function_overload = false;
@@ -2030,7 +2030,7 @@ namespace wo
 
         struct ast_namespace : virtual public grammar::ast_base
         {
-            wo_pstring_t scope_name;
+            wo_pstring_t scope_name = nullptr;
             ast_list* in_scope_sentence;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2113,7 +2113,7 @@ namespace wo
         struct ast_value_arg_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
-            wo_pstring_t arg_name;
+            wo_pstring_t arg_name = nullptr;
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -2184,7 +2184,7 @@ namespace wo
         };
         struct ast_value_function_define : virtual ast_value_symbolable_base, virtual ast_defines
         {
-            wo_pstring_t function_name;
+            wo_pstring_t function_name = nullptr;
             ast_list* argument_list = nullptr;
             ast_list* in_function_sentence = nullptr;
             bool auto_adjust_return_type = false;
@@ -3124,7 +3124,7 @@ namespace wo
 
         struct ast_enum_item : virtual public grammar::ast_base
         {
-            wo_pstring_t enum_ident;
+            wo_pstring_t enum_ident = nullptr;
             wo_integer_t enum_val;
             bool need_assign_val = true;
 
@@ -3184,7 +3184,7 @@ namespace wo
 
         struct ast_using_type_as : virtual public ast_defines
         {
-            wo_pstring_t new_type_identifier;
+            wo_pstring_t new_type_identifier = nullptr;
             ast_type* old_type;
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
@@ -3333,7 +3333,7 @@ namespace wo
 
         struct ast_template_define_with_naming : virtual public grammar::ast_base
         {
-            wo_pstring_t template_ident;
+            wo_pstring_t template_ident = nullptr;
             ast_type* naming_const;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -3352,7 +3352,7 @@ namespace wo
 
         struct ast_union_item : virtual public grammar::ast_base
         {
-            wo_pstring_t identifier;
+            wo_pstring_t identifier = nullptr;
             ast_type* type_may_nil = nullptr;
             ast_type* gadt_out_type_may_nil = nullptr;
 
@@ -3393,7 +3393,7 @@ namespace wo
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
 
-            wo_pstring_t identifier;
+            wo_pstring_t identifier = nullptr;
             lang_symbol* symbol = nullptr;
             ast_decl_attribute* attr = nullptr;
 
@@ -3524,7 +3524,7 @@ namespace wo
 
         struct ast_struct_member_define : virtual public grammar::ast_base
         {
-            wo_pstring_t member_name;
+            wo_pstring_t member_name = nullptr;
 
             bool is_value_pair;
             bool is_mutable_decl;

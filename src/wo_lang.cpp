@@ -3135,7 +3135,7 @@ namespace wo
                 if (is_hkt_typing() && symbol)
                 {
                     auto* base_symbol = base_typedef_symbol(symbol);
-                    wo_assert(base_symbol && base_symbol->name != L"");
+                    wo_assert(base_symbol && base_symbol->name != nullptr);
                     result += *base_symbol->name;
                 }
                 else
