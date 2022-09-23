@@ -30,13 +30,6 @@ WO_GLOBAL_PSTR(dynamic)\
 WO_GLOBAL_PSTR(complex)\
 WO_GLOBAL_PSTR(bool)\
 WO_GLOBAL_PSTR(anything)\
-WO_GLOBAL_PSTR(iter)\
-WO_GLOBAL_PSTR(_iter)\
-WO_GLOBAL_PSTR(_val)\
-WO_GLOBAL_PSTR(next)\
-WO_GLOBAL_PSTR(KT)\
-WO_GLOBAL_PSTR(VT)\
-WO_GLOBAL_PSTR(create)\
 // end
 
 #define WO_PSTR(str) (wo::fixstr::_global_##str)

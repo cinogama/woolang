@@ -15,10 +15,10 @@ namespace wo
         if (scope->belong_namespace)
         {
             auto parent_name = get_belong_namespace_path_with_lang_scope(scope->belong_namespace);
-            return (parent_name.empty() ? "" : parent_name + "::") + wstr_to_str(*scope->scope_namespace);
+            return (parent_name.empty() ? "" : parent_name + "::") + wstr_to_str(scope->scope_namespace);
         }
         else
-            return wstr_to_str(*scope->scope_namespace);
+            return wstr_to_str(scope->scope_namespace);
     }
 
     std::string get_belong_namespace_path_with_lang_scope(const lang_symbol* symbol)
