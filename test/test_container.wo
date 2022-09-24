@@ -66,6 +66,9 @@ namespace test_container
         test_assure(![]->reduce(\_1:void,_2:void=option::none->val;)->has);
         test_assure(![]->rreduce(\_1:void,_2:void=option::none->val;)->has);
 
+        test_assure([4,5]->connect([2,3])->len == 4);
+        test_assure([4,5]->connect([2,3])[3] == 2);
+
         [mut true]->trans(\f: bool = 1;);
         {["k"] = mut false}->trans(\k:string, v: bool = (0, 0););
         {["k"] = mut false}->trans(\k:string, v: bool = (0, mut 0);) as dict<int, mut int>;

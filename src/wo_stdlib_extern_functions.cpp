@@ -612,6 +612,68 @@ WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_ref(vm, wo_arr_add(args + 0, args + 1));
 }
 
+WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value result = wo_push_empty(vm);
+    wo_set_arr(result, 0);
+
+    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+
+    wo::gcbase::gc_write_guard wg1(arr_result->array);
+    do
+    {
+        wo::gcbase::gc_read_guard rg2(arr1->array);
+        *arr_result->array = *arr1->array;
+    } while (0);
+    do
+    {
+        wo::gcbase::gc_read_guard rg3(arr2->array);
+        arr_result->array->insert(arr_result->array->end(),
+            arr2->array->begin(), arr2->array->end());
+    } while (0);
+
+    return wo_ret_val(vm, result);
+}
+
+WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value result = wo_push_empty(vm);
+    wo_set_arr(result, 0);
+
+    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
+
+    wo::gcbase::gc_write_guard wg1(arr_result->array);
+    wo::gcbase::gc_read_guard rg2(arr1->array);
+
+    auto begin = wo_int(args + 1);
+    if (begin > arr1->array->size())
+        return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+    if (argc == 2)
+        arr_result->array->insert(arr_result->array->end(),
+            arr1->array->begin() + begin, arr1->array->end());
+    else
+    {
+        wo_assert(argc == 3);
+        auto count = wo_int(args + 2);
+
+        if (begin + count > arr1->array->size())
+            return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
+
+        auto&& begin_iter = arr1->array->begin() + begin;
+        auto&& end_iter = begin_iter + count;
+
+        arr_result->array->insert(arr_result->array->end(),
+            begin_iter, end_iter);
+    }
+
+
+    return wo_ret_val(vm, result);
+}
+
 WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
 {
     auto arrsz = wo_lengthof(args + 0);
@@ -1462,6 +1524,7 @@ namespace array
 
         return newarr->unsafe::astype:<array<T>>;
     }
+
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
@@ -1577,6 +1640,15 @@ namespace array
 
     extern("rslib_std_array_iter")
         public func iter<T>(val:array<T>)=>iterator<T>;
+
+    extern("rslib_std_array_connect")
+    public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
+
+    extern("rslib_std_array_sub")
+    public func sub<T>(self: array<T>, begin: int)=> array<T>;
+    
+    extern("rslib_std_array_sub")
+    public func sub<T>(self: array<T>, begin: int, count: int)=> array<T>;
 }
 
 namespace vec
@@ -1623,6 +1695,15 @@ namespace vec
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=>T;
+
+    extern("rslib_std_array_connect")
+    public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
+
+    extern("rslib_std_array_sub")
+    public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
+    
+    extern("rslib_std_array_sub")
+    public func sub<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
         public func pop<T>(val: vec<T>)=> T;  
