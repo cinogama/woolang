@@ -904,7 +904,7 @@ wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except
     return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
 }
 
-void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth, bool force_to_be_str)
+void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
 {
     auto _rsvalue = value->get();
 
@@ -914,16 +914,16 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
     switch (_rsvalue->type)
     {
     case wo::value::valuetype::integer_type:
-        *out_str += _enstring(std::to_string(_rsvalue->integer), force_to_be_str);
+        *out_str += std::to_string(_rsvalue->integer);
         return;
     case wo::value::valuetype::handle_type:
-        *out_str += _enstring(std::to_string(_rsvalue->handle), force_to_be_str);
+        *out_str += std::to_string(_rsvalue->handle);
         return;
     case wo::value::valuetype::real_type:
-        *out_str += _enstring(std::to_string(_rsvalue->real), force_to_be_str);
+        *out_str += std::to_string(_rsvalue->real);
         return;
     case wo::value::valuetype::gchandle_type:
-        *out_str += _enstring(std::to_string((wo_handle_t)wo_safety_pointer(_rsvalue->gchandle)), force_to_be_str);
+        *out_str += std::to_string((wo_handle_t)wo_safety_pointer(_rsvalue->gchandle));
         return;
     case wo::value::valuetype::string_type:
     {
@@ -958,9 +958,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
 
             for (int i = 0; !_fit_layout && i <= depth; i++)
                 *out_str += "    ";
-            _wo_cast_string(const_cast<wo::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1, true);
+            _wo_cast_string(const_cast<wo::value*>(&v_key), traveled_gcunit, _fit_layout, out_str, depth + 1);
             *out_str += _fit_layout ? ":" : " : ";
-            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
 
         }
         if (!_fit_layout)
@@ -998,7 +998,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
 
             for (int i = 0; !_fit_layout && i <= depth; i++)
                 *out_str += "    ";
-            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+            _wo_cast_string(&v_val, traveled_gcunit, _fit_layout, out_str, depth + 1);
         }
         if (!_fit_layout)
             *out_str += "\n";
@@ -1039,7 +1039,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
                 *out_str += "    ";
 
             *out_str += "+" + std::to_string(i) + (_fit_layout ? "=" : " = ");
-            _wo_cast_string(&_rsvalue->structs->m_values[i], traveled_gcunit, _fit_layout, out_str, depth + 1, false);
+            _wo_cast_string(&_rsvalue->structs->m_values[i], traveled_gcunit, _fit_layout, out_str, depth + 1);
         }
         if (!_fit_layout)
             *out_str += "\n";
@@ -1091,7 +1091,7 @@ wo_string_t wo_cast_string(const wo_value value)
     }
 
     std::map<wo::gcbase*, int> _tved_gcunit;
-    _wo_cast_string(reinterpret_cast<wo::value*>(value), &_tved_gcunit, false, &_buf, 0, false);
+    _wo_cast_string(reinterpret_cast<wo::value*>(value), &_tved_gcunit, false, &_buf, 0);
 
     return _buf.c_str();
 }
