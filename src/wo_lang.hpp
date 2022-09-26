@@ -383,7 +383,6 @@ namespace wo
             return symb->template_type_instances[hashs];
         }
 
-
         bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
         {
             bool result = true;

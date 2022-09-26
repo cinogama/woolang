@@ -66,6 +66,7 @@ namespace test_compile
         assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; }"@);
         assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
         assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none?; option::value?; }"@);
 
         // Construct struct must complete.
         assure_compile_fail(@"
@@ -307,6 +308,26 @@ namespace test_compile
         assure_compile_fail(@"let (ref a, ref b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
         assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
+        assure_compile_fail(@"
+            import woo.std; 
+            let m = option::value(1);
+            match(m)
+            { 
+                option::none?; 
+                option::value(n)?
+                    std::println(ref n); 
+            }
+        "@);
+        assure_compile_success(@"
+            import woo.std; 
+            let m = option::value(1);
+            match(m)
+            { 
+                option::none?; 
+                option::value(mut n)?
+                    std::println(ref n); 
+            }
+        "@);
         
         // TODO: It is dangerous...
         assure_compile_success(@"let (a, ref b) = (1, mut 2);"@);

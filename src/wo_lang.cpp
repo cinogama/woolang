@@ -248,6 +248,9 @@ namespace wo
         auto* sym = find_value_in_this_scope(a_value_var);
         if (sym)
         {
+            if (sym->type != lang_symbol::symbol_type::variable || sym->decl == identifier_decl::IMMUTABLE)
+                a_value_var->can_be_assign = false;
+
             if (sym->type == lang_symbol::symbol_type::variable && sym->is_template_symbol)
             {
                 // Here is template variable, delay it's type calc.
@@ -2249,6 +2252,9 @@ namespace wo
 
             if (sym)
             {
+                if (sym->type != lang_symbol::symbol_type::variable || sym->decl == identifier_decl::IMMUTABLE)
+                    a_value_var->can_be_assign = false;
+
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
 
