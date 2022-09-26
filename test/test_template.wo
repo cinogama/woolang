@@ -265,8 +265,18 @@ namespace test_template
         return \ = std::declval:<T<string>>();
     }
 
+    func test_typeof_template()
+    {
+        using std;
+        alias foo<A, B> = typeof(declval:<A>() + declval:<B>());
+        
+        option::none : option<foo<int, int>> as option<int>;
+    }
+
     func main()
     {
+        test_typeof_template();
+
         using myarr<T> = array<T>;
 
         hkt_foo([[1]: myarr<int>]) as ()=>myarr<string>;
