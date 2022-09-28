@@ -561,6 +561,9 @@ namespace wo
         template<typename AstT, typename ... TS>
         lex_type lang_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
+            if (tree_node->source_file == nullptr)
+                return parser_error(errorno, fmt, args...);
+
             size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
             size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
             size_t end_row_no = tree_node->row_end_no ? tree_node->row_end_no : next_file_rowno;
@@ -577,7 +580,7 @@ namespace wo
                 begin_col_no,
                 end_col_no,
                 describe,
-                tree_node->source_file ? wstr_to_str(*tree_node->source_file) : "?"
+                wstr_to_str(*tree_node->source_file)
             };
 
             just_have_err = true;
