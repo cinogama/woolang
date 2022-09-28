@@ -306,7 +306,7 @@ WO_API void         wo_gc_resume();
 WO_API void         wo_attach_default_debuggee(wo_vm vm);
 WO_API wo_bool_t    wo_has_attached_debuggee(wo_vm vm);
 WO_API void         wo_disattach_debuggee(wo_vm vm);
-WO_API void         wo_disattach_and_free_debuggee(wo_vm vm);
+
 WO_API void         wo_break_immediately(wo_vm vm);
 WO_API void         wo_handle_ctrl_c(void(*handler)(int));
 

@@ -441,8 +441,6 @@ namespace wo
             new_vm->env = env;  // env setted, gc will scan this vm..
             ++env->_running_on_vm_count;
 
-            new_vm->attach_debuggee(this->attaching_debuggee);
-
             wo_asure(new_vm->interrupt(LEAVE_INTERRUPT));
             return new_vm;
         }

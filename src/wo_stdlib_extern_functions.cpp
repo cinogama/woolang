@@ -2035,7 +2035,7 @@ WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, s
 
 WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_disattach_and_free_debuggee(vm);
+    wo_disattach_debuggee(vm);
     return wo_ret_void(vm);
 }
 

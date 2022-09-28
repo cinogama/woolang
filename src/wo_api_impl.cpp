@@ -2438,11 +2438,6 @@ wo_bool_t wo_has_attached_debuggee(wo_vm vm)
 
 void wo_disattach_debuggee(wo_vm vm)
 {
-    WO_VM(vm)->attach_debuggee(nullptr);
-}
-
-void wo_disattach_and_free_debuggee(wo_vm vm)
-{
     if (auto* dbg = WO_VM(vm)->attach_debuggee(nullptr))
         delete dbg;
 }
