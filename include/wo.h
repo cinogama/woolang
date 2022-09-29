@@ -160,18 +160,41 @@ WO_API wo_result_t  wo_ret_throw(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
 
+WO_API wo_result_t  wo_ret_option_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_option_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_option_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t  wo_ret_option_float(wo_vm vm, float result);
 WO_API wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result);
-
 WO_API wo_result_t  wo_ret_option_ptr(wo_vm vm, wo_ptr_t result);
-WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
-
+WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_ref(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
+
+#define     wo_ret_ok_void    wo_ret_option_void
+#define     wo_ret_ok_int    wo_ret_option_int
+#define     wo_ret_ok_real   wo_ret_option_real
+#define     wo_ret_ok_float  wo_ret_option_float
+#define     wo_ret_ok_handle wo_ret_option_handle
+#define     wo_ret_ok_string wo_ret_option_string
+#define     wo_ret_ok_ptr    wo_ret_option_pointer
+#define     wo_ret_ok_pointer    wo_ret_option_val
+#define     wo_ret_ok_ref    wo_ret_option_ref
+#define     wo_ret_ok_gchandle   wo_ret_option_gchandle
+
+
+WO_API wo_result_t  wo_ret_err_void(wo_vm vm);
+WO_API wo_result_t  wo_ret_err_int(wo_vm vm, wo_integer_t result);
+WO_API wo_result_t  wo_ret_err_real(wo_vm vm, wo_real_t result);
+WO_API wo_result_t  wo_ret_err_float(wo_vm vm, float result);
+WO_API wo_result_t  wo_ret_err_handle(wo_vm vm, wo_handle_t result);
+WO_API wo_result_t  wo_ret_err_string(wo_vm vm, wo_string_t result);
+WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
+WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value val);
+WO_API wo_result_t  wo_ret_err_ref(wo_vm vm, wo_value val);
+WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
 // Not safe, if wo_ret_val(vm, wo_set_ret_option_arr(vm, 0)) may get error result;
 //WO_API wo_value wo_set_ret_arr(wo_vm vm, wo_int_t count);
