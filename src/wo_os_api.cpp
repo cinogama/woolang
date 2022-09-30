@@ -19,7 +19,7 @@ namespace wo
     namespace osapi
     {
 #ifdef _WIN32
-        void* loadlib(const char* dllpath, const char* scriptpath)
+        void* _loadlib(const char* dllpath, const char* scriptpath)
         {
             if (!dllpath)
                 return GetModuleHandleA(NULL);
@@ -50,7 +50,7 @@ namespace wo
             FreeLibrary((HINSTANCE)libhandle);
         }
 #else
-        void* loadlib(const char* dllpath, const char* scriptpath)
+        void* _loadlib(const char* dllpath, const char* scriptpath)
         {
 #if defined(__linux__) || defined(__APPLE__)
             if (!dllpath)
@@ -87,5 +87,9 @@ namespace wo
         }
 
 #endif
+        void* loadlib(const char* dllpath, const char* scriptpath)
+        {
+            return _loadlib(dllpath, scriptpath);
+        }
     }
 }

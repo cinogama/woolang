@@ -1246,6 +1246,14 @@ namespace result
         err(e)? return err(e);
         }
     }
+    public func bind<T, F, U>(self: result<T, F>, functor: (T)=>result<U, F>)=> result<U, F>
+    {
+        match(self)
+        {
+        ok(v)? return functor(v);
+        err(e)? return err(e);
+        }
+    }
     public func or<T, F, U>(self: result<T, F>, functor: (F)=>U)=> result<T, U>
     {
         match(self)
