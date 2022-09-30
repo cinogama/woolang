@@ -1238,6 +1238,22 @@ namespace result
         err(e)? return option::value(e);
         }
     }
+    public func succ<T, F>(self: result<T, F>)=> result<T, nothing>
+    {
+        match(self)
+        {
+        ok(v)? return ok(v);
+        err(e)? std::panic(F"An error was found in 'succ': {e}");
+        }
+    }
+    public func fail<T, F>(self: result<T, F>)=> result<nothing, T>
+    {
+        match(self)
+        {
+        ok(v)? std::panic(F"Current result is not failed.");
+        err(e)? return err(e);
+        }
+    }
     public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<U, F>
     {
         match(self)
