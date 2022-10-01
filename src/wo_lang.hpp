@@ -213,6 +213,9 @@ namespace wo
                 }
             }
 
+            if (typing->is_mutable())
+                hashval *= hashval;
+
             uint32_t hash32 = hashval & 0xFFFFFFFF;
             while (hashed_typing.find(hash32) != hashed_typing.end())
             {
@@ -695,9 +698,14 @@ namespace wo
                 }
             }
 
-            if (type->using_type_name && type->is_mutable())
-                type->using_type_name->is_mutable_type = true;
-
+            if (type->using_type_name)
+            {
+                if (type->is_mutable())
+                {
+                    type->using_type_name = new ast::ast_type(*type->using_type_name);
+                    type->using_type_name->is_mutable_type = true;
+                }
+            }
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
 
             return false;
@@ -707,6 +715,9 @@ namespace wo
         {
             std::unordered_set<ast::ast_type*> us;
             wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
+
+            if (type->using_type_name != nullptr)
+                wo_assert(type->is_mutable() == type->using_type_name->is_mutable());
         }
 
         std::vector<bool> in_pass2 = { false };
