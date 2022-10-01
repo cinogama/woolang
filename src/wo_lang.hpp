@@ -513,7 +513,6 @@ namespace wo
                             if (fully_update_type(a_t, in_pass_1, template_types, s))
                                 if (a_t->is_custom() && !a_t->is_hkt())
                                     stop_update = true;
-                        a_t->is_mutable_type = false;
                     }
 
                 if (type->has_template())
@@ -659,7 +658,7 @@ namespace wo
 
                                 if (type_has_mutable_mark)
                                     // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
-                                    type->is_mutable_type = true;
+                                    type->set_is_mutable(true);
 
                                 if (!type->template_impl_naming_checking.empty())
                                 {
@@ -698,14 +697,6 @@ namespace wo
                 }
             }
 
-            if (type->using_type_name)
-            {
-                if (type->is_mutable())
-                {
-                    type->using_type_name = new ast::ast_type(*type->using_type_name);
-                    type->using_type_name->is_mutable_type = true;
-                }
-            }
             wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
 
             return false;
@@ -1190,7 +1181,7 @@ namespace wo
                     if (!a_val->value_type->is_pending())
                         if (a_val->is_mark_as_using_mut)
                         {
-                            a_val->value_type->is_mutable_type = true;
+                            a_val->value_type->set_is_mutable(true);
                         }
                     // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
 
@@ -1510,7 +1501,7 @@ namespace wo
                 if (a_value->value_type->is_bool())
                     fully_update_type(a_value->value_type, false);
                 if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
-                    a_value->value_type->is_mutable_type = true;
+                    a_value->value_type->set_is_mutable(true);
 
                 if (a_value->is_mark_as_using_ref)
                 {

@@ -120,6 +120,28 @@ namespace wo
         {
             bool is_mutable_type = false;
 
+            inline void set_is_mutable(bool is_mutable)
+            {
+                if (is_mutable)
+                {
+                    is_mutable_type = true;
+                    if (using_type_name && !using_type_name->is_mutable())
+                    {
+                        using_type_name = new ast_type(*using_type_name);
+                        using_type_name->is_mutable_type = true;
+                    }
+                }
+                else
+                {
+                    is_mutable_type = false;
+                    if (using_type_name && using_type_name->is_mutable())
+                    {
+                        using_type_name = new ast_type(*using_type_name);
+                        using_type_name->is_mutable_type = false;
+                    }
+                }
+            }
+
             bool is_function_type = false;
             bool is_variadic_function_type = false;
 
@@ -284,7 +306,7 @@ namespace wo
 
                 type_name = WO_PSTR(complex);
                 complex_type = new ast_type(*_type);
-                complex_type->is_mutable_type = false; // Return type cannot be mut
+                complex_type->set_is_mutable(false); // Return type cannot be mut
                 is_pending_type = false; // reset state;
                 value_type = value::valuetype::invalid;
                 template_arguments.clear();
@@ -308,7 +330,7 @@ namespace wo
                 value_type = value::valuetype::invalid;
 
                 complex_type = _val;
-                complex_type->is_mutable_type = false;
+                complex_type->set_is_mutable(false);
             }
 
             template<typename ... ArgTs>
@@ -550,12 +572,12 @@ namespace wo
                     if (out_para)
                     {
                         *out_para = dynamic_cast<ast_type*>(this->instance());
-                        (**out_para).is_mutable_type = false;
+                        (**out_para).set_is_mutable(false);
                     }
                     if (out_args)
                     {
                         *out_args = dynamic_cast<ast_type*>(another->instance());
-                        (**out_args).is_mutable_type = false;
+                        (**out_args).set_is_mutable(false);
                     }
                 }
                 else
@@ -3712,7 +3734,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-                type->is_mutable_type = true;
+                type->set_is_mutable(true);
                 return (ast_basic*)type;
             }
         };

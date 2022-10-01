@@ -151,7 +151,7 @@ namespace wo
             if (a_value_idx->value_type->is_mutable())
             {
                 a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->value_type);
-                a_value_idx->value_type->is_mutable_type = false;
+                a_value_idx->value_type->set_is_mutable(false);
                 a_value_idx->can_be_assign = true;
             }
             else
@@ -1748,7 +1748,7 @@ namespace wo
                 if (a_value_index->value_type->is_mutable())
                 {
                     a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->value_type);
-                    a_value_index->value_type->is_mutable_type = false;
+                    a_value_index->value_type->set_is_mutable(false);
                     a_value_index->can_be_assign = true;
                 }
                 else
