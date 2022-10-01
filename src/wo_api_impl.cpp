@@ -24,10 +24,10 @@
 #define WO_VERSION(DEV,MAIN,SUB,CORRECT) ((0x##DEV##ull)<<(3*16))|((0x##MAIN##ull)<<(2*16))|((0x##SUB##ull)<<(1*16))|((0x##CORRECT##ull)<<(0*16))
 #define WO_VERSION_STR(DEV,MAIN,SUB,CORRECT) #DEV "." #MAIN "." #SUB "." #CORRECT "."
 
-#ifdef _DEBUG
-#define WO_DEBUG_SFX "debug"
-#else
+#ifdef NDEBUG
 #define WO_DEBUG_SFX ""
+#else
+#define WO_DEBUG_SFX "debug"
 #endif
 
 constexpr wo_integer_t version = WO_VERSION(de, 1, 5, 1);

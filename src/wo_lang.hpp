@@ -510,6 +510,7 @@ namespace wo
                             if (fully_update_type(a_t, in_pass_1, template_types, s))
                                 if (a_t->is_custom() && !a_t->is_hkt())
                                     stop_update = true;
+                        a_t->is_mutable_type = false;
                     }
 
                 if (type->has_template())

@@ -1246,7 +1246,7 @@ namespace result
         err(e)? std::panic(F"An error was found in 'succ': {e}");
         }
     }
-    public func fail<T, F>(self: result<T, F>)=> result<nothing, T>
+    public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
     {
         match(self)
         {
@@ -1623,9 +1623,9 @@ namespace array
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: map<K, mut V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
-            result[k] = v;
+            result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }
 
@@ -1780,9 +1780,9 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: map<K, mut V>;
+        let result = {}mut: map<K, V>;
         for (let (k, v) : val)
-            result[k] = v;
+            result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }
 

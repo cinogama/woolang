@@ -354,6 +354,7 @@ namespace wo
             }
 
             fully_update_type(a_value_func->value_type, true);
+
             // update return type info for
             // func xxx(var x:int): typeof(x)
 
