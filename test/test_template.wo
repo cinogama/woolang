@@ -273,9 +273,27 @@ namespace test_template
         option::none : option<foo<int, int>> as option<int>;
     }
 
+    func test_mut_mark_bug()
+    {
+        func mut_mark_bug1<T>(n: array<T>)
+        {
+            []: array<mut T>;
+            return []: array<T>;
+        }
+        func mut_mark_bug2<T>(n: array<T>)
+        {
+            []: array<T>;
+            return []: array<mut T>;
+        }
+
+        mut_mark_bug1([true])->trans(\b: bool = 0;);
+        mut_mark_bug2([true])->trans(\b: bool = 0;);
+    }
+
     func main()
     {
         test_typeof_template();
+        test_mut_mark_bug();
 
         using myarr<T> = array<T>;
 
