@@ -105,6 +105,10 @@ WO_API void         wo_finish();
 
 WO_API void         wo_gc_immediately();
 
+WO_API void*        wo_load_lib(const char* libname, const char* path);
+WO_API void*/* func ptr */ wo_load_func(void* lib, const char* funcname);
+WO_API void         wo_unload_lib(void* lib);
+
 WO_API wo_type      wo_valuetype(const wo_value value);
 
 WO_API wo_integer_t wo_int(const wo_value value);

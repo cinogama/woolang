@@ -39,6 +39,10 @@ namespace wo
             if (result = LoadLibraryExA((work_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
+            // 4) Try load full path
+            if (result = LoadLibraryExA(dllpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                return result;
+
             return nullptr;
         }
         wo_native_func loadfunc(void* libhandle, const char* funcname)
@@ -69,6 +73,10 @@ namespace wo
 
             // 3) Try get dll from work_path
             if ((result = dlopen((work_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
+                return result;
+
+            // 4) Try load full path
+            if ((result = dlopen(dllpath, RTLD_LAZY)))
                 return result;
 
             return nullptr;

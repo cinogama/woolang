@@ -2645,3 +2645,59 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
     *(WO_VM(vm)->er->string) = sstream.str();
     return WO_VM(vm)->er->string->c_str();
 }
+
+std::unordered_map<std::string, void*> loaded_named_libs;
+std::shared_mutex loaded_named_libs_mx;
+void* wo_load_lib(const char* libname, const char* path)
+{
+    if (path)
+    {
+        std::lock_guard g1(loaded_named_libs_mx);
+
+        auto fnd = loaded_named_libs.find(libname);
+        if (fnd != loaded_named_libs.end())
+        {
+            wo_fail(WO_FAIL_DEADLY, "Library with same name has been loaded.");
+            return nullptr;
+        }
+        if (void* handle = wo::osapi::loadlib(path))
+        {
+            loaded_named_libs[libname] = handle;
+            return handle;
+        }
+        wo_fail(WO_FAIL_DEADLY, "Failed to load specify library.");
+        return nullptr;
+    }
+    else
+    {
+        std::shared_lock sg1(loaded_named_libs_mx);
+        auto fnd = loaded_named_libs.find(libname);
+        if (fnd != loaded_named_libs.end())
+            return fnd->second;
+
+        return nullptr;
+    }
+}
+void* wo_load_func(void* lib, const char* funcname)
+{
+    wo_assert(lib);
+    return wo::osapi::loadfunc(lib, funcname);
+}
+void wo_unload_lib(void* lib)
+{
+    wo_assert(lib);
+
+    std::shared_lock sg1(loaded_named_libs_mx);
+    auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
+        [lib](const auto& idx) 
+        {
+            if (idx.second == lib)
+                return true;
+            return false;
+        });
+
+    wo_assert(fnd != loaded_named_libs.end());
+
+    loaded_named_libs.erase(fnd);
+    wo::osapi::freelib(lib);
+}

@@ -71,6 +71,9 @@ namespace wo
                 if ((extern_lib = osapi::loadlib((libpath + "32").c_str())))
                     return;
 #endif
+                if (extern_lib = wo_load_lib(libpath.c_str(), nullptr))
+                    return;
+
                 extern_lib = osapi::loadlib(libpath.c_str());
             }
             wo_native_func load_func(const char* funcname)
@@ -83,7 +86,7 @@ namespace wo
             {
                 if (extern_lib)
                 {
-                    if (auto* leave = (void(*)(void))load_func("rslib_exit"))
+                    if (auto* leave = (void(*)(void))load_func("wolib_exit"))
                         leave();
                     osapi::freelib(extern_lib);
                 }
@@ -113,13 +116,12 @@ namespace wo
                 extern_lib elib = new extern_lib_guard(libpath);
                 srcloadedlibs[libpath] = elib;
 
-                if (auto * entry = (void(*)(void))elib->load_func("rslib_entry"))
+                if (auto * entry = (void(*)(void))elib->load_func("wolib_entry"))
                     entry();
                 return elib->load_func(funcname);
 
             }
         };
-
 
         static wo_native_func get_global_symbol(const char* symbol)
         {
