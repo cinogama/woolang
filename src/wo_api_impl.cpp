@@ -2681,7 +2681,7 @@ void* wo_load_lib(const char* libname, const char* path)
 void* wo_load_func(void* lib, const char* funcname)
 {
     wo_assert(lib);
-    return wo::osapi::loadfunc(lib, funcname);
+    return (void*)wo::osapi::loadfunc(lib, funcname);
 }
 void wo_unload_lib(void* lib)
 {
