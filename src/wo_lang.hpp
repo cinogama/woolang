@@ -2472,13 +2472,6 @@ namespace wo
                     arg = arg->sibling;
                 }
 
-                auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
-
-                ast_value_function_define* fdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
-                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (fdef && fdef->is_different_arg_count_in_same_extern_symbol);
-
                 for (auto* argv : arg_list)
                 {
                     if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(argv))
@@ -2528,14 +2521,12 @@ namespace wo
                     }
                 }
 
+                auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
 
-                if (is_cr_reg(*called_func_aim))
-                {
-                    auto& callaimreg = get_useable_register_for_pure_value();
-                    compiler->set(callaimreg, *called_func_aim);
-                    called_func_aim = &callaimreg;
-                    complete_using_register(callaimreg);
-                }
+                ast_value_function_define* fdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
+                    || a_value_funccall->called_func->value_type->is_variadic_function_type
+                    || (fdef && fdef->is_different_arg_count_in_same_extern_symbol);
 
                 if (!full_unpack_arguments && need_using_tc)
                     compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
