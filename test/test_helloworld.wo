@@ -66,6 +66,15 @@ namespace test_helloworld
     {
         using std;
 
+        func foo(_: anything)
+        {
+            return 0;
+        }
+        let m = 0, msg = "Helloworld";
+        let rmsg = m->foo->\n: int = m;->\n:int = m;->\n:int = m;->\n:int = msg;;
+        test_assure(rmsg == msg);
+        test_assure(rmsg == "Helloworld");
+
         const let n = "Helloworld~";
         println(n);
 
