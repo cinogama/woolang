@@ -5,6 +5,7 @@ variables:
 build_release:
   stage: build
   script:
+    - if [ `echo helloworld` ]; then exit 0; fi
     - echo "$CI_COMMIT_TAG-$CI_COMMIT_REF_NAME-$CI_COMMIT_REF_SLUG"
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
