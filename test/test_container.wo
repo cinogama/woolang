@@ -80,7 +80,7 @@ namespace test_container
         test_reduce();
 
         test_assure("{}"->todict->val->len == 0);
-        test_assure(!"{"\invalid"}"->todict->has);
+        test_assure(!@"{"\invalid"}"@->todict->has);
     }
 }
 
