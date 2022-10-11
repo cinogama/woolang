@@ -1066,7 +1066,7 @@ namespace wo
                                         hex_ascii += lex_hextonum(next_one());
                                     }
                                     else if (i == 0)
-                                        goto str_escape_sequences_fail_in_format_begin;
+                                        goto str_escape_sequences_fail_in_format_string;
                                     else
                                         break;
                                 }
@@ -1336,7 +1336,7 @@ namespace wo
                                         hex_ascii += lex_hextonum(next_one());
                                     }
                                     else if (i == 0)
-                                        goto str_escape_sequences_fail_in_format_begin;
+                                        goto str_escape_sequences_fail;
                                     else
                                         break;
                                 }
