@@ -528,7 +528,7 @@ namespace wo
                 now_file_colno,
                 next_file_colno,
                 describe,
-                wstr_to_str(*source_file)
+                source_file ? wstr_to_str(*source_file) : "json"
             };
             just_have_err = true;
             get_cur_error_frame().emplace_back(msg);
@@ -931,6 +931,26 @@ namespace wo
                                     write_result(hex_ascii);
                                     break;
                                 }
+                                case L'U':
+                                case L'u':
+                                {
+                                    // hex 1byte 
+                                    int hex_ascii = 0;
+                                    for (int i = 0; i < 4; i++)
+                                    {
+                                        if (lex_isxdigit(peek_one()))
+                                        {
+                                            hex_ascii *= 16;
+                                            hex_ascii += lex_hextonum(next_one());
+                                        }
+                                        else if (i == 0)
+                                            goto str_escape_sequences_fail_in_format_begin;
+                                        else
+                                            break;
+                                    }
+                                    write_result(hex_ascii);
+                                    break;
+                                }
                                 default:
                                 str_escape_sequences_fail_in_format_begin:
                                     lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
@@ -1027,6 +1047,26 @@ namespace wo
                                     }
                                     else if (i == 0)
                                         goto str_escape_sequences_fail_in_format_string;
+                                    else
+                                        break;
+                                }
+                                write_result(hex_ascii);
+                                break;
+                            }
+                            case L'U':
+                            case L'u':
+                            {
+                                // hex 1byte 
+                                int hex_ascii = 0;
+                                for (int i = 0; i < 4; i++)
+                                {
+                                    if (lex_isxdigit(peek_one()))
+                                    {
+                                        hex_ascii *= 16;
+                                        hex_ascii += lex_hextonum(next_one());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail_in_format_begin;
                                     else
                                         break;
                                 }
@@ -1277,6 +1317,26 @@ namespace wo
                                     }
                                     else if (i == 0)
                                         goto str_escape_sequences_fail;
+                                    else
+                                        break;
+                                }
+                                write_result(hex_ascii);
+                                break;
+                            }
+                            case L'U':
+                            case L'u':
+                            {
+                                // hex 1byte 
+                                int hex_ascii = 0;
+                                for (int i = 0; i < 4; i++)
+                                {
+                                    if (lex_isxdigit(peek_one()))
+                                    {
+                                        hex_ascii *= 16;
+                                        hex_ascii += lex_hextonum(next_one());
+                                    }
+                                    else if (i == 0)
+                                        goto str_escape_sequences_fail_in_format_begin;
                                     else
                                         break;
                                 }

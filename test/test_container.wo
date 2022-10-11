@@ -78,6 +78,9 @@ namespace test_container
         test_array_swap_copy();
         test_map_swap_copy();
         test_reduce();
+
+        test_assure("{}"->todict->val->len == 0);
+        test_assure(!"{"\invalid"}"->todict->has);
     }
 }
 
