@@ -14,8 +14,23 @@ namespace test_struct
         d: chstruct<string>,
         e: chstruct<T>
     };
+    using normalstruct = struct {
+        mut a : int,
+        mut b: bool,
+    };
     func main()
     {
+        func foo()
+        {
+            return 233;
+        }
+        let n = normalstruct{a=0, b=false};
+        n.a = foo() as int:
+        n.b = foo() is int;
+
+        test_equal(n.a, 233);
+        test_equal(n.b, true);
+
         let x = mystruct:<string>{
             a = 233,
             b = "Helloworld",

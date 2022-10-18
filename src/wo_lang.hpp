@@ -2336,7 +2336,7 @@ namespace wo
             }
             else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
             {
-                auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler);
+                auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
 
                 if (a_value_type_judge->aim_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
                     return result;
@@ -2377,7 +2377,14 @@ namespace wo
                         wo_assert(!a_value_type_check->aim_type->is_pending());
                         compiler->typeis(result, a_value_type_check->aim_type->value_type);
 
-                        return WO_NEW_OPNUM(reg(reg::cr));
+                        if (get_pure_value)
+                        {
+                            auto& treg = get_useable_register_for_pure_value();
+                            compiler->set(treg, reg(reg::cr));
+                            return treg;
+                        }
+                        else
+                            return WO_NEW_OPNUM(reg(reg::cr));
                     }
                 }
 
