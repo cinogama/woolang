@@ -671,26 +671,23 @@ namespace wo
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::nt(L"SINGLE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT") }
+                gm::nt(L"SINGLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"FACTOR_TYPE_JUDGEMENT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CHECK"), gm::nt(L"AS_TYPE") }
+                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"AS_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_type_judgement),
 
-                gm::nt(L"FACTOR_TYPE_CHECK") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE") }
+                gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"IS_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_type_check),
 
                 gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_as), gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-                gm::nt(L"AS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
                 gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_is), gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
-                gm::nt(L"IS_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+                //gm::nt(L"NO_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
+                //>> WO_ASTBUILDER_INDEX(ast::pass_empty),
 
                 // TYPE CASTING..
                 gm::nt(L"FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::nt(L"TYPE_DECLEAR") }
@@ -859,7 +856,7 @@ namespace wo
                 gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
-                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_JUDGEMENT")}
+                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"REAL_REF_VALUE") ,gm::te(gm::ttype::l_right_brackets) }

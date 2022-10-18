@@ -70,7 +70,7 @@ namespace test_template
     }
 
     func test_cost_time<T>()
-        where !(nil: dynamic:T is dynamic);
+        where !(std::declval:<T>() is dynamic);
     {
         let begin_time = std::time();
         let mut i = 0:T;
