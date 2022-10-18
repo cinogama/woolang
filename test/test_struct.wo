@@ -25,7 +25,7 @@ namespace test_struct
             return 233;
         }
         let n = normalstruct{a=0, b=false};
-        n.a = foo() as int:
+        n.a = foo() as int;
         n.b = foo() is int;
 
         test_equal(n.a, 233);
