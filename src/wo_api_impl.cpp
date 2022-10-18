@@ -2648,7 +2648,7 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
 
 std::unordered_map<std::string, void*> loaded_named_libs;
 std::shared_mutex loaded_named_libs_mx;
-void* wo_load_lib(const char* libname, const char* path)
+void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail)
 {
     if (path)
     {
@@ -2657,7 +2657,8 @@ void* wo_load_lib(const char* libname, const char* path)
         auto fnd = loaded_named_libs.find(libname);
         if (fnd != loaded_named_libs.end())
         {
-            wo_fail(WO_FAIL_DEADLY, "Library with same name has been loaded.");
+            if (panic_when_fail)
+                wo_fail(WO_FAIL_DEADLY, "Library with same name has been loaded.");
             return nullptr;
         }
         if (void* handle = wo::osapi::loadlib(path))
@@ -2665,7 +2666,8 @@ void* wo_load_lib(const char* libname, const char* path)
             loaded_named_libs[libname] = handle;
             return handle;
         }
-        wo_fail(WO_FAIL_DEADLY, "Failed to load specify library.");
+        if (panic_when_fail)
+            wo_fail(WO_FAIL_DEADLY, "Failed to load specify library.");
         return nullptr;
     }
     else
@@ -2689,7 +2691,7 @@ void wo_unload_lib(void* lib)
 
     std::shared_lock sg1(loaded_named_libs_mx);
     auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
-        [lib](const auto& idx) 
+        [lib](const auto& idx)
         {
             if (idx.second == lib)
                 return true;

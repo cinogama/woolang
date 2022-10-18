@@ -71,7 +71,7 @@ namespace wo
                 if ((extern_lib = osapi::loadlib((libpath + "32").c_str())))
                     return;
 #endif
-                if (extern_lib = wo_load_lib(libpath.c_str(), nullptr))
+                if (extern_lib = wo_load_lib(libpath.c_str(), nullptr, true))
                     return;
 
                 extern_lib = osapi::loadlib(libpath.c_str());
