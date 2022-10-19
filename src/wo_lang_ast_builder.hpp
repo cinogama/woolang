@@ -5272,14 +5272,20 @@ namespace wo
                     }
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
+                    if (ast_empty::is_empty(input[3]))
+                        arg_def->value_type = new ast_type(WO_PSTR(auto));
+                    else
+                        arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
-                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                    if (ast_empty::is_empty(input[2]))
+                        arg_def->value_type = new ast_type(WO_PSTR(auto));
+                    else
+                        arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 }
 
                 return (grammar::ast_base*)arg_def;

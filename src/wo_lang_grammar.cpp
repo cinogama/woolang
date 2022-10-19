@@ -612,11 +612,11 @@ namespace wo
                 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECLEAR") }
+                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
 
                 gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }

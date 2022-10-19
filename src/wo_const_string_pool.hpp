@@ -29,6 +29,7 @@ WO_GLOBAL_PSTR(pending)\
 WO_GLOBAL_PSTR(dynamic)\
 WO_GLOBAL_PSTR(complex)\
 WO_GLOBAL_PSTR(bool)\
+WO_GLOBAL_PSTR(auto)\
 WO_GLOBAL_PSTR(anything)\
 WO_GLOBAL_PSTR(iter)\
 WO_GLOBAL_PSTR(_iter)\
