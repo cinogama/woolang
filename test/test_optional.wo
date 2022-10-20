@@ -93,7 +93,7 @@ namespace test_optional
     func test_chain()
     {
         let data_from = ["Hello", "world", "woolang"];
-        let chain = linknode(data_from)->dup();
+        let chain = linknode::create(data_from)->dup();
 
         let arr = []mut: vec<string>;
         for(let x : chain)

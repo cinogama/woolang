@@ -11,13 +11,13 @@ namespace wo
 {
     struct lang_symbol
     {
-        enum class symbol_type
+        enum symbol_type
         {
-            type_alias,
-            typing,
+            type_alias = 0x01,
+            typing = 0x02,
 
-            variable,
-            function,
+            variable = 0x04,
+            function = 0x08,
         };
         symbol_type type;
         wo_pstring_t name;
@@ -271,7 +271,7 @@ namespace wo
                     sym->type_informatiom->template_arguments.clear();
 
                     // Update template setting info...
-                    if (sym->type_informatiom->is_array()|| sym->type_informatiom->is_vec())
+                    if (sym->type_informatiom->is_array() || sym->type_informatiom->is_vec())
                     {
                         sym->template_types = { WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
@@ -3821,7 +3821,7 @@ namespace wo
                 if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    auto * sym = define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    auto* sym = define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
                     ast_value_funcdef->symbol = sym;
                 }
             }
@@ -3886,7 +3886,7 @@ namespace wo
                 sym->defined_in_scope = lang_scopes.back();
                 sym->variable_value = func_def;
                 sym->is_template_symbol = func_def->is_template_define;
-               
+
                 lang_symbols.push_back(sym);
 
                 return sym;
@@ -4060,7 +4060,7 @@ namespace wo
             return true;
         }
 
-        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str)
+        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask)
         {
             wo_assert(lang_scopes.size());
 
@@ -4071,7 +4071,10 @@ namespace wo
                 for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                 {
                     if (auto fnd = rind->find(ident_str); fnd != rind->end())
-                        return fnd->second;
+                    {
+                        if ((fnd->second->type & target_type_mask) != 0)
+                            return fnd->second;
+                    }
                 }
 
             auto* searching_from_scope = var_ident->searching_begin_namespace_in_pass2;
@@ -4167,7 +4170,8 @@ namespace wo
                 if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
                     fnd != indet_finding_namespace->symbols.end())
                 {
-                    if (check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                    if ((fnd->second->type & target_type_mask) != 0
+                        && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
                         return var_ident->symbol = fnd->second;
                 }
 
@@ -4266,7 +4270,9 @@ namespace wo
                     if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
-                        searching_result.insert(fnd->second);
+                        if ((fnd->second->type & target_type_mask) != 0
+                            && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                            searching_result.insert(fnd->second);
                         goto next_searching_point;
                     }
 
@@ -4285,35 +4291,23 @@ namespace wo
 
             if (searching_result.size() > 1)
             {
-                // Result might have un-accessable type? remove them
-                std::set<lang_symbol*> selecting_results;
-                selecting_results.swap(searching_result);
-                for (auto fnd_result : selecting_results)
-                    if (check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
-                        searching_result.insert(fnd_result);
-
-                if (searching_result.empty())
-                    return var_ident->symbol = nullptr;
-                else if (searching_result.size() > 1)
+                std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
+                size_t fnd_count = 0;
+                for (auto fnd_result : searching_result)
                 {
-                    std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
-                    size_t fnd_count = 0;
-                    for (auto fnd_result : searching_result)
-                    {
-                        auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
-                        if (_full_namespace_ == L"")
-                            err_info += WO_TERM_GLOBAL_NAMESPACE;
-                        else
-                            err_info += L"'" + _full_namespace_ + L"'";
-                        fnd_count++;
-                        if (fnd_count + 1 == searching_result.size())
-                            err_info += L" " WO_TERM_AND L" ";
-                        else
-                            err_info += L", ";
-                    }
-
-                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
+                    auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
+                    if (_full_namespace_ == L"")
+                        err_info += WO_TERM_GLOBAL_NAMESPACE;
+                    else
+                        err_info += L"'" + _full_namespace_ + L"'";
+                    fnd_count++;
+                    if (fnd_count + 1 == searching_result.size())
+                        err_info += L" " WO_TERM_AND L" ";
+                    else
+                        err_info += L", ";
                 }
+
+                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
             }
             // Check symbol is accessable?
             auto* result = *searching_result.begin();
@@ -4323,7 +4317,8 @@ namespace wo
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name,
+                lang_symbol::symbol_type::type_alias | lang_symbol::symbol_type::typing);
             if (result
                 && result->type != lang_symbol::symbol_type::typing
                 && result->type != lang_symbol::symbol_type::type_alias)
@@ -4335,43 +4330,15 @@ namespace wo
         }
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name,
+                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function);
 
             if (result
                 && (result->type == lang_symbol::symbol_type::typing
                     || result->type == lang_symbol::symbol_type::type_alias))
             {
-                var_ident->symbol = nullptr;
-
-                wo_pstring_t used_template_impl_typing_name;
-
-                ast::ast_type* typing_index = nullptr;
-
-                if (result->type == lang_symbol::symbol_type::typing)
-                    used_template_impl_typing_name = var_ident->var_name;
-                else
-                {
-                    typing_index = result->type_informatiom;
-
-                    if (typing_index->using_type_name)
-                        typing_index = typing_index->using_type_name;
-
-                    used_template_impl_typing_name = typing_index->type_name;
-
-                    var_ident->scope_namespaces = typing_index->scope_namespaces;
-                    var_ident->template_reification_args = typing_index->template_arguments;
-
-                }
-
-                var_ident->scope_namespaces.push_back(used_template_impl_typing_name);
-                auto type_name = var_ident->var_name;
-                var_ident->var_name = WO_PSTR(create);
-
-                result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
-                if (!result)
-                    lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
-                        used_template_impl_typing_name->c_str()
-                    );
+                lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
+                    result->name->c_str());
             }
             if (result)
             {

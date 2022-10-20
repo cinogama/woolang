@@ -271,7 +271,7 @@ namespace test_template
         hkt_foo([[true]: alarr<int>]) as ()=>array<string>;
         hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
 
-        let mins = mtest:<string>();
+        let mins = mtest::create:<string>();
         mins.c = 66;
         
         test_assure(template_func_symb_inside:<real>() == template_func_symb_inside:<real>());
@@ -355,7 +355,7 @@ namespace test_template
 
         let p = []mut: vec<int>;
         let q = [1,2,3,4,5,6,7,8,9];
-        for(let v : wraped_iterator(q->iter(), func(e:int){return e==5;}))
+        for(let v : wraped_iterator::create(q->iter(), func(e:int){return e==5;}))
         {
             p->add(v);
         }
