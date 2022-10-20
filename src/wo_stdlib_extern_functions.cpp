@@ -2139,14 +2139,11 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
     wo_value wo_calling_function = wo_push_val(new_thread_vm, args + 0);
     wo_int_t arg_count = 0;
 
-    if (argc == 2)
-    {
-        wo_value arg_pack = args + 1;
-        arg_count = wo_lengthof(arg_pack);
+    wo_value arg_pack = args + 1;
+    arg_count = wo_lengthof(arg_pack);
 
-        for (size_t i = arg_count; i > 0; i--)
-            wo_push_valref(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
-    }
+    for (size_t i = arg_count; i > 0; i--)
+        wo_push_valref(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
 
     auto* _vmthread = new std::thread([=]() {
         wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, arg_count);
@@ -2366,14 +2363,11 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
 
     wo_value wo_calling_function = wo_push_val((wo_vm)_nvm, args + 0);
 
-    if (argc == 2)
-    {
-        wo_value arg_pack = args + 1;
-        arg_count = wo_lengthof(arg_pack);
+    wo_value arg_pack = args + 1;
+    arg_count = wo_lengthof(arg_pack);
 
-        for (size_t i = arg_count; i > 0; i--)
-            wo_push_valref(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
-    }
+    for (size_t i = arg_count; i > 0; i--)
+        wo_push_valref(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
 
     wo::shared_pointer<wo::RSCO_Waitter> gchandle_roroutine;
 

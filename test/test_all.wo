@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_coroutine;
 import test_container;
 import test_hkt;
 import test_compile;
@@ -16,7 +17,6 @@ import test_basic;
 import test_namespace;
 import test_bool;
 import test_return;
-import test_coroutine;
 import test_string_u8;
 import test_while;
 import test_debug_invoke;
