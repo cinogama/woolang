@@ -90,11 +90,11 @@
 
 #define WO_ERR_UNABLE_DECIDE_VAR_TYPE L"无法决断变量类型"
 
-#define WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE L"无法确定要使用函数的哪一个重载, 或许是: %ls"
-
-#define WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL L"无法确定要使用的函数"
-
-#define WO_ERR_NO_MATCH_FUNC_OVERRIDE L"没有找到匹配参数的函数重载"
+//#define WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE L"无法确定要使用函数的哪一个重载, 或许是: %ls"
+//
+//#define WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL L"无法确定要使用的函数"
+//
+//#define WO_ERR_NO_MATCH_FUNC_OVERRIDE L"没有找到匹配参数的函数重载"
 
 #define WO_ERR_ARGUMENT_TOO_FEW L"无法调用 '%ls': 参数过少"
 
@@ -148,7 +148,7 @@
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"此处泛型不能用于修饰非变量/函数对象"
 
-#define WO_ERR_NO_MATCHED_TEMPLATE_FUNC L"未找到符合模板参数的函数重载"
+#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"模板参数不匹配"
 
 #define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
 
@@ -299,11 +299,11 @@
 
 #define WO_ERR_UNABLE_DECIDE_VAR_TYPE L"Unable to decide variable type."
 
-#define WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE L"Cannot judge which function override to call, maybe: %ls."
-
-#define WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL L"Cannot decided which function to use."
-
-#define WO_ERR_NO_MATCH_FUNC_OVERRIDE L"No matched function override to call."
+//#define WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE L"Cannot judge which function override to call, maybe: %ls."
+//
+//#define WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL L"Cannot decided which function to use."
+//
+//#define WO_ERR_NO_MATCH_FUNC_OVERRIDE L"No matched function override to call."
 
 #define WO_ERR_ARGUMENT_TOO_FEW L"Argument count too few to call '%ls'."
 
@@ -357,7 +357,7 @@
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"Templated items beside variable or function is invalid here."
 
-#define WO_ERR_NO_MATCHED_TEMPLATE_FUNC L"No matched template function."
+#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"Template arguments didn't matched."
 
 #define WO_ERR_UNDEFINED_MEMBER L"try index undefined '%ls'."
 

@@ -43,10 +43,10 @@ namespace wo
 
         union
         {
+            ast::ast_value_function_define* function_define;
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
-        std::vector<ast::ast_value_function_define*> function_overload_sets;
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<wo_pstring_t> template_types;
@@ -1207,29 +1207,26 @@ namespace wo
 
             if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
             {
-                ast_value_function_define* dumpped_template_func_define = nullptr;
+                * dumpped_template_func_define = nullptr;
 
-                wo_assert(origin_variable->symbol->function_overload_sets.size());
-                for (auto& func_overload : origin_variable->symbol->function_overload_sets)
-                {
-                    if (!check_symbol_is_accessable(func_overload, func_overload->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, false))
-                        continue; // In template function, not accessable function will be skip!
+                wo_assert(origin_variable->symbol->function_define != nullptr);
 
-                    if (func_overload->is_template_define
-                        && func_overload->template_type_name_list.size() == origin_variable->template_reification_args.size())
-                    {
-                        // TODO: finding repeated template? goon
-                        dumpped_template_func_define = analyze_pass_template_reification(func_overload, origin_variable->template_reification_args);
-                        break;
-                    }
-                }
-                if (!dumpped_template_func_define)
-                {
-                    lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                if (!check_symbol_is_accessable(origin_variable->symbol->function_define, origin_variable->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, true))
                     return nullptr;
+
+                if (origin_variable->symbol->function_define->is_template_define
+                    && origin_variable->symbol->function_define->template_type_name_list.size() == origin_variable->template_reification_args.size())
+                {
+                    // TODO: finding repeated template? goon
+                    ast_value_function_define * dumpped_template_func_define = analyze_pass_template_reification(origin_variable->symbol->function_define, origin_variable->template_reification_args);
+                    return dumpped_template_func_define->this_reification_lang_symbol;
                 }
                 else
-                    return dumpped_template_func_define->this_reification_lang_symbol;
+                {
+                    lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                    return nullptr;
+                }
+ 
             }
             else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
             {
@@ -1937,15 +1934,8 @@ namespace wo
             }
             else
             {
-                if (symb->function_overload_sets.size() == 0)
-                    return analyze_value(symb->variable_value, compiler, get_pure_value, false);
-                else if (symb->function_overload_sets.size() == 1)
-                    return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value, false);
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, error_prud, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
-                    return WO_NEW_OPNUM(imm(0));
-                }
+                wo_assert(symb->type == lang_symbol::symbol_type::function);
+                return analyze_value(symb->function_define, compiler, get_pure_value, false);
             }
         }
 
@@ -3873,61 +3863,6 @@ namespace wo
         {
             wo_assert(lang_scopes.size());
 
-            if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
-            {
-                if (func_def->function_name != nullptr)
-                {
-                    wo_assert(template_style::NORMAL == is_template_value);
-
-                    lang_symbol* sym;
-                    if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
-                    {
-                        sym = lang_scopes.back()->symbols[names];
-                        if (sym->type != lang_symbol::symbol_type::function)
-                        {
-                            lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
-                            return sym;
-                        }
-                    }
-                    else
-                    {
-                        sym = lang_scopes.back()->symbols[names] = new lang_symbol;
-                        sym->type = lang_symbol::symbol_type::function;
-                        sym->name = names;
-                        sym->defined_in_scope = lang_scopes.back();
-                        sym->attribute = new ast::ast_decl_attribute();
-                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_public);
-                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
-
-                        auto* pending_function = new ast::ast_value_function_define;
-                        pending_function->value_type = new ast::ast_type(WO_PSTR(pending));
-                        pending_function->value_type->set_as_function_type();
-                        pending_function->value_type->set_as_variadic_arg_func();
-                        pending_function->in_function_sentence = nullptr;
-                        pending_function->auto_adjust_return_type = false;
-                        pending_function->function_name = func_def->function_name;
-                        pending_function->symbol = sym;
-                        sym->variable_value = pending_function;
-
-                        lang_symbols.push_back(sym);
-                    }
-
-                    if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
-                        && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != nullptr)
-                    {
-                        func_def->symbol = sym;
-                        sym->function_overload_sets.push_back(func_def);
-
-                        if (func_def->is_template_define)
-                        {
-                            sym->is_template_symbol = true;
-                        }
-
-                        return sym;
-                    }
-                }
-            }
-
             if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
@@ -3935,22 +3870,38 @@ namespace wo
                 lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
                 return last_func_symbol;
             }
+
+            if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val);
+                func_def != nullptr && func_def->function_name != nullptr)
+            {
+                wo_assert(template_style::NORMAL == is_template_value);
+
+                lang_symbol* sym;
+
+                sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                sym->type = lang_symbol::symbol_type::function;
+                sym->attribute = attr;
+                sym->name = names;
+                sym->defined_in_scope = lang_scopes.back();
+                sym->function_define = func_def;
+
+                lang_symbols.push_back(sym);
+            }
             else
             {
                 lang_symbol* sym = new lang_symbol;
                 if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
                     lang_scopes.back()->symbols[names] = sym;
 
-                sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::variable;
+                sym->attribute = attr;
                 sym->name = names;
                 sym->variable_value = init_val;
                 sym->defined_in_scope = lang_scopes.back();
+
                 auto* func = in_function();
                 if (attr->is_extern_attr() && func)
-                {
                     lang_anylizer->lang_error(0x0000, attr, WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC);
-                }
                 if (func && !sym->attribute->is_static_attr())
                 {
                     sym->define_in_function = true;

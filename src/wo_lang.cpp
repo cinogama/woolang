@@ -761,7 +761,7 @@ namespace wo
     {
         auto* a_using_type_as = WO_AST();
 
-        if (a_using_type_as->old_type->typefrom == nullptr 
+        if (a_using_type_as->old_type->typefrom == nullptr
             || a_using_type_as->template_type_name_list.empty())
             fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
 
@@ -1131,16 +1131,6 @@ namespace wo
             ast_type* _next_executer_type = next_func_symb_getter->symbol
                 ->variable_value->value_type;
 
-            if (!next_func_symb_getter->symbol->function_overload_sets.empty())
-            {
-                auto* next_function = next_func_symb_getter->symbol->function_overload_sets.front();
-
-                // TODO: Check if private 'next' function?
-
-                _next_executer_type =
-                    next_function->value_type;
-            }
-
             int need_takeplace_count = (int)_next_executer_type->argument_types.size();
             need_takeplace_count -= (int)a_foreach->used_vawo_defines->var_refs.size();
             need_takeplace_count -= 1;//iter
@@ -1351,20 +1341,17 @@ namespace wo
                                         fact_used_template);
                                 else
                                 {
-                                    if (a_pattern_union_value->union_expr->symbol->function_overload_sets.size() == 1)
-                                    {
-                                        auto final_function = a_pattern_union_value->union_expr->symbol->function_overload_sets.front();
+                                    wo_assert(a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::function);
 
-                                        auto* dumped_func = analyze_pass_template_reification(
-                                            dynamic_cast<ast_value_function_define*>(final_function),
-                                            fact_used_template);
-                                        if (dumped_func)
-                                            a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
-                                        else
-                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
-                                    }
+                                    auto final_function = a_pattern_union_value->union_expr->symbol->function_define;
+
+                                    auto* dumped_func = analyze_pass_template_reification(
+                                        dynamic_cast<ast_value_function_define*>(final_function),
+                                        fact_used_template);
+                                    if (dumped_func)
+                                        a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
                                     else
-                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
+                                        lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_TEMPLATE_ARG_NOT_MATCH);
                                 }
                             }
                         }
@@ -1549,16 +1536,6 @@ namespace wo
         analyze_pass2(a_value_assi->left);
         analyze_pass2(a_value_assi->right);
 
-        if (a_value_assi->right->value_type->is_pending_function())
-        {
-            // Function assign, auto find overload? no! type must be case by user
-            if (a_value_assi->left->value_type->is_func())
-                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE,
-                    a_value_assi->left->value_type->get_type_name(false).c_str());
-            else
-                lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
-        }
-
         if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
         {
             lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
@@ -1582,53 +1559,15 @@ namespace wo
         fully_update_type(a_value_typecast->value_type, false);
         analyze_pass2(origin_value);
 
-        if (auto* a_variable_sym = dynamic_cast<ast_value_variable*>(origin_value);
-            a_variable_sym && a_variable_sym->value_type->is_pending_function())
+        if (!ast_type::check_castable(a_value_typecast->aim_type, origin_value->value_type))
         {
-            // this function is in adjust..
-            if (a_value_typecast->value_type->is_func())
-            {
-                auto& func_symbol = a_variable_sym->symbol->function_overload_sets;
-                if (func_symbol.size())
-                {
-                    for (auto func_overload : func_symbol)
-                    {
-                        if (!check_symbol_is_accessable(func_overload, func_overload->symbol, a_variable_sym->searching_begin_namespace_in_pass2, a_variable_sym, false))
-                            continue; // In function override judge, not accessable function will be skip!
+            lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+                origin_value->value_type->get_type_name(false).c_str(),
+                a_value_typecast->aim_type->get_type_name(false).c_str()
+            );
+            a_value_typecast->aim_type = ast_type::create_type_at(a_value_typecast, WO_PSTR(pending));
+        }
 
-                        auto* overload_func = dynamic_cast<ast_value_function_define*>(func_overload);
-                        if (overload_func->value_type->is_same(a_value_typecast->value_type, false, false))
-                        {
-                            a_value_typecast->_be_cast_value_node = overload_func;
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    // symbol is not a function-symbol, can not do adjust, goto simple-cast;
-                    goto just_do_simple_type_cast;
-                }
-            }
-            if (a_value_typecast->_be_cast_value_node->value_type->is_pending())
-            {
-                lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_GET_FUNC_OVERRIDE_WITH_TYPE,
-                    a_variable_sym->var_name->c_str(),
-                    a_value_typecast->value_type->get_type_name().c_str());
-            }
-        }
-        else
-        {
-        just_do_simple_type_cast:
-            if (!ast_type::check_castable(a_value_typecast->aim_type, origin_value->value_type))
-            {
-                lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
-                    origin_value->value_type->get_type_name(false).c_str(),
-                    a_value_typecast->aim_type->get_type_name(false).c_str()
-                );
-                a_value_typecast->aim_type = ast_type::create_type_at(a_value_typecast, WO_PSTR(pending));
-            }
-        }
         return true;
     }
     WO_PASS2(ast_value_type_judge)
