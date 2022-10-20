@@ -193,6 +193,7 @@ namespace wo
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
+                {WO_PSTR(auto), value::valuetype::invalid},
             };
 
             static wo_pstring_t get_name_from_type(value::valuetype _type)
@@ -598,7 +599,7 @@ namespace wo
                     return false;
                 return true;
             }
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false) const
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false, bool accept_auto_type = false) const
             {
                 if (is_pending_function() || another->is_pending_function())
                     return false;
@@ -614,6 +615,9 @@ namespace wo
                         return true;
                     return false;
                 }
+
+                if (is_auto() || another->is_auto())
+                    return accept_auto_type;
 
                 if (another->is_nothing())
                     return true; // top type, OK
@@ -638,10 +642,10 @@ namespace wo
                         // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                         if (flipped)
                         {
-                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
+                            if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true, accept_auto_type))
                                 return false;
                         }
-                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
+                        else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true, accept_auto_type))
                             return false;
                     }
                     if (is_variadic_function_type != another->is_variadic_function_type)
@@ -652,7 +656,7 @@ namespace wo
 
                 if (is_complex() && another->is_complex())
                 {
-                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
+                    if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped, accept_auto_type))
                         return false;
                 }
                 else
@@ -683,7 +687,7 @@ namespace wo
                         return false;
 
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
+                        if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped, accept_auto_type))
                             return false;
                 }
                 if (has_template())
@@ -692,7 +696,7 @@ namespace wo
                         return false;
                     for (size_t index = 0; index < template_arguments.size(); index++)
                     {
-                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
+                        if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped, accept_auto_type))
                             return false;
                     }
                 }
@@ -949,6 +953,11 @@ namespace wo
                 return !is_func() &&
                     (type_name == WO_PSTR(struct));
             }
+            bool is_auto() const
+            {
+                return !is_func() &&
+                    (type_name == WO_PSTR(auto));
+            }
             bool has_template() const
             {
                 return !template_arguments.empty();
@@ -960,6 +969,18 @@ namespace wo
             bool is_string() const
             {
                 return value_type == value::valuetype::string_type && !is_func();
+            }
+            bool is_auto_arg_func() const
+            {
+                if (is_func())
+                {
+                    for (auto& argt : argument_types)
+                    {
+                        if (argt->is_auto())
+                            return true;
+                    }
+                }
+                return false;
             }
             bool is_complex_type() const
             {
