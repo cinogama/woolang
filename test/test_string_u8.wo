@@ -7,7 +7,7 @@ namespace test_string_u8
     {
         let str = "Helloworld";
         test_equal(str, "Helloworld");
-        test_equal(str->sub(0, 5), "Hello");
+        test_equal(str->subto(0, 5), "Hello");
         test_equal(str[0], "H");
         test_equal(str[1], "e");
         test_equal(str[2], "l");
@@ -15,13 +15,13 @@ namespace test_string_u8
 
         let chstr = "你好世界";
         test_equal(chstr, "你好世界");
-        test_equal(chstr->sub(0, 2), "你好");
+        test_equal(chstr->subto(0, 2), "你好");
         test_equal(chstr[0], "你");
         test_equal(chstr[1], "好");
         test_equal(chstr[2], "世");
         test_equal(chstr[3], "界");
 
-        let combine = str->sub(0, 5) + chstr->sub(2, 2);
+        let combine = str->subto(0, 5) + chstr->subto(2, 2);
         test_equal(combine, "Hello世界");
         test_equal(combine->len(), 7);
 

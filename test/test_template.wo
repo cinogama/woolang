@@ -86,43 +86,6 @@ namespace test_template
         return val:TO;
     }
 
-    func no_template_test()
-    {
-        return "no_template";
-    }
-
-    func no_template_test<T>()
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_1(n:int)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_1<T>(n:T)
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_2(n:int, x:real)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_2<T>(n:T, x:real)
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_3(n:int, ...)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_3<T>(n:T, ...)
-    {
-        return "has_template";
-    }
-
     func template_if_constexpr_test<T>()
     {
         if (0:T is real)
@@ -146,19 +109,17 @@ namespace test_template
     }
 
     using MySecTemplate<T> = int;
-    func TemplateAutoJudgeTest<T>(self:MyTemplate<T>)
+    func TemplateAutoJudgeTest<K, T>(self:K<T>)
     {
-        return "fail";
+        if (self is MyTemplate<T>)
+            return "fail";
+        else if (self is MySecTemplate<T>)
+            return "ohooo";
+        else if (self is array<T>)
+            return "success";
+        else
+            return "?";
     }
-    func TemplateAutoJudgeTest<T>(self:MySecTemplate<T>)
-    {
-        return "ohooo";
-    }
-    func TemplateAutoJudgeTest<T>(self:array<T>)
-    {
-        return "success";
-    }
-
     
     namespace A
     {
@@ -368,12 +329,6 @@ namespace test_template
         // test_cost_time:<dynamic>();
 
         test_equal(cast_to:<string>(3)+".14159", "3.14159");
-
-        test_equal(no_template_test(), "no_template");
-        test_equal(no_template_first_test_1(0), "no_template");
-
-        test_equal(no_template_first_test_2(0, 0.), "no_template");
-        test_equal(no_template_first_test_3(0, 233), "no_template");
 
         template_if_constexpr_test:<int>():dynamic as int;
         template_if_constexpr_test:<real>():dynamic as real;

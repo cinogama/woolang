@@ -15,7 +15,7 @@ namespace test_coroutine
                 co::sleep(1.);
                 println("Helloworld");
             }
-        });
+        }, ());
 
         let co2 = co(func(pre_co:co){
 
@@ -41,7 +41,7 @@ namespace test_coroutine
                 {
                     std::co::sleep(1.);
                 }
-            }));
+            }, ()));
         }
         for(let co : co_list)
             while(!co->completed())
@@ -55,7 +55,7 @@ namespace test_coroutine
                 {
                     for(let mut j = i; j < 1'000'000; j += 1)
                         std::co::yield();
-                }
+                }, ()
             ));
         for(let co : co_list)
         {
@@ -72,32 +72,33 @@ namespace test_coroutine
         let vm = std::vm();
 
         vm->load_source(
-        @"
-        import woo.std;
-        import woo.co;
+            "test.wo",
+            @"
+            import woo.std;
+            import woo.co;
 
-        let co_list = []:array<std::co>;
+            let co_list = []:array<std::co>;
 
-        for(let mut i = 0; i < 1000; i += 1)
-            co_list->add(std::co(
-                func()
-                {
-                    while(true)
-                        std::co::yield();
-                }
-            ));
+            for(let mut i = 0; i < 1000; i += 1)
+                co_list->add(std::co(
+                    func()
+                    {
+                        while(true)
+                            std::co::yield();
+                    }, ()
+                ));
 
-        std::println("co ready!");
-        std::sleep(3);
-        std::println("shutting down coroutines!");
+            std::println("co ready!");
+            std::sleep(3);
+            std::println("shutting down coroutines!");
 
-        for(let co : co_list)
-        {
-            co->abort();
-        }
-        std::println("over!");
-        std::sleep(3);
-        "@
+            for(let co : co_list)
+            {
+                co->abort();
+            }
+            std::println("over!");
+            std::sleep(3);
+            "@
         );
 
         vm->run();
@@ -109,7 +110,7 @@ namespace test_coroutine
         let mut aim_value = false;
         let _pack = [mut ref aim_value]mut;
 
-        let mut co1 = std::co(func(){ _pack[0] = true });
+        let mut co1 = std::co(func(){ _pack[0] = true }, ());
         while(!co1->completed())
             std::sleep(0.1);
 
@@ -121,7 +122,7 @@ namespace test_coroutine
                 std::println("co working:", i);
                 std::co::yield();
             }
-        });
+        }, ());
 
         while(!co1->completed())
             std::sleep(0.1);
@@ -131,13 +132,13 @@ namespace test_coroutine
             {
                 std::println("co working 1...");
             }
-        });
+        }, ());
         let co2 = std::co(func(){
             for (;;)
             {
                 std::println("co working 2...");
             }
-        });
+        }, ());
 
         std::co::stop_all();
 
@@ -147,7 +148,7 @@ namespace test_coroutine
                 std::println("co working:", i);
                 std::co::yield();
             }
-        });
+        }, ());
 
         while(!co1->completed())
             std::sleep(0.1);

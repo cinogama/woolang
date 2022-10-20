@@ -251,12 +251,11 @@ namespace wo
             if (sym->type != lang_symbol::symbol_type::variable || sym->decl == identifier_decl::IMMUTABLE)
                 a_value_var->can_be_assign = false;
 
-            if (sym->type == lang_symbol::symbol_type::variable && sym->is_template_symbol)
+            if (sym->type == lang_symbol::symbol_type::variable)
             {
-                // Here is template variable, delay it's type calc.
+                if (!sym->is_template_symbol)
+                    a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
             }
-            else
-                a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
         }
         for (auto* a_type : a_value_var->template_reification_args)
         {
@@ -1343,7 +1342,7 @@ namespace wo
                                 {
                                     wo_assert(a_pattern_union_value->union_expr->symbol->type == lang_symbol::symbol_type::function);
 
-                                    auto final_function = a_pattern_union_value->union_expr->symbol->function_define;
+                                    auto final_function = a_pattern_union_value->union_expr->symbol->get_funcdef();
 
                                     auto* dumped_func = analyze_pass_template_reification(
                                         dynamic_cast<ast_value_function_define*>(final_function),
@@ -2184,6 +2183,19 @@ namespace wo
         return true;
     }
 
+    void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_value_function_define* funcdef)
+    {
+        wo_assert(funcdef != nullptr && ast != nullptr);
+        if (funcdef->where_constraint != nullptr && !funcdef->where_constraint->accept)
+        {
+            lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
+            for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
+            {
+                lang_anylizer->get_cur_error_frame().push_back(error_info);
+            }
+        }
+    }
+
     WO_PASS2(ast_value_variable)
     {
         auto* a_value_var = WO_AST();
@@ -2215,32 +2227,19 @@ namespace wo
 
                     a_value_var->symbol = sym;
 
+                    if (a_value_var->symbol->type == lang_symbol::symbol_type::function)
+                    {
+                        auto* funcdef = a_value_var->symbol->get_funcdef();
+                        check_function_where_constraint(a_value_var, lang_anylizer, funcdef);
+                    }
+
                     if (a_value_var->value_type->is_pending())
                     {
-                        if (a_value_var->symbol->type != lang_symbol::symbol_type::function)
-                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
-                        else if (a_value_var->symbol->function_overload_sets.size() == 1
-                            && !a_value_var->symbol->is_template_symbol
-                            && a_value_var->template_reification_args.empty())
-                        {
-                            // only you~
-                            auto* result = sym->function_overload_sets.front();
-                            check_symbol_is_accessable(result, result->symbol, a_value_var->searching_begin_namespace_in_pass2, a_value_var);
-                            analyze_pass2(result);
-                            a_value_var->value_type = ast_type::create_type_at(a_value_var, *result->value_type);
-
-                            if (a_value_var->value_type->is_pending())
-                                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE,
-                                    a_value_var->var_name->c_str());
-                        }
+                        if (a_value_var->symbol->type == lang_symbol::symbol_type::function
+                            && a_value_var->symbol->is_template_symbol)
+                            ; /* function call may be template, do not report error here~ */
                         else
-                        {
-                            // NOTE: A FUNCTION CALL MAY RUN HERE, SO WE DONOT REPORT ANY ERROR. 
-                            /*if (a_value_var->symbol->is_template_symbol || !a_value_var->template_reification_args.empty())
-                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数是一个泛型函数，需要指定泛型参数，继续");
-                            else
-                                lang_anylizer->lang_error(0x0000, a_value_var, L"给定的函数拥有多个重载，需要指定需要使用的重载函数，继续");*/
-                        }
+                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
                     }
                 }
             }
@@ -2362,363 +2361,105 @@ namespace wo
             analyze_pass2(a_value_funccall->called_func);
             analyze_pass2(a_value_funccall->arguments);
 
-            // judge the function override..
-            if (a_value_funccall->called_func->value_type->is_pending())
+            if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
             {
-                // function call for witch overrride not judge. do it.
-                if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+                // called_funcsymb might be lambda function, and have not symbol.
+                if (called_funcsymb->symbol != nullptr
+                    && called_funcsymb->symbol->type == lang_symbol::symbol_type::function)
                 {
-                    if (nullptr == called_funcsymb->symbol)
+                    check_symbol_is_accessable(
+                        called_funcsymb->symbol->get_funcdef(),
+                        called_funcsymb->symbol,
+                        called_funcsymb->searching_begin_namespace_in_pass2,
+                        a_value_funccall,
+                        true);
+
+                    auto* funcdef = called_funcsymb->symbol->get_funcdef();
+
+                    if (funcdef->is_template_define)
                     {
-                        // do nothing..
-                    }
-                    else if (!called_funcsymb->symbol->function_overload_sets.empty())
-                    {
-
-                        // have override set, judge with following rule:
-                        // 1. best match <may be template>
-                        // 2. need cast <may be template>
-                        // 3. variadic func <may be template>
-                        // -  bad match
-
-                        std::vector<ast_value_function_define*> best_match_sets;
-                        std::vector<ast_value_function_define*> best_match_sets_template;
-                        std::vector<ast_value_function_define*> variadic_sets;
-                        std::vector<ast_value_function_define*> variadic_sets_template;
-
-                        std::vector<ast_value_function_define*> tried_function;
-
-                        for (auto* _override_func : called_funcsymb->symbol->function_overload_sets)
+                        // Judge template here.
+                        std::vector<ast_type*> template_args(funcdef->template_type_name_list.size(), nullptr);
+                        if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
                         {
-                            if (!check_symbol_is_accessable(_override_func, _override_func->symbol, called_funcsymb->searching_begin_namespace_in_pass2, a_value_funccall, false))
-                                continue; // In function override judge, not accessable function will be skip!
-
-                            auto* override_func = dynamic_cast<ast_value_function_define*>(_override_func);
-                            wo_test(override_func);
-
-                            bool with_template = false;
-                            grammar::ast_base* real_args = nullptr;
-                            grammar::ast_base* form_args = nullptr;
-
-                            if (override_func->is_template_define)
-                            {
-                                // try judge templates..
-                                with_template = true;
-
-                                std::vector<ast_type*> template_args(override_func->template_type_name_list.size(), nullptr);
-
-                                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
-                                {
-                                    if (variable->template_reification_args.size() > template_args.size())
-                                        continue; // Give too many template arguments
-                                    for (size_t index = 0; index < variable->template_reification_args.size(); index++)
-                                    {
-                                        template_args[index] = variable->template_reification_args[index];
-                                    }
-                                }
-
-                                // finish template args spcified by : xxxxx:<a,b,c> 
-                                // trying auto judge type..
-
-                                std::vector<ast_type*> real_argument_types;
-                                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
-                                while (funccall_arg)
-                                {
-                                    real_argument_types.push_back(funccall_arg->value_type);
-                                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
-                                }
-
-                                // begin auto template args
-                                // FXXXXXXXXXXXXXXXXK!!!!!!
-                                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
-                                {
-                                    auto& pending_template_arg = template_args[tempindex];
-
-                                    if (!pending_template_arg)
-                                    {
-                                        for (size_t index = 0;
-                                            index < real_argument_types.size() &&
-                                            index < override_func->value_type->argument_types.size();
-                                            index++)
-                                        {
-
-                                            fully_update_type(override_func->value_type->argument_types[index], false,
-                                                override_func->template_type_name_list);
-                                            //fully_update_type(real_argument_types[index], false); // USELESS
-
-                                            pending_template_arg = analyze_template_derivation(
-                                                override_func->template_type_name_list[tempindex],
-                                                override_func->template_type_name_list,
-                                                override_func->value_type->argument_types[index],
-                                                real_argument_types[index]
-                                            );
-
-                                            if (pending_template_arg)
-                                                break;
-                                        }
-                                    }
-                                }
-
-                                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
-                                    continue; // failed getting each of template args, abandon this one
-
-                                for (auto* templ_arg : template_args)
-                                {
-                                    fully_update_type(templ_arg, false);
-                                    if (templ_arg->is_pending() && !templ_arg->is_hkt())
-                                    {
-                                        lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
-                                            templ_arg->get_type_name(false).c_str());
-                                        goto this_function_override_checking_over;
-                                    }
-                                }
-
-                                override_func = analyze_pass_template_reification(override_func, template_args); //tara~ get analyze_pass_template_reification 
-                                _override_func = override_func;
-                            }
-                            else if (auto callee_fun_variable = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func);
-                                callee_fun_variable && !callee_fun_variable->template_reification_args.empty())
-                            {
-                                // force template call, go on..
-                                continue;
-                            }
-
-                            lang_anylizer->begin_trying_block();
-                            analyze_pass2(_override_func);
-                            tried_function.push_back(_override_func);
-
-                            if (!lang_anylizer->get_cur_error_frame().empty())
-                            {
-                                // error happend in func, abondon this overload.
-                                if (_override_func->where_constraint == nullptr)
-                                {
-                                    _override_func->where_constraint = new ast_where_constraint;
-                                    _override_func->where_constraint->copy_source_info(_override_func);
-                                }
-
-                                wo_assert(_override_func->where_constraint);
-                                _override_func->where_constraint->accept = false;
-                                _override_func->where_constraint->binded_func_define = _override_func;
-                                _override_func->where_constraint->unmatched_constraint.insert(
-                                    _override_func->where_constraint->unmatched_constraint.end(),
-                                    lang_anylizer->get_cur_error_frame().begin(),
-                                    lang_anylizer->get_cur_error_frame().end());
-                            }
-                            lang_anylizer->end_trying_block();
-
-                            if (_override_func->where_constraint == nullptr
-                                || _override_func->where_constraint->accept)
-                            {
-                                real_args = a_value_funccall->arguments->children;
-                                form_args = override_func->argument_list->children;
-                                do
-                                {
-                                    auto* form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
-                                    auto* real_arg = dynamic_cast<ast_value*>(real_args);
-
-                                    wo_test(real_args == real_arg);
-
-                                    if (!form_arg)
-                                    {
-                                        // variadic..
-                                        if (nullptr == real_arg) // arg count match, just like best match/ need cast match
-                                            goto match_check_end_for_variadic_func;
-                                        else
-                                        {
-                                            if (with_template)
-                                                variadic_sets_template.push_back(override_func);
-                                            else
-                                                variadic_sets.push_back(override_func);
-                                        }
-
-                                        goto this_function_override_checking_over;
-                                    }
-
-                                    if (!real_arg)
-                                        goto this_function_override_checking_over;// real_args count didn't match, break..
-
-                                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(real_arg))
-                                    {
-                                        auto ecount = a_fakevalue_unpack_args->expand_count;
-                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
-                                        {
-                                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
-                                            {
-                                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                                if (unpacking_tuple_type->using_type_name)
-                                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                                a_fakevalue_unpack_args->expand_count = ecount = unpacking_tuple_type->template_arguments.size();
-                                            }
-                                        }
-                                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
-                                        {
-                                            // all in!!!
-                                            if (with_template)
-                                                variadic_sets.push_back(override_func);
-                                            else
-                                                variadic_sets_template.push_back(override_func);
-
-                                            goto this_function_override_checking_over;
-                                        }
-
-                                        size_t unpack_type_index = 0; // Used for type check when unpack tuple.
-                                        while (ecount)
-                                        {
-                                            if (form_arg)
-                                            {
-                                                if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
-                                                {
-                                                    // Varify tuple type here.
-                                                    auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                                    if (unpacking_tuple_type->using_type_name)
-                                                        unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-
-                                                    if (unpacking_tuple_type->template_arguments.size() <= unpack_type_index)
-                                                        // There is no enough value for tuple to expand. match failed!
-                                                        goto this_function_override_checking_over;
-                                                    else if (!form_arg->value_type->accept_type(unpacking_tuple_type->template_arguments[unpack_type_index], false))
-                                                        // Type didn't match, match failed!
-                                                        goto this_function_override_checking_over;
-                                                    else
-                                                        // ok, do nothing.
-                                                        ++unpack_type_index;
-                                                }
-
-                                                form_args = form_arg->sibling;
-                                                form_arg = dynamic_cast<ast_value_arg_define*>(form_args);
-                                            }
-                                            else if (form_args)
-                                            {
-                                                // is variadic
-                                                if (with_template)
-                                                    variadic_sets_template.push_back(override_func);
-                                                else
-                                                    variadic_sets.push_back(override_func);
-                                                goto this_function_override_checking_over;
-                                            }
-                                            else
-                                            {
-                                                // not match , over..
-                                                goto this_function_override_checking_over;
-                                            }
-                                            ecount--;
-                                        }
-
-                                    }
-
-                                    if (dynamic_cast<ast_value_takeplace*>(real_arg))
-                                        ;
-                                    else if (real_arg->value_type->is_pending() || form_arg->value_type->is_pending())
-                                        break;
-                                    else if (form_arg->value_type->accept_type(real_arg->value_type, false))
-                                        ;// do nothing..
-                                    else
-                                        break; // bad match, break..
-
-
-                                    real_args = real_args->sibling;
-                                match_check_end_for_variadic_func:
-                                    if (form_args)
-                                        form_args = form_args->sibling;
-
-
-                                    if (form_args == nullptr)
-                                    {
-                                        // finish match check, add it to set
-                                        if (real_args == nullptr)
-                                        {
-                                            if (with_template)
-                                                best_match_sets_template.push_back(override_func);
-                                            else
-                                                best_match_sets.push_back(override_func);
-                                        }
-                                        // else: bad match..
-                                    }
-                                } while (form_args);
-                            }
-
-                        this_function_override_checking_over:;
-
-                        }
-
-                        std::vector<ast_value_function_define*>* judge_sets = nullptr;
-                        if (best_match_sets.size())
-                            judge_sets = &best_match_sets;
-                        else if (best_match_sets_template.size())
-                            judge_sets = &best_match_sets_template;
-                        else if (variadic_sets.size())
-                            judge_sets = &variadic_sets;
-                        else if (variadic_sets_template.size())
-                            judge_sets = &variadic_sets_template;
-
-                        if (judge_sets)
-                        {
-                            if (judge_sets->size() > 1)
-                            {
-                                std::wstring acceptable_func;
-                                for (size_t index = 0; index < judge_sets->size(); index++)
-                                {
-                                    acceptable_func += L"'" + *judge_sets->at(index)->function_name + L":"
-                                        + judge_sets->at(index)->value_type->get_type_name(false)
-                                        + L"' " WO_TERM_AT L" ("
-                                        + std::to_wstring(judge_sets->at(index)->row_end_no)
-                                        + L","
-                                        + std::to_wstring(judge_sets->at(index)->col_end_no)
-                                        + L")";
-
-                                    if (index + 1 != judge_sets->size())
-                                    {
-                                        acceptable_func += L" " WO_TERM_OR L" ";
-                                    }
-                                }
-                                this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNABLE_DECIDE_FUNC_OVERRIDE,
-                                    acceptable_func.c_str());
-                            }
+                            if (variable->template_reification_args.size() > template_args.size())
+                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
                             else
+                                for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                                    template_args[index] = variable->template_reification_args[index];
+
+                        }
+                        // finish template args spcified by : xxxxx:<a,b,c> 
+                        // trying auto judge type..
+
+                        std::vector<ast_type*> real_argument_types;
+                        ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                        while (funccall_arg)
+                        {
+                            real_argument_types.push_back(funccall_arg->value_type);
+                            funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                        }
+
+                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                        {
+                            auto& pending_template_arg = template_args[tempindex];
+
+                            if (!pending_template_arg)
                             {
-                                a_value_funccall->called_func = judge_sets->front();
-                                analyze_pass2(a_value_funccall->called_func);
+                                for (size_t index = 0;
+                                    index < real_argument_types.size() &&
+                                    index < funcdef->value_type->argument_types.size();
+                                    index++)
+                                {
+
+                                    fully_update_type(funcdef->value_type->argument_types[index], false,
+                                        funcdef->template_type_name_list);
+                                    //fully_update_type(real_argument_types[index], false); // USELESS
+
+                                    pending_template_arg = analyze_template_derivation(
+                                        funcdef->template_type_name_list[tempindex],
+                                        funcdef->template_type_name_list,
+                                        funcdef->value_type->argument_types[index],
+                                        real_argument_types[index]
+                                    );
+
+                                    if (pending_template_arg)
+                                        break;
+                                }
                             }
                         }
+
+                        if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                            lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
                         else
                         {
-                            this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCH_FUNC_OVERRIDE);
-                            for (auto* tried_func : tried_function)
+                            for (auto* templ_arg : template_args)
                             {
-                                if (tried_func->where_constraint && !tried_func->where_constraint->accept)
+                                fully_update_type(templ_arg, false);
+                                if (templ_arg->is_pending() && !templ_arg->is_hkt())
                                 {
-                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, L"不满足函数的 'where' 约束要求，继续：");
-                                    for (auto& error_info : tried_func->where_constraint->unmatched_constraint)
-                                    {
-                                        lang_anylizer->get_cur_error_frame().push_back(error_info);
-                                    }
+                                    lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
+                                        templ_arg->get_type_name(false).c_str());
+                                    goto failed_to_judge_template_params;
                                 }
-                                else
-                                    this->lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
-                                        tried_func->value_type->get_type_name(false).c_str());
                             }
+
+                            funcdef = analyze_pass_template_reification(funcdef, template_args); //tara~ get analyze_pass_template_reification 
+                            a_value_funccall->called_func = funcdef;
                         }
+                    failed_to_judge_template_params:;
                     }
+                    // End of template judge
                 }
             }
 
-            if (!a_value_funccall->called_func->value_type->is_pending())
-            {
-                if (a_value_funccall->called_func->value_type->is_func())
-                {
-                    a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
-                }
-            }
-            else
-            {
-                /*
-                // for recurrence function callen, this check will cause lang error, just ignore the call type.
-                // - if function's type can be judge, it will success outside.
+            analyze_pass2(a_value_funccall->called_func);
+            if (ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func))
+                check_function_where_constraint(a_value_funccall, lang_anylizer, funcdef);
 
-                if(a_value_funccall->called_func->value_type->is_pending_function())
-                    lang_anylizer->lang_error(0x0000, a_value, L"xxx '%s'.", a_value->value_type->get_type_name().c_str());
-                */
-            }
+            if (!a_value_funccall->called_func->value_type->is_pending()
+                && a_value_funccall->called_func->value_type->is_func())
+                a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
 
             if (a_value_funccall->called_func
                 && a_value_funccall->called_func->value_type->is_func()
@@ -3127,7 +2868,7 @@ namespace wo
             {
                 if (symbol && symbol->is_template_symbol && is_custom())
                     return true;
-                else if (is_array() || is_dict())
+                else if (is_array() || is_dict() || is_vec() || is_map())
                     return true;
             }
             return false;

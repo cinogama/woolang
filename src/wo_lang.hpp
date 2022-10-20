@@ -43,7 +43,6 @@ namespace wo
 
         union
         {
-            ast::ast_value_function_define* function_define;
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
@@ -62,7 +61,14 @@ namespace wo
                 template_types = defs->template_type_name_list;
             }
         }
+        ast::ast_value_function_define* get_funcdef()const noexcept
+        {
+            wo_assert(type == symbol_type::function);
+            auto* result = dynamic_cast<ast::ast_value_function_define*>(variable_value);
+            wo_assert(result);
 
+            return result;
+        }
         bool is_type_decl() const noexcept
         {
             return type == symbol_type::type_alias || type == symbol_type::typing;
@@ -265,13 +271,13 @@ namespace wo
                     sym->type_informatiom->template_arguments.clear();
 
                     // Update template setting info...
-                    if (sym->type_informatiom->is_array())
+                    if (sym->type_informatiom->is_array()|| sym->type_informatiom->is_vec())
                     {
                         sym->template_types = { WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
                             new ast::ast_type(WO_PSTR(VT)));
                     }
-                    else if (sym->type_informatiom->is_array())
+                    else if (sym->type_informatiom->is_dict() || sym->type_informatiom->is_map())
                     {
                         sym->template_types = { WO_PSTR(KT), WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
@@ -1207,18 +1213,15 @@ namespace wo
 
             if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
             {
-                * dumpped_template_func_define = nullptr;
-
-                wo_assert(origin_variable->symbol->function_define != nullptr);
-
-                if (!check_symbol_is_accessable(origin_variable->symbol->function_define, origin_variable->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, true))
+                if (!check_symbol_is_accessable(origin_variable->symbol->get_funcdef(), origin_variable->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, true))
                     return nullptr;
 
-                if (origin_variable->symbol->function_define->is_template_define
-                    && origin_variable->symbol->function_define->template_type_name_list.size() == origin_variable->template_reification_args.size())
+                if (origin_variable->symbol->get_funcdef()->is_template_define
+                    && origin_variable->symbol->get_funcdef()->template_type_name_list.size() == origin_variable->template_reification_args.size())
                 {
                     // TODO: finding repeated template? goon
-                    ast_value_function_define * dumpped_template_func_define = analyze_pass_template_reification(origin_variable->symbol->function_define, origin_variable->template_reification_args);
+                    ast_value_function_define* dumpped_template_func_define =
+                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
                     return dumpped_template_func_define->this_reification_lang_symbol;
                 }
                 else
@@ -1226,7 +1229,7 @@ namespace wo
                     lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
                     return nullptr;
                 }
- 
+
             }
             else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
             {
@@ -1933,10 +1936,7 @@ namespace wo
                 }
             }
             else
-            {
-                wo_assert(symb->type == lang_symbol::symbol_type::function);
-                return analyze_value(symb->function_define, compiler, get_pure_value, false);
-            }
+                return analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
         }
 
         bool _last_value_stored_to_cr = false;
@@ -3821,7 +3821,8 @@ namespace wo
                 if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    auto * sym = define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    ast_value_funcdef->symbol = sym;
                 }
             }
             lang_scopes.push_back(scope);
@@ -3883,9 +3884,12 @@ namespace wo
                 sym->attribute = attr;
                 sym->name = names;
                 sym->defined_in_scope = lang_scopes.back();
-                sym->function_define = func_def;
-
+                sym->variable_value = func_def;
+                sym->is_template_symbol = func_def->is_template_define;
+               
                 lang_symbols.push_back(sym);
+
+                return sym;
             }
             else
             {
