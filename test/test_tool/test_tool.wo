@@ -39,14 +39,11 @@ public func execute_all_test()
 }
 
 private func _test_compare<AT, BT>(a: AT, b :BT)
-    where (a is string) && (b is string);
 {
-    return a == b;
-}
-private func _test_compare<AT, BT>(a: AT, b :BT)
-    where !(a is string) || !(b is string);
-{
-    return std::equalbyte(a, b);
+    if ((a is string) && (b is string))
+        return a == b;
+    else
+        return std::equalbyte(a, b);
 }
 
 public func test_equal<AT, BT>(a: AT, b: BT)

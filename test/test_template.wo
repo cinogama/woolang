@@ -86,43 +86,6 @@ namespace test_template
         return val:TO;
     }
 
-    func no_template_test()
-    {
-        return "no_template";
-    }
-
-    func no_template_test<T>()
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_1(n:int)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_1<T>(n:T)
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_2(n:int, x:real)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_2<T>(n:T, x:real)
-    {
-        return "has_template";
-    }
-
-    func no_template_first_test_3(n:int, ...)
-    {
-        return "no_template";
-    }
-    func no_template_first_test_3<T>(n:T, ...)
-    {
-        return "has_template";
-    }
-
     func template_if_constexpr_test<T>()
     {
         if (0:T is real)
@@ -146,19 +109,17 @@ namespace test_template
     }
 
     using MySecTemplate<T> = int;
-    func TemplateAutoJudgeTest<T>(self:MyTemplate<T>)
+    func TemplateAutoJudgeTest<K, T>(self:K<T>)
     {
-        return "fail";
+        if (self is MyTemplate<T>)
+            return "fail";
+        else if (self is MySecTemplate<T>)
+            return "ohooo";
+        else if (self is array<T>)
+            return "success";
+        else
+            return "?";
     }
-    func TemplateAutoJudgeTest<T>(self:MySecTemplate<T>)
-    {
-        return "ohooo";
-    }
-    func TemplateAutoJudgeTest<T>(self:array<T>)
-    {
-        return "success";
-    }
-
     
     namespace A
     {
@@ -310,7 +271,7 @@ namespace test_template
         hkt_foo([[true]: alarr<int>]) as ()=>array<string>;
         hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
 
-        let mins = mtest:<string>();
+        let mins = mtest::create:<string>();
         mins.c = 66;
         
         test_assure(template_func_symb_inside:<real>() == template_func_symb_inside:<real>());
@@ -369,12 +330,6 @@ namespace test_template
 
         test_equal(cast_to:<string>(3)+".14159", "3.14159");
 
-        test_equal(no_template_test(), "no_template");
-        test_equal(no_template_first_test_1(0), "no_template");
-
-        test_equal(no_template_first_test_2(0, 0.), "no_template");
-        test_equal(no_template_first_test_3(0, 233), "no_template");
-
         template_if_constexpr_test:<int>():dynamic as int;
         template_if_constexpr_test:<real>():dynamic as real;
 
@@ -400,7 +355,7 @@ namespace test_template
 
         let p = []mut: vec<int>;
         let q = [1,2,3,4,5,6,7,8,9];
-        for(let v : wraped_iterator(q->iter(), func(e:int){return e==5;}))
+        for(let v : wraped_iterator::create(q->iter(), func(e:int){return e==5;}))
         {
             p->add(v);
         }

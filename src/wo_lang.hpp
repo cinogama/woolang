@@ -11,13 +11,13 @@ namespace wo
 {
     struct lang_symbol
     {
-        enum class symbol_type
+        enum symbol_type
         {
-            type_alias,
-            typing,
+            type_alias = 0x01,
+            typing = 0x02,
 
-            variable,
-            function,
+            variable = 0x04,
+            function = 0x08,
         };
         symbol_type type;
         wo_pstring_t name;
@@ -46,7 +46,6 @@ namespace wo
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
-        std::vector<ast::ast_value_function_define*> function_overload_sets;
         std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
         bool is_template_symbol = false;
         std::vector<wo_pstring_t> template_types;
@@ -62,7 +61,14 @@ namespace wo
                 template_types = defs->template_type_name_list;
             }
         }
+        ast::ast_value_function_define* get_funcdef()const noexcept
+        {
+            wo_assert(type == symbol_type::function);
+            auto* result = dynamic_cast<ast::ast_value_function_define*>(variable_value);
+            wo_assert(result);
 
+            return result;
+        }
         bool is_type_decl() const noexcept
         {
             return type == symbol_type::type_alias || type == symbol_type::typing;
@@ -265,13 +271,13 @@ namespace wo
                     sym->type_informatiom->template_arguments.clear();
 
                     // Update template setting info...
-                    if (sym->type_informatiom->is_array())
+                    if (sym->type_informatiom->is_array() || sym->type_informatiom->is_vec())
                     {
                         sym->template_types = { WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
                             new ast::ast_type(WO_PSTR(VT)));
                     }
-                    else if (sym->type_informatiom->is_array())
+                    else if (sym->type_informatiom->is_dict() || sym->type_informatiom->is_map())
                     {
                         sym->template_types = { WO_PSTR(KT), WO_PSTR(VT) };
                         sym->type_informatiom->template_arguments.push_back(
@@ -1207,29 +1213,23 @@ namespace wo
 
             if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
             {
-                ast_value_function_define* dumpped_template_func_define = nullptr;
-
-                wo_assert(origin_variable->symbol->function_overload_sets.size());
-                for (auto& func_overload : origin_variable->symbol->function_overload_sets)
-                {
-                    if (!check_symbol_is_accessable(func_overload, func_overload->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, false))
-                        continue; // In template function, not accessable function will be skip!
-
-                    if (func_overload->is_template_define
-                        && func_overload->template_type_name_list.size() == origin_variable->template_reification_args.size())
-                    {
-                        // TODO: finding repeated template? goon
-                        dumpped_template_func_define = analyze_pass_template_reification(func_overload, origin_variable->template_reification_args);
-                        break;
-                    }
-                }
-                if (!dumpped_template_func_define)
-                {
-                    lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_TEMPLATE_FUNC);
+                if (!check_symbol_is_accessable(origin_variable->symbol->get_funcdef(), origin_variable->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, true))
                     return nullptr;
+
+                if (origin_variable->symbol->get_funcdef()->is_template_define
+                    && origin_variable->symbol->get_funcdef()->template_type_name_list.size() == origin_variable->template_reification_args.size())
+                {
+                    // TODO: finding repeated template? goon
+                    ast_value_function_define* dumpped_template_func_define =
+                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
+                    return dumpped_template_func_define->this_reification_lang_symbol;
                 }
                 else
-                    return dumpped_template_func_define->this_reification_lang_symbol;
+                {
+                    lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                    return nullptr;
+                }
+
             }
             else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
             {
@@ -1936,17 +1936,7 @@ namespace wo
                 }
             }
             else
-            {
-                if (symb->function_overload_sets.size() == 0)
-                    return analyze_value(symb->variable_value, compiler, get_pure_value, false);
-                else if (symb->function_overload_sets.size() == 1)
-                    return analyze_value(symb->function_overload_sets.front(), compiler, get_pure_value, false);
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, error_prud, WO_ERR_UNABLE_DECIDE_FUNC_SYMBOL);
-                    return WO_NEW_OPNUM(imm(0));
-                }
-            }
+                return analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
         }
 
         bool _last_value_stored_to_cr = false;
@@ -3831,7 +3821,8 @@ namespace wo
                 if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    auto* sym = define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    ast_value_funcdef->symbol = sym;
                 }
             }
             lang_scopes.push_back(scope);
@@ -3873,61 +3864,6 @@ namespace wo
         {
             wo_assert(lang_scopes.size());
 
-            if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val))
-            {
-                if (func_def->function_name != nullptr)
-                {
-                    wo_assert(template_style::NORMAL == is_template_value);
-
-                    lang_symbol* sym;
-                    if (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end())
-                    {
-                        sym = lang_scopes.back()->symbols[names];
-                        if (sym->type != lang_symbol::symbol_type::function)
-                        {
-                            lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
-                            return sym;
-                        }
-                    }
-                    else
-                    {
-                        sym = lang_scopes.back()->symbols[names] = new lang_symbol;
-                        sym->type = lang_symbol::symbol_type::function;
-                        sym->name = names;
-                        sym->defined_in_scope = lang_scopes.back();
-                        sym->attribute = new ast::ast_decl_attribute();
-                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_public);
-                        sym->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
-
-                        auto* pending_function = new ast::ast_value_function_define;
-                        pending_function->value_type = new ast::ast_type(WO_PSTR(pending));
-                        pending_function->value_type->set_as_function_type();
-                        pending_function->value_type->set_as_variadic_arg_func();
-                        pending_function->in_function_sentence = nullptr;
-                        pending_function->auto_adjust_return_type = false;
-                        pending_function->function_name = func_def->function_name;
-                        pending_function->symbol = sym;
-                        sym->variable_value = pending_function;
-
-                        lang_symbols.push_back(sym);
-                    }
-
-                    if (dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)
-                        && dynamic_cast<ast::ast_value_function_define*>(sym->variable_value)->function_name != nullptr)
-                    {
-                        func_def->symbol = sym;
-                        sym->function_overload_sets.push_back(func_def);
-
-                        if (func_def->is_template_define)
-                        {
-                            sym->is_template_symbol = true;
-                        }
-
-                        return sym;
-                    }
-                }
-            }
-
             if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL && (lang_scopes.back()->symbols.find(names) != lang_scopes.back()->symbols.end()))
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
@@ -3935,22 +3871,41 @@ namespace wo
                 lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
                 return last_func_symbol;
             }
+
+            if (auto* func_def = dynamic_cast<ast::ast_value_function_define*>(init_val);
+                func_def != nullptr && func_def->function_name != nullptr)
+            {
+                wo_assert(template_style::NORMAL == is_template_value);
+
+                lang_symbol* sym;
+
+                sym = lang_scopes.back()->symbols[names] = new lang_symbol;
+                sym->type = lang_symbol::symbol_type::function;
+                sym->attribute = attr;
+                sym->name = names;
+                sym->defined_in_scope = lang_scopes.back();
+                sym->variable_value = func_def;
+                sym->is_template_symbol = func_def->is_template_define;
+
+                lang_symbols.push_back(sym);
+
+                return sym;
+            }
             else
             {
                 lang_symbol* sym = new lang_symbol;
                 if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_IMPL)
                     lang_scopes.back()->symbols[names] = sym;
 
-                sym->attribute = attr;
                 sym->type = lang_symbol::symbol_type::variable;
+                sym->attribute = attr;
                 sym->name = names;
                 sym->variable_value = init_val;
                 sym->defined_in_scope = lang_scopes.back();
+
                 auto* func = in_function();
                 if (attr->is_extern_attr() && func)
-                {
                     lang_anylizer->lang_error(0x0000, attr, WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC);
-                }
                 if (func && !sym->attribute->is_static_attr())
                 {
                     sym->define_in_function = true;
@@ -4105,7 +4060,7 @@ namespace wo
             return true;
         }
 
-        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str)
+        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask)
         {
             wo_assert(lang_scopes.size());
 
@@ -4116,7 +4071,10 @@ namespace wo
                 for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                 {
                     if (auto fnd = rind->find(ident_str); fnd != rind->end())
-                        return fnd->second;
+                    {
+                        if ((fnd->second->type & target_type_mask) != 0)
+                            return fnd->second;
+                    }
                 }
 
             auto* searching_from_scope = var_ident->searching_begin_namespace_in_pass2;
@@ -4212,7 +4170,8 @@ namespace wo
                 if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
                     fnd != indet_finding_namespace->symbols.end())
                 {
-                    if (check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                    if ((fnd->second->type & target_type_mask) != 0
+                        && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
                         return var_ident->symbol = fnd->second;
                 }
 
@@ -4311,7 +4270,9 @@ namespace wo
                     if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
-                        searching_result.insert(fnd->second);
+                        if ((fnd->second->type & target_type_mask) != 0
+                            && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                            searching_result.insert(fnd->second);
                         goto next_searching_point;
                     }
 
@@ -4330,35 +4291,23 @@ namespace wo
 
             if (searching_result.size() > 1)
             {
-                // Result might have un-accessable type? remove them
-                std::set<lang_symbol*> selecting_results;
-                selecting_results.swap(searching_result);
-                for (auto fnd_result : selecting_results)
-                    if (check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
-                        searching_result.insert(fnd_result);
-
-                if (searching_result.empty())
-                    return var_ident->symbol = nullptr;
-                else if (searching_result.size() > 1)
+                std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
+                size_t fnd_count = 0;
+                for (auto fnd_result : searching_result)
                 {
-                    std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
-                    size_t fnd_count = 0;
-                    for (auto fnd_result : searching_result)
-                    {
-                        auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
-                        if (_full_namespace_ == L"")
-                            err_info += WO_TERM_GLOBAL_NAMESPACE;
-                        else
-                            err_info += L"'" + _full_namespace_ + L"'";
-                        fnd_count++;
-                        if (fnd_count + 1 == searching_result.size())
-                            err_info += L" " WO_TERM_AND L" ";
-                        else
-                            err_info += L", ";
-                    }
-
-                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
+                    auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
+                    if (_full_namespace_ == L"")
+                        err_info += WO_TERM_GLOBAL_NAMESPACE;
+                    else
+                        err_info += L"'" + _full_namespace_ + L"'";
+                    fnd_count++;
+                    if (fnd_count + 1 == searching_result.size())
+                        err_info += L" " WO_TERM_AND L" ";
+                    else
+                        err_info += L", ";
                 }
+
+                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
             }
             // Check symbol is accessable?
             auto* result = *searching_result.begin();
@@ -4368,7 +4317,8 @@ namespace wo
         }
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name);
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name,
+                lang_symbol::symbol_type::type_alias | lang_symbol::symbol_type::typing);
             if (result
                 && result->type != lang_symbol::symbol_type::typing
                 && result->type != lang_symbol::symbol_type::type_alias)
@@ -4380,43 +4330,15 @@ namespace wo
         }
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
+            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name,
+                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function);
 
             if (result
                 && (result->type == lang_symbol::symbol_type::typing
                     || result->type == lang_symbol::symbol_type::type_alias))
             {
-                var_ident->symbol = nullptr;
-
-                wo_pstring_t used_template_impl_typing_name;
-
-                ast::ast_type* typing_index = nullptr;
-
-                if (result->type == lang_symbol::symbol_type::typing)
-                    used_template_impl_typing_name = var_ident->var_name;
-                else
-                {
-                    typing_index = result->type_informatiom;
-
-                    if (typing_index->using_type_name)
-                        typing_index = typing_index->using_type_name;
-
-                    used_template_impl_typing_name = typing_index->type_name;
-
-                    var_ident->scope_namespaces = typing_index->scope_namespaces;
-                    var_ident->template_reification_args = typing_index->template_arguments;
-
-                }
-
-                var_ident->scope_namespaces.push_back(used_template_impl_typing_name);
-                auto type_name = var_ident->var_name;
-                var_ident->var_name = WO_PSTR(create);
-
-                result = find_symbol_in_this_scope(var_ident, var_ident->var_name);
-                if (!result)
-                    lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
-                        used_template_impl_typing_name->c_str()
-                    );
+                lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
+                    result->name->c_str());
             }
             if (result)
             {

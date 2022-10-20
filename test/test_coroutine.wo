@@ -9,15 +9,15 @@ namespace test_coroutine
     {
         using std;
 
-        let co1 = co(func(){
+        let co1 = co::create(func(){
             for(let mut i = 0;i < 3;i += 1)
             {
                 co::sleep(1.);
                 println("Helloworld");
             }
-        });
+        }, ());
 
-        let co2 = co(func(pre_co:co){
+        let co2 = co::create(func(pre_co:co){
 
             co::wait(pre_co);
             println("OK");
@@ -36,12 +36,12 @@ namespace test_coroutine
 
         for(let mut i = 0;i < 1000;i += 1)
         {
-            co_list->add(std::co(func(){
+            co_list->add(std::co::create(func(){
                 for(let mut i = 0;i < 3;i += 1)
                 {
                     std::co::sleep(1.);
                 }
-            }));
+            }, ()));
         }
         for(let co : co_list)
             while(!co->completed())
@@ -50,12 +50,12 @@ namespace test_coroutine
         co_list->clear();
 
         for(let mut i = 0;i < 4;i += 1)
-            co_list->add(std::co(
+            co_list->add(std::co::create(
                 func()
                 {
                     for(let mut j = i; j < 1'000'000; j += 1)
                         std::co::yield();
-                }
+                }, ()
             ));
         for(let co : co_list)
         {
@@ -69,35 +69,36 @@ namespace test_coroutine
         waitable_test();
         finish_co();
 
-        let vm = std::vm();
+        let vm = std::vm::create();
 
         vm->load_source(
-        @"
-        import woo.std;
-        import woo.co;
+            "test.wo",
+            @"
+            import woo.std;
+            import woo.co;
 
-        let co_list = []:array<std::co>;
+            let co_list = []:array<std::co>;
 
-        for(let mut i = 0; i < 1000; i += 1)
-            co_list->add(std::co(
-                func()
-                {
-                    while(true)
-                        std::co::yield();
-                }
-            ));
+            for(let mut i = 0; i < 1000; i += 1)
+                co_list->add(std::co::create(
+                    func()
+                    {
+                        while(true)
+                            std::co::yield();
+                    }, ()
+                ));
 
-        std::println("co ready!");
-        std::sleep(3);
-        std::println("shutting down coroutines!");
+            std::println("co ready!");
+            std::sleep(3);
+            std::println("shutting down coroutines!");
 
-        for(let co : co_list)
-        {
-            co->abort();
-        }
-        std::println("over!");
-        std::sleep(3);
-        "@
+            for(let co : co_list)
+            {
+                co->abort();
+            }
+            std::println("over!");
+            std::sleep(3);
+            "@
         );
 
         vm->run();
@@ -109,45 +110,45 @@ namespace test_coroutine
         let mut aim_value = false;
         let _pack = [mut ref aim_value]mut;
 
-        let mut co1 = std::co(func(){ _pack[0] = true });
+        let mut co1 = std::co::create(func(){ _pack[0] = true }, ());
         while(!co1->completed())
             std::sleep(0.1);
 
         test_assure(aim_value);
 
-        co1 = std::co(func(){
+        co1 = std::co::create(func(){
             for (let mut i = 0; i < 10; i += 1)
             {
                 std::println("co working:", i);
                 std::co::yield();
             }
-        });
+        }, ());
 
         while(!co1->completed())
             std::sleep(0.1);
 
-        co1 = std::co(func(){
+        co1 = std::co::create(func(){
             for (;;)
             {
                 std::println("co working 1...");
             }
-        });
-        let co2 = std::co(func(){
+        }, ());
+        let co2 = std::co::create(func(){
             for (;;)
             {
                 std::println("co working 2...");
             }
-        });
+        }, ());
 
         std::co::stop_all();
 
-        co1 = std::co(func(){
+        co1 = std::co::create(func(){
             for (let mut i = 0; i < 10; i += 1)
             {
                 std::println("co working:", i);
                 std::co::yield();
             }
-        });
+        }, ());
 
         while(!co1->completed())
             std::sleep(0.1);
