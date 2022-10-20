@@ -2411,7 +2411,7 @@ wo_bool_t wo_map_find(wo_value map, wo_value index)
     return false;
 }
 
-wo_value wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value)
+wo_value wo_map_get_or_set_default(wo_value map, wo_value index, wo_value default_value)
 {
     auto _map = WO_VAL(map);
     if (_map->is_nil())

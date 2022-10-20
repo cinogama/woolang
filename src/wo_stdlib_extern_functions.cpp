@@ -777,9 +777,9 @@ WO_API wo_api rslib_std_map_contain(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, _map_has_indexed_val ? 1 : 0);
 }
 
-WO_API wo_api rslib_std_map_get_by_default(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_map_get_by_default(args + 0, args + 1, args + 2));
+    return wo_ret_ref(vm, wo_map_get_or_set_default(args + 0, args + 1, args + 2));
 }
 
 WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
@@ -1012,9 +1012,7 @@ WO_API wo_api rslib_std_vm_has_compile_error(wo_vm vm, wo_value args, size_t arg
 WO_API wo_api rslib_std_vm_get_compile_error(wo_vm vm, wo_value args, size_t argc)
 {
     wo_vm vmm = (wo_vm)wo_pointer(args);
-    _wo_inform_style style = argc > 1 ? (_wo_inform_style)wo_int(args + 1) : WO_DEFAULT;
-
-    return wo_ret_string(vm, wo_get_compile_error(vmm, style));
+    return wo_ret_string(vm, wo_get_compile_error(vmm, WO_DEFAULT));
 }
 
 WO_API wo_api rslib_std_vm_virtual_source(wo_vm vm, wo_value args, size_t argc)
@@ -1910,8 +1908,8 @@ namespace map
     extern("rslib_std_map_get_or_default") 
         public func getdefault<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
-    extern("rslib_std_map_get_by_default") 
-        public func get_or_set_default<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
+    extern("rslib_std_map_get_or_set_default") 
+        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
 
     extern("rslib_std_map_swap") 
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
@@ -1991,7 +1989,7 @@ public func assert(val: bool)
     if (!val)
         std::panic("Assert failed.");
 }
-public func assert_msg(val: bool, msg: string)
+public func assertmsg(val: bool, msg: string)
 {
     if (!val)
         std::panic(F"Assert failed: {msg}");
@@ -2098,25 +2096,22 @@ namespace std
         public func create()=>vm;
 
         extern("rslib_std_vm_load_src")
-        public func load_source(vmhandle:vm, vfilepath:string, src:string)=>bool;
+        public func loadsrc(vmhandle:vm, vfilepath:string, src:string)=>bool;
 
         extern("rslib_std_vm_load_file")
-        public func load_file(vmhandle:vm, vfilepath:string)=>bool;
+        public func loadfile(vmhandle:vm, vfilepath:string)=>bool;
 
         extern("rslib_std_vm_run")
         public func run(vmhandle:vm)=> option<dynamic>;
         
         extern("rslib_std_vm_has_compile_error")
-        public func has_error(vmhandle:vm)=>bool;
+        public func haserr(vmhandle:vm)=>bool;
 
         extern("rslib_std_vm_get_compile_error")
-        public func error_msg(vmhandle:vm)=>string;
-
-        extern("rslib_std_vm_get_compile_error")
-        public func error_msg_with_style(vmhandle:vm, style:info_style)=>string;
+        public func errmsg(vmhandle:vm)=>string;
 
         extern("rslib_std_vm_virtual_source")
-        public func virtual_source(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
+        public func virtualsrc(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
 
         public func close(self: vm)
         {
@@ -2468,13 +2463,13 @@ namespace std
         // Static functions:
 
         extern("rslib_std_roroutine_pause_all")
-            public func pause_all()=>void;
+            public func pauseall()=>void;
 
         extern("rslib_std_roroutine_resume_all")
-            public func resume_all()=>void;
+            public func resumeall()=>void;
 
         extern("rslib_std_roroutine_stop_all")
-            public func stop_all()=>void;
+            public func stopall()=>void;
 
         extern("rslib_std_roroutine_sleep")
             public func sleep(time:real)=>void;

@@ -8,7 +8,7 @@ namespace test_vm
     func load_and_create_vmm(src:string)
     {
         let vmm = std::vm::create();
-        vmm->load_source("test_vm/test_tmp_script.wo", src);
+        vmm->loadsrc("test_vm/test_tmp_script.wo", src);
         return vmm;
     }
 
@@ -25,7 +25,7 @@ namespace test_vm
             "@
         );
 
-        test_equal(vmm->has_error(), false);
+        test_equal(vmm->haserr(), false);
 
         vmm->run();
         vmm->close();
@@ -56,10 +56,10 @@ namespace test_vm
                 main();
                 "@
             );
-            test_equal(vmm->has_error(), false);
-            if (vmm->has_error())
+            test_equal(vmm->haserr(), false);
+            if (vmm->haserr())
             {
-                std::println(vmm->error_msg());
+                std::println(vmm->errmsg());
             }
             vmm->run();
 

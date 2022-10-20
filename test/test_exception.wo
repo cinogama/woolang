@@ -18,7 +18,7 @@ namespace test_exception
             std::halt("This cannot be shown.");
         }
         let vmm = std::vm::create();
-        vmm->load_source("test_vm/test_exception.wo", @"
+        vmm->loadsrc("test_vm/test_exception.wo", @"
 import woo.std;
 func test()
 {

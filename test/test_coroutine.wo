@@ -71,7 +71,7 @@ namespace test_coroutine
 
         let vm = std::vm::create();
 
-        vm->load_source(
+        vm->loadsrc(
             "test.wo",
             @"
             import woo.std;
@@ -140,7 +140,7 @@ namespace test_coroutine
             }
         }, ());
 
-        std::co::stop_all();
+        std::co::stopall();
 
         co1 = std::co::create(func(){
             for (let mut i = 0; i < 10; i += 1)

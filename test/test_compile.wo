@@ -8,7 +8,7 @@ namespace test_compile
     func compile_program(src: string)=> (bool, std::vm)
     {
         let vmm = std::vm::create();
-        let result = vmm->load_source("test_compile/test_tmp_script.wo", src);
+        let result = vmm->loadsrc("test_compile/test_tmp_script.wo", src);
         
         return (result, vmm);
     }
@@ -16,7 +16,7 @@ namespace test_compile
     {
         let (success, vm) = compile_program(src);
         if (!success)
-            std::println(vm->error_msg());
+            std::println(vm->errmsg());
 
         test_assure(success);
 
@@ -285,7 +285,7 @@ namespace test_compile
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
 
         // using namespace
-        std::vm::virtual_source("test/usingnamespace.wo", @"using std;"@, false);
+        std::vm::virtualsrc("test/usingnamespace.wo", @"using std;"@, false);
         assure_compile_fail(@"import woo.std; import test.usingnamespace; println("This should not been displayed!");"@);
         assure_compile_success(@"import woo.std; import test.usingnamespace; using std; println("Helloworld!");"@);
 

@@ -310,7 +310,7 @@ WO_API void         wo_arr_remove(wo_value arr, wo_int_t index);
 WO_API void         wo_arr_clear(wo_value arr);
 
 WO_API wo_value     wo_map_set(wo_value map, wo_value index, wo_value val);
-WO_API wo_value     wo_map_get_by_default(wo_value map, wo_value index, wo_value default_value);
+WO_API wo_value     wo_map_get_or_set_default(wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
