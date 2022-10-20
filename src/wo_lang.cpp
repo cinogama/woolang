@@ -2183,15 +2183,19 @@ namespace wo
         return true;
     }
 
-    void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_value_function_define* funcdef)
+    void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
-        wo_assert(funcdef != nullptr && ast != nullptr);
-        if (funcdef->where_constraint != nullptr && !funcdef->where_constraint->accept)
+        wo_assert(func != nullptr && ast != nullptr);
+        if (func->symbol != nullptr && func->symbol->type == lang_symbol::symbol_type::function)
         {
-            lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
-            for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
+            auto* funcdef = func->symbol->get_funcdef();
+            if (funcdef->where_constraint != nullptr && !funcdef->where_constraint->accept)
             {
-                lang_anylizer->get_cur_error_frame().push_back(error_info);
+                lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
+                for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
+                {
+                    lang_anylizer->get_cur_error_frame().push_back(error_info);
+                }
             }
         }
     }
@@ -2307,10 +2311,7 @@ namespace wo
                         analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
                         lang_anylizer->end_trying_block();
 
-                        if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
-                            || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
-                            || (a_value_funccall->callee_symbol_in_type_namespace->symbol
-                                && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
+                        if (a_value_funccall->callee_symbol_in_type_namespace->symbol != nullptr)
                         {
                             if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
                                 a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
@@ -2339,10 +2340,7 @@ namespace wo
                         lang_anylizer->end_trying_block();
 
 
-                        if (!a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending()
-                            || a_value_funccall->callee_symbol_in_type_namespace->value_type->is_pending_function()
-                            || (a_value_funccall->callee_symbol_in_type_namespace->symbol
-                                && a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function))
+                        if (a_value_funccall->callee_symbol_in_type_namespace->symbol != nullptr)
                         {
                             if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
                                 a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
@@ -2454,8 +2452,8 @@ namespace wo
             }
 
             analyze_pass2(a_value_funccall->called_func);
-            if (ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func))
-                check_function_where_constraint(a_value_funccall, lang_anylizer, funcdef);
+            if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
+                check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
@@ -2709,20 +2707,23 @@ namespace wo
                     {
                         wo_assert(another->value_type == wo::value::valuetype::dict_type
                             || another->value_type == wo::value::valuetype::array_type);
-                        return ltsymb->type_informatiom->value_type == another->value_type;
+                        return ltsymb->type_informatiom->value_type == another->value_type
+                            && ltsymb->type_informatiom->type_name == another->type_name;
                     }
                     if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
                     {
                         wo_assert(value_type == wo::value::valuetype::dict_type
                             || value_type == wo::value::valuetype::array_type);
-                        return rtsymb->type_informatiom->value_type == value_type;
+                        return rtsymb->type_informatiom->value_type == value_type 
+                            && rtsymb->type_informatiom->type_name == type_name;
                     }
                     // both nullptr, check base type
                     wo_assert(another->value_type == wo::value::valuetype::dict_type
                         || another->value_type == wo::value::valuetype::array_type);
                     wo_assert(value_type == wo::value::valuetype::dict_type
                         || value_type == wo::value::valuetype::array_type);
-                    return value_type == another->value_type;
+                    return value_type == another->value_type 
+                        && type_name == another->type_name;
                 }
                 else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
                 {

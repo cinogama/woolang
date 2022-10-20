@@ -183,6 +183,10 @@ namespace wo
                     else
                         hashval = (uint64_t)base_type_symb;
                 }
+                else
+                {
+                    hashval = (uint64_t)reinterpret_cast<intptr_t>(typing->type_name);
+                }
             }
 
             ++hashval;
@@ -4270,8 +4274,7 @@ namespace wo
                     if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
-                        if ((fnd->second->type & target_type_mask) != 0
-                            && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                        if ((fnd->second->type & target_type_mask) != 0)
                             searching_result.insert(fnd->second);
                         goto next_searching_point;
                     }
@@ -4291,23 +4294,35 @@ namespace wo
 
             if (searching_result.size() > 1)
             {
-                std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
-                size_t fnd_count = 0;
-                for (auto fnd_result : searching_result)
-                {
-                    auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
-                    if (_full_namespace_ == L"")
-                        err_info += WO_TERM_GLOBAL_NAMESPACE;
-                    else
-                        err_info += L"'" + _full_namespace_ + L"'";
-                    fnd_count++;
-                    if (fnd_count + 1 == searching_result.size())
-                        err_info += L" " WO_TERM_AND L" ";
-                    else
-                        err_info += L", ";
-                }
+                // Result might have un-accessable type? remove them
+                std::set<lang_symbol*> selecting_results;
+                selecting_results.swap(searching_result);
+                for (auto fnd_result : selecting_results)
+                    if (check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                        searching_result.insert(fnd_result);
 
-                lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
+                if (searching_result.empty())
+                    return var_ident->symbol = nullptr;
+                else if (searching_result.size() > 1)
+                {
+                    std::wstring err_info = WO_ERR_SYMBOL_IS_AMBIGUOUS;
+                    size_t fnd_count = 0;
+                    for (auto fnd_result : searching_result)
+                    {
+                        auto _full_namespace_ = wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(fnd_result->defined_in_scope));
+                        if (_full_namespace_ == L"")
+                            err_info += WO_TERM_GLOBAL_NAMESPACE;
+                        else
+                            err_info += L"'" + _full_namespace_ + L"'";
+                        fnd_count++;
+                        if (fnd_count + 1 == searching_result.size())
+                            err_info += L" " WO_TERM_AND L" ";
+                        else
+                            err_info += L", ";
+                    }
+
+                    lang_anylizer->lang_error(0x0000, var_ident, err_info.c_str(), ident_str->c_str());
+                }
             }
             // Check symbol is accessable?
             auto* result = *searching_result.begin();

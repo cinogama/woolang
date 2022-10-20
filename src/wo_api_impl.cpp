@@ -1951,8 +1951,15 @@ wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
         auto& lex = *WO_VM(vm)->compile_info;
 
         std::string src_file_path = "";
+        size_t errcount = 0;
+
         for (auto& err_info : lex.lex_error_list)
         {
+            if (++errcount > 100)
+            {
+                _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(lex.lex_error_list.size()) + L"\n");
+                break;
+            }
             if (src_file_path != err_info.filename)
             {
                 if (style == WO_NEED_COLOR)

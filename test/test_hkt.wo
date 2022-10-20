@@ -31,6 +31,10 @@ namespace test_hkt
 
     func main()
     {
+        let p = [0]mut;
+        p->copy([]mut);
+        p->copy([])
+
         alias ArrInt_T = array<int>;
         let x = ([1, 2, 3] as ArrInt_T) as array<int>;
 

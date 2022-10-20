@@ -609,6 +609,7 @@ namespace wo
                 // Might HKT: HKT << HKT?
                 if (is_hkt_typing() && another->is_hkt_typing())
                 {
+                    // TODO: array/vec/dict/map support?
                     if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
                         return true;
                     return false;

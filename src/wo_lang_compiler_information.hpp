@@ -23,6 +23,8 @@
 
 #define WO_TERM_EXCEPTED L"应当是"
 
+#define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 99/" + std::to_wstring(count) +  L" 条，终止"
+
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"不匹配的注释符"
 
@@ -231,6 +233,8 @@
 #define WO_TERM_EXCEPTED L"excepted"
 
 #define WO_TERM_AND L"and"
+
+#define WO_TOO_MANY_ERROR(count) L"Too many errors, only display 99/" + std::to_wstring(count) +  L" errors, abort."
 
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"Mismatched annotation symbols."
