@@ -27,9 +27,9 @@ namespace test_helloworld
     {
         let a = [1,2,3];
 
-        let b = a->collect(\x:int = [x, x * 2];)
+        let b = a->bind(\x:int = [x, x * 2];)
                  ->trans(\x:int = x: string;)
-                 ->collect(\x:string = [x + "hello", x + "world"];);
+                 ->bind(\x:string = [x + "hello", x + "world"];);
 
         b->trans(\x:string = std::println(x););
 
