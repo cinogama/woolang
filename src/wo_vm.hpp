@@ -514,7 +514,7 @@ namespace wo
                         uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
                         if (data_4b < env->constant_value_count)
                             tmpos << wo_cast_string((wo_value)&env->constant_global_reg_rtstack[data_4b])
-                            << " : " << wo_type_name((wo_value)&env->constant_global_reg_rtstack[data_4b]);
+                            << " : " << wo_type_name((wo_type)env->constant_global_reg_rtstack[data_4b].type);
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
@@ -562,7 +562,7 @@ namespace wo
                         uint32_t data_4b = *(uint32_t*)((this_command_ptr += 4) - 4);
                         if (data_4b < env->constant_value_count)
                             tmpos << wo_cast_string((wo_value)&env->constant_global_reg_rtstack[data_4b])
-                            << " : " << wo_type_name((wo_value)&env->constant_global_reg_rtstack[data_4b]);
+                            << " : " << wo_type_name((wo_type)env->constant_global_reg_rtstack[data_4b].type);
                         else
                             tmpos << "g[" << data_4b - env->constant_value_count << "]";
                     }
@@ -714,51 +714,15 @@ namespace wo
                 case instruct::movcast:
                     tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
                     tmpos << " : ";
-                    switch ((value::valuetype) * (this_command_ptr++))
-                    {
-                    case value::valuetype::integer_type:
-                        tmpos << "int"; break;
-                    case value::valuetype::real_type:
-                        tmpos << "real"; break;
-                    case value::valuetype::handle_type:
-                        tmpos << "handle"; break;
-                    case value::valuetype::string_type:
-                        tmpos << "string"; break;
-                    case value::valuetype::array_type:
-                        tmpos << "array"; break;
-                    case value::valuetype::dict_type:
-                        tmpos << "dict"; break;
-                    case value::valuetype::gchandle_type:
-                        tmpos << "gchandle"; break;
-                    default:
-                        tmpos << "unknown"; break;
-                    }
+                    tmpos << wo_type_name((wo_type) * (this_command_ptr++));
 
                     break;
 
                 case instruct::setcast:
                     tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
                     tmpos << " : ";
-                    switch ((value::valuetype) * (this_command_ptr++))
-                    {
-                    case value::valuetype::integer_type:
-                        tmpos << "int"; break;
-                    case value::valuetype::real_type:
-                        tmpos << "real"; break;
-                    case value::valuetype::handle_type:
-                        tmpos << "handle"; break;
-                    case value::valuetype::string_type:
-                        tmpos << "string"; break;
-                    case value::valuetype::array_type:
-                        tmpos << "array"; break;
-                    case value::valuetype::dict_type:
-                        tmpos << "dict"; break;
-                    case value::valuetype::gchandle_type:
-                        tmpos << "gchandle"; break;
-                    default:
-                        tmpos << "unknown"; break;
-                    }
-
+                    tmpos << wo_type_name((wo_type) * (this_command_ptr++));
+                   
                     break;
                 case instruct::mkclos:
                     tmpos << "mkclos\t";
@@ -780,25 +744,7 @@ namespace wo
                         tmpos << "typeas\t";
                     print_opnum1();
                     tmpos << " : ";
-                    switch ((value::valuetype) * (this_command_ptr++))
-                    {
-                    case value::valuetype::integer_type:
-                        tmpos << "int"; break;
-                    case value::valuetype::real_type:
-                        tmpos << "real"; break;
-                    case value::valuetype::handle_type:
-                        tmpos << "handle"; break;
-                    case value::valuetype::string_type:
-                        tmpos << "string"; break;
-                    case value::valuetype::array_type:
-                        tmpos << "array"; break;
-                    case value::valuetype::dict_type:
-                        tmpos << "dict"; break;
-                    case value::valuetype::gchandle_type:
-                        tmpos << "gchandle"; break;
-                    default:
-                        tmpos << "unknown"; break;
-                    }
+                    tmpos << wo_type_name((wo_type) * (this_command_ptr++));
 
                     break;
                 case instruct::abrt:

@@ -1096,10 +1096,9 @@ wo_string_t wo_cast_string(const wo_value value)
     return _buf.c_str();
 }
 
-wo_string_t wo_type_name(const wo_value value)
+wo_string_t wo_type_name(wo_type type)
 {
-    auto _rsvalue = WO_VAL(value);
-    switch (_rsvalue->type)
+    switch ((wo::value::valuetype)type)
     {
     case wo::value::valuetype::integer_type:
         return "int";
@@ -1117,6 +1116,8 @@ wo_string_t wo_type_name(const wo_value value)
         return "gchandle";
     case wo::value::valuetype::closure_type:
         return "closure";
+    case wo::value::valuetype::struct_type:
+        return "struct";
     case wo::value::valuetype::invalid:
         return "nil";
     default:

@@ -963,9 +963,9 @@ namespace wo
             }
             bool is_complex_type() const
             {
-                if (is_func() || using_type_name || is_union() || is_struct() || is_tuple())
+                if (is_func() || using_type_name || is_union() || is_struct() || is_tuple() || is_vec() || is_map())
                     return true;
-                if (is_array() || is_dict() || is_vec() || is_map())
+                if (is_array() || is_dict() )
                 {
                     for (auto* temp : template_arguments)
                     {

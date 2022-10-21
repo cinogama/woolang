@@ -2341,7 +2341,7 @@ namespace wo
 
                     if (!a_value_type_judge->aim_type->is_dynamic())
                     {
-                        wo_test(a_value_type_judge->aim_type->value_type != value::valuetype::invalid);
+                        wo_test(!a_value_type_judge->aim_type->is_pending());
                         compiler->typeas(result, a_value_type_judge->aim_type->value_type);
 
                         return result;
