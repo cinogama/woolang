@@ -2487,8 +2487,7 @@ namespace wo
             bool failed_to_call_cur_func = false;
 
             if (a_value_funccall->called_func
-                && a_value_funccall->called_func->value_type->is_func()
-                && !a_value_funccall->called_func->value_type->is_pending())
+                && a_value_funccall->called_func->value_type->is_func())
             {
                 auto* real_args = a_value_funccall->arguments->children;
                 a_value_funccall->arguments->remove_allnode();
@@ -2653,7 +2652,7 @@ namespace wo
                     }
                 }
             }
-            else if (!a_value_funccall->called_func->value_type->is_pending())
+            else
             {
                 failed_to_call_cur_func = true;
                 lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,

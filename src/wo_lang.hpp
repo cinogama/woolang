@@ -2524,10 +2524,17 @@ namespace wo
 
                 auto* called_func_aim = &analyze_value(a_value_funccall->called_func, compiler);
 
-                ast_value_function_define* fdef = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+                ast_value_symbolable_base* fdef = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func);
+                ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(fdef);
+                if (funcdef == nullptr && fdef != nullptr)
+                {
+                    if (fdef->symbol && fdef->symbol->type == lang_symbol::symbol_type::function)
+                        funcdef = fdef->symbol->get_funcdef();
+                }
+
                 bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
                     || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (fdef && fdef->is_different_arg_count_in_same_extern_symbol);
+                    || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
 
                 if (!full_unpack_arguments && need_using_tc)
                     compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
