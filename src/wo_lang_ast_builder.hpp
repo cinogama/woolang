@@ -193,6 +193,7 @@ namespace wo
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
+                {WO_PSTR(auto), value::valuetype::invalid},
             };
 
             static wo_pstring_t get_name_from_type(value::valuetype _type)
@@ -949,6 +950,11 @@ namespace wo
                 return !is_func() &&
                     (type_name == WO_PSTR(struct));
             }
+            bool is_auto() const
+            {
+                return !is_func() &&
+                    (type_name == WO_PSTR(auto));
+            }
             bool has_template() const
             {
                 return !template_arguments.empty();
@@ -960,6 +966,18 @@ namespace wo
             bool is_string() const
             {
                 return value_type == value::valuetype::string_type && !is_func();
+            }
+            bool is_auto_arg_func() const
+            {
+                if (is_func())
+                {
+                    for (auto& argt : argument_types)
+                    {
+                        if (argt->is_auto())
+                            return true;
+                    }
+                }
+                return false;
             }
             bool is_complex_type() const
             {
@@ -2220,6 +2238,7 @@ namespace wo
             bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
+            bool has_auto_arg = false;
 
             bool is_closure_function()const noexcept
             {
@@ -5272,14 +5291,20 @@ namespace wo
                     }
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
+                    if (ast_empty::is_empty(input[3]))
+                        arg_def->value_type = new ast_type(WO_PSTR(auto));
+                    else
+                        arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(3));
                 }
                 else
                 {
                     wo_assert(input.size() == 3);
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
-                    arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                    if (ast_empty::is_empty(input[2]))
+                        arg_def->value_type = new ast_type(WO_PSTR(auto));
+                    else
+                        arg_def->value_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
                 }
 
                 return (grammar::ast_base*)arg_def;
