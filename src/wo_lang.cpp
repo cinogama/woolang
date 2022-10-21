@@ -2186,18 +2186,25 @@ namespace wo
     void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
         wo_assert(func != nullptr && ast != nullptr);
-        if (func->symbol != nullptr && func->symbol->type == lang_symbol::symbol_type::function)
-        {
+        auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(func);
+        if (funcdef == nullptr
+            && func->symbol != nullptr
+            && func->symbol->type == lang_symbol::symbol_type::function)
+            // Why not get `funcdef` from symbol by this way if `func` is not a `ast_value_function_define`
+            // ast_value_function_define's symbol will point to origin define, if `func` is an instance of 
+            // template function define, the check will not-able to get correct error.
             auto* funcdef = func->symbol->get_funcdef();
-            if (funcdef->where_constraint != nullptr && !funcdef->where_constraint->accept)
+        if (funcdef != nullptr
+            && funcdef->where_constraint != nullptr
+            && !funcdef->where_constraint->accept)
+        {
+            lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
+            for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
             {
-                lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
-                for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
-                {
-                    lang_anylizer->get_cur_error_frame().push_back(error_info);
-                }
+                lang_anylizer->get_cur_error_frame().push_back(error_info);
             }
         }
+
     }
 
     WO_PASS2(ast_value_variable)
@@ -2714,7 +2721,7 @@ namespace wo
                     {
                         wo_assert(value_type == wo::value::valuetype::dict_type
                             || value_type == wo::value::valuetype::array_type);
-                        return rtsymb->type_informatiom->value_type == value_type 
+                        return rtsymb->type_informatiom->value_type == value_type
                             && rtsymb->type_informatiom->type_name == type_name;
                     }
                     // both nullptr, check base type
@@ -2722,7 +2729,7 @@ namespace wo
                         || another->value_type == wo::value::valuetype::array_type);
                     wo_assert(value_type == wo::value::valuetype::dict_type
                         || value_type == wo::value::valuetype::array_type);
-                    return value_type == another->value_type 
+                    return value_type == another->value_type
                         && type_name == another->type_name;
                 }
                 else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
