@@ -406,6 +406,8 @@ namespace wo
                 else
                     a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
             }
+            else
+                a_value_func->has_auto_arg = true;
         }
 
         if (a_value_func->externed_func_info)
@@ -2335,6 +2337,13 @@ namespace wo
                                 = old_callee_func->template_reification_args;
 
                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                            if (a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function)
+                            {
+                                // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
+                                auto* funcdef = a_value_funccall->callee_symbol_in_type_namespace->symbol->get_funcdef();
+                                if (funcdef->is_template_define)
+                                    a_value_funccall->called_func->value_type = funcdef->value_type;
+                            }
                             goto start_ast_op_calling;
                         }
 
@@ -2364,6 +2373,13 @@ namespace wo
                                 = old_callee_func->template_reification_args;
 
                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                            if (a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function)
+                            {
+                                // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
+                                auto* funcdef = a_value_funccall->callee_symbol_in_type_namespace->symbol->get_funcdef();
+                                if (funcdef->is_template_define)
+                                    a_value_funccall->called_func->value_type = funcdef->value_type;
+                            }
                             goto start_ast_op_calling;
                         }
                     }
@@ -2375,6 +2391,8 @@ namespace wo
 
             analyze_pass2(a_value_funccall->called_func);
             analyze_pass2(a_value_funccall->arguments);
+
+            judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
 
             if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
             {
@@ -2443,6 +2461,38 @@ namespace wo
                                 }
                             }
                         }
+                        // TODO; Some of template arguments might not able to judge if argument has `auto` type.
+                        // Update auto type here and re-check template
+                        judge_auto_type_in_funccall(a_value_funccall, true, funcdef, &template_args);
+
+                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                        {
+                            auto& pending_template_arg = template_args[tempindex];
+
+                            if (!pending_template_arg)
+                            {
+                                for (size_t index = 0;
+                                    index < real_argument_types.size() &&
+                                    index < funcdef->value_type->argument_types.size();
+                                    index++)
+                                {
+
+                                    fully_update_type(funcdef->value_type->argument_types[index], false,
+                                        funcdef->template_type_name_list);
+                                    //fully_update_type(real_argument_types[index], false); // USELESS
+
+                                    pending_template_arg = analyze_template_derivation(
+                                        funcdef->template_type_name_list[tempindex],
+                                        funcdef->template_type_name_list,
+                                        funcdef->value_type->argument_types[index],
+                                        real_argument_types[index]
+                                    );
+
+                                    if (pending_template_arg)
+                                        break;
+                                }
+                            }
+                        }
 
                         if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
                             lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
@@ -2467,6 +2517,8 @@ namespace wo
                     // End of template judge
                 }
             }
+
+            judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
 
             analyze_pass2(a_value_funccall->called_func);
             if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))

@@ -2238,6 +2238,7 @@ namespace wo
             bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
+            bool has_auto_arg = false;
 
             bool is_closure_function()const noexcept
             {

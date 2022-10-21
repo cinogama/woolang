@@ -257,13 +257,17 @@ namespace wo
             auto& current_template = template_stack.back();
             for (size_t index = 0; index < template_defines_args.size(); index++)
             {
+                auto* applying_type = template_args[index];
+                if (applying_type == nullptr)
+                    continue;
+
                 lang_symbol* sym = new lang_symbol;
                 sym->attribute = new ast::ast_decl_attribute();
                 sym->type = lang_symbol::symbol_type::type_alias;
                 sym->name = template_defines_args[index];
                 sym->type_informatiom = new ast::ast_type(WO_PSTR(pending));
 
-                sym->type_informatiom->set_type(template_args[index]);
+                sym->type_informatiom->set_type(applying_type);
 
                 sym->defined_in_scope = lang_scopes.back();
 
@@ -1341,7 +1345,7 @@ namespace wo
                 // origin_template_func_define->parent->add_child(dumpped_template_func_define);
                 end_template_scope();
 
-                has_step_in_step2 = true;
+                has_step_in_step2 = step_in_pass2;
             }
             temporary_leave_scope_in_pass1();
 
@@ -1360,6 +1364,72 @@ namespace wo
 
             return dumpped_template_func_define;
         }
+
+        void judge_auto_type_of_funcdef_in_funccall(ast::ast_type* param, ast::ast_value* callaim, ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+        {
+            using namespace ast;
+            if (ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(callaim))
+            {
+                if (funcdef->value_type->is_auto_arg_func() && param->is_func())
+                {
+                    std::vector<ast_value_arg_define*> argdefs;
+                    auto* argdef = dynamic_cast<ast_value_arg_define*>(funcdef->argument_list->children);
+                    while (argdef)
+                    {
+                        argdefs.push_back(argdef);
+                        argdef = dynamic_cast<ast_value_arg_define*>(argdef->sibling);
+                    }
+
+                    for (size_t i = 0; i < funcdef->value_type->argument_types.size() && i < param->argument_types.size(); ++i)
+                    {
+                        if (funcdef->value_type->argument_types[i]->is_auto())
+                        {
+                            funcdef->value_type->argument_types[i]->set_type(param->argument_types[i]);
+                            argdefs[i]->value_type->set_type(param->argument_types[i]);
+                        }
+                    }
+                }
+
+                if (funcdef->has_auto_arg && update)
+                {
+                    temporary_entry_scope_in_pass1(funcdef->this_func_scope->parent_scope);
+
+                    if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
+                    {
+                        auto step_in_pass2 = has_step_in_step2;
+                        has_step_in_step2 = false;
+
+                        analyze_pass1(funcdef);
+
+                        if (template_defines && template_args)
+                            end_template_scope();
+
+                        has_step_in_step2 = step_in_pass2;
+                    }
+                    temporary_leave_scope_in_pass1();
+
+                    funcdef->completed_in_pass2 = false;
+                    analyze_pass2(funcdef);
+                }
+                // end 
+            } // end of ast_value_function_define
+        }
+        void judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+        {
+            using namespace ast;
+
+            std::vector<ast_value*> args;
+            auto* arg = dynamic_cast<ast_value*>(funccall->arguments->children);
+            while (arg)
+            {
+                args.push_back(arg);
+                arg = dynamic_cast<ast_value*>(arg->sibling);
+            }
+
+            for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
+                judge_auto_type_of_funcdef_in_funccall(funccall->called_func->value_type->argument_types[i], args[i], funccall, update, template_defines, template_args);
+        }
+
 
         bool write_flag_complete_in_pass2 = true;
         bool has_step_in_step2 = false;
