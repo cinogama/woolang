@@ -2110,6 +2110,7 @@ namespace wo
 
         struct ast_varref_defines : virtual public ast_defines
         {
+            lang_scope* located_function = nullptr;
             struct varref_define
             {
                 ast_pattern_base* pattern;

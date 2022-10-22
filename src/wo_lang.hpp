@@ -935,25 +935,12 @@ namespace wo
                     {
                         auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
-                        std::string init_static_flag_check_tag;
-                        if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
-                        {
-                            init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                            auto& static_inited_flag = get_new_global_variable();
-                            compiler->equb(static_inited_flag, reg(reg::ni));
-                            compiler->jf(tag(init_static_flag_check_tag));
-                            compiler->set(static_inited_flag, imm(1));
-                        }
                         auto& aim_ob = analyze_value(initval, compiler);
 
                         if (is_non_ref_tem_reg(aim_ob))
                             lang_anylizer->lang_error(0x0000, initval, WO_ERR_NOT_REFABLE_INIT_ITEM);
 
                         compiler->ext_setref(ref_ob, aim_ob);
-
-                        if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
-                            compiler->tag(init_static_flag_check_tag);
                     }
                     else
                     {
@@ -961,16 +948,6 @@ namespace wo
                         {
                             auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
-                            std::string init_static_flag_check_tag;
-                            if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
-                            {
-                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                auto& static_inited_flag = get_new_global_variable();
-                                compiler->equb(static_inited_flag, reg(reg::ni));
-                                compiler->jf(tag(init_static_flag_check_tag));
-                                compiler->set(static_inited_flag, imm(1));
-                            }
                             if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                 !valtkpls || valtkpls->used_reg)
                             {
@@ -979,9 +956,6 @@ namespace wo
                                 else
                                     compiler->mov(ref_ob, analyze_value(initval, compiler));
                             }
-
-                            if (a_pattern_identifier->symbol->static_symbol && a_pattern_identifier->symbol->define_in_function)
-                                compiler->tag(init_static_flag_check_tag);
                         }
                     }
                 }
@@ -996,25 +970,12 @@ namespace wo
                         {
                             auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
-                            std::string init_static_flag_check_tag;
-                            if (symbol->static_symbol && symbol->define_in_function)
-                            {
-                                init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                auto& static_inited_flag = get_new_global_variable();
-                                compiler->equb(static_inited_flag, reg(reg::ni));
-                                compiler->jf(tag(init_static_flag_check_tag));
-                                compiler->set(static_inited_flag, imm(1));
-                            }
                             auto& aim_ob = analyze_value(symbol->variable_value, compiler);
 
                             if (is_non_ref_tem_reg(aim_ob))
                                 lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
 
                             compiler->ext_setref(ref_ob, aim_ob);
-
-                            if (symbol->static_symbol && symbol->define_in_function)
-                                compiler->tag(init_static_flag_check_tag);
                         }
                         else
                         {
@@ -1022,16 +983,6 @@ namespace wo
                             {
                                 auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
-                                std::string init_static_flag_check_tag;
-                                if (symbol->static_symbol && symbol->define_in_function)
-                                {
-                                    init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
-
-                                    auto& static_inited_flag = get_new_global_variable();
-                                    compiler->equb(static_inited_flag, reg(reg::ni));
-                                    compiler->jf(tag(init_static_flag_check_tag));
-                                    compiler->set(static_inited_flag, imm(1));
-                                }
                                 if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                     !valtkpls || valtkpls->used_reg)
                                 {
@@ -1040,12 +991,9 @@ namespace wo
                                     else
                                         compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
                                 }
-
-                                if (symbol->static_symbol && symbol->define_in_function)
-                                    compiler->tag(init_static_flag_check_tag);
                             }
                         }
-                    }
+                    } // end of for (auto& [_, symbol] : all_template_impl_variable_symbol)
 
                 }
             }
@@ -3274,7 +3222,24 @@ namespace wo
             {
                 for (auto& varref_define : a_varref_defines->var_refs)
                 {
+                    bool need_init_check =
+                        a_varref_defines->located_function != nullptr && a_varref_defines->declear_attribute->is_static_attr();
+
+                    std::string init_static_flag_check_tag;
+                    if(need_init_check)
+                    {
+                        init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
+
+                        auto& static_inited_flag = get_new_global_variable();
+                        compiler->equb(static_inited_flag, reg(reg::ni));
+                        compiler->jf(tag(init_static_flag_check_tag));
+                        compiler->set(static_inited_flag, imm(1));
+                    }
+
                     analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, compiler);
+
+                    if (need_init_check)
+                        compiler->tag(init_static_flag_check_tag);
                 }
             }
             else if (auto* a_list = dynamic_cast<ast_list*>(ast_node))
@@ -3485,7 +3450,7 @@ namespace wo
                     {
                         // Optimize，get opnum from it's symbol;
                         a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg =
-                            &get_opnum_by_symbol(identifier_pattern, identifier_pattern->symbol, compiler, false);
+                            &get_opnum_by_symbol(identifier_pattern, identifier_pattern->symbol, compiler);
                     }
                     else
                     {
