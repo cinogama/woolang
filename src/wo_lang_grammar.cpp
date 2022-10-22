@@ -856,6 +856,20 @@ namespace wo
                 gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
+                // MONAD GRAMMAR~~~ SUGAR!
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_LEFT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"FUNC_DEFINE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_LEFT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"FUNC_DEFINE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
+
                 gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

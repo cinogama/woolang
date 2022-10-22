@@ -983,7 +983,7 @@ namespace wo
             {
                 if (is_func() || using_type_name || is_union() || is_struct() || is_tuple() || is_vec() || is_map())
                     return true;
-                if (is_array() || is_dict() )
+                if (is_array() || is_dict())
                 {
                     for (auto* temp : template_arguments)
                     {
@@ -5381,7 +5381,6 @@ namespace wo
                 iter_dir_next_call->called_func = new ast_value_variable(WO_PSTR(next));
                 iter_dir_next_call->directed_value_from = new ast_value_variable(WO_PSTR(_iter));
 
-
                 iter_dir_next_call->called_func->copy_source_info(be_iter_value);
 
                 iter_dir_next_call->copy_source_info(be_iter_value);
@@ -6091,6 +6090,38 @@ namespace wo
             }
         };
 
+        struct pass_build_bind_map_monad : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // a >> \n = [x * 2];
+                // b ]] \n = x * 2;
+                wo_assert(input.size() == 3);
+
+                ast_value_funccall* result = new ast_value_funccall();
+                result->arguments = new ast_list();
+
+                result->value_type = new ast_type(WO_PSTR(pending));
+                result->directed_value_from = dynamic_cast<ast_value*>(WO_NEED_AST(0));
+                result->arguments->append_at_head(result->directed_value_from);
+
+                auto* bind_map_func = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                wo_assert(bind_map_func != nullptr);
+                result->arguments->append_at_end(bind_map_func);
+
+                if (WO_NEED_TOKEN(1).type == +lex_type::l_bind_monad)
+                    result->called_func = new ast_value_variable(WO_PSTR(bind));
+                else
+                {
+                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_map_monad);
+                    result->called_func = new ast_value_variable(WO_PSTR(map));
+                }
+                result->called_func->copy_source_info(result->directed_value_from);
+
+                return (ast_basic*)result;
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -6251,6 +6282,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_bind_map_monad>] = _register_builder<pass_build_bind_map_monad>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_trib_expr>] = _register_builder<pass_trib_expr>();
 

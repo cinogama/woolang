@@ -247,8 +247,8 @@ namespace test_template
             return []: array<mut T>;
         }
 
-        mut_mark_bug1([true])->trans(\b: bool = 0;);
-        mut_mark_bug2([true])->trans(\b: bool = 0;);
+        mut_mark_bug1([true])->map(\b: bool = 0;);
+        mut_mark_bug2([true])->map(\b: bool = 0;);
     }
 
     func main()
