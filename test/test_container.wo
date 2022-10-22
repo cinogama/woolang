@@ -73,8 +73,26 @@ namespace test_container
         {["k"] = mut false}->map(\k:string, v: bool = (0, 0););
         {["k"] = mut false}->map(\k:string, v: bool = (0, mut 0);) as dict<int, mut int>;
     }
+    func output_9x9()
+    {
+        let a = [1,2,3,4,5,6,7,8,9];
+        let b = a
+            =>> \n = [ a
+                =>> \an = an >= n
+                    ? [F"{n}x{an}={an*n}"]
+                    | [];
+                ];
+            ;
+        let c = b
+            ->> \es = es
+                ->reduce(\l, r = l + " " + r;)
+                ->> \s = std::println(s);
+                ;
+            ;
+    }
     func main()
     {
+        output_9x9();
         test_array_swap_copy();
         test_map_swap_copy();
         test_reduce();
