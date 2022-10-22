@@ -2242,6 +2242,12 @@ namespace wo
                         WO_ADDRESSING_N2_REF; // Struct
                         uint16_t offset = WO_IPVAL_MOVE_2;
 
+                        if (opnum2->type != value::valuetype::struct_type)
+                        {
+                            wo_fail(WO_FAIL_ACCESS_NIL, "fuck");
+                            break;
+                        }
+
                         wo_assert(opnum2->type == value::valuetype::struct_type);
                         wo_assert(opnum2->structs != nullptr);
                         wo_assert(offset < opnum2->structs->m_count);
