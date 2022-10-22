@@ -37,7 +37,7 @@ WO_GLOBAL_PSTR(_val)\
 WO_GLOBAL_PSTR(next)\
 WO_GLOBAL_PSTR(KT)\
 WO_GLOBAL_PSTR(VT)\
-WO_GLOBAL_PSTR(create)\
+WO_GLOBAL_PSTR(bind)\
 // end
 
 #define WO_PSTR(str) (wo::fixstr::_global_##str)

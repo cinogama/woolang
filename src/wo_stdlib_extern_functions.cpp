@@ -1550,7 +1550,7 @@ namespace array
         return result->unsafe::astype:<array<T>>;
     }
 
-    public func collect<T, R>(val: array<T>, functor: (T)=>array<R>)
+    public func bind<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -1559,7 +1559,7 @@ namespace array
         return result->unsafe::astype:<array<R>>;
     }
 
-    public func trans<T, R>(val: array<T>, functor: (T)=>R)
+    public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -1706,7 +1706,7 @@ namespace vec
         return result;
     }
 
-    public func collect<T, R>(val: vec<T>, functor: (T)=>vec<R>)
+    public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -1715,7 +1715,7 @@ namespace vec
         return result;
     }
 
-    public func trans<T, R>(val: vec<T>, functor: (T)=>R)
+    public func map<T, R>(val: vec<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
         for (let elem : val)
@@ -1774,6 +1774,15 @@ namespace dict
     {   
         extern("rslib_std_return_itself") 
             private func astype<AimT, KT, VT>(val: dict<KT, VT>)=> AimT;
+    }
+
+    public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=>dict<RK, RV>)
+    {
+        let result = {}mut: map<RK, RV>;
+        for (let k, v : val)
+            for (let rk, rv : functor(k, v))
+                result->set(rk, rv);
+        return result->unsafe::astype:<dict<RK, RV>>;
     }
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
@@ -1849,7 +1858,7 @@ namespace dict
                 result->set(key, val);
         return result->unsafe::astype:<dict<KT, VT>>;
     }
-    public func trans<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
+    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
@@ -1874,6 +1883,15 @@ namespace map
     {   
         extern("rslib_std_return_itself") 
             private func astype<AimT, KT, VT>(val: map<KT, VT>)=> AimT;
+    }
+
+    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=>map<RK, RV>)
+    {
+        let result = {}mut: map<RK, RV>;
+        for (let k, v : val)
+            for (let rk, rv : functor(k, v))
+                result->set(rk, rv);
+        return result;
     }
 
     extern("rslib_std_map_set") 
@@ -1959,7 +1977,7 @@ namespace map
                 result->set(key, val);
         return result;
     }
-    public func trans<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)

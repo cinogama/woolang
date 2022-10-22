@@ -27,11 +27,12 @@ namespace test_helloworld
     {
         let a = [1,2,3];
 
-        let b = a->collect(\x:int = [x, x * 2];)
-                 ->trans(\x:int = x: string;)
-                 ->collect(\x:string = [x + "hello", x + "world"];);
+        let b = a->bind(\x:int = [x, x * 2];)
+                ->> \x:int = x: string;
+                =>> \x:string = [x + "hello", x + "world"];
+                ;
 
-        b->trans(\x:string = std::println(x););
+        b->map(\x:string = std::println(x););
 
         test_assure(b[0] == "1hello");
         test_assure(b[1] == "1world");

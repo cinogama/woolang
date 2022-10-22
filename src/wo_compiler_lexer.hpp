@@ -73,7 +73,9 @@ namespace wo
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
-        l_function_result,               // '->'
+        l_function_result,      // '=>'
+        l_bind_monad,           // '>>'
+        l_map_monad,            // '>>'
 
         l_left_brackets,        // (
         l_right_brackets,       // )
@@ -218,6 +220,8 @@ namespace wo
             {L"]",      {lex_type::l_index_end}},
             {L"->",      {lex_type::l_direct }},
             {L"=>",      {lex_type::l_function_result }},
+            {L"=>>",      {lex_type::l_bind_monad }},
+            {L"->>",      {lex_type::l_map_monad }},
             {L"@",      {lex_type::l_at }},
             {L"?",      {lex_type::l_question }},
             {L"\\",      {lex_type::l_lambda}},
