@@ -1,0 +1,39 @@
+import woo.std;
+import test_tool;
+
+namespace test_monad
+{
+    using State<S, A> = (S)=> (A, S)
+    {
+        func ret<S, A>(x: A)
+        {
+            return \s: S = (x, s);: State<S, A>;
+        }
+        func bind<S, A, B>(self: State<S, A>, f: (A)=> State<S, B>)
+        {
+            return \s: S = f(a)(s)
+                where (a, ns) = self(s);: State<S, B>;
+        }
+
+        let get<S> = \s: S = (s, s);: State<S, S>;
+        func put<S>(s1: S)
+        {
+            return \s2: S = ((), s1);: State<S, ()>;
+        }
+    }
+
+    func addone()
+    {
+        return State::get:<int>
+            =>> \a = State::put(a+1)
+                =>> \_ = State::ret:<int>(a+1);
+            ;
+        ;
+    }
+
+    func main()
+    {
+        let x = addone();
+    }
+}
+test_function("test_monad.main", test_monad::main);

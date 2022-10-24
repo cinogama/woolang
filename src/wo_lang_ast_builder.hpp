@@ -6050,7 +6050,6 @@ namespace wo
                             lex.parser_error(0x0000, L"元组类型中不允许出现 '...'，继续");
 
                     }
-                    wo_assert(!tuple_type->template_arguments.empty());
                 }
                 return (ast_basic*)tuple_type;
             }
