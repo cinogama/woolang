@@ -518,11 +518,12 @@ namespace wo
             bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const
             {
                 // Only used after pass1
-
-                if (is_func() != another->is_func()
-                    || is_variadic_function_type != another->is_variadic_function_type
-                    || template_arguments.size() != template_arguments.size()
-                    || argument_types.size() != another->argument_types.size())
+                auto* this_origin_type = this->using_type_name ? this->using_type_name : this;
+                auto* another_origin_type = another->using_type_name ? another->using_type_name : another;
+                if (this_origin_type->is_func() != another_origin_type->is_func()
+                    || this_origin_type->is_variadic_function_type != another_origin_type->is_variadic_function_type
+                    || this_origin_type->template_arguments.size() != another_origin_type->template_arguments.size()
+                    || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
                     return false;
 
                 if ((using_type_name == nullptr && another->using_type_name)

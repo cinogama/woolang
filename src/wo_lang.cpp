@@ -2305,8 +2305,7 @@ namespace wo
             if (a_value_funccall->callee_symbol_in_type_namespace)
             {
                 analyze_pass2(a_value_funccall->directed_value_from);
-                if (!a_value_funccall->directed_value_from->value_type->is_pending() &&
-                    !a_value_funccall->directed_value_from->value_type->is_func())
+                if (!a_value_funccall->directed_value_from->value_type->is_pending())
                 {
                     // trying finding type_function
 
