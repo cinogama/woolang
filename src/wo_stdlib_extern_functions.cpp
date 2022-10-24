@@ -2754,11 +2754,11 @@ namespace std
 
         public func try(self: lexer, token: token_type)=> option<string>
         {
-            let mut result = "";
-            if (token == self->peek(ref result))
+            let (tok, res) = self->peek();
+            if (token == tok)
             {
-                self->next("");
-                return option::value(result);
+                self->next();
+                return option::value(res);
             }
             return option::none;
         }
