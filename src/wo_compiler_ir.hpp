@@ -1305,6 +1305,14 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkunion;
         }
 
+        template<typename OP1T>
+        void ext_panic(const OP1T& op1)
+        {
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
+            codeb.ext_page_id = 0;
+            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::panic;
+        }
+
         template<typename OP1T, typename OP2T>
         void mkarr(const OP1T& op1, const OP2T& op2)
         {
@@ -2136,6 +2144,12 @@ namespace wo
                             byte_t* readptr = (byte_t*)&id;
                             temp_this_command_code_buf.push_back(readptr[0]);
                             temp_this_command_code_buf.push_back(readptr[1]);
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::panic:
+                        {
+                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));
+                            WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                             break;
                         }
                         default:

@@ -2685,10 +2685,10 @@ namespace wo
                     a_value_logical_binary->operate == +lex_type::l_land)
                 {
                     if (!a_value_logical_binary->left->value_type->is_bool())
-                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->left, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
                             a_value_logical_binary->left->value_type->get_type_name(false).c_str());
                     if (!a_value_logical_binary->right->value_type->is_bool())
-                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_VALUE_TYPE_HERE_SHOULD_BE, L"bool",
+                        lang_anylizer->lang_error(0x0000, a_value_logical_binary->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
                             a_value_logical_binary->right->value_type->get_type_name(false).c_str());
                 }
 
@@ -3024,7 +3024,9 @@ namespace wo
                 {
                 case lex_type::l_lnot:
                     if (!a_value_unary->val->value_type->is_bool())
-                        lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_LOGIC_NOT_ONLY_ACCEPT_BOOL);
+                        lang_anylizer->lang_error(0x0000, a_value_unary->val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                            L"bool",
+                            a_value_unary->val->value_type->get_type_name(false).c_str());
                     compiler->equb(analyze_value(a_value_unary->val, compiler), reg(reg::ni));
                     break;
                 case lex_type::l_sub:
@@ -3226,7 +3228,7 @@ namespace wo
                         a_varref_defines->located_function != nullptr && a_varref_defines->declear_attribute->is_static_attr();
 
                     std::string init_static_flag_check_tag;
-                    if(need_init_check)
+                    if (need_init_check)
                     {
                         init_static_flag_check_tag = compiler->get_unique_tag_based_command_ip();
 
@@ -3254,8 +3256,8 @@ namespace wo
             else if (auto* a_if = dynamic_cast<ast_if*>(ast_node))
             {
                 if (!a_if->judgement_value->value_type->is_bool())
-                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL,
-                        L"if", a_if->judgement_value->value_type->get_type_name(false).c_str());
+                    lang_anylizer->lang_error(0x0000, a_if->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                        L"bool", a_if->judgement_value->value_type->get_type_name(false).c_str());
 
                 if (a_if->judgement_value->is_constant)
                 {
@@ -3306,7 +3308,7 @@ namespace wo
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
                 if (!a_while->judgement_value->value_type->is_bool())
-                    lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"while",
+                    lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
                         a_while->judgement_value->value_type->get_type_name(false).c_str());
 
                 auto while_begin_tag = "while_begin_" + compiler->get_unique_tag_based_command_ip();
@@ -3362,7 +3364,7 @@ namespace wo
                 if (a_forloop->judgement_expr)
                 {
                     if (!a_forloop->judgement_expr->value_type->is_bool())
-                        lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, WO_ERR_TYPE_IN_SHOULD_BE_BOOL, L"for",
+                        lang_anylizer->lang_error(0x0000, a_forloop->judgement_expr, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
                             a_forloop->judgement_expr->value_type->get_type_name(false).c_str());
 
                     mov_value_to_cr(auto_analyze_value(a_forloop->judgement_expr, compiler), compiler);
@@ -3683,15 +3685,12 @@ namespace wo
                         auto&& spacename = funcdef->get_namespace_chain();
 
                         auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
-                        if (compiler->pdb_info->extern_function_map.find(fname)
-                            != compiler->pdb_info->extern_function_map.end())
-                        {
-                            this->lang_anylizer->lang_error(0x0000, funcdef,
-                                WO_ERR_CANNOT_EXPORT_SAME_NAME_FUNCTION,
-                                str_to_wstr(fname).c_str());
-                        }
-                        else
-                            compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
+
+                        // ISSUE-N221022: Function overload has been removed from woolang.
+                        wo_assert(compiler->pdb_info->extern_function_map.find(fname)
+                            == compiler->pdb_info->extern_function_map.end());
+
+                        compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
 
                     }
 
@@ -3752,8 +3751,14 @@ namespace wo
                     compiler->pdb_info->generate_debug_info_at_funcend(funcdef, compiler);
 
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
-                    compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));
+
+                    wo_assert(funcdef->value_type->is_func() && funcdef->value_type->complex_type != nullptr);
+                    if (!funcdef->value_type->complex_type->is_void())
+                        compiler->ext_panic(opnum::imm("Function returned without valid value."));
+                    /*else
+                        compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
                     // compiler->pop(reserved_stack_size);
+
                     if (funcdef->is_closure_function())
                         compiler->ret((uint16_t)funcdef->capture_variables.size());
                     else

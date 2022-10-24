@@ -1549,9 +1549,9 @@ namespace wo
 
         if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
         {
-            lang_anylizer->lang_error(0x0000, a_value_assi, WO_ERR_CANNOT_ASSIGN_TYPE_TO_TYPE,
-                a_value_assi->right->value_type->get_type_name(false).c_str(),
-                a_value_assi->left->value_type->get_type_name(false).c_str());
+            lang_anylizer->lang_error(0x0000, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                a_value_assi->left->value_type->get_type_name(false).c_str(),
+                a_value_assi->right->value_type->get_type_name(false).c_str());
         }
 
         if (!a_value_assi->left->can_be_assign)
@@ -1722,7 +1722,8 @@ namespace wo
         {
             if (!a_value_index->index->value_type->is_integer())
             {
-                lang_anylizer->lang_error(0x0000, a_value_index, L"'%ls' 的索引只能是 'int' 类型的值，继续"
+                lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
+                    , "int"
                     , a_value_index->from->value_type->get_type_name().c_str());
             }
         }
@@ -1730,9 +1731,9 @@ namespace wo
         {
             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false, true))
             {
-                lang_anylizer->lang_error(0x0000, a_value_index, L"'%ls' 的索引只能是 '%ls' 类型的值，继续"
-                    , a_value_index->from->value_type->get_type_name().c_str()
-                    , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str());
+                lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
+                    , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
+                    , a_value_index->from->value_type->get_type_name().c_str());
             }
         }
 
@@ -2664,7 +2665,9 @@ namespace wo
                             if (!(*a_type_index)->accept_type(arg_val->value_type, false))
                             {
                                 failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                lang_anylizer->lang_error(0x0000, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                                    (*a_type_index)->get_type_name(false, false).c_str(),
+                                    arg_val->value_type->get_type_name(false, true).c_str());
                                 break;
                             }
                             else

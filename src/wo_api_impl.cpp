@@ -91,6 +91,7 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
         wo::wo_stderr << "3) Roll back to last WO-EXCEPTION-RECOVERY.(Not immediatily)" << wo::wo_endl;
         wo::wo_stderr << "4) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
         wo::wo_stderr << "5) Throw exception.(Not exactly safe)" << wo::wo_endl;
+        wo::wo_stderr << "6) Attach debuggee and break immediately." << wo::wo_endl;
         do
         {
             int choice;
@@ -130,6 +131,18 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
                 // the program may continue working.
                 // Abort here.
                 wo_error(reason);
+            case 6:
+                if (wo::vmbase::_this_thread_vm)
+                {
+                    if (!wo_has_attached_debuggee((wo_vm)wo::vmbase::_this_thread_vm))
+                        wo_attach_default_debuggee((wo_vm)wo::vmbase::_this_thread_vm);
+                    wo_break_immediately((wo_vm)wo::vmbase::_this_thread_vm);
+                    return;
+                }
+                else
+                    wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
+
+                break;
             default:
                 wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
             }

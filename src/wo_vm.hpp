@@ -722,7 +722,7 @@ namespace wo
                     tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
                     tmpos << " : ";
                     tmpos << wo_type_name((wo_type) * (this_command_ptr++));
-                   
+
                     break;
                 case instruct::mkclos:
                     tmpos << "mkclos\t";
@@ -838,6 +838,9 @@ namespace wo
                             }
                         case instruct::extern_opcode_page_0::mkunion:
                             tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
+                            break;
+                        case instruct::extern_opcode_page_0::panic:
+                            tmpos << "panic\t"; print_opnum1();
                             break;
                         default:
                             tmpos << "??\t";
@@ -2587,6 +2590,13 @@ namespace wo
                                 struct_data->m_values[0].set_integer((wo_integer_t)id);
                                 struct_data->m_values[1].set_val(opnum1);
 
+                                break;
+                            }
+                            case instruct::extern_opcode_page_0::panic:
+                            {
+                                WO_ADDRESSING_N1_REF; // data
+
+                                wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
                                 break;
                             }
                             default:

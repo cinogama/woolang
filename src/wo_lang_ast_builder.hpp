@@ -247,7 +247,7 @@ namespace wo
                 if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                     return false;
 
-                if (from->accept_type(to, true))
+                if (to->accept_type(from, true))
                     return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
 
                 if (from->is_func() || to->is_func())
@@ -1424,6 +1424,8 @@ namespace wo
                                 aim_real_type = last_value.type;
                             }
 
+                            is_constant = true;
+                            
                             switch (aim_real_type)
                             {
                             case value::valuetype::real_type:
@@ -1474,18 +1476,14 @@ namespace wo
                                 return; // cast it in runtime
                             default:
                             try_cast_nil_to_int_handle_real_str:
-                                if (aim_type->is_dynamic() || (last_value.is_nil() && aim_type->is_func()))
-                                {
+                                if (last_value.is_nil() && aim_type->is_nil())
                                     constant_value.set_val(&last_value);
-                                }
                                 else
-                                {
                                     is_constant = false;
-                                }
                                 break;
                             }
+                            // end of match
                         }
-                        is_constant = true;
                     }
                 }
             }
@@ -6048,7 +6046,7 @@ namespace wo
                             tuple_type->template_arguments.push_back(type);
                         }
                         else
-                            lex.parser_error(0x0000, L"元祖类型中不允许出现 '...'，继续");
+                            lex.parser_error(0x0000, L"元组类型中不允许出现 '...'，继续");
 
                     }
                     wo_assert(!tuple_type->template_arguments.empty());

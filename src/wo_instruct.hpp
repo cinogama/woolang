@@ -122,19 +122,20 @@ namespace wo
 
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
 
-            setref = 0 WO_OPCODE_SPACE,     // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            trans = 1 WO_OPCODE_SPACE,   // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // mknilmap = 2 WO_OPCODE_SPACE,   // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
-            packargs = 3 WO_OPCODE_SPACE,   // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            unpackargs = 4 WO_OPCODE_SPACE, // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            movdup = 5 WO_OPCODE_SPACE,     // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // mkclos = 6 WO_OPCODE_SPACE,     // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
+            setref = 0 WO_OPCODE_SPACE,         // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            trans = 1 WO_OPCODE_SPACE,          // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            // mknilmap = 2 WO_OPCODE_SPACE,    // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
+            packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            movdup = 5 WO_OPCODE_SPACE,         // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            // mkclos = 6 WO_OPCODE_SPACE,      // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
 
-            veh = 7 WO_OPCODE_SPACE,    // excep(RAISE?_ROLLBACK?) 
-                                        //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
-                                        //  01 thorw
-                                        //  00 clean
-            mkunion = 8 WO_OPCODE_SPACE   // mkunion(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
+            veh = 7 WO_OPCODE_SPACE,            // excep(RAISE?_ROLLBACK?) 
+                                                //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
+                                                //  01 thorw
+                                                //  00 clean
+            mkunion = 8 WO_OPCODE_SPACE,        // mkunion(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
+            panic = 9 WO_OPCODE_SPACE,          // panic(dr_0) REGID(1BYTE)/DIFF(4BYTE)
 
         };
         enum extern_opcode_page_1 : uint8_t
