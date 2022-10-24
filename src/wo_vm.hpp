@@ -632,9 +632,6 @@ namespace wo
                     }
                 case instruct::pshr:
                     tmpos << "pshr\t"; print_opnum1(); break;
-                case instruct::popr:
-                    tmpos << "popr\t"; print_opnum1(); break;
-
                 case instruct::lds:
                     tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::ldsr:
@@ -1453,17 +1450,6 @@ namespace wo
 
                         break;
                     }
-                    case instruct::opcode::popr:
-                    {
-                        WO_ADDRESSING_N1;
-                        opnum1->set_ref((++rt_sp)->get());
-
-                        wo_assert(rt_sp <= rt_bp);
-
-                        break;
-                    }
-
-                    /// OPERATE
                     case instruct::opcode::addi:
                     {
                         WO_ADDRESSING_N1_REF;

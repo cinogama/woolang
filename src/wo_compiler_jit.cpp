@@ -1204,8 +1204,6 @@ namespace wo
 
                     break;
                 }
-                case instruct::popr:
-                    WO_JIT_NOT_SUPPORT;
                 case instruct::land:
                 {
                     WO_JIT_ADDRESSING_N1_REF;

@@ -705,18 +705,6 @@ namespace wo
             }
         }
 
-        template<typename OP1T>
-        void popr(const OP1T& op1)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                , "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not pop value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::popr, WO_OPNUM(op1));
-        }
-
         template<typename OP1T, typename OP2T>
         void addi(const OP1T& op1, const OP2T& op2)
         {
@@ -1639,10 +1627,6 @@ namespace wo
                         temp_this_command_code_buf.push_back(WO_OPCODE(pop) | 0b01);
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     }
-                    break;
-                case instruct::opcode::popr:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(popr));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
                 case instruct::opcode::lds:
                     temp_this_command_code_buf.push_back(WO_OPCODE(lds));

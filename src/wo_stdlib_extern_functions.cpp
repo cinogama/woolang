@@ -2542,9 +2542,12 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
     std::wstring out_result;
     auto token_type = lex->peek(&out_result);
 
-    wo_set_string(args + 1, wo::wstr_to_str(out_result).c_str());
+    wo_value result = wo_push_empty(vm);
+    wo_set_struct(result, 2);
+    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
+    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
 
-    return wo_ret_int(vm, (wo_integer_t)token_type);
+    return wo_ret_val(vm, result);
 }
 
 WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
@@ -2554,9 +2557,12 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
     std::wstring out_result;
     auto token_type = lex->next(&out_result);
 
-    wo_set_string(args + 1, wo::wstr_to_str(out_result).c_str());
+    wo_value result = wo_push_empty(vm);
+    wo_set_struct(result, 2);
+    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
+    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
 
-    return wo_ret_int(vm, (wo_integer_t)token_type);
+    return wo_ret_val(vm, result);
 }
 
 WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
@@ -2726,10 +2732,10 @@ namespace std
             public func error(lex:lexer, msg:string)=>void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peek(lex:lexer, ref out_token:string)=>token_type;
+            public func peek(lex:lexer)=> (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func next(lex:lexer, ref out_token:string)=>token_type;
+            public func next(lex:lexer)=> (token_type, string);
 
         extern("rslib_std_macro_lexer_nextch")
             public func nextch(lex:lexer) => string;
