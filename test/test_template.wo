@@ -104,7 +104,8 @@ namespace test_template
         func CheckForType<SP, T>(self:MyTemplate<T>)
         {
             // do check:
-            func()=>SP{}() as T;
+            let p = option::none: option<SP>;
+            p ->> \e = e as T;;
         }
     }
 
