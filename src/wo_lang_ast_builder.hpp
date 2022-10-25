@@ -4232,11 +4232,7 @@ namespace wo
                     wo_assert(ast_func->declear_attribute);
 
                     if (!ast_empty::is_empty(input[2]))
-                    {
-                        wo_error("Not support now...");
-
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(2));
-                    }
 
                     ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
@@ -4357,10 +4353,7 @@ namespace wo
                     wo_assert(ast_func->declear_attribute);
 
                     if (!ast_empty::is_empty(input[1]))
-                    {
-                        wo_error("Not support now...");
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(1));
-                    }
 
                     ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(2));
