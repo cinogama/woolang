@@ -2394,6 +2394,8 @@ namespace wo
 
             judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
 
+            ast_value_function_define* calling_function_define = nullptr;
+
             if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
             {
                 // called_funcsymb might be lambda function, and have not symbol.
@@ -2407,116 +2409,119 @@ namespace wo
                         a_value_funccall,
                         true);
 
-                    auto* funcdef = called_funcsymb->symbol->get_funcdef();
-
-                    if (funcdef->is_template_define)
-                    {
-                        // Judge template here.
-                        std::vector<ast_type*> template_args(funcdef->template_type_name_list.size(), nullptr);
-                        if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
-                        {
-                            if (variable->template_reification_args.size() > template_args.size())
-                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
-                            else
-                                for (size_t index = 0; index < variable->template_reification_args.size(); index++)
-                                    template_args[index] = variable->template_reification_args[index];
-
-                        }
-                        // finish template args spcified by : xxxxx:<a,b,c> 
-                        // trying auto judge type..
-
-                        std::vector<ast_type*> real_argument_types;
-                        ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
-                        while (funccall_arg)
-                        {
-                            real_argument_types.push_back(funccall_arg->value_type);
-                            funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
-                        }
-
-                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
-                        {
-                            auto& pending_template_arg = template_args[tempindex];
-
-                            if (!pending_template_arg)
-                            {
-                                for (size_t index = 0;
-                                    index < real_argument_types.size() &&
-                                    index < funcdef->value_type->argument_types.size();
-                                    index++)
-                                {
-
-                                    fully_update_type(funcdef->value_type->argument_types[index], false,
-                                        funcdef->template_type_name_list);
-                                    //fully_update_type(real_argument_types[index], false); // USELESS
-
-                                    pending_template_arg = analyze_template_derivation(
-                                        funcdef->template_type_name_list[tempindex],
-                                        funcdef->template_type_name_list,
-                                        funcdef->value_type->argument_types[index],
-                                        real_argument_types[index]
-                                    );
-
-                                    if (pending_template_arg)
-                                        break;
-                                }
-                            }
-                        }
-                        // TODO; Some of template arguments might not able to judge if argument has `auto` type.
-                        // Update auto type here and re-check template
-                        judge_auto_type_in_funccall(a_value_funccall, true, funcdef, &template_args);
-
-                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
-                        {
-                            auto& pending_template_arg = template_args[tempindex];
-
-                            if (!pending_template_arg)
-                            {
-                                for (size_t index = 0;
-                                    index < real_argument_types.size() &&
-                                    index < funcdef->value_type->argument_types.size();
-                                    index++)
-                                {
-
-                                    fully_update_type(funcdef->value_type->argument_types[index], false,
-                                        funcdef->template_type_name_list);
-                                    //fully_update_type(real_argument_types[index], false); // USELESS
-
-                                    pending_template_arg = analyze_template_derivation(
-                                        funcdef->template_type_name_list[tempindex],
-                                        funcdef->template_type_name_list,
-                                        funcdef->value_type->argument_types[index],
-                                        real_argument_types[index]
-                                    );
-
-                                    if (pending_template_arg)
-                                        break;
-                                }
-                            }
-                        }
-
-                        if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
-                            lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
-                        else
-                        {
-                            for (auto* templ_arg : template_args)
-                            {
-                                fully_update_type(templ_arg, false);
-                                if (templ_arg->is_pending() && !templ_arg->is_hkt())
-                                {
-                                    lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
-                                        templ_arg->get_type_name(false).c_str());
-                                    goto failed_to_judge_template_params;
-                                }
-                            }
-
-                            funcdef = analyze_pass_template_reification(funcdef, template_args); //tara~ get analyze_pass_template_reification 
-                            a_value_funccall->called_func = funcdef;
-                        }
-                    failed_to_judge_template_params:;
-                    }
-                    // End of template judge
+                    calling_function_define = called_funcsymb->symbol->get_funcdef();
                 }
+                else
+                    calling_function_define = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
             }
+
+            if (calling_function_define != nullptr
+                && calling_function_define->is_template_define)
+            {
+                // Judge template here.
+                std::vector<ast_type*> template_args(calling_function_define->template_type_name_list.size(), nullptr);
+                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
+                {
+                    if (variable->template_reification_args.size() > template_args.size())
+                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                    else
+                        for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                            template_args[index] = variable->template_reification_args[index];
+
+                }
+                // finish template args spcified by : xxxxx:<a,b,c> 
+                // trying auto judge type..
+
+                std::vector<ast_type*> real_argument_types;
+                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                while (funccall_arg)
+                {
+                    real_argument_types.push_back(funccall_arg->value_type);
+                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                }
+
+                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                {
+                    auto& pending_template_arg = template_args[tempindex];
+
+                    if (!pending_template_arg)
+                    {
+                        for (size_t index = 0;
+                            index < real_argument_types.size() &&
+                            index < calling_function_define->value_type->argument_types.size();
+                            index++)
+                        {
+
+                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                                calling_function_define->template_type_name_list);
+                            //fully_update_type(real_argument_types[index], false); // USELESS
+
+                            pending_template_arg = analyze_template_derivation(
+                                calling_function_define->template_type_name_list[tempindex],
+                                calling_function_define->template_type_name_list,
+                                calling_function_define->value_type->argument_types[index],
+                                real_argument_types[index]
+                            );
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                    }
+                }
+                // TODO; Some of template arguments might not able to judge if argument has `auto` type.
+                // Update auto type here and re-check template
+                judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+
+                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                {
+                    auto& pending_template_arg = template_args[tempindex];
+
+                    if (!pending_template_arg)
+                    {
+                        for (size_t index = 0;
+                            index < real_argument_types.size() &&
+                            index < calling_function_define->value_type->argument_types.size();
+                            index++)
+                        {
+
+                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                                calling_function_define->template_type_name_list);
+                            //fully_update_type(real_argument_types[index], false); // USELESS
+
+                            pending_template_arg = analyze_template_derivation(
+                                calling_function_define->template_type_name_list[tempindex],
+                                calling_function_define->template_type_name_list,
+                                calling_function_define->value_type->argument_types[index],
+                                real_argument_types[index]
+                            );
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                    }
+                }
+
+                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                    lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
+                else
+                {
+                    for (auto* templ_arg : template_args)
+                    {
+                        fully_update_type(templ_arg, false);
+                        if (templ_arg->is_pending() && !templ_arg->is_hkt())
+                        {
+                            lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
+                                templ_arg->get_type_name(false).c_str());
+                            goto failed_to_judge_template_params;
+                        }
+                    }
+
+                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
+                    a_value_funccall->called_func = calling_function_define;
+                }
+            failed_to_judge_template_params:;
+            }
+            // End of template judge
 
             judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
 

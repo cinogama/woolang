@@ -1282,7 +1282,10 @@ namespace wo
             origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
                 dumpped_template_func_define;
 
-            temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
+            wo_assert(origin_template_func_define->symbol == nullptr
+                || origin_template_func_define->symbol->defined_in_scope == origin_template_func_define->this_func_scope->parent_scope);
+
+            temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
             if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
             {
                 auto step_in_pass2 = has_step_in_step2;
@@ -3757,7 +3760,7 @@ namespace wo
                         compiler->ext_panic(opnum::imm("Function returned without valid value."));
                     /*else
                         compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
-                    // compiler->pop(reserved_stack_size);
+                        // compiler->pop(reserved_stack_size);
 
                     if (funcdef->is_closure_function())
                         compiler->ret((uint16_t)funcdef->capture_variables.size());
