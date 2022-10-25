@@ -323,91 +323,86 @@ namespace wo
         a_value_func->this_func_scope = begin_function(a_value_func);
         if (!a_value_func->is_template_define)
         {
-            if (!a_value_func->value_type->is_auto_arg_func())
+            auto arg_child = a_value_func->argument_list->children;
+            while (arg_child)
             {
-                auto arg_child = a_value_func->argument_list->children;
-                while (arg_child)
+                if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                 {
-                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                    if (!argdef->symbol)
                     {
+                        if (argdef->value_type->is_custom())
+                        {
+                            // ready for update..
+                            fully_update_type(argdef->value_type, true);
+                        }
+
                         if (!argdef->symbol)
                         {
-                            if (argdef->value_type->is_custom())
-                            {
-                                // ready for update..
-                                fully_update_type(argdef->value_type, true);
-                            }
-
-                            if (!argdef->symbol)
-                            {
-                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
-                                argdef->symbol->decl = argdef->decl;
-                                argdef->symbol->is_argument = true;
-                            }
+                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
+                            argdef->symbol->decl = argdef->decl;
+                            argdef->symbol->is_argument = true;
                         }
-                    }
-                    else
-                    {
-                        wo_assert(dynamic_cast<ast_token*>(arg_child));
-                    }
-
-                    arg_child = arg_child->sibling;
-                }
-
-                fully_update_type(a_value_func->value_type, true);
-
-                // update return type info for
-                // func xxx(var x:int): typeof(x)
-
-                if (a_value_func->where_constraint)
-                {
-                    a_value_func->where_constraint->binded_func_define = a_value_func;
-                    analyze_pass1(a_value_func->where_constraint);
-                }
-
-                if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
-                {
-                    if (a_value_func->in_function_sentence)
-                    {
-                        analyze_pass1(a_value_func->in_function_sentence);
-                    }
-
-                    if (a_value_func->externed_func_info)
-                    {
-                        if (a_value_func->externed_func_info->load_from_lib != L"")
-                        {
-                            if (!a_value_func->externed_func_info->externed_func)
-                            {
-                                // Load lib,
-                                wo_assert(a_value_func->source_file != nullptr);
-                                a_value_func->externed_func_info->externed_func =
-                                    rslib_extern_symbols::get_lib_symbol(
-                                        wstr_to_str(*a_value_func->source_file).c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                        extern_libs);
-                                if (a_value_func->externed_func_info->externed_func)
-                                    a_value_func->is_constant = true;
-                                else
-                                    lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                        a_value_func->externed_func_info->symbol_name.c_str(),
-                                        a_value_func->externed_func_info->load_from_lib.c_str());
-                            }
-                            else
-                                a_value_func->is_constant = true;
-                        }
-                    }
-                    else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
-                    {
-                        // This function has no return, set it as void
-                        a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
                     }
                 }
                 else
-                    a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
+                {
+                    wo_assert(dynamic_cast<ast_token*>(arg_child));
+                }
+
+                arg_child = arg_child->sibling;
+            }
+
+            fully_update_type(a_value_func->value_type, true);
+
+            // update return type info for
+            // func xxx(var x:int): typeof(x)
+
+            if (a_value_func->where_constraint)
+            {
+                a_value_func->where_constraint->binded_func_define = a_value_func;
+                analyze_pass1(a_value_func->where_constraint);
+            }
+
+            if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
+            {
+                if (a_value_func->in_function_sentence)
+                {
+                    analyze_pass1(a_value_func->in_function_sentence);
+                }
+
+                if (a_value_func->externed_func_info)
+                {
+                    if (a_value_func->externed_func_info->load_from_lib != L"")
+                    {
+                        if (!a_value_func->externed_func_info->externed_func)
+                        {
+                            // Load lib,
+                            wo_assert(a_value_func->source_file != nullptr);
+                            a_value_func->externed_func_info->externed_func =
+                                rslib_extern_symbols::get_lib_symbol(
+                                    wstr_to_str(*a_value_func->source_file).c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                                    extern_libs);
+                            if (a_value_func->externed_func_info->externed_func)
+                                a_value_func->is_constant = true;
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                    a_value_func->externed_func_info->symbol_name.c_str(),
+                                    a_value_func->externed_func_info->load_from_lib.c_str());
+                        }
+                        else
+                            a_value_func->is_constant = true;
+                    }
+                }
+                else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
+                {
+                    // This function has no return, set it as void
+                    a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
+                }
             }
             else
-                a_value_func->has_auto_arg = true;
+                a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
         }
 
         if (a_value_func->externed_func_info)
@@ -1460,84 +1455,78 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
-            if (!a_value_funcdef->value_type->is_auto_arg_func())
+            size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
+
+            if (a_value_funcdef->argument_list)
             {
-                size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
-
-                if (a_value_funcdef->argument_list)
+                // ast_value_function_define might be root-point created in lang.
+                auto arg_child = a_value_funcdef->argument_list->children;
+                while (arg_child)
                 {
-                    // ast_value_function_define might be root-point created in lang.
-                    auto arg_child = a_value_funcdef->argument_list->children;
-                    while (arg_child)
+                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
-                        if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
-                        {
-                            if (argdef->symbol)
-                                argdef->symbol->has_been_defined_in_pass2 = true;
-                        }
-                        else
-                        {
-                            wo_assert(dynamic_cast<ast_token*>(arg_child));
-                        }
-
-                        arg_child = arg_child->sibling;
+                        if (argdef->symbol)
+                            argdef->symbol->has_been_defined_in_pass2 = true;
                     }
-                }
-
-                // return-type adjust complete. do 'return' cast;
-                if (a_value_funcdef->where_constraint)
-                    analyze_pass2(a_value_funcdef->where_constraint);
-
-                if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
-                {
-                    if (a_value_funcdef->in_function_sentence)
+                    else
                     {
-                        analyze_pass2(a_value_funcdef->in_function_sentence);
-                    }
-                    if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
-                    {
-                        // There is no return in function  return void
-                        if (a_value_funcdef->auto_adjust_return_type)
-                        {
-                            if (a_value_funcdef->has_return_value)
-                                lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
-
-                            a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
-                        }
-                    }
-                }
-                else
-                    a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
-
-                if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
-                {
-                    wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
-
-                    if (!a_value_funcdef->where_constraint)
-                    {
-                        a_value_funcdef->where_constraint = new ast_where_constraint;
-                        a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
-                        a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
-                        a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                        wo_assert(dynamic_cast<ast_token*>(arg_child));
                     }
 
-                    a_value_funcdef->where_constraint->accept = false;
-
-                    for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
-                    {
-                        a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                            lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
-                    }
-
-
-                    // Error happend in cur function
-                    a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+                    arg_child = arg_child->sibling;
                 }
             }
-            else if (a_value_funcdef->function_name != nullptr)
+
+            // return-type adjust complete. do 'return' cast;
+            if (a_value_funcdef->where_constraint)
+                analyze_pass2(a_value_funcdef->where_constraint);
+
+            if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
             {
-                lang_anylizer->lang_error(0x0000, a_value_funcdef, L"仅允许匿名函数省略参数类型，继续");
+                if (a_value_funcdef->in_function_sentence)
+                {
+                    analyze_pass2(a_value_funcdef->in_function_sentence);
+                }
+                if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
+                {
+                    // There is no return in function  return void
+                    if (a_value_funcdef->auto_adjust_return_type)
+                    {
+                        if (a_value_funcdef->has_return_value)
+                            lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+
+                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
+                    }
+                }
             }
+            else
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+
+            if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
+            {
+                wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
+
+                if (!a_value_funcdef->where_constraint)
+                {
+                    a_value_funcdef->where_constraint = new ast_where_constraint;
+                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
+                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
+                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                }
+
+                a_value_funcdef->where_constraint->accept = false;
+
+                for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
+                {
+                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
+                        lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
+                }
+
+
+                // Error happend in cur function
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+            }
+
         }
         return true;
     }
