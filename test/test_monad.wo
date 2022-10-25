@@ -33,7 +33,15 @@ namespace test_monad
 
     func main()
     {
-        let x = addone();
+        let m = addone()
+            =>> \a = State::put(a * 2)
+                =>> \_ = State::ret:<int>(a * 2);
+            ;
+        ;
+
+        let (v, s) = m(7);
+
+        test_assure(v == 16 && s == 7);
     }
 }
 test_function("test_monad.main", test_monad::main);
