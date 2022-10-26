@@ -45,7 +45,7 @@ namespace test_monad
 
         let m2 = option::value(12.5);
         let m3 = m2
-            =>> \r = r: int;
+            =>> \r = option::value(r: int);
             ;
         test_assure(m3->val == 12);
     }
