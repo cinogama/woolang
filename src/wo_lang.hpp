@@ -6,6 +6,8 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
+#include <optional>
 
 namespace wo
 {
@@ -1178,7 +1180,10 @@ namespace wo
                     // TODO: finding repeated template? goon
                     ast_value_function_define* dumpped_template_func_define =
                         analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
-                    return dumpped_template_func_define->this_reification_lang_symbol;
+
+                    if (dumpped_template_func_define)
+                        return dumpped_template_func_define->this_reification_lang_symbol;
+                    return nullptr;
                 }
                 else
                 {
@@ -1282,7 +1287,10 @@ namespace wo
             origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
                 dumpped_template_func_define;
 
-            temporary_entry_scope_in_pass1(origin_template_func_define->symbol->defined_in_scope);
+            wo_assert(origin_template_func_define->symbol == nullptr
+                || origin_template_func_define->symbol->defined_in_scope == origin_template_func_define->this_func_scope->parent_scope);
+
+            temporary_entry_scope_in_pass1(origin_template_func_define->this_func_scope->parent_scope);
             if (begin_template_scope(dumpped_template_func_define, origin_template_func_define, template_args_types))
             {
                 auto step_in_pass2 = has_step_in_step2;
@@ -1313,56 +1321,82 @@ namespace wo
             return dumpped_template_func_define;
         }
 
-        void judge_auto_type_of_funcdef_in_funccall(ast::ast_type* param, ast::ast_value* callaim, ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
-        {
-            using namespace ast;
-            if (ast_value_function_define* funcdef = dynamic_cast<ast_value_function_define*>(callaim))
-            {
-                if (funcdef->value_type->is_auto_arg_func() && param->is_func())
-                {
-                    std::vector<ast_value_arg_define*> argdefs;
-                    auto* argdef = dynamic_cast<ast_value_arg_define*>(funcdef->argument_list->children);
-                    while (argdef)
-                    {
-                        argdefs.push_back(argdef);
-                        argdef = dynamic_cast<ast_value_arg_define*>(argdef->sibling);
-                    }
+        using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
 
-                    for (size_t i = 0; i < funcdef->value_type->argument_types.size() && i < param->argument_types.size(); ++i)
-                    {
-                        if (funcdef->value_type->argument_types[i]->is_auto())
+        std::optional<judge_result_t> judge_auto_type_of_funcdef_in_funccall(
+            ast::ast_type* param,
+            ast::ast_value* callaim,
+            ast::ast_value_funccall* funccall,
+            bool update,
+            ast::ast_defines* template_defines,
+            const std::vector<ast::ast_type*>* template_args)
+        {
+            if (!param->is_func())
+                return std::nullopt;
+
+            ast::ast_value_function_define* function_define = nullptr;
+            if (auto* variable = dynamic_cast<ast::ast_symbolable_base*>(callaim))
+            {
+                if (variable->symbol != nullptr && variable->symbol->type == lang_symbol::symbol_type::function)
+                    function_define = variable->symbol->get_funcdef();
+            }
+            if (auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(callaim))
+                function_define = funcdef;
+
+            if (function_define != nullptr && function_define->is_template_define
+                && function_define->value_type->argument_types.size() == param->argument_types.size())
+            {
+                ast::ast_type* new_type = dynamic_cast<ast::ast_type*>(function_define->value_type->instance(nullptr));
+                wo_assert(new_type->is_func());
+
+                std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
+
+                for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
+                {
+                    if (arg_func_template_args[tempindex] == nullptr)
+                        for (size_t index = 0; index < new_type->argument_types.size(); ++index)
                         {
-                            funcdef->value_type->argument_types[i]->set_type(param->argument_types[i]);
-                            argdefs[i]->value_type->set_type(param->argument_types[i]);
+                            if (auto* pending_template_arg = analyze_template_derivation(
+                                function_define->template_type_name_list[tempindex],
+                                function_define->template_type_name_list,
+                                new_type->argument_types[index],
+                                param->argument_types[index]))
+                                arg_func_template_args[tempindex] = ast::ast_type::create_type_at(function_define, *pending_template_arg);
                         }
-                    }
                 }
 
-                if (funcdef->has_auto_arg && update)
+                // Auto judge here...
+                if (update)
                 {
-                    temporary_entry_scope_in_pass1(funcdef->this_func_scope->parent_scope);
-
                     if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
                     {
-                        auto step_in_pass2 = has_step_in_step2;
-                        has_step_in_step2 = false;
-
-                        analyze_pass1(funcdef);
-
+                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
                         if (template_defines && template_args)
                             end_template_scope();
 
-                        has_step_in_step2 = step_in_pass2;
+                        if (reificated != nullptr)
+                        {
+                            analyze_pass2(reificated);
+                            return reificated;
+                        }
                     }
-                    temporary_leave_scope_in_pass1();
-
-                    funcdef->completed_in_pass2 = false;
-                    analyze_pass2(funcdef);
+                    return std::nullopt;
                 }
-                // end 
-            } // end of ast_value_function_define
+                else
+                {
+                    if (begin_template_scope(funccall, function_define, arg_func_template_args))
+                    {
+                        fully_update_type(new_type, false);
+                        end_template_scope();
+                    }
+                    return new_type;
+                }
+            }
+
+            // no need to judge, 
+            return std::nullopt;
         }
-        void judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+        std::vector<ast::ast_type*> judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
         {
             using namespace ast;
 
@@ -1374,10 +1408,48 @@ namespace wo
                 arg = dynamic_cast<ast_value*>(arg->sibling);
             }
 
-            for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
-                judge_auto_type_of_funcdef_in_funccall(funccall->called_func->value_type->argument_types[i], args[i], funccall, update, template_defines, template_args);
-        }
+            std::vector<std::optional<judge_result_t>> judge_result(args.size(), std::nullopt);
+            std::vector<ast::ast_type*> new_arguments_types_result(args.size(), nullptr);
 
+            // If a function has been implized, this flag will be setting and function's
+            //  argument list will be updated later.
+            bool has_updated_arguments = false;
+
+            for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
+            {
+                judge_result[i] = judge_auto_type_of_funcdef_in_funccall(
+                    funccall->called_func->value_type->argument_types[i],
+                    args[i], funccall, update, template_defines, template_args);
+                if (judge_result[i].has_value())
+                {
+                    if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result[i].value()))
+                    {
+                        wo_assert((*realized_func)->is_template_define == false);
+                        args[i] = *realized_func;
+                        has_updated_arguments = true;
+                    }
+                    else
+                    {
+                        auto* updated_type = std::get<ast::ast_type*>(judge_result[i].value());
+                        wo_assert(updated_type != nullptr);
+                        new_arguments_types_result[i] = updated_type;
+                    }
+                }
+            }
+
+            if (has_updated_arguments)
+            {
+                // Re-generate argument list for current function-call;
+                funccall->arguments->remove_allnode();
+                for (auto* arg : args)
+                {
+                    arg->sibling = nullptr;
+                    funccall->arguments->append_at_end(arg);
+                }
+            }
+
+            return new_arguments_types_result;
+        }
 
         bool write_flag_complete_in_pass2 = true;
         bool has_step_in_step2 = false;
@@ -3757,7 +3829,7 @@ namespace wo
                         compiler->ext_panic(opnum::imm("Function returned without valid value."));
                     /*else
                         compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
-                    // compiler->pop(reserved_stack_size);
+                        // compiler->pop(reserved_stack_size);
 
                     if (funcdef->is_closure_function())
                         compiler->ret((uint16_t)funcdef->capture_variables.size());

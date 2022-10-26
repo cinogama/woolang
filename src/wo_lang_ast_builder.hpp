@@ -193,7 +193,6 @@ namespace wo
                 {WO_PSTR(nothing), value::valuetype::invalid}, // Top type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
-                {WO_PSTR(auto), value::valuetype::invalid},
             };
 
             static wo_pstring_t get_name_from_type(value::valuetype _type)
@@ -951,11 +950,6 @@ namespace wo
                 return !is_func() &&
                     (type_name == WO_PSTR(struct));
             }
-            bool is_auto() const
-            {
-                return !is_func() &&
-                    (type_name == WO_PSTR(auto));
-            }
             bool has_template() const
             {
                 return !template_arguments.empty();
@@ -968,17 +962,9 @@ namespace wo
             {
                 return value_type == value::valuetype::string_type && !is_func();
             }
-            bool is_auto_arg_func() const
+            bool is_waiting_create_template_for_auto() const
             {
-                if (is_func())
-                {
-                    for (auto& argt : argument_types)
-                    {
-                        if (argt->is_auto())
-                            return true;
-                    }
-                }
-                return false;
+                return type_name == WO_PSTR(auto);
             }
             bool is_complex_type() const
             {
@@ -1426,7 +1412,7 @@ namespace wo
                             }
 
                             is_constant = true;
-                            
+
                             switch (aim_real_type)
                             {
                             case value::valuetype::real_type:
@@ -2238,7 +2224,6 @@ namespace wo
             bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
-            bool has_auto_arg = false;
 
             bool is_closure_function()const noexcept
             {
@@ -4232,11 +4217,7 @@ namespace wo
                     wo_assert(ast_func->declear_attribute);
 
                     if (!ast_empty::is_empty(input[2]))
-                    {
-                        wo_error("Not support now...");
-
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(2));
-                    }
 
                     ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
@@ -4357,10 +4338,7 @@ namespace wo
                     wo_assert(ast_func->declear_attribute);
 
                     if (!ast_empty::is_empty(input[1]))
-                    {
-                        wo_error("Not support now...");
                         template_types = dynamic_cast<ast_list*>(WO_NEED_AST(1));
-                    }
 
                     ast_func->function_name = nullptr; // just get a fucking name
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(2));
@@ -4397,11 +4375,31 @@ namespace wo
                 }
 
                 ast_func->value_type->set_as_function_type();
+
+                size_t auto_template_id = 0;
                 auto* argchild = ast_func->argument_list->children;
                 while (argchild)
                 {
                     if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
                     {
+                        if (arg_node->value_type->is_waiting_create_template_for_auto())
+                        {
+                            // Create a template for this fucking arguments...
+                            std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
+
+                            ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                            atn->template_ident = wstring_pool::get_pstr(auto_template_name);
+                            atn->naming_const = nullptr;
+
+                            // If no template arguments defined, create a new list~
+                            if (template_types == nullptr)
+                                template_types = new ast_list;
+
+                            template_types->append_at_end(atn);
+                            // Update typename at last:
+                            arg_node->value_type->set_type_with_name(atn->template_ident);
+                        }
+
                         if (ast_func->value_type->is_variadic_function_type)
                             return lex.parser_error(0x0000, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
 

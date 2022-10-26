@@ -323,91 +323,86 @@ namespace wo
         a_value_func->this_func_scope = begin_function(a_value_func);
         if (!a_value_func->is_template_define)
         {
-            if (!a_value_func->value_type->is_auto_arg_func())
+            auto arg_child = a_value_func->argument_list->children;
+            while (arg_child)
             {
-                auto arg_child = a_value_func->argument_list->children;
-                while (arg_child)
+                if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                 {
-                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
+                    if (!argdef->symbol)
                     {
+                        if (argdef->value_type->is_custom())
+                        {
+                            // ready for update..
+                            fully_update_type(argdef->value_type, true);
+                        }
+
                         if (!argdef->symbol)
                         {
-                            if (argdef->value_type->is_custom())
-                            {
-                                // ready for update..
-                                fully_update_type(argdef->value_type, true);
-                            }
-
-                            if (!argdef->symbol)
-                            {
-                                argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
-                                argdef->symbol->decl = argdef->decl;
-                                argdef->symbol->is_argument = true;
-                            }
+                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
+                            argdef->symbol->decl = argdef->decl;
+                            argdef->symbol->is_argument = true;
                         }
-                    }
-                    else
-                    {
-                        wo_assert(dynamic_cast<ast_token*>(arg_child));
-                    }
-
-                    arg_child = arg_child->sibling;
-                }
-
-                fully_update_type(a_value_func->value_type, true);
-
-                // update return type info for
-                // func xxx(var x:int): typeof(x)
-
-                if (a_value_func->where_constraint)
-                {
-                    a_value_func->where_constraint->binded_func_define = a_value_func;
-                    analyze_pass1(a_value_func->where_constraint);
-                }
-
-                if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
-                {
-                    if (a_value_func->in_function_sentence)
-                    {
-                        analyze_pass1(a_value_func->in_function_sentence);
-                    }
-
-                    if (a_value_func->externed_func_info)
-                    {
-                        if (a_value_func->externed_func_info->load_from_lib != L"")
-                        {
-                            if (!a_value_func->externed_func_info->externed_func)
-                            {
-                                // Load lib,
-                                wo_assert(a_value_func->source_file != nullptr);
-                                a_value_func->externed_func_info->externed_func =
-                                    rslib_extern_symbols::get_lib_symbol(
-                                        wstr_to_str(*a_value_func->source_file).c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
-                                        wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
-                                        extern_libs);
-                                if (a_value_func->externed_func_info->externed_func)
-                                    a_value_func->is_constant = true;
-                                else
-                                    lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
-                                        a_value_func->externed_func_info->symbol_name.c_str(),
-                                        a_value_func->externed_func_info->load_from_lib.c_str());
-                            }
-                            else
-                                a_value_func->is_constant = true;
-                        }
-                    }
-                    else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
-                    {
-                        // This function has no return, set it as void
-                        a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
                     }
                 }
                 else
-                    a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
+                {
+                    wo_assert(dynamic_cast<ast_token*>(arg_child));
+                }
+
+                arg_child = arg_child->sibling;
+            }
+
+            fully_update_type(a_value_func->value_type, true);
+
+            // update return type info for
+            // func xxx(var x:int): typeof(x)
+
+            if (a_value_func->where_constraint)
+            {
+                a_value_func->where_constraint->binded_func_define = a_value_func;
+                analyze_pass1(a_value_func->where_constraint);
+            }
+
+            if (a_value_func->where_constraint == nullptr || a_value_func->where_constraint->accept)
+            {
+                if (a_value_func->in_function_sentence)
+                {
+                    analyze_pass1(a_value_func->in_function_sentence);
+                }
+
+                if (a_value_func->externed_func_info)
+                {
+                    if (a_value_func->externed_func_info->load_from_lib != L"")
+                    {
+                        if (!a_value_func->externed_func_info->externed_func)
+                        {
+                            // Load lib,
+                            wo_assert(a_value_func->source_file != nullptr);
+                            a_value_func->externed_func_info->externed_func =
+                                rslib_extern_symbols::get_lib_symbol(
+                                    wstr_to_str(*a_value_func->source_file).c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->load_from_lib).c_str(),
+                                    wstr_to_str(a_value_func->externed_func_info->symbol_name).c_str(),
+                                    extern_libs);
+                            if (a_value_func->externed_func_info->externed_func)
+                                a_value_func->is_constant = true;
+                            else
+                                lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                    a_value_func->externed_func_info->symbol_name.c_str(),
+                                    a_value_func->externed_func_info->load_from_lib.c_str());
+                        }
+                        else
+                            a_value_func->is_constant = true;
+                    }
+                }
+                else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
+                {
+                    // This function has no return, set it as void
+                    a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
+                }
             }
             else
-                a_value_func->has_auto_arg = true;
+                a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
         }
 
         if (a_value_func->externed_func_info)
@@ -1460,84 +1455,78 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
-            if (!a_value_funcdef->value_type->is_auto_arg_func())
+            size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
+
+            if (a_value_funcdef->argument_list)
             {
-                size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
-
-                if (a_value_funcdef->argument_list)
+                // ast_value_function_define might be root-point created in lang.
+                auto arg_child = a_value_funcdef->argument_list->children;
+                while (arg_child)
                 {
-                    // ast_value_function_define might be root-point created in lang.
-                    auto arg_child = a_value_funcdef->argument_list->children;
-                    while (arg_child)
+                    if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
                     {
-                        if (ast_value_arg_define* argdef = dynamic_cast<ast_value_arg_define*>(arg_child))
-                        {
-                            if (argdef->symbol)
-                                argdef->symbol->has_been_defined_in_pass2 = true;
-                        }
-                        else
-                        {
-                            wo_assert(dynamic_cast<ast_token*>(arg_child));
-                        }
-
-                        arg_child = arg_child->sibling;
+                        if (argdef->symbol)
+                            argdef->symbol->has_been_defined_in_pass2 = true;
                     }
-                }
-
-                // return-type adjust complete. do 'return' cast;
-                if (a_value_funcdef->where_constraint)
-                    analyze_pass2(a_value_funcdef->where_constraint);
-
-                if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
-                {
-                    if (a_value_funcdef->in_function_sentence)
+                    else
                     {
-                        analyze_pass2(a_value_funcdef->in_function_sentence);
-                    }
-                    if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
-                    {
-                        // There is no return in function  return void
-                        if (a_value_funcdef->auto_adjust_return_type)
-                        {
-                            if (a_value_funcdef->has_return_value)
-                                lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
-
-                            a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
-                        }
-                    }
-                }
-                else
-                    a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
-
-                if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
-                {
-                    wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
-
-                    if (!a_value_funcdef->where_constraint)
-                    {
-                        a_value_funcdef->where_constraint = new ast_where_constraint;
-                        a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
-                        a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
-                        a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                        wo_assert(dynamic_cast<ast_token*>(arg_child));
                     }
 
-                    a_value_funcdef->where_constraint->accept = false;
-
-                    for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
-                    {
-                        a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                            lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
-                    }
-
-
-                    // Error happend in cur function
-                    a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+                    arg_child = arg_child->sibling;
                 }
             }
-            else if (a_value_funcdef->function_name != nullptr)
+
+            // return-type adjust complete. do 'return' cast;
+            if (a_value_funcdef->where_constraint)
+                analyze_pass2(a_value_funcdef->where_constraint);
+
+            if (a_value_funcdef->where_constraint == nullptr || a_value_funcdef->where_constraint->accept)
             {
-                lang_anylizer->lang_error(0x0000, a_value_funcdef, L"仅允许匿名函数省略参数类型，继续");
+                if (a_value_funcdef->in_function_sentence)
+                {
+                    analyze_pass2(a_value_funcdef->in_function_sentence);
+                }
+                if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
+                {
+                    // There is no return in function  return void
+                    if (a_value_funcdef->auto_adjust_return_type)
+                    {
+                        if (a_value_funcdef->has_return_value)
+                            lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+
+                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
+                    }
+                }
             }
+            else
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+
+            if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
+            {
+                wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
+
+                if (!a_value_funcdef->where_constraint)
+                {
+                    a_value_funcdef->where_constraint = new ast_where_constraint;
+                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
+                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
+                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                }
+
+                a_value_funcdef->where_constraint->accept = false;
+
+                for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
+                {
+                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
+                        lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
+                }
+
+
+                // Error happend in cur function
+                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+            }
+
         }
         return true;
     }
@@ -2392,7 +2381,9 @@ namespace wo
             analyze_pass2(a_value_funccall->called_func);
             analyze_pass2(a_value_funccall->arguments);
 
-            judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
+            auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
+
+            ast_value_function_define* calling_function_define = nullptr;
 
             if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
             {
@@ -2407,116 +2398,128 @@ namespace wo
                         a_value_funccall,
                         true);
 
-                    auto* funcdef = called_funcsymb->symbol->get_funcdef();
-
-                    if (funcdef->is_template_define)
-                    {
-                        // Judge template here.
-                        std::vector<ast_type*> template_args(funcdef->template_type_name_list.size(), nullptr);
-                        if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
-                        {
-                            if (variable->template_reification_args.size() > template_args.size())
-                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
-                            else
-                                for (size_t index = 0; index < variable->template_reification_args.size(); index++)
-                                    template_args[index] = variable->template_reification_args[index];
-
-                        }
-                        // finish template args spcified by : xxxxx:<a,b,c> 
-                        // trying auto judge type..
-
-                        std::vector<ast_type*> real_argument_types;
-                        ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
-                        while (funccall_arg)
-                        {
-                            real_argument_types.push_back(funccall_arg->value_type);
-                            funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
-                        }
-
-                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
-                        {
-                            auto& pending_template_arg = template_args[tempindex];
-
-                            if (!pending_template_arg)
-                            {
-                                for (size_t index = 0;
-                                    index < real_argument_types.size() &&
-                                    index < funcdef->value_type->argument_types.size();
-                                    index++)
-                                {
-
-                                    fully_update_type(funcdef->value_type->argument_types[index], false,
-                                        funcdef->template_type_name_list);
-                                    //fully_update_type(real_argument_types[index], false); // USELESS
-
-                                    pending_template_arg = analyze_template_derivation(
-                                        funcdef->template_type_name_list[tempindex],
-                                        funcdef->template_type_name_list,
-                                        funcdef->value_type->argument_types[index],
-                                        real_argument_types[index]
-                                    );
-
-                                    if (pending_template_arg)
-                                        break;
-                                }
-                            }
-                        }
-                        // TODO; Some of template arguments might not able to judge if argument has `auto` type.
-                        // Update auto type here and re-check template
-                        judge_auto_type_in_funccall(a_value_funccall, true, funcdef, &template_args);
-
-                        for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
-                        {
-                            auto& pending_template_arg = template_args[tempindex];
-
-                            if (!pending_template_arg)
-                            {
-                                for (size_t index = 0;
-                                    index < real_argument_types.size() &&
-                                    index < funcdef->value_type->argument_types.size();
-                                    index++)
-                                {
-
-                                    fully_update_type(funcdef->value_type->argument_types[index], false,
-                                        funcdef->template_type_name_list);
-                                    //fully_update_type(real_argument_types[index], false); // USELESS
-
-                                    pending_template_arg = analyze_template_derivation(
-                                        funcdef->template_type_name_list[tempindex],
-                                        funcdef->template_type_name_list,
-                                        funcdef->value_type->argument_types[index],
-                                        real_argument_types[index]
-                                    );
-
-                                    if (pending_template_arg)
-                                        break;
-                                }
-                            }
-                        }
-
-                        if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
-                            lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
-                        else
-                        {
-                            for (auto* templ_arg : template_args)
-                            {
-                                fully_update_type(templ_arg, false);
-                                if (templ_arg->is_pending() && !templ_arg->is_hkt())
-                                {
-                                    lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
-                                        templ_arg->get_type_name(false).c_str());
-                                    goto failed_to_judge_template_params;
-                                }
-                            }
-
-                            funcdef = analyze_pass_template_reification(funcdef, template_args); //tara~ get analyze_pass_template_reification 
-                            a_value_funccall->called_func = funcdef;
-                        }
-                    failed_to_judge_template_params:;
-                    }
-                    // End of template judge
+                    calling_function_define = called_funcsymb->symbol->get_funcdef();
                 }
+                else
+                    calling_function_define = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
             }
+
+            if (calling_function_define != nullptr
+                && calling_function_define->is_template_define)
+            {
+                // Judge template here.
+                std::vector<ast_type*> template_args(calling_function_define->template_type_name_list.size(), nullptr);
+                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
+                {
+                    if (variable->template_reification_args.size() > template_args.size())
+                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                    else
+                        for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                            template_args[index] = variable->template_reification_args[index];
+
+                }
+                // finish template args spcified by : xxxxx:<a,b,c> 
+                // trying auto judge type..
+
+                std::vector<ast_type*> real_argument_types;
+                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                while (funccall_arg)
+                {
+                    real_argument_types.push_back(funccall_arg->value_type);
+                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                }
+
+                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                {
+                    auto& pending_template_arg = template_args[tempindex];
+
+                    if (!pending_template_arg)
+                    {
+                        for (size_t index = 0;
+                            index < real_argument_types.size() &&
+                            index < calling_function_define->value_type->argument_types.size();
+                            index++)
+                        {
+
+                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                                calling_function_define->template_type_name_list);
+                            //fully_update_type(real_argument_types[index], false); // USELESS
+
+                            pending_template_arg = analyze_template_derivation(
+                                calling_function_define->template_type_name_list[tempindex],
+                                calling_function_define->template_type_name_list,
+                                updated_args_types[index] ? updated_args_types[index] : calling_function_define->value_type->argument_types[index],
+                                real_argument_types[index]
+                            );
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                    }
+                }
+                // TODO; Some of template arguments might not able to judge if argument has `auto` type.
+                // Update auto type here and re-check template
+                judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+
+                // After judge, args might be changed, we need re-try to get them.
+                real_argument_types.clear();
+                funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                while (funccall_arg)
+                {
+                    real_argument_types.push_back(funccall_arg->value_type);
+                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                }
+
+                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                {
+                    auto& pending_template_arg = template_args[tempindex];
+
+                    if (!pending_template_arg)
+                    {
+                        for (size_t index = 0;
+                            index < real_argument_types.size() &&
+                            index < calling_function_define->value_type->argument_types.size();
+                            index++)
+                        {
+
+                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                                calling_function_define->template_type_name_list);
+                            //fully_update_type(real_argument_types[index], false); // USELESS
+
+                            pending_template_arg = analyze_template_derivation(
+                                calling_function_define->template_type_name_list[tempindex],
+                                calling_function_define->template_type_name_list,
+                                calling_function_define->value_type->argument_types[index],
+                                real_argument_types[index]
+                            );
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                    }
+                }
+
+                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                    lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
+                else
+                {
+                    for (auto* templ_arg : template_args)
+                    {
+                        fully_update_type(templ_arg, false);
+                        if (templ_arg->is_pending() && !templ_arg->is_hkt())
+                        {
+                            lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
+                                templ_arg->get_type_name(false).c_str());
+                            goto failed_to_judge_template_params;
+                        }
+                    }
+
+                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
+                    a_value_funccall->called_func = calling_function_define;
+                }
+            failed_to_judge_template_params:;
+            }
+            // End of template judge
 
             judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
 
