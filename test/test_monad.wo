@@ -42,6 +42,12 @@ namespace test_monad
         let (v, s) = m(7);
 
         test_assure(v == 16 && s == 7);
+
+        let m2 = option::value(12.5);
+        let m3 = m2
+            =>> \r = r: int;
+            ;
+        test_assure(m3->val == 12);
     }
 }
 test_function("test_monad.main", test_monad::main);
