@@ -6,6 +6,8 @@
 
 #include <unordered_map>
 #include <unordered_set>
+#include <variant>
+#include <optional>
 
 namespace wo
 {
@@ -1316,11 +1318,83 @@ namespace wo
             return dumpped_template_func_define;
         }
 
-        void judge_auto_type_of_funcdef_in_funccall(ast::ast_type* param, ast::ast_value* callaim, ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+        using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
+
+        std::optional<judge_result_t> judge_auto_type_of_funcdef_in_funccall(
+            ast::ast_type* param,
+            ast::ast_value* callaim,
+            ast::ast_value_funccall* funccall,
+            bool update,
+            ast::ast_defines* template_defines,
+            const std::vector<ast::ast_type*>* template_args)
         {
             // TODO: Support judge template 
+            if (!param->is_func())
+                return std::nullopt;
+
+            ast::ast_value_function_define* function_define = nullptr;
+            if (auto* variable = dynamic_cast<ast::ast_symbolable_base*>(callaim))
+            {
+                if (variable->symbol != nullptr && variable->symbol->type == lang_symbol::symbol_type::function)
+                    function_define = variable->symbol->get_funcdef();
+            }
+            if (auto* funcdef = dynamic_cast<ast::ast_value_function_define*>(callaim))
+                function_define = funcdef;
+
+            if (function_define != nullptr && function_define->is_template_define
+                && function_define->value_type->argument_types.size() == param->argument_types.size())
+            {
+                ast::ast_type* new_type = dynamic_cast<ast::ast_type*>(function_define->value_type->instance(nullptr));
+                wo_assert(new_type->is_func());
+
+                std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
+
+                for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
+                    for (size_t index = 0; index < new_type->argument_types.size(); ++index)
+                    {
+                        if (auto* pending_template_arg = analyze_template_derivation(
+                            function_define->template_type_name_list[tempindex],
+                            function_define->template_type_name_list,
+                            new_type->argument_types[index],
+                            param->argument_types[index]
+                        ))
+                        {
+                            arg_func_template_args[tempindex] = pending_template_arg;
+                        }
+                    }
+
+                // Auto judge here...
+                if (update)
+                {
+                    if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
+                    {
+                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
+                        if (template_defines && template_args)
+                            end_template_scope();
+
+                        if (reificated != nullptr)
+                        {
+                            analyze_pass2(reificated);
+                            return reificated;
+                        }
+                    }
+                    return std::nullopt;
+                }
+                else
+                {
+                    if (begin_template_scope(funccall, function_define, arg_func_template_args))
+                    {
+                        fully_update_type(new_type, false);
+                        end_template_scope();
+                    }
+                    return new_type;
+                }
+            }
+
+            // no need to judge, 
+            return std::nullopt;
         }
-        void judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
+        std::vector<ast::ast_type*> judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args)
         {
             using namespace ast;
 
@@ -1332,8 +1406,47 @@ namespace wo
                 arg = dynamic_cast<ast_value*>(arg->sibling);
             }
 
+            std::vector<std::optional<judge_result_t>> judge_result(args.size(), std::nullopt);
+            std::vector<ast::ast_type*> new_arguments_types_result(args.size(), nullptr);
+
+            // If a function has been implized, this flag will be setting and function's
+            //  argument list will be updated later.
+            bool has_updated_arguments = false;
+
             for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
-                judge_auto_type_of_funcdef_in_funccall(funccall->called_func->value_type->argument_types[i], args[i], funccall, update, template_defines, template_args);
+            {
+                judge_result[i] = judge_auto_type_of_funcdef_in_funccall(
+                    funccall->called_func->value_type->argument_types[i],
+                    args[i], funccall, update, template_defines, template_args);
+                if (judge_result[i].has_value())
+                {
+                    if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result[i].value()))
+                    {
+                        wo_assert((*realized_func)->is_template_define == false);
+                        args[i] = *realized_func;
+                        has_updated_arguments = true;
+                    }
+                    else
+                    {
+                        auto* updated_type = std::get<ast::ast_type*>(judge_result[i].value());
+                        wo_assert(updated_type != nullptr);
+                        new_arguments_types_result[i] = updated_type;
+                    }
+                }
+            }
+
+            if (has_updated_arguments)
+            {
+                // Re-generate argument list for current function-call;
+                funccall->arguments->remove_allnode();
+                for (auto* arg : args)
+                {
+                    arg->sibling = nullptr;
+                    funccall->arguments->append_at_end(arg);
+                }
+            }
+
+            return new_arguments_types_result;
         }
 
         bool write_flag_complete_in_pass2 = true;

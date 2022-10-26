@@ -2381,7 +2381,7 @@ namespace wo
             analyze_pass2(a_value_funccall->called_func);
             analyze_pass2(a_value_funccall->arguments);
 
-            judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
+            auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
 
             ast_value_function_define* calling_function_define = nullptr;
 
@@ -2448,7 +2448,7 @@ namespace wo
                             pending_template_arg = analyze_template_derivation(
                                 calling_function_define->template_type_name_list[tempindex],
                                 calling_function_define->template_type_name_list,
-                                calling_function_define->value_type->argument_types[index],
+                                updated_args_types[index] ? updated_args_types[index] : calling_function_define->value_type->argument_types[index],
                                 real_argument_types[index]
                             );
 
@@ -2460,6 +2460,15 @@ namespace wo
                 // TODO; Some of template arguments might not able to judge if argument has `auto` type.
                 // Update auto type here and re-check template
                 judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+
+                // After judge, args might be changed, we need re-try to get them.
+                real_argument_types.clear();
+                funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+                while (funccall_arg)
+                {
+                    real_argument_types.push_back(funccall_arg->value_type);
+                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+                }
 
                 for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
                 {
