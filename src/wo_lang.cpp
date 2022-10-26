@@ -2448,8 +2448,8 @@ namespace wo
                             pending_template_arg = analyze_template_derivation(
                                 calling_function_define->template_type_name_list[tempindex],
                                 calling_function_define->template_type_name_list,
-                                updated_args_types[index] ? updated_args_types[index] : calling_function_define->value_type->argument_types[index],
-                                real_argument_types[index]
+                                calling_function_define->value_type->argument_types[index],
+                                updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
                             );
 
                             if (pending_template_arg)
