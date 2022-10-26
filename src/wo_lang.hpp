@@ -1180,7 +1180,10 @@ namespace wo
                     // TODO: finding repeated template? goon
                     ast_value_function_define* dumpped_template_func_define =
                         analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
-                    return dumpped_template_func_define->this_reification_lang_symbol;
+
+                    if (dumpped_template_func_define)
+                        return dumpped_template_func_define->this_reification_lang_symbol;
+                    return nullptr;
                 }
                 else
                 {
@@ -1328,7 +1331,6 @@ namespace wo
             ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args)
         {
-            // TODO: Support judge template 
             if (!param->is_func())
                 return std::nullopt;
 
@@ -1350,18 +1352,18 @@ namespace wo
                 std::vector<ast::ast_type*> arg_func_template_args(function_define->template_type_name_list.size(), nullptr);
 
                 for (size_t tempindex = 0; tempindex < function_define->template_type_name_list.size(); ++tempindex)
-                    for (size_t index = 0; index < new_type->argument_types.size(); ++index)
-                    {
-                        if (auto* pending_template_arg = analyze_template_derivation(
-                            function_define->template_type_name_list[tempindex],
-                            function_define->template_type_name_list,
-                            new_type->argument_types[index],
-                            param->argument_types[index]
-                        ))
+                {
+                    if (arg_func_template_args[tempindex] == nullptr)
+                        for (size_t index = 0; index < new_type->argument_types.size(); ++index)
                         {
-                            arg_func_template_args[tempindex] = pending_template_arg;
+                            if (auto* pending_template_arg = analyze_template_derivation(
+                                function_define->template_type_name_list[tempindex],
+                                function_define->template_type_name_list,
+                                new_type->argument_types[index],
+                                param->argument_types[index]))
+                                arg_func_template_args[tempindex] = ast::ast_type::create_type_at(function_define, *pending_template_arg);
                         }
-                    }
+                }
 
                 // Auto judge here...
                 if (update)
