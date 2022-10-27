@@ -1820,7 +1820,7 @@ namespace dict
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=>bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getdefault<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
@@ -1924,7 +1924,7 @@ namespace map
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
 
     extern("rslib_std_map_get_or_default") 
-        public func getdefault<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_get_or_set_default") 
         public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
