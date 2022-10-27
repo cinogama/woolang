@@ -790,33 +790,44 @@ namespace wo
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                // Merge all attrib 
-                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
-
-                if (a_pattern_identifier->template_arguments.empty())
+                // N221027: Support binding template function with `let`.
+                if (auto* funcdef = dynamic_cast<ast_value_function_define*>(initval);
+                    funcdef != nullptr && funcdef->is_template_define)
                 {
-                    analyze_pass1(initval);
-
-                    if (!a_pattern_identifier->symbol)
-                    {
-                        a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
-                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
-
-                        if (a_pattern_identifier->decl == ast::identifier_decl::REF)
-                            initval->is_mark_as_using_ref = true;
-                    }
+                    wo_assert(funcdef->function_name == nullptr);
+                    funcdef->function_name = a_pattern_identifier->identifier;
+                    analyze_pass1(funcdef);
                 }
                 else
                 {
-                    // Template variable!!! we just define symbol here.
-                    if (!a_pattern_identifier->symbol)
+                    // Merge all attrib 
+                    a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+
+                    if (a_pattern_identifier->template_arguments.empty())
                     {
-                        auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
-                        symb->is_template_symbol = true;
-                        wo_assert(symb->template_types.empty());
-                        symb->template_types = a_pattern_identifier->template_arguments;
-                        a_pattern_identifier->symbol = symb;
-                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                        analyze_pass1(initval);
+
+                        if (!a_pattern_identifier->symbol)
+                        {
+                            a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
+                            a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+
+                            if (a_pattern_identifier->decl == ast::identifier_decl::REF)
+                                initval->is_mark_as_using_ref = true;
+                        }
+                    }
+                    else
+                    {
+                        // Template variable!!! we just define symbol here.
+                        if (!a_pattern_identifier->symbol)
+                        {
+                            auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                            symb->is_template_symbol = true;
+                            wo_assert(symb->template_types.empty());
+                            symb->template_types = a_pattern_identifier->template_arguments;
+                            a_pattern_identifier->symbol = symb;
+                            a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                        }
                     }
                 }
             }
@@ -848,7 +859,14 @@ namespace wo
             using namespace ast;
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                if (a_pattern_identifier->template_arguments.empty())
+                // N221027: Support binding template function with `let`.
+                if (auto* funcdef = dynamic_cast<ast_value_function_define*>(initval);
+                    funcdef != nullptr && funcdef->is_template_define)
+                {
+                    wo_assert(funcdef->function_name == a_pattern_identifier->identifier);
+                    analyze_pass2(funcdef);
+                }
+                else if (a_pattern_identifier->template_arguments.empty())
                 {
                     analyze_pass2(initval);
 
@@ -931,7 +949,13 @@ namespace wo
 
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
-                if (a_pattern_identifier->template_arguments.empty())
+                // N221027: Support binding template function with `let`.
+                if (auto* funcdef = dynamic_cast<ast_value_function_define*>(initval);
+                    funcdef != nullptr && funcdef->is_template_define)
+                {
+                    analyze_value(initval, compiler);
+                }
+                else if (a_pattern_identifier->template_arguments.empty())
                 {
                     if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
                     {
