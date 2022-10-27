@@ -28,9 +28,7 @@ namespace wo
         auto* a_varref_defs = WO_AST();
         a_varref_defs->located_function = in_function();
         for (auto& varref : a_varref_defs->var_refs)
-        {
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
-        }
         return true;
     }
     WO_PASS1(ast_value_binary)
