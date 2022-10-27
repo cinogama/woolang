@@ -13,6 +13,7 @@
 #include "wo_io.hpp"
 #include "wo_roroutine_simulate_mgr.hpp"
 #include "wo_roroutine_thread_mgr.hpp"
+#include "wo_crc_64.hpp"
 
 #include <csignal>
 #include <sstream>
@@ -2723,4 +2724,18 @@ void wo_unload_lib(void* lib)
 
     loaded_named_libs.erase(fnd);
     wo::osapi::freelib(lib);
+}
+
+wo_integer_t wo_crc64_str(wo_string_t text)
+{
+    return (wo_integer_t)wo::crc_64(text);
+}
+WO_API wo_integer_t wo_crc64_file(wo_string_t filepath)
+{
+    std::ifstream file(filepath, std::ios_base::in | std::ios_base::binary);
+    if (!file.is_open())
+        // Failed to open file, return 0; ?
+        return 0;
+
+    return (wo_integer_t)wo::crc_64(file);
 }

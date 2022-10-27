@@ -340,6 +340,9 @@ WO_API void         wo_handle_ctrl_c(void(*handler)(int));
 
 WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
 
+WO_API wo_integer_t wo_crc64_str(wo_string_t text);
+WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
+
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1
