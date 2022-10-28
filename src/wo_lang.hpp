@@ -4462,18 +4462,18 @@ namespace wo
             }
             return result;
         }
+
+        // Only used for check symbol is exist?
+        lang_symbol* find_value_symbol_in_this_scope(ast::ast_value_variable* var_ident)
+        {
+            return find_symbol_in_this_scope(var_ident, var_ident->var_name,
+                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function);
+        }
+
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)
         {
-            auto* result = find_symbol_in_this_scope(var_ident, var_ident->var_name,
-                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function);
+            auto* result = find_value_symbol_in_this_scope(var_ident);
 
-            if (result
-                && (result->type == lang_symbol::symbol_type::typing
-                    || result->type == lang_symbol::symbol_type::type_alias))
-            {
-                lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_IS_A_TYPE,
-                    result->name->c_str());
-            }
             if (result)
             {
                 auto symb_defined_in_func = result->defined_in_scope;
