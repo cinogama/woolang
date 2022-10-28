@@ -1,54 +1,74 @@
 {
 	"name": "Woolang",
+	"fileTypes": [ "wo" ],
 	"patterns": [
-		{
-			"include": "#keywords"
-		},
-		{
-			"include": "#strings"
-		}
+	  { "include": "#keywords" },
+	  { "include": "#strings" },
+	  { "include": "#multilinestrings" },
+	  { "include": "#comments" },
+	  { "include": "#decl_types" }
 	],
 	"repository": {
-		"keywords": {
-			"patterns": [
-				{
-					"name": "keyword.control.woolang",
-					"match": "\\b(if|else|while|for|return|goto|continue|break|expect|match)\\b"
-				},
-				{
-					"name": "keyword.declear.woolang",
-					"match": "\\b(func|let|ref|namespace|using|enum|union|where|extern|public|private|protected|const|static|operator|struct)\\b"
-				},
-				{
-					"name": "keyword.import.woolang",
-					"match": "\\b(import)\\b"
-				},
-				{
-					"name": "keyword.calc.woolang",
-					"match": "\\b(as|is|typeof)\\b"
-				},
-				{
-					"name": "keyword.constant.woolang",
-					"match": "\\b(true|false|inf|nil)\\b"
-				}
-			]
-		},
-		"strings": {
-			"name": "string.quoted.double.woolang",
-			"begin": "\"",
-			"end": "\"",
-			"patterns": [
-				{
-					"name": "constant.character.escape.woolang",
-					"match": "\\\\."
-				}
-			]
-		},
-		"multiLineStrings": {
-			"name": "multi_line_string.quoted.double.woolang",
-			"begin": "@\"",
-			"end": "\"@"
-		}
+	  "keywords": {
+		"patterns": [
+		  {
+			"name": "keyword.control.woolang",
+			"match": "\\b(if|else|while|for|return|goto|continue|break|expect|match)\\b"
+		  },
+		  {
+			"name": "keyword.declear.woolang",
+			"match": "\\b(func|let|ref|namespace|using|enum|union|where|extern|public|private|protected|const|static|operator|struct|mut)\\b"
+		  },
+		  {
+			"name": "keyword.import.woolang",
+			"match": "\\b(import)\\b"
+		  },
+		  {
+			"name": "keyword.calc.woolang",
+			"match": "\\b(as|is|typeof)\\b"
+		  },
+		  {
+			"name": "keyword.constant.woolang",
+			"match": "\\b(true|false|inf|nil)\\b"
+		  }
+		]
+	  },
+	  "strings": {
+		"name": "string.quoted.double.woolang",
+		"begin": "\"",
+		"end": "\""
+	  },
+	  "multilinestrings": {
+		"name": "string.quoted.multiline.woolang",
+		"begin": "@\"",
+		"end": "\"@"
+	  },
+	  "comments": {
+		"patterns": [
+		  {
+			"begin": "/\\*",
+			"end": "\\*/",
+			"name": "comment.block.woolang"
+		  },
+		  {
+			"begin": "(//)",
+			"beginCaptures": { "1": { "name": "marker.woolang" } },
+			"end": "$",
+			"name": "comment.line.double-slash.woolang"
+		  }
+		]
+	  },
+	  "decl_types": {
+		"patterns": [
+		  {
+			"name": "decl_type.woolang",
+			"match": "[^:]:[^:]\\s*([A-Za-z_][A-Za-z0-9_::]*)",
+			"captures": {
+			  "1": { "name": "storage.type.identifier.woolang" }
+			}
+		  }
+		]
+	  }
 	},
 	"scopeName": "source.woolang"
-}
+  }
