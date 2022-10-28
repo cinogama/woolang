@@ -141,6 +141,11 @@ namespace wo
         return crc64_tab[(uint8_t)_crc ^ _byte] ^ (_crc >> 8);
     }
 
+    inline uint64_t crc_64(uint8_t byte, uint64_t lastcrc)
+    {
+        return _crc_64(byte, lastcrc);
+    }
+
     inline uint64_t crc_64(const char* str)
     {
         uint64_t crc = 0;

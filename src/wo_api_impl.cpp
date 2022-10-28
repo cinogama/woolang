@@ -2726,11 +2726,16 @@ void wo_unload_lib(void* lib)
     wo::osapi::freelib(lib);
 }
 
+
+wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc)
+{
+    return (wo_integer_t)wo::crc_64(byte, (uint64_t)crc);
+}
 wo_integer_t wo_crc64_str(wo_string_t text)
 {
     return (wo_integer_t)wo::crc_64(text);
 }
-WO_API wo_integer_t wo_crc64_file(wo_string_t filepath)
+wo_integer_t wo_crc64_file(wo_string_t filepath)
 {
     std::ifstream file(filepath, std::ios_base::in | std::ios_base::binary);
     if (!file.is_open())
