@@ -2293,11 +2293,12 @@ namespace wo
         {
             if (a_value_funccall->callee_symbol_in_type_namespace)
             {
+                wo_assert(a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 == false);
+
                 analyze_pass2(a_value_funccall->directed_value_from);
                 if (!a_value_funccall->directed_value_from->value_type->is_pending())
                 {
                     // trying finding type_function
-
                     auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
 
                     // Is using type?
@@ -2315,28 +2316,29 @@ namespace wo
                             origin_namespace.end()
                         );
 
-                        lang_anylizer->begin_trying_block();
-                        analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                        lang_anylizer->end_trying_block();
+                        auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
 
-                        if (a_value_funccall->callee_symbol_in_type_namespace->symbol != nullptr)
+                        if (direct_called_func_symbol != nullptr)
                         {
                             if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
                                 a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
                                 = old_callee_func->template_reification_args;
 
                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                            if (a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function)
+                            if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
                             {
                                 // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
-                                auto* funcdef = a_value_funccall->callee_symbol_in_type_namespace->symbol->get_funcdef();
+                                auto* funcdef = direct_called_func_symbol->get_funcdef();
                                 if (funcdef->is_template_define)
+                                {
                                     a_value_funccall->called_func->value_type = funcdef->value_type;
+                                    // Make sure it will not be analyze in pass2
+                                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
+                                }
                             }
                             goto start_ast_op_calling;
                         }
 
-                        a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = false;
                     }
                     // base type?
                     else
@@ -2350,24 +2352,25 @@ namespace wo
                             origin_namespace.end()
                         );
 
-                        lang_anylizer->begin_trying_block();
-                        analyze_pass2(a_value_funccall->callee_symbol_in_type_namespace);
-                        lang_anylizer->end_trying_block();
+                        auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
 
-
-                        if (a_value_funccall->callee_symbol_in_type_namespace->symbol != nullptr)
+                        if (direct_called_func_symbol != nullptr)
                         {
                             if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
                                 a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
                                 = old_callee_func->template_reification_args;
 
                             a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                            if (a_value_funccall->callee_symbol_in_type_namespace->symbol->type == lang_symbol::symbol_type::function)
+                            if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
                             {
                                 // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
-                                auto* funcdef = a_value_funccall->callee_symbol_in_type_namespace->symbol->get_funcdef();
+                                auto* funcdef = direct_called_func_symbol->get_funcdef();
                                 if (funcdef->is_template_define)
+                                {
                                     a_value_funccall->called_func->value_type = funcdef->value_type;
+                                    // Make sure it will not be analyze in pass2
+                                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
+                                }
                             }
                             goto start_ast_op_calling;
                         }
