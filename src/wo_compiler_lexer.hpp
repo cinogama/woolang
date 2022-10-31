@@ -1534,6 +1534,9 @@ namespace wo
                     scope_count--;
                 else if (type == +lex_type::l_left_curly_braces)
                     scope_count++;
+                else if (type == +lex_type::l_eof)
+                    break;
+
             } while (scope_count);
 
             size_t end_index = lex.next_reading_index;
