@@ -2200,7 +2200,7 @@ namespace wo
             && funcdef->where_constraint != nullptr
             && !funcdef->where_constraint->accept)
         {
-            lang_anylizer->lang_error(0x0000, ast, L"不满足函数的 'where' 约束要求，继续：");
+            lang_anylizer->lang_error(0x0000, ast, L"不满足此函数调用的要求，继续：");
             for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
             {
                 lang_anylizer->get_cur_error_frame().push_back(error_info);
