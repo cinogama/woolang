@@ -344,14 +344,14 @@ namespace wo
 
             finish_veh();
 
-            if (compile_info)
-                delete compile_info;
+            //if (compile_info)
+            //    delete compile_info;
 
             if (env)
                 --env->_running_on_vm_count;
         }
 
-        lexer* compile_info = nullptr;
+        /*lexer* compile_info = nullptr;*/
 
         // vm exception handler
         exception_recovery* veh = nullptr;

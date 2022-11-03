@@ -14,6 +14,8 @@
 #include "wo_roroutine_simulate_mgr.hpp"
 #include "wo_roroutine_thread_mgr.hpp"
 #include "wo_crc_64.hpp"
+#include "wo_const_string_pool.hpp"
+#include "wo_lang_compiler_information.hpp"
 
 #include <csignal>
 #include <sstream>
@@ -680,243 +682,243 @@ std::string _enstring(const std::string& sstr, bool need_wrap)
     else
         return sstr;
 }
-std::string _destring(const std::string& dstr)
-{
-    const char* str = dstr.c_str();
-    std::string result;
-    if (*str == '"')
-        ++str;
-    while (*str)
-    {
-        char uch = *str;
-        if (uch == '\\')
-        {
-            // Escape character 
-            char escape_ch = *++str;
-            switch (escape_ch)
-            {
-            case '\'':
-            case '"':
-            case '?':
-            case '\\':
-                result += escape_ch; break;
-            case 'a':
-                result += '\a'; break;
-            case 'b':
-                result += '\b'; break;
-            case 'f':
-                result += '\f'; break;
-            case 'n':
-                result += '\n'; break;
-            case 'r':
-                result += '\r'; break;
-            case 't':
-                result += L'\t'; break;
-            case 'v':
-                result += '\v'; break;
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-            {
-                // oct 1byte 
-                unsigned char oct_ascii = escape_ch - '0';
-                for (int i = 0; i < 2; i++)
-                {
-                    unsigned char nextch = (unsigned char)*++str;
-                    if (wo::lexer::lex_isodigit(nextch))
-                    {
-                        oct_ascii *= 8;
-                        oct_ascii += wo::lexer::lex_hextonum(nextch);
-                    }
-                    else
-                        break;
-                }
-                result += oct_ascii;
-                break;
-            }
-            case 'X':
-            case 'x':
-            {
-                // hex 1byte 
-                unsigned char hex_ascii = 0;
-                for (int i = 0; i < 2; i++)
-                {
-                    unsigned char nextch = (unsigned char)*++str;
-                    if (wo::lexer::lex_isxdigit(nextch))
-                    {
-                        hex_ascii *= 16;
-                        hex_ascii += wo::lexer::lex_hextonum(nextch);
-                    }
-                    else if (i == 0)
-                        goto str_escape_sequences_fail;
-                    else
-                        break;
-                }
-                result += (char)hex_ascii;
-                break;
-            }
-            case 'U':
-            case 'u':
-            {
-                // hex 1byte 
-                unsigned char hex_ascii = 0;
-                for (int i = 0; i < 4; i++)
-                {
-                    unsigned char nextch = (unsigned char)*++str;
-                    if (wo::lexer::lex_isxdigit(nextch))
-                    {
-                        hex_ascii *= 16;
-                        hex_ascii += wo::lexer::lex_hextonum(nextch);
-                    }
-                    else if (i == 0)
-                        goto str_escape_sequences_fail;
-                    else
-                        break;
-                }
-                result += (char)hex_ascii;
-                break;
-            }
-            default:
-            str_escape_sequences_fail:
-                result += escape_ch;
-                break;
-            }
-        }
-        else if (uch == '"')
-            break;
-        else
-            result += uch;
-        ++str;
-    }
-    return result;
-}
-wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
-wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
-{
-    wo::array_t* rsarr;
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsarr));
-
-    while (true)
-    {
-        auto lex_type = lex->peek(nullptr);
-        if (lex_type == +wo::lex_type::l_index_end)
-        {
-            lex->next(nullptr);
-            break;
-        }
-
-        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid)) // val!
-            return false;
-        rsarr->push_back(*value);
-
-        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
-            lex->next(nullptr);
-    }
-
-    value->set_gcunit_with_barrier(wo::value::valuetype::array_type, rsarr);
-    return true;
-}
-wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
-{
-    wo::dict_t* rsmap;
-    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
-
-    while (true)
-    {
-        auto lex_type = lex->peek(nullptr);
-        if (lex_type == +wo::lex_type::l_right_curly_braces)
-        {
-            // end
-            lex->next(nullptr);
-            break;
-        }
-
-        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid))// key!
-            return false;
-        auto& val_place = (*rsmap)[*value];
-
-        lex_type = lex->next(nullptr);
-        if (lex_type != +wo::lex_type::l_typecast)
-            //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
-            return false;
-
-        if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
-            return false;
-
-        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
-            lex->next(nullptr);
-    }
-
-    value->set_gcunit_with_barrier(wo::value::valuetype::dict_type, rsmap);
-    return true;
-}
-wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
-{
-    std::wstring wstr;
-    auto lex_type = lex->next(&wstr);
-    if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
-    {
-        if (!_wo_cast_map(value, lex))
-            return false;
-    }
-    else if (lex_type == +wo::lex_type::l_index_begin) // is array
-    {
-        if (!_wo_cast_array(value, lex))
-            return false;
-    }
-    else if (lex_type == +wo::lex_type::l_literal_string) // is string   
-        value->set_string(wo::wstr_to_str(wstr).c_str());
-    else if (lex_type == +wo::lex_type::l_add
-        || lex_type == +wo::lex_type::l_sub
-        || lex_type == +wo::lex_type::l_literal_integer
-        || lex_type == +wo::lex_type::l_literal_real) // is integer
-    {
-        bool positive = true;
-        if (lex_type == +wo::lex_type::l_sub || lex_type == +wo::lex_type::l_add)
-        {
-            lex_type = lex->next(&wstr);
-            if (lex_type == +wo::lex_type::l_sub)
-                positive = false;
-
-            if (lex_type != +wo::lex_type::l_literal_integer
-                && lex_type != +wo::lex_type::l_literal_real)
-                // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
-                return false;
-        }
-
-        if (lex_type == +wo::lex_type::l_literal_integer) // is real
-            value->set_integer(positive
-                ? std::stoll(wo::wstr_to_str(wstr).c_str())
-                : -std::stoll(wo::wstr_to_str(wstr).c_str()));
-        else if (lex_type == +wo::lex_type::l_literal_real) // is real
-            value->set_real(positive
-                ? std::stod(wo::wstr_to_str(wstr).c_str())
-                : -std::stod(wo::wstr_to_str(wstr).c_str()));
-
-    }
-    else if (lex_type == +wo::lex_type::l_nil) // is nil
-        value->set_nil();
-    else if (wstr == L"true")
-        value->set_integer(1);// true
-    else if (wstr == L"false")
-        value->set_integer(0);// false
-    else if (wstr == L"null")
-        value->set_nil();// null
-    else
-        //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
-        return false;
-
-    if (except_type != wo::value::valuetype::invalid && except_type != value->type)
-        // wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
-        return false;
-    return true;
-
-}
-wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type)
-{
-    wo::lexer lex(wo::str_to_wstr(str), "json");
-
-    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
-}
+//std::string _destring(const std::string& dstr)
+//{
+//    const char* str = dstr.c_str();
+//    std::string result;
+//    if (*str == '"')
+//        ++str;
+//    while (*str)
+//    {
+//        char uch = *str;
+//        if (uch == '\\')
+//        {
+//            // Escape character 
+//            char escape_ch = *++str;
+//            switch (escape_ch)
+//            {
+//            case '\'':
+//            case '"':
+//            case '?':
+//            case '\\':
+//                result += escape_ch; break;
+//            case 'a':
+//                result += '\a'; break;
+//            case 'b':
+//                result += '\b'; break;
+//            case 'f':
+//                result += '\f'; break;
+//            case 'n':
+//                result += '\n'; break;
+//            case 'r':
+//                result += '\r'; break;
+//            case 't':
+//                result += L'\t'; break;
+//            case 'v':
+//                result += '\v'; break;
+//            case '0': case '1': case '2': case '3': case '4':
+//            case '5': case '6': case '7': case '8': case '9':
+//            {
+//                // oct 1byte 
+//                unsigned char oct_ascii = escape_ch - '0';
+//                for (int i = 0; i < 2; i++)
+//                {
+//                    unsigned char nextch = (unsigned char)*++str;
+//                    if (wo::lexer::lex_isodigit(nextch))
+//                    {
+//                        oct_ascii *= 8;
+//                        oct_ascii += wo::lexer::lex_hextonum(nextch);
+//                    }
+//                    else
+//                        break;
+//                }
+//                result += oct_ascii;
+//                break;
+//            }
+//            case 'X':
+//            case 'x':
+//            {
+//                // hex 1byte 
+//                unsigned char hex_ascii = 0;
+//                for (int i = 0; i < 2; i++)
+//                {
+//                    unsigned char nextch = (unsigned char)*++str;
+//                    if (wo::lexer::lex_isxdigit(nextch))
+//                    {
+//                        hex_ascii *= 16;
+//                        hex_ascii += wo::lexer::lex_hextonum(nextch);
+//                    }
+//                    else if (i == 0)
+//                        goto str_escape_sequences_fail;
+//                    else
+//                        break;
+//                }
+//                result += (char)hex_ascii;
+//                break;
+//            }
+//            case 'U':
+//            case 'u':
+//            {
+//                // hex 1byte 
+//                unsigned char hex_ascii = 0;
+//                for (int i = 0; i < 4; i++)
+//                {
+//                    unsigned char nextch = (unsigned char)*++str;
+//                    if (wo::lexer::lex_isxdigit(nextch))
+//                    {
+//                        hex_ascii *= 16;
+//                        hex_ascii += wo::lexer::lex_hextonum(nextch);
+//                    }
+//                    else if (i == 0)
+//                        goto str_escape_sequences_fail;
+//                    else
+//                        break;
+//                }
+//                result += (char)hex_ascii;
+//                break;
+//            }
+//            default:
+//            str_escape_sequences_fail:
+//                result += escape_ch;
+//                break;
+//            }
+//        }
+//        else if (uch == '"')
+//            break;
+//        else
+//            result += uch;
+//        ++str;
+//    }
+//    return result;
+//}
+//wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type);
+//wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
+//{
+//    wo::array_t* rsarr;
+//    wo::array_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsarr));
+//
+//    while (true)
+//    {
+//        auto lex_type = lex->peek(nullptr);
+//        if (lex_type == +wo::lex_type::l_index_end)
+//        {
+//            lex->next(nullptr);
+//            break;
+//        }
+//
+//        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid)) // val!
+//            return false;
+//        rsarr->push_back(*value);
+//
+//        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
+//            lex->next(nullptr);
+//    }
+//
+//    value->set_gcunit_with_barrier(wo::value::valuetype::array_type, rsarr);
+//    return true;
+//}
+//wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
+//{
+//    wo::dict_t* rsmap;
+//    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
+//
+//    while (true)
+//    {
+//        auto lex_type = lex->peek(nullptr);
+//        if (lex_type == +wo::lex_type::l_right_curly_braces)
+//        {
+//            // end
+//            lex->next(nullptr);
+//            break;
+//        }
+//
+//        if (!_wo_cast_value(value, lex, wo::value::valuetype::invalid))// key!
+//            return false;
+//        auto& val_place = (*rsmap)[*value];
+//
+//        lex_type = lex->next(nullptr);
+//        if (lex_type != +wo::lex_type::l_typecast)
+//            //wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept token while parsing map, here should be ':'.");
+//            return false;
+//
+//        if (!_wo_cast_value(&val_place, lex, wo::value::valuetype::invalid)) // value!
+//            return false;
+//
+//        if (lex->peek(nullptr) == +wo::lex_type::l_comma)
+//            lex->next(nullptr);
+//    }
+//
+//    value->set_gcunit_with_barrier(wo::value::valuetype::dict_type, rsmap);
+//    return true;
+//}
+//wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype except_type)
+//{
+//    std::wstring wstr;
+//    auto lex_type = lex->next(&wstr);
+//    if (lex_type == +wo::lex_type::l_left_curly_braces) // is map
+//    {
+//        if (!_wo_cast_map(value, lex))
+//            return false;
+//    }
+//    else if (lex_type == +wo::lex_type::l_index_begin) // is array
+//    {
+//        if (!_wo_cast_array(value, lex))
+//            return false;
+//    }
+//    else if (lex_type == +wo::lex_type::l_literal_string) // is string   
+//        value->set_string(wo::wstr_to_str(wstr).c_str());
+//    else if (lex_type == +wo::lex_type::l_add
+//        || lex_type == +wo::lex_type::l_sub
+//        || lex_type == +wo::lex_type::l_literal_integer
+//        || lex_type == +wo::lex_type::l_literal_real) // is integer
+//    {
+//        bool positive = true;
+//        if (lex_type == +wo::lex_type::l_sub || lex_type == +wo::lex_type::l_add)
+//        {
+//            lex_type = lex->next(&wstr);
+//            if (lex_type == +wo::lex_type::l_sub)
+//                positive = false;
+//
+//            if (lex_type != +wo::lex_type::l_literal_integer
+//                && lex_type != +wo::lex_type::l_literal_real)
+//                // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+//                return false;
+//        }
+//
+//        if (lex_type == +wo::lex_type::l_literal_integer) // is real
+//            value->set_integer(positive
+//                ? std::stoll(wo::wstr_to_str(wstr).c_str())
+//                : -std::stoll(wo::wstr_to_str(wstr).c_str()));
+//        else if (lex_type == +wo::lex_type::l_literal_real) // is real
+//            value->set_real(positive
+//                ? std::stod(wo::wstr_to_str(wstr).c_str())
+//                : -std::stod(wo::wstr_to_str(wstr).c_str()));
+//
+//    }
+//    else if (lex_type == +wo::lex_type::l_nil) // is nil
+//        value->set_nil();
+//    else if (wstr == L"true")
+//        value->set_integer(1);// true
+//    else if (wstr == L"false")
+//        value->set_integer(0);// false
+//    else if (wstr == L"null")
+//        value->set_nil();// null
+//    else
+//        //wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
+//        return false;
+//
+//    if (except_type != wo::value::valuetype::invalid && except_type != value->type)
+//        // wo_fail(WO_FAIL_TYPE_FAIL, "Unexcept value type after parsing.");
+//        return false;
+//    return true;
+//
+//}
+//wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type)
+//{
+//    wo::lexer lex(wo::str_to_wstr(str), "json");
+//
+//    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+//}
 
 void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
 {
@@ -1768,68 +1770,70 @@ void* wo_co_wait_for(wo_waitter_t waitter)
 
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
-    wo::start_string_pool_guard sg;
+    //wo::start_string_pool_guard sg;
 
-    // 1. Prepare lexer..
-    wo::lexer* lex = nullptr;
-    if (src)
-        lex = new wo::lexer(wo::str_to_wstr(src), virtual_src_path);
-    else
-        lex = new wo::lexer(virtual_src_path);
+    //// 1. Prepare lexer..
+    //wo::lexer* lex = nullptr;
+    //if (src)
+    //    lex = new wo::lexer(wo::str_to_wstr(src), virtual_src_path);
+    //else
+    //    lex = new wo::lexer(virtual_src_path);
 
-    lex->has_been_imported(lex->source_file);
+    //lex->has_been_imported(lex->source_file);
 
-    std::forward_list<wo::grammar::ast_base*> m_last_context;
-    bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
-    if (!lex->has_error())
-    {
-        // 2. Lexer will create ast_tree;
-        auto result = wo::get_wo_grammar()->gen(*lex);
-        if (result)
-        {
-            // 3. Create lang, most anything store here..
-            wo::lang lang(*lex);
+    //std::forward_list<wo::grammar::ast_base*> m_last_context;
+    //bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
+    //if (!lex->has_error())
+    //{
+    //    // 2. Lexer will create ast_tree;
+    //    auto result = wo::get_wo_grammar()->gen(*lex);
+    //    if (result)
+    //    {
+    //        // 3. Create lang, most anything store here..
+    //        wo::lang lang(*lex);
 
-            lang.analyze_pass1(result);
-            if (!lang.has_compile_error())
-                lang.analyze_pass2(result);
+    //        lang.analyze_pass1(result);
+    //        if (!lang.has_compile_error())
+    //            lang.analyze_pass2(result);
 
-            //result->display();
-            if (!lang.has_compile_error())
-            {
-                wo::ir_compiler compiler;
-                lang.analyze_finalize(result, &compiler);
+    //        //result->display();
+    //        if (!lang.has_compile_error())
+    //        {
+    //            wo::ir_compiler compiler;
+    //            lang.analyze_finalize(result, &compiler);
 
-                if (!lang.has_compile_error())
-                {
-                    compiler.end();
-                    ((wo::vm*)vm)->set_runtime(compiler);
+    //            if (!lang.has_compile_error())
+    //            {
+    //                compiler.end();
+    //                ((wo::vm*)vm)->set_runtime(compiler);
 
-                    // OK
-                }
-            }
-        }
-    }
+    //                // OK
+    //            }
+    //        }
+    //    }
+    //}
 
-    wo::grammar::ast_base::clean_this_thread_ast();
+    //wo::grammar::ast_base::clean_this_thread_ast();
 
-    if (need_exchange_back)
-        wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
+    //if (need_exchange_back)
+    //    wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
 
-    bool compile_has_err = lex->has_error();
-    if (compile_has_err)
-        WO_VM(vm)->compile_info = lex;
-    else
-        delete lex;
+    //bool compile_has_err = lex->has_error();
+    //if (compile_has_err)
+    //    WO_VM(vm)->compile_info = lex;
+    //else
+    //    delete lex;
 
-    return !compile_has_err;
+    //return !compile_has_err;
+
+    return false;
 }
 
 wo_bool_t wo_has_compile_error(wo_vm vm)
 {
-    if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
-        return true;
-    return false;
+    //if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
+       return true;
+    //return false;
 }
 
 std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
@@ -1956,42 +1960,44 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
 
 wo_string_t wo_get_compile_error(wo_vm vm, _wo_inform_style style)
 {
-    if (style == WO_DEFAULT)
-        style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
+    //if (style == WO_DEFAULT)
+    //    style = wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL ? WO_NEED_COLOR : WO_NOTHING;
 
-    thread_local std::string _vm_compile_errors;
-    _vm_compile_errors = "";
-    if (vm && WO_VM(vm)->compile_info)
-    {
-        auto& lex = *WO_VM(vm)->compile_info;
+    //thread_local std::string _vm_compile_errors;
+    //_vm_compile_errors = "";
+    //if (vm && WO_VM(vm)->compile_info)
+    //{
+    //    auto& lex = *WO_VM(vm)->compile_info;
 
-        std::string src_file_path = "";
-        size_t errcount = 0;
+    //    std::string src_file_path = "";
+    //    size_t errcount = 0;
 
-        for (auto& err_info : lex.lex_error_list)
-        {
-            if (++errcount > 100)
-            {
-                _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(lex.lex_error_list.size()) + L"\n");
-                break;
-            }
-            if (src_file_path != err_info.filename)
-            {
-                if (style == WO_NEED_COLOR)
-                    _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + (src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
-                else
-                    _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
-            }
-            _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
+    //    for (auto& err_info : lex.lex_error_list)
+    //    {
+    //        if (++errcount > 100)
+    //        {
+    //            _vm_compile_errors += wo::wstr_to_str(WO_TOO_MANY_ERROR(lex.lex_error_list.size()) + L"\n");
+    //            break;
+    //        }
+    //        if (src_file_path != err_info.filename)
+    //        {
+    //            if (style == WO_NEED_COLOR)
+    //                _vm_compile_errors += ANSI_HIR "In file: '" ANSI_RST + (src_file_path = err_info.filename) + ANSI_HIR "'" ANSI_RST "\n";
+    //            else
+    //                _vm_compile_errors += "In file: '" + (src_file_path = err_info.filename) + "'\n";
+    //        }
+    //        _vm_compile_errors += wo::wstr_to_str(err_info.to_wstring(style & WO_NEED_COLOR)) + "\n";
 
-            // Print source informations..
-            _vm_compile_errors += wo::wstr_to_str(
-                _dump_src_info(src_file_path, err_info.begin_row, err_info.begin_col, err_info.end_row, err_info.end_col, style)) + "\n";
+    //        // Print source informations..
+    //        _vm_compile_errors += wo::wstr_to_str(
+    //            _dump_src_info(src_file_path, err_info.begin_row, err_info.begin_col, err_info.end_row, err_info.end_col, style)) + "\n";
 
-            // Todo: comment
-        }
-    }
-    return _vm_compile_errors.c_str();
+    //        // Todo: comment
+    //    }
+    //}
+    //return _vm_compile_errors.c_str();
+
+    return "";
 }
 
 wo_string_t wo_get_runtime_error(wo_vm vm)

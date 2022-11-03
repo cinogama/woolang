@@ -4,5 +4,5 @@
 
 namespace wo
 {
-    grammar* get_wo_grammar();
+
 }

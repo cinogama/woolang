@@ -65,95 +65,95 @@ WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, str.c_str());
 }
 
-WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isspace(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
-
-WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isalpha(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
-
-WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isalnum(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
-
-WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isdigit(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
-
-WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isxdigit(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
-
-WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
-    {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isodigit(wch))
-                return wo_ret_bool(vm, false);
-        return wo_ret_bool(vm, true);
-    }
-    return wo_ret_bool(vm, false);
-}
+//WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isspace(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
+//
+//WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isalpha(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
+//
+//WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isalnum(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
+//
+//WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isdigit(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
+//
+//WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isxdigit(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
+//
+//WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//
+//    if (*str)
+//    {
+//        auto&& wstr = wo::str_to_wstr(str);
+//        for (auto& wch : wstr)
+//            if (!wo::lexer::lex_isodigit(wch))
+//                return wo_ret_bool(vm, false);
+//        return wo_ret_bool(vm, true);
+//    }
+//    return wo_ret_bool(vm, false);
+//}
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
 {
@@ -187,94 +187,94 @@ WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result.c_str());
 }
 
-WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_string_t str = wo_string(args + 0);
-    std::string result;
-    if (*str == '"')
-        ++str;
-    while (*str)
-    {
-        char uch = *str;
-        if (uch == '\\')
-        {
-            // Escape character 
-            char escape_ch = *++str;
-            switch (escape_ch)
-            {
-            case '\'':
-            case '"':
-            case '?':
-            case '\\':
-                result += escape_ch; break;
-            case 'a':
-                result += '\a'; break;
-            case 'b':
-                result += '\b'; break;
-            case 'f':
-                result += '\f'; break;
-            case 'n':
-                result += '\n'; break;
-            case 'r':
-                result += '\r'; break;
-            case 't':
-                result += '\t'; break;
-            case 'v':
-                result += '\v'; break;
-            case '0': case '1': case '2': case '3': case '4':
-            case '5': case '6': case '7': case '8': case '9':
-            {
-                // oct 1byte 
-                unsigned char oct_ascii = escape_ch - '0';
-                for (int i = 0; i < 2; i++)
-                {
-                    unsigned char nextch = (unsigned char)*++str;
-                    if (wo::lexer::lex_isodigit(nextch))
-                    {
-                        oct_ascii *= 8;
-                        oct_ascii += wo::lexer::lex_hextonum(nextch);
-                    }
-                    else
-                        break;
-                }
-                result += oct_ascii;
-                break;
-            }
-            case 'X':
-            case 'x':
-            {
-                // hex 1byte 
-                unsigned char hex_ascii = 0;
-                for (int i = 0; i < 2; i++)
-                {
-                    unsigned char nextch = (unsigned char)*++str;
-                    if (wo::lexer::lex_isxdigit(nextch))
-                    {
-                        hex_ascii *= 16;
-                        hex_ascii += wo::lexer::lex_hextonum(nextch);
-                    }
-                    else if (i == 0)
-                        goto str_escape_sequences_fail;
-                    else
-                        break;
-                }
-                result += (char)hex_ascii;
-                break;
-            }
-            default:
-            str_escape_sequences_fail:
-                result += escape_ch;
-                break;
-            }
-        }
-        else if (uch == '"')
-            break;
-        else
-            result += uch;
-        ++str;
-    }
-    return wo_ret_string(vm, result.c_str());
-}
+//WO_API wo_api rslib_std_string_destring(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo_string_t str = wo_string(args + 0);
+//    std::string result;
+//    if (*str == '"')
+//        ++str;
+//    while (*str)
+//    {
+//        char uch = *str;
+//        if (uch == '\\')
+//        {
+//            // Escape character 
+//            char escape_ch = *++str;
+//            switch (escape_ch)
+//            {
+//            case '\'':
+//            case '"':
+//            case '?':
+//            case '\\':
+//                result += escape_ch; break;
+//            case 'a':
+//                result += '\a'; break;
+//            case 'b':
+//                result += '\b'; break;
+//            case 'f':
+//                result += '\f'; break;
+//            case 'n':
+//                result += '\n'; break;
+//            case 'r':
+//                result += '\r'; break;
+//            case 't':
+//                result += '\t'; break;
+//            case 'v':
+//                result += '\v'; break;
+//            case '0': case '1': case '2': case '3': case '4':
+//            case '5': case '6': case '7': case '8': case '9':
+//            {
+//                // oct 1byte 
+//                unsigned char oct_ascii = escape_ch - '0';
+//                for (int i = 0; i < 2; i++)
+//                {
+//                    unsigned char nextch = (unsigned char)*++str;
+//                    if (wo::lexer::lex_isodigit(nextch))
+//                    {
+//                        oct_ascii *= 8;
+//                        oct_ascii += wo::lexer::lex_hextonum(nextch);
+//                    }
+//                    else
+//                        break;
+//                }
+//                result += oct_ascii;
+//                break;
+//            }
+//            case 'X':
+//            case 'x':
+//            {
+//                // hex 1byte 
+//                unsigned char hex_ascii = 0;
+//                for (int i = 0; i < 2; i++)
+//                {
+//                    unsigned char nextch = (unsigned char)*++str;
+//                    if (wo::lexer::lex_isxdigit(nextch))
+//                    {
+//                        hex_ascii *= 16;
+//                        hex_ascii += wo::lexer::lex_hextonum(nextch);
+//                    }
+//                    else if (i == 0)
+//                        goto str_escape_sequences_fail;
+//                    else
+//                        break;
+//                }
+//                result += (char)hex_ascii;
+//                break;
+//            }
+//            default:
+//            str_escape_sequences_fail:
+//                result += escape_ch;
+//                break;
+//            }
+//        }
+//        else if (uch == '"')
+//            break;
+//        else
+//            result += uch;
+//        ++str;
+//    }
+//    return wo_ret_string(vm, result.c_str());
+//}
 
 WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
 {
@@ -887,23 +887,23 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, true);
 }
 
-WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
-{
-    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
-    wo_value result_dict = wo_push_empty(vm);
-    if (wo_cast_value_from_str(result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
-        return wo_ret_option_val(vm, result_dict);
-    return wo_ret_option_none(vm);
-}
-
-WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
-{
-    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
-    wo_value result_arr = wo_push_empty(vm);
-    if (wo_cast_value_from_str(result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
-        return wo_ret_option_val(vm, result_arr);
-    return wo_ret_option_none(vm);
-}
+//WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
+//{
+//    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
+//    wo_value result_dict = wo_push_empty(vm);
+//    if (wo_cast_value_from_str(result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
+//        return wo_ret_option_val(vm, result_dict);
+//    return wo_ret_option_none(vm);
+//}
+//
+//WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
+//{
+//    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
+//    wo_value result_arr = wo_push_empty(vm);
+//    if (wo_cast_value_from_str(result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
+//        return wo_ret_option_val(vm, result_arr);
+//    return wo_ret_option_none(vm);
+//}
 
 WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
 {
@@ -2502,116 +2502,116 @@ namespace std
 
 )" };
 
-WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wo::lexer tmp_lex(wo::str_to_wstr(wo_string(args + 1)), "macro" + wo::wstr_to_str(*lex->source_file) + "_impl.wo");
-
-    std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
-
-    for (;;)
-    {
-        std::wstring result;
-        auto token = tmp_lex.next(&result);
-
-        if (token == +wo::lex_type::l_eof)
-            break;
-
-        lex_tokens.push_back({ token , result });
-    }
-
-    for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
-        lex->push_temp_for_error_recover(ri->first, ri->second);
-
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    lex->lex_error(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    std::wstring out_result;
-    auto token_type = lex->peek(&out_result);
-
-    wo_value result = wo_push_empty(vm);
-    wo_set_struct(result, 2);
-    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
-
-    return wo_ret_val(vm, result);
-}
-
-WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    std::wstring out_result;
-    auto token_type = lex->next(&out_result);
-
-    wo_value result = wo_push_empty(vm);
-    wo_set_struct(result, 2);
-    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
-
-    return wo_ret_val(vm, result);
-}
-
-WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wchar_t ch[2] = {};
-
-    int readch = lex->next_one();
-
-    if (readch == EOF)
-        return wo_ret_string(vm, "");
-
-    ch[0] = (wchar_t)readch;
-    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
-}
-
-WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-
-    wchar_t ch[2] = {};
-
-    int readch = lex->peek_one();
-
-    if (readch == EOF)
-        return wo_ret_string(vm, "");
-
-    ch[0] = (wchar_t)readch;
-    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
-}
-
-WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
-}
-
-WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
-}
-
-WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
-    return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
-}
+//WO_API wo_api rslib_std_macro_lexer_lex(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    wo::lexer tmp_lex(wo::str_to_wstr(wo_string(args + 1)), "macro" + wo::wstr_to_str(*lex->source_file) + "_impl.wo");
+//
+//    std::vector<std::pair<wo::lex_type, std::wstring>> lex_tokens;
+//
+//    for (;;)
+//    {
+//        std::wstring result;
+//        auto token = tmp_lex.next(&result);
+//
+//        if (token == +wo::lex_type::l_eof)
+//            break;
+//
+//        lex_tokens.push_back({ token , result });
+//    }
+//
+//    for (auto ri = lex_tokens.rbegin(); ri != lex_tokens.rend(); ri++)
+//        lex->push_temp_for_error_recover(ri->first, ri->second);
+//
+//    return wo_ret_void(vm);
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    lex->lex_error(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
+//    return wo_ret_void(vm);
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    std::wstring out_result;
+//    auto token_type = lex->peek(&out_result);
+//
+//    wo_value result = wo_push_empty(vm);
+//    wo_set_struct(result, 2);
+//    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
+//    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
+//
+//    return wo_ret_val(vm, result);
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    std::wstring out_result;
+//    auto token_type = lex->next(&out_result);
+//
+//    wo_value result = wo_push_empty(vm);
+//    wo_set_struct(result, 2);
+//    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
+//    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
+//
+//    return wo_ret_val(vm, result);
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_nextch(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    wchar_t ch[2] = {};
+//
+//    int readch = lex->next_one();
+//
+//    if (readch == EOF)
+//        return wo_ret_string(vm, "");
+//
+//    ch[0] = (wchar_t)readch;
+//    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_peekch(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//
+//    wchar_t ch[2] = {};
+//
+//    int readch = lex->peek_one();
+//
+//    if (readch == EOF)
+//        return wo_ret_string(vm, "");
+//
+//    ch[0] = (wchar_t)readch;
+//    return wo_ret_string(vm, wo::wstr_to_str(ch).c_str());
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_current_path(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//    return wo_ret_string(vm, wo::wstr_to_str(*lex->source_file).c_str());
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_current_rowno(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//    return wo_ret_int(vm, (wo_integer_t)lex->now_file_rowno);
+//}
+//
+//WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_t argc)
+//{
+//    wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
+//    return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
+//}
 
 
 const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";

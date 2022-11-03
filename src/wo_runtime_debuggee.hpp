@@ -305,22 +305,22 @@ stepir          si                            Execute next command.
                         {
                             for (auto ch : filename_or_funcname)
                             {
-                                if (!lexer::lex_isdigit(ch))
-                                {
-                                    std::lock_guard g1(_mx);
+                                //if (!lexer::lex_isdigit(ch))
+                                //{
+                                //    std::lock_guard g1(_mx);
 
-                                    auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
-                                    wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
-                                    for (auto& funcinfo : fndresult)
-                                    {
-                                        wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                        break_point_traps.insert(
-                                            _env->program_debug_info->get_ip_by_runtime_ip(
-                                                _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
-                                        //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
-                                    }
-                                    goto need_next_command;
-                                }
+                                //    auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
+                                //    wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
+                                //    for (auto& funcinfo : fndresult)
+                                //    {
+                                //        wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+                                //        break_point_traps.insert(
+                                //            _env->program_debug_info->get_ip_by_runtime_ip(
+                                //                _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
+                                //        //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
+                                //    }
+                                //    goto need_next_command;
+                                //}
                             }
                             ;
                             result = set_breakpoint(
@@ -444,11 +444,11 @@ stepir          si                            Execute next command.
                     {
                         for (auto ch : filename)
                         {
-                            if (!lexer::lex_isdigit(ch))
+                          /*  if (!lexer::lex_isdigit(ch))
                             {
                                 print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.row_no : 0));
                                 goto need_next_command;
-                            }
+                            }*/
                         }
                         display_range = std::stoull(filename);
                     }

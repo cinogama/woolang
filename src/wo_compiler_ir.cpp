@@ -7,7 +7,7 @@ namespace wo
 {
     void program_debug_data_info::generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
     {
-        if (ast_func->argument_list->source_file)
+       /* if (ast_func->argument_list->source_file)
         {
             auto& row_buff = _general_src_data_buf_a[*ast_func->argument_list->source_file][ast_func->argument_list->row_end_no];
             if (row_buff.find(ast_func->argument_list->col_end_no) == row_buff.end())
@@ -16,11 +16,11 @@ namespace wo
             auto& old_ip = row_buff[ast_func->argument_list->col_end_no];
             if (compiler->get_now_ip() < old_ip)
                 old_ip = compiler->get_now_ip();
-        }
+        }*/
     }
     void program_debug_data_info::generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
     {
-        if (ast_func->source_file)
+       /* if (ast_func->source_file)
         {
             auto& row_buff = _general_src_data_buf_a[*ast_func->source_file][ast_func->row_end_no];
             if (row_buff.find(ast_func->col_end_no) == row_buff.end())
@@ -29,12 +29,12 @@ namespace wo
             auto& old_ip = row_buff[ast_func->col_end_no];
             if (compiler->get_now_ip() < old_ip)
                 old_ip = compiler->get_now_ip();
-        }
+        }*/
     }
-    void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
+    void program_debug_data_info::generate_debug_info_at_astnode(void* /*grammar::ast_base**/ ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
-        if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
+        /*if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
             || dynamic_cast<ast::ast_list*>(ast_node)
             || dynamic_cast<ast::ast_namespace*>(ast_node)
             || dynamic_cast<ast::ast_sentence_block*>(ast_node)
@@ -54,7 +54,7 @@ namespace wo
             auto& old_ip = row_buff[ast_node->col_end_no];
             if (compiler->get_now_ip() < old_ip)
                 old_ip = compiler->get_now_ip();
-        }
+        }*/
     }
     void program_debug_data_info::finalize_generate_debug_info()
     {
@@ -172,17 +172,17 @@ namespace wo
 
     void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
-        generate_debug_info_at_funcbegin(funcdef, compiler);
+        /*_function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
+        generate_debug_info_at_funcbegin(funcdef, compiler);*/
     }
     void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
     {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;
+       /* _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_end = compiler->get_now_ip();
+        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].in_stack_reg_count = tmpreg_count;*/
     }
     void program_debug_data_info::add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc)
     {
-        _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);
+       /* _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].add_variable_define(varname, rowno, loc);*/
     }
 
     std::string program_debug_data_info::get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const
