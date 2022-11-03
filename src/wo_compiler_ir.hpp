@@ -215,7 +215,7 @@ namespace wo
             {
                 v->type = type();
                 if constexpr (meta::is_string<T>::value)
-                    string_t::gc_new<gcbase::gctype::eden>(v->gcunit, val);
+                    string_t::gc_new<gcbase::gctype::no_gc>(v->gcunit, val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
@@ -375,6 +375,15 @@ namespace wo
         {
             free_jit(this);
 
+            for (size_t ci = 0; ci<constant_value_count;++ci)
+                if (constant_global_reg_rtstack[ci].is_gcunit())
+                {
+                    wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
+
+                    constant_global_reg_rtstack[ci].gcunit->~gcbase();
+                    free64(constant_global_reg_rtstack[ci].gcunit);
+                }
+
             if (constant_global_reg_rtstack)
                 free64(constant_global_reg_rtstack);
 
@@ -420,6 +429,13 @@ namespace wo
 
         cxx_vec_t<ir_command> ir_command_buffer;
         std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
+
+        struct extern_native_function_location
+        {
+            std::string library_name;
+            std::string function_name;
+        };
+        std::map<intptr_t, extern_native_function_location> extern_native_functions;
 
         struct immless
         {
@@ -491,6 +507,16 @@ namespace wo
         void revert_code_to(size_t ip)
         {
             ir_command_buffer.resize(ip);
+        }
+
+        void record_extern_native_function(intptr_t function, const std::wstring& library_name, const std::wstring& function_name)
+        {
+            if (extern_native_functions.find(function) == extern_native_functions.end())
+            {
+                auto& native_info = extern_native_functions[function];
+                native_info.library_name = wo::wstr_to_str(library_name);
+                native_info.function_name = wo::wstr_to_str(function_name);
+            }
         }
 
 #define WO_OPNUM(OPNUM) (_check_and_add_const(\
@@ -2278,6 +2304,7 @@ namespace wo
 
             return env;
         }
+
     };
 
 }

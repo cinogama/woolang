@@ -2509,8 +2509,10 @@ namespace wo
                     }
                 }
                 else
+                {
                     // Extern template function in define, skip it.
                     return WO_NEW_OPNUM(reg(reg::ni));
+                }
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
@@ -3703,6 +3705,13 @@ namespace wo
             // first, check each extern func
             for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
             {
+                wo_assert(!funcdef_list.empty() && funcdef_list.front()->externed_func_info != nullptr);
+
+                compiler->record_extern_native_function(
+                    (intptr_t)ext_func,
+                    funcdef_list.front()->externed_func_info->load_from_lib,
+                    funcdef_list.front()->externed_func_info->symbol_name);
+
                 ast::ast_value_function_define* last_fundef = nullptr;
                 for (auto funcdef : funcdef_list)
                 {
