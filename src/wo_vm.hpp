@@ -39,8 +39,6 @@ namespace wo
 
         void block_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.lock(); }
         void unblock_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.unlock(); }
-
-
     };
 
     class exception_recovery
@@ -376,7 +374,7 @@ namespace wo
         vmbase* gc_vm;
 
         shared_pointer<runtime_env> env;
-        void set_runtime(ir_compiler& _compiler, size_t stacksz = 0)
+        void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
             // using LEAVE_INTERRUPT to stop GC
             block_interrupt(GC_INTERRUPT);  // must not working when gc
@@ -384,7 +382,8 @@ namespace wo
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
 
-            env = _compiler.finalize(stacksz);
+            env = runtime_environment;
+
             ++env->_running_on_vm_count;
 
             stack_mem_begin = env->stack_begin;

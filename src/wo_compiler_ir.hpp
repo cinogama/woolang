@@ -1448,7 +1448,6 @@ namespace wo
 #undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
 
-    private:
         shared_pointer<runtime_env> finalize(size_t stacksz = 0)
         {
             // 1. Generate constant & global & register & runtime_stack memory buffer
@@ -2275,11 +2274,6 @@ namespace wo
             {
                 extern_func_info.second = pdb_info->get_runtime_ip_by_ip(extern_func_info.second);
             }
-
-            // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
-            if (config::ENABLE_JUST_IN_TIME)
-                analyze_jit(code_buf, env);
-
             env->rt_codes = pdb_info->runtime_codes_base = code_buf;
 
             return env;
