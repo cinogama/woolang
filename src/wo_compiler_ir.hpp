@@ -317,13 +317,11 @@ namespace wo
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
-        using extern_function_map_t = std::map<std::string, size_t>;
 
         filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
         ip_src_location_info_t          _general_src_data_buf_b;
         function_signature_ip_info_t    _function_ip_data_buf;
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
-        extern_function_map_t           extern_function_map;
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
@@ -371,11 +369,28 @@ namespace wo
 
         shared_pointer<program_debug_data_info> program_debug_info;
 
+        struct extern_native_function_location
+        {
+            std::string library_name;
+            std::string function_name;
+
+            // Will be fill in finalize of env.
+            std::vector<size_t> caller_offset_in_ir;
+
+            // Will be fill in saving binary of env.
+            std::vector<size_t> constant_offset_in_binary;
+        };
+        using extern_native_functions_t = std::map<intptr_t, extern_native_function_location>;
+        extern_native_functions_t extern_native_functions;
+
+        using extern_function_map_t = std::map<std::string, size_t>;
+        extern_function_map_t extern_script_functions;
+
         ~runtime_env()
         {
             free_jit(this);
 
-            for (size_t ci = 0; ci<constant_value_count;++ci)
+            for (size_t ci = 0; ci < constant_value_count; ++ci)
                 if (constant_global_reg_rtstack[ci].is_gcunit())
                 {
                     wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
@@ -400,6 +415,8 @@ namespace wo
         */
 
         friend struct vmbase;
+
+    private:
 
         struct ir_command
         {
@@ -430,12 +447,8 @@ namespace wo
         cxx_vec_t<ir_command> ir_command_buffer;
         std::map<size_t, cxx_vec_t<std::string>> tag_irbuffer_offset;
 
-        struct extern_native_function_location
-        {
-            std::string library_name;
-            std::string function_name;
-        };
-        std::map<intptr_t, extern_native_function_location> extern_native_functions;
+        runtime_env::extern_native_functions_t extern_native_functions;
+        runtime_env::extern_function_map_t extern_script_functions;
 
         struct immless
         {
@@ -517,6 +530,12 @@ namespace wo
                 native_info.library_name = wo::wstr_to_str(library_name);
                 native_info.function_name = wo::wstr_to_str(function_name);
             }
+        }
+        void record_extern_script_function(const std::string& function_name)
+        {
+            // ISSUE-N221022: Function overload has been removed from woolang.
+            wo_assert(extern_script_functions.find(function_name) == extern_script_functions.end());
+            extern_script_functions[function_name] = get_now_ip();
         }
 
 #define WO_OPNUM(OPNUM) (_check_and_add_const(\
@@ -1972,6 +1991,10 @@ namespace wo
 
                         uint64_t addr = (uint64_t)(WO_IR.op1);
 
+                        wo_assert(!extern_native_functions[(intptr_t)addr].function_name.empty());
+                        extern_native_functions[(intptr_t)addr].caller_offset_in_ir
+                            .push_back(generated_runtime_code_buf.size());
+
                         byte_t* readptr = (byte_t*)&addr;
                         temp_this_command_code_buf.push_back(readptr[0]);
                         temp_this_command_code_buf.push_back(readptr[1]);
@@ -2296,12 +2319,13 @@ namespace wo
             memcpy(code_buf, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
             env->program_debug_info = pdb_info;
 
-            for (auto& extern_func_info : pdb_info->extern_function_map)
+            for (auto& [extern_func_name, extern_func_offset] : extern_script_functions)
             {
-                extern_func_info.second = pdb_info->get_runtime_ip_by_ip(extern_func_info.second);
+                wo_assert(env->extern_script_functions.find(extern_func_name) == env->extern_script_functions.end());
+                env->extern_script_functions[extern_func_name] = pdb_info->get_runtime_ip_by_ip(extern_func_offset);
             }
             env->rt_codes = pdb_info->runtime_codes_base = code_buf;
-
+            env->extern_native_functions = extern_native_functions;
             return env;
         }
 

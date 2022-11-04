@@ -3764,17 +3764,10 @@ namespace wo
                     {
                         // this function is externed, put it into extern-table and update the value in ir-compiler
                         auto&& spacename = funcdef->get_namespace_chain();
-
                         auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
 
-                        // ISSUE-N221022: Function overload has been removed from woolang.
-                        wo_assert(compiler->pdb_info->extern_function_map.find(fname)
-                            == compiler->pdb_info->extern_function_map.end());
-
-                        compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
-
+                        compiler->record_extern_script_function(fname);
                     }
-
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE

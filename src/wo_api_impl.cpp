@@ -1828,9 +1828,11 @@ std::variant<
 std::tuple<void*, size_t> _wo_create_env_binary(wo::runtime_env* env)
 {
     std::vector<wo::byte_t> binary_buffer;
-    auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length) {
-
+    auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length, size_t allign) {
         const size_t write_begin_place = binary_buffer.size();
+
+        wo_assert(write_begin_place % allign == 0);
+
         binary_buffer.resize(write_begin_place + written_length);
 
         memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
@@ -1843,10 +1845,10 @@ std::tuple<void*, size_t> _wo_create_env_binary(wo::runtime_env* env)
 
         wo_assert(written_length == size_for_assert);
 
-        return write_buffer_to_buffer(written_data, written_length);
+        return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
     };
 
-    std::vector<wo::string_t*> constant_string_pool;
+    std::vector<const char*> constant_string_pool;
 
     // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
     write_binary_to_buffer(0x3001A26B, 4);
@@ -1885,7 +1887,7 @@ std::tuple<void*, size_t> _wo_create_env_binary(wo::runtime_env* env)
             wo_assert(constant_value.string->gc_type == wo::gcbase::gctype::no_gc);
 
             write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
-            constant_string_pool.push_back(constant_value.string);
+            constant_string_pool.push_back(constant_value.string->c_str());
             write_binary_to_buffer((uint32_t)constant_value.string->size(), 4);
 
             string_buffer_size += constant_value.string->size();
@@ -1897,32 +1899,73 @@ std::tuple<void*, size_t> _wo_create_env_binary(wo::runtime_env* env)
         if (constant_value.type == wo::value::valuetype::handle_type)
         {
             // Check if constant_value is function address from native?
-
+            auto fnd = env->extern_native_functions.find((intptr_t)constant_value.handle);
+            if (fnd != env->extern_native_functions.end())
+            {
+                wo_assert(!fnd->second.function_name.empty());
+                fnd->second.constant_offset_in_binary.push_back(ci);
+            }
         }
     }
-    // 2.4 Constant string buffer
+
+    // 3.1 Code data
+    //  3.1.1 Code data length
+    size_t padding_length_for_rt_coding = (8ull - (env->rt_code_len % 8ull)) % 8ull;
+    write_binary_to_buffer(env->rt_code_len + padding_length_for_rt_coding, 8);
+    write_buffer_to_buffer(env->rt_codes, env->rt_code_len, 1);
+    write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
+
+    // 4.1 Extern native function information
+    //  4.1.1 Extern function libname & symbname & used constant offset / code offset
+    for (auto& [funcptr, extfuncloc] : env->extern_native_functions)
+    {
+        // 4.1.1.1 extern library name
+        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
+        constant_string_pool.push_back(extfuncloc.library_name.c_str());
+        write_binary_to_buffer((uint32_t)extfuncloc.library_name.size(), 4);
+        string_buffer_size += extfuncloc.library_name.size();
+
+        // 4.1.1.2 extern function name
+        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
+        constant_string_pool.push_back(extfuncloc.function_name.c_str());
+        write_binary_to_buffer((uint32_t)extfuncloc.function_name.size(), 4);
+        string_buffer_size += extfuncloc.function_name.size();
+
+        // 4.1.1.3 used function in constant index
+        write_binary_to_buffer(extfuncloc.constant_offset_in_binary.size(), 8);
+        for (auto constant_index : extfuncloc.constant_offset_in_binary)
+            write_binary_to_buffer(constant_index, 8);
+
+        // 4.1.1.4 used function in ir binary code
+        write_binary_to_buffer(extfuncloc.caller_offset_in_ir.size(), 8);
+        for (auto constant_index : extfuncloc.caller_offset_in_ir)
+            write_binary_to_buffer(constant_index, 8);
+    }
+    // 4.2 Extern woolang function define & offset
+    //  4.2.1 Extern woolang function symbol name & offset
+    for (auto& [funcname, offset] : env->extern_script_functions)
+    {
+        // 4.2.1.1 extern function name
+        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
+        constant_string_pool.push_back(funcname.c_str());
+        write_binary_to_buffer((uint32_t)funcname.size(), 4);
+        string_buffer_size += funcname.size();
+
+        write_binary_to_buffer(offset, 8);
+    }
+
+    // 5.1 Constant string buffer
     size_t padding_length_for_constant_string_buf = (8ull - (string_buffer_size % 8ull)) % 8ull;
 
     write_binary_to_buffer(
         string_buffer_size + padding_length_for_constant_string_buf, 8);
 
     for (size_t si = 0; si < constant_string_pool.size(); ++si)
-        write_buffer_to_buffer(constant_string_pool[si]->c_str(), constant_string_pool[si]->size());
+        write_buffer_to_buffer(constant_string_pool[si], strlen(constant_string_pool[si]), 1);
 
-    write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf);
+    write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
-    // 3.1 Code data
-    //  3.1.1 Code data length
-    write_binary_to_buffer(env->rt_code_len, 8);
-    write_buffer_to_buffer(env->rt_codes, env->rt_code_len);
-
-    // 4.1 Extern native function information
-    //  4.1.1 Extern function libname & symbname & used constant offset / code offset
-
-    // 4.2 Extern woolang function define & offset
-    //  4.2.1 Extern woolang function symbol name & offset
-
-    // 5.1 Debug information(TODO)
+    // 6.1 Debug information(TODO)
 
     auto* finalbinary = wo::alloc64(binary_buffer.size());
     memcpy(finalbinary, binary_buffer.data(), binary_buffer.size());
@@ -2782,7 +2825,7 @@ void wo_break_immediately(wo_vm vm)
 
 wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)
 {
-    const auto& extern_table = WO_VM(vm)->env->program_debug_info->extern_function_map;
+    const auto& extern_table = WO_VM(vm)->env->extern_script_functions;
     auto fnd = extern_table.find(fullname);
     if (fnd != extern_table.end())
         return fnd->second;
