@@ -75,6 +75,9 @@ namespace wo
         const size_t FAIL_INDEX = SIZE_MAX;
         static program_debug_data_info::location     FAIL_LOC;
 
+        if (rt_pos == nullptr)
+            return FAIL_LOC;
+
         size_t result = FAIL_INDEX;
         auto byte_offset = (rt_pos - runtime_codes_base) + 1;
         if (rt_pos < runtime_codes_base || rt_pos >= runtime_codes_base + runtime_codes_length)

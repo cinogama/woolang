@@ -901,7 +901,10 @@ namespace wo
         }
         inline void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const
         {
-            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
+            // TODO; Dump call stack without pdb
+            const program_debug_data_info::location* src_location_info = nullptr;
+            if (env->program_debug_info != nullptr)
+                src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
             // NOTE: When vm running, rt_ip may point to:
             // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
             //                                     ^1                     ^2                     ^3
@@ -910,8 +913,13 @@ namespace wo
 
             size_t call_trace_count = 0;
 
-            os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-            os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+            if (src_location_info)
+            {
+                os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
+                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+            }
+            else
+                os << call_trace_count << ": " << (void*)ip << std::endl;
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -924,11 +932,16 @@ namespace wo
                 }
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
-                    src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
+                    if (src_location_info)
+                    {
+                        src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
 
-                    os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                        env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
-                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                        os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
+                            env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
+                        os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                    }
+                    else
+                        os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->ret_ip) << std::endl;
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
                     base_callstackinfo_ptr++;

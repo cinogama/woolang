@@ -254,6 +254,8 @@ void wo_init(int argc, char** argv)
                 coroutine_mgr_thread_count = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
+            else if ("enable-pdb" == current_arg)
+                wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
@@ -1825,154 +1827,6 @@ std::variant<
         return lex;
 }
 
-std::tuple<void*, size_t> _wo_create_env_binary(wo::runtime_env* env)
-{
-    std::vector<wo::byte_t> binary_buffer;
-    auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length, size_t allign) {
-        const size_t write_begin_place = binary_buffer.size();
-
-        wo_assert(write_begin_place % allign == 0);
-
-        binary_buffer.resize(write_begin_place + written_length);
-
-        memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
-        return binary_buffer.size();
-    };
-
-    auto write_binary_to_buffer = [&write_buffer_to_buffer](const auto& d, size_t size_for_assert) {
-        const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
-        const size_t written_length = sizeof(d);
-
-        wo_assert(written_length == size_for_assert);
-
-        return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
-    };
-
-    std::vector<const char*> constant_string_pool;
-
-    // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
-    write_binary_to_buffer(0x3001A26B, 4);
-    write_binary_to_buffer(0x00000000, 4);
-    // 1.2 (+8) Version info
-    write_binary_to_buffer(version, 8);
-    // 1.3 (+16) Source CRC64(TODO)
-
-    // 2.1 (+16 + 2N * 8) Global space size * sizeof(Value)
-    write_binary_to_buffer(
-        env->constant_and_global_value_takeplace_count
-        - env->constant_value_count, 8);
-
-    // 2.2 Default register size
-    write_binary_to_buffer(
-        env->real_register_count, 8);
-
-    // 2.3 Constant data
-    size_t string_buffer_size = 0;
-    write_binary_to_buffer(
-        env->constant_value_count, 8);
-    for (size_t ci = 0; ci < env->constant_value_count; ++ci)
-    {
-        auto& constant_value = env->constant_global_reg_rtstack[ci];
-        wo_assert(constant_value.type == wo::value::valuetype::integer_type
-            || constant_value.type == wo::value::valuetype::real_type
-            || constant_value.type == wo::value::valuetype::handle_type
-            || constant_value.type == wo::value::valuetype::string_type
-            || constant_value.type == wo::value::valuetype::invalid);
-
-        write_binary_to_buffer(constant_value.type_space, 8);
-
-        if (constant_value.type == wo::value::valuetype::string_type)
-        {
-            // Record for string
-            wo_assert(constant_value.string->gc_type == wo::gcbase::gctype::no_gc);
-
-            write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
-            constant_string_pool.push_back(constant_value.string->c_str());
-            write_binary_to_buffer((uint32_t)constant_value.string->size(), 4);
-
-            string_buffer_size += constant_value.string->size();
-        }
-        else
-            // Record for value
-            write_binary_to_buffer(constant_value.handle, 8);
-
-        if (constant_value.type == wo::value::valuetype::handle_type)
-        {
-            // Check if constant_value is function address from native?
-            auto fnd = env->extern_native_functions.find((intptr_t)constant_value.handle);
-            if (fnd != env->extern_native_functions.end())
-            {
-                wo_assert(!fnd->second.function_name.empty());
-                fnd->second.constant_offset_in_binary.push_back(ci);
-            }
-        }
-    }
-
-    // 3.1 Code data
-    //  3.1.1 Code data length
-    size_t padding_length_for_rt_coding = (8ull - (env->rt_code_len % 8ull)) % 8ull;
-    write_binary_to_buffer(env->rt_code_len + padding_length_for_rt_coding, 8);
-    write_buffer_to_buffer(env->rt_codes, env->rt_code_len, 1);
-    write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
-
-    // 4.1 Extern native function information
-    //  4.1.1 Extern function libname & symbname & used constant offset / code offset
-    for (auto& [funcptr, extfuncloc] : env->extern_native_functions)
-    {
-        // 4.1.1.1 extern library name
-        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
-        constant_string_pool.push_back(extfuncloc.library_name.c_str());
-        write_binary_to_buffer((uint32_t)extfuncloc.library_name.size(), 4);
-        string_buffer_size += extfuncloc.library_name.size();
-
-        // 4.1.1.2 extern function name
-        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
-        constant_string_pool.push_back(extfuncloc.function_name.c_str());
-        write_binary_to_buffer((uint32_t)extfuncloc.function_name.size(), 4);
-        string_buffer_size += extfuncloc.function_name.size();
-
-        // 4.1.1.3 used function in constant index
-        write_binary_to_buffer(extfuncloc.constant_offset_in_binary.size(), 8);
-        for (auto constant_index : extfuncloc.constant_offset_in_binary)
-            write_binary_to_buffer(constant_index, 8);
-
-        // 4.1.1.4 used function in ir binary code
-        write_binary_to_buffer(extfuncloc.caller_offset_in_ir.size(), 8);
-        for (auto constant_index : extfuncloc.caller_offset_in_ir)
-            write_binary_to_buffer(constant_index, 8);
-    }
-    // 4.2 Extern woolang function define & offset
-    //  4.2.1 Extern woolang function symbol name & offset
-    for (auto& [funcname, offset] : env->extern_script_functions)
-    {
-        // 4.2.1.1 extern function name
-        write_binary_to_buffer((uint32_t)constant_string_pool.size(), 4);
-        constant_string_pool.push_back(funcname.c_str());
-        write_binary_to_buffer((uint32_t)funcname.size(), 4);
-        string_buffer_size += funcname.size();
-
-        write_binary_to_buffer(offset, 8);
-    }
-
-    // 5.1 Constant string buffer
-    size_t padding_length_for_constant_string_buf = (8ull - (string_buffer_size % 8ull)) % 8ull;
-
-    write_binary_to_buffer(
-        string_buffer_size + padding_length_for_constant_string_buf, 8);
-
-    for (size_t si = 0; si < constant_string_pool.size(); ++si)
-        write_buffer_to_buffer(constant_string_pool[si], strlen(constant_string_pool[si]), 1);
-
-    write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
-
-    // 6.1 Debug information(TODO)
-
-    auto* finalbinary = wo::alloc64(binary_buffer.size());
-    memcpy(finalbinary, binary_buffer.data(), binary_buffer.size());
-
-    return std::make_tuple(finalbinary, binary_buffer.size());
-}
-
 wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
     wo::start_string_pool_guard sg;
@@ -1980,13 +1834,16 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
     auto&& env_or_lex = _wo_compile_to_nojit_env(virtual_src_path, src, stacksz);
     if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
     {
-        _wo_create_env_binary(*env_p);
+        //auto &[bin, size] = (*env_p)->create_env_binary();
+        //auto env = wo::runtime_env::load_create_env_from_binary(bin, size, 16384);
+
+        auto &env = *env_p;
 
         // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
         if (wo::config::ENABLE_JUST_IN_TIME)
-            analyze_jit(const_cast<wo::byte_t*>((*env_p)->rt_codes), *env_p);
+            analyze_jit(const_cast<wo::byte_t*>(env->rt_codes), env);
 
-        ((wo::vm*)vm)->set_runtime(*env_p);
+        ((wo::vm*)vm)->set_runtime(env);
 
         return true;
     }

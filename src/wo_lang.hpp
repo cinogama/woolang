@@ -3709,6 +3709,7 @@ namespace wo
 
                 compiler->record_extern_native_function(
                     (intptr_t)ext_func,
+                    *funcdef_list.front()->source_file,
                     funcdef_list.front()->externed_func_info->load_from_lib,
                     funcdef_list.front()->externed_func_info->symbol_name);
 
@@ -3851,7 +3852,7 @@ namespace wo
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
-            compiler->pdb_info->loaded_libs = extern_libs;
+            compiler->loaded_libs = extern_libs;
             compiler->pdb_info->finalize_generate_debug_info();
 
             wo::grammar::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);

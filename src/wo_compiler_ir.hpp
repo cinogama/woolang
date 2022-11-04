@@ -325,8 +325,6 @@ namespace wo
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
-        rslib_extern_symbols::extern_lib_set loaded_libs;
-
         // for lang
         void generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
         void generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
@@ -368,9 +366,11 @@ namespace wo
         std::vector<void*> _jit_functions;
 
         shared_pointer<program_debug_data_info> program_debug_info;
+        rslib_extern_symbols::extern_lib_set loaded_libs;
 
         struct extern_native_function_location
         {
+            std::string script_name;
             std::string library_name;
             std::string function_name;
 
@@ -404,6 +404,481 @@ namespace wo
 
             if (rt_codes)
                 free64((byte_t*)rt_codes);
+        }
+
+        struct binary_source_stream
+        {
+            const char* stream;
+            size_t stream_size;
+
+            size_t readed_size;
+
+            binary_source_stream(const void* bytestream, size_t streamsz)
+                : stream((const char*)bytestream)
+                , stream_size(streamsz)
+                , readed_size(0)
+            {
+
+            }
+
+            bool read_buffer(void* dst, size_t count) noexcept
+            {
+                if (readed_size + count <= stream_size)
+                {
+                    memcpy(dst, stream + readed_size, count);
+                    readed_size += count;
+
+                    return true;
+                }
+                return false;
+            }
+
+            template<typename T>
+            bool read_elem(T* out_elem) noexcept
+            {
+                return read_buffer(out_elem, sizeof(T));
+            }
+
+            size_t readed_offset() const noexcept
+            {
+                return readed_size;
+            }
+
+        };
+
+        std::tuple<void*, size_t> create_env_binary() noexcept
+        {
+            std::vector<wo::byte_t> binary_buffer;
+            auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length, size_t allign) {
+                const size_t write_begin_place = binary_buffer.size();
+
+                wo_assert(write_begin_place % allign == 0);
+
+                binary_buffer.resize(write_begin_place + written_length);
+
+                memcpy(binary_buffer.data() + write_begin_place, written_data, written_length);
+                return binary_buffer.size();
+            };
+
+            auto write_binary_to_buffer = [&write_buffer_to_buffer](const auto& d, size_t size_for_assert) {
+                const wo::byte_t* written_data = std::launder(reinterpret_cast<const wo::byte_t*>(&d));
+                const size_t written_length = sizeof(d);
+
+                wo_assert(written_length == size_for_assert);
+
+                return write_buffer_to_buffer(written_data, written_length, sizeof(d) > 8 ? 8 : sizeof(d));
+            };
+
+            std::vector<const char*> constant_string_pool;
+
+            // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
+            write_binary_to_buffer((uint32_t)0x3001A26B, 4);
+            write_binary_to_buffer((uint32_t)0x00000000, 4);
+            // 1.2 (+8) Version info
+            write_binary_to_buffer((uint64_t)wo_version_int(), 8);
+            // 1.3 (+16) Source CRC64(TODO)
+
+            // 2.1 (+16 + 2N * 8) Global space size * sizeof(Value)
+            write_binary_to_buffer(
+                (uint64_t)(this->constant_and_global_value_takeplace_count
+                    - this->constant_value_count), 8);
+
+            // 2.2 Default register size
+            write_binary_to_buffer(
+                (uint64_t)this->real_register_count, 8);
+
+            // 2.3 Constant data
+            size_t string_buffer_size = 0;
+            write_binary_to_buffer(
+                (uint64_t)this->constant_value_count, 8);
+            for (size_t ci = 0; ci < this->constant_value_count; ++ci)
+            {
+                auto& constant_value = this->constant_global_reg_rtstack[ci];
+                wo_assert(constant_value.type == wo::value::valuetype::integer_type
+                    || constant_value.type == wo::value::valuetype::real_type
+                    || constant_value.type == wo::value::valuetype::handle_type
+                    || constant_value.type == wo::value::valuetype::string_type
+                    || constant_value.type == wo::value::valuetype::invalid);
+
+                write_binary_to_buffer((uint64_t)constant_value.type_space, 8);
+
+                if (constant_value.type == wo::value::valuetype::string_type)
+                {
+                    // Record for string
+                    wo_assert(constant_value.string->gc_type == wo::gcbase::gctype::no_gc);
+
+                    write_binary_to_buffer((uint32_t)string_buffer_size, 4);
+                    constant_string_pool.push_back(constant_value.string->c_str());
+                    write_binary_to_buffer((uint32_t)constant_value.string->size(), 4);
+
+                    string_buffer_size += constant_value.string->size();
+                }
+                else
+                    // Record for value
+                    write_binary_to_buffer((uint64_t)constant_value.value_space, 8);
+
+                if (constant_value.type == wo::value::valuetype::handle_type)
+                {
+                    // Check if constant_value is function address from native?
+                    auto fnd = this->extern_native_functions.find((intptr_t)constant_value.handle);
+                    if (fnd != this->extern_native_functions.end())
+                    {
+                        wo_assert(!fnd->second.function_name.empty());
+                        fnd->second.constant_offset_in_binary.push_back(ci);
+                    }
+                }
+            }
+
+            // 3.1 Code data
+            //  3.1.1 Code data length
+            size_t padding_length_for_rt_coding = (8ull - (this->rt_code_len % 8ull)) % 8ull;
+            write_binary_to_buffer((uint64_t)(this->rt_code_len + padding_length_for_rt_coding), 8);
+            write_buffer_to_buffer(this->rt_codes, this->rt_code_len, 1);
+            write_buffer_to_buffer("\xCC\xCC\xCC\xCC\xCC\xCC\xCC\xCC", padding_length_for_rt_coding, 1);
+
+            // 4.1 Extern native function information
+            //  4.1.1 Extern function libname & symbname & used constant offset / code offset
+            write_binary_to_buffer((uint64_t)this->extern_native_functions.size(), 8);
+            for (auto& [funcptr, extfuncloc] : this->extern_native_functions)
+            {
+                // 4.1.1.1 extern script name
+                write_binary_to_buffer((uint32_t)string_buffer_size, 4);
+                constant_string_pool.push_back(extfuncloc.script_name.c_str());
+                write_binary_to_buffer((uint32_t)extfuncloc.script_name.size(), 4);
+                string_buffer_size += extfuncloc.script_name.size();
+
+                // 4.1.1.2 extern library name
+                write_binary_to_buffer((uint32_t)string_buffer_size, 4);
+                constant_string_pool.push_back(extfuncloc.library_name.c_str());
+                write_binary_to_buffer((uint32_t)extfuncloc.library_name.size(), 4);
+                string_buffer_size += extfuncloc.library_name.size();
+
+                // 4.1.1.3 extern function name
+                write_binary_to_buffer((uint32_t)string_buffer_size, 4);
+                constant_string_pool.push_back(extfuncloc.function_name.c_str());
+                write_binary_to_buffer((uint32_t)extfuncloc.function_name.size(), 4);
+                string_buffer_size += extfuncloc.function_name.size();
+
+                // 4.1.1.4 used function in constant index
+                write_binary_to_buffer((uint64_t)extfuncloc.constant_offset_in_binary.size(), 8);
+                for (auto constant_index : extfuncloc.constant_offset_in_binary)
+                    write_binary_to_buffer((uint64_t)constant_index, 8);
+
+                // 4.1.1.5 used function in ir binary code
+                write_binary_to_buffer((uint64_t)extfuncloc.caller_offset_in_ir.size(), 8);
+                for (auto constant_index : extfuncloc.caller_offset_in_ir)
+                    write_binary_to_buffer((uint64_t)constant_index, 8);
+            }
+
+            // 4.2 Extern woolang function define & offset
+            //  4.2.1 Extern woolang function symbol name & offset
+            write_binary_to_buffer((uint64_t)this->extern_script_functions.size(), 8);
+            for (auto& [funcname, offset] : this->extern_script_functions)
+            {
+                // 4.2.1.1 extern function name
+                write_binary_to_buffer((uint32_t)string_buffer_size, 4);
+                constant_string_pool.push_back(funcname.c_str());
+                write_binary_to_buffer((uint32_t)funcname.size(), 4);
+                string_buffer_size += funcname.size();
+
+                write_binary_to_buffer((uint64_t)offset, 8);
+            }
+
+            // 5.1 Constant string buffer
+            size_t padding_length_for_constant_string_buf = (8ull - (string_buffer_size % 8ull)) % 8ull;
+
+            write_binary_to_buffer(
+                (uint64_t)(string_buffer_size + padding_length_for_constant_string_buf), 8);
+
+            for (size_t si = 0; si < constant_string_pool.size(); ++si)
+                write_buffer_to_buffer(constant_string_pool[si], strlen(constant_string_pool[si]), 1);
+
+            write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
+
+            // 6.1 Debug information(TODO)
+
+            auto* finalbinary = wo::alloc64(binary_buffer.size());
+            memcpy(finalbinary, binary_buffer.data(), binary_buffer.size());
+
+            return std::make_tuple(finalbinary, binary_buffer.size());
+        }
+
+        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount)
+        {
+            // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
+            uint32_t magic_number;
+            if (!stream->read_elem(&magic_number) || magic_number != (uint32_t)0x3001A26B)
+                printf(ANSI_HIR "Magic number failed." ANSI_RST);
+            stream->read_elem(&magic_number); // padding 4 byte.
+
+            // 1.2 (+8) Version info
+            uint64_t version_infrom;
+            if (!stream->read_elem(&version_infrom) || version_infrom != (uint64_t)wo_version_int())
+                printf(ANSI_HIR "Woolang version missmatch." ANSI_RST);
+
+            // 1.3 (+16) Source CRC64(TODO)
+
+            // 2.1 (+16 + 2N * 8) Global space size * sizeof(Value)
+            uint64_t global_value_count;
+            if (!stream->read_elem(&global_value_count))
+                printf(ANSI_HIR "Failed to restore global value count." ANSI_RST);
+
+            // 2.2 Default register size
+            uint64_t register_count;
+            if (!stream->read_elem(&register_count))
+                printf(ANSI_HIR "Failed to restore register count." ANSI_RST);
+
+            // 2.3 Constant data
+            uint64_t constant_value_count;
+            if (!stream->read_elem(&constant_value_count))
+                printf(ANSI_HIR "Failed to restore constant count." ANSI_RST);
+
+            shared_pointer<runtime_env> result = new runtime_env;
+
+            result->real_register_count = register_count;
+            result->constant_and_global_value_takeplace_count = constant_value_count + global_value_count;
+            result->constant_value_count = constant_value_count;
+
+            result->runtime_stack_count = stackcount;
+
+            size_t global_allign_takeplace_for_avoiding_false_shared =
+                config::ENABLE_AVOIDING_FALSE_SHARED ?
+                ((size_t)(platform_info::CPU_CACHELINE_SIZE / (double)sizeof(wo::value) + 0.5)) : (1);
+
+            size_t preserve_memory_size =
+                result->constant_and_global_value_takeplace_count
+                + register_count
+                + result->runtime_stack_count;
+
+            value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
+            memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
+
+            result->constant_global_reg_rtstack = preserved_memory;
+            result->reg_begin = result->constant_global_reg_rtstack
+                + result->constant_and_global_value_takeplace_count;
+
+            result->stack_begin = result->constant_global_reg_rtstack + (preserve_memory_size - 1);
+
+            struct string_buffer_index
+            {
+                uint32_t index;
+                uint32_t size;
+            };
+            std::map<uint64_t, string_buffer_index> constant_string_index_for_update;
+
+            for (uint64_t ci = 0; ci < constant_value_count; ++ci)
+            {
+                uint64_t constant_type_scope, constant_value_scope;
+                if (!stream->read_elem(&constant_type_scope))
+                    printf(ANSI_HIR "Failed to restore constant type." ANSI_RST);
+
+                preserved_memory[ci].type_space = constant_type_scope;
+                if (preserved_memory[ci].type == wo::value::valuetype::string_type)
+                {
+                    uint32_t constant_string_pool_loc, constant_string_pool_size;
+                    if (!stream->read_elem(&constant_string_pool_loc) || !stream->read_elem(&constant_string_pool_size))
+                        printf(ANSI_HIR "Failed to restore constant string." ANSI_RST);
+
+                    auto& loc = constant_string_index_for_update[ci];
+                    loc.index = constant_string_pool_loc;
+                    loc.size = constant_string_pool_size;
+                }
+                else
+                {
+                    if (!stream->read_elem(&constant_value_scope))
+                        printf(ANSI_HIR "Failed to restore constant value." ANSI_RST);
+                    preserved_memory[ci].value_space = constant_value_scope;
+                }
+            }
+
+            // 3.1 Code data
+            //  3.1.1 Code data length
+            uint64_t rt_code_with_padding_length;
+            if (!stream->read_elem(&rt_code_with_padding_length))
+                printf(ANSI_HIR "Failed to restore code length." ANSI_RST);
+
+            byte_t* code_buf = (byte_t*)alloc64(rt_code_with_padding_length * sizeof(byte_t));
+            result->rt_codes = code_buf;
+            result->rt_code_len = rt_code_with_padding_length * sizeof(byte_t);
+
+            wo_assert(code_buf != nullptr);
+
+            if (!stream->read_buffer(code_buf, rt_code_with_padding_length * sizeof(byte_t)))
+                printf(ANSI_HIR "Failed to restore code." ANSI_RST);
+
+            struct extern_native_function
+            {
+                string_buffer_index script_path_idx;
+                string_buffer_index library_name_idx;
+                string_buffer_index function_name_idx;
+
+                std::vector<size_t> constant_offsets;
+                std::vector<size_t> ir_command_offsets;
+            };
+            std::vector<extern_native_function> extern_native_functions;
+
+            // 4.1 Extern native function information
+            //  4.1.1 Extern function libname & symbname & used constant offset / code offset
+            uint64_t extern_native_function_count;
+            if (!stream->read_elem(&extern_native_function_count))
+                printf(ANSI_HIR "Failed to restore extern native function count." ANSI_RST);
+
+            for (uint64_t i = 0; i < extern_native_function_count; ++i)
+            {
+                extern_native_function loading_function;
+
+                // 4.1.1.1 extern script name
+                if (!stream->read_elem(&loading_function.script_path_idx.index)
+                    || !stream->read_elem(&loading_function.script_path_idx.size))
+                    printf(ANSI_HIR "Failed to restore extern native function symbol loader script." ANSI_RST);
+
+                // 4.1.1.2 extern library name
+                if (!stream->read_elem(&loading_function.library_name_idx.index)
+                    || !stream->read_elem(&loading_function.library_name_idx.size))
+                    printf(ANSI_HIR "Failed to restore extern native function library name." ANSI_RST);
+
+                // 4.1.1.3 extern function name
+                if (!stream->read_elem(&loading_function.function_name_idx.index)
+                    || !stream->read_elem(&loading_function.function_name_idx.size))
+                    printf(ANSI_HIR "Failed to restore extern native function symbol name." ANSI_RST);
+
+                // 4.1.1.4 used function in constant index
+                uint64_t used_constant_offset_count;
+                if (!stream->read_elem(&used_constant_offset_count))
+                    printf(ANSI_HIR "Failed to restore extern native function constant count." ANSI_RST);
+
+                for (uint64_t i = 0; i < used_constant_offset_count; ++i)
+                {
+                    uint64_t constant_index;
+                    if (!stream->read_elem(&constant_index))
+                        printf(ANSI_HIR "Failed to restore extern native function constant index." ANSI_RST);
+
+                    loading_function.constant_offsets.push_back(constant_index);
+                }
+
+                // 4.1.1.5 used function in ir binary code
+                uint64_t used_ir_offset_count;
+                if (!stream->read_elem(&used_ir_offset_count))
+                    printf(ANSI_HIR "Failed to restore extern native function ir-offset count." ANSI_RST);
+
+                for (uint64_t i = 0; i < used_ir_offset_count; ++i)
+                {
+                    uint64_t ir_code_offset;
+                    if (!stream->read_elem(&ir_code_offset))
+                        printf(ANSI_HIR "Failed to restore extern native function ir-offset." ANSI_RST);
+
+                    loading_function.ir_command_offsets.push_back(ir_code_offset);
+                }
+                extern_native_functions.emplace_back(std::move(loading_function));
+            }
+
+            // 4.2 Extern woolang function define & offset
+            //  4.2.1 Extern woolang function symbol name & offset
+            struct extern_script_function
+            {
+                string_buffer_index function_name;
+                size_t ir_offset;
+            };
+            std::vector<extern_script_function> extern_script_functions;
+
+            uint64_t extern_script_function_count;
+            if (!stream->read_elem(&extern_script_function_count))
+                printf(ANSI_HIR "Failed to restore extern script function count." ANSI_RST);
+
+            for (uint64_t i = 0; i < extern_script_function_count; ++i)
+            {
+                extern_script_function loading_function;
+
+                if (!stream->read_elem(&loading_function.function_name.index)
+                    || !stream->read_elem(&loading_function.function_name.size))
+                    printf(ANSI_HIR "Failed to restore extern script function count." ANSI_RST);
+
+                uint64_t iroffset;
+                if (!stream->read_elem(&iroffset))
+                    printf(ANSI_HIR "Failed to restore extern script function ir-offset." ANSI_RST);
+
+                loading_function.ir_offset = iroffset;
+
+                extern_script_functions.emplace_back(std::move(loading_function));
+            }
+
+            // 5.1 Constant string buffer
+            uint64_t string_buffer_size_with_padding;
+            if (!stream->read_elem(&string_buffer_size_with_padding))
+                printf(ANSI_HIR "Failed to restore string buffer size." ANSI_RST);
+
+            auto string_buffer_begin_offset = stream->readed_offset();
+
+            auto restore_string_from_buffer = [stream, string_buffer_begin_offset](const string_buffer_index& string_index) {
+                auto current_string_begin_idx = stream->readed_offset() - string_buffer_begin_offset;
+                if (string_index.index != current_string_begin_idx)
+                    printf(ANSI_HIR "Failed to restore string from string buffer." ANSI_RST);
+
+                std::vector<char> tmp_string_buffer(string_index.size + 1, 0);
+                stream->read_buffer(tmp_string_buffer.data(), string_index.size);
+
+                return std::string(tmp_string_buffer.data());
+            };
+
+            for (auto& [constant_offset, string_index] : constant_string_index_for_update)
+            {
+                wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::string_type);
+                preserved_memory[constant_offset].set_string_nogc(restore_string_from_buffer(string_index).c_str());
+            }
+
+            for (auto& extern_native_function : extern_native_functions)
+            {
+                std::string script_path = restore_string_from_buffer(extern_native_function.script_path_idx);
+                std::string library_name = restore_string_from_buffer(extern_native_function.library_name_idx);
+                std::string function_name = restore_string_from_buffer(extern_native_function.function_name_idx);
+
+                wo_native_func func = nullptr;
+
+                if (library_name == "")
+                    func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
+                else
+                    func = result->loaded_libs.try_load_func_from_in(library_name.c_str(), library_name.c_str(), function_name.c_str());
+
+                wo_assert(func != nullptr);
+
+                for (auto constant_offset : extern_native_function.constant_offsets)
+                {
+                    wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::handle_type);
+                    preserved_memory[constant_offset].set_handle((wo_handle_t)func);
+                }
+                for (auto ir_code_offset : extern_native_function.ir_command_offsets)
+                {
+                    // Add 1 for skip `calln` command.
+                    uint64_t funcaddr = (uint64_t)func;
+                    byte_t* funcaddr_for_write = std::launder(reinterpret_cast<byte_t*>(&funcaddr));
+
+                    code_buf[ir_code_offset + 1 + 0] = funcaddr_for_write[0];
+                    code_buf[ir_code_offset + 1 + 1] = funcaddr_for_write[1];
+                    code_buf[ir_code_offset + 1 + 2] = funcaddr_for_write[2];
+                    code_buf[ir_code_offset + 1 + 3] = funcaddr_for_write[3];
+                    code_buf[ir_code_offset + 1 + 4] = funcaddr_for_write[4];
+                    code_buf[ir_code_offset + 1 + 5] = funcaddr_for_write[5];
+                    code_buf[ir_code_offset + 1 + 6] = funcaddr_for_write[6];
+                    code_buf[ir_code_offset + 1 + 7] = funcaddr_for_write[7];
+                }
+            }
+
+            for (auto& extern_script_function : extern_script_functions)
+            {
+                std::string function_name = restore_string_from_buffer(extern_script_function.function_name);
+                wo_assert(result->extern_script_functions.find(function_name) == result->extern_script_functions.end());
+                result->extern_script_functions[function_name] = extern_script_function.ir_offset;
+            }
+
+            // 6.1 Debug information(TODO)
+
+            return result;
+
+        }
+        static shared_pointer<runtime_env> load_create_env_from_binary(const void* bytestream, size_t streamsz, size_t stack_count)
+        {
+            binary_source_stream buf(bytestream, streamsz);
+            return _create_from_stream(&buf, stack_count);
         }
     };
 
@@ -496,7 +971,7 @@ namespace wo
         }
 
     public:
-
+        rslib_extern_symbols::extern_lib_set loaded_libs;
         shared_pointer<program_debug_data_info> pdb_info = new program_debug_data_info();
 
         ~ir_compiler()
@@ -522,11 +997,12 @@ namespace wo
             ir_command_buffer.resize(ip);
         }
 
-        void record_extern_native_function(intptr_t function, const std::wstring& library_name, const std::wstring& function_name)
+        void record_extern_native_function(intptr_t function, const std::wstring& script_path, const std::wstring& library_name, const std::wstring& function_name)
         {
             if (extern_native_functions.find(function) == extern_native_functions.end())
             {
                 auto& native_info = extern_native_functions[function];
+                native_info.script_name = wo::wstr_to_str(script_path);
                 native_info.library_name = wo::wstr_to_str(library_name);
                 native_info.function_name = wo::wstr_to_str(function_name);
             }
@@ -2317,7 +2793,6 @@ namespace wo
 
             wo_assert(code_buf, "Alloc memory fail.");
             memcpy(code_buf, generated_runtime_code_buf.data(), env->rt_code_len * sizeof(byte_t));
-            env->program_debug_info = pdb_info;
 
             for (auto& [extern_func_name, extern_func_offset] : extern_script_functions)
             {
@@ -2325,7 +2800,13 @@ namespace wo
                 env->extern_script_functions[extern_func_name] = pdb_info->get_runtime_ip_by_ip(extern_func_offset);
             }
             env->rt_codes = pdb_info->runtime_codes_base = code_buf;
+
             env->extern_native_functions = extern_native_functions;
+            env->loaded_libs = loaded_libs;
+
+            if (wo::config::ENABLE_PDB_INFORMATIONS)
+                env->program_debug_info = pdb_info;
+
             return env;
         }
 

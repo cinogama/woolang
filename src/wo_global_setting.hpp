@@ -94,5 +94,7 @@ namespace wo
             false
 #endif
             ;
+
+        inline bool ENABLE_PDB_INFORMATIONS = true;
     }
 }
