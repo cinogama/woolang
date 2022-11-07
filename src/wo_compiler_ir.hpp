@@ -244,7 +244,13 @@ namespace wo
             }
             virtual bool is_true()const
             {
-                return (bool)val;
+                if constexpr (meta::is_string<T>::value)
+                {
+                    wo_error("Cannot eval string here.");
+                    return true;
+                }
+                else
+                    return (bool)val;
             }
         };
 
@@ -1822,29 +1828,27 @@ namespace wo
             codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::panic;
         }
 
-        template<typename OP1T, typename OP2T>
-        void mkarr(const OP1T& op1, const OP2T& op2)
+        template<typename OP1T>
+        void mkarr(const OP1T& op1, uint16_t size)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkarr, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkarr, WO_OPNUM(op1), nullptr, (int32_t)size);
         }
-        template<typename OP1T, typename OP2T>
-        void mkmap(const OP1T& op1, const OP2T& op2)
+        template<typename OP1T>
+        void mkmap(const OP1T& op1, uint16_t size)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
 
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkmap, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkmap, WO_OPNUM(op1), nullptr, (int32_t)size);
         }
         template<typename OP1T, typename OP2T>
         void idarr(const OP1T& op1, const OP2T& op2)
@@ -2360,15 +2364,27 @@ namespace wo
                     break;
                 }
                 case instruct::opcode::mkarr:
+                {
                     temp_this_command_code_buf.push_back(WO_OPCODE(mkarr));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                    uint16_t size = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&size;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
                     break;
+                }
                 case instruct::opcode::mkmap:
+                {
                     temp_this_command_code_buf.push_back(WO_OPCODE(mkmap));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                    uint16_t size = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&size;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
                     break;
+                }
                 case instruct::opcode::idarr:
                     temp_this_command_code_buf.push_back(WO_OPCODE(idarr));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
@@ -2813,3 +2829,6 @@ namespace wo
     };
 
 }
+
+extern const char* wo_stdlib_ir_src_path;
+extern const char* wo_stdlib_ir_src_data;

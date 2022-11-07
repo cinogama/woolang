@@ -294,6 +294,7 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_roroutine_src_path, wo_stdlib_roroutine_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
+        wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)

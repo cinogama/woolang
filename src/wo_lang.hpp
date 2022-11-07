@@ -2911,7 +2911,8 @@ namespace wo
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->mkarr(treg, imm(arr_list.size()));
+                wo_assert(arr_list.size() <= UINT16_MAX);
+                compiler->mkarr(treg, (uint16_t)arr_list.size());
                 return treg;
 
             }
@@ -2936,7 +2937,8 @@ namespace wo
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->mkmap(treg, imm(map_pair_count));
+                wo_assert(map_pair_count <= UINT16_MAX);
+                compiler->mkmap(treg, (uint16_t)map_pair_count);
                 return treg;
 
             }

@@ -1388,17 +1388,16 @@ namespace wo
                 case instruct::mkarr:
                 {
                     WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    uint16_t size = WO_IPVAL_MOVE_2;
 
                     auto op1 = opnum1.gp_value();
-                    auto op2 = opnum2.gp_value();
 
                     auto invoke_node =
                         x86compiler.call((size_t)&vm::make_array_impl,
-                            asmjit::FuncSignatureT< wo::value*, wo::value*, wo::value*, wo::value*>());
+                            asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>());
 
                     invoke_node->setArg(0, op1);
-                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(1, asmjit::Imm(size));
                     invoke_node->setArg(2, _vmssp);
                     invoke_node->setRet(0, _vmssp);
                     break;
@@ -1406,17 +1405,16 @@ namespace wo
                 case instruct::mkmap:
                 {
                     WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    uint16_t size = WO_IPVAL_MOVE_2;
 
                     auto op1 = opnum1.gp_value();
-                    auto op2 = opnum2.gp_value();
 
                     auto invoke_node =
                         x86compiler.call((size_t)&vm::make_map_impl,
-                            asmjit::FuncSignatureT< wo::value*, wo::value*, wo::value*, wo::value*>());
+                            asmjit::FuncSignatureT< wo::value*, wo::value*, uint16_t, wo::value*>());
 
                     invoke_node->setArg(0, op1);
-                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(1, asmjit::Imm(size));
                     invoke_node->setArg(2, _vmssp);
                     invoke_node->setRet(0, _vmssp);
                     break;

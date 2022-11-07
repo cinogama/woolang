@@ -100,8 +100,8 @@ namespace wo
             idarr = 52 WO_OPCODE_SPACE,  // idarr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for array]
             iddict = 53 WO_OPCODE_SPACE,  // iddict(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for dict]
 
-            mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
-            mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE)
+            mkarr = 54 WO_OPCODE_SPACE,     // mkarr(dr_0)      REGID(1BYTE)/DIFF(4BYTE) SZ(2BYTE)
+            mkmap = 55 WO_OPCODE_SPACE,     // mkmap(dr_0)      REGID(1BYTE)/DIFF(4BYTE) SZ(2BYTE)
             idstr = 56 WO_OPCODE_SPACE,     // idstr(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF [Used for string]
 
             equr = 57 WO_OPCODE_SPACE,      // equr(dr)         REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
