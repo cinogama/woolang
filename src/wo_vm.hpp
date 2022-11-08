@@ -39,8 +39,6 @@ namespace wo
 
         void block_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.lock(); }
         void unblock_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.unlock(); }
-
-
     };
 
     class exception_recovery
@@ -376,7 +374,7 @@ namespace wo
         vmbase* gc_vm;
 
         shared_pointer<runtime_env> env;
-        void set_runtime(ir_compiler& _compiler, size_t stacksz = 0)
+        void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
             // using LEAVE_INTERRUPT to stop GC
             block_interrupt(GC_INTERRUPT);  // must not working when gc
@@ -384,7 +382,8 @@ namespace wo
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
 
-            env = _compiler.finalize(stacksz);
+            env = runtime_environment;
+
             ++env->_running_on_vm_count;
 
             stack_mem_begin = env->stack_begin;
@@ -765,9 +764,9 @@ namespace wo
                     break;
                 }
                 case instruct::mkarr:
-                    tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
+                    tmpos << "mkarr\t"; print_opnum1(); tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);  break;
                 case instruct::mkmap:
-                    tmpos << "mkmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();  break;
+                    tmpos << "mkmap\t"; print_opnum1();  tmpos << ",\t size=" << *(uint16_t*)((this_command_ptr += 2) - 2);  break;
                 case instruct::idarr:
                     tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::iddict:
@@ -902,7 +901,10 @@ namespace wo
         }
         inline void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const
         {
-            auto* src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
+            // TODO; Dump call stack without pdb
+            const program_debug_data_info::location* src_location_info = nullptr;
+            if (env->program_debug_info != nullptr)
+                src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
             // NOTE: When vm running, rt_ip may point to:
             // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
             //                                     ^1                     ^2                     ^3
@@ -911,8 +913,13 @@ namespace wo
 
             size_t call_trace_count = 0;
 
-            os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-            os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+            if (src_location_info)
+            {
+                os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
+                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+            }
+            else
+                os << call_trace_count << ": " << (void*)ip << std::endl;
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -925,11 +932,16 @@ namespace wo
                 }
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
-                    src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
+                    if (src_location_info)
+                    {
+                        src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
 
-                    os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                        env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
-                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                        os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
+                            env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
+                        os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                    }
+                    else
+                        os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->ret_ip) << std::endl;
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
                     base_callstackinfo_ptr++;
@@ -1226,35 +1238,29 @@ namespace wo
 
     public:
 
-        inline static value* make_array_impl(value* opnum1, value* opnum2, value* rt_sp)
+        inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
             auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
 
-            wo_assert(opnum2->type == value::valuetype::integer_type);
-            // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
-
             gcbase::gc_write_guard gwg1(created_array);
 
-            created_array->resize((size_t)opnum2->integer);
-            for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+            created_array->resize((size_t)size);
+            for (size_t i = 0; i < (size_t)size; i++)
             {
                 auto* arr_val = ++rt_sp;
                 (*created_array)[i].set_trans(arr_val);
             }
             return rt_sp;
         }
-        inline static value* make_map_impl(value* opnum1, value* opnum2, value* rt_sp)
+        inline static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
             auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
 
-            wo_assert(opnum2->type == value::valuetype::integer_type);
-            // Well, both integer_type and handle_type will work well, but here just allowed integer_type.
-
             gcbase::gc_write_guard gwg1(created_map);
 
-            for (size_t i = 0; i < (size_t)opnum2->integer; i++)
+            for (size_t i = 0; i < (size_t)size; i++)
             {
                 value* val = ++rt_sp;
                 value* key = ++rt_sp;
@@ -2260,17 +2266,17 @@ namespace wo
                     case instruct::opcode::mkarr:
                     {
                         WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        uint16_t size = WO_IPVAL_MOVE_2;
 
-                        rt_sp = make_array_impl(opnum1, opnum2, rt_sp);
+                        rt_sp = make_array_impl(opnum1, size, rt_sp);
                         break;
                     }
                     case instruct::opcode::mkmap:
                     {
                         WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        uint16_t size = WO_IPVAL_MOVE_2;
 
-                        rt_sp = make_map_impl(opnum1, opnum2, rt_sp);
+                        rt_sp = make_map_impl(opnum1, size, rt_sp);
                         break;
                     }
                     case instruct::opcode::idarr:

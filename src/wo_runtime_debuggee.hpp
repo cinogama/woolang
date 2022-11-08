@@ -259,28 +259,38 @@ stepir          si                            Execute next command.
                         }
                         else
                         {
-                            auto&& fndresult = search_function_begin_rtip_scope_with_name(function_name);
-                            wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
-                            for (auto& funcinfo : fndresult)
+                            if (vmm->env->program_debug_info == nullptr)
+                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                            else
                             {
-                                wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                                auto&& fndresult = search_function_begin_rtip_scope_with_name(function_name);
+                                wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
+                                for (auto& funcinfo : fndresult)
+                                {
+                                    wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+                                    vmm->dump_program_bin(funcinfo.rt_ip_begin, funcinfo.rt_ip_end);
+                                }
                             }
                         }
                     }
                     else
                     {
-                        auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                        auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                        if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
-                        {
-                            wo_stdout << "In function: " << funcname << wo_endl;
-                            vmm->dump_program_bin(
-                                _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
-                                , _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
-                        }
+                        if (vmm->env->program_debug_info == nullptr)
+                            printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                         else
-                            printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                        {
+                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
+                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                            {
+                                wo_stdout << "In function: " << funcname << wo_endl;
+                                vmm->dump_program_bin(
+                                    _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
+                                    , _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
+                            }
+                            else
+                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
+                        }
                     }
                 }
                 else if (main_command == "cs" || main_command == "callstack")
@@ -292,50 +302,55 @@ stepir          si                            Execute next command.
                 }
                 else if (main_command == "break")
                 {
-                    std::string filename_or_funcname;
-                    if (need_possiable_input(inputbuf, filename_or_funcname))
-                    {
-                        size_t lineno;
-
-                        bool result = false;
-
-                        if (need_possiable_input(inputbuf, lineno))
-                            result = set_breakpoint(str_to_wstr(filename_or_funcname), lineno);
-                        else
-                        {
-                            for (auto ch : filename_or_funcname)
-                            {
-                                if (!lexer::lex_isdigit(ch))
-                                {
-                                    std::lock_guard g1(_mx);
-
-                                    auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
-                                    wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
-                                    for (auto& funcinfo : fndresult)
-                                    {
-                                        wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                        break_point_traps.insert(
-                                            _env->program_debug_info->get_ip_by_runtime_ip(
-                                                _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
-                                        //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
-                                    }
-                                    goto need_next_command;
-                                }
-                            }
-                            ;
-                            result = set_breakpoint(
-                                vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
-                                , std::stoull(filename_or_funcname));
-
-                        }
-
-                        if (result)
-                            wo_stdout << "OK!" << wo_endl;
-                        else
-                            wo_stdout << "FAIL!" << wo_endl;
-                    }
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                     else
-                        printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
+                    {
+                        std::string filename_or_funcname;
+                        if (need_possiable_input(inputbuf, filename_or_funcname))
+                        {
+                            size_t lineno;
+
+                            bool result = false;
+
+                            if (need_possiable_input(inputbuf, lineno))
+                                result = set_breakpoint(str_to_wstr(filename_or_funcname), lineno);
+                            else
+                            {
+                                for (auto ch : filename_or_funcname)
+                                {
+                                    if (!lexer::lex_isdigit(ch))
+                                    {
+                                        std::lock_guard g1(_mx);
+
+                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
+                                        wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
+                                        for (auto& funcinfo : fndresult)
+                                        {
+                                            wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
+                                            break_point_traps.insert(
+                                                _env->program_debug_info->get_ip_by_runtime_ip(
+                                                    _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
+                                            //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
+                                        }
+                                        goto need_next_command;
+                                    }
+                                }
+                                ;
+                                result = set_breakpoint(
+                                    vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
+                                    , std::stoull(filename_or_funcname));
+
+                            }
+
+                            if (result)
+                                wo_stdout << "OK!" << wo_endl;
+                            else
+                                wo_stdout << "FAIL!" << wo_endl;
+                        }
+                        else
+                            printf(ANSI_HIR "You must input the file or function's name.\n" ANSI_RST);
+                    }
                 }
                 else if (main_command == "quit")
                 {
@@ -370,30 +385,39 @@ stepir          si                            Execute next command.
                 }
                 else if (main_command == "s" || main_command == "step")
                 {
-                    // Get current lineno
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                    else
+                    {
+                        // Get current lineno
 
-                    auto& loc = vmm->env->program_debug_info
-                        ->get_src_location_by_runtime_ip(vmm->ip);
+                        auto& loc = vmm->env->program_debug_info
+                            ->get_src_location_by_runtime_ip(vmm->ip);
 
-                    breakdown_temp_for_step = true;
-                    breakdown_temp_for_step_lineno = loc.row_no;
-                    breakdown_temp_for_step_srcfile = loc.source_file;
+                        breakdown_temp_for_step = true;
+                        breakdown_temp_for_step_lineno = loc.row_no;
+                        breakdown_temp_for_step_srcfile = loc.source_file;
 
-                    goto continue_run_command;
+                        goto continue_run_command;
+                    }
                 }
                 else if (main_command == "n" || main_command == "next")
                 {
-                    // Get current lineno
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                    else
+                    {
+                        // Get current lineno
+                        auto& loc = vmm->env->program_debug_info
+                            ->get_src_location_by_runtime_ip(vmm->ip);
 
-                    auto& loc = vmm->env->program_debug_info
-                        ->get_src_location_by_runtime_ip(vmm->ip);
+                        breakdown_temp_for_next = true;
+                        breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
+                        breakdown_temp_for_step_lineno = loc.row_no;
+                        breakdown_temp_for_step_srcfile = loc.source_file;
 
-                    breakdown_temp_for_next = true;
-                    breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
-                    breakdown_temp_for_step_lineno = loc.row_no;
-                    breakdown_temp_for_step_srcfile = loc.source_file;
-
-                    goto continue_run_command;
+                        goto continue_run_command;
+                    }
                 }
                 else if (main_command == "sf" || main_command == "stackframe")
                 {
@@ -406,57 +430,66 @@ stepir          si                            Execute next command.
                 }
                 else if (main_command == "p" || main_command == "print")
                 {
-                    std::string varname;
-                    if (need_possiable_input(inputbuf, varname))
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                    else
                     {
-                        if (_env)
+                        std::string varname;
+                        if (need_possiable_input(inputbuf, varname))
                         {
-                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                            if (_env)
                             {
-                                if (auto vfnd = fnd->second.variables.find(varname);
-                                    vfnd != fnd->second.variables.end())
+                                auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                                auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
+                                if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
                                 {
-                                    for (auto& varinfo : vfnd->second)
+                                    if (auto vfnd = fnd->second.variables.find(varname);
+                                        vfnd != fnd->second.variables.end())
                                     {
-                                        display_variable(vmm, varinfo);
+                                        for (auto& varinfo : vfnd->second)
+                                        {
+                                            display_variable(vmm, varinfo);
+                                        }
                                     }
+                                    else
+                                        printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
+                                            varname.c_str(), funcname.c_str());
                                 }
                                 else
-                                    printf(ANSI_HIR "Cannot find '%s' in function '%s'.\n" ANSI_RST,
-                                        varname.c_str(), funcname.c_str());
+                                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                             }
-                            else
-                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                         }
+                        else
+                            printf(ANSI_HIR "You must input the variable name.\n" ANSI_RST);
                     }
-                    else
-                        printf(ANSI_HIR "You must input the variable name.\n" ANSI_RST);
                 }
                 else if (main_command == "src" || main_command == "source")
                 {
-                    std::string filename;
-                    size_t display_range = 5;
-                    auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                    size_t display_rowno = loc.row_no;
-                    if (need_possiable_input(inputbuf, filename))
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                    else
                     {
-                        for (auto ch : filename)
+                        std::string filename;
+                        size_t display_range = 5;
+                        auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
+                        size_t display_rowno = loc.row_no;
+                        if (need_possiable_input(inputbuf, filename))
                         {
-                            if (!lexer::lex_isdigit(ch))
+                            for (auto ch : filename)
                             {
-                                print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.row_no : 0));
-                                goto need_next_command;
+                                if (!lexer::lex_isdigit(ch))
+                                {
+                                    print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.row_no : 0));
+                                    goto need_next_command;
+                                }
                             }
+                            display_range = std::stoull(filename);
                         }
-                        display_range = std::stoull(filename);
+
+                        print_src_file(wstr_to_str(loc.source_file), display_rowno,
+                            (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
+
                     }
-
-                    print_src_file(wstr_to_str(loc.source_file), display_rowno,
-                        (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
-
-
                 }
                 else if (main_command == "l" || main_command == "list")
                 {
@@ -465,31 +498,41 @@ stepir          si                            Execute next command.
                     {
                         if (list_what == "break")
                         {
-                            size_t id = 0;
-                            for (auto break_stip : break_point_traps)
+                            if (vmm->env->program_debug_info == nullptr)
+                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                            else
                             {
-                                auto& file_loc =
-                                    _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
-                                        _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                                wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << wo_endl;;
+                                size_t id = 0;
+                                for (auto break_stip : break_point_traps)
+                                {
+                                    auto& file_loc =
+                                        _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
+                                            _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
+                                    wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << wo_endl;;
+                                }
                             }
                         }
                         else if (list_what == "var")
                         {
-                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                            if (vmm->env->program_debug_info == nullptr)
+                                printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                            else
                             {
-                                for (auto& [varname, varinfos] : fnd->second.variables)
+                                auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                                auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
+                                if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
                                 {
-                                    for (auto& varinfo : varinfos)
+                                    for (auto& [varname, varinfos] : fnd->second.variables)
                                     {
-                                        display_variable(vmm, varinfo);
+                                        for (auto& varinfo : varinfos)
+                                        {
+                                            display_variable(vmm, varinfo);
+                                        }
                                     }
                                 }
+                                else
+                                    printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                             }
-                            else
-                                printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
                         }
                         else if (list_what == "vm" || list_what == "thread")
                         {
@@ -679,8 +722,16 @@ stepir          si                            Execute next command.
                 current_frame_sp = vmm->sp;
                 current_runtime_ip = vmm->ip;
 
-                auto command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
-                auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
+
+                size_t command_ip = 0;
+                const program_debug_data_info::location* loc = nullptr;
+                if (vmm->env->program_debug_info != nullptr)
+                {
+                    command_ip = vmm->env->program_debug_info->get_ip_by_runtime_ip(next_execute_ip);
+                    loc = &vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
+                }
+                else
+                    loc = &vmm->env->program_debug_info->get_src_location_by_runtime_ip(nullptr);
 
                 // check breakpoint..
                 std::lock_guard g1(_mx);
@@ -690,12 +741,12 @@ stepir          si                            Execute next command.
 
                 if (breakdown_temp_for_stepir
                     || (breakdown_temp_for_step
-                        && (loc.row_no != breakdown_temp_for_step_lineno
-                            || loc.source_file != breakdown_temp_for_step_srcfile))
+                        && (loc->row_no != breakdown_temp_for_step_lineno
+                            || loc->source_file != breakdown_temp_for_step_srcfile))
                     || (breakdown_temp_for_next
                         && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                        && (loc.row_no != breakdown_temp_for_step_lineno
-                            || loc.source_file != breakdown_temp_for_step_srcfile))
+                        && (loc->row_no != breakdown_temp_for_step_lineno
+                            || loc->source_file != breakdown_temp_for_step_srcfile))
                     || (breakdown_temp_for_return
                         && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
                     || break_point_traps.find(command_ip) != break_point_traps.end())
@@ -707,9 +758,10 @@ stepir          si                            Execute next command.
                     breakdown_temp_for_next = false;
                     breakdown_temp_for_return = false;
 
-
                     printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
-                        wstr_to_str(loc.source_file).c_str(), loc.row_no, loc.col_no,
+                        wstr_to_str(loc->source_file).c_str(), loc->row_no, loc->col_no,
+                        vmm->env->program_debug_info == nullptr ?
+                        "__unknown_func_without_pdb_" :
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
                     );
 
@@ -723,6 +775,7 @@ stepir          si                            Execute next command.
                     unblock_other_vm_in_this_debuggee();
 
                 }
+
             } while (0);
 
             if (stop_attach_debuggee_for_exit_flag)

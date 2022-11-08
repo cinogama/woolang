@@ -27,6 +27,8 @@ namespace wo
                     delete ref_count;
                 }
             }
+            else
+                wo_assert(ref_count == nullptr);
         }
         ~shared_pointer()
         {
@@ -36,10 +38,11 @@ namespace wo
         shared_pointer() noexcept = default;
         shared_pointer(T* v, void(*f)(T*) = nullptr) noexcept :
             ptr(v),
-            ref_count(new COUNTT(1)),
+            ref_count(nullptr),
             release_func(f ? f : DEFAULT_DESTROY_FUNCTION)
         {
-
+            if (ptr != nullptr)
+                ref_count = new COUNTT(1);
         }
 
         shared_pointer(const shared_pointer& v) noexcept
@@ -56,6 +59,7 @@ namespace wo
             release_func = v.release_func;
             ref_count = v.ref_count;
             v.ptr = nullptr;
+            v.ref_count = nullptr;
         }
 
         shared_pointer& operator =(const shared_pointer& v) noexcept
@@ -78,7 +82,7 @@ namespace wo
             release_func = v.release_func;
             ref_count = v.ref_count;
             v.ptr = nullptr;
-
+            v.ref_count = nullptr;
             return *this;
         }
 

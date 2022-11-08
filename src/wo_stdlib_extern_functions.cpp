@@ -2281,8 +2281,6 @@ WO_API wo_api rslib_std_thread_spin_write_end(wo_vm vm, wo_value args, size_t ar
     return wo_ret_void(vm);
 }
 
-
-
 const char* wo_stdlib_thread_src_path = u8"woo/thread.wo";
 const char* wo_stdlib_thread_src_data = {
 u8R"(

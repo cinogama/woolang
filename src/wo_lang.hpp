@@ -2509,8 +2509,10 @@ namespace wo
                     }
                 }
                 else
+                {
                     // Extern template function in define, skip it.
                     return WO_NEW_OPNUM(reg(reg::ni));
+                }
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
@@ -2909,7 +2911,8 @@ namespace wo
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->mkarr(treg, imm(arr_list.size()));
+                wo_assert(arr_list.size() <= UINT16_MAX);
+                compiler->mkarr(treg, (uint16_t)arr_list.size());
                 return treg;
 
             }
@@ -2934,7 +2937,8 @@ namespace wo
                 }
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->mkmap(treg, imm(map_pair_count));
+                wo_assert(map_pair_count <= UINT16_MAX);
+                compiler->mkmap(treg, (uint16_t)map_pair_count);
                 return treg;
 
             }
@@ -3703,6 +3707,14 @@ namespace wo
             // first, check each extern func
             for (auto& [ext_func, funcdef_list] : extern_symb_func_definee)
             {
+                wo_assert(!funcdef_list.empty() && funcdef_list.front()->externed_func_info != nullptr);
+
+                compiler->record_extern_native_function(
+                    (intptr_t)ext_func,
+                    *funcdef_list.front()->source_file,
+                    funcdef_list.front()->externed_func_info->load_from_lib,
+                    funcdef_list.front()->externed_func_info->symbol_name);
+
                 ast::ast_value_function_define* last_fundef = nullptr;
                 for (auto funcdef : funcdef_list)
                 {
@@ -3755,17 +3767,10 @@ namespace wo
                     {
                         // this function is externed, put it into extern-table and update the value in ir-compiler
                         auto&& spacename = funcdef->get_namespace_chain();
-
                         auto&& fname = (spacename.empty() ? "" : spacename + "::") + wstr_to_str(*funcdef->function_name);
 
-                        // ISSUE-N221022: Function overload has been removed from woolang.
-                        wo_assert(compiler->pdb_info->extern_function_map.find(fname)
-                            == compiler->pdb_info->extern_function_map.end());
-
-                        compiler->pdb_info->extern_function_map[fname] = compiler->get_now_ip();
-
+                        compiler->record_extern_script_function(fname);
                     }
-
                     compiler->pdb_info->generate_func_begin(funcdef, compiler);
 
                     // ATTENTION: WILL INSERT JIT_DET_FLAG HERE TO CHECK & COMPILE & INVOKE JIT CODE
@@ -3849,7 +3854,7 @@ namespace wo
                 }
             }
             compiler->tag("__rsir_rtcode_seg_function_define_end");
-            compiler->pdb_info->loaded_libs = extern_libs;
+            compiler->loaded_libs = extern_libs;
             compiler->pdb_info->finalize_generate_debug_info();
 
             wo::grammar::ast_base::exchange_this_thread_ast(generated_ast_nodes_buffers);

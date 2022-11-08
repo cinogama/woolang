@@ -254,6 +254,8 @@ void wo_init(int argc, char** argv)
                 coroutine_mgr_thread_count = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
+            else if ("enable-pdb" == current_arg)
+                wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
@@ -292,6 +294,7 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_roroutine_src_path, wo_stdlib_roroutine_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
+        wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)
@@ -1765,10 +1768,12 @@ void* wo_co_wait_for(wo_waitter_t waitter)
     return result;
 }
 
-
-wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
+std::variant<
+    wo::shared_pointer<wo::runtime_env>,
+    wo::lexer*
+> _wo_compile_to_nojit_env(wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
-    wo::start_string_pool_guard sg;
+    wo::shared_pointer<wo::runtime_env> env_result = nullptr;
 
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
@@ -1803,9 +1808,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
                 if (!lang.has_compile_error())
                 {
                     compiler.end();
-                    ((wo::vm*)vm)->set_runtime(compiler);
-
-                    // OK
+                    env_result = compiler.finalize(stacksz);
                 }
             }
         }
@@ -1816,13 +1819,44 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
     if (need_exchange_back)
         wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
 
-    bool compile_has_err = lex->has_error();
-    if (compile_has_err)
-        WO_VM(vm)->compile_info = lex;
-    else
+    if (env_result)
+    {
         delete lex;
+        return env_result;
+    }
+    else
+        return lex;
+}
 
-    return !compile_has_err;
+wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
+{
+    wo::start_string_pool_guard sg;
+
+    auto&& env_or_lex = _wo_compile_to_nojit_env(virtual_src_path, src, stacksz);
+    if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
+    {
+        //auto &[bin, size] = (*env_p)->create_env_binary();
+        //auto env = wo::runtime_env::load_create_env_from_binary(bin, size, 16384);
+
+        auto &env = *env_p;
+
+        // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
+        if (wo::config::ENABLE_JUST_IN_TIME)
+            analyze_jit(const_cast<wo::byte_t*>(env->rt_codes), env);
+
+        ((wo::vm*)vm)->set_runtime(env);
+
+        return true;
+    }
+    else
+    {
+        auto* lex_p = std::get_if<wo::lexer*>(&env_or_lex);
+
+        wo_assert(nullptr != lex_p);
+
+        WO_VM(vm)->compile_info = *lex_p;
+        return false;
+    }
 }
 
 wo_bool_t wo_has_compile_error(wo_vm vm)
@@ -2649,7 +2683,7 @@ void wo_break_immediately(wo_vm vm)
 
 wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)
 {
-    const auto& extern_table = WO_VM(vm)->env->program_debug_info->extern_function_map;
+    const auto& extern_table = WO_VM(vm)->env->extern_script_functions;
     auto fnd = extern_table.find(fullname);
     if (fnd != extern_table.end())
         return fnd->second;
