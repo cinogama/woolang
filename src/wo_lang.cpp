@@ -686,7 +686,8 @@ namespace wo
     WO_PASS1(ast_while)
     {
         auto* ast_while_sentence = WO_AST();
-        analyze_pass1(ast_while_sentence->judgement_value);
+        if (ast_while_sentence->judgement_value != nullptr)
+            analyze_pass1(ast_while_sentence->judgement_value);
         analyze_pass1(ast_while_sentence->execute_sentence);
         return true;
     }
@@ -773,20 +774,9 @@ namespace wo
         auto* a_foreach = WO_AST();
         begin_scope(a_foreach);
 
-        a_foreach->used_iter_define->copy_source_info(a_foreach);
         analyze_pass1(a_foreach->used_iter_define);
-
-        a_foreach->used_vawo_defines->copy_source_info(a_foreach);
-        analyze_pass1(a_foreach->used_vawo_defines);
-
-        a_foreach->iterator_var->copy_source_info(a_foreach);
-        analyze_pass1(a_foreach->iterator_var);
-
-        a_foreach->iter_next_judge_expr->copy_source_info(a_foreach);
-        analyze_pass1(a_foreach->iter_next_judge_expr);
-
-        a_foreach->execute_sentences->copy_source_info(a_foreach);
-        analyze_pass1(a_foreach->execute_sentences);
+        analyze_pass1(a_foreach->loop_sentences);
+        a_foreach->loop_sentences->copy_source_info(a_foreach);
 
         end_scope();
         return true;
@@ -1075,7 +1065,8 @@ namespace wo
     WO_PASS2(ast_while)
     {
         auto* ast_while_sentence = WO_AST();
-        analyze_pass2(ast_while_sentence->judgement_value);
+        if (ast_while_sentence->judgement_value != nullptr)
+            analyze_pass2(ast_while_sentence->judgement_value);
         analyze_pass2(ast_while_sentence->execute_sentence);
 
         return true;
@@ -1106,108 +1097,7 @@ namespace wo
     {
         auto* a_foreach = WO_AST();
         analyze_pass2(a_foreach->used_iter_define);
-
-        /*
-        for (auto& variable : a_foreach->foreach_var)
-            analyze_pass2(variable);
-        */
-
-        lang_anylizer->begin_trying_block();
-        analyze_pass2(a_foreach->iterator_var);
-        analyze_pass2(a_foreach->iter_next_judge_expr->directed_value_from);
-
-        // Try Getting next Function
-
-        ast_value_variable* next_func_symb_getter = new ast_value_variable(WO_PSTR(next));
-        next_func_symb_getter->copy_source_info(a_foreach);
-        next_func_symb_getter->searching_from_type = a_foreach->iter_next_judge_expr->directed_value_from->value_type;
-        analyze_pass2(next_func_symb_getter);
-
-        if (next_func_symb_getter->symbol
-            && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::type_alias
-            && next_func_symb_getter->symbol->type != lang_symbol::symbol_type::typing)
-        {
-            ast_type* _next_executer_type = next_func_symb_getter->symbol
-                ->variable_value->value_type;
-
-            int need_takeplace_count = (int)_next_executer_type->argument_types.size();
-            need_takeplace_count -= (int)a_foreach->used_vawo_defines->var_refs.size();
-            need_takeplace_count -= 1;//iter
-
-
-            lang_anylizer->set_eror_at(1);
-            if (need_takeplace_count < 0)
-                lang_anylizer->lang_error(0x0000, a_foreach, WO_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT
-                    , a_foreach->iter_next_judge_expr->directed_value_from->value_type
-                    ->get_type_name(false).c_str()
-                    , a_foreach->used_vawo_defines->var_refs.size());
-            lang_anylizer->set_eror_at(0);
-
-            wo_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
-
-            // Make it fast over..
-            a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
-            for (size_t i = 1; i < _next_executer_type->argument_types.size(); i++)
-            {
-                a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
-            }
-            analyze_pass2(a_foreach->iter_next_judge_expr);
-            a_foreach->iter_next_judge_expr->completed_in_pass2 = false;
-            a_foreach->iter_next_judge_expr->arguments->remove_allnode();
-            a_foreach->iterator_var->parent = nullptr;
-            a_foreach->iterator_var->sibling = nullptr;
-
-            lang_anylizer->set_eror_at(1);
-            if (a_foreach->iter_next_judge_expr->called_func->value_type
-                ->is_variadic_function_type)
-            {
-                lang_anylizer->lang_error(0x0000, a_foreach, WO_ERR_VARIADIC_NEXT_IS_ILEAGAL,
-                    a_foreach->iter_next_judge_expr->directed_value_from->value_type
-                    ->get_type_name(false).c_str());
-            }
-            lang_anylizer->set_eror_at(0);
-
-            int rndidx = (int)a_foreach->used_vawo_defines->var_refs.size() - 1;
-            a_foreach->foreach_patterns_vars_in_pass2.resize(rndidx + 1);
-            for (auto ridx = a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rbegin();
-                ridx != a_foreach->iter_next_judge_expr->called_func->value_type->argument_types.rend();
-                ridx++)
-            {
-                auto* tkplaceval = a_foreach->foreach_patterns_vars_in_pass2[rndidx] =
-                    dynamic_cast<ast_value_takeplace*>(a_foreach->used_vawo_defines->var_refs[rndidx].init_val);
-
-                wo_assert(tkplaceval);
-                tkplaceval->is_mark_as_using_ref = true;
-                tkplaceval->completed_in_pass2 = false;
-                tkplaceval->value_type->set_type(*ridx);
-
-                rndidx--;
-
-                if (rndidx < 0)
-                    break;
-            }
-
-            wo_assert(nullptr == a_foreach->iter_next_judge_expr->arguments->children);
-
-            a_foreach->iter_next_judge_expr->arguments->append_at_end(a_foreach->iterator_var);
-            for (int i = 0; i < need_takeplace_count; i++)
-                a_foreach->iter_next_judge_expr->arguments->append_at_end(new ast_value_takeplace);
-            for (auto& variable : a_foreach->foreach_patterns_vars_in_pass2)
-                // WARNING! Variable foreach_patterns_vars_in_pass should same as which in
-                //          a_foreach->iter_next_judge_expr->arguments. it will used in finalize
-                if (variable)
-                    a_foreach->iter_next_judge_expr->arguments->append_at_end(variable);
-
-            analyze_pass2(a_foreach->used_vawo_defines);
-        }
-        else
-        {
-            // Do not find symbol, but do nothing.. error has been reported by analyze_pass2
-        }
-        lang_anylizer->end_trying_block();
-
-        analyze_pass2(a_foreach->iter_next_judge_expr);
-        analyze_pass2(a_foreach->execute_sentences);
+        analyze_pass2(a_foreach->loop_sentences);
 
         return true;
     }

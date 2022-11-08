@@ -2646,7 +2646,7 @@ namespace wo
             ast_while(ast_value* jdg, ast_base* exec)
                 : judgement_value(jdg), execute_sentence(exec)
             {
-                wo_test(judgement_value && execute_sentence);
+                wo_assert(nullptr != execute_sentence);
             }
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -3270,16 +3270,8 @@ namespace wo
 
         struct ast_foreach : virtual public grammar::ast_base
         {
-            std::vector<ast_value_takeplace*> foreach_patterns_vars_in_pass2;
-            ast_value_variable* iterator_var;
-
             ast_varref_defines* used_iter_define; // Just used for taking place;;;
-            ast_varref_defines* used_vawo_defines; // Just used for taking place;;;
-
-            ast_value_funccall* iter_getting_funccall;  // Used for get iter's type. it will used for getting func symbol;;
-            ast_value_funccall* iter_next_judge_expr;   // cannot make instance, will instance in pass2
-
-            grammar::ast_base* execute_sentences;
+            ast_while* loop_sentences;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -3289,16 +3281,9 @@ namespace wo
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
 
-                for (auto& vptr : dumm->foreach_patterns_vars_in_pass2)
-                {
-                    WO_REINSTANCE(vptr);
-                }
-                WO_REINSTANCE(dumm->iterator_var);
                 WO_REINSTANCE(dumm->used_iter_define);
-                WO_REINSTANCE(dumm->used_vawo_defines);
-                WO_REINSTANCE(dumm->iter_getting_funccall);
-                WO_REINSTANCE(dumm->iter_next_judge_expr);
-                WO_REINSTANCE(dumm->execute_sentences);
+                WO_REINSTANCE(dumm->loop_sentences);
+
                 return dumm;
             }
         };
@@ -5314,7 +5299,7 @@ namespace wo
             {
                 ast_foreach* afor = new ast_foreach;
 
-                // for ( DECL_ATTRIBUTE var LIST : EXP ) SENT
+                // for ( DECL_ATTRIBUTE let LIST : EXP ) SENT
                 // 0   1        2        3   4   5  6  7   8
 
                 // build EXP->iter() / var LIST;
@@ -5329,12 +5314,8 @@ namespace wo
                 exp_dir_iter_call->called_func = new ast_value_variable(WO_PSTR(iter));
                 exp_dir_iter_call->arguments->append_at_head(be_iter_value);
                 exp_dir_iter_call->directed_value_from = be_iter_value;
-
                 exp_dir_iter_call->called_func->copy_source_info(be_iter_value);
-
                 exp_dir_iter_call->copy_source_info(be_iter_value);
-
-                afor->iter_getting_funccall = exp_dir_iter_call;
 
                 afor->used_iter_define = new ast_varref_defines;
                 afor->used_iter_define->declear_attribute = new ast_decl_attribute;
@@ -5342,29 +5323,10 @@ namespace wo
                 auto* afor_iter_define = new ast_pattern_identifier;
                 afor_iter_define->identifier = WO_PSTR(_iter);
                 afor_iter_define->attr = new ast_decl_attribute();
-
                 afor_iter_define->copy_source_info(be_iter_value);
 
                 afor->used_iter_define->var_refs.push_back({ afor_iter_define, exp_dir_iter_call });
-
-
-                afor->used_vawo_defines = new ast_varref_defines;
-                afor->used_vawo_defines->declear_attribute = new ast_decl_attribute;
-
-                // var a= tkplace, b = tkplace...
-                ast_pattern_base* a_var_defs = dynamic_cast<ast_pattern_base*>(dynamic_cast<ast_list*>(WO_NEED_AST(4))->children);
-                while (a_var_defs)
-                {
-                    if (auto* a_identi = dynamic_cast<ast_pattern_identifier*>(a_var_defs))
-                    {
-                        if (a_identi->decl == identifier_decl::REF)
-                            lex.lang_error(0x0000, a_identi, L"for-each 语句中的最外层模式不可以接收引用 'ref'.");
-                    }
-                    ast_value_takeplace* tkpalce_variable = new ast_value_takeplace();
-                    tkpalce_variable->copy_source_info(a_var_defs);
-                    afor->used_vawo_defines->var_refs.push_back({ a_var_defs, tkpalce_variable });
-                    a_var_defs = dynamic_cast<ast_pattern_base*>(a_var_defs->sibling);
-                }
+                afor->used_iter_define->copy_source_info(be_iter_value);
 
                 // in loop body..
                 // {{{{
@@ -5377,19 +5339,52 @@ namespace wo
                 iter_dir_next_call->value_type = new ast_type(WO_PSTR(pending));
                 iter_dir_next_call->called_func = new ast_value_variable(WO_PSTR(next));
                 iter_dir_next_call->directed_value_from = new ast_value_variable(WO_PSTR(_iter));
+                iter_dir_next_call->arguments->append_at_head(iter_dir_next_call->directed_value_from);
 
                 iter_dir_next_call->called_func->copy_source_info(be_iter_value);
 
                 iter_dir_next_call->copy_source_info(be_iter_value);
 
-                afor->iter_next_judge_expr = iter_dir_next_call;
-                afor->iterator_var = new ast_value_variable(WO_PSTR(_iter));
-                afor->iterator_var->copy_source_info(be_iter_value);
+                //WO_NEED_AST(8);
 
-                afor->iterator_var->is_mark_as_using_ref = true;
+                ast_match* match_for_exec = new ast_match();
+                match_for_exec->match_value = iter_dir_next_call;
+                match_for_exec->cases = new ast_list;
 
-                afor->execute_sentences = WO_NEED_AST(8);
+                auto* for_decl_vars = dynamic_cast<ast_pattern_tuple*>(WO_NEED_AST(4));
 
+                auto* pattern_none_case = new ast_match_union_case;
+                {
+                    pattern_none_case->union_pattern = new ast_pattern_union_value;
+                    pattern_none_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(none));
+                    pattern_none_case->union_pattern->union_expr->copy_source_info(for_decl_vars);
+                    pattern_none_case->union_pattern->copy_source_info(for_decl_vars);
+                    auto* sentence_in_list = new ast_list;
+                    sentence_in_list->append_at_end(new ast_break());
+                    pattern_none_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
+                    pattern_none_case->copy_source_info(for_decl_vars);
+                }
+                pattern_none_case->copy_source_info(for_decl_vars);
+
+                auto* pattern_value_case = new ast_match_union_case;
+                {
+                    pattern_value_case->union_pattern = new ast_pattern_union_value;
+                    pattern_value_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(value));
+                    pattern_value_case->union_pattern->pattern_arg_in_union_may_nil = for_decl_vars;
+                    pattern_value_case->union_pattern->union_expr->copy_source_info(for_decl_vars);
+                    pattern_value_case->union_pattern->copy_source_info(for_decl_vars);
+                    auto* sentence_in_list = new ast_list;
+                    sentence_in_list->append_at_end(WO_NEED_AST(8));
+                    pattern_value_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
+                    pattern_value_case->copy_source_info(for_decl_vars);
+                }
+
+                match_for_exec->cases->append_at_end(pattern_value_case);
+                match_for_exec->cases->append_at_end(pattern_none_case);
+
+                match_for_exec->copy_source_info(be_iter_value);
+
+                afor->loop_sentences = new ast_while(nullptr, match_for_exec);
 
                 return (ast_basic*)afor;
             }
@@ -5847,14 +5842,15 @@ namespace wo
             }
         };
 
+        template<size_t pattern_location>
         struct pass_tuple_pattern : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_pattern_tuple;
-                if (!ast_empty::is_empty(input[1]))
+                if (!ast_empty::is_empty(input[pattern_location]))
                 {
-                    auto* subpattern = WO_NEED_AST(1)->children;
+                    auto* subpattern = WO_NEED_AST(pattern_location)->children;
                     while (subpattern)
                     {
                         auto* child_pattern = dynamic_cast<ast_pattern_base*>(subpattern);
@@ -6265,7 +6261,8 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_union_pattern>] = _register_builder<pass_union_pattern>();
             _registed_builder_function_id_list[meta::type_hash<pass_identifier_pattern>] = _register_builder<pass_identifier_pattern>();
-            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern>] = _register_builder<pass_tuple_pattern>();
+            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern<0>>] = _register_builder<pass_tuple_pattern<0>>();
+            _registed_builder_function_id_list[meta::type_hash<pass_tuple_pattern<1>>] = _register_builder<pass_tuple_pattern<1>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_def>] = _register_builder<pass_struct_member_def>();
             _registed_builder_function_id_list[meta::type_hash<pass_struct_member_init_pair>] = _register_builder<pass_struct_member_init_pair>();

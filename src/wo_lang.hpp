@@ -3383,7 +3383,8 @@ namespace wo
             }
             else if (auto* a_while = dynamic_cast<ast_while*>(ast_node))
             {
-                if (!a_while->judgement_value->value_type->is_bool())
+                if (a_while->judgement_value != nullptr
+                    && !a_while->judgement_value->value_type->is_bool())
                     lang_anylizer->lang_error(0x0000, a_while->judgement_value, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE, L"bool",
                         a_while->judgement_value->value_type->get_type_name(false).c_str());
 
@@ -3399,8 +3400,11 @@ namespace wo
                     });
 
                 compiler->tag(while_begin_tag);                                                         // while_begin_tag:
-                mov_value_to_cr(auto_analyze_value(a_while->judgement_value, compiler), compiler);      //    * do expr
-                compiler->jf(tag(while_end_tag));                                                       //    jf    while_end_tag;
+                if (a_while->judgement_value != nullptr)
+                {
+                    mov_value_to_cr(auto_analyze_value(a_while->judgement_value, compiler), compiler);  //    * do expr
+                    compiler->jf(tag(while_end_tag));                                                   //    jf    while_end_tag;
+                }
 
                 real_analyze_finalize(a_while->execute_sentence, compiler);                             //              ...
 
@@ -3508,64 +3512,7 @@ namespace wo
             else if (ast_foreach* a_foreach = dynamic_cast<ast_foreach*>(ast_node))
             {
                 real_analyze_finalize(a_foreach->used_iter_define, compiler);
-                // real_analyze_finalize(a_foreach->used_vawo_defines, compiler);
-
-                auto foreach_begin_tag = "foreach_begin_" + compiler->get_unique_tag_based_command_ip();
-                auto foreach_end_tag = "foreach_end_" + compiler->get_unique_tag_based_command_ip();
-
-                loop_stack_for_break_and_continue.push_back({
-                  a_foreach->marking_label,
-
-                  foreach_end_tag,
-                  foreach_begin_tag,
-                    });
-
-                // 1. read all pattern, and prepare regs for them...
-                size_t pattern_val_takeplace_id = 0;
-                for (auto& varpatterndef : a_foreach->used_vawo_defines->var_refs)
-                {
-                    if (auto* identifier_pattern = dynamic_cast<ast::ast_pattern_identifier*>(varpatterndef.pattern))
-                    {
-                        // Optimize，get opnum from it's symbol;
-                        a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg =
-                            &get_opnum_by_symbol(identifier_pattern, identifier_pattern->symbol, compiler);
-                    }
-                    else
-                    {
-                        // Get a pure value reg for pattern!
-                        a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg =
-                            &get_useable_register_for_pure_value(true);
-                    }
-                    wo_assert(a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg);
-                    ++pattern_val_takeplace_id;
-                }
-
-                compiler->tag(foreach_begin_tag);
-                mov_value_to_cr(auto_analyze_value(a_foreach->iter_next_judge_expr, compiler), compiler);
-                compiler->jf(tag(foreach_end_tag));
-
-                // 2. Apply pattern here!
-                pattern_val_takeplace_id = 0;
-                for (auto& varpatterndef : a_foreach->used_vawo_defines->var_refs)
-                {
-                    if (auto* identifier_pattern = dynamic_cast<ast::ast_pattern_identifier*>(varpatterndef.pattern))
-                    {
-                        // Value has been wrote to symbol's val place, here do nothing!
-                    }
-                    else
-                    {
-                        analyze_pattern_in_finalize(varpatterndef.pattern, a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id], compiler);
-                        complete_using_register(*a_foreach->foreach_patterns_vars_in_pass2[pattern_val_takeplace_id]->used_reg);
-                    }
-                    ++pattern_val_takeplace_id;
-                }
-
-                real_analyze_finalize(a_foreach->execute_sentences, compiler);
-
-                compiler->jmp(tag(foreach_begin_tag));
-                compiler->tag(foreach_end_tag);
-
-                loop_stack_for_break_and_continue.pop_back();
+                real_analyze_finalize(a_foreach->loop_sentences, compiler);
             }
             else if (ast_break* a_break = dynamic_cast<ast_break*>(ast_node))
             {
