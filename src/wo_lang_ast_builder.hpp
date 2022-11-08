@@ -348,7 +348,7 @@ namespace wo
             ast_type* get_return_type() const
             {
                 if (is_complex())
-                    return new ast_type(*complex_type);
+                    return complex_type;
 
                 auto* rett = new ast_type(type_name);
                 rett->using_type_name = using_type_name;
@@ -4467,7 +4467,6 @@ namespace wo
                     result->called_func = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
                 result->value_type = new ast_type(WO_PSTR(pending));
-                //  result->called_func->value_type->get_return_type(); // just get pending..
                 result->can_be_assign = true;
                 return (ast_basic*)result;
             }
