@@ -282,7 +282,7 @@ template<size_t opnumid>
 const wo::opnum::tag& _get_label(wo_value val)
 {
     const static wo::opnum::tag __unknown_label("error_unknown_label");
-    auto* opnum_tag = dynamic_cast<wo::opnum::tag>(_get_opnum<opnumid, 7>(val));
+    auto* opnum_tag = dynamic_cast<const wo::opnum::tag*>(&_get_opnum<opnumid, 7>(val));
     if (opnum_tag == nullptr)
         return __unknown_label;
     return *opnum_tag;
@@ -412,7 +412,7 @@ namespace std
     {
         alias irc = ircompiler;
 
-        public union opcode {
+        public union opnum {
             register(int),
             stackoffset(int),
             global(int),
@@ -422,6 +422,21 @@ namespace std
             label(string),
         }
 
+        using label = struct {
+            padding: int, // must be 7.
+            id: string,
+        }
+        {
+            public func create_with_id(id: string)
+            {
+                return label{padding = 7, id = id};
+            }
+            public func to_opnum(self: label)
+            {
+                return opnum::label(self.id);
+            }
+        }
+
         extern("rslib_std_ir_create_compiler")
         public func create()=> irc;
 
@@ -429,104 +444,112 @@ namespace std
         public func nop(self: irc)=> void;
 
         extern("rslib_std_ir_command_mov")
-        public func mov(self: irc, dst: opcode, src: opcode)=> void;
+        public func mov(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_set")
-        public func set(self: irc, dst: opcode, src: opcode)=> void;
+        public func set(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_addi")
-        public func addi(self: irc, dst: opcode, src: opcode)=> void;
+        public func addi(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_subi")
-        public func subi(self: irc, dst: opcode, src: opcode)=> void;
+        public func subi(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_muli")
-        public func muli(self: irc, dst: opcode, src: opcode)=> void;
+        public func muli(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_divi")
-        public func divi(self: irc, dst: opcode, src: opcode)=> void;
+        public func divi(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_modi")
-        public func modi(self: irc, dst: opcode, src: opcode)=> void;
+        public func modi(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_addr")
-        public func addr(self: irc, dst: opcode, src: opcode)=> void;
+        public func addr(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_subr")
-        public func subr(self: irc, dst: opcode, src: opcode)=> void;
+        public func subr(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_mulr")
-        public func mulr(self: irc, dst: opcode, src: opcode)=> void;
+        public func mulr(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_divr")
-        public func divr(self: irc, dst: opcode, src: opcode)=> void;
+        public func divr(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_modr")
-        public func modr(self: irc, dst: opcode, src: opcode)=> void;
+        public func modr(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_addh")
-        public func addh(self: irc, dst: opcode, src: opcode)=> void;
+        public func addh(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_subh")
-        public func subh(self: irc, dst: opcode, src: opcode)=> void;
+        public func subh(self: irc, dst: opnum, src: opnum)=> void;
     
         extern("rslib_std_ir_command_adds")
-        public func adds(self: irc, dst: opcode, src: opcode)=> void;
+        public func adds(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_psh")
-        public func psh(self: irc, op: opcode)=> void;
+        public func psh(self: irc, op: opnum)=> void;
         extern("rslib_std_ir_command_pshn")
         public func pshn(self: irc, count: int)=> void;
 
         extern("rslib_std_ir_command_pop")
-        public func pop(self: irc, op: opcode)=> void;
+        public func pop(self: irc, op: opnum)=> void;
         extern("rslib_std_ir_command_popn")
         public func popn(self: irc, count: int)=> void;
 
         extern("rslib_std_ir_command_pshr")
-        public func pshr(self: irc, op: opcode)=> void;
+        public func pshr(self: irc, op: opnum)=> void;
 
         extern("rslib_std_ir_command_lds")
-        public func lds(self: irc, dst: opcode, src: opcode)=> void;
+        public func lds(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_ldsr")
-        public func ldsr(self: irc, dst: opcode, src: opcode)=> void;
+        public func ldsr(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_equb")
-        public func equb(self: irc, a: opcode, b: opcode)=> void;
+        public func equb(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_nequb")
-        public func nequb(self: irc, a: opcode, b: opcode)=> void;
+        public func nequb(self: irc, a: opnum, b: opnum)=> void;
 
         extern("rslib_std_ir_command_lti")
-        public func lti(self: irc, a: opcode, b: opcode)=> void;
+        public func lti(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_gti")
-        public func gti(self: irc, a: opcode, b: opcode)=> void;
+        public func gti(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_elti")
-        public func elti(self: irc, a: opcode, b: opcode)=> void;
+        public func elti(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_egti")
-        public func egti(self: irc, a: opcode, b: opcode)=> void;
+        public func egti(self: irc, a: opnum, b: opnum)=> void;
 
         extern("rslib_std_ir_command_land")
-        public func land(self: irc, a: opcode, b: opcode)=> void;
+        public func land(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_lor")
-        public func lor(self: irc, a: opcode, b: opcode)=> void;
+        public func lor(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_lmov")
-        public func lmov(self: irc, a: opcode, b: opcode)=> void;
+        public func lmov(self: irc, a: opnum, b: opnum)=> void;
 
         extern("rslib_std_ir_command_ltx")
-        public func ltx(self: irc, a: opcode, b: opcode)=> void;
+        public func ltx(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_gtx")
-        public func gtx(self: irc, a: opcode, b: opcode)=> void;
+        public func gtx(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_eltx")
-        public func eltx(self: irc, a: opcode, b: opcode)=> void;
+        public func eltx(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_egtx")
-        public func egtx(self: irc, a: opcode, b: opcode)=> void;
+        public func egtx(self: irc, a: opnum, b: opnum)=> void;
 
         extern("rslib_std_ir_command_ltr")
-        public func ltr(self: irc, a: opcode, b: opcode)=> void;
+        public func ltr(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_gtr")
-        public func gtr(self: irc, a: opcode, b: opcode)=> void;
+        public func gtr(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_eltr")
-        public func eltr(self: irc, a: opcode, b: opcode)=> void;
+        public func eltr(self: irc, a: opnum, b: opnum)=> void;
         extern("rslib_std_ir_command_egtr")
-        public func egtr(self: irc, a: opcode, b: opcode)=> void;
+        public func egtr(self: irc, a: opnum, b: opnum)=> void;
 
         extern("rslib_std_ir_command_call")
-        public func call(self: irc, aim: opcode)=> void;
+        public func call(self: irc, aim)=> void
+            where aim is opnum || aim is label;
         extern("rslib_std_ir_command_ret")
         public func ret(self: irc)=> void;
         extern("rslib_std_ir_command_retn")
         public func retn(self: irc, popcount: int)=> void;
+
+        extern("rslib_std_ir_command_jt")
+        public func jt(self: irc, aim: label)=> void;
+        extern("rslib_std_ir_command_jf")
+        public func jf(self: irc, aim: label)=> void;
+        extern("rslib_std_ir_command_jmp")
+        public func jmp(self: irc, aim: label)=> void;
     }
 }
 )";
