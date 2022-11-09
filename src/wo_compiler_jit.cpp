@@ -217,32 +217,6 @@ namespace wo
 
         }
 
-        static may_constant_x86Gp get_opnum_ptr_ref(
-            asmjit::X86Compiler& x86compiler,
-            const byte_t*& rt_ip,
-            bool dr,
-            asmjit::X86Gp stack_bp,
-            asmjit::X86Gp reg,
-            runtime_env* env)
-        {
-            auto opnum = get_opnum_ptr(x86compiler, rt_ip, dr, stack_bp, reg, env);
-            // if opnum->type is ref, get it's ref
-
-            if (!opnum.is_constant())
-            {
-                auto is_no_ref_label = x86compiler.newLabel();
-
-                wo_asure(!x86compiler.cmp(asmjit::x86::byte_ptr(opnum.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::is_ref));
-                wo_asure(!x86compiler.jne(is_no_ref_label));
-
-                wo_asure(!x86compiler.mov(opnum.gp_value(), intptr_ptr(opnum.gp_value(), offsetof(value, ref))));
-
-                wo_asure(!x86compiler.bind(is_no_ref_label));
-
-            }
-            return opnum;
-        }
-
         static int _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
             if (vmm->vm_interrupt & wo::vmbase::GC_INTERRUPT)
@@ -367,18 +341,6 @@ namespace wo
             wo_asure(!x86compiler.mov(asmjit::x86::qword_ptr(val, offsetof(value, handle)), data_of_val2));
 
             return val;
-        }
-        static asmjit::X86Gp x86_set_ref(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val, asmjit::X86Gp val2)
-        {
-            auto skip_self_ref_label = x86compiler.newLabel();
-
-            wo_asure(!x86compiler.cmp(val, val2));
-            wo_asure(!x86compiler.je(skip_self_ref_label));
-            wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(val, offsetof(value, type)), (uint8_t)value::valuetype::is_ref));
-            wo_asure(!x86compiler.mov(intptr_ptr(val, offsetof(value, ref)), val2));
-
-            wo_asure(!x86compiler.bind(skip_self_ref_label));
-            return val2;
         }
 
         static asmjit::X86Gp x86_set_nil(asmjit::X86Compiler& x86compiler, asmjit::X86Gp val)
@@ -593,8 +555,6 @@ namespace wo
 
 #define WO_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
 #define WO_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
-#define WO_JIT_ADDRESSING_N1_REF auto opnum1 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
-#define WO_JIT_ADDRESSING_N2_REF auto opnum2 = get_opnum_ptr_ref(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
 
 #define WO_JIT_NOT_SUPPORT do{state.m_state = function_jit_state::state::FAILED; return state; }while(0)
 
@@ -610,7 +570,7 @@ namespace wo
                         // WO_ADDRESSING_N1_REF;
                         // (rt_sp--)->set_val(opnum1);
 
-                        WO_JIT_ADDRESSING_N1_REF;
+                        WO_JIT_ADDRESSING_N1;
 
                         x86_set_val(x86compiler, _vmssp, opnum1.gp_value());
                         wo_asure(!x86compiler.sub(_vmssp, sizeof(value)));
@@ -636,7 +596,7 @@ namespace wo
                     {
                         // WO_ADDRESSING_N1_REF;
                         // opnum1->set_val((++rt_sp));
-                        WO_JIT_ADDRESSING_N1_REF;
+                        WO_JIT_ADDRESSING_N1;
 
                         wo_asure(!x86compiler.add(_vmssp, sizeof(value)));
                         x86_set_val(x86compiler, opnum1.gp_value(), _vmssp);
@@ -649,7 +609,7 @@ namespace wo
                 case instruct::set:
                 {
                     WO_JIT_ADDRESSING_N1;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                         x86_set_imm(x86compiler, opnum1.gp_value(), *opnum2.const_value());
@@ -660,8 +620,8 @@ namespace wo
                 }
                 case instruct::mov:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                         x86_set_imm(x86compiler, opnum1.gp_value(), *opnum2.const_value());
@@ -672,8 +632,8 @@ namespace wo
                 }
                 case instruct::addi:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                     {
@@ -689,8 +649,8 @@ namespace wo
                 }
                 case instruct::subi:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                     {
@@ -707,8 +667,8 @@ namespace wo
                 }
                 case instruct::muli:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto int_of_op2 = x86compiler.newInt64();
                     if (opnum2.is_constant())
@@ -723,8 +683,8 @@ namespace wo
                 }
                 case instruct::divi:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto int_of_op2 = x86compiler.newInt64();
                     if (opnum2.is_constant())
@@ -741,8 +701,8 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                     // Following code have bug, need to remake...
                     //{
-                    //    WO_JIT_ADDRESSING_N1_REF;
-                    //    WO_JIT_ADDRESSING_N2_REF;
+                    //    WO_JIT_ADDRESSING_N1;
+                    //    WO_JIT_ADDRESSING_N2;
 
                     //    auto int_of_op2 = x86compiler.newInt64();
                     //    if (opnum2.is_constant())
@@ -757,46 +717,29 @@ namespace wo
                     //}
                 case instruct::opcode::lds:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
-
-                    if (opnum2.is_constant())
-                    {
-                        auto bpoffset = x86compiler.newUIntPtr();
-                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
-                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
-                    }
-                    else
-                    {
-                        auto bpoffset = x86compiler.newUIntPtr();
-                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.gp_value(), sizeof(value))));
-                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
-                    }
-                    break;
-                }
-                case instruct::opcode::ldsr:
-                {
                     WO_JIT_ADDRESSING_N1;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                     {
                         auto bpoffset = x86compiler.newUIntPtr();
                         wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
-                        x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
                     }
                     else
                     {
                         auto bpoffset = x86compiler.newUIntPtr();
                         wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.gp_value(), sizeof(value))));
-                        x86_set_ref(x86compiler, opnum1.gp_value(), bpoffset);
+                        x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
                     }
                     break;
                 }
+                case instruct::opcode::sts:
+                    WO_JIT_NOT_SUPPORT;
                 case instruct::equb:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // <=
 
@@ -820,8 +763,8 @@ namespace wo
                 }
                 case instruct::nequb:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // <=
 
@@ -845,8 +788,8 @@ namespace wo
                 }
                 case instruct::lti:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // <
 
@@ -885,8 +828,8 @@ namespace wo
                 }
                 case instruct::elti:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // <=
 
@@ -925,8 +868,8 @@ namespace wo
                 }
                 case instruct::gti:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // >
 
@@ -965,8 +908,8 @@ namespace wo
                 }
                 case instruct::egti:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     // >=
 
@@ -1104,8 +1047,8 @@ namespace wo
                 }
                 case instruct::addr:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto real_of_op2 = x86compiler.newXmm();
                     wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1115,8 +1058,8 @@ namespace wo
                 }
                 case instruct::subr:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto real_of_op2 = x86compiler.newXmm();
                     wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1126,8 +1069,8 @@ namespace wo
                 }
                 case instruct::mulr:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto real_of_op2 = x86compiler.newXmm();
                     wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1137,8 +1080,8 @@ namespace wo
                 }
                 case instruct::divr:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto real_of_op2 = x86compiler.newXmm();
                     wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
@@ -1150,8 +1093,8 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::addh:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                         wo_asure(!x86compiler.add(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
@@ -1165,8 +1108,8 @@ namespace wo
                 }
                 case instruct::subh:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     if (opnum2.is_constant())
                         wo_asure(!x86compiler.sub(x86::qword_ptr(opnum1.gp_value(), offsetof(value, handle)), opnum2.const_value()->handle));
@@ -1180,8 +1123,8 @@ namespace wo
                 }
                 case instruct::adds:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     auto op1 = opnum1.gp_value();
                     auto op2 = opnum2.gp_value();
@@ -1197,8 +1140,8 @@ namespace wo
                 }
                 case instruct::land:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
                     if (opnum1.is_constant() && opnum2.is_constant())
@@ -1249,8 +1192,8 @@ namespace wo
                 }
                 case instruct::lor:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
                     if (opnum1.is_constant() && opnum2.is_constant())
@@ -1301,8 +1244,8 @@ namespace wo
                 }
                 case instruct::lmov:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
-                    WO_JIT_ADDRESSING_N2_REF;
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
                     wo_assert(!opnum1.is_constant());
 
@@ -1353,7 +1296,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkstruct:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N1;
                     uint16_t size = WO_IPVAL_MOVE_2;
 
                     auto op1 = opnum1.gp_value();
@@ -1376,7 +1319,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkarr:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N1;
                     uint16_t size = WO_IPVAL_MOVE_2;
 
                     auto op1 = opnum1.gp_value();
@@ -1393,7 +1336,7 @@ namespace wo
                 }
                 case instruct::mkmap:
                 {
-                    WO_JIT_ADDRESSING_N1_REF;
+                    WO_JIT_ADDRESSING_N1;
                     uint16_t size = WO_IPVAL_MOVE_2;
 
                     auto op1 = opnum1.gp_value();
@@ -1438,8 +1381,6 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
-                        case instruct::extern_opcode_page_0::setref:
-                            WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::packargs:
                             WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::unpackargs:

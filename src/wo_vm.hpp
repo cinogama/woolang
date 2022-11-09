@@ -631,9 +631,8 @@ namespace wo
                     }
                 case instruct::lds:
                     tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::ldsr:
-                    tmpos << "ldsr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
+                case instruct::sts:
+                    tmpos << "sts\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::lti:
                     tmpos << "lti\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::gti:
@@ -783,13 +782,6 @@ namespace wo
                     case 0:
                         switch (main_command & 0b11111100)
                         {
-                        case instruct::extern_opcode_page_0::setref:
-                            tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                      /*  case instruct::extern_opcode_page_0::trans:
-                            tmpos << "trans\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;*/
-                            /*
-                        case instruct::extern_opcode_page_0::mknilmap:
-                            tmpos << "mknilmap\t"; print_opnum1();  break; */
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
@@ -1254,7 +1246,7 @@ namespace wo
             {
                 value* val = ++rt_sp;
                 value* key = ++rt_sp;
-                (*created_map)[*(key->get())].set_val(val);
+                (*created_map)[*key].set_val(val);
             }
             return rt_sp;
         }
@@ -1381,8 +1373,6 @@ namespace wo
                             WO_IPVAL_MOVE_4 + const_global_begin\
                         ))
 
-#define WO_ADDRESSING_N1_REF WO_ADDRESSING_N1 -> get()
-#define WO_ADDRESSING_N2_REF WO_ADDRESSING_N2 -> get()
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
 
@@ -1410,7 +1400,7 @@ namespace wo
                     {
                         if (dr & 0b01)
                         {
-                            WO_ADDRESSING_N1_REF;
+                            WO_ADDRESSING_N1;
                             (rt_sp--)->set_val(opnum1);
                         }
                         else
@@ -1426,7 +1416,7 @@ namespace wo
                     {
                         if (dr & 0b01)
                         {
-                            WO_ADDRESSING_N1_REF;
+                            WO_ADDRESSING_N1;
                             opnum1->set_val((++rt_sp));
                         }
                         else
@@ -1438,8 +1428,8 @@ namespace wo
                     }
                     case instruct::opcode::addi:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1449,8 +1439,8 @@ namespace wo
                     }
                     case instruct::opcode::subi:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1460,8 +1450,8 @@ namespace wo
                     }
                     case instruct::opcode::muli:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1471,8 +1461,8 @@ namespace wo
                     }
                     case instruct::opcode::divi:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1482,8 +1472,8 @@ namespace wo
                     }
                     case instruct::opcode::modi:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1494,8 +1484,8 @@ namespace wo
 
                     case instruct::opcode::addr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1505,8 +1495,8 @@ namespace wo
                     }
                     case instruct::opcode::subr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1516,8 +1506,8 @@ namespace wo
                     }
                     case instruct::opcode::mulr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1527,8 +1517,8 @@ namespace wo
                     }
                     case instruct::opcode::divr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1538,8 +1528,8 @@ namespace wo
                     }
                     case instruct::opcode::modr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1550,8 +1540,8 @@ namespace wo
 
                     case instruct::opcode::addh:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::handle_type);
@@ -1561,8 +1551,8 @@ namespace wo
                     }
                     case instruct::opcode::subh:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::handle_type);
@@ -1573,8 +1563,8 @@ namespace wo
 
                     case instruct::opcode::adds:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::string_type);
@@ -1586,15 +1576,15 @@ namespace wo
                     case instruct::opcode::set:
                     {
                         WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N2;
 
                         opnum1->set_val(opnum2);
                         break;
                     }
                     case instruct::opcode::mov:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         opnum1->set_val(opnum2);
                         break;
@@ -1602,7 +1592,7 @@ namespace wo
                     case instruct::opcode::setcast:
                     {
                         WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N2;
 
                         value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
                         if (aim_type == opnum2->type)
@@ -1672,7 +1662,7 @@ namespace wo
                     }
                     case instruct::opcode::typeas:
                     {
-                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N1;
                         if (dr & 0b01)
                         {
                             if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
@@ -1687,26 +1677,26 @@ namespace wo
                     }
                     case instruct::opcode::lds:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum2->type == value::valuetype::integer_type);
-                        opnum1->set_val((rt_bp + opnum2->integer)->get());
+                        opnum1->set_val(rt_bp + opnum2->integer);
                         break;
                     }
-                    case instruct::opcode::ldsr:
+                    case instruct::opcode::sts:
                     {
                         WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum2->type == value::valuetype::integer_type);
-                        opnum1->set_ref((rt_bp + opnum2->integer)->get());
+                        (rt_bp + opnum2->integer)->set_val(opnum1);
                         break;
                     }
                     case instruct::opcode::equb:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         rt_cr->set_integer(opnum1->integer == opnum2->integer);
 
@@ -1714,16 +1704,16 @@ namespace wo
                     }
                     case instruct::opcode::nequb:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         rt_cr->set_integer(opnum1->integer != opnum2->integer);
                         break;
                     }
                     case instruct::opcode::equr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
                         wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
                         rt_cr->set_integer(opnum1->real == opnum2->real);
 
@@ -1731,16 +1721,16 @@ namespace wo
                     }
                     case instruct::opcode::nequr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
                         wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
                         rt_cr->set_integer(opnum1->real != opnum2->real);
                         break;
                     }
                     case instruct::opcode::equs:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
                         wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
                         rt_cr->set_integer(*opnum1->string == *opnum2->string);
 
@@ -1748,16 +1738,16 @@ namespace wo
                     }
                     case instruct::opcode::nequs:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
                         wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
                         rt_cr->set_integer(*opnum1->string != *opnum2->string);
                         break;
                     }
                     case instruct::opcode::land:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         rt_cr->set_integer(opnum1->integer && opnum2->integer);
 
@@ -1765,8 +1755,8 @@ namespace wo
                     }
                     case instruct::opcode::lor:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         rt_cr->set_integer(opnum1->integer || opnum2->integer);
 
@@ -1774,8 +1764,8 @@ namespace wo
                     }
                     case instruct::opcode::lmov:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         opnum1->set_integer(opnum2->integer ? 1 : 0);
 
@@ -1783,8 +1773,8 @@ namespace wo
                     }
                     case instruct::opcode::lti:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1795,8 +1785,8 @@ namespace wo
                     }
                     case instruct::opcode::gti:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1807,8 +1797,8 @@ namespace wo
                     }
                     case instruct::opcode::elti:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1819,8 +1809,8 @@ namespace wo
                     }
                     case instruct::opcode::egti:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::integer_type);
@@ -1831,8 +1821,8 @@ namespace wo
                     }
                     case instruct::opcode::ltr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1843,8 +1833,8 @@ namespace wo
                     }
                     case instruct::opcode::gtr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1855,8 +1845,8 @@ namespace wo
                     }
                     case instruct::opcode::eltr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1867,8 +1857,8 @@ namespace wo
                     }
                     case instruct::opcode::egtr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type
                             && opnum1->type == value::valuetype::real_type);
@@ -1879,8 +1869,8 @@ namespace wo
                     }
                     case instruct::opcode::ltx:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type);
 
@@ -1904,8 +1894,8 @@ namespace wo
                     }
                     case instruct::opcode::gtx:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type);
                         switch (opnum1->type)
@@ -1929,8 +1919,8 @@ namespace wo
                     }
                     case instruct::opcode::eltx:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type);
 
@@ -1954,8 +1944,8 @@ namespace wo
                     }
                     case instruct::opcode::egtx:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(opnum1->type == opnum2->type);
 
@@ -1979,10 +1969,6 @@ namespace wo
                     }
                     case instruct::opcode::ret:
                     {
-                        // NOTE : RET_VAL?
-                        /*if (dr)
-                            rt_cr->set_val(rt_cr->get());*/
-
                         wo_assert((rt_bp + 1)->type == value::valuetype::callstack
                             || (rt_bp + 1)->type == value::valuetype::nativecallstack);
 
@@ -2007,7 +1993,7 @@ namespace wo
                     }
                     case instruct::opcode::call:
                     {
-                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N1;
 
                         wo_assert(0 != opnum1->handle && 0 != opnum1->closure);
 
@@ -2122,20 +2108,20 @@ namespace wo
                     case instruct::opcode::jt:
                     {
                         uint32_t aimplace = WO_IPVAL_MOVE_4;
-                        if (rt_cr->get()->integer)
+                        if (rt_cr->integer)
                             rt_ip = rt_env->rt_codes + aimplace;
                         break;
                     }
                     case instruct::opcode::jf:
                     {
                         uint32_t aimplace = WO_IPVAL_MOVE_4;
-                        if (!rt_cr->get()->integer)
+                        if (!rt_cr->integer)
                             rt_ip = rt_env->rt_codes + aimplace;
                         break;
                     }
                     case instruct::opcode::mkstruct:
                     {
-                        WO_ADDRESSING_N1_REF; // Aim
+                        WO_ADDRESSING_N1; // Aim
                         uint16_t size = WO_IPVAL_MOVE_2;
 
                         rt_sp = make_struct_impl(opnum1, size, rt_sp);
@@ -2144,7 +2130,7 @@ namespace wo
                     case instruct::opcode::idstruct:
                     {
                         WO_ADDRESSING_N1; // Aim
-                        WO_ADDRESSING_N2_REF; // Struct
+                        WO_ADDRESSING_N2; // Struct
                         uint16_t offset = WO_IPVAL_MOVE_2;
 
                         wo_assert(opnum2->type == value::valuetype::struct_type);
@@ -2154,7 +2140,7 @@ namespace wo
                         // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
                         gcbase::gc_read_guard gwg1(opnum2->structs);
 
-                        auto* result = opnum2->structs->m_values[offset].get();
+                        auto* result = &opnum2->structs->m_values[offset];
                         if (wo::gc::gc_is_marking())
                             opnum2->structs->add_memo(result);
                         opnum1->set_val(result);
@@ -2163,10 +2149,10 @@ namespace wo
                     }
                     case instruct::opcode::jnequb:
                     {
-                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N1;
                         uint32_t offset = WO_IPVAL_MOVE_4;
 
-                        if (opnum1->integer != rt_cr->get()->integer)
+                        if (opnum1->integer != rt_cr->integer)
                         {
                             auto* restore_ip = rt_env->rt_codes + offset;
                             rt_ip = restore_ip;
@@ -2175,7 +2161,7 @@ namespace wo
                     }
                     case instruct::opcode::mkarr:
                     {
-                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N1;
                         uint16_t size = WO_IPVAL_MOVE_2;
 
                         rt_sp = make_array_impl(opnum1, size, rt_sp);
@@ -2183,7 +2169,7 @@ namespace wo
                     }
                     case instruct::opcode::mkmap:
                     {
-                        WO_ADDRESSING_N1_REF;
+                        WO_ADDRESSING_N1;
                         uint16_t size = WO_IPVAL_MOVE_2;
 
                         rt_sp = make_map_impl(opnum1, size, rt_sp);
@@ -2191,8 +2177,8 @@ namespace wo
                     }
                     case instruct::opcode::idarr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(nullptr != opnum1->gcunit);
 
@@ -2210,7 +2196,7 @@ namespace wo
                         }
                         else
                         {
-                            auto* result = opnum1->array->at(index).get();
+                            auto* result = &opnum1->array->at(index);
                             if (wo::gc::gc_is_marking())
                                 opnum1->array->add_memo(result);
                             rt_cr->set_val(result);
@@ -2219,8 +2205,8 @@ namespace wo
                     }
                     case instruct::opcode::iddict:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(nullptr != opnum1->gcunit);
                         wo_assert(opnum1->type == value::valuetype::dict_type);
@@ -2230,7 +2216,7 @@ namespace wo
                             auto fnd = opnum1->dict->find(*opnum2);
                             if (fnd != opnum1->dict->end())
                             {
-                                auto* result = fnd->second.get();
+                                auto* result = &fnd->second;
                                 if (wo::gc::gc_is_marking())
                                     opnum1->dict->add_memo(result);
                                 rt_cr->set_val(result);
@@ -2245,8 +2231,8 @@ namespace wo
                     }
                     case instruct::opcode::sidmap:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(nullptr != opnum1->gcunit);
                         wo_assert(opnum1->type == value::valuetype::dict_type);
@@ -2257,7 +2243,7 @@ namespace wo
                             auto fnd = opnum1->dict->find(*opnum2);
                             if (fnd != opnum1->dict->end())
                             {
-                                auto* result = fnd->second.get();
+                                auto* result = &fnd->second;
                                 if (wo::gc::gc_is_marking())
                                     opnum1->dict->add_memo(result);
                                 rt_cr->set_val(result);
@@ -2267,7 +2253,7 @@ namespace wo
                         do
                         {
                             gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &(*opnum1->dict)[*opnum2]/*.get()*/;
+                            auto* result = &(*opnum1->dict)[*opnum2];
                             if (wo::gc::gc_is_marking())
                                 opnum1->dict->add_memo(result);
                             rt_cr->set_val(result);
@@ -2278,8 +2264,8 @@ namespace wo
                     }
                     case instruct::opcode::idstr:
                     {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
 
                         wo_assert(nullptr != opnum1->gcunit);
 
@@ -2317,7 +2303,7 @@ namespace wo
                         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
                         {
                             auto* arr_val = ++rt_sp;
-                            created_closure->m_closure_args[i].set_val(arr_val->get());
+                            created_closure->m_closure_args[i].set_val(arr_val);
                         }
                         break;
                     }
@@ -2335,33 +2321,12 @@ namespace wo
                         case 0:     // extern-opcode-page-0
                             switch ((instruct::extern_opcode_page_0)(opcode))
                             {
-                            case instruct::extern_opcode_page_0::setref:
-                            {
-                                WO_ADDRESSING_N1;
-                                WO_ADDRESSING_N2_REF;
-                                opnum1->set_ref(opnum2);
-                                break;
-                            }
-                            /*case instruct::extern_opcode_page_0::trans:
-                            {
-                                WO_ADDRESSING_N1;
-                                WO_ADDRESSING_N2;
-                                opnum1->set_trans(opnum2);
-                                break;
-                            }*/
-                            /*case instruct::extern_opcode_page_0::mknilmap:
-                            {
-                                WO_ADDRESSING_N1_REF;
-                                opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
-                                rt_cr->set_ref(opnum1);
-                                break;
-                            }*/
                             case instruct::extern_opcode_page_0::packargs:
                             {
                                 uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
 
-                                WO_ADDRESSING_N1_REF;
-                                WO_ADDRESSING_N2_REF;
+                                WO_ADDRESSING_N1;
+                                WO_ADDRESSING_N2;
 
                                 opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
                                 auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
@@ -2375,8 +2340,8 @@ namespace wo
                             }
                             case instruct::extern_opcode_page_0::unpackargs:
                             {
-                                WO_ADDRESSING_N1_REF;
-                                WO_ADDRESSING_N2_REF;
+                                WO_ADDRESSING_N1;
+                                WO_ADDRESSING_N2;
 
 
                                 if (opnum1->is_nil())
@@ -2453,8 +2418,8 @@ namespace wo
                             }
                             case instruct::extern_opcode_page_0::movdup:
                             {
-                                WO_ADDRESSING_N1_REF;
-                                WO_ADDRESSING_N2_REF;
+                                WO_ADDRESSING_N1;
+                                WO_ADDRESSING_N2;
 
                                 opnum1->set_dup(opnum2);
                                 break;
@@ -2482,7 +2447,7 @@ namespace wo
                             }
                             case instruct::extern_opcode_page_0::mkunion:
                             {
-                                WO_ADDRESSING_N1_REF; // data
+                                WO_ADDRESSING_N1; // data
                                 uint16_t id = WO_IPVAL_MOVE_2;
 
                                 rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
@@ -2496,7 +2461,7 @@ namespace wo
                             }
                             case instruct::extern_opcode_page_0::panic:
                             {
-                                WO_ADDRESSING_N1_REF; // data
+                                WO_ADDRESSING_N1; // data
 
                                 wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
                                 break;
@@ -2609,8 +2574,8 @@ namespace wo
                     }
                 }// vm loop end.
 #undef WO_VM_FAIL
-#undef WO_ADDRESSING_N2_REF
-#undef WO_ADDRESSING_N1_REF
+#undef WO_ADDRESSING_N2
+#undef WO_ADDRESSING_N1
 #undef WO_ADDRESSING_N2
 #undef WO_ADDRESSING_N1
 #undef WO_SIGNED_SHIFT

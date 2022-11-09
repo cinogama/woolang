@@ -59,7 +59,6 @@ namespace wo
             real_type,
             handle_type,
 
-            is_ref,
             callstack,
             nativecallstack,
 
@@ -96,8 +95,6 @@ namespace wo
 
             const byte_t* native_function_addr;
 
-            value* ref;
-
             // std::atomic<gcbase*> atomic_gcunit_ptr;
             uint64_t value_space;
         };
@@ -111,17 +108,6 @@ namespace wo
             // std::atomic_uint64_t atomic_type;
             uint64_t type_space;
         };
-
-        inline value* get() const
-        {
-            if (type == valuetype::is_ref)
-            {
-                wo_assert(ref && ref->type != valuetype::is_ref,
-                    "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
-                return ref;
-            }
-            return const_cast<value*>(this);
-        }
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
@@ -195,10 +181,6 @@ namespace wo
         {
             return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
         }
-        inline bool is_ref() const
-        {
-            return type == valuetype::is_ref;
-        }
 
         inline gcbase* get_gcunit_with_barrier() const
         {
@@ -239,19 +221,6 @@ namespace wo
             return *get_val_atomically(&tmp);
         }
 
-        inline value* set_ref(value* _ref)
-        {
-            if (_ref != this)
-            {
-                wo_assert(_ref && _ref->type != valuetype::is_ref,
-                    "illegal reflect, 'ref' only able to store ONE layer of reflect, and should not be nullptr.");
-
-                type = valuetype::is_ref;
-                ref = _ref;
-            }
-            return _ref;
-        }
-
         inline bool is_gcunit() const
         {
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
@@ -289,8 +258,6 @@ namespace wo
                 return "dict";
             case valuetype::invalid:
                 return "nil";
-            case valuetype::is_ref:
-                return get()->get_type_name();
             default:
                 wo_fail(WO_FAIL_TYPE_FAIL, "Unknown type name.");
                 return "unknown";
@@ -333,7 +300,6 @@ namespace wo
     static_assert((int)value::valuetype::integer_type == WO_INTEGER_TYPE);
     static_assert((int)value::valuetype::real_type == WO_REAL_TYPE);
     static_assert((int)value::valuetype::handle_type == WO_HANDLE_TYPE);
-    static_assert((int)value::valuetype::is_ref == WO_IS_REF);
     static_assert((int)value::valuetype::callstack == WO_CALLSTACK_TYPE);
     static_assert((int)value::valuetype::nativecallstack == WO_NATIVE_CALLSTACK_TYPE);
     static_assert((int)value::valuetype::need_gc == WO_NEED_GC_FLAG);

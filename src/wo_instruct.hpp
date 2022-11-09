@@ -51,7 +51,7 @@ namespace wo
             RESERVED_1 = 19 WO_OPCODE_SPACE,  // 
 
             lds = 20 WO_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
-            ldsr = 21 WO_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+            sts = 21 WO_OPCODE_SPACE,  // sts(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
 
             //  Logic operator, the result will store to logic_state
             equb = 22 WO_OPCODE_SPACE,   // equb(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
@@ -83,7 +83,7 @@ namespace wo
             jf = 43 WO_OPCODE_SPACE,    // jf               DIFF(4BYTE)
             jmp = 44 WO_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-            RESERVED_2 = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+            RESERVED_3 = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00)       FUNC(8BYTE) CAPTURE_ARG_COUNT(2BYTE) 11 byte
 
@@ -121,15 +121,9 @@ namespace wo
             // Here is no nop in extern code page.
 
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
-
-            setref = 0 WO_OPCODE_SPACE,         // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // trans = 1 WO_OPCODE_SPACE,          // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // mknilmap = 2 WO_OPCODE_SPACE,    // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
             packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             movdup = 5 WO_OPCODE_SPACE,         // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            // mkclos = 6 WO_OPCODE_SPACE,      // ext(00) mkclos(00) CAPTURE_ARG_COUNT(2BYTE) REAL_RSFUNC(4BYTE)
-
             veh = 7 WO_OPCODE_SPACE,            // excep(RAISE?_ROLLBACK?) 
                                                 //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
                                                 //  01 thorw

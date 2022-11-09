@@ -71,7 +71,6 @@ typedef enum _wo_value_type
     WO_REAL_TYPE,
     WO_HANDLE_TYPE,
 
-    WO_IS_REF,
     WO_CALLSTACK_TYPE,
     WO_NATIVE_CALLSTACK_TYPE,
 

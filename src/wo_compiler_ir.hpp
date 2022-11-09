@@ -1075,10 +1075,10 @@ namespace wo
             {
                 auto* opnum1 = ir_command_buffer[i].op1;
                 auto* opnum2 = ir_command_buffer[i].op2;
-
+                size_t skip_line = 0;
                 if (ir_command_buffer[i].opcode != instruct::calln)
                 {
-                    if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::ldsr)
+                    if (ir_command_buffer[i].opcode == instruct::lds || ir_command_buffer[i].opcode == instruct::sts)
                     {
                         auto* imm_opnum_stx_offset = dynamic_cast<opnum::immbase*>(opnum2);
                         if (imm_opnum_stx_offset)
@@ -1109,9 +1109,17 @@ namespace wo
 
                                 // out of bt_offset range, make lds ldsr
                                 ir_command_buffer.insert(ir_command_buffer.begin() + i,
-                                    ir_command{ instruct::ldsr, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // ldsr r0, imm(real_offset)
+                                    ir_command{ instruct::lds, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // lds r0, imm(real_offset)
                                 op1->id = opnum::reg::r0;
                                 i++;
+
+                                if (ir_command_buffer[i].opcode == instruct::call)
+                                {
+                                    ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                        ir_command{ instruct::sts, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // sts r0, imm(real_offset)
+
+                                    ++skip_line;
+                                }
                             }
                         }
 
@@ -1119,6 +1127,8 @@ namespace wo
                     }
                     if (auto* op2 = dynamic_cast<opnum::reg*>(opnum2); op2 && updated_opnum.find(opnum2) == updated_opnum.end())
                     {
+                        wo_assert(ir_command_buffer[i].opcode != instruct::call);
+
                         if (op2->is_tmp_regist())
                             op2->id = opnum::reg::bp_offset(-tr_regist_mapping[op2->id]);
                         else if (op2->is_bp_offset() && op2->get_bp_offset() <= 0)
@@ -1130,20 +1140,32 @@ namespace wo
                             }
                             else
                             {
+                                wo_test(ir_command_buffer[i].opcode != instruct::call);
+
                                 opnum::reg reg_r1(opnum::reg::r1);
                                 opnum::imm imm_offset(offseted_bp_offset);
 
                                 // out of bt_offset range, make lds ldsr
                                 ir_command_buffer.insert(ir_command_buffer.begin() + i,
-                                    ir_command{ instruct::ldsr, WO_OPNUM(reg_r1), WO_OPNUM(imm_offset) });         // ldsr r0, imm(real_offset)
+                                    ir_command{ instruct::lds, WO_OPNUM(reg_r1), WO_OPNUM(imm_offset) });         // lds r0, imm(real_offset)
                                 op2->id = opnum::reg::r1;
                                 i++;
+                                
+                                // No opcode will update opnum2, so here no need for update.
+                                //if (ir_command_buffer[i].opcode != instruct::call)
+                                //{
+                                //    ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                //        ir_command{ instruct::sts, WO_OPNUM(reg_r1), WO_OPNUM(imm_offset) });         // sts r0, imm(real_offset)
+                                //    ++skip_line;
+                                //}
                             }
                         }
 
                         updated_opnum.insert(opnum2);
                     }
                 }
+
+                i += skip_line;
             }
 
             return (int32_t)tr_regist_mapping.size();
@@ -1609,17 +1631,21 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::lds, WO_OPNUM(op1), WO_OPNUM(op2));
         }
+
         template<typename OP1T, typename OP2T>
-        void ldsr(const OP1T& op1, const OP2T& op2)
+        void sts(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not load value and save to immediate.");
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sts, WO_OPNUM(op1), WO_OPNUM(op2));
+        }
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::ldsr, WO_OPNUM(op1), WO_OPNUM(op2));
+        template<typename OP1T, typename OP2T>
+        void ldsr(const OP1T& op1, const OP2T& op2)
+        {
+            wo_error("TODO;");
         }
  
         template<typename OP1T, typename OP2T>
@@ -1867,21 +1893,6 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void ext_setref(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set immediate as ref.");
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::setref;
-        }
-
-        template<typename OP1T, typename OP2T>
         void ext_movdup(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -2110,8 +2121,8 @@ namespace wo
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
-                case instruct::opcode::ldsr:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(ldsr));
+                case instruct::opcode::sts:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sts));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
@@ -2539,11 +2550,6 @@ namespace wo
                         temp_this_command_code_buf.push_back(WO_OPCODE(ext, 00));
                         switch (WO_IR.ext_opcode_p0)
                         {
-                        case instruct::extern_opcode_page_0::setref:
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(setref));
-                            WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            break;
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(packargs));

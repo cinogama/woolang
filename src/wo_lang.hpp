@@ -1873,22 +1873,6 @@ namespace wo
             return WO_NEW_OPNUM(reg(reg::cr));
         }
 
-        opnum::opnumbase& set_ref_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
-        {
-            using namespace ast;
-            using namespace opnum;
-            if (_last_value_stored_to_cr)
-                return op_num;
-
-            if (auto* regist = dynamic_cast<reg*>(&op_num))
-            {
-                if (regist->id == reg::cr)
-                    return op_num;
-            }
-            compiler->ext_setref(reg(reg::cr), op_num);
-            return WO_NEW_OPNUM(reg(reg::cr));
-        }
-
         std::vector<ast::ast_value_function_define* > in_used_functions;
 
         opnum::opnumbase& get_new_global_variable()

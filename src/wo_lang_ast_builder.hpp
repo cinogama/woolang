@@ -4423,7 +4423,9 @@ namespace wo
                     result->called_func = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
                 result->value_type = new ast_type(WO_PSTR(pending));
-                result->can_be_assign = true;
+
+                // Issue N221109: No reference support, so function cannot return ref to assign.
+                result->can_be_assign = false;
                 return (ast_basic*)result;
             }
         };
