@@ -33,7 +33,7 @@ namespace test_template
                     if (self.pred(out_val))
                         return option::value((out_index, out_val));
                 none?
-                    return option::none;;
+                    return option::none;
                 }
             }
         }
