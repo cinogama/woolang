@@ -629,8 +629,6 @@ namespace wo
                     {
                         tmpos << "pop repeat\t" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                     }
-                case instruct::pshr:
-                    tmpos << "pshr\t"; print_opnum1(); break;
                 case instruct::lds:
                     tmpos << "lds\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::ldsr:
@@ -706,14 +704,6 @@ namespace wo
                     tmpos << "jmp\t";
                     tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                     break;
-
-                case instruct::movcast:
-                    tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-                    tmpos << " : ";
-                    tmpos << wo_type_name((wo_type) * (this_command_ptr++));
-
-                    break;
-
                 case instruct::setcast:
                     tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
                     tmpos << " : ";
@@ -795,8 +785,8 @@ namespace wo
                         {
                         case instruct::extern_opcode_page_0::setref:
                             tmpos << "setref\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::trans:
-                            tmpos << "trans\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                      /*  case instruct::extern_opcode_page_0::trans:
+                            tmpos << "trans\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;*/
                             /*
                         case instruct::extern_opcode_page_0::mknilmap:
                             tmpos << "mknilmap\t"; print_opnum1();  break; */
@@ -1024,7 +1014,7 @@ namespace wo
                     for (auto idx = wo_func_addr->m_closure_args.rbegin();
                         idx != wo_func_addr->m_closure_args.rend();
                         ++idx)
-                        (sp--)->set_trans(&*idx);
+                        (sp--)->set_val(&*idx);
 
                     (sp--)->set_native_callstack(ip);
                     ip = env->rt_codes + wo_func_addr->m_vm_func;
@@ -1118,7 +1108,7 @@ namespace wo
                     for (auto idx = wo_func_closure->m_closure_args.rbegin();
                         idx != wo_func_closure->m_closure_args.rend();
                         ++idx)
-                        (sp--)->set_trans(&*idx);
+                        (sp--)->set_val(&*idx);
 
                     (sp--)->set_native_callstack(ip);
                     bp = sp;
@@ -1249,7 +1239,7 @@ namespace wo
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 auto* arr_val = ++rt_sp;
-                (*created_array)[i].set_trans(arr_val);
+                (*created_array)[i].set_val(arr_val);
             }
             return rt_sp;
         }
@@ -1264,7 +1254,7 @@ namespace wo
             {
                 value* val = ++rt_sp;
                 value* key = ++rt_sp;
-                (*created_map)[*(key->get())].set_trans(val);
+                (*created_map)[*(key->get())].set_val(val);
             }
             return rt_sp;
         }
@@ -1275,7 +1265,7 @@ namespace wo
             gcbase::gc_write_guard gwg1(new_struct);
 
             for (size_t i = 0; i < size; i++)
-                new_struct->m_values[i].set_trans(rt_sp + 1 + i);
+                new_struct->m_values[i].set_val(rt_sp + 1 + i);
 
             return rt_sp + size;
         }
@@ -1430,16 +1420,6 @@ namespace wo
                                 (rt_sp--)->set_nil();
                         }
                         wo_assert(rt_sp <= rt_bp);
-                        break;
-                    }
-                    case instruct::opcode::pshr:
-                    {
-                        WO_ADDRESSING_N1_REF;
-
-                        (rt_sp--)->set_ref(opnum1);
-
-                        wo_assert(rt_sp <= rt_bp);
-
                         break;
                     }
                     case instruct::opcode::pop:
@@ -1617,76 +1597,6 @@ namespace wo
                         WO_ADDRESSING_N2_REF;
 
                         opnum1->set_val(opnum2);
-                        break;
-                    }
-                    case instruct::opcode::movcast:
-                    {
-                        WO_ADDRESSING_N1_REF;
-                        WO_ADDRESSING_N2_REF;
-
-                        value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
-                        if (aim_type == opnum2->type)
-                            opnum1->set_val(opnum2);
-                        else
-                            switch (aim_type)
-                            {
-                            case value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->set_integer((wo_integer_t)opnum2->real); break;
-                                case value::valuetype::handle_type:
-                                    opnum1->set_integer((wo_integer_t)opnum2->handle); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_integer((wo_integer_t)std::stoll(*opnum2->string)); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
-                                    break;
-                                }
-                                break;
-                            case value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->set_real((wo_real_t)opnum2->integer); break;
-                                case value::valuetype::handle_type:
-                                    opnum1->set_real((wo_real_t)opnum2->handle); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_real((wo_real_t)std::stod(*opnum2->string)); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
-                                    break;
-                                }
-                                break;
-                            case value::valuetype::handle_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->set_handle((wo_handle_t)opnum2->integer); break;
-                                case value::valuetype::real_type:
-                                    opnum1->set_handle((wo_handle_t)opnum2->real); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_handle((wo_handle_t)std::stoull(*opnum2->string)); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
-                                    break;
-                                }
-                                break;
-                            case value::valuetype::string_type:
-                                opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
-                            case value::valuetype::array_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
-                                break;
-                            case value::valuetype::dict_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
-                                break;
-                            case value::valuetype::gchandle_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
-                                break;
-                            default:
-                                wo_error("Unknown type.");
-                            }
-
                         break;
                     }
                     case instruct::opcode::setcast:
@@ -2111,7 +2021,7 @@ namespace wo
                             for (auto res = opnum1->closure->m_closure_args.rbegin();
                                 res != opnum1->closure->m_closure_args.rend();
                                 ++res)
-                                (rt_sp--)->set_trans(&*res);
+                                (rt_sp--)->set_val(&*res);
                         }
 
                         rt_sp->type = value::valuetype::callstack;
@@ -2247,7 +2157,7 @@ namespace wo
                         auto* result = opnum2->structs->m_values[offset].get();
                         if (wo::gc::gc_is_marking())
                             opnum2->structs->add_memo(result);
-                        opnum1->set_ref(result);
+                        opnum1->set_val(result);
 
                         break;
                     }
@@ -2303,7 +2213,7 @@ namespace wo
                             auto* result = opnum1->array->at(index).get();
                             if (wo::gc::gc_is_marking())
                                 opnum1->array->add_memo(result);
-                            rt_cr->set_ref(result);
+                            rt_cr->set_val(result);
                         }
                         break;
                     }
@@ -2323,7 +2233,7 @@ namespace wo
                                 auto* result = fnd->second.get();
                                 if (wo::gc::gc_is_marking())
                                     opnum1->dict->add_memo(result);
-                                rt_cr->set_ref(result);
+                                rt_cr->set_val(result);
                                 break;
                             }
                             else
@@ -2350,7 +2260,7 @@ namespace wo
                                 auto* result = fnd->second.get();
                                 if (wo::gc::gc_is_marking())
                                     opnum1->dict->add_memo(result);
-                                rt_cr->set_ref(result);
+                                rt_cr->set_val(result);
                                 goto _vm_run_impl__sidmap_readend;
                             }
                         } while (0);
@@ -2360,7 +2270,7 @@ namespace wo
                             auto* result = &(*opnum1->dict)[*opnum2]/*.get()*/;
                             if (wo::gc::gc_is_marking())
                                 opnum1->dict->add_memo(result);
-                            rt_cr->set_ref(result);
+                            rt_cr->set_val(result);
                         } while (0);
 
                     _vm_run_impl__sidmap_readend:
@@ -2407,7 +2317,7 @@ namespace wo
                         for (size_t i = 0; i < (size_t)closure_arg_count; i++)
                         {
                             auto* arr_val = ++rt_sp;
-                            created_closure->m_closure_args[i].set_trans(arr_val->get());
+                            created_closure->m_closure_args[i].set_val(arr_val->get());
                         }
                         break;
                     }
@@ -2432,13 +2342,13 @@ namespace wo
                                 opnum1->set_ref(opnum2);
                                 break;
                             }
-                            case instruct::extern_opcode_page_0::trans:
+                            /*case instruct::extern_opcode_page_0::trans:
                             {
                                 WO_ADDRESSING_N1;
                                 WO_ADDRESSING_N2;
                                 opnum1->set_trans(opnum2);
                                 break;
-                            }
+                            }*/
                             /*case instruct::extern_opcode_page_0::mknilmap:
                             {
                                 WO_ADDRESSING_N1_REF;
@@ -2458,7 +2368,7 @@ namespace wo
                                 packed_array->resize(tc->integer - opnum2->integer);
                                 for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                                 {
-                                    (*packed_array)[argindex - opnum2->integer].set_trans(rt_bp + 2 + argindex + skip_closure_arg_count);
+                                    (*packed_array)[argindex - opnum2->integer].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                                 }
 
                                 break;
@@ -2486,7 +2396,7 @@ namespace wo
                                         else
                                         {
                                             for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
-                                                (rt_sp--)->set_trans(&arg_tuple->m_values[i - 1]);
+                                                (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                                         }
                                     }
                                     else
@@ -2496,7 +2406,7 @@ namespace wo
                                             WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                                         }
                                         for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                                            (rt_sp--)->set_trans(&arg_tuple->m_values[i - 1]);
+                                            (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
 
                                         tc->integer += (wo_integer_t)arg_tuple->m_count;
                                     }
@@ -2517,7 +2427,7 @@ namespace wo
                                             for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
                                                 arg_idx != arg_array->rend();
                                                 arg_idx++)
-                                                (rt_sp--)->set_trans(&*arg_idx);
+                                                (rt_sp--)->set_val(&*arg_idx);
                                         }
                                     }
                                     else
@@ -2530,7 +2440,7 @@ namespace wo
                                             WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                                         }
                                         for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                                            (rt_sp--)->set_trans(&*arg_idx);
+                                            (rt_sp--)->set_val(&*arg_idx);
 
                                         tc->integer += arg_array->size();
                                     }

@@ -47,8 +47,8 @@ namespace wo
 
             psh = 16 WO_OPCODE_SPACE,    // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
             pop = 17 WO_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       2-5 byte
-            pshr = 18 WO_OPCODE_SPACE,  // pshr(dr_0)           REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
-            RESERVED_0 = 19 WO_OPCODE_SPACE,  // 
+            RESERVED_0 = 18 WO_OPCODE_SPACE,  // 
+            RESERVED_1 = 19 WO_OPCODE_SPACE,  // 
 
             lds = 20 WO_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
             ldsr = 21 WO_OPCODE_SPACE,  // ldsr(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
@@ -83,7 +83,7 @@ namespace wo
             jf = 43 WO_OPCODE_SPACE,    // jf               DIFF(4BYTE)
             jmp = 44 WO_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-            movcast = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+            RESERVED_2 = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00)       FUNC(8BYTE) CAPTURE_ARG_COUNT(2BYTE) 11 byte
 
@@ -123,7 +123,7 @@ namespace wo
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
 
             setref = 0 WO_OPCODE_SPACE,         // ext(00) setref(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            trans = 1 WO_OPCODE_SPACE,          // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            // trans = 1 WO_OPCODE_SPACE,          // ext(00) settrans(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             // mknilmap = 2 WO_OPCODE_SPACE,    // ext(00) mknilmap(dr_0) REGID(1BYTE)/DIFF(4BYTE)
             packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF

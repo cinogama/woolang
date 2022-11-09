@@ -1195,15 +1195,6 @@ namespace wo
 
                     break;
                 }
-                case instruct::pshr:
-                {
-                    WO_JIT_ADDRESSING_N1_REF;
-
-                    x86_set_ref(x86compiler, _vmssp, opnum1.gp_value());
-                    wo_asure(!x86compiler.sub(_vmssp, sizeof(value)));
-
-                    break;
-                }
                 case instruct::land:
                 {
                     WO_JIT_ADDRESSING_N1_REF;
@@ -1354,8 +1345,6 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::egtr:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::movcast:
-                    WO_JIT_NOT_SUPPORT;
                 case instruct::setcast:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkclos:
@@ -1450,8 +1439,6 @@ namespace wo
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
                         case instruct::extern_opcode_page_0::setref:
-                            WO_JIT_NOT_SUPPORT;
-                        case instruct::extern_opcode_page_0::trans:
                             WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::packargs:
                             WO_JIT_NOT_SUPPORT;

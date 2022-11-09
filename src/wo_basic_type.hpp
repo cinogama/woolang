@@ -252,13 +252,6 @@ namespace wo
             return _ref;
         }
 
-        inline value* set_trans(value* _ref)
-        {
-            if (_ref->is_ref())
-                return set_ref(_ref->get());
-            return set_val(_ref);
-        }
-
         inline bool is_gcunit() const
         {
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
@@ -461,7 +454,7 @@ namespace wo
 
                 auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)
-                    created_struct->m_values[i].set_trans(&dup_struct->m_values[i]);
+                    created_struct->m_values[i].set_val(&dup_struct->m_values[i]);
             }
             else
                 set_nil();

@@ -348,8 +348,6 @@ WO_API wo_api rslib_std_ir_command_popn(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_COMMAND_WITH_1_OPNUM(pshr);
-
 WO_COMMAND_WITH_2_OPNUM(lds);
 WO_COMMAND_WITH_2_OPNUM(ldsr);
 
@@ -488,9 +486,6 @@ namespace std
         public func pop(self: irc, op: opnum)=> void;
         extern("rslib_std_ir_command_popn")
         public func popn(self: irc, count: int)=> void;
-
-        extern("rslib_std_ir_command_pshr")
-        public func pshr(self: irc, op: opnum)=> void;
 
         extern("rslib_std_ir_command_lds")
         public func lds(self: irc, dst: opnum, src: opnum)=> void;

@@ -1204,15 +1204,6 @@ namespace wo
             wo_assert(ip);
             ir_command_buffer[ip - 1].opinteger = sz;
         }
-
-        template<typename OP1T>
-        void pshr(const OP1T& op1)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                , "Argument(s) should be opnum.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::pshr, WO_OPNUM(op1));
-        }
         template<typename OP1T>
         void pop(const OP1T& op1)
         {
@@ -1630,19 +1621,7 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::ldsr, WO_OPNUM(op1), WO_OPNUM(op2));
         }
-
-        template<typename OP1T, typename OP2T>
-        void movcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not move value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::movcast, WO_OPNUM(op1), WO_OPNUM(op2), (int)vtt);
-        }
+ 
         template<typename OP1T, typename OP2T>
         void setcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
@@ -1903,21 +1882,6 @@ namespace wo
         }
 
         template<typename OP1T, typename OP2T>
-        void ext_trans(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set immediate as ref.");
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::trans;
-        }
-
-        template<typename OP1T, typename OP2T>
         void ext_movdup(const OP1T& op1, const OP2T& op2)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
@@ -2075,13 +2039,6 @@ namespace wo
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
-
-                case instruct::opcode::movcast:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(movcast));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger);
-                    break;
                 case instruct::opcode::setcast:
                     temp_this_command_code_buf.push_back(WO_OPCODE(setcast));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
@@ -2124,10 +2081,6 @@ namespace wo
                         temp_this_command_code_buf.push_back(WO_OPCODE(psh) | 0b01);
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     }
-                    break;
-                case instruct::opcode::pshr:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(pshr));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
                 case instruct::opcode::pop:
                     if (nullptr == WO_IR.op1)
@@ -2591,15 +2544,6 @@ namespace wo
                             WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                             WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                             break;
-                        case instruct::extern_opcode_page_0::trans:
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(trans));
-                            WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            break;
-                            /*case instruct::extern_opcode_page_0::mknilmap:
-                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mknilmap));
-                                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                                break;*/
                         case instruct::extern_opcode_page_0::packargs:
                         {
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(packargs));
