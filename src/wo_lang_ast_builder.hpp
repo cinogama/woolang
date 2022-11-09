@@ -3400,7 +3400,19 @@ namespace wo
                 return dumm;
             }
         };
+        struct ast_pattern_takeplace : virtual public ast_pattern_base
+        {
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_pattern_base::instance(dumm);
+                // Write self copy functions here..
 
+                return dumm;
+            }
+        };
         struct ast_pattern_identifier : virtual public ast_pattern_base
         {
             identifier_decl decl = identifier_decl::IMMUTABLE;
@@ -4743,6 +4755,9 @@ namespace wo
 
                 token tk = WO_NEED_TOKEN(0);
 
+                if (tk.identifier == L"_")
+                    lex.parser_error(0x0000, WO_ERR_UNEXCEPT_TOKEN L"'_'");
+
                 wo_test(tk.type == +lex_type::l_identifier);
                 return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
@@ -5819,25 +5834,43 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                auto* result = new ast_pattern_identifier;
+                ast_pattern_base* result = nullptr;
                 if (input.size() == 3)
                 {
-                    if (WO_NEED_TOKEN(0).type == +lex_type::l_ref)
-                        result->decl = identifier_decl::REF;
+                    if (WO_NEED_TOKEN(2).identifier == L"_")
+                        result = new ast_pattern_takeplace();
                     else
                     {
-                        wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
-                        result->decl = identifier_decl::MUTABLE;
-                    }
+                        auto* result_identifier = new ast_pattern_identifier;
 
-                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
-                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
+                        if (WO_NEED_TOKEN(0).type == +lex_type::l_ref)
+                            result_identifier->decl = identifier_decl::REF;
+                        else
+                        {
+                            wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
+                            result_identifier->decl = identifier_decl::MUTABLE;
+                        }
+
+                        result_identifier->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
+                        result_identifier->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
+                        result = result_identifier;
+                    }
                 }
                 else
                 {
-                    result->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                    result->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
+                    if (WO_NEED_TOKEN(1).identifier == L"_")
+                        result = new ast_pattern_takeplace();
+                    else
+                    {
+                        auto* result_identifier = new ast_pattern_identifier;
+
+                        result_identifier->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
+                        result_identifier->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
+                        result = result_identifier;
+                    }
                 }
+
+                wo_assert(result != nullptr);
                 return (ast_basic*)result;
             }
         };

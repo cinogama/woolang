@@ -840,6 +840,10 @@ namespace wo
                     analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
                 }
             }
+            else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+            {
+                // DO NOTHING
+            }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
         }
@@ -920,6 +924,10 @@ namespace wo
                             (int)a_pattern_tuple->tuple_takeplaces.size(),
                             (int)initval->value_type->template_arguments.size());
                 }
+            }
+            else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+            {
+                // DO NOTHING
             }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
@@ -1005,12 +1013,20 @@ namespace wo
                 auto& current_values = get_useable_register_for_ref_value();
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
-                    compiler->idstruct(current_values, struct_val, (uint16_t)i);
-                    a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
+                    // FOR OPTIMIZE, SKIP TAKEPLACE PATTERN
+                    if (dynamic_cast<ast_pattern_takeplace*>(a_pattern_tuple->tuple_patterns[i]) == nullptr)
+                    {
+                        compiler->idstruct(current_values, struct_val, (uint16_t)i);
+                        a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
 
-                    analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], compiler);
+                        analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], compiler);
+                    }
                 }
                 complete_using_register(current_values);
+            }
+            else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+            {
+                // DO NOTHING
             }
             else
                 lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);

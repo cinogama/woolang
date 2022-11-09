@@ -31,7 +31,7 @@ namespace test_while
         std::println("fib40 cost:", tm_end-tm_beg);
 
         let t = [("Hello", "world")];
-        for (let (a, b) : t)
+        for (let _, (a, b) : t)
         {
             test_assure(a+b == "Helloworld");
         }

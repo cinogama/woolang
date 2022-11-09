@@ -1557,8 +1557,8 @@ namespace array
     public func bind<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
-            for (let insert : functor(elem))
+        for (let _, elem : val)
+            for (let _, insert : functor(elem))
                 result->add(insert);
         return result->unsafe::astype:<array<R>>;
     }
@@ -1566,7 +1566,7 @@ namespace array
     public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
+        for (let _, elem : val)
             result->add(functor(elem));
         return result->unsafe::astype:<array<R>>;
     }
@@ -1574,7 +1574,7 @@ namespace array
     public func mapping<K, V>(val: array<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let (k, v) : val)
+        for (let _, (k, v) : val)
             result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }
@@ -1704,7 +1704,7 @@ namespace vec
     public func forall<T>(val: vec<T>, functor: (T)=>bool)
     {
         let result = []mut: vec<T>;
-        for (let elem : val)
+        for (let _, elem : val)
             if (functor(elem))
                 result->add(elem);
         return result;
@@ -1713,8 +1713,8 @@ namespace vec
     public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
-            for (let insert : functor(elem))
+        for (let _, elem : val)
+            for (let _, insert : functor(elem))
                 result->add(insert);
         return result;
     }
@@ -1730,7 +1730,7 @@ namespace vec
     public func mapping<K, V>(val: vec<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let (k, v) : val)
+        for (let _, (k, v) : val)
             result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }

@@ -43,7 +43,7 @@ namespace test_coroutine
                 }
             }, ()));
         }
-        for(let co : co_list)
+        for(let _, co : co_list)
             while(!co->completed())
                 std::sleep(1.);
 
@@ -57,7 +57,7 @@ namespace test_coroutine
                         std::co::yield();
                 }, ()
             ));
-        for(let co : co_list)
+        for(let _, co : co_list)
         {
             while(!co->completed())
                 std::sleep(1.);
