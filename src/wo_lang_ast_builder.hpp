@@ -5377,6 +5377,7 @@ namespace wo
                     auto* sentence_in_list = new ast_list;
                     sentence_in_list->append_at_end(new ast_break());
                     pattern_none_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
+                    pattern_none_case->in_case_sentence->copy_source_info(for_decl_vars);
                     pattern_none_case->copy_source_info(for_decl_vars);
                 }
                 pattern_none_case->copy_source_info(for_decl_vars);
@@ -5391,6 +5392,7 @@ namespace wo
                     auto* sentence_in_list = new ast_list;
                     sentence_in_list->append_at_end(WO_NEED_AST(8));
                     pattern_value_case->in_case_sentence = new ast_sentence_block(sentence_in_list);
+                    pattern_value_case->in_case_sentence->copy_source_info(for_decl_vars);
                     pattern_value_case->copy_source_info(for_decl_vars);
                 }
 
