@@ -96,7 +96,6 @@ namespace wo
         l_extern,
 
         l_let,
-        l_ref,
         l_mut,
         l_func,
         l_return,
@@ -238,7 +237,6 @@ namespace wo
             {L"if", {lex_type::l_if}},
             {L"else", {lex_type::l_else}},
             {L"let", {lex_type::l_let }},
-            {L"ref", {lex_type::l_ref}},
             {L"mut", {lex_type::l_mut}},
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},

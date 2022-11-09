@@ -446,11 +446,6 @@ wo_bool_t wo_bool(const wo_value value)
 //    return CS_VAL(&_rsvalue->gchandle->holding_value);
 //}
 
-wo_bool_t wo_is_ref(wo_value value)
-{
-    return WO_ORIGIN_VAL(value)->is_ref();
-}
-
 void wo_set_int(wo_value value, wo_integer_t val)
 {
     auto _rsvalue = WO_VAL(value);
@@ -505,16 +500,6 @@ void wo_set_val(wo_value value, wo_value val)
 {
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_val(WO_VAL(val));
-}
-void wo_set_ref(wo_value value, wo_value val)
-{
-    auto _rsvalue = WO_ORIGIN_VAL(value);
-    auto _ref_val = WO_VAL(val);
-
-    if (_rsvalue->is_ref())
-        _rsvalue->set_ref(_rsvalue->ref->set_ref(_ref_val));
-    else
-        _rsvalue->set_ref(_ref_val);
 }
 
 void wo_set_struct(wo_value value, uint16_t structsz)
@@ -1199,14 +1184,6 @@ wo_result_t wo_ret_val(wo_vm vm, wo_value result)
             reinterpret_cast<wo::value*>(result)->get()
         ));
 }
-wo_result_t  wo_ret_ref(wo_vm vm, wo_value result)
-{
-    wo_assert(result);
-    return reinterpret_cast<wo_result_t>(
-        WO_VM(vm)->cr->set_ref(
-            reinterpret_cast<wo::value*>(result)->get()
-        ));
-}
 
 wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 {
@@ -1362,19 +1339,7 @@ wo_result_t wo_ret_option_val(wo_vm vm, wo_value val)
 
     return 0;
 }
-wo_result_t wo_ret_option_ref(wo_vm vm, wo_value val)
-{
-    auto* wovm = WO_VM(vm);
 
-    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_ref(WO_VAL(val));
-
-    return 0;
-}
 wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
@@ -1517,19 +1482,7 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value val)
 
     return 0;
 }
-wo_result_t wo_ret_err_ref(wo_vm vm, wo_value val)
-{
-    auto* wovm = WO_VM(vm);
 
-    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_ref(WO_VAL(val));
-
-    return 0;
-}
 wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
@@ -2091,18 +2044,7 @@ wo_value wo_push_val(wo_vm vm, wo_value val)
         return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
     return CS_VAL((WO_VM(vm)->sp--)->set_nil());
 }
-wo_value wo_push_ref(wo_vm vm, wo_value val)
-{
-    if (val)
-        return CS_VAL((WO_VM(vm)->sp--)->set_ref(WO_VAL(val)));
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
-}
-wo_value wo_push_valref(wo_vm vm, wo_value val)
-{
-    if (val)
-        return CS_VAL((WO_VM(vm)->sp--)->set_trans(WO_ORIGIN_VAL(val)));
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
-}
+
 wo_value wo_push_arr(wo_vm vm, wo_int_t count)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;

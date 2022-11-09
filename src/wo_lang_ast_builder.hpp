@@ -78,7 +78,6 @@ namespace wo
         {
             IMMUTABLE,
             MUTABLE,
-            REF
         };
 
         struct ast_value;
@@ -1042,9 +1041,7 @@ namespace wo
             // liter functioncall variable and so on will belong this type of node.
             ast_type* value_type = nullptr;
 
-            bool is_mark_as_using_ref = false;
             bool is_mark_as_using_mut = false;
-            bool is_ref_ob_in_finalize = false;
 
             bool is_const_value = false;
             bool can_be_assign = false;
@@ -1130,7 +1127,6 @@ namespace wo
 
         struct ast_value_takeplace : virtual public ast_value
         {
-            bool as_ref = false;
             opnum::opnumbase* used_reg = nullptr;
             ast_value_takeplace()
             {
@@ -2145,7 +2141,7 @@ namespace wo
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
                 space(os, lay);
-                os << L"< " << ANSI_HIY << (decl == identifier_decl::REF ? L"ref " : L"var ")
+                os << L"< " << ANSI_HIY << L"var "
                     << arg_name << ANSI_HIM << L" (" << value_type->get_type_name() << L")" << ANSI_RST << " >" << std::endl;
             }
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -3845,23 +3841,6 @@ namespace wo
             }
         };
 
-        struct pass_mark_value_as_ref : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                // MAY_REF_FACTOR_TYPE_CASTING -> 4
-                ast_value* val = input.size() == 4 ? dynamic_cast<ast_value*>(WO_NEED_AST(2)) : dynamic_cast<ast_value*>(WO_NEED_AST(1));
-
-                if (!val->can_be_assign)
-                {
-                    lex.parser_error(0x0000, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                }
-
-                val->is_mark_as_using_ref = true;
-                return (ast_basic*)val;
-            }
-        };
-
         struct pass_enum_finalize : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -4242,16 +4221,7 @@ namespace wo
                             template_types = dynamic_cast<ast_list*>(WO_NEED_AST(4));
 
                         ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(6));
-                        // Check argument list, do not allowed operator overload function have 'ref' arguments
-                        auto arguments = ast_func->argument_list->children;
-                        while (arguments)
-                        {
-                            auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
-                            if (argdef->decl == identifier_decl::REF)
-                                lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
-                                    dynamic_cast<ast_token*>(WO_NEED_AST(3))->tokens.identifier.c_str());
-                            arguments = arguments->sibling;
-                        }
+
                         return_type = dynamic_cast<ast_type*>(WO_NEED_AST(8));
                         if (!ast_empty::is_empty(input[9]))
                         {
@@ -4303,17 +4273,6 @@ namespace wo
                     }
 
                     ast_func->argument_list = dynamic_cast<ast_list*>(WO_NEED_AST(7));
-                    // Check argument list, do not allowed operator overload function have 'ref' arguments
-                    auto arguments = ast_func->argument_list->children;
-                    while (arguments)
-                    {
-                        auto* argdef = dynamic_cast<ast_value_arg_define*>(arguments);
-                        if (argdef->decl == identifier_decl::REF)
-                            lex.lex_error(0x0000, WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC,
-                                dynamic_cast<ast_token*>(WO_NEED_AST(4))->tokens.identifier.c_str());
-                        arguments = arguments->sibling;
-                    }
-
                     ast_func->in_function_sentence = nullptr;
                     return_type = dynamic_cast<ast_type*>(WO_NEED_AST(9));
                     if (!ast_empty::is_empty(input[10]))
@@ -4896,35 +4855,6 @@ namespace wo
             }
         };
 
-        struct pass_append_list_for_ref_tuple_maker : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                /*
-                gm::te(gm::ttype::l_left_brackets), 0
-                gm::te(gm::ttype::l_ref), 1
-                gm::nt(L"RIGHT"), 2
-                gm::te(gm::ttype::l_comma), 3
-                gm::nt(L"APPEND_CONSTANT_TUPLE_ITEMS"), 4
-                gm::te(gm::ttype::l_right_brackets)
-                */
-                wo_assert(input.size() == 6);
-                ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(4));
-                if (list)
-                {
-                    ast_value* val = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    wo_assert(val);
-
-                    val->is_mark_as_using_ref = true;
-                    list->append_at_head(val);
-
-                    return (grammar::ast_base*)list;
-                }
-                wo_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
-                return 0;
-            }
-        };
-
         struct pass_make_tuple : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -5279,13 +5209,8 @@ namespace wo
 
                 if (input.size() == 4)
                 {
-                    if (WO_NEED_TOKEN(1).type == +lex_type::l_ref)
-                        arg_def->decl = identifier_decl::REF;
-                    else
-                    {
-                        wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_mut);
-                        arg_def->decl = identifier_decl::MUTABLE;
-                    }
+                    wo_assert(WO_NEED_TOKEN(1).type == +lex_type::l_mut);
+                    arg_def->decl = identifier_decl::MUTABLE;
 
                     arg_def->arg_name = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
                     if (ast_empty::is_empty(input[3]))
@@ -5845,13 +5770,8 @@ namespace wo
                     {
                         auto* result_identifier = new ast_pattern_identifier;
 
-                        if (WO_NEED_TOKEN(0).type == +lex_type::l_ref)
-                            result_identifier->decl = identifier_decl::REF;
-                        else
-                        {
-                            wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
-                            result_identifier->decl = identifier_decl::MUTABLE;
-                        }
+                        wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut);
+                        result_identifier->decl = identifier_decl::MUTABLE;
 
                         result_identifier->attr = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(1));
                         result_identifier->identifier = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
@@ -5896,10 +5816,6 @@ namespace wo
 
                         ast_value_takeplace* val_take_place = new ast_value_takeplace;
                         val_take_place->copy_source_info(child_pattern);
-                        if (ast_pattern_identifier* ipat = dynamic_cast<ast_pattern_identifier*>(child_pattern))
-                            val_take_place->as_ref = (ipat->decl == identifier_decl::REF);
-                        else
-                            val_take_place->as_ref = true;
 
                         result->tuple_takeplaces.push_back(val_take_place);
                     }
@@ -6175,8 +6091,6 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>] = _register_builder<pass_type_judgement>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_ref>] = _register_builder<pass_mark_value_as_ref>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
@@ -6306,7 +6220,6 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_tuple_type>] = _register_builder<pass_build_tuple_type>();
             _registed_builder_function_id_list[meta::type_hash<pass_tuple_types_list>] = _register_builder<pass_tuple_types_list>();
-            _registed_builder_function_id_list[meta::type_hash<pass_append_list_for_ref_tuple_maker>] = _register_builder<pass_append_list_for_ref_tuple_maker>();
             _registed_builder_function_id_list[meta::type_hash<pass_make_tuple>] = _register_builder<pass_make_tuple>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_where_constraint>] = _register_builder<pass_build_where_constraint>();

@@ -801,9 +801,6 @@ namespace wo
                     {
                         a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
                         a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
-
-                        if (a_pattern_identifier->decl == ast::identifier_decl::REF)
-                            initval->is_mark_as_using_ref = true;
                     }
                 }
                 else
@@ -857,27 +854,6 @@ namespace wo
                     analyze_pass2(initval);
 
                     a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
-                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
-                    {
-                        initval->is_mark_as_using_ref = true;
-                        if (auto* a_val_tkpalce = dynamic_cast<ast_value_takeplace*>(initval))
-                        {
-                            if (!a_val_tkpalce->as_ref)
-                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                        }
-                        else
-                        {
-                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval))
-                            {
-                                if (a_val_symb->symbol->attribute->is_constant_attr())
-                                    lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                            else if (!initval->can_be_assign || initval->is_constant)
-                            {
-                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                        }
-                    }
                 }
                 else
                 {
@@ -885,17 +861,6 @@ namespace wo
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
                         impl_symbol->has_been_defined_in_pass2 = true;
-                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
-                        {
-                            impl_symbol->variable_value->is_mark_as_using_ref = true;
-
-                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
-                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                                || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
-                            {
-                                lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                        }
                     }
                 }
             }
@@ -941,31 +906,17 @@ namespace wo
             {
                 if (a_pattern_identifier->template_arguments.empty())
                 {
-                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
+                    if (!a_pattern_identifier->symbol->is_constexpr)
                     {
                         auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
-                        auto& aim_ob = analyze_value(initval, compiler);
-
-                        if (is_non_ref_tem_reg(aim_ob))
-                            lang_anylizer->lang_error(0x0000, initval, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                        compiler->ext_setref(ref_ob, aim_ob);
-                    }
-                    else
-                    {
-                        if (!a_pattern_identifier->symbol->is_constexpr)
+                        if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                            !valtkpls || valtkpls->used_reg)
                         {
-                            auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
-
-                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                                !valtkpls || valtkpls->used_reg)
-                            {
-                                if (is_need_dup_when_mov(initval))
-                                    compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
-                                else
-                                    compiler->mov(ref_ob, analyze_value(initval, compiler));
-                            }
+                            if (is_need_dup_when_mov(initval))
+                                compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
+                            else
+                                compiler->mov(ref_ob, analyze_value(initval, compiler));
                         }
                     }
                 }
@@ -976,31 +927,17 @@ namespace wo
                         = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
                     for (auto& [_, symbol] : all_template_impl_variable_symbol)
                     {
-                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
+                        if (!symbol->is_constexpr)
                         {
                             auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
-                            auto& aim_ob = analyze_value(symbol->variable_value, compiler);
-
-                            if (is_non_ref_tem_reg(aim_ob))
-                                lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                            compiler->ext_setref(ref_ob, aim_ob);
-                        }
-                        else
-                        {
-                            if (!symbol->is_constexpr)
+                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                                !valtkpls || valtkpls->used_reg)
                             {
-                                auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
-
-                                if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                                    !valtkpls || valtkpls->used_reg)
-                                {
-                                    if (is_need_dup_when_mov(symbol->variable_value))
-                                        compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
-                                    else
-                                        compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
-                                }
+                                if (is_need_dup_when_mov(symbol->variable_value))
+                                    compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                else
+                                    compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
                             }
                         }
                     } // end of for (auto& [_, symbol] : all_template_impl_variable_symbol)
@@ -1612,12 +1549,6 @@ namespace wo
                     fully_update_type(a_value->value_type, false);
                 if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
                     a_value->value_type->set_is_mutable(true);
-
-                if (a_value->is_mark_as_using_ref)
-                {
-                    if (!a_value->can_be_assign && !a_value->value_type->is_mutable())
-                        lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                }
             }
 
             WO_TRY_BEGIN;
@@ -1660,17 +1591,6 @@ namespace wo
                     {
                         a_value_base->can_be_assign = false;
                     }
-                }
-                // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
-                // DECIDED BY a_value_base->symbol->is_ref
-
-                if (a_value_base->symbol && a_value_base->symbol->decl == identifier_decl::REF)
-                    a_value_base->is_ref_ob_in_finalize = true;
-
-                if (!a_value_base_for_attrb)
-                {
-                    a_value_type_judge_for_attrb->is_mark_as_using_ref = a_value_base->is_mark_as_using_ref;
-                    a_value_type_judge_for_attrb->is_ref_ob_in_finalize = a_value_base->is_ref_ob_in_finalize;
                 }
             }
 
@@ -2606,24 +2526,7 @@ namespace wo
                     }
                     else
                     {
-                        if (argv->is_mark_as_using_ref)
-                        {
-                            auto& val = analyze_value(argv, compiler);
-                            if (is_cr_reg(val))
-                            {
-                                auto& refreg = get_useable_register_for_ref_value();
-                                // Cr may be modified in other calculated argument, such as:
-                                //  foo(ref f1(), ref f2())
-                                // So here need store the ref.
-                                compiler->ext_trans(refreg, reg(reg::cr));
-                                compiler->pshr(refreg);
-                            }
-                            else
-                                // Do not complete refreg, it might be used in other expr
-                                // TODO: Finish using reg after function call.
-                                compiler->pshr(val);
-                        }
-                        else if (is_need_dup_when_mov(argv))
+                        if (is_need_dup_when_mov(argv))
                             lang_anylizer->lang_error(0x0000, argv, L"不允许将 'const' 的非平凡类型值作为调用函数的参数，继续");
                         else
                             compiler->psh(complete_using_register(analyze_value(argv, compiler)));
@@ -2664,16 +2567,8 @@ namespace wo
                 {
                     last_value_stored_to_cr_flag.not_write_to_cr();
 
-                    if (a_value_funccall->is_mark_as_using_ref)
-                    {
-                        result_storage_place = &get_useable_register_for_ref_value();
-                        compiler->ext_setref(*result_storage_place, reg(reg::cr));
-                    }
-                    else
-                    {
-                        result_storage_place = &get_useable_register_for_pure_value();
-                        compiler->set(*result_storage_place, reg(reg::cr));
-                    }
+                    result_storage_place = &get_useable_register_for_pure_value();
+                    compiler->set(*result_storage_place, reg(reg::cr));
 
                     wo_assert(reg_for_current_funccall_argc);
                     auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
@@ -2708,7 +2603,7 @@ namespace wo
                 }
                 else
                 {
-                    if (full_unpack_arguments && !a_value_funccall->is_mark_as_using_ref)
+                    if (full_unpack_arguments)
                         return *result_storage_place;
 
                     auto& funcresult = get_useable_register_for_pure_value();
@@ -2919,12 +2814,7 @@ namespace wo
                 }
 
                 for (auto* in_arr_val : arr_list)
-                {
-                    if (in_arr_val->is_mark_as_using_ref)
-                        compiler->pshr(complete_using_register(analyze_value(in_arr_val, compiler)));
-                    else
-                        compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
-                }
+                    compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
 
                 auto& treg = get_useable_register_for_pure_value();
                 wo_assert(arr_list.size() <= UINT16_MAX);
@@ -2942,11 +2832,7 @@ namespace wo
                     wo_test(_map_pair);
 
                     compiler->psh(complete_using_register(analyze_value(_map_pair->key, compiler)));
-
-                    if (_map_pair->val->is_mark_as_using_ref)
-                        compiler->pshr(complete_using_register(analyze_value(_map_pair->val, compiler)));
-                    else
-                        compiler->psh(complete_using_register(analyze_value(_map_pair->val, compiler)));
+                    compiler->psh(complete_using_register(analyze_value(_map_pair->val, compiler)));
 
                     _map_item = _map_item->sibling;
                     map_pair_count++;
@@ -3189,10 +3075,7 @@ namespace wo
 
                 for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
                 {
-                    if (index->second->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(index->second, compiler));
-                    else
-                        compiler->psh(analyze_value(index->second, compiler));
+                    compiler->psh(analyze_value(index->second, compiler));
                 }
 
                 auto& result = get_useable_register_for_pure_value();
@@ -3214,10 +3097,7 @@ namespace wo
                 }
                 for (auto val : arr_list)
                 {
-                    if (val->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(val, compiler));
-                    else
-                        compiler->psh(analyze_value(val, compiler));
+                    compiler->psh(analyze_value(val, compiler));
                 }
 
                 auto& result = get_useable_register_for_pure_value();
@@ -3494,10 +3374,6 @@ namespace wo
                 {
                     if (is_need_dup_when_mov(a_return->return_value))
                         lang_anylizer->lang_error(0x0000, a_return, L"不允许将 'const' 的非平凡类型值作为函数的返回值，继续");
-                    else if (a_return->return_value->is_mark_as_using_ref)
-                        set_ref_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
-                    else if (a_return->return_value->is_mark_as_using_ref)
-                        mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
 
@@ -3751,28 +3627,13 @@ namespace wo
                     {
                         if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
                         {
-                            if (a_value_arg_define->decl == ast::identifier_decl::REF
-                                || a_value_arg_define->decl == ast::identifier_decl::IMMUTABLE)
-                            {
+                            // Issue N221109: Reference will not support.
+                            // All arguments will 'psh' to stack & no 'pshr' command in future.
                                 funcdef->this_func_scope->
                                     reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
                                 wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
                                 a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
-
-                            }
-                            else
-                            {
-                                wo_integer_t stoffset = +2 + arg_count + (int8_t)funcdef->capture_variables.size();
-                                if (stoffset >= -64 && stoffset <= 63)
-                                {
-                                    compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                        opnum::reg(opnum::reg::bp_offset((int8_t)stoffset)));
-                                }
-                                else
-                                    compiler->lds(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                        opnum::imm(stoffset));
-                            }
                         }
                         else//variadic
                             break;
