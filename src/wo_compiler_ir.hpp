@@ -1874,14 +1874,33 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::iddict, WO_OPNUM(op1), WO_OPNUM(op2));
         }
         template<typename OP1T, typename OP2T>
-        void sidmap(const OP1T& op1, const OP2T& op2)
+        void sidmap(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2));
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
         }
+        template<typename OP1T, typename OP2T>
+        void sidarr(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+        }
+        template<typename OP1T, typename OP2T>
+        void sidstruct(const OP1T& op1, const OP2T& op2, uint16_t offset)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidstruct, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)offset);
+        }
+
         template<typename OP1T, typename OP2T>
         void idstr(const OP1T& op1, const OP2T& op2)
         {
@@ -2359,17 +2378,35 @@ namespace wo
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
-                case instruct::opcode::sidmap:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    break;
                 case instruct::opcode::idstr:
                     temp_this_command_code_buf.push_back(WO_OPCODE(idstr));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
+                case instruct::opcode::sidmap:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                    break;
+                case instruct::opcode::sidarr:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sidarr));
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                    break;
+                case instruct::opcode::sidstruct:
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sidstruct));
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
 
+                    uint16_t size = (uint16_t)(WO_IR.opinteger);
+                    byte_t* readptr = (byte_t*)&size;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+                    break;
+                }
                 case instruct::opcode::jt:
                     temp_this_command_code_buf.push_back(WO_OPCODE(jt));
 

@@ -45,10 +45,10 @@ namespace wo
 
             adds = 15 WO_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
 
-            psh = 16 WO_OPCODE_SPACE,    // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
-            pop = 17 WO_OPCODE_SPACE,   // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       2-5 byte
-            RESERVED_0 = 18 WO_OPCODE_SPACE,  // 
-            RESERVED_1 = 19 WO_OPCODE_SPACE,  // 
+            psh = 16 WO_OPCODE_SPACE,       // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
+            pop = 17 WO_OPCODE_SPACE,       // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       2-5 byte
+            sidarr = 18 WO_OPCODE_SPACE,    // sidarr(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
+            sidstruct = 19 WO_OPCODE_SPACE,  // sidstruct(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
 
             lds = 20 WO_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
             sts = 21 WO_OPCODE_SPACE,  // sts(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
@@ -108,7 +108,7 @@ namespace wo
             nequr = 58 WO_OPCODE_SPACE,     // nequr
             equs = 59 WO_OPCODE_SPACE,      // equs
             nequs = 60 WO_OPCODE_SPACE,     // nequs
-            sidmap = 61 WO_OPCODE_SPACE,    // sidmap(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF 3-9 byte
+            sidmap = 61 WO_OPCODE_SPACE,    // sidmap(dr)        REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID 
 
             jnequb = 62 WO_OPCODE_SPACE,    //  jnequb(dr_0) REGID(1BYTE)/DIFF(4BYTE) PLACE(4BYTE)            6-9 byte
             idstruct = 63 WO_OPCODE_SPACE,     // idstruct(dr_0) REGID(1BYTE)/DIFF(4BYTE) OFFSET(2BYTE)   4-7 byte

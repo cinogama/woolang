@@ -2243,7 +2243,6 @@ wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
             else
                 index->set_nil();
 
-            wo_assert(!index->is_ref());
             return CS_VAL(&*index);
         }
         else

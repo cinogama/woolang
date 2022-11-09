@@ -1825,6 +1825,16 @@ namespace wo
             _complete_using_all_register_for_ref_value();
         }
 
+        bool is_reg(opnum::opnumbase& op_num)
+        {
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                return true;
+            }
+            return false;
+        }
+
         bool is_cr_reg(opnum::opnumbase& op_num)
         {
             using namespace opnum;
@@ -2166,144 +2176,205 @@ namespace wo
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
                 bool using_sid_op_for_store_value = false;
-                if (dynamic_cast<ast_value_index*>(a_value_assign->left))
-                    // a[xx] = val; generate 'sidmap' opcode!
-                    using_sid_op_for_store_value = true;
-
-                // if mixed type, do opx
-                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
-                value::valuetype optype = value::valuetype::invalid;
-                if (same_type)
-                    optype = a_value_assign->left->value_type->value_type;
-
-                if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
-                    symb_left && symb_left->symbol->attribute->is_constant_attr())
+                if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left))
                 {
-                    lang_anylizer->lang_error(0x0000, value, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
-                }
-                size_t revert_pos = compiler->get_now_ip();
+                    auto* _store_value = &analyze_value(a_value_assign->right, compiler);
+                    if (is_cr_reg(*_store_value))
+                    {
+                        auto* _store_value_place = &get_useable_register_for_pure_value();
+                        compiler->set(*_store_value_place, *_store_value);
+                        _store_value = _store_value_place;
+                    }
 
-                auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
-                auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
-
-                if (is_cr_reg(*beoped_left_opnum_ptr)
-                    //      FUNC CALL                           A + B ...                       A[X] (.E.G)
-                    && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
-                {
-                    complete_using_register(*beoped_left_opnum_ptr);
-                    complete_using_register(*op_right_opnum_ptr);
-                    compiler->revert_code_to(revert_pos);
-                    op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
-                    beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
-                }
-
-                auto& beoped_left_opnum = *beoped_left_opnum_ptr;
-                auto& op_right_opnum = *op_right_opnum_ptr;
-
-                switch (a_value_assign->operate)
-                {
-                case lex_type::l_assign:
-                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
-                    if (is_need_dup_when_mov(a_value_assign->right))
-                        // TODO Right may be 'nil', do not dup nil..
-                        compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
+                    if (a_value_index->from->value_type->is_struct())
+                    {
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);
+                    }
                     else
-                        compiler->mov(beoped_left_opnum, op_right_opnum);
-                    break;
-                case lex_type::l_add_assign:
-                    switch (optype)
                     {
-                    case wo::value::valuetype::integer_type:
-                        compiler->addi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->addr(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::handle_type:
-                        compiler->addh(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::string_type:
-                        compiler->adds(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-                    break;
-                case lex_type::l_sub_assign:
+                        size_t revert_pos = compiler->get_now_ip();
 
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->subi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->subr(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::handle_type:
-                        compiler->subh(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        auto* _index_value = &analyze_value(a_value_index->index, compiler);
+
+                        if (is_cr_reg(*_from_value)
+                            && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
+                        {
+                            complete_using_register(*_from_value);
+                            complete_using_register(*_from_value);
+                            compiler->revert_code_to(revert_pos);
+                            _index_value = &analyze_value(a_value_index->index, compiler, true);
+                            _from_value = &analyze_value(a_value_index->from, compiler);
+                        }
+                        auto& from_value = *_from_value;
+                        auto& index_value = *_index_value;
+
+                        auto* _final_store_value = _store_value;
+                        if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
+                        {
+                            // Use pm reg here because here has no other command to generate.
+                            _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
+                            compiler->set(*_final_store_value, *_store_value);
+                        }
+                        // Do not generate any other command to make sure reg::pm usable!
+
+                        if (a_value_index->from->value_type->is_array())
+                            compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else if (a_value_index->from->value_type->is_map())
+                            compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else
+                            wo_error("Unknown unindex & storable type.");
                     }
 
-                    break;
-                case lex_type::l_mul_assign:
-                    switch (optype)
+                    if (get_pure_value)
                     {
-                    case wo::value::valuetype::integer_type:
-                        compiler->muli(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->mulr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, *_store_value);
+                        return treg;
                     }
+                    else
+                        return *_store_value;
 
-                    break;
-                case lex_type::l_div_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->divi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->divr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-                    break;
-                case lex_type::l_mod_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->modi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->modr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-
-                    break;
-                default:
-                    wo_error("Do not support this operator..");
-                    break;
-                }
-                complete_using_register(op_right_opnum);
-
-                if (get_pure_value && is_cr_reg(beoped_left_opnum))
-                {
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->set(treg, beoped_left_opnum);
-                    return treg;
+                    
                 }
                 else
-                    return beoped_left_opnum;
+                {
+                    // if mixed type, do opx
+                    bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
+                    value::valuetype optype = value::valuetype::invalid;
+                    if (same_type)
+                        optype = a_value_assign->left->value_type->value_type;
+
+                    if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
+                        symb_left && symb_left->symbol->attribute->is_constant_attr())
+                    {
+                        lang_anylizer->lang_error(0x0000, value, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
+                    }
+                    size_t revert_pos = compiler->get_now_ip();
+
+                    auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
+                    auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+
+                    if (is_cr_reg(*beoped_left_opnum_ptr)
+                        //      FUNC CALL                           A + B ...                       A[X] (.E.G)
+                        && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
+                    {
+                        complete_using_register(*beoped_left_opnum_ptr);
+                        complete_using_register(*op_right_opnum_ptr);
+                        compiler->revert_code_to(revert_pos);
+                        op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
+                        beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+                    }
+
+                    auto& beoped_left_opnum = *beoped_left_opnum_ptr;
+                    auto& op_right_opnum = *op_right_opnum_ptr;
+
+                    switch (a_value_assign->operate)
+                    {
+                    case lex_type::l_assign:
+                        wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
+                        if (is_need_dup_when_mov(a_value_assign->right))
+                            // TODO Right may be 'nil', do not dup nil..
+                            compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
+                        else
+                            compiler->mov(beoped_left_opnum, op_right_opnum);
+                        break;
+                    case lex_type::l_add_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::handle_type:
+                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::string_type:
+                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+                        break;
+                    case lex_type::l_sub_assign:
+
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::handle_type:
+                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    case lex_type::l_mul_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    case lex_type::l_div_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+                        break;
+                    case lex_type::l_mod_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    default:
+                        wo_error("Do not support this operator..");
+                        break;
+                    }
+                    complete_using_register(op_right_opnum);
+
+                    if (get_pure_value && is_cr_reg(beoped_left_opnum))
+                    {
+                        auto& treg = get_useable_register_for_pure_value();
+                        compiler->set(treg, beoped_left_opnum);
+                        return treg;
+                    }
+                    else
+                        return beoped_left_opnum;
+                }
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
             {

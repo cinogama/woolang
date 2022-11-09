@@ -470,42 +470,45 @@ namespace wo
                         printf("   ");
                 };
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
+                auto print_reg_bpoffset = [&]() {
+                    byte_t data_1b = *(this_command_ptr++);
+                    if (data_1b & 1 << 7)
+                    {
+                        // bp offset
+                        auto offset = WO_SIGNED_SHIFT(data_1b);
+                        tmpos << "[bp";
+                        if (offset < 0)
+                            tmpos << offset << "]";
+                        else if (offset == 0)
+                            tmpos << "-" << offset << "]";
+                        else
+                            tmpos << "+" << offset << "]";
+                    }
+                    else
+                    {
+                        // is reg
+                        if (data_1b >= 0 && data_1b <= 15)
+                            tmpos << "t" << (uint32_t)data_1b;
+                        else if (data_1b >= 16 && data_1b <= 31)
+                            tmpos << "r" << (uint32_t)data_1b - 16;
+                        else if (data_1b == 32)
+                            tmpos << "cr";
+                        else if (data_1b == 33)
+                            tmpos << "tc";
+                        else if (data_1b == 34)
+                            tmpos << "er";
+                        else if (data_1b == 35)
+                            tmpos << "nil";
+                        else
+                            tmpos << "reg(" << (uint32_t)data_1b << ")";
+
+                    }
+                };
                 auto print_opnum1 = [&]() {
                     if (main_command & (byte_t)0b00000010)
                     {
                         //is dr 1byte 
-                        byte_t data_1b = *(this_command_ptr++);
-                        if (data_1b & 1 << 7)
-                        {
-                            // bp offset
-                            auto offset = WO_SIGNED_SHIFT(data_1b);
-                            tmpos << "[bp";
-                            if (offset < 0)
-                                tmpos << offset << "]";
-                            else if (offset == 0)
-                                tmpos << "-" << offset << "]";
-                            else
-                                tmpos << "+" << offset << "]";
-                        }
-                        else
-                        {
-                            // is reg
-                            if (data_1b >= 0 && data_1b <= 15)
-                                tmpos << "t" << (uint32_t)data_1b;
-                            else if (data_1b >= 16 && data_1b <= 31)
-                                tmpos << "r" << (uint32_t)data_1b - 16;
-                            else if (data_1b == 32)
-                                tmpos << "cr";
-                            else if (data_1b == 33)
-                                tmpos << "tc";
-                            else if (data_1b == 34)
-                                tmpos << "er";
-                            else if (data_1b == 35)
-                                tmpos << "nil";
-                            else
-                                tmpos << "reg(" << (uint32_t)data_1b << ")";
-
-                        }
+                        print_reg_bpoffset();
                     }
                     else
                     {
@@ -522,38 +525,7 @@ namespace wo
                     if (main_command & (byte_t)0b00000001)
                     {
                         //is dr 1byte 
-                        byte_t data_1b = *(this_command_ptr++);
-                        if (data_1b & 1 << 7)
-                        {
-                            // bp offset
-                            auto offset = WO_SIGNED_SHIFT(data_1b);
-                            tmpos << "[bp";
-                            if (offset < 0)
-                                tmpos << offset << "]";
-                            else if (offset == 0)
-                                tmpos << "-" << offset << "]";
-                            else
-                                tmpos << "+" << offset << "]";
-                        }
-                        else
-                        {
-                            // is reg
-                            if (data_1b >= 0 && data_1b <= 15)
-                                tmpos << "t" << (uint32_t)data_1b;
-                            else if (data_1b >= 16 && data_1b <= 31)
-                                tmpos << "r" << (uint32_t)data_1b - 16;
-                            else if (data_1b == 32)
-                                tmpos << "cr";
-                            else if (data_1b == 33)
-                                tmpos << "tc";
-                            else if (data_1b == 34)
-                                tmpos << "er";
-                            else if (data_1b == 35)
-                                tmpos << "nil";
-                            else
-                                tmpos << "reg(" << (uint32_t)data_1b << ")";
-
-                        }
+                        print_reg_bpoffset();
                     }
                     else
                     {
@@ -761,7 +733,11 @@ namespace wo
                 case instruct::iddict:
                     tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::sidmap:
-                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
+                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::sidarr:
+                    tmpos << "sidarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::sidstruct:
+                    tmpos << "sidstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::idstr:
                     tmpos << "idstr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::equr:
@@ -1372,7 +1348,11 @@ namespace wo
                         (\
                             WO_IPVAL_MOVE_4 + const_global_begin\
                         ))
-
+#define WO_ADDRESSING_N3_REG_BPOFF value * opnum3 = \
+                            (WO_IPVAL & (1 << 7)) ?\
+                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
+                            :\
+                            (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
 
@@ -2233,33 +2213,57 @@ namespace wo
                     {
                         WO_ADDRESSING_N1;
                         WO_ADDRESSING_N2;
+                        WO_ADDRESSING_N3_REG_BPOFF;
 
                         wo_assert(nullptr != opnum1->gcunit);
                         wo_assert(opnum1->type == value::valuetype::dict_type);
 
                         do
                         {
-                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                            auto fnd = opnum1->dict->find(*opnum2);
-                            if (fnd != opnum1->dict->end())
-                            {
-                                auto* result = &fnd->second;
-                                if (wo::gc::gc_is_marking())
-                                    opnum1->dict->add_memo(result);
-                                rt_cr->set_val(result);
-                                goto _vm_run_impl__sidmap_readend;
-                            }
-                        } while (0);
-                        do
-                        {
                             gcbase::gc_write_guard gwg1(opnum1->gcunit);
                             auto* result = &(*opnum1->dict)[*opnum2];
                             if (wo::gc::gc_is_marking())
                                 opnum1->dict->add_memo(result);
-                            rt_cr->set_val(result);
+                            result->set_val(opnum3);
                         } while (0);
+                        break;
+                    }
+                    case instruct::opcode::sidarr:
+                    {
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
+                        WO_ADDRESSING_N3_REG_BPOFF;
 
-                    _vm_run_impl__sidmap_readend:
+                        wo_assert(nullptr != opnum1->gcunit);
+                        wo_assert(opnum1->type == value::valuetype::array_type);
+                        wo_assert(opnum2->type == value::valuetype::integer_type);
+                        do
+                        {
+                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                            auto* result = &(*opnum1->array)[opnum2->integer];
+                            if (wo::gc::gc_is_marking())
+                                opnum1->array->add_memo(result);
+                            result->set_val(opnum3);
+                        } while (0);
+                        break;
+                    }
+                    case instruct::opcode::sidstruct:
+                    {
+                        WO_ADDRESSING_N1;
+                        WO_ADDRESSING_N2;
+                        uint16_t offset = WO_IPVAL_MOVE_2;
+
+                        wo_assert(opnum1->type == value::valuetype::struct_type);
+                        wo_assert(nullptr != opnum1->structs);
+                        wo_assert(offset < opnum1->structs->m_count);
+                        do
+                        {
+                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                            auto* result = &opnum1->structs->m_values[offset];
+                            if (wo::gc::gc_is_marking())
+                                opnum1->structs->add_memo(result);
+                            result->set_val(opnum2);
+                        } while (0);
                         break;
                     }
                     case instruct::opcode::idstr:
