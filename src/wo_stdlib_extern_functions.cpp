@@ -742,12 +742,14 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
     array_iter& iter = *(array_iter*)wo_pointer(args);
 
     if (iter.iter == iter.end_place)
-        return wo_ret_bool(vm, false);
+        return wo_ret_option_none(vm);
 
-    wo_set_int(args + 1, iter.index_count++); // key
-    wo_set_val(args + 2, reinterpret_cast<wo_value>(&*(iter.iter++))); // val
+    wo_value result_tuple = wo_push_struct(vm, 2);
+  
+    wo_set_int(wo_struct_get(result_tuple, 0), iter.index_count++); // key
+    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&*(iter.iter++))); // val
 
-    return wo_ret_bool(vm, true);
+    return wo_ret_option_val(vm, result_tuple);
 }
 
 WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args, size_t argc)
@@ -878,13 +880,15 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     map_iter& iter = *(map_iter*)wo_pointer(args);
 
     if (iter.iter == iter.end_place)
-        return wo_ret_bool(vm, false);
+        return wo_ret_option_none(vm);
 
-    wo_set_val(args + 1, reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
-    wo_set_val(args + 2, reinterpret_cast<wo_value>(&iter.iter->second)); // val
+    wo_value result_tuple = wo_push_struct(vm, 2);
+
+    wo_set_val(wo_struct_get(result_tuple, 0), reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
+    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&iter.iter->second)); // val
     iter.iter++;
 
-    return wo_ret_bool(vm, true);
+    return wo_ret_option_val(vm, result_tuple);
 }
 
 WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
@@ -1553,8 +1557,8 @@ namespace array
     public func bind<T, R>(val: array<T>, functor: (T)=>array<R>)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
-            for (let insert : functor(elem))
+        for (let _, elem : val)
+            for (let _, insert : functor(elem))
                 result->add(insert);
         return result->unsafe::astype:<array<R>>;
     }
@@ -1562,7 +1566,7 @@ namespace array
     public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
+        for (let _, elem : val)
             result->add(functor(elem));
         return result->unsafe::astype:<array<R>>;
     }
@@ -1570,7 +1574,7 @@ namespace array
     public func mapping<K, V>(val: array<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let (k, v) : val)
+        for (let _, (k, v) : val)
             result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }
@@ -1603,7 +1607,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T)=>bool;
+            public func next<T>(iter:iterator<T>)=>option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -1700,7 +1704,7 @@ namespace vec
     public func forall<T>(val: vec<T>, functor: (T)=>bool)
     {
         let result = []mut: vec<T>;
-        for (let elem : val)
+        for (let _, elem : val)
             if (functor(elem))
                 result->add(elem);
         return result;
@@ -1709,8 +1713,8 @@ namespace vec
     public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
-            for (let insert : functor(elem))
+        for (let _, elem : val)
+            for (let _, insert : functor(elem))
                 result->add(insert);
         return result;
     }
@@ -1726,7 +1730,7 @@ namespace vec
     public func mapping<K, V>(val: vec<(K, V)>)
     {
         let result = {}mut: map<K, V>;
-        for (let (k, v) : val)
+        for (let _, (k, v) : val)
             result->set(k, v);
         return result->unsafe::astype:<dict<K, V>>;
     }
@@ -1759,7 +1763,7 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>, ref out_key:int, ref out_val:T)=>bool;
+            public func next<T>(iter:iterator<T>)=>option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -1828,7 +1832,7 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT)=>bool;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -1947,7 +1951,7 @@ namespace map
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>, ref out_key:KT, ref out_val:VT)=>bool;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }

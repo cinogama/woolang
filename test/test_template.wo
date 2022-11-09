@@ -23,18 +23,18 @@ namespace test_template
             return self;
         }
 
-        func next<IType, EType>(
-                        self:wraped_iterator<IType, EType>, 
-                        ref out_index:int, 
-                        ref out_val:EType) => bool
+        func next<IType, EType>(self: wraped_iterator<IType, EType>)
         {
             while(true)
             {
-                let idxable = self.iter->next(ref out_index, ref out_val);
-
-                if (!idxable) return false;
-                if (self.pred(out_val))
-                    return true;
+                match (self.iter->next())
+                {
+                value((out_index, out_val))?
+                    if (self.pred(out_val))
+                        return option::value((out_index, out_val));
+                none?
+                    return option::none;
+                }
             }
         }
     }
@@ -356,7 +356,7 @@ namespace test_template
 
         let p = []mut: vec<int>;
         let q = [1,2,3,4,5,6,7,8,9];
-        for(let v : wraped_iterator::create(q->iter(), func(e:int){return e==5;}))
+        for(let _, v : wraped_iterator::create(q->iter(), func(e:int){return e==5;}))
         {
             p->add(v);
         }

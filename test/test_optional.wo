@@ -57,7 +57,7 @@ namespace test_optional
         func create<T>(val: array<T>)
         {
             let mut result = linknode::end : linknode<T>;
-            for (let elem : val)
+            for (let _, elem : val)
                 result = result->add(elem);
             return result;
         }
@@ -67,19 +67,17 @@ namespace test_optional
         };
         namespace iterator
         {
-            func next<T>(self: iterator<T>, ref out_val: T)
+            func next<T>(self: iterator<T>)
             {
                 match(self.node)
                 {
                 linknode::next((elem, nextnode))?
                 {
                     self.node = nextnode;
-                    out_val = elem;
-
-                    return true;
+                    return option::value((elem,));
                 }
                 end?
-                    return false;
+                    return option::none;
                 }
             }
         }
