@@ -1530,7 +1530,7 @@ namespace array
     public func forall<T>(val: array<T>, functor: (T)=>bool)
     {
         let result = []mut: vec<T>;
-        for (let elem : val)
+        for (let _, elem : val)
             if (functor(elem))
                 result->add(elem);
         return result->unsafe::astype:<array<T>>;
@@ -1704,7 +1704,7 @@ namespace vec
     public func map<T, R>(val: vec<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
-        for (let elem : val)
+        for (let _, elem : val)
             result->add(functor(elem));
         return result;
     }
