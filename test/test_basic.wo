@@ -30,7 +30,6 @@ namespace test_basic
             mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
             mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
 
-        std::debug::breakdown();
         a00 = a97 = 233;
 
         test_equal(a00, 233);
