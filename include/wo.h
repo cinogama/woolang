@@ -161,6 +161,7 @@ WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
 
 WO_API wo_result_t  wo_ret_option_void(wo_vm vm);
+WO_API wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_option_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_option_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t  wo_ret_option_float(wo_vm vm, float result);

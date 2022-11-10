@@ -1223,6 +1223,19 @@ wo_result_t wo_ret_option_void(wo_vm vm)
 
     return 0;
 }
+wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_integer(result ? 1 : 0);
+
+    return 0;
+}
 wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -1786,7 +1799,7 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
         //auto &[bin, size] = (*env_p)->create_env_binary();
         //auto env = wo::runtime_env::load_create_env_from_binary(bin, size, 16384);
 
-        auto &env = *env_p;
+        auto& env = *env_p;
 
         // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
         if (wo::config::ENABLE_JUST_IN_TIME)
