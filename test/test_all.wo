@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_basic;
 import test_monad;
 import test_coroutine;
 import test_container;
@@ -14,7 +15,6 @@ import test_optional;
 import test_gc;
 import test_tuple;
 import test_struct;
-import test_basic;
 import test_namespace;
 import test_bool;
 import test_return;

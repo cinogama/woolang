@@ -19,8 +19,35 @@ namespace test_basic
             test_equal(f(), i);
         }
     }
+    func test_oversized()
+    {
+        let mut a00 = 0, mut a10 = 0, a20 = 0, mut a30 = 0, a40 = 0, mut a50 = 0, a60 = 0, mut a70 = 0, a80 = 0, mut a90 = 0,
+            mut a01 = 0, mut a11 = 0, a21 = 0, mut a31 = 0, a41 = 0, mut a51 = 0, a61 = 0, mut a71 = 0, a81 = 0, mut a91 = 0,
+            mut a02 = 0, mut a12 = 0, a22 = 0, mut a32 = 0, a42 = 0, mut a52 = 0, a62 = 0, mut a72 = 0, a82 = 0, mut a92 = 0,
+            mut a03 = 0, mut a13 = 0, a23 = 0, mut a33 = 0, a43 = 0, mut a53 = 0, a63 = 0, mut a73 = 0, a83 = 0, mut a93 = 0,
+            mut a04 = 0, mut a14 = 0, a24 = 0, mut a34 = 0, a44 = 0, mut a54 = 0, a64 = 0, mut a74 = 0, a84 = 0, mut a94 = 0,
+            mut a05 = 0, mut a15 = 0, a25 = 0, mut a35 = 0, a45 = 0, mut a55 = 0, a65 = 0, mut a75 = 0, a85 = 0, mut a95 = 0,
+            mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
+            mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
+
+        std::debug::breakdown();
+        a00 = a97 = 233;
+
+        test_equal(a00, 233);
+        test_equal(a97, 233);
+        test_equal(a10, 0);
+
+        test_equal(a16, 10);
+        test_equal(a26, 20);
+        test_equal(a36, 30);
+        test_equal(a46, 40);
+        test_equal(a56, 50);
+        test_equal(a66, 60);
+    }
     func main()
     {
+        test_oversized();
+
         let mut a = 15;
         test_equal(a/3, 5);
         test_equal(a/4, 3);

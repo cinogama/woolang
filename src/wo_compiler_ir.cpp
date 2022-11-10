@@ -348,7 +348,6 @@ WO_API wo_api rslib_std_ir_command_popn(wo_vm vm, wo_value args, size_t argc)
 }
 
 WO_COMMAND_WITH_2_OPNUM(lds);
-WO_COMMAND_WITH_2_OPNUM(ldsr);
 
 WO_COMMAND_WITH_2_OPNUM(equb);
 WO_COMMAND_WITH_2_OPNUM(nequb);
@@ -485,8 +484,6 @@ namespace std
 
         extern("rslib_std_ir_command_lds")
         public func lds(self: irc, dst: opnum, src: opnum)=> void;
-        extern("rslib_std_ir_command_ldsr")
-        public func ldsr(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_equb")
         public func equb(self: irc, a: opnum, b: opnum)=> void;

@@ -908,15 +908,23 @@ namespace wo
                 {
                     if (!a_pattern_identifier->symbol->is_constexpr)
                     {
-                        auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
+                        auto ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
-                        if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                            !valtkpls || valtkpls->used_reg)
+                        if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
                         {
-                            if (is_need_dup_when_mov(initval))
-                                compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
-                            else
-                                compiler->mov(ref_ob, analyze_value(initval, compiler));
+                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                                !valtkpls || valtkpls->used_reg)
+                            {
+                                if (is_need_dup_when_mov(initval))
+                                    compiler->ext_movdup(**opnum, analyze_value(initval, compiler));
+                                else
+                                    compiler->mov(**opnum, analyze_value(initval, compiler));
+                            }
+                        }
+                        else
+                        {
+                            auto stackoffset = std::get<int16_t>(ref_ob);
+                            compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
                         }
                     }
                 }
@@ -929,15 +937,23 @@ namespace wo
                     {
                         if (!symbol->is_constexpr)
                         {
-                            auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
+                            auto ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
-                            if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
-                                !valtkpls || valtkpls->used_reg)
+                            if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
                             {
-                                if (is_need_dup_when_mov(symbol->variable_value))
-                                    compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
-                                else
-                                    compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
+                                    !valtkpls || valtkpls->used_reg)
+                                {
+                                    if (is_need_dup_when_mov(symbol->variable_value))
+                                        compiler->ext_movdup(**opnum, analyze_value(symbol->variable_value, compiler));
+                                    else
+                                        compiler->mov(**opnum, analyze_value(symbol->variable_value, compiler));
+                                }
+                            }
+                            else
+                            {
+                                auto stackoffset = std::get<int16_t>(ref_ob);
+                                compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
                             }
                         }
                     } // end of for (auto& [_, symbol] : all_template_impl_variable_symbol)
@@ -1890,14 +1906,14 @@ namespace wo
             using namespace opnum;
             return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
         }
-        opnum::opnumbase& get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
+        std::variant<opnum::opnumbase*, int16_t> get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
         {
             using namespace opnum;
 
             if (!symb)
             {
                 lang_anylizer->lang_error(0x0000, error_prud, L"找不到符号，继续");
-                return WO_NEW_OPNUM(reg(reg::ni));
+                return &WO_NEW_OPNUM(reg(reg::ni));
             }
 
             if (symb->is_constexpr
@@ -1908,19 +1924,19 @@ namespace wo
                     && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)
                     // Only normal func (without capture vars) can use this way to optimize.
                     && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)->capture_variables.empty()))
-                return analyze_value(symb->variable_value, compiler, get_pure_value, false);
+                return &analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
             {
                 if (symb->static_symbol)
                 {
                     if (!get_pure_value)
-                        return WO_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
+                        return &WO_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
                     else
                     {
                         auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
                         compiler->mov(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
-                        return loaded_pure_glb_opnum;
+                        return &loaded_pure_glb_opnum;
                     }
                 }
                 else
@@ -1933,37 +1949,38 @@ namespace wo
                         stackoffset = symb->stackvalue_index_in_funcs;
                     if (!get_pure_value)
                     {
-                        if (stackoffset <= 64 || stackoffset >= -63)
-                            return WO_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
+                        if (stackoffset <= 64 && stackoffset >= -63)
+                            return &WO_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
                         else
                         {
-                            auto& ldr_aim = get_useable_register_for_ref_value();
-                            compiler->ldsr(ldr_aim, imm(-(int16_t)stackoffset));
-                            return ldr_aim;
+                            // Fuck GCC!
+                            return (int16_t)-stackoffset;
                         }
                     }
                     else
                     {
-                        if (stackoffset <= 64 || stackoffset >= -63)
+                        if (stackoffset <= 64 && stackoffset >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
                             compiler->mov(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
-                            return loaded_pure_glb_opnum;
+                            return &loaded_pure_glb_opnum;
                         }
                         else
                         {
                             auto& lds_aim = get_useable_register_for_ref_value();
                             compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
-                            return lds_aim;
+                            return &lds_aim;
                         }
                     }
                 }
             }
             else
-                return analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
+                return &analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
         }
 
         bool _last_value_stored_to_cr = false;
+        bool _last_value_from_stack = false;
+        int16_t _last_stack_offset_to_write = 0;
 
         struct auto_cancel_value_store_to_cr
         {
@@ -1979,11 +1996,11 @@ namespace wo
                 *aim_flag = clear_sign;
             }
 
-            void write_to_cr()
+            void set_true()
             {
                 clear_sign = true;
             }
-            void not_write_to_cr()
+            void set_false()
             {
                 clear_sign = false;
             }
@@ -1995,6 +2012,7 @@ namespace wo
                 compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
 
             auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
+            auto_cancel_value_store_to_cr last_value_stored_to_stack_flag(_last_value_from_stack);
             using namespace ast;
             using namespace opnum;
             if (value->is_constant)
@@ -2177,6 +2195,9 @@ namespace wo
             {
                 ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left);
                 opnumbase* _store_value = nullptr;
+                bool beassigned_value_from_stack = false;
+                int16_t beassigned_value_stack_place = 0;
+
                 if (!(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign))
                 {
                     // if mixed type, do opx
@@ -2193,6 +2214,16 @@ namespace wo
                     size_t revert_pos = compiler->get_now_ip();
 
                     auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler, a_value_index != nullptr);
+                    beassigned_value_from_stack = _last_value_from_stack;
+                    beassigned_value_stack_place = _last_stack_offset_to_write;
+
+                    // Assign not need for this variable, revert it.
+                    if (a_value_assign->operate == +lex_type::l_assign)
+                    {
+                        complete_using_register(*beoped_left_opnum_ptr);
+                        compiler->revert_code_to(revert_pos);
+                    }
+
                     auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
 
                     if (is_cr_reg(*beoped_left_opnum_ptr)
@@ -2201,6 +2232,10 @@ namespace wo
                     {
                         // if assigned value is an index, it's result will be placed to non-cr place. so cannot be here.
                         wo_assert(a_value_index == nullptr);
+
+                        // If beassigned_value_from_stack, it will generate a template register. so cannot be here.
+                        wo_assert(beassigned_value_from_stack == false);
+
                         complete_using_register(*beoped_left_opnum_ptr);
                         complete_using_register(*op_right_opnum_ptr);
                         compiler->revert_code_to(revert_pos);
@@ -2215,7 +2250,9 @@ namespace wo
                     {
                     case lex_type::l_assign:
                         wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
-                        if (is_need_dup_when_mov(a_value_assign->right))
+                        if (beassigned_value_from_stack)
+                            compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
+                        else if (is_need_dup_when_mov(a_value_assign->right))
                             // TODO Right may be 'nil', do not dup nil..
                             compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
                         else
@@ -2305,12 +2342,25 @@ namespace wo
                         wo_error("Do not support this operator..");
                         break;
                     }
-                    complete_using_register(op_right_opnum);
 
                     _store_value = &beoped_left_opnum;
+
+                    if (beassigned_value_from_stack)
+                    {
+                        if (a_value_assign->operate == +lex_type::l_assign)
+                            _store_value = &op_right_opnum;
+                        else
+                        {
+                            compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
+                            complete_using_register(op_right_opnum);
+                        }
+                    }
+                    else
+                        complete_using_register(op_right_opnum);
                 }
                 else
                 {
+                    wo_assert(beassigned_value_from_stack == false);
                     wo_assert(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign);
                     _store_value = &analyze_value(a_value_assign->right, compiler);
 
@@ -2321,11 +2371,13 @@ namespace wo
                         _store_value = _store_value_place;
                     }
                 }
-                
+
                 wo_assert(_store_value != nullptr);
 
                 if (a_value_index != nullptr)
                 {
+                    wo_assert(beassigned_value_from_stack == false);
+
                     if (a_value_index->from->value_type->is_struct())
                     {
                         auto* _from_value = &analyze_value(a_value_index->from, compiler);
@@ -2381,7 +2433,21 @@ namespace wo
             {
                 // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
                 auto symb = a_value_variable->symbol;
-                return get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
+                auto opnum_or_stackoffset = get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
+                if (auto* opnum = std::get_if<opnumbase*>(&opnum_or_stackoffset))
+                    return **opnum;
+                else
+                {
+                    _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+                    wo_assert(get_pure_value == false);
+
+                    last_value_stored_to_stack_flag.set_true();
+
+                    auto& usable_stack = get_useable_register_for_pure_value();
+                    compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+
+                    return usable_stack;
+                }
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
@@ -2483,7 +2549,25 @@ namespace wo
                         for (auto idx = a_value_function_define->capture_variables.rbegin();
                             idx != a_value_function_define->capture_variables.rend();
                             ++idx)
-                            compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
+                        {
+                            auto opnum_or_stackoffset = get_opnum_by_symbol(a_value_function_define, *idx, compiler);
+                            if (auto* opnum = std::get_if<opnumbase*>(&opnum_or_stackoffset))
+                                compiler->psh(**opnum);
+                            else
+                            {
+                                _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+                                wo_assert(get_pure_value == false);
+
+                                last_value_stored_to_stack_flag.set_true();
+
+                                auto& usable_stack = get_useable_register_for_pure_value();
+                                compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+                                compiler->psh(usable_stack);
+
+                                complete_using_register(usable_stack);
+                            }
+                            
+                        }
 
                         compiler->mkclos((uint16_t)a_value_function_define->capture_variables.size(),
                             opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
@@ -2612,13 +2696,13 @@ namespace wo
 
                 compiler->call(complete_using_register(*called_func_aim));
 
-                last_value_stored_to_cr_flag.write_to_cr();
+                last_value_stored_to_cr_flag.set_true();
 
                 opnum::opnumbase* result_storage_place = nullptr;
 
                 if (full_unpack_arguments)
                 {
-                    last_value_stored_to_cr_flag.not_write_to_cr();
+                    last_value_stored_to_cr_flag.set_false();
 
                     result_storage_place = &get_useable_register_for_pure_value();
                     compiler->mov(*result_storage_place, reg(reg::cr));
@@ -2925,7 +3009,7 @@ namespace wo
                     auto& beoped_left_opnum = *_beoped_left_opnum;
                     auto& op_right_opnum = *_op_right_opnum;
 
-                    last_value_stored_to_cr_flag.write_to_cr();
+                    last_value_stored_to_cr_flag.set_true();
 
                     if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                         compiler->idarr(beoped_left_opnum, op_right_opnum);
@@ -2982,62 +3066,42 @@ namespace wo
 
                 auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
                 auto function_arg_count = now_function_in_final_anylize->value_type->argument_types.size();
-                if (!get_pure_value)
-                {
 
-                    if (a_value_indexed_variadic_args->argindex->is_constant)
+                if (a_value_indexed_variadic_args->argindex->is_constant)
+                {
+                    auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
+                    if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                     {
-                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
+                        if (!get_pure_value)
                             return WO_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
                                 + function_arg_count))));
                         else
                         {
-                            auto& result = get_useable_register_for_ref_value();
-                            compiler->ldsr(result, imm(_cv.integer + capture_count + 2
-                                + function_arg_count));
+                            auto& result = get_useable_register_for_pure_value();
+
+                            last_value_stored_to_cr_flag.set_true();
+                            compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
+
                             return result;
                         }
                     }
                     else
                     {
-                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2
-                            + capture_count + function_arg_count));
-                        complete_using_register(index);
                         auto& result = get_useable_register_for_ref_value();
-                        compiler->ldsr(result, index);
+                        compiler->lds(result, imm(_cv.integer + capture_count + 2
+                            + function_arg_count));
                         return result;
                     }
                 }
                 else
                 {
-                    auto& result = get_useable_register_for_pure_value();
-
-                    if (a_value_indexed_variadic_args->argindex->is_constant)
-                    {
-                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
-                        {
-                            last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
-                                + function_arg_count))));
-                        }
-                        else
-                        {
-                            compiler->lds(result, imm(_cv.integer + capture_count + 2
-                                + function_arg_count));
-                        }
-                    }
-                    else
-                    {
-                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2 + capture_count
-                            + function_arg_count));
-                        complete_using_register(index);
-                        compiler->lds(result, index);
-
-                    }
+                    auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
+                    compiler->addi(index, imm(2
+                        + capture_count + function_arg_count));
+                    complete_using_register(index);
+                    auto& result = get_useable_register_for_ref_value();
+                    compiler->lds(result, index);
                     return result;
                 }
             }

@@ -1083,8 +1083,12 @@ namespace wo
                         auto* imm_opnum_stx_offset = dynamic_cast<opnum::immbase*>(opnum2);
                         if (imm_opnum_stx_offset)
                         {
-                            if (imm_opnum_stx_offset->try_int() <= 0)
-                                imm_opnum_stx_offset->try_set_int(imm_opnum_stx_offset->try_int() - maxim_offset);
+                            auto stx_offset = imm_opnum_stx_offset->try_int();
+                            if (stx_offset <= 0)
+                            {
+                                opnum::imm offset_stack_place(stx_offset - maxim_offset);
+                                ir_command_buffer[i].op2 = WO_OPNUM(offset_stack_place);
+                            }
                         }
                         else
                         {
@@ -1113,7 +1117,7 @@ namespace wo
                                 op1->id = opnum::reg::r0;
                                 i++;
 
-                                if (ir_command_buffer[i].opcode == instruct::call)
+                                if (ir_command_buffer[i].opcode != instruct::call)
                                 {
                                     ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
                                         ir_command{ instruct::sts, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // sts r0, imm(real_offset)
@@ -1627,12 +1631,6 @@ namespace wo
                 "Argument(s) should be opnum.");
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::sts, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-
-        template<typename OP1T, typename OP2T>
-        void ldsr(const OP1T& op1, const OP2T& op2)
-        {
-            wo_error("TODO;");
         }
  
         template<typename OP1T, typename OP2T>
