@@ -801,9 +801,6 @@ namespace wo
                     {
                         a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
                         a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
-
-                        if (a_pattern_identifier->decl == ast::identifier_decl::REF)
-                            initval->is_mark_as_using_ref = true;
                     }
                 }
                 else
@@ -857,27 +854,6 @@ namespace wo
                     analyze_pass2(initval);
 
                     a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
-                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
-                    {
-                        initval->is_mark_as_using_ref = true;
-                        if (auto* a_val_tkpalce = dynamic_cast<ast_value_takeplace*>(initval))
-                        {
-                            if (!a_val_tkpalce->as_ref)
-                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                        }
-                        else
-                        {
-                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(initval))
-                            {
-                                if (a_val_symb->symbol->attribute->is_constant_attr())
-                                    lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                            else if (!initval->can_be_assign || initval->is_constant)
-                            {
-                                lang_anylizer->lang_error(0x0000, initval, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                        }
-                    }
                 }
                 else
                 {
@@ -885,17 +861,6 @@ namespace wo
                     for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
                     {
                         impl_symbol->has_been_defined_in_pass2 = true;
-                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
-                        {
-                            impl_symbol->variable_value->is_mark_as_using_ref = true;
-
-                            if (auto* a_val_symb = dynamic_cast<ast_value_symbolable_base*>(impl_symbol->variable_value);
-                                (a_val_symb && a_val_symb->symbol && a_val_symb->symbol->attribute->is_constant_attr())
-                                || !impl_symbol->variable_value->can_be_assign || impl_symbol->variable_value->is_constant)
-                            {
-                                lang_anylizer->lang_error(0x0000, impl_symbol->variable_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                            }
-                        }
                     }
                 }
             }
@@ -941,31 +906,25 @@ namespace wo
             {
                 if (a_pattern_identifier->template_arguments.empty())
                 {
-                    if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
+                    if (!a_pattern_identifier->symbol->is_constexpr)
                     {
-                        auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
+                        auto ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
 
-                        auto& aim_ob = analyze_value(initval, compiler);
-
-                        if (is_non_ref_tem_reg(aim_ob))
-                            lang_anylizer->lang_error(0x0000, initval, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                        compiler->ext_setref(ref_ob, aim_ob);
-                    }
-                    else
-                    {
-                        if (!a_pattern_identifier->symbol->is_constexpr)
+                        if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
                         {
-                            auto& ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
-
                             if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                 !valtkpls || valtkpls->used_reg)
                             {
                                 if (is_need_dup_when_mov(initval))
-                                    compiler->ext_movdup(ref_ob, analyze_value(initval, compiler));
+                                    compiler->ext_movdup(**opnum, analyze_value(initval, compiler));
                                 else
-                                    compiler->mov(ref_ob, analyze_value(initval, compiler));
+                                    compiler->mov(**opnum, analyze_value(initval, compiler));
                             }
+                        }
+                        else
+                        {
+                            auto stackoffset = std::get<int16_t>(ref_ob);
+                            compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
                         }
                     }
                 }
@@ -976,31 +935,25 @@ namespace wo
                         = a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list;
                     for (auto& [_, symbol] : all_template_impl_variable_symbol)
                     {
-                        if (a_pattern_identifier->symbol->decl == ast::identifier_decl::REF)
+                        if (!symbol->is_constexpr)
                         {
-                            auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
+                            auto ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
 
-                            auto& aim_ob = analyze_value(symbol->variable_value, compiler);
-
-                            if (is_non_ref_tem_reg(aim_ob))
-                                lang_anylizer->lang_error(0x0000, symbol->variable_value, WO_ERR_NOT_REFABLE_INIT_ITEM);
-
-                            compiler->ext_setref(ref_ob, aim_ob);
-                        }
-                        else
-                        {
-                            if (!symbol->is_constexpr)
+                            if (auto** opnum = std::get_if<opnum::opnumbase*>(&ref_ob))
                             {
-                                auto& ref_ob = get_opnum_by_symbol(a_pattern_identifier, symbol, compiler);
-
                                 if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                     !valtkpls || valtkpls->used_reg)
                                 {
                                     if (is_need_dup_when_mov(symbol->variable_value))
-                                        compiler->ext_movdup(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                        compiler->ext_movdup(**opnum, analyze_value(symbol->variable_value, compiler));
                                     else
-                                        compiler->mov(ref_ob, analyze_value(symbol->variable_value, compiler));
+                                        compiler->mov(**opnum, analyze_value(symbol->variable_value, compiler));
                                 }
+                            }
+                            else
+                            {
+                                auto stackoffset = std::get<int16_t>(ref_ob);
+                                compiler->sts(analyze_value(initval, compiler), imm(stackoffset));
                             }
                         }
                     } // end of for (auto& [_, symbol] : all_template_impl_variable_symbol)
@@ -1612,12 +1565,6 @@ namespace wo
                     fully_update_type(a_value->value_type, false);
                 if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
                     a_value->value_type->set_is_mutable(true);
-
-                if (a_value->is_mark_as_using_ref)
-                {
-                    if (!a_value->can_be_assign && !a_value->value_type->is_mutable())
-                        lang_anylizer->lang_error(0x0000, a_value, WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF);
-                }
             }
 
             WO_TRY_BEGIN;
@@ -1660,17 +1607,6 @@ namespace wo
                     {
                         a_value_base->can_be_assign = false;
                     }
-                }
-                // DONOT SWAP THESE TWO SENTENCES, BECAUSE has_been_assigned IS NOT 
-                // DECIDED BY a_value_base->symbol->is_ref
-
-                if (a_value_base->symbol && a_value_base->symbol->decl == identifier_decl::REF)
-                    a_value_base->is_ref_ob_in_finalize = true;
-
-                if (!a_value_base_for_attrb)
-                {
-                    a_value_type_judge_for_attrb->is_mark_as_using_ref = a_value_base->is_mark_as_using_ref;
-                    a_value_type_judge_for_attrb->is_ref_ob_in_finalize = a_value_base->is_ref_ob_in_finalize;
                 }
             }
 
@@ -1905,6 +1841,16 @@ namespace wo
             _complete_using_all_register_for_ref_value();
         }
 
+        bool is_reg(opnum::opnumbase& op_num)
+        {
+            using namespace opnum;
+            if (auto* regist = dynamic_cast<reg*>(&op_num))
+            {
+                return true;
+            }
+            return false;
+        }
+
         bool is_cr_reg(opnum::opnumbase& op_num)
         {
             using namespace opnum;
@@ -1949,23 +1895,7 @@ namespace wo
                 if (regist->id == reg::cr)
                     return op_num;
             }
-            compiler->set(reg(reg::cr), op_num);
-            return WO_NEW_OPNUM(reg(reg::cr));
-        }
-
-        opnum::opnumbase& set_ref_value_to_cr(opnum::opnumbase& op_num, ir_compiler* compiler)
-        {
-            using namespace ast;
-            using namespace opnum;
-            if (_last_value_stored_to_cr)
-                return op_num;
-
-            if (auto* regist = dynamic_cast<reg*>(&op_num))
-            {
-                if (regist->id == reg::cr)
-                    return op_num;
-            }
-            compiler->ext_setref(reg(reg::cr), op_num);
+            compiler->mov(reg(reg::cr), op_num);
             return WO_NEW_OPNUM(reg(reg::cr));
         }
 
@@ -1976,14 +1906,14 @@ namespace wo
             using namespace opnum;
             return WO_NEW_OPNUM(global((int32_t)global_symbol_index++));
         }
-        opnum::opnumbase& get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
+        std::variant<opnum::opnumbase*, int16_t> get_opnum_by_symbol(grammar::ast_base* error_prud, lang_symbol* symb, ir_compiler* compiler, bool get_pure_value = false)
         {
             using namespace opnum;
 
             if (!symb)
             {
                 lang_anylizer->lang_error(0x0000, error_prud, L"找不到符号，继续");
-                return WO_NEW_OPNUM(reg(reg::ni));
+                return &WO_NEW_OPNUM(reg(reg::ni));
             }
 
             if (symb->is_constexpr
@@ -1994,19 +1924,19 @@ namespace wo
                     && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)
                     // Only normal func (without capture vars) can use this way to optimize.
                     && dynamic_cast<ast::ast_value_function_define*>(symb->variable_value)->capture_variables.empty()))
-                return analyze_value(symb->variable_value, compiler, get_pure_value, false);
+                return &analyze_value(symb->variable_value, compiler, get_pure_value, false);
 
             if (symb->type == lang_symbol::symbol_type::variable)
             {
                 if (symb->static_symbol)
                 {
                     if (!get_pure_value)
-                        return WO_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
+                        return &WO_NEW_OPNUM(global((int32_t)symb->global_index_in_lang));
                     else
                     {
                         auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                        compiler->set(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
-                        return loaded_pure_glb_opnum;
+                        compiler->mov(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
+                        return &loaded_pure_glb_opnum;
                     }
                 }
                 else
@@ -2019,37 +1949,38 @@ namespace wo
                         stackoffset = symb->stackvalue_index_in_funcs;
                     if (!get_pure_value)
                     {
-                        if (stackoffset <= 64 || stackoffset >= -63)
-                            return WO_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
+                        if (stackoffset <= 64 && stackoffset >= -63)
+                            return &WO_NEW_OPNUM(reg(reg::bp_offset(-(int8_t)stackoffset)));
                         else
                         {
-                            auto& ldr_aim = get_useable_register_for_ref_value();
-                            compiler->ldsr(ldr_aim, imm(-(int16_t)stackoffset));
-                            return ldr_aim;
+                            // Fuck GCC!
+                            return (int16_t)-stackoffset;
                         }
                     }
                     else
                     {
-                        if (stackoffset <= 64 || stackoffset >= -63)
+                        if (stackoffset <= 64 && stackoffset >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
-                            return loaded_pure_glb_opnum;
+                            compiler->mov(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
+                            return &loaded_pure_glb_opnum;
                         }
                         else
                         {
                             auto& lds_aim = get_useable_register_for_ref_value();
                             compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
-                            return lds_aim;
+                            return &lds_aim;
                         }
                     }
                 }
             }
             else
-                return analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
+                return &analyze_value(symb->get_funcdef(), compiler, get_pure_value, false);
         }
 
         bool _last_value_stored_to_cr = false;
+        bool _last_value_from_stack = false;
+        int16_t _last_stack_offset_to_write = 0;
 
         struct auto_cancel_value_store_to_cr
         {
@@ -2065,11 +1996,11 @@ namespace wo
                 *aim_flag = clear_sign;
             }
 
-            void write_to_cr()
+            void set_true()
             {
                 clear_sign = true;
             }
-            void not_write_to_cr()
+            void set_false()
             {
                 clear_sign = false;
             }
@@ -2081,6 +2012,7 @@ namespace wo
                 compiler->pdb_info->generate_debug_info_at_astnode(value, compiler);
 
             auto_cancel_value_store_to_cr last_value_stored_to_cr_flag(_last_value_stored_to_cr);
+            auto_cancel_value_store_to_cr last_value_stored_to_stack_flag(_last_value_from_stack);
             using namespace ast;
             using namespace opnum;
             if (value->is_constant)
@@ -2098,7 +2030,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.integer));
+                        compiler->mov(treg, imm(const_value.integer));
                         return treg;
                     }
                 case value::valuetype::real_type:
@@ -2107,7 +2039,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.real));
+                        compiler->mov(treg, imm(const_value.real));
                         return treg;
                     }
                 case value::valuetype::handle_type:
@@ -2116,7 +2048,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm((void*)const_value.handle));
+                        compiler->mov(treg, imm((void*)const_value.handle));
                         return treg;
                     }
                 case value::valuetype::string_type:
@@ -2125,7 +2057,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.string->c_str()));
+                        compiler->mov(treg, imm(const_value.string->c_str()));
                         return treg;
                     }
                 case value::valuetype::invalid:  // for nil
@@ -2137,7 +2069,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, reg(reg::ni));
+                        compiler->mov(treg, reg(reg::ni));
                         return treg;
                     }
                 default:
@@ -2253,7 +2185,7 @@ namespace wo
                 if (get_pure_value && is_cr_reg(beoped_left_opnum))
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->set(treg, beoped_left_opnum);
+                    compiler->mov(treg, beoped_left_opnum);
                     return treg;
                 }
                 else
@@ -2261,154 +2193,261 @@ namespace wo
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
-                bool using_sidmap_to_store_value = false;
-                auto* a_value_index_map = dynamic_cast<ast_value_index*>(a_value_assign->left);
-                if (a_value_index_map
-                    && a_value_index_map->from->value_type->is_map()
-                    && a_value_assign->operate == +lex_type::l_assign)
-                    // a[xx] = val; generate 'sidmap' opcode!
-                    a_value_index_map->using_sidmap_to_store_value = using_sidmap_to_store_value = true;
+                ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left);
+                opnumbase* _store_value = nullptr;
+                bool beassigned_value_from_stack = false;
+                int16_t beassigned_value_stack_place = 0;
 
-                // if mixed type, do opx
-                bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
-                value::valuetype optype = value::valuetype::invalid;
-                if (same_type)
-                    optype = a_value_assign->left->value_type->value_type;
-
-                if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
-                    symb_left && symb_left->symbol->attribute->is_constant_attr())
+                if (!(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign))
                 {
-                    lang_anylizer->lang_error(0x0000, value, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
-                }
-                size_t revert_pos = compiler->get_now_ip();
+                    // if mixed type, do opx
+                    bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
+                    value::valuetype optype = value::valuetype::invalid;
+                    if (same_type)
+                        optype = a_value_assign->left->value_type->value_type;
 
-                auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
-                auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
+                    if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
+                        symb_left && symb_left->symbol->attribute->is_constant_attr())
+                    {
+                        lang_anylizer->lang_error(0x0000, value, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
+                    }
+                    size_t revert_pos = compiler->get_now_ip();
 
-                if (is_cr_reg(*beoped_left_opnum_ptr)
-                    //      FUNC CALL                           A + B ...                       A[X] (.E.G)
-                    && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
-                {
-                    complete_using_register(*beoped_left_opnum_ptr);
-                    complete_using_register(*op_right_opnum_ptr);
-                    compiler->revert_code_to(revert_pos);
-                    op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
-                    beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
-                }
+                    auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler, a_value_index != nullptr);
+                    beassigned_value_from_stack = _last_value_from_stack;
+                    beassigned_value_stack_place = _last_stack_offset_to_write;
 
-                auto& beoped_left_opnum = *beoped_left_opnum_ptr;
-                auto& op_right_opnum = *op_right_opnum_ptr;
+                    // Assign not need for this variable, revert it.
+                    if (a_value_assign->operate == +lex_type::l_assign)
+                    {
+                        complete_using_register(*beoped_left_opnum_ptr);
+                        compiler->revert_code_to(revert_pos);
+                    }
 
-                switch (a_value_assign->operate)
-                {
-                case lex_type::l_assign:
-                    wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
-                    if (is_need_dup_when_mov(a_value_assign->right))
-                        // TODO Right may be 'nil', do not dup nil..
-                        compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
+                    auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
+
+                    if (is_cr_reg(*beoped_left_opnum_ptr)
+                        //      FUNC CALL                           A + B ...                       A[X] (.E.G)
+                        && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
+                    {
+                        // if assigned value is an index, it's result will be placed to non-cr place. so cannot be here.
+                        wo_assert(a_value_index == nullptr);
+
+                        // If beassigned_value_from_stack, it will generate a template register. so cannot be here.
+                        wo_assert(beassigned_value_from_stack == false);
+
+                        complete_using_register(*beoped_left_opnum_ptr);
+                        complete_using_register(*op_right_opnum_ptr);
+                        compiler->revert_code_to(revert_pos);
+                        op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler, true);
+                        beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
+                    }
+
+                    auto& beoped_left_opnum = *beoped_left_opnum_ptr;
+                    auto& op_right_opnum = *op_right_opnum_ptr;
+
+                    switch (a_value_assign->operate)
+                    {
+                    case lex_type::l_assign:
+                        wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
+                        if (beassigned_value_from_stack)
+                            compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
+                        else if (is_need_dup_when_mov(a_value_assign->right))
+                            // TODO Right may be 'nil', do not dup nil..
+                            compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
+                        else
+                            compiler->mov(beoped_left_opnum, op_right_opnum);
+                        break;
+                    case lex_type::l_add_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->addi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->addr(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::handle_type:
+                            compiler->addh(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::string_type:
+                            compiler->adds(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+                        break;
+                    case lex_type::l_sub_assign:
+
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->subi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->subr(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::handle_type:
+                            compiler->subh(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    case lex_type::l_mul_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->muli(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->mulr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    case lex_type::l_div_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->divi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->divr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+                        break;
+                    case lex_type::l_mod_assign:
+                        switch (optype)
+                        {
+                        case wo::value::valuetype::integer_type:
+                            compiler->modi(beoped_left_opnum, op_right_opnum); break;
+                        case wo::value::valuetype::real_type:
+                            compiler->modr(beoped_left_opnum, op_right_opnum); break;
+                        default:
+                            lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                                a_value_assign->left->value_type->get_type_name(false).c_str(),
+                                a_value_assign->right->value_type->get_type_name(false).c_str());
+                            break;
+                        }
+
+                        break;
+                    default:
+                        wo_error("Do not support this operator..");
+                        break;
+                    }
+
+                    _store_value = &beoped_left_opnum;
+
+                    if (beassigned_value_from_stack)
+                    {
+                        if (a_value_assign->operate == +lex_type::l_assign)
+                            _store_value = &op_right_opnum;
+                        else
+                        {
+                            compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
+                            complete_using_register(op_right_opnum);
+                        }
+                    }
                     else
-                        compiler->mov(beoped_left_opnum, op_right_opnum);
-                    break;
-                case lex_type::l_add_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->addi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->addr(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::handle_type:
-                        compiler->addh(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::string_type:
-                        compiler->adds(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-                    break;
-                case lex_type::l_sub_assign:
-
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->subi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->subr(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::handle_type:
-                        compiler->subh(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-
-                    break;
-                case lex_type::l_mul_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->muli(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->mulr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-
-                    break;
-                case lex_type::l_div_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->divi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->divr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-                    break;
-                case lex_type::l_mod_assign:
-                    switch (optype)
-                    {
-                    case wo::value::valuetype::integer_type:
-                        compiler->modi(beoped_left_opnum, op_right_opnum); break;
-                    case wo::value::valuetype::real_type:
-                        compiler->modr(beoped_left_opnum, op_right_opnum); break;
-                    default:
-                        lang_anylizer->lang_error(0xC000, a_value_assign, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
-                            a_value_assign->left->value_type->get_type_name(false).c_str(),
-                            a_value_assign->right->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-
-                    break;
-                default:
-                    wo_error("Do not support this operator..");
-                    break;
+                        complete_using_register(op_right_opnum);
                 }
-                complete_using_register(op_right_opnum);
+                else
+                {
+                    wo_assert(beassigned_value_from_stack == false);
+                    wo_assert(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign);
+                    _store_value = &analyze_value(a_value_assign->right, compiler);
 
-                if (get_pure_value && is_cr_reg(beoped_left_opnum))
+                    if (is_cr_reg(*_store_value))
+                    {
+                        auto* _store_value_place = &get_useable_register_for_pure_value();
+                        compiler->mov(*_store_value_place, *_store_value);
+                        _store_value = _store_value_place;
+                    }
+                }
+
+                wo_assert(_store_value != nullptr);
+
+                if (a_value_index != nullptr)
+                {
+                    wo_assert(beassigned_value_from_stack == false);
+
+                    if (a_value_index->from->value_type->is_struct())
+                    {
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);
+                    }
+                    else
+                    {
+                        size_t revert_pos = compiler->get_now_ip();
+
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        auto* _index_value = &analyze_value(a_value_index->index, compiler);
+
+                        if (is_cr_reg(*_from_value)
+                            && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
+                        {
+                            complete_using_register(*_from_value);
+                            complete_using_register(*_from_value);
+                            compiler->revert_code_to(revert_pos);
+                            _index_value = &analyze_value(a_value_index->index, compiler, true);
+                            _from_value = &analyze_value(a_value_index->from, compiler);
+                        }
+                        auto& from_value = *_from_value;
+                        auto& index_value = *_index_value;
+
+                        auto* _final_store_value = _store_value;
+                        if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
+                        {
+                            // Use pm reg here because here has no other command to generate.
+                            _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
+                            compiler->mov(*_final_store_value, *_store_value);
+                        }
+                        // Do not generate any other command to make sure reg::pm usable!
+
+                        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
+                            compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else if (a_value_index->from->value_type->is_map() || a_value_index->from->value_type->is_dict())
+                            compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else
+                            wo_error("Unknown unindex & storable type.");
+                    }
+                }
+
+                if (get_pure_value)
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->set(treg, beoped_left_opnum);
+                    compiler->mov(treg, *_store_value);
                     return treg;
                 }
                 else
-                    return beoped_left_opnum;
+                    return *_store_value;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
             {
                 // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
                 auto symb = a_value_variable->symbol;
-                return get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
+                auto opnum_or_stackoffset = get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
+                if (auto* opnum = std::get_if<opnumbase*>(&opnum_or_stackoffset))
+                    return **opnum;
+                else
+                {
+                    _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+                    wo_assert(get_pure_value == false);
+
+                    last_value_stored_to_stack_flag.set_true();
+
+                    auto& usable_stack = get_useable_register_for_pure_value();
+                    compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+
+                    return usable_stack;
+                }
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
@@ -2428,7 +2467,7 @@ namespace wo
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->setcast(treg,
+                compiler->movcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->aim_type->value_type);
                 return treg;
@@ -2480,7 +2519,7 @@ namespace wo
                         if (get_pure_value)
                         {
                             auto& treg = get_useable_register_for_pure_value();
-                            compiler->set(treg, reg(reg::cr));
+                            compiler->mov(treg, reg(reg::cr));
                             return treg;
                         }
                         else
@@ -2510,14 +2549,32 @@ namespace wo
                         for (auto idx = a_value_function_define->capture_variables.rbegin();
                             idx != a_value_function_define->capture_variables.rend();
                             ++idx)
-                            compiler->psh(get_opnum_by_symbol(a_value_function_define, *idx, compiler));
+                        {
+                            auto opnum_or_stackoffset = get_opnum_by_symbol(a_value_function_define, *idx, compiler);
+                            if (auto* opnum = std::get_if<opnumbase*>(&opnum_or_stackoffset))
+                                compiler->psh(**opnum);
+                            else
+                            {
+                                _last_stack_offset_to_write = std::get<int16_t>(opnum_or_stackoffset);
+                                wo_assert(get_pure_value == false);
+
+                                last_value_stored_to_stack_flag.set_true();
+
+                                auto& usable_stack = get_useable_register_for_pure_value();
+                                compiler->lds(usable_stack, imm(_last_stack_offset_to_write));
+                                compiler->psh(usable_stack);
+
+                                complete_using_register(usable_stack);
+                            }
+                            
+                        }
 
                         compiler->mkclos((uint16_t)a_value_function_define->capture_variables.size(),
                             opnum::tagimm_rsfunc(a_value_function_define->get_ir_func_signature_tag()));
                         if (get_pure_value)
                         {
                             auto& treg = get_useable_register_for_pure_value();
-                            compiler->set(treg, reg(reg::cr));
+                            compiler->mov(treg, reg(reg::cr));
                             return treg;
                         }
                         else
@@ -2596,7 +2653,7 @@ namespace wo
                         else
                         {
                             if (a_fakevalue_unpacked_args->expand_count <= 0)
-                                compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
+                                compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
                             else
                                 extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
@@ -2606,24 +2663,7 @@ namespace wo
                     }
                     else
                     {
-                        if (argv->is_mark_as_using_ref)
-                        {
-                            auto& val = analyze_value(argv, compiler);
-                            if (is_cr_reg(val))
-                            {
-                                auto& refreg = get_useable_register_for_ref_value();
-                                // Cr may be modified in other calculated argument, such as:
-                                //  foo(ref f1(), ref f2())
-                                // So here need store the ref.
-                                compiler->ext_trans(refreg, reg(reg::cr));
-                                compiler->pshr(refreg);
-                            }
-                            else
-                                // Do not complete refreg, it might be used in other expr
-                                // TODO: Finish using reg after function call.
-                                compiler->pshr(val);
-                        }
-                        else if (is_need_dup_when_mov(argv))
+                        if (is_need_dup_when_mov(argv))
                             lang_anylizer->lang_error(0x0000, argv, L"不允许将 'const' 的非平凡类型值作为调用函数的参数，继续");
                         else
                             compiler->psh(complete_using_register(analyze_value(argv, compiler)));
@@ -2645,35 +2685,27 @@ namespace wo
                     || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
 
                 if (!full_unpack_arguments && need_using_tc)
-                    compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
+                    compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
                 opnumbase* reg_for_current_funccall_argc = nullptr;
                 if (full_unpack_arguments)
                 {
                     reg_for_current_funccall_argc = &get_useable_register_for_pure_value();
-                    compiler->set(*reg_for_current_funccall_argc, reg(reg::tc));
+                    compiler->mov(*reg_for_current_funccall_argc, reg(reg::tc));
                 }
 
                 compiler->call(complete_using_register(*called_func_aim));
 
-                last_value_stored_to_cr_flag.write_to_cr();
+                last_value_stored_to_cr_flag.set_true();
 
                 opnum::opnumbase* result_storage_place = nullptr;
 
                 if (full_unpack_arguments)
                 {
-                    last_value_stored_to_cr_flag.not_write_to_cr();
+                    last_value_stored_to_cr_flag.set_false();
 
-                    if (a_value_funccall->is_mark_as_using_ref)
-                    {
-                        result_storage_place = &get_useable_register_for_ref_value();
-                        compiler->ext_setref(*result_storage_place, reg(reg::cr));
-                    }
-                    else
-                    {
-                        result_storage_place = &get_useable_register_for_pure_value();
-                        compiler->set(*result_storage_place, reg(reg::cr));
-                    }
+                    result_storage_place = &get_useable_register_for_pure_value();
+                    compiler->mov(*result_storage_place, reg(reg::cr));
 
                     wo_assert(reg_for_current_funccall_argc);
                     auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
@@ -2708,11 +2740,11 @@ namespace wo
                 }
                 else
                 {
-                    if (full_unpack_arguments && !a_value_funccall->is_mark_as_using_ref)
+                    if (full_unpack_arguments)
                         return *result_storage_place;
 
                     auto& funcresult = get_useable_register_for_pure_value();
-                    compiler->set(funcresult, *result_storage_place);
+                    compiler->mov(funcresult, *result_storage_place);
                     return funcresult;
                 }
             }
@@ -2900,7 +2932,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
             }
@@ -2919,12 +2951,7 @@ namespace wo
                 }
 
                 for (auto* in_arr_val : arr_list)
-                {
-                    if (in_arr_val->is_mark_as_using_ref)
-                        compiler->pshr(complete_using_register(analyze_value(in_arr_val, compiler)));
-                    else
-                        compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
-                }
+                    compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
 
                 auto& treg = get_useable_register_for_pure_value();
                 wo_assert(arr_list.size() <= UINT16_MAX);
@@ -2942,11 +2969,7 @@ namespace wo
                     wo_test(_map_pair);
 
                     compiler->psh(complete_using_register(analyze_value(_map_pair->key, compiler)));
-
-                    if (_map_pair->val->is_mark_as_using_ref)
-                        compiler->pshr(complete_using_register(analyze_value(_map_pair->val, compiler)));
-                    else
-                        compiler->psh(complete_using_register(analyze_value(_map_pair->val, compiler)));
+                    compiler->psh(complete_using_register(analyze_value(_map_pair->val, compiler)));
 
                     _map_item = _map_item->sibling;
                     map_pair_count++;
@@ -2986,16 +3009,13 @@ namespace wo
                     auto& beoped_left_opnum = *_beoped_left_opnum;
                     auto& op_right_opnum = *_op_right_opnum;
 
-                    last_value_stored_to_cr_flag.write_to_cr();
+                    last_value_stored_to_cr_flag.set_true();
 
                     if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                         compiler->idarr(beoped_left_opnum, op_right_opnum);
                     else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
                     {
-                        if (a_value_index->using_sidmap_to_store_value)
-                            compiler->sidmap(beoped_left_opnum, op_right_opnum);
-                        else
-                            compiler->iddict(beoped_left_opnum, op_right_opnum);
+                        compiler->iddict(beoped_left_opnum, op_right_opnum);
                     }
                     else if (a_value_index->from->value_type->is_string())
                         compiler->idstr(beoped_left_opnum, op_right_opnum);
@@ -3012,7 +3032,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
 
@@ -3046,62 +3066,42 @@ namespace wo
 
                 auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
                 auto function_arg_count = now_function_in_final_anylize->value_type->argument_types.size();
-                if (!get_pure_value)
-                {
 
-                    if (a_value_indexed_variadic_args->argindex->is_constant)
+                if (a_value_indexed_variadic_args->argindex->is_constant)
+                {
+                    auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
+                    if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                     {
-                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
+                        if (!get_pure_value)
                             return WO_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
                                 + function_arg_count))));
                         else
                         {
-                            auto& result = get_useable_register_for_ref_value();
-                            compiler->ldsr(result, imm(_cv.integer + capture_count + 2
-                                + function_arg_count));
+                            auto& result = get_useable_register_for_pure_value();
+
+                            last_value_stored_to_cr_flag.set_true();
+                            compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                                + function_arg_count))));
+
                             return result;
                         }
                     }
                     else
                     {
-                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2
-                            + capture_count + function_arg_count));
-                        complete_using_register(index);
                         auto& result = get_useable_register_for_ref_value();
-                        compiler->ldsr(result, index);
+                        compiler->lds(result, imm(_cv.integer + capture_count + 2
+                            + function_arg_count));
                         return result;
                     }
                 }
                 else
                 {
-                    auto& result = get_useable_register_for_pure_value();
-
-                    if (a_value_indexed_variadic_args->argindex->is_constant)
-                    {
-                        auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                        if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
-                        {
-                            last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
-                                + function_arg_count))));
-                        }
-                        else
-                        {
-                            compiler->lds(result, imm(_cv.integer + capture_count + 2
-                                + function_arg_count));
-                        }
-                    }
-                    else
-                    {
-                        auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                        compiler->addi(index, imm(2 + capture_count
-                            + function_arg_count));
-                        complete_using_register(index);
-                        compiler->lds(result, index);
-
-                    }
+                    auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
+                    compiler->addi(index, imm(2
+                        + capture_count + function_arg_count));
+                    complete_using_register(index);
+                    auto& result = get_useable_register_for_ref_value();
+                    compiler->lds(result, index);
                     return result;
                 }
             }
@@ -3125,14 +3125,14 @@ namespace wo
                     if (a_value_unary->val->value_type->is_integer())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->mov(reg(reg::cr), imm(0));
                         compiler->subi(reg(reg::cr), result);
                         complete_using_register(result);
                     }
                     else if (a_value_unary->val->value_type->is_real())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->mov(reg(reg::cr), imm(0));
                         compiler->subi(reg(reg::cr), result);
                         complete_using_register(result);
                     }
@@ -3149,7 +3149,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
             }
@@ -3169,7 +3169,7 @@ namespace wo
                     else
                     {
                         auto& result = get_useable_register_for_pure_value();
-                        compiler->set(result, *a_value_takeplace->used_reg);
+                        compiler->mov(result, *a_value_takeplace->used_reg);
                         return result;
                     }
                 }
@@ -3189,10 +3189,7 @@ namespace wo
 
                 for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
                 {
-                    if (index->second->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(index->second, compiler));
-                    else
-                        compiler->psh(analyze_value(index->second, compiler));
+                    compiler->psh(analyze_value(index->second, compiler));
                 }
 
                 auto& result = get_useable_register_for_pure_value();
@@ -3214,10 +3211,7 @@ namespace wo
                 }
                 for (auto val : arr_list)
                 {
-                    if (val->is_mark_as_using_ref)
-                        compiler->pshr(analyze_value(val, compiler));
-                    else
-                        compiler->psh(analyze_value(val, compiler));
+                    compiler->psh(analyze_value(val, compiler));
                 }
 
                 auto& result = get_useable_register_for_pure_value();
@@ -3327,7 +3321,7 @@ namespace wo
                         auto& static_inited_flag = get_new_global_variable();
                         compiler->equb(static_inited_flag, reg(reg::ni));
                         compiler->jf(tag(init_static_flag_check_tag));
-                        compiler->set(static_inited_flag, imm(1));
+                        compiler->mov(static_inited_flag, imm(1));
                     }
 
                     analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, compiler);
@@ -3494,10 +3488,6 @@ namespace wo
                 {
                     if (is_need_dup_when_mov(a_return->return_value))
                         lang_anylizer->lang_error(0x0000, a_return, L"不允许将 'const' 的非平凡类型值作为函数的返回值，继续");
-                    else if (a_return->return_value->is_mark_as_using_ref)
-                        set_ref_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
-                    else if (a_return->return_value->is_mark_as_using_ref)
-                        mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
                     else
                         mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
 
@@ -3607,7 +3597,7 @@ namespace wo
             {
                 a_match->match_end_tag_in_final_pass = compiler->get_unique_tag_based_command_ip() + "match_end";
 
-                compiler->set(reg(reg::pm), auto_analyze_value(a_match->match_value, compiler));
+                compiler->mov(reg(reg::pm), auto_analyze_value(a_match->match_value, compiler));
                 // 1. Get id in cr.
                 compiler->idstruct(reg(reg::cr), reg(reg::pm), 0);
 
@@ -3751,28 +3741,13 @@ namespace wo
                     {
                         if (auto* a_value_arg_define = dynamic_cast<ast::ast_value_arg_define*>(arg_index))
                         {
-                            if (a_value_arg_define->decl == ast::identifier_decl::REF
-                                || a_value_arg_define->decl == ast::identifier_decl::IMMUTABLE)
-                            {
-                                funcdef->this_func_scope->
-                                    reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
+                            // Issue N221109: Reference will not support.
+                            // All arguments will 'psh' to stack & no 'pshr' command in future.
+                            funcdef->this_func_scope->
+                                reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
-                                wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                                a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
-
-                            }
-                            else
-                            {
-                                wo_integer_t stoffset = +2 + arg_count + (int8_t)funcdef->capture_variables.size();
-                                if (stoffset >= -64 && stoffset <= 63)
-                                {
-                                    compiler->set(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                        opnum::reg(opnum::reg::bp_offset((int8_t)stoffset)));
-                                }
-                                else
-                                    compiler->lds(get_opnum_by_symbol(a_value_arg_define, a_value_arg_define->symbol, compiler),
-                                        opnum::imm(stoffset));
-                            }
+                            wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
+                            a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
                         }
                         else//variadic
                             break;
@@ -3796,7 +3771,7 @@ namespace wo
                     if (!funcdef->value_type->complex_type->is_void())
                         compiler->ext_panic(opnum::imm("Function returned without valid value."));
                     /*else
-                        compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
+                        compiler->mov(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
                         // compiler->pop(reserved_stack_size);
 
                     if (funcdef->is_closure_function())

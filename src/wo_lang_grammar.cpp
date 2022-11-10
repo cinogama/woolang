@@ -362,13 +362,13 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FORLOOP") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"VAR_REF_DEFINE_WITH_SEMICOLON") >> gm::symlist{ gm::nt(L"VAR_REF_DEFINE"), gm::te(gm::ttype::l_semicolon) }
+                gm::nt(L"VAR_DEFINE_WITH_SEMICOLON") >> gm::symlist{ gm::nt(L"VAR_DEFINE_LET_SENTENCE"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"FORLOOP") >> gm::symlist{
                                 gm::te(gm::ttype::l_for),
                                 gm::te(gm::ttype::l_left_brackets),
-                                gm::nt(L"VAR_REF_DEFINE_WITH_SEMICOLON"),
+                                gm::nt(L"VAR_DEFINE_WITH_SEMICOLON"),
                                 gm::nt(L"MAY_EMPTY_EXPRESSION"),
                                 gm::te(gm::ttype::l_semicolon),
                                     gm::nt(L"MAY_EMPTY_EXPRESSION"),
@@ -443,10 +443,10 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"VAR_REF_DEFINE")}
+                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"VAR_DEFINE_LET_SENTENCE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),//ASTVariableDefination
 
-                gm::nt(L"VAR_REF_DEFINE") >> gm::symlist{
+                gm::nt(L"VAR_DEFINE_LET_SENTENCE") >> gm::symlist{
                 gm::nt(L"DECL_ATTRIBUTE"),
                 gm::te(gm::ttype::l_let),
                 gm::nt(L"VARDEFINE")}
@@ -473,7 +473,7 @@ namespace wo
 
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"MAY_REF_MUT_VALUE") }
+                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::nt(L"EXPRESSION") }
@@ -608,22 +608,14 @@ namespace wo
                 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_VAR_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE_REF_ITEM") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-
                 gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_VAR_ITEM") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-                gm::nt(L"ARGDEFINE") >> gm::symlist{ gm::nt(L"ARGDEFINE"),gm::te(gm::ttype::l_comma),gm::nt(L"ARGDEFINE_REF_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
                 gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_ref),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
+                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::te(gm::ttype::l_identifier),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-
-                gm::nt(L"ARGDEFINE_REF_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
+                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"TRI_ITEM") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
@@ -774,7 +766,7 @@ namespace wo
 
                 gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_brackets),
-                                        gm::nt(L"MAY_REF_MUT_VALUE"),
+                                        gm::nt(L"MAY_MUT_VALUE"),
                                         gm::te(gm::ttype::l_comma),
                                         gm::nt(L"COMMA_EXPR"),
                                         gm::te(gm::ttype::l_right_brackets) }
@@ -807,7 +799,7 @@ namespace wo
                 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{
                                                 gm::nt(L"CONSTANT_ARRAY"),
                                                 gm::te(gm::ttype::l_assign), 
-                                                gm::nt(L"MAY_REF_MUT_VALUE") }
+                                                gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
@@ -851,34 +843,28 @@ namespace wo
                 gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
 
                 // MONAD GRAMMAR~~~ SUGAR!
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_LEFT") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"FUNC_DEFINE") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_LEFT") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"FUNC_DEFINE") }
+                gm::nt(L"LEFT") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_map_monad), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_bind_map_monad),
-
-                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING")}
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"MAY_REF_FACTOR_TYPE_CASTING") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets), gm::nt(L"REAL_REF_VALUE") ,gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 gm::nt(L"NORMAL_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -904,26 +890,17 @@ namespace wo
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"MAY_REF_MUT_VALUE") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"MAY_REF_MUT_VALUE") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"MAY_REF_MUT_VALUE") >> gm::symlist{ gm::nt(L"MAY_REF_VALUE") }
+                gm::nt(L"MAY_MUT_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"MAY_REF_MUT_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"MAY_REF_VALUE") }
+                gm::nt(L"MAY_MUT_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut),
-
-                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"MAY_REF_VALUE") >> gm::symlist{ gm::nt(L"REAL_REF_VALUE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"REAL_REF_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_ref),gm::nt(L"LEFT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_ref),
 
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
@@ -1093,9 +1070,6 @@ namespace wo
                 ////////////////////////////////////////////////////
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
-
-                gm::nt(L"DEFINE_PATTERN") >> gm::symlist{  gm::te(gm::ttype::l_ref), gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_identifier_pattern),
 
                 gm::nt(L"DEFINE_PATTERN") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_identifier) }

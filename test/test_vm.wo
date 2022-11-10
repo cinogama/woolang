@@ -45,11 +45,7 @@ namespace test_vm
                 func main()
                 {
                     let a = [1,2,3,4,5];
-                    a->get(0) = 233;
-
-                    if (a[0] != 233)
-                        std::panic("Unexcepted reason fail.");
-
+                    
                     test_template(233);
                     test_template("My world!");
                 }

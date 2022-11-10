@@ -313,7 +313,6 @@ WO_API wo_api rslib_std_ir_command_##COMMAND(wo_vm vm, wo_value args, size_t arg
 }
 
 WO_COMMAND_WITH_2_OPNUM(mov);
-WO_COMMAND_WITH_2_OPNUM(set);
 
 WO_COMMAND_WITH_2_OPNUM(addi);
 WO_COMMAND_WITH_2_OPNUM(subi);
@@ -348,10 +347,7 @@ WO_API wo_api rslib_std_ir_command_popn(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_COMMAND_WITH_1_OPNUM(pshr);
-
 WO_COMMAND_WITH_2_OPNUM(lds);
-WO_COMMAND_WITH_2_OPNUM(ldsr);
 
 WO_COMMAND_WITH_2_OPNUM(equb);
 WO_COMMAND_WITH_2_OPNUM(nequb);
@@ -446,9 +442,6 @@ namespace std
         extern("rslib_std_ir_command_mov")
         public func mov(self: irc, dst: opnum, src: opnum)=> void;
 
-        extern("rslib_std_ir_command_set")
-        public func set(self: irc, dst: opnum, src: opnum)=> void;
-
         extern("rslib_std_ir_command_addi")
         public func addi(self: irc, dst: opnum, src: opnum)=> void;
         extern("rslib_std_ir_command_subi")
@@ -489,13 +482,8 @@ namespace std
         extern("rslib_std_ir_command_popn")
         public func popn(self: irc, count: int)=> void;
 
-        extern("rslib_std_ir_command_pshr")
-        public func pshr(self: irc, op: opnum)=> void;
-
         extern("rslib_std_ir_command_lds")
         public func lds(self: irc, dst: opnum, src: opnum)=> void;
-        extern("rslib_std_ir_command_ldsr")
-        public func ldsr(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_equb")
         public func equb(self: irc, a: opnum, b: opnum)=> void;

@@ -450,17 +450,6 @@ WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_real(vm, _time_ms);
 }
 
-WO_API wo_api rslib_std_atomic_cas(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::value* aim = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* excepted = reinterpret_cast<wo::value*>(args + 1)->get();
-    wo::value* swapval = reinterpret_cast<wo::value*>(args + 2)->get();
-
-    wo_assert(aim->type == excepted->type && excepted->type == swapval->type);
-
-    return wo_ret_bool(vm, ((std::atomic<wo_handle_t>*) & aim->handle)->compare_exchange_weak(excepted->handle, swapval->handle));
-}
-
 WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
 {
     // Read int value from keyboard, always return valid input result;
@@ -561,13 +550,14 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_arr_insert(args + 0, wo_int(args + 1), args + 2));
+    wo_arr_insert(args + 0, wo_int(args + 1), args + 2);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -586,8 +576,8 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -609,7 +599,8 @@ WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_arr_add(args + 0, args + 1));
+    wo_arr_add(args + 0, args + 1);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
@@ -618,8 +609,8 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     wo_set_arr(result, 0);
 
     wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1)->get();
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     do
@@ -643,7 +634,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     wo_set_arr(result, 0);
 
     wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0)->get();
+    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     wo::gcbase::gc_read_guard rg2(arr1->array);
@@ -724,7 +715,7 @@ struct array_iter
 
 WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr = reinterpret_cast<wo::value*>(args)->get();
+    wo::value* arr = reinterpret_cast<wo::value*>(args);
     if (arr->type != wo::value::valuetype::array_type)
         return wo_ret_panic(vm, "DEBUG!");
     return wo_ret_gchandle(vm,
@@ -745,7 +736,7 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 
     wo_value result_tuple = wo_push_struct(vm, 2);
-  
+
     wo_set_int(wo_struct_get(result_tuple, 0), iter.index_count++); // key
     wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&*(iter.iter++))); // val
 
@@ -759,7 +750,8 @@ WO_API wo_api rslib_std_map_find(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_map_set(args + 0, args + 1, args + 2));
+    wo_map_set(args + 0, args + 1, args + 2);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
@@ -767,7 +759,7 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_map_get(args + 0, args + 1);
 
     if (result)
-        return wo_ret_option_ref(vm, result);
+        return wo_ret_option_val(vm, result);
 
     return wo_ret_option_none(vm);
 }
@@ -781,18 +773,18 @@ WO_API wo_api rslib_std_map_contain(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_map_get_or_set_default(args + 0, args + 1, args + 2));
+    return wo_ret_val(vm, wo_map_get_or_set_default(args + 0, args + 1, args + 2));
 }
 
 WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_ref(vm, wo_map_get_or_default(args + 0, args + 1, args + 2));
+    return wo_ret_val(vm, wo_map_get_or_default(args + 0, args + 1, args + 2));
 }
 
 WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1)->get();
+    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -817,8 +809,8 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0)->get();
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1)->get();
+    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -863,7 +855,7 @@ struct map_iter
 
 WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* mapp = reinterpret_cast<wo::value*>(args)->get();
+    wo::value* mapp = reinterpret_cast<wo::value*>(args);
 
     return wo_ret_gchandle(vm,
         new map_iter{ mapp->dict->begin(), mapp->dict->end() },
@@ -1271,9 +1263,6 @@ namespace std
     extern("rslib_std_print") public func print(...)=>int;
     extern("rslib_std_time_sec") public func time()=>real;
 
-    extern("rslib_std_atomic_cas") 
-        public func atomic_cas<T>(ref val:T, ref excepted:T, swapval:T)=>T;
-
     public func println(...)
     {
         let c = print((...)...);
@@ -1370,13 +1359,6 @@ namespace std
         if (a < b)
             return a;
         return b;
-    }
-
-    public func swap<T>(ref a: T, ref b: T)
-    {
-        let t = b;
-        b = a;
-        a = t;
     }
 
     extern("rslib_std_make_dup")
@@ -1652,7 +1634,7 @@ namespace vec
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
 
     extern("rslib_std_array_insert") 
-        public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> T;
+        public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
 
     extern("rslib_std_array_swap") 
         public func swap<T>(val: vec<T>, another: vec<T>)=> void;
@@ -1667,7 +1649,7 @@ namespace vec
     }
 
     extern("rslib_std_array_add") 
-        public func add<T>(val: vec<T>, elem: T)=>T;
+        public func add<T>(val: vec<T>, elem: T)=>void;
 
     extern("rslib_std_array_connect")
     public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
@@ -1899,7 +1881,7 @@ namespace map
     }
 
     extern("rslib_std_map_set") 
-        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> VT;
+        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
 
     extern("rslib_std_lengthof") 
         public func len<KT, VT>(self: map<KT, VT>)=>int;
@@ -2044,7 +2026,7 @@ WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_debug_invoke(wo_vm vm, wo_value args, size_t argc)
 {
     for (size_t index = argc - 1; index > 0; index--)
-        wo_push_ref(vm, args + index);
+        wo_push_val(vm, args + index);
 
     return wo_ret_val(vm, wo_invoke_value(vm, args, argc - 1));
 }
@@ -2160,7 +2142,7 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
     arg_count = wo_lengthof(arg_pack);
 
     for (size_t i = arg_count; i > 0; i--)
-        wo_push_valref(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
+        wo_push_val(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
 
     auto* _vmthread = new std::thread([=]() {
         wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, arg_count);
@@ -2382,7 +2364,7 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
     arg_count = wo_lengthof(arg_pack);
 
     for (size_t i = arg_count; i > 0; i--)
-        wo_push_valref(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
+        wo_push_val(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
 
     wo::shared_pointer<wo::RSCO_Waitter> gchandle_roroutine;
 
@@ -2392,7 +2374,7 @@ WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
     else if (WO_HANDLE_TYPE == functype)
         gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_handle(args + 0), arg_count);
     else if (WO_CLOSURE_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->get()->closure, arg_count);
+        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->closure, arg_count);
     else
         return wo_ret_halt(vm, "Unknown type to call.");
 
@@ -2695,7 +2677,6 @@ namespace std
         l_extern,
 
         l_let,
-        l_ref,
         l_mut,
         l_func,
         l_return,

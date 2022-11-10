@@ -315,7 +315,7 @@ wo_integer_t wo_version_int(void)
 }
 
 #define WO_ORIGIN_VAL(v) (reinterpret_cast<wo::value*>(v))
-#define WO_VAL(v) (WO_ORIGIN_VAL(v)->get())
+#define WO_VAL(v) (WO_ORIGIN_VAL(v))
 #define WO_VM(v) (reinterpret_cast<wo::vmbase*>(v))
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
@@ -446,11 +446,6 @@ wo_bool_t wo_bool(const wo_value value)
 //    return CS_VAL(&_rsvalue->gchandle->holding_value);
 //}
 
-wo_bool_t wo_is_ref(wo_value value)
-{
-    return WO_ORIGIN_VAL(value)->is_ref();
-}
-
 void wo_set_int(wo_value value, wo_integer_t val)
 {
     auto _rsvalue = WO_VAL(value);
@@ -505,16 +500,6 @@ void wo_set_val(wo_value value, wo_value val)
 {
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_val(WO_VAL(val));
-}
-void wo_set_ref(wo_value value, wo_value val)
-{
-    auto _rsvalue = WO_ORIGIN_VAL(value);
-    auto _ref_val = WO_VAL(val);
-
-    if (_rsvalue->is_ref())
-        _rsvalue->set_ref(_rsvalue->ref->set_ref(_ref_val));
-    else
-        _rsvalue->set_ref(_ref_val);
 }
 
 void wo_set_struct(wo_value value, uint16_t structsz)
@@ -923,34 +908,29 @@ wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except
 
 void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, bool _fit_layout, std::string* out_str, int depth)
 {
-    auto _rsvalue = value->get();
-
-    //if (value->type == wo::value::valuetype::is_ref)
-    //    *out_str += "<is_ref>";
-
-    switch (_rsvalue->type)
+    switch (value->type)
     {
     case wo::value::valuetype::integer_type:
-        *out_str += std::to_string(_rsvalue->integer);
+        *out_str += std::to_string(value->integer);
         return;
     case wo::value::valuetype::handle_type:
-        *out_str += std::to_string(_rsvalue->handle);
+        *out_str += std::to_string(value->handle);
         return;
     case wo::value::valuetype::real_type:
-        *out_str += std::to_string(_rsvalue->real);
+        *out_str += std::to_string(value->real);
         return;
     case wo::value::valuetype::gchandle_type:
-        *out_str += std::to_string((wo_handle_t)wo_safety_pointer(_rsvalue->gchandle));
+        *out_str += std::to_string((wo_handle_t)wo_safety_pointer(value->gchandle));
         return;
     case wo::value::valuetype::string_type:
     {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
-        *out_str += _enstring(*_rsvalue->string, true);
+        wo::gcbase::gc_read_guard rg1(value->string);
+        *out_str += _enstring(*value->string, true);
         return;
     }
     case wo::value::valuetype::dict_type:
     {
-        wo::dict_t* map = _rsvalue->dict;
+        wo::dict_t* map = value->dict;
         wo::gcbase::gc_read_guard rg1(map);
 
 
@@ -992,8 +972,8 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
     }
     case wo::value::valuetype::array_type:
     {
-        wo::array_t* arr = _rsvalue->array;
-        wo::gcbase::gc_read_guard rg1(_rsvalue->array);
+        wo::array_t* arr = value->array;
+        wo::gcbase::gc_read_guard rg1(value->array);
         if ((*traveled_gcunit)[arr] >= 1)
         {
             _fit_layout = true;
@@ -1031,7 +1011,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
         return;
     case wo::value::valuetype::struct_type:
     {
-        wo::struct_t* struc = _rsvalue->structs;
+        wo::struct_t* struc = value->structs;
         wo::gcbase::gc_read_guard rg1(struc);
 
         if ((*traveled_gcunit)[struc] >= 1)
@@ -1046,7 +1026,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
 
         *out_str += _fit_layout ? "struct{" : "struct {\n";
         bool first_value = true;
-        for (uint16_t i = 0; i < _rsvalue->structs->m_count; ++i)
+        for (uint16_t i = 0; i < value->structs->m_count; ++i)
         {
             if (!first_value)
                 *out_str += _fit_layout ? "," : ",\n";
@@ -1056,7 +1036,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
                 *out_str += "    ";
 
             *out_str += "+" + std::to_string(i) + (_fit_layout ? "=" : " = ");
-            _wo_cast_string(&_rsvalue->structs->m_values[i], traveled_gcunit, _fit_layout, out_str, depth + 1);
+            _wo_cast_string(&value->structs->m_values[i], traveled_gcunit, _fit_layout, out_str, depth + 1);
         }
         if (!_fit_layout)
             *out_str += "\n";
@@ -1196,15 +1176,7 @@ wo_result_t wo_ret_val(wo_vm vm, wo_value result)
     wo_assert(result);
     return reinterpret_cast<wo_result_t>(
         WO_VM(vm)->cr->set_val(
-            reinterpret_cast<wo::value*>(result)->get()
-        ));
-}
-wo_result_t  wo_ret_ref(wo_vm vm, wo_value result)
-{
-    wo_assert(result);
-    return reinterpret_cast<wo_result_t>(
-        WO_VM(vm)->cr->set_ref(
-            reinterpret_cast<wo::value*>(result)->get()
+            reinterpret_cast<wo::value*>(result)
         ));
 }
 
@@ -1362,19 +1334,7 @@ wo_result_t wo_ret_option_val(wo_vm vm, wo_value val)
 
     return 0;
 }
-wo_result_t wo_ret_option_ref(wo_vm vm, wo_value val)
-{
-    auto* wovm = WO_VM(vm);
 
-    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_ref(WO_VAL(val));
-
-    return 0;
-}
 wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
@@ -1517,19 +1477,7 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value val)
 
     return 0;
 }
-wo_result_t wo_ret_err_ref(wo_vm vm, wo_value val)
-{
-    auto* wovm = WO_VM(vm);
 
-    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_ref(WO_VAL(val));
-
-    return 0;
-}
 wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* wovm = WO_VM(vm);
@@ -2091,18 +2039,7 @@ wo_value wo_push_val(wo_vm vm, wo_value val)
         return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
     return CS_VAL((WO_VM(vm)->sp--)->set_nil());
 }
-wo_value wo_push_ref(wo_vm vm, wo_value val)
-{
-    if (val)
-        return CS_VAL((WO_VM(vm)->sp--)->set_ref(WO_VAL(val)));
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
-}
-wo_value wo_push_valref(wo_vm vm, wo_value val)
-{
-    if (val)
-        return CS_VAL((WO_VM(vm)->sp--)->set_trans(WO_ORIGIN_VAL(val)));
-    return CS_VAL((WO_VM(vm)->sp--)->set_nil());
-}
+
 wo_value wo_push_arr(wo_vm vm, wo_int_t count)
 {
     auto* _rsvalue = WO_VM(vm)->sp--;
@@ -2306,7 +2243,6 @@ wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
             else
                 index->set_nil();
 
-            wo_assert(!index->is_ref());
             return CS_VAL(&*index);
         }
         else
@@ -2374,11 +2310,10 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
         auto fnd = std::find_if(_arr->array->begin(), _arr->array->end(),
             [&](const wo::value& _elem)->bool
             {
-                auto* v = _elem.get();
-                if (v->type == _aim->type)
+                if (_elem.type == _aim->type)
                 {
-                    if (v->type == wo::value::valuetype::string_type)
-                        return *v->string == *_aim->string;
+                    if (_elem.type == wo::value::valuetype::string_type)
+                        return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
                 return false;

@@ -71,7 +71,6 @@ typedef enum _wo_value_type
     WO_REAL_TYPE,
     WO_HANDLE_TYPE,
 
-    WO_IS_REF,
     WO_CALLSTACK_TYPE,
     WO_NATIVE_CALLSTACK_TYPE,
 
@@ -120,8 +119,6 @@ WO_API wo_bool_t    wo_bool(const wo_value value);
 //WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(const wo_value value);
 
-WO_API wo_bool_t wo_is_ref(wo_value value);
-
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
 WO_API void wo_set_real(wo_value value, wo_real_t val);
 WO_API void wo_set_float(wo_value value, float val);
@@ -131,7 +128,6 @@ WO_API void wo_set_string(wo_value value, wo_string_t val);
 WO_API void wo_set_bool(wo_value value, wo_bool_t val);
 WO_API void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_val(wo_value value, wo_value val);
-WO_API void wo_set_ref(wo_value value, wo_value val);
 WO_API void wo_set_struct(wo_value value, uint16_t structsz);
 WO_API void wo_set_arr(wo_value value, wo_int_t count);
 WO_API void wo_set_map(wo_value value);
@@ -158,7 +154,6 @@ WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value ho
 #define wo_ret_void(vmm) (0)
 WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
-WO_API wo_result_t  wo_ret_ref(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_throw(wo_vm vm, wo_string_t reason);
@@ -174,7 +169,6 @@ WO_API wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_option_ptr(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_option_val(wo_vm vm, wo_value val);
-WO_API wo_result_t  wo_ret_option_ref(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
@@ -186,7 +180,6 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 #define     wo_ret_ok_string wo_ret_option_string
 #define     wo_ret_ok_ptr    wo_ret_option_pointer
 #define     wo_ret_ok_pointer    wo_ret_option_val
-#define     wo_ret_ok_ref    wo_ret_option_ref
 #define     wo_ret_ok_gchandle   wo_ret_option_gchandle
 
 
@@ -198,7 +191,6 @@ WO_API wo_result_t  wo_ret_err_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_err_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value val);
-WO_API wo_result_t  wo_ret_err_ref(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
 // Not safe, if wo_ret_val(vm, wo_set_ret_option_arr(vm, 0)) may get error result;
@@ -265,8 +257,6 @@ WO_API wo_value     wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value h
 WO_API wo_value     wo_push_string(wo_vm vm, wo_string_t val);
 WO_API wo_value     wo_push_empty(wo_vm vm);
 WO_API wo_value     wo_push_val(wo_vm vm, wo_value val);
-WO_API wo_value     wo_push_ref(wo_vm vm, wo_value val);
-WO_API wo_value     wo_push_valref(wo_vm vm, wo_value val);
 WO_API wo_value     wo_push_arr(wo_vm vm, wo_int_t count);
 WO_API wo_value     wo_push_struct(wo_vm vm, uint16_t count);
 WO_API wo_value     wo_push_map(wo_vm vm);

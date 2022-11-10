@@ -3,19 +3,19 @@ import test_tool;
 
 namespace test_return
 {
-    let mut a = 0;
+    let mut a = 233;
 
-    func ret_ref_a()
+    func ret_nonref_a()
     {
-        return ref a;
+        return a;
     }
 
     func main()
     {
-        let ref b = ret_ref_a();
+        let mut b = ret_nonref_a();
         b = 256;
 
-        test_equal(a, 256);
+        test_equal(a, 233);
     }
 }
 

@@ -278,9 +278,6 @@ namespace wo
     WO_PASS1(ast_value_type_judge)
     {
         auto* ast_value_judge = WO_AST();
-        if (ast_value_judge->is_mark_as_using_ref)
-            ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
-
         analyze_pass1(ast_value_judge->_be_cast_value_node);
         fully_update_type(ast_value_judge->aim_type, true);
         return true;
@@ -863,13 +860,6 @@ namespace wo
             {
                 a_match_union_case->take_place_value_may_nil = new ast_value_takeplace;
                 a_match_union_case->take_place_value_may_nil->copy_source_info(a_pattern_union_value->pattern_arg_in_union_may_nil);
-                if (auto* a_pattern_identifier = dynamic_cast<ast::ast_pattern_identifier*>(a_pattern_union_value->pattern_arg_in_union_may_nil))
-                {
-                    if (a_pattern_identifier->decl == identifier_decl::REF)
-                        a_match_union_case->take_place_value_may_nil->as_ref = true;
-                }
-                else
-                    a_match_union_case->take_place_value_may_nil->as_ref = true;
 
                 analyze_pattern_in_pass1(a_pattern_union_value->pattern_arg_in_union_may_nil, new ast_decl_attribute, a_match_union_case->take_place_value_may_nil);
             }
@@ -1463,9 +1453,6 @@ namespace wo
     WO_PASS2(ast_value_type_judge)
     {
         auto* ast_value_judge = WO_AST();
-        if (ast_value_judge->is_mark_as_using_ref)
-            ast_value_judge->_be_cast_value_node->is_mark_as_using_ref = true;
-
         analyze_pass2(ast_value_judge->_be_cast_value_node);
         return true;
     }

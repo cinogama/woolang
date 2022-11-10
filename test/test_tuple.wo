@@ -8,51 +8,6 @@ namespace test_tuple
         b: real,
     };
 
-    
-    func foo1()
-    {
-        let t = (mut 1, 2, mut 3);
-        let (ref a, mut b, ref c) = t;
-
-        a = b = c = 233;
-
-        test_equal(a, b);
-        test_equal(b, c);
-        test_equal(a, 233);
-        test_equal(b, 233);
-        test_equal(c, 233);
-
-        test_equal(t[0], 233);
-        test_equal(t[1], 2);
-        test_equal(t[2], 233);
-
-        let o = option::value(mut "Hello");
-        match(o)
-        {
-            value(ref str)?
-                str = "world";
-            none?
-                std::fail("That's should not happend.");
-        }
-
-        test_equal(o->val(), "world");
-
-        let p = option::value((mut 1, 2, (3, mut 4)));
-        match(p)
-        {
-            value((ref a, mut b, (mut c, ref d)))?
-                a = b = c = d = 233666;
-            none?
-                std::fail("That's should not happend.");
-        }
-
-        let (x, y, (z, w)) = p->val();
-        test_equal(x, 233666);
-        test_equal(y, 2);
-        test_equal(z, 3);
-        test_equal(w, 233666);
-    }
-
     func main()
     {
         let x = (1, 2.2, "Helloworld");
@@ -70,8 +25,6 @@ namespace test_tuple
 
         let (w0, w1, (m0, m1, m2), w3) = all;
         test_assure(m0.a == c[0].a);
-
-        foo1();
     }
 }
 
