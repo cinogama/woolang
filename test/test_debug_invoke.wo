@@ -19,13 +19,6 @@ namespace test_debug_invoke
     {
         std::debug::breakpoint();
     }
-    func swap<T>(ref a: T, ref b: T)
-    {
-        let c = b;
-        b = a;
-        a = c;
-    }
-
     func main()
     {
         test_equal(fib(10), std::debug::invoke(fib, 10));
@@ -41,16 +34,6 @@ namespace test_debug_invoke
                             std::debug::invoke(std::print, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"));
             i += 1;
         }
-
-        swap(ref i, 233);
-        test_equal(i, 233);
-
-        std::debug::invoke(swap:<int>, ref i, 123);
-        test_equal(i, 123);
-
-        let vinvoke = std::debug::invoke:<typeof(swap:<int>)>;
-        vinvoke(swap:<int>, ref i, 777);
-        test_equal(i, 777);
     }
 }
 

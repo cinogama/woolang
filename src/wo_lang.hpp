@@ -2175,70 +2175,9 @@ namespace wo
             }
             else if (auto* a_value_assign = dynamic_cast<ast_value_assign*>(value))
             {
-                bool using_sid_op_for_store_value = false;
-                if (ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left))
-                {
-                    auto* _store_value = &analyze_value(a_value_assign->right, compiler);
-                    if (is_cr_reg(*_store_value))
-                    {
-                        auto* _store_value_place = &get_useable_register_for_pure_value();
-                        compiler->set(*_store_value_place, *_store_value);
-                        _store_value = _store_value_place;
-                    }
-
-                    if (a_value_index->from->value_type->is_struct())
-                    {
-                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
-                        compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);
-                    }
-                    else
-                    {
-                        size_t revert_pos = compiler->get_now_ip();
-
-                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
-                        auto* _index_value = &analyze_value(a_value_index->index, compiler);
-
-                        if (is_cr_reg(*_from_value)
-                            && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
-                        {
-                            complete_using_register(*_from_value);
-                            complete_using_register(*_from_value);
-                            compiler->revert_code_to(revert_pos);
-                            _index_value = &analyze_value(a_value_index->index, compiler, true);
-                            _from_value = &analyze_value(a_value_index->from, compiler);
-                        }
-                        auto& from_value = *_from_value;
-                        auto& index_value = *_index_value;
-
-                        auto* _final_store_value = _store_value;
-                        if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
-                        {
-                            // Use pm reg here because here has no other command to generate.
-                            _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
-                            compiler->set(*_final_store_value, *_store_value);
-                        }
-                        // Do not generate any other command to make sure reg::pm usable!
-
-                        if (a_value_index->from->value_type->is_array())
-                            compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
-                        else if (a_value_index->from->value_type->is_map())
-                            compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
-                        else
-                            wo_error("Unknown unindex & storable type.");
-                    }
-
-                    if (get_pure_value)
-                    {
-                        auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, *_store_value);
-                        return treg;
-                    }
-                    else
-                        return *_store_value;
-
-                    
-                }
-                else
+                ast_value_index* a_value_index = dynamic_cast<ast_value_index*>(a_value_assign->left);
+                opnumbase* _store_value = nullptr;
+                if (!(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign))
                 {
                     // if mixed type, do opx
                     bool same_type = a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false);
@@ -2253,13 +2192,15 @@ namespace wo
                     }
                     size_t revert_pos = compiler->get_now_ip();
 
+                    auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler, a_value_index != nullptr);
                     auto* op_right_opnum_ptr = &analyze_value(a_value_assign->right, compiler);
-                    auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler);
 
                     if (is_cr_reg(*beoped_left_opnum_ptr)
                         //      FUNC CALL                           A + B ...                       A[X] (.E.G)
                         && (is_cr_reg(*op_right_opnum_ptr) || is_temp_reg(*op_right_opnum_ptr) || _last_value_stored_to_cr))
                     {
+                        // if assigned value is an index, it's result will be placed to non-cr place. so cannot be here.
+                        wo_assert(a_value_index == nullptr);
                         complete_using_register(*beoped_left_opnum_ptr);
                         complete_using_register(*op_right_opnum_ptr);
                         compiler->revert_code_to(revert_pos);
@@ -2366,15 +2307,75 @@ namespace wo
                     }
                     complete_using_register(op_right_opnum);
 
-                    if (get_pure_value && is_cr_reg(beoped_left_opnum))
+                    _store_value = &beoped_left_opnum;
+                }
+                else
+                {
+                    wo_assert(a_value_index != nullptr && a_value_assign->operate == +lex_type::l_assign);
+                    _store_value = &analyze_value(a_value_assign->right, compiler);
+
+                    if (is_cr_reg(*_store_value))
                     {
-                        auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, beoped_left_opnum);
-                        return treg;
+                        auto* _store_value_place = &get_useable_register_for_pure_value();
+                        compiler->set(*_store_value_place, *_store_value);
+                        _store_value = _store_value_place;
+                    }
+                }
+                
+                wo_assert(_store_value != nullptr);
+
+                if (a_value_index != nullptr)
+                {
+                    if (a_value_index->from->value_type->is_struct())
+                    {
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);
                     }
                     else
-                        return beoped_left_opnum;
+                    {
+                        size_t revert_pos = compiler->get_now_ip();
+
+                        auto* _from_value = &analyze_value(a_value_index->from, compiler);
+                        auto* _index_value = &analyze_value(a_value_index->index, compiler);
+
+                        if (is_cr_reg(*_from_value)
+                            && (is_cr_reg(*_index_value) || is_temp_reg(*_index_value) || _last_value_stored_to_cr))
+                        {
+                            complete_using_register(*_from_value);
+                            complete_using_register(*_from_value);
+                            compiler->revert_code_to(revert_pos);
+                            _index_value = &analyze_value(a_value_index->index, compiler, true);
+                            _from_value = &analyze_value(a_value_index->from, compiler);
+                        }
+                        auto& from_value = *_from_value;
+                        auto& index_value = *_index_value;
+
+                        auto* _final_store_value = _store_value;
+                        if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
+                        {
+                            // Use pm reg here because here has no other command to generate.
+                            _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
+                            compiler->set(*_final_store_value, *_store_value);
+                        }
+                        // Do not generate any other command to make sure reg::pm usable!
+
+                        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
+                            compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else if (a_value_index->from->value_type->is_map() || a_value_index->from->value_type->is_dict())
+                            compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else
+                            wo_error("Unknown unindex & storable type.");
+                    }
                 }
+
+                if (get_pure_value)
+                {
+                    auto& treg = get_useable_register_for_pure_value();
+                    compiler->set(treg, *_store_value);
+                    return treg;
+                }
+                else
+                    return *_store_value;
             }
             else if (auto* a_value_variable = dynamic_cast<ast_value_variable*>(value))
             {

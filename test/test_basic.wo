@@ -112,10 +112,12 @@ namespace test_basic
         test_equal(split_result[1], "c d");
 
         let m = {}mut: map<int, int>;
-        m->set(0, m->set(1, m->set(2, 233)));
+        m->set(0, 233);
+        m->set(1, 666);
+        m->set(2, 777);
         test_equal(m[0], 233);
-        test_equal(m[1], 233);
-        test_equal(m[2], 233);
+        test_equal(m[1], 666);
+        test_equal(m[2], 777);
     }
 }
 

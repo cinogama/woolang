@@ -49,22 +49,22 @@ namespace test_thread
 
         // Thread should be abort-able..
         summ = 0;
-        let mut this_should_be_true = false;
-        let __pack = [mut ref this_should_be_true]mut;
+        let mut this_should_be_false = false;
+        let __pack = [mut this_should_be_false];
         let th = std::thread::create(
-            func(ref i: int)
+            func(mut i: int)
             {
                 __pack[0] = true;
                 while (i <= 1_0000_0000)
                 {
                     i+=1;
                 }
-            }, (ref summ,));
+            }, (summ,));
         std::sleep(0.2);
         th->abort();
         th->wait();
 
-        test_assure(this_should_be_true && summ!=0 && summ<1_0000_0000);
+        test_assure(this_should_be_false == false && summ==0);
     }
 }
 
