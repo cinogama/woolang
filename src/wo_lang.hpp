@@ -1879,7 +1879,7 @@ namespace wo
                 if (regist->id == reg::cr)
                     return op_num;
             }
-            compiler->set(reg(reg::cr), op_num);
+            compiler->mov(reg(reg::cr), op_num);
             return WO_NEW_OPNUM(reg(reg::cr));
         }
 
@@ -1919,7 +1919,7 @@ namespace wo
                     else
                     {
                         auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                        compiler->set(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
+                        compiler->mov(loaded_pure_glb_opnum, global((int32_t)symb->global_index_in_lang));
                         return loaded_pure_glb_opnum;
                     }
                 }
@@ -1947,7 +1947,7 @@ namespace wo
                         if (stackoffset <= 64 || stackoffset >= -63)
                         {
                             auto& loaded_pure_glb_opnum = get_useable_register_for_pure_value();
-                            compiler->set(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
+                            compiler->mov(loaded_pure_glb_opnum, reg(reg::bp_offset(-(int8_t)stackoffset)));
                             return loaded_pure_glb_opnum;
                         }
                         else
@@ -2012,7 +2012,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.integer));
+                        compiler->mov(treg, imm(const_value.integer));
                         return treg;
                     }
                 case value::valuetype::real_type:
@@ -2021,7 +2021,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.real));
+                        compiler->mov(treg, imm(const_value.real));
                         return treg;
                     }
                 case value::valuetype::handle_type:
@@ -2030,7 +2030,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm((void*)const_value.handle));
+                        compiler->mov(treg, imm((void*)const_value.handle));
                         return treg;
                     }
                 case value::valuetype::string_type:
@@ -2039,7 +2039,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, imm(const_value.string->c_str()));
+                        compiler->mov(treg, imm(const_value.string->c_str()));
                         return treg;
                     }
                 case value::valuetype::invalid:  // for nil
@@ -2051,7 +2051,7 @@ namespace wo
                     else
                     {
                         auto& treg = get_useable_register_for_pure_value();
-                        compiler->set(treg, reg(reg::ni));
+                        compiler->mov(treg, reg(reg::ni));
                         return treg;
                     }
                 default:
@@ -2167,7 +2167,7 @@ namespace wo
                 if (get_pure_value && is_cr_reg(beoped_left_opnum))
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->set(treg, beoped_left_opnum);
+                    compiler->mov(treg, beoped_left_opnum);
                     return treg;
                 }
                 else
@@ -2317,7 +2317,7 @@ namespace wo
                     if (is_cr_reg(*_store_value))
                     {
                         auto* _store_value_place = &get_useable_register_for_pure_value();
-                        compiler->set(*_store_value_place, *_store_value);
+                        compiler->mov(*_store_value_place, *_store_value);
                         _store_value = _store_value_place;
                     }
                 }
@@ -2355,7 +2355,7 @@ namespace wo
                         {
                             // Use pm reg here because here has no other command to generate.
                             _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
-                            compiler->set(*_final_store_value, *_store_value);
+                            compiler->mov(*_final_store_value, *_store_value);
                         }
                         // Do not generate any other command to make sure reg::pm usable!
 
@@ -2371,7 +2371,7 @@ namespace wo
                 if (get_pure_value)
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->set(treg, *_store_value);
+                    compiler->mov(treg, *_store_value);
                     return treg;
                 }
                 else
@@ -2401,7 +2401,7 @@ namespace wo
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
-                compiler->setcast(treg,
+                compiler->movcast(treg,
                     analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
                     a_value_type_cast->aim_type->value_type);
                 return treg;
@@ -2453,7 +2453,7 @@ namespace wo
                         if (get_pure_value)
                         {
                             auto& treg = get_useable_register_for_pure_value();
-                            compiler->set(treg, reg(reg::cr));
+                            compiler->mov(treg, reg(reg::cr));
                             return treg;
                         }
                         else
@@ -2490,7 +2490,7 @@ namespace wo
                         if (get_pure_value)
                         {
                             auto& treg = get_useable_register_for_pure_value();
-                            compiler->set(treg, reg(reg::cr));
+                            compiler->mov(treg, reg(reg::cr));
                             return treg;
                         }
                         else
@@ -2569,7 +2569,7 @@ namespace wo
                         else
                         {
                             if (a_fakevalue_unpacked_args->expand_count <= 0)
-                                compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
+                                compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
                             else
                                 extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
 
@@ -2601,13 +2601,13 @@ namespace wo
                     || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
 
                 if (!full_unpack_arguments && need_using_tc)
-                    compiler->set(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
+                    compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
 
                 opnumbase* reg_for_current_funccall_argc = nullptr;
                 if (full_unpack_arguments)
                 {
                     reg_for_current_funccall_argc = &get_useable_register_for_pure_value();
-                    compiler->set(*reg_for_current_funccall_argc, reg(reg::tc));
+                    compiler->mov(*reg_for_current_funccall_argc, reg(reg::tc));
                 }
 
                 compiler->call(complete_using_register(*called_func_aim));
@@ -2621,7 +2621,7 @@ namespace wo
                     last_value_stored_to_cr_flag.not_write_to_cr();
 
                     result_storage_place = &get_useable_register_for_pure_value();
-                    compiler->set(*result_storage_place, reg(reg::cr));
+                    compiler->mov(*result_storage_place, reg(reg::cr));
 
                     wo_assert(reg_for_current_funccall_argc);
                     auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
@@ -2660,7 +2660,7 @@ namespace wo
                         return *result_storage_place;
 
                     auto& funcresult = get_useable_register_for_pure_value();
-                    compiler->set(funcresult, *result_storage_place);
+                    compiler->mov(funcresult, *result_storage_place);
                     return funcresult;
                 }
             }
@@ -2848,7 +2848,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
             }
@@ -2948,7 +2948,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
 
@@ -3020,7 +3020,7 @@ namespace wo
                         if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
                         {
                             last_value_stored_to_cr_flag.write_to_cr();
-                            compiler->set(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
+                            compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
                                 + function_arg_count))));
                         }
                         else
@@ -3061,14 +3061,14 @@ namespace wo
                     if (a_value_unary->val->value_type->is_integer())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->mov(reg(reg::cr), imm(0));
                         compiler->subi(reg(reg::cr), result);
                         complete_using_register(result);
                     }
                     else if (a_value_unary->val->value_type->is_real())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->set(reg(reg::cr), imm(0));
+                        compiler->mov(reg(reg::cr), imm(0));
                         compiler->subi(reg(reg::cr), result);
                         complete_using_register(result);
                     }
@@ -3085,7 +3085,7 @@ namespace wo
                 else
                 {
                     auto& result = get_useable_register_for_pure_value();
-                    compiler->set(result, reg(reg::cr));
+                    compiler->mov(result, reg(reg::cr));
                     return result;
                 }
             }
@@ -3105,7 +3105,7 @@ namespace wo
                     else
                     {
                         auto& result = get_useable_register_for_pure_value();
-                        compiler->set(result, *a_value_takeplace->used_reg);
+                        compiler->mov(result, *a_value_takeplace->used_reg);
                         return result;
                     }
                 }
@@ -3257,7 +3257,7 @@ namespace wo
                         auto& static_inited_flag = get_new_global_variable();
                         compiler->equb(static_inited_flag, reg(reg::ni));
                         compiler->jf(tag(init_static_flag_check_tag));
-                        compiler->set(static_inited_flag, imm(1));
+                        compiler->mov(static_inited_flag, imm(1));
                     }
 
                     analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, compiler);
@@ -3533,7 +3533,7 @@ namespace wo
             {
                 a_match->match_end_tag_in_final_pass = compiler->get_unique_tag_based_command_ip() + "match_end";
 
-                compiler->set(reg(reg::pm), auto_analyze_value(a_match->match_value, compiler));
+                compiler->mov(reg(reg::pm), auto_analyze_value(a_match->match_value, compiler));
                 // 1. Get id in cr.
                 compiler->idstruct(reg(reg::cr), reg(reg::pm), 0);
 
@@ -3707,7 +3707,7 @@ namespace wo
                     if (!funcdef->value_type->complex_type->is_void())
                         compiler->ext_panic(opnum::imm("Function returned without valid value."));
                     /*else
-                        compiler->set(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
+                        compiler->mov(opnum::reg(opnum::reg::cr), opnum::reg(opnum::reg::ni));*/
                         // compiler->pop(reserved_stack_size);
 
                     if (funcdef->is_closure_function())

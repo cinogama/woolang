@@ -548,8 +548,6 @@ namespace wo
                     this_command_ptr += main_command & (byte_t)0b00000011;
 
                     break;
-                case instruct::set:
-                    tmpos << "set\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::mov:
                     tmpos << "mov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
 
@@ -675,8 +673,8 @@ namespace wo
                     tmpos << "jmp\t";
                     tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
                     break;
-                case instruct::setcast:
-                    tmpos << "setcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
+                case instruct::movcast:
+                    tmpos << "movcast\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
                     tmpos << " : ";
                     tmpos << wo_type_name((wo_type) * (this_command_ptr++));
 
@@ -1553,14 +1551,6 @@ namespace wo
                         break;
                     }
                     /// OPERATE
-                    case instruct::opcode::set:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        opnum1->set_val(opnum2);
-                        break;
-                    }
                     case instruct::opcode::mov:
                     {
                         WO_ADDRESSING_N1;
@@ -1569,7 +1559,7 @@ namespace wo
                         opnum1->set_val(opnum2);
                         break;
                     }
-                    case instruct::opcode::setcast:
+                    case instruct::opcode::movcast:
                     {
                         WO_ADDRESSING_N1;
                         WO_ADDRESSING_N2;

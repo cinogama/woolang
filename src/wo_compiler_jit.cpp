@@ -605,19 +605,6 @@ namespace wo
                         wo_asure(!x86compiler.add(_vmssp, WO_IPVAL_MOVE_2 * sizeof(value)));
                     break;
                 }
-
-                case instruct::set:
-                {
-                    WO_JIT_ADDRESSING_N1;
-                    WO_JIT_ADDRESSING_N2;
-
-                    if (opnum2.is_constant())
-                        x86_set_imm(x86compiler, opnum1.gp_value(), *opnum2.const_value());
-                    else
-                        x86_set_val(x86compiler, opnum1.gp_value(), opnum2.gp_value());
-
-                    break;
-                }
                 case instruct::mov:
                 {
                     WO_JIT_ADDRESSING_N1;
@@ -1288,7 +1275,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::egtr:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::setcast:
+                case instruct::movcast:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkclos:
                     WO_JIT_NOT_SUPPORT;
@@ -1362,6 +1349,10 @@ namespace wo
                 case instruct::nequs:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::sidmap:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::sidarr:
+                    WO_JIT_NOT_SUPPORT;
+                case instruct::sidstruct:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::jnequb:
                     WO_JIT_NOT_SUPPORT;

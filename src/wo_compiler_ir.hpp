@@ -1188,19 +1188,6 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::mov, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
-        template<typename OP1T, typename OP2T>
-        void set(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not set value to immediate.");
-
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::set, WO_OPNUM(op1), WO_OPNUM(op2));
-        }
-
         template<typename OP1T>
         void psh(const OP1T& op1)
         {
@@ -1649,7 +1636,7 @@ namespace wo
         }
  
         template<typename OP1T, typename OP2T>
-        void setcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
+        void movcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
@@ -1658,7 +1645,7 @@ namespace wo
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
                 "Can not set value to immediate.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::setcast, WO_OPNUM(op1), WO_OPNUM(op2), (int)vtt);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::movcast, WO_OPNUM(op1), WO_OPNUM(op2), (int)vtt);
         }
         template<typename OP1T>
         void typeas(const OP1T& op1, value::valuetype vtt)
@@ -2059,18 +2046,13 @@ namespace wo
                 case instruct::opcode::nop:
                     temp_this_command_code_buf.push_back(WO_OPCODE(nop));
                     break;
-                case instruct::opcode::set:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(set));
-                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                    break;
                 case instruct::opcode::mov:
                     temp_this_command_code_buf.push_back(WO_OPCODE(mov));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
-                case instruct::opcode::setcast:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(setcast));
+                case instruct::opcode::movcast:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(movcast));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     temp_this_command_code_buf.push_back((byte_t)WO_IR.opinteger);

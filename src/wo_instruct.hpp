@@ -25,8 +25,8 @@ namespace wo
 #define WO_OPCODE_SPACE <<2
             nop = 0 WO_OPCODE_SPACE,    // nop(TKPLS)                                                        1 byte
 
-            mov = 1 WO_OPCODE_SPACE,    // mov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-            set = 2 WO_OPCODE_SPACE,    // set(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+            mov = 1 WO_OPCODE_SPACE,        // mov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+            RESERVED_0 = 2 WO_OPCODE_SPACE, // ---
 
             addi = 3 WO_OPCODE_SPACE,    // add(dr)        REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
             subi = 4 WO_OPCODE_SPACE,    // sub
@@ -84,7 +84,7 @@ namespace wo
             jmp = 44 WO_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
             RESERVED_3 = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
-            setcast = 46 WO_OPCODE_SPACE,   // setcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+            movcast = 46 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00)       FUNC(8BYTE) CAPTURE_ARG_COUNT(2BYTE) 11 byte
 
             typeas = 48 WO_OPCODE_SPACE,    // typeas(dr_0)      REGID(1BYTE)/DIFF(4BYTE) TYPE             3-6 byte

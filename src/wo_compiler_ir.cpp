@@ -313,7 +313,6 @@ WO_API wo_api rslib_std_ir_command_##COMMAND(wo_vm vm, wo_value args, size_t arg
 }
 
 WO_COMMAND_WITH_2_OPNUM(mov);
-WO_COMMAND_WITH_2_OPNUM(set);
 
 WO_COMMAND_WITH_2_OPNUM(addi);
 WO_COMMAND_WITH_2_OPNUM(subi);
@@ -443,9 +442,6 @@ namespace std
 
         extern("rslib_std_ir_command_mov")
         public func mov(self: irc, dst: opnum, src: opnum)=> void;
-
-        extern("rslib_std_ir_command_set")
-        public func set(self: irc, dst: opnum, src: opnum)=> void;
 
         extern("rslib_std_ir_command_addi")
         public func addi(self: irc, dst: opnum, src: opnum)=> void;
