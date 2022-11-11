@@ -1589,7 +1589,7 @@ namespace wo
             if (!a_value_index->index->value_type->is_integer())
             {
                 lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
-                    , "int"
+                    , L"int"
                     , a_value_index->from->value_type->get_type_name().c_str());
             }
         }
