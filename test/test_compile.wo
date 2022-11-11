@@ -40,6 +40,24 @@ namespace test_compile
         // Cannot cast nil
         assure_compile_fail(@"let a = nil: gchandle;"@);
 
+        assure_compile_fail(@"
+let valof<T> = func()=>T{}();
+
+let issame<A, B> = 
+    valof:<A> is B && valof:<B> is A;
+
+alias bool_if_void<T> = 
+    typeof(issame:<T, void> ? valof:<bool> | valof:<T>);
+
+alias boom_t = typeof(func(){return 0;});
+
+func main()
+{
+    let mut px = 233: bool_if_void<boom_t>;
+    px = 23;
+}
+        "@);
+
         // Cannot add different types
         assure_compile_fail(@"let b = "" + 2;"@);
         assure_compile_fail(@"let b = 1 + 2.0;"@);
