@@ -1578,7 +1578,7 @@ namespace wo
                                 case value::valuetype::handle_type:
                                     opnum1->set_integer((wo_integer_t)opnum2->handle); break;
                                 case value::valuetype::string_type:
-                                    opnum1->set_integer((wo_integer_t)std::stoll(*opnum2->string)); break;
+                                    opnum1->set_integer((wo_integer_t)atoll(opnum2->string->c_str())); break;
                                 default:
                                     WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
                                     break;

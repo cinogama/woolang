@@ -353,7 +353,7 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
-    size_t from = (size_t)wo_string(args + 2);
+    size_t from = (size_t)wo_int(args + 2);
 
     size_t fnd_place = aim.find(match, from);
     if (fnd_place > from && fnd_place < aim.size())
@@ -378,7 +378,7 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
-    size_t from = (size_t)wo_string(args + 2);
+    size_t from = (size_t)wo_int(args + 2);
 
     size_t fnd_place = aim.rfind(match, from);
     if (fnd_place > from && fnd_place < aim.size())
