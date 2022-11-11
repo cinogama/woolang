@@ -387,16 +387,34 @@ namespace wo
             auto fnd = symb->template_type_instances.find(hashs);
             if (fnd == symb->template_type_instances.end())
             {
-                auto& list = symb->template_type_instances[hashs];
-                list = new ast::ast_type(WO_PSTR(pending));
+                auto& newtype = symb->template_type_instances[hashs];
+                newtype = new ast::ast_type(WO_PSTR(pending));
 
-                list->set_type(symb->type_informatiom);
-                symb->type_informatiom->instance(list);
+                newtype->set_type(symb->type_informatiom);
+                symb->type_informatiom->instance(newtype);
 
-                for (auto& [_, info] : list->struct_member_index)
+                for (auto& [_, info] : newtype->struct_member_index)
                 {
                     if (info.member_type)
                         info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
+                }
+
+                if (newtype->typefrom != nullptr)
+                {
+                    temporary_entry_scope_in_pass1(symb->defined_in_scope);
+                    if (begin_template_scope(newtype->typefrom, symb->template_types, templates))
+                    {
+                        auto step_in_pass2 = has_step_in_step2;
+                        has_step_in_step2 = false;
+
+                        analyze_pass1(newtype->typefrom);
+
+                        // origin_template_func_define->parent->add_child(dumpped_template_func_define);
+                        end_template_scope();
+
+                        has_step_in_step2 = step_in_pass2;
+                    }
+                    temporary_leave_scope_in_pass1();
                 }
             }
             return symb->template_type_instances[hashs];

@@ -252,8 +252,19 @@ namespace test_template
         mut_mark_bug2([true])->map(\b: bool = 0;);
     }
 
+    let issame<A, B> = 
+        std::declval:<A>() is B && std::declval:<B>() is A;
+
+    alias bool_if_void<T> = 
+        typeof(issame:<T, void> ? std::declval:<bool>() | std::declval:<T>());
+
+    alias boom_t = typeof(func(){return 0;});
+
     func main()
     {
+        test_assure(option::none->val: bool_if_void<boom_t> is ()=>int);
+        test_assure(option::none->val: bool_if_void<void> is bool);
+
         test_typeof_template();
         test_mut_mark_bug();
 
