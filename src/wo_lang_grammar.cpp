@@ -78,12 +78,6 @@ namespace wo
                     gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_LIST")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                    gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_WITHOUT_SEMICOLON")}
-                    >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-
-                    gm::nt(L"PARAGRAPH") >> gm::symlist{gm::nt(L"SENTENCE_LIST"), gm::nt(L"SENTENCE_WITHOUT_SEMICOLON")}
-                    >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
-
                     gm::nt(L"SENTENCE_LIST") >> gm::symlist{gm::nt(L"SENTENCE_LIST"),gm::nt(L"LABELED_SENTENCE")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1,0>),
 
@@ -96,16 +90,17 @@ namespace wo
                     gm::nt(L"LABELED_SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE")}
                     >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                    gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"SENTENCE_WITHOUT_SEMICOLON"), gm::te(gm::ttype::l_semicolon)}
-                    >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                    gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_import), gm::nt(L"IMPORT_NAME")}
+                    gm::nt(L"SENTENCE") >> gm::symlist{
+                        gm::te(gm::ttype::l_import), 
+                        gm::nt(L"IMPORT_NAME"), 
+                        gm::te(gm::ttype::l_semicolon)}
                     >> WO_ASTBUILDER_INDEX(ast::pass_import_files),
 
-                    gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{
+                    gm::nt(L"SENTENCE") >> gm::symlist{
                             gm::nt(L"DECL_ATTRIBUTE"), // useless
                             gm::te(gm::ttype::l_using),
-                            gm::nt(L"LEFTVARIABLE")}
+                            gm::nt(L"LEFTVARIABLE"), 
+                            gm::te(gm::ttype::l_semicolon)}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_namespace),
 
                     gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
@@ -121,12 +116,13 @@ namespace wo
                 gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{ gm::nt(L"SENTENCE_BLOCK") }
                     >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                             gm::te(gm::ttype::l_alias),
                             gm::te(gm::ttype::l_identifier),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
                             gm::te(gm::ttype::l_assign),
-                            gm::nt(L"TYPE")}
+                            gm::nt(L"TYPE"),
+                            gm::te(gm::ttype::l_semicolon)}
                     >> WO_ASTBUILDER_INDEX(ast::pass_using_type_as),
 
                 //////////////////////////////////////////////////////////////////////////////////////
@@ -388,14 +384,16 @@ namespace wo
                                 gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_forloop),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_break)} >> WO_ASTBUILDER_INDEX(ast::pass_break),
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_continue)} >> WO_ASTBUILDER_INDEX(ast::pass_continue),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_break), gm::te(gm::ttype::l_semicolon) } 
+                    >> WO_ASTBUILDER_INDEX(ast::pass_break),
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_continue), gm::te(gm::ttype::l_semicolon) } 
+                    >> WO_ASTBUILDER_INDEX(ast::pass_continue),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_break),
-                                    gm::te(gm::ttype::l_identifier)
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_break),
+                                    gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_semicolon)
                 } >> WO_ASTBUILDER_INDEX(ast::pass_break),
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_continue),
-                                        gm::te(gm::ttype::l_identifier)
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_continue),
+                                        gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_semicolon)
                 } >> WO_ASTBUILDER_INDEX(ast::pass_continue),
 
                 gm::nt(L"MAY_EMPTY_EXPRESSION") >> gm::symlist{ gm::nt(L"EXPRESSION") }
@@ -443,7 +441,7 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"VAR_DEFINE_LET_SENTENCE")}
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"VAR_DEFINE_LET_SENTENCE"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),//ASTVariableDefination
 
                 gm::nt(L"VAR_DEFINE_LET_SENTENCE") >> gm::symlist{
@@ -465,24 +463,19 @@ namespace wo
                 gm::nt(L"EXPRESSION")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_add_varref_define),//ASTVariableDefination
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE")}
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
-
-                //gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_ref), gm::nt(L"EXPRESSION")}
-                //>> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
                 gm::nt(L"EXPRESSION") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                //gm::nt(L"EXPRESSION") >> gm::symlist{gm::nt(L"ASSIGNMENT")},
 
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),

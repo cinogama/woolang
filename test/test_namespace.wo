@@ -25,12 +25,12 @@ namespace test_namespace
 
     namespace a
     {
-        func create(){ return 111 }
+        func create(){ return 111; }
     }
     namespace b
     {
-        func create(){ return 222 }
-        func foo(){ return a::create() }
+        func create(){ return 222; }
+        func foo(){ return a::create(); }
     }
 
     func main()

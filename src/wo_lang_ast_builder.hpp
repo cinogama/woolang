@@ -3942,7 +3942,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 2);
+                wo_test(input.size() == 3);
                 std::wstring path;
                 std::wstring filename;
 
@@ -5150,7 +5150,7 @@ namespace wo
 
                 using_type->naming_check_list = template_const_list;
 
-                if (input.size() == 7 && WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
+                if (!using_type->is_alias && WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
                 {
                     ast_sentence_block* in_namespace = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(6));
                     wo_assert(in_namespace);
@@ -5184,7 +5184,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 ast_return* result = new ast_return();
-                if (input.size() == 2)
+                if (input.size() == 3)
                 {
                     if (!ast_empty::is_empty(input[1]))
                     {
@@ -5382,7 +5382,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                if (input.size() == 1)
+                if (input.size() == 2)
                     return (ast_basic*)new ast_break;
                 auto result = new ast_break;
                 result->label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
@@ -5393,7 +5393,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                if (input.size() == 1)
+                if (input.size() == 2)
                     return (ast_basic*)new ast_continue;
                 auto result = new ast_continue;
                 result->label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);

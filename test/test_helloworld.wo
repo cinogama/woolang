@@ -79,10 +79,10 @@ namespace test_helloworld
         const let n = "Helloworld~";
         println(n);
 
-        let fhello = func(){println("Helloworld~~")};
+        let fhello = func(){println("Helloworld~~");};
         fhello();
 
-        let fhello2 = func(){print("~~"); println("Helloworld~~")};
+        let fhello2 = func(){print("~~"); println("Helloworld~~");};
         fhello2();
 
         execute_func() || non_execute_func();

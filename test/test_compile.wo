@@ -116,9 +116,9 @@ func main()
         assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int = foo(f);;}"@);
 
         // func cannot return different type from marked type
-        assure_compile_fail(@"func xx: void(){return 1;}"@);
-        assure_compile_fail(@"func xx: int(){return 1.;}"@);
-        assure_compile_fail(@"func xx: void(){return 1;}"@);
+        assure_compile_fail(@"func xx()=> string{return;}"@);
+        assure_compile_fail(@"func xx()=> int{return 1.;}"@);
+        assure_compile_fail(@"func xx()=> real{return 1;}"@);
 
         // unknown type/identifier is invalid
         assure_compile_fail(@"let x = 1: noexist; let y = x;"@);
@@ -221,7 +221,7 @@ func main()
             {
             }
 
-            foo(func(x: int){return x*2}, 2333);
+            foo(func(x: int){return x*2;}, 2333);
         "@);
         assure_compile_fail(@"
             let const Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
