@@ -1042,8 +1042,6 @@ namespace wo
             ast_type* value_type = nullptr;
 
             bool is_mark_as_using_mut = false;
-
-            bool is_const_value = false;
             bool can_be_assign = false;
 
             bool is_constant = false;
@@ -1622,12 +1620,6 @@ namespace wo
                 else
                     lex->parser_error(0x0000, WO_ERR_REPEAT_ATTRIBUTE);
             }
-
-            bool is_constant_attr() const
-            {
-                return attributes.find(+lex_type::l_const) != attributes.end();
-            }
-
             bool is_static_attr() const
             {
                 return attributes.find(+lex_type::l_static) != attributes.end();
@@ -3882,7 +3874,6 @@ namespace wo
                     auto* define_enum_item = new ast_pattern_identifier;
                     define_enum_item->identifier = enumitem->enum_ident;
                     define_enum_item->attr = new ast_decl_attribute();
-                    define_enum_item->attr->add_attribute(&lex, +lex_type::l_const);
                     define_enum_item->copy_source_info(enumitem);
 
                     vardefs->var_refs.push_back(

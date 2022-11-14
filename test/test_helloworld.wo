@@ -76,7 +76,7 @@ namespace test_helloworld
         test_assure(rmsg == msg);
         test_assure(rmsg == "Helloworld");
 
-        const let n = "Helloworld~";
+        let n = "Helloworld~";
         println(n);
 
         let fhello = func(){println("Helloworld~~");};

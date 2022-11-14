@@ -7,7 +7,7 @@ namespace test_gc
 {
     let mut global_list = []mut: vec<dynamic>;
 
-    let const TEST_TIME = 35.;
+    let TEST_TIME = 35.;
 
     func test_gchandle_work()
     {

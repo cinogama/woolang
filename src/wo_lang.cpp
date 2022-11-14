@@ -144,8 +144,6 @@ namespace wo
                 {
                     a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(dynamic));
                 }
-                if ((a_value_idx->is_const_value = a_value_idx->from->is_const_value))
-                    a_value_idx->can_be_assign = false;
             }
 
             if (a_value_idx->value_type->is_mutable())
@@ -335,8 +333,7 @@ namespace wo
 
                         if (!argdef->symbol)
                         {
-                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL);
-                            argdef->symbol->decl = argdef->decl;
+                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL, argdef->decl);
                             argdef->symbol->is_argument = true;
                         }
                     }
@@ -1557,8 +1554,6 @@ namespace wo
                     {
                         a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(dynamic));
                     }
-                    if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
-                        a_value_index->can_be_assign = false;
                 }
 
                 if (a_value_index->value_type->is_mutable())
@@ -1602,10 +1597,6 @@ namespace wo
                     , a_value_index->from->value_type->get_type_name().c_str());
             }
         }
-
-        if (!a_value_index->from->value_type->is_string())
-            if ((a_value_index->is_const_value = a_value_index->from->is_const_value))
-                a_value_index->can_be_assign = false;
         return true;
     }
     WO_PASS2(ast_value_indexed_variadic_args)
@@ -2857,7 +2848,7 @@ namespace wo
             // TODO: constant variable here..
             if (symbol
                 && !symbol->is_captured_variable
-                && (symbol->attribute->is_constant_attr() || symbol->decl == identifier_decl::IMMUTABLE))
+                && symbol->decl == identifier_decl::IMMUTABLE)
             {
                 symbol->variable_value->update_constant_value(lex);
                 if (symbol->variable_value->is_constant)

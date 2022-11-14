@@ -1058,7 +1058,7 @@ WO_API wo_api rslib_std_declval(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-public let const true = 1: bool, const false = 0: bool;
+public let true = 1: bool, false = 0: bool;
 
 namespace std
 {
@@ -2609,20 +2609,15 @@ namespace std
     {
         l_eof = -1,
         l_error = 0,
-
         l_empty,          // [empty]
-
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       // "" "helloworld" @ "(println("hello");) " @
-
+        l_literal_string,       // "" "helloworld" @"println("hello");"@
         l_format_string,        // f"..{  /  }..{ 
         l_format_string_end,    // }.."
-
         l_semicolon,            // ;
-
         l_comma,                // ,
         l_add,                  // +
         l_sub,                  // - 
@@ -2657,16 +2652,12 @@ namespace std
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'
-
         l_left_brackets,        // (
         l_right_brackets,       // )
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
-
         l_question,   // ?
-
         l_import,               // import
-
         l_inf,
         l_nil,
         l_while,
@@ -2675,7 +2666,6 @@ namespace std
         l_namespace,
         l_for,
         l_extern,
-
         l_let,
         l_mut,
         l_func,
@@ -2686,20 +2676,16 @@ namespace std
         l_as,
         l_is,
         l_typeof,
-
         l_private,
         l_public,
         l_protected,
-        l_const,
         l_static,
-
         l_break,
         l_continue,
         l_lambda,
         l_at,
         l_where,
         l_operator,
-
         l_expect,
         l_union,
         l_match,
