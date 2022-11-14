@@ -138,7 +138,7 @@ namespace test_optional
         }
 
         let a = option::value("Hello");
-        let b = a->map(func(v: string){return v + "world"});
+        let b = a->map(func(v: string){return v + "world";});
         match(b)
         {
             option::value(x)?
@@ -148,7 +148,7 @@ namespace test_optional
         }
         let c = option::none as option<string>;
         let d = c->map(func(x: string){std::panic("That's should not been exec.");
-                                       return "That's should not been exec."});
+                                       return "That's should not been exec.";});
         match(d)
         {
             option::value(x)?

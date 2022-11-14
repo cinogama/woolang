@@ -116,7 +116,7 @@ namespace wo
                 gm::nt(L"SENTENCE_BLOCK_MAY_SEMICOLON") >> gm::symlist{ gm::nt(L"SENTENCE_BLOCK") }
                     >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"SENTENCE_WITHOUT_SEMICOLON") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ATTRIBUTE"),
                             gm::te(gm::ttype::l_alias),
                             gm::te(gm::ttype::l_identifier),
                                 gm::nt(L"DEFINE_TEMPLATE_ITEM"),
