@@ -28,20 +28,15 @@ namespace wo
     BETTER_ENUM(lex_type, int,
         l_eof = -1,
         l_error = 0,
-
         l_empty,          // [empty]
-
         l_identifier,           // identifier.
         l_literal_integer,      // 1 233 0x123456 0b1101001 032
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
-        l_literal_string,       // "" "helloworld" @"(println("hello");)"
-
+        l_literal_string,       // "" "helloworld" @"println("hello");"@
         l_format_string,        // f"..{  /  }..{ 
         l_format_string_end,    // }.."
-
         l_semicolon,            // ;
-
         l_comma,                // ,
         l_add,                  // +
         l_sub,                  // - 
@@ -76,16 +71,12 @@ namespace wo
         l_function_result,      // '=>'
         l_bind_monad,           // '>>'
         l_map_monad,            // '>>'
-
         l_left_brackets,        // (
         l_right_brackets,       // )
         l_left_curly_braces,    // {
         l_right_curly_braces,   // }
-
         l_question,   // ?
-
         l_import,               // import
-
         l_inf,
         l_nil,
         l_while,
@@ -94,7 +85,6 @@ namespace wo
         l_namespace,
         l_for,
         l_extern,
-
         l_let,
         l_mut,
         l_func,
@@ -105,20 +95,16 @@ namespace wo
         l_as,
         l_is,
         l_typeof,
-
         l_private,
         l_public,
         l_protected,
-        l_const,
         l_static,
-
         l_break,
         l_continue,
         l_lambda,
         l_at,
         l_where,
         l_operator,
-
         l_expect,
         l_union,
         l_match,
@@ -247,7 +233,6 @@ namespace wo
             {L"public", {lex_type::l_public}},
             {L"private", {lex_type::l_private}},
             {L"protected", {lex_type::l_protected}},
-            {L"const", {lex_type::l_const}},
             {L"static", {lex_type::l_static}},
             {L"enum", {lex_type::l_enum}},
             {L"as", {lex_type::l_as}},

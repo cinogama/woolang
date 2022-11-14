@@ -57,7 +57,7 @@ namespace test_template
 
     func typename_of<T>()
     {
-        const let _tmp = 0:T;
+        let _tmp = 0:T;
 
         if (_tmp is dynamic)
             return "dynamic";

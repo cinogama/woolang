@@ -10,7 +10,7 @@ namespace test_thread
 
     let created_threads = []mut: vec<std::thread>;
 
-    const let thread_count = 4;
+    let thread_count = 4;
 
     func main()
     {

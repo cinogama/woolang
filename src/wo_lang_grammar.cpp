@@ -209,8 +209,6 @@ namespace wo
 
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_const) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_public) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_private) }

@@ -817,8 +817,12 @@ namespace wo
 
                     if (!a_pattern_identifier->symbol)
                     {
-                        a_pattern_identifier->symbol = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::NORMAL);
-                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
+                        a_pattern_identifier->symbol = define_variable_in_this_scope(
+                            a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::NORMAL,
+                            a_pattern_identifier->decl);
                     }
                 }
                 else
@@ -826,12 +830,15 @@ namespace wo
                     // Template variable!!! we just define symbol here.
                     if (!a_pattern_identifier->symbol)
                     {
-                        auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier, initval, a_pattern_identifier->attr, template_style::IS_TEMPLATE_VARIABLE_DEFINE);
+                        auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::IS_TEMPLATE_VARIABLE_DEFINE,
+                            a_pattern_identifier->decl);
                         symb->is_template_symbol = true;
                         wo_assert(symb->template_types.empty());
                         symb->template_types = a_pattern_identifier->template_arguments;
                         a_pattern_identifier->symbol = symb;
-                        a_pattern_identifier->symbol->decl = a_pattern_identifier->decl;
                     }
                 }
             }
@@ -933,10 +940,7 @@ namespace wo
                             if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                 !valtkpls || valtkpls->used_reg)
                             {
-                                if (is_need_dup_when_mov(initval))
-                                    compiler->ext_movdup(**opnum, analyze_value(initval, compiler));
-                                else
-                                    compiler->mov(**opnum, analyze_value(initval, compiler));
+                                compiler->mov(**opnum, analyze_value(initval, compiler));
                             }
                         }
                         else
@@ -962,10 +966,7 @@ namespace wo
                                 if (ast_value_takeplace* valtkpls = dynamic_cast<ast_value_takeplace*>(initval);
                                     !valtkpls || valtkpls->used_reg)
                                 {
-                                    if (is_need_dup_when_mov(symbol->variable_value))
-                                        compiler->ext_movdup(**opnum, analyze_value(symbol->variable_value, compiler));
-                                    else
-                                        compiler->mov(**opnum, analyze_value(symbol->variable_value, compiler));
+                                    compiler->mov(**opnum, analyze_value(symbol->variable_value, compiler));
                                 }
                             }
                             else
@@ -1211,8 +1212,11 @@ namespace wo
 
                     analyze_pass1(dumpped_template_init_value);
                     analyze_pass1(origin_variable);
-                    template_reification_symb = define_variable_in_this_scope(origin_variable->var_name, dumpped_template_init_value, origin_variable->symbol->attribute, template_style::IS_TEMPLATE_VARIABLE_IMPL);
-                    template_reification_symb->decl = origin_variable->symbol->decl;
+                    template_reification_symb = define_variable_in_this_scope(origin_variable->var_name,
+                        dumpped_template_init_value,
+                        origin_variable->symbol->attribute,
+                        template_style::IS_TEMPLATE_VARIABLE_IMPL,
+                        origin_variable->symbol->decl);
                     end_template_scope();
 
                     has_step_in_step2 = step_in_pass2;
@@ -1298,7 +1302,6 @@ namespace wo
             template_reification_symb->name = dumpped_template_func_define->function_name;
             template_reification_symb->defined_in_scope = now_scope();
             template_reification_symb->attribute = dumpped_template_func_define->declear_attribute;
-            template_reification_symb->attribute->add_attribute(lang_anylizer, +lex_type::l_const); // for stop: function = xxx;
             template_reification_symb->variable_value = dumpped_template_func_define;
 
             dumpped_template_func_define->this_reification_lang_symbol = template_reification_symb;
@@ -1616,12 +1619,7 @@ namespace wo
             {
                 if (a_value_base->symbol)
                 {
-                    if (a_value_base->symbol->attribute->is_constant_attr())
-                    {
-                        a_value_base->can_be_assign = false;
-                        a_value_base->is_const_value = true;
-                    }
-                    else if (a_value_base->symbol->decl == identifier_decl::IMMUTABLE)
+                    if (a_value_base->symbol->decl == identifier_decl::IMMUTABLE)
                     {
                         a_value_base->can_be_assign = false;
                     }
@@ -1796,17 +1794,6 @@ namespace wo
                 if (assigned_t_register_list[i] != RegisterUsingState::BLOCKING)
                     assigned_t_register_list[i] = RegisterUsingState::FREE;
             }
-        }
-
-        bool is_need_dup_when_mov(ast::ast_value* val)
-        {
-            if (val->is_const_value && (
-                val->value_type->is_dynamic()
-                || val->value_type->is_dict()
-                || val->value_type->is_array()
-                || val->value_type->is_struct()))
-                return true;
-            return false;
         }
 
         opnum::opnumbase& get_useable_register_for_ref_value(bool must_release = false)
@@ -2224,11 +2211,6 @@ namespace wo
                     if (same_type)
                         optype = a_value_assign->left->value_type->value_type;
 
-                    if (auto symb_left = dynamic_cast<ast_value_symbolable_base*>(a_value_assign->left);
-                        symb_left && symb_left->symbol->attribute->is_constant_attr())
-                    {
-                        lang_anylizer->lang_error(0x0000, value, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
-                    }
                     size_t revert_pos = compiler->get_now_ip();
 
                     auto* beoped_left_opnum_ptr = &analyze_value(a_value_assign->left, compiler, a_value_index != nullptr);
@@ -2270,9 +2252,6 @@ namespace wo
                         wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
                         if (beassigned_value_from_stack)
                             compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
-                        else if (is_need_dup_when_mov(a_value_assign->right))
-                            // TODO Right may be 'nil', do not dup nil..
-                            compiler->ext_movdup(beoped_left_opnum, op_right_opnum);
                         else
                             compiler->mov(beoped_left_opnum, op_right_opnum);
                         break;
@@ -2584,7 +2563,7 @@ namespace wo
 
                                 complete_using_register(usable_stack);
                             }
-                            
+
                         }
 
                         compiler->mkclos((uint16_t)a_value_function_define->capture_variables.size(),
@@ -2681,10 +2660,7 @@ namespace wo
                     }
                     else
                     {
-                        if (is_need_dup_when_mov(argv))
-                            lang_anylizer->lang_error(0x0000, argv, L"不允许将 'const' 的非平凡类型值作为调用函数的参数，继续");
-                        else
-                            compiler->psh(complete_using_register(analyze_value(argv, compiler)));
+                        compiler->psh(complete_using_register(analyze_value(argv, compiler)));
                     }
                 }
 
@@ -3504,10 +3480,7 @@ namespace wo
             {
                 if (a_return->return_value)
                 {
-                    if (is_need_dup_when_mov(a_return->return_value))
-                        lang_anylizer->lang_error(0x0000, a_return, L"不允许将 'const' 的非平凡类型值作为函数的返回值，继续");
-                    else
-                        mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
+                    mov_value_to_cr(auto_analyze_value(a_return->return_value, compiler), compiler);
 
                     if (a_return->located_function->is_closure_function())
                         compiler->ret((uint16_t)a_return->located_function->capture_variables.size());
@@ -3905,7 +3878,11 @@ namespace wo
                 if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    auto* sym = define_variable_in_this_scope(ast_value_funcdef->function_name, ast_value_funcdef, ast_value_funcdef->declear_attribute, template_style::NORMAL);
+                    auto* sym = define_variable_in_this_scope(ast_value_funcdef->function_name,
+                        ast_value_funcdef,
+                        ast_value_funcdef->declear_attribute,
+                        template_style::NORMAL,
+                        ast::identifier_decl::IMMUTABLE);
                     ast_value_funcdef->symbol = sym;
                 }
             }
@@ -3944,7 +3921,13 @@ namespace wo
             IS_TEMPLATE_VARIABLE_IMPL
         };
 
-        lang_symbol* define_variable_in_this_scope(wo_pstring_t names, ast::ast_value* init_val, ast::ast_decl_attribute* attr, template_style is_template_value, size_t captureindex = (size_t)-1)
+        lang_symbol* define_variable_in_this_scope(
+            wo_pstring_t names,
+            ast::ast_value* init_val,
+            ast::ast_decl_attribute* attr,
+            template_style is_template_value,
+            ast::identifier_decl mutable_type,
+            size_t captureindex = (size_t)-1)
         {
             wo_assert(lang_scopes.size());
 
@@ -3970,6 +3953,7 @@ namespace wo
                 sym->defined_in_scope = lang_scopes.back();
                 sym->variable_value = func_def;
                 sym->is_template_symbol = func_def->is_template_define;
+                sym->decl = mutable_type;
 
                 lang_symbols.push_back(sym);
 
@@ -3986,6 +3970,7 @@ namespace wo
                 sym->name = names;
                 sym->variable_value = init_val;
                 sym->defined_in_scope = lang_scopes.back();
+                sym->decl = mutable_type;
 
                 auto* func = in_function();
                 if (attr->is_extern_attr() && func)
@@ -4001,7 +3986,7 @@ namespace wo
                         // const var xxx = 0;
                         // const var ddd = xxx;
 
-                        if (!attr->is_constant_attr() || !init_val->is_constant)
+                        if (sym->decl == ast::identifier_decl::MUTABLE || !init_val->is_constant)
                         {
                             if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
                             {
@@ -4030,7 +4015,7 @@ namespace wo
 
                     sym->static_symbol = true;
 
-                    if (!attr->is_constant_attr() || !init_val->is_constant)
+                    if (sym->decl == ast::identifier_decl::MUTABLE || !init_val->is_constant)
                     {
                         if (is_template_value != template_style::IS_TEMPLATE_VARIABLE_DEFINE)
                             sym->global_index_in_lang = global_symbol_index++;
@@ -4499,7 +4484,7 @@ namespace wo
                             capture_list.push_back(result);
                             // Define a closure symbol instead of current one.
                             temporary_entry_scope_in_pass1(cur_capture_func_scope);
-                            result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, capture_list.size() - 1);
+                            result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, ast::identifier_decl::IMMUTABLE, capture_list.size() - 1);
                             temporary_leave_scope_in_pass1();
                         }
                     }

@@ -123,7 +123,6 @@ namespace wo
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
             packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            movdup = 5 WO_OPCODE_SPACE,         // ext(00) movdup(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             veh = 7 WO_OPCODE_SPACE,            // excep(RAISE?_ROLLBACK?) 
                                                 //  10 begin ? DIFF(4BYTE):ROLLBACK ? 0BYTE : DIFF(4BYTE)
                                                 //  01 thorw
