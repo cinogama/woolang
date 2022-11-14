@@ -767,8 +767,6 @@ namespace wo
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::movdup:
-                            tmpos << "movdup\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::veh:
                             tmpos << "veh ";
                             if (main_command & 0b10)
@@ -2408,14 +2406,6 @@ namespace wo
                                 {
                                     WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
                                 }
-                                break;
-                            }
-                            case instruct::extern_opcode_page_0::movdup:
-                            {
-                                WO_ADDRESSING_N1;
-                                WO_ADDRESSING_N2;
-
-                                opnum1->set_dup(opnum2);
                                 break;
                             }
                             case instruct::extern_opcode_page_0::veh:

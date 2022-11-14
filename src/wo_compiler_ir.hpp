@@ -1896,21 +1896,6 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::idstr, WO_OPNUM(op1), WO_OPNUM(op2));
         }
 
-        template<typename OP1T, typename OP2T>
-        void ext_movdup(const OP1T& op1, const OP2T& op2)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
-                && std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
-                "Can not mov value to immediate.");
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::movdup;
-        }
-
         void ext_funcbegin()
         {
             auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext);
@@ -2582,11 +2567,6 @@ namespace wo
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(unpackargs));
-                            WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            break;
-                        case instruct::extern_opcode_page_0::movdup:
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(movdup));
                             WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                             WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                             break;
