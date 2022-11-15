@@ -705,10 +705,7 @@ namespace wo
 
         if (a_value_unary->operate == +lex_type::l_lnot)
             a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
-        else if (!a_value_unary->val->value_type->is_pending())
-        {
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
-        }
+        a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
         return true;
     }
     WO_PASS1(ast_mapping_pair)
@@ -2132,11 +2129,7 @@ namespace wo
             a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
             fully_update_type(a_value_unary->value_type, false);
         }
-        else if (!a_value_unary->val->value_type->is_pending())
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
-        // else
-            // not need to manage, if val is pending, other place will give error.
-
+        a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
 
         return true;
     }

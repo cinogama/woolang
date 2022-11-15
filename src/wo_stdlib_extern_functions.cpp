@@ -2725,15 +2725,14 @@ namespace std
             }
             return option::none;
         }
-        public func expected(self: lexer, token: token_type)=> option<string>
+        public func expect(self: lexer, token: token_type)=> option<string>
         {
-            let result = self->try(token);
-            match(result)
-            {
-            none?       self->error("Unexpected token here.");
-            value(_)?   ; /* do nothing */
-            }
-            return result;
+            let (tok, res) = self->next();
+            if (tok == token)
+                return option::value(res);
+
+            self->error("Unexpected token here.");
+            return option::none;
         }
     }
 }
