@@ -612,17 +612,13 @@ namespace wo
 
             if (peeked_flag)
             {
-                if (out_literal)
-                    *out_literal = peek_result_str;
-                return peek_result_type;
+                return try_handle_macro(out_literal, peek_result_type, peek_result_str, true);
             }
 
             if (!temp_token_buff_stack.empty())
             {
                 just_have_err = false;
-                if (out_literal)
-                    *out_literal = temp_token_buff_stack.top().second;
-                return temp_token_buff_stack.top().first;
+                return try_handle_macro(out_literal, temp_token_buff_stack.top().first, temp_token_buff_stack.top().second, true);
             }
 
             auto old_now_file_rowno = now_file_rowno;
@@ -688,7 +684,6 @@ namespace wo
             } while (result != L'\n' && result != EOF);
         }
 
-
         int next_one()
         {
             int readed_ch = next_ch();
@@ -732,8 +727,6 @@ namespace wo
             return result;
         }
 
-
-
         //lex_type next(std::wstring* out_literal)
         //{
         //    std::wstring fff;
@@ -743,6 +736,52 @@ namespace wo
         //    if (out_literal)*out_literal = fff;
         //    return fffff;
         //}
+        lex_type try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
+        {
+            // ATTENTION: out_literal may point to result_str, please make sure donot read result_str after modify *out_literal.
+            if (result_type == +lex_type::l_identifier)
+            {
+                if (used_macro_list)
+                {
+                    auto fnd = used_macro_list->find(result_str);
+                    if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
+                    {
+                        auto symb = wo_extern_symb(fnd->second->_macro_action_vm,
+                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
+                        wo_assert(symb);
+
+                        if (workinpeek)
+                        {
+                            wo_assert(peeked_flag == true || !temp_token_buff_stack.empty());
+                            if (!temp_token_buff_stack.empty())
+                                temp_token_buff_stack.pop();
+
+                            peeked_flag = false;
+                        }
+
+                        wo_push_pointer(fnd->second->_macro_action_vm, this);
+                        wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
+
+                        if (workinpeek)
+                        {
+                            peeked_flag = true;
+                            peek_result_type = next(&peek_result_str);
+                            if (out_literal)
+                                *out_literal = peek_result_str;
+                            return peek_result_type;
+                        }
+
+                        return next(out_literal);
+                    }
+                }
+            }
+
+            if (out_literal)
+                *out_literal = result_str;
+
+            return result_type;
+
+        }
         lex_type next(std::wstring* out_literal)
         {
             just_have_err = false;
@@ -756,20 +795,16 @@ namespace wo
                 next_file_rowno = after_pick_next_file_rowno;
                 next_file_colno = after_pick_next_file_colno;
 
-                if (out_literal)
-                    *out_literal = peek_result_str;
-
-                return peek_result_type;
+                return try_handle_macro(out_literal, peek_result_type, peek_result_str, false);
             }
 
             if (!temp_token_buff_stack.empty())
             {
-                if (out_literal)
-                    *out_literal = temp_token_buff_stack.top().second;
-                auto type = temp_token_buff_stack.top().first;
+                auto result_str = temp_token_buff_stack.top().second;
+                auto result_type = temp_token_buff_stack.top().first;
 
                 temp_token_buff_stack.pop();
-                return type;
+                return try_handle_macro(out_literal, result_type, result_str, false);
             }
 
             std::wstring tmp_result;
@@ -1455,24 +1490,9 @@ namespace wo
                     else
                         break;
                 }
-                // TODO: Check it, does this str is a keyword?
-                if (used_macro_list)
-                {
-                    auto fnd = used_macro_list->find(read_result());
-                    if (fnd != used_macro_list->end() && fnd->second->_macro_action_vm)
-                    {
-                        auto symb = wo_extern_symb(fnd->second->_macro_action_vm,
-                            wstr_to_str(L"macro_" + fnd->second->macro_name).c_str());
-                        wo_assert(symb);
 
-                        wo_push_pointer(fnd->second->_macro_action_vm, this);
-                        wo_invoke_rsfunc(fnd->second->_macro_action_vm, symb, 1);
-
-                        return next(out_literal);
-                    }
-                }
                 if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
-                    return lex_type::l_identifier;
+                    return try_handle_macro(out_literal, lex_type::l_identifier, read_result(), false);
                 else
                     return keyword_type;
             }
@@ -1539,8 +1559,8 @@ namespace wo
         else
             lex.lex_error(0x0000, WO_ERR_HERE_SHOULD_HAVE, L"{");
 
+        }
     }
-}
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN

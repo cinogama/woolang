@@ -2681,7 +2681,6 @@ namespace std
         l_at,
         l_where,
         l_operator,
-        l_expect,
         l_union,
         l_match,
         l_struct
@@ -2734,7 +2733,7 @@ namespace std
             none?       self->error("Unexpected token here.");
             value(_)?   ; /* do nothing */
             }
-            return result
+            return result;
         }
     }
 }
