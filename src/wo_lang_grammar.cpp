@@ -346,13 +346,6 @@ namespace wo
                             gm::nt(L"BLOCKED_SENTENCE")
                 } >> WO_ASTBUILDER_INDEX(ast::pass_while),
 
-                gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXCEPTED") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"EXCEPTED") >> gm::symlist{
-                                gm::te(gm::ttype::l_expect),
-                                gm::nt(L"BLOCKED_SENTENCE")
-                } >> WO_ASTBUILDER_INDEX(ast::pass_except),
-
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"FORLOOP") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

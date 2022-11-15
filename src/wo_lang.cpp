@@ -685,12 +685,6 @@ namespace wo
         analyze_pass1(ast_while_sentence->execute_sentence);
         return true;
     }
-    WO_PASS1(ast_except)
-    {
-        auto* ast_except_sent = WO_AST();
-        analyze_pass1(ast_except_sent->execute_sentence);
-        return true;
-    }
     WO_PASS1(ast_forloop)
     {
         auto* a_forloop = WO_AST();
@@ -1058,13 +1052,7 @@ namespace wo
 
         return true;
     }
-    WO_PASS2(ast_except)
-    {
-        auto* ast_except_sent = WO_AST();
-        analyze_pass2(ast_except_sent->execute_sentence);
 
-        return true;
-    }
     WO_PASS2(ast_forloop)
     {
         auto* a_forloop = WO_AST();

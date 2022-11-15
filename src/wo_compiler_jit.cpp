@@ -1376,8 +1376,6 @@ namespace wo
                             WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::unpackargs:
                             WO_JIT_NOT_SUPPORT;
-                        case instruct::extern_opcode_page_0::veh:
-                            WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::mkunion:
                             WO_JIT_NOT_SUPPORT;
                         default:

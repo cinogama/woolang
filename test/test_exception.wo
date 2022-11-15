@@ -6,43 +6,9 @@ import test_tool;
 
 namespace test_exception
 {
-    func foo()
-    {
-        std::throw("an exception~");
-    }
     func main()
     {
-        expect
-        {
-            foo();
-            std::halt("This cannot be shown.");
-        }
-        let vmm = std::vm::create();
-        vmm->loadsrc("test_vm/test_exception.wo", @"
-import woo.std;
-func test()
-{
-    static let mut n = 0;
-    if (n == 1)
-        std::throw("This exception should be throw.");
-    else
-        std::println("ok!");
-    n += 1;
-
-    return n;
-}
-test();
-"@);
-        test_assure(vmm->run()->val() as int == 1);
-        test_assure(std::debug::invoke(std::vm::run, vmm)->has() == false);
-        
-        // This two function will not run.
-        // Why 'nil'?
-        //   After last failed, the vm has been aborted. We run here will reset veh
-        //   and vm find that has been abort, it will return immediately, but wo_run
-        //   only check veh. So return &vm->cr, which contain nil.
-        test_assure(std::equalbyte(std::debug::invoke(std::vm::run, vmm)->val(), nil: dynamic));
-        test_assure(std::equalbyte(vmm->run()->val(), nil: dynamic));
+        // todo;
     }
 }
 

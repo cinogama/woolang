@@ -1781,27 +1781,6 @@ namespace wo
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
         }
 
-        void ext_veh_begin(const opnum::tag& op1)
-        {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::veh;
-        }
-
-        void ext_veh_clean(const opnum::tag& op1)
-        {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, nullptr, WO_OPNUM(op1));
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::veh;
-        }
-
-        void ext_veh_throw()
-        {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext);
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::veh;
-        }
-
         template<typename OP1T>
         void ext_mkunion(const OP1T& op1, uint16_t id)
         {
@@ -2569,42 +2548,6 @@ namespace wo
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(unpackargs));
                             WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                             WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                            break;
-                        case instruct::extern_opcode_page_0::veh:
-                            if (WO_IR.op1)
-                            {
-                                // begin
-                                wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op1) != nullptr, "Operator num should be a tag.");
-
-                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 10));
-
-                                jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op1)->name]
-                                    .push_back(generated_runtime_code_buf.size() + 1 + 1);
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-
-                            }
-                            else if (WO_IR.op2)
-                            {
-                                // clean
-                                wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
-                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 00));
-
-                                jmp_record_table[dynamic_cast<opnum::tag*>(WO_IR.op2)->name]
-                                    .push_back(generated_runtime_code_buf.size() + 1 + 1);
-
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-                                temp_this_command_code_buf.push_back(0x00);
-                            }
-                            else
-                            {
-                                // throw
-                                temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(veh, 01));
-                            }
                             break;
                         case instruct::extern_opcode_page_0::mkunion:
                         {
