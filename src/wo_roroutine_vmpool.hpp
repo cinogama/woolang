@@ -39,7 +39,6 @@ public:
                     if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::PENDING_INTERRUPT))
                     {
                         vmm->sp = vmm->bp = vmm->stack_mem_begin;
-                        vmm->finish_veh();
                         vmm->clear_interrupt(wo::vmbase::ABORT_INTERRUPT);
                         return vmm;
                     }

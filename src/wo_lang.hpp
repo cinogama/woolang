@@ -784,7 +784,6 @@ namespace wo
         WO_PASS(ast_sentence_block);
         WO_PASS(ast_if);
         WO_PASS(ast_while);
-        WO_PASS(ast_except);
         WO_PASS(ast_forloop);
         WO_PASS(ast_value_unary);
         WO_PASS(ast_mapping_pair);
@@ -1088,7 +1087,6 @@ namespace wo
             WO_TRY_PASS(ast_sentence_block);
             WO_TRY_PASS(ast_if);
             WO_TRY_PASS(ast_while);
-            WO_TRY_PASS(ast_except);
             WO_TRY_PASS(ast_forloop);
             WO_TRY_PASS(ast_value_unary);
             WO_TRY_PASS(ast_mapping_pair);
@@ -1595,7 +1593,6 @@ namespace wo
             WO_TRY_PASS(ast_sentence_block);
             WO_TRY_PASS(ast_if);
             WO_TRY_PASS(ast_while);
-            WO_TRY_PASS(ast_except);
             WO_TRY_PASS(ast_forloop);
             WO_TRY_PASS(ast_foreach);
             WO_TRY_PASS(ast_varref_defines);
@@ -3416,16 +3413,6 @@ namespace wo
                 compiler->tag(while_end_tag);                                                           // while_end_tag:
 
                 loop_stack_for_break_and_continue.pop_back();
-            }
-            else if (auto* a_except = dynamic_cast<ast_except*>(ast_node))
-            {
-                auto except_end_tag = "except_end_" + compiler->get_unique_tag_based_command_ip();
-
-                compiler->ext_veh_begin(tag(except_end_tag));
-                real_analyze_finalize(a_except->execute_sentence, compiler);
-                compiler->ext_veh_clean(tag(except_end_tag));
-
-                compiler->tag(except_end_tag);
             }
             else if (ast_forloop* a_forloop = dynamic_cast<ast_forloop*>(ast_node))
             {

@@ -20,7 +20,7 @@
 namespace wo
 {
     struct vmbase;
-    class exception_recovery;
+
     class debuggee_base
     {
         inline static gcbase::rw_lock _global_vm_debug_block_spin;
@@ -39,20 +39,6 @@ namespace wo
 
         void block_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.lock(); }
         void unblock_other_vm_in_this_debuggee() { _global_vm_debug_block_spin.unlock(); }
-    };
-
-    class exception_recovery
-    {
-        exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
-    public:
-        const byte_t* ip;
-        value* sp;
-        value* bp;
-        exception_recovery* last;
-
-        inline static void rollback(vmbase* _vm, bool force_unexpect = false);
-        inline static void ok(vmbase* _vm);
-        inline static void ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp);
     };
 
     struct vmbase
@@ -258,12 +244,6 @@ namespace wo
             _vm_hang_cv.notify_one();
         }
 
-        inline void finish_veh()
-        {
-            while (veh)
-                exception_recovery::ok(this);
-        }
-
         vmbase()
         {
             ++_alive_vm_count_for_gc_vm_destruct;
@@ -340,8 +320,6 @@ namespace wo
                 _alive_vm_list.erase(this);
             } while (0);
 
-            finish_veh();
-
             if (compile_info)
                 delete compile_info;
 
@@ -350,9 +328,6 @@ namespace wo
         }
 
         lexer* compile_info = nullptr;
-
-        // vm exception handler
-        exception_recovery* veh = nullptr;
 
         // next ircode pointer
         const byte_t* ip = nullptr;
@@ -767,25 +742,6 @@ namespace wo
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::veh:
-                            tmpos << "veh ";
-                            if (main_command & 0b10)
-                            {
-                                tmpos << "begin except jmp ";
-                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                                break;
-                            }
-                            else if (main_command & 0b01)
-                            {
-                                tmpos << "throw";
-                                break;
-                            }
-                            else
-                            {
-                                tmpos << "ok jmp ";
-                                tmpos << "+" << *(uint32_t*)((this_command_ptr += 4) - 4);
-                                break;
-                            }
                         case instruct::extern_opcode_page_0::mkunion:
                             tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
                             break;
@@ -1015,8 +971,7 @@ namespace wo
                 sp = return_sp;
                 bp = return_bp;
 
-                if (veh)
-                    return cr;
+                return cr;
             }
             return nullptr;
         }
@@ -1047,8 +1002,7 @@ namespace wo
                 sp = return_sp;
                 bp = return_bp;
 
-                if (veh)
-                    return cr;
+                return cr;
             }
             return nullptr;
         }
@@ -1095,8 +1049,7 @@ namespace wo
                     sp = return_sp;
                     bp = return_bp;
 
-                    if (veh)
-                        return cr;
+                    return cr;
                 }
             }
             return nullptr;
@@ -1134,52 +1087,6 @@ namespace wo
 #define WO_IPVAL_MOVE_8 ((ARCH & platform_info::ArchType::X86)?(*(uint64_t*)((rt_ip += 8) - 8)):((uint64_t)WO_SAFE_READ_MOVE_8))
 
     };
-
-    inline exception_recovery::exception_recovery(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
-        : ip(_ip)
-        , sp(_sp)
-        , bp(_bp)
-        , last(_vm->veh)
-    {
-        _vm->veh = this;
-    }
-
-    inline void exception_recovery::rollback(vmbase* _vm, bool force_unexpect)
-    {
-        if (_vm->veh)
-        {
-            if (!_vm->veh->ip || force_unexpect)
-            {
-                // Reached non-except handler, abort this vm and print call-stack
-                _vm->interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
-                // unhandled exception happend.
-                wo_stderr << ANSI_HIR "Unexpected exception: " ANSI_RST << wo_cast_string((wo_value)_vm->er) << wo_endl;
-                _vm->dump_call_stack(32, true, std::cerr);
-            }
-            else
-            {
-                _vm->interrupt(vmbase::vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT);
-                _vm->ip = _vm->veh->ip;
-                _vm->sp = _vm->veh->sp;
-                _vm->bp = _vm->veh->bp;
-            }
-            ok(_vm);
-        }
-        else
-        {
-            wo_error("No 'veh' in this vm.");
-        }
-    }
-    inline void exception_recovery::ok(vmbase* _vm)
-    {
-        auto veh = _vm->veh;
-        _vm->veh = veh->last;
-        delete veh;
-    }
-    inline void exception_recovery::ready(vmbase* _vm, const byte_t* _ip, value* _sp, value* _bp)
-    {
-        new exception_recovery(_vm, _ip, _sp, _bp);
-    }
 
     ////////////////////////////////////////////////////////////////////////////////
 
@@ -1315,10 +1222,6 @@ namespace wo
                 + (rt_env->runtime_stack_count - 1)
             );
 
-            if (!veh)
-                exception_recovery::ready(this, nullptr, nullptr, nullptr);
-
-
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
 #define WO_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
@@ -1355,1208 +1258,1185 @@ namespace wo
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
-        VM_SIM_BEGIN:
-            try
+
+            for (;;)
             {
-                for (;;)
+                opcode_dr = *(rt_ip++);
+                opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+                dr = opcode_dr & 0b00000011u;
+
+                auto rtopcode = fast_ro_vm_interrupt | opcode;
+
+            re_entry_for_interrupt:
+
+                wo_assert(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "VM STACK OVERFLOW!");
+
+                switch (rtopcode)
                 {
-                    opcode_dr = *(rt_ip++);
-                    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
-                    dr = opcode_dr & 0b00000011u;
-
-                    auto rtopcode = fast_ro_vm_interrupt | opcode;
-
-                re_entry_for_interrupt:
-
-                    wo_assert(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "VM STACK OVERFLOW!");
-
-                    switch (rtopcode)
-                    {
-                    case instruct::opcode::psh:
-                    {
-                        if (dr & 0b01)
-                        {
-                            WO_ADDRESSING_N1;
-                            (rt_sp--)->set_val(opnum1);
-                        }
-                        else
-                        {
-                            uint16_t psh_repeat = WO_IPVAL_MOVE_2;
-                            for (uint32_t i = 0; i < psh_repeat; i++)
-                                (rt_sp--)->set_nil();
-                        }
-                        wo_assert(rt_sp <= rt_bp);
-                        break;
-                    }
-                    case instruct::opcode::pop:
-                    {
-                        if (dr & 0b01)
-                        {
-                            WO_ADDRESSING_N1;
-                            opnum1->set_val((++rt_sp));
-                        }
-                        else
-                            rt_sp += WO_IPVAL_MOVE_2;
-
-                        wo_assert(rt_sp <= rt_bp);
-
-                        break;
-                    }
-                    case instruct::opcode::addi:
+                case instruct::opcode::psh:
+                {
+                    if (dr & 0b01)
                     {
                         WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        opnum1->integer += opnum2->integer;
-                        break;
+                        (rt_sp--)->set_val(opnum1);
                     }
-                    case instruct::opcode::subi:
+                    else
+                    {
+                        uint16_t psh_repeat = WO_IPVAL_MOVE_2;
+                        for (uint32_t i = 0; i < psh_repeat; i++)
+                            (rt_sp--)->set_nil();
+                    }
+                    wo_assert(rt_sp <= rt_bp);
+                    break;
+                }
+                case instruct::opcode::pop:
+                {
+                    if (dr & 0b01)
                     {
                         WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        opnum1->integer -= opnum2->integer;
-                        break;
+                        opnum1->set_val((++rt_sp));
                     }
-                    case instruct::opcode::muli:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    else
+                        rt_sp += WO_IPVAL_MOVE_2;
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
+                    wo_assert(rt_sp <= rt_bp);
 
-                        opnum1->integer *= opnum2->integer;
-                        break;
-                    }
-                    case instruct::opcode::divi:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    break;
+                }
+                case instruct::opcode::addi:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
 
-                        opnum1->integer /= opnum2->integer;
-                        break;
-                    }
-                    case instruct::opcode::modi:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    opnum1->integer += opnum2->integer;
+                    break;
+                }
+                case instruct::opcode::subi:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
 
-                        opnum1->integer %= opnum2->integer;
-                        break;
-                    }
+                    opnum1->integer -= opnum2->integer;
+                    break;
+                }
+                case instruct::opcode::muli:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                    case instruct::opcode::addr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
+                    opnum1->integer *= opnum2->integer;
+                    break;
+                }
+                case instruct::opcode::divi:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        opnum1->real += opnum2->real;
-                        break;
-                    }
-                    case instruct::opcode::subr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
+                    opnum1->integer /= opnum2->integer;
+                    break;
+                }
+                case instruct::opcode::modi:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        opnum1->real -= opnum2->real;
-                        break;
-                    }
-                    case instruct::opcode::mulr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
+                    opnum1->integer %= opnum2->integer;
+                    break;
+                }
 
-                        opnum1->real *= opnum2->real;
-                        break;
-                    }
-                    case instruct::opcode::divr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                case instruct::opcode::addr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
 
-                        opnum1->real /= opnum2->real;
-                        break;
-                    }
-                    case instruct::opcode::modr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    opnum1->real += opnum2->real;
+                    break;
+                }
+                case instruct::opcode::subr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
 
-                        opnum1->real = fmod(opnum1->real, opnum2->real);
-                        break;
-                    }
+                    opnum1->real -= opnum2->real;
+                    break;
+                }
+                case instruct::opcode::mulr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                    case instruct::opcode::addh:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::handle_type);
+                    opnum1->real *= opnum2->real;
+                    break;
+                }
+                case instruct::opcode::divr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        opnum1->handle += opnum2->handle;
-                        break;
-                    }
-                    case instruct::opcode::subh:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::handle_type);
+                    opnum1->real /= opnum2->real;
+                    break;
+                }
+                case instruct::opcode::modr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        opnum1->handle -= opnum2->handle;
-                        break;
-                    }
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
 
-                    case instruct::opcode::adds:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    opnum1->real = fmod(opnum1->real, opnum2->real);
+                    break;
+                }
 
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::string_type);
+                case instruct::opcode::addh:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
 
-                        string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
-                        break;
-                    }
-                    /// OPERATE
-                    case instruct::opcode::mov:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
 
+                    opnum1->handle += opnum2->handle;
+                    break;
+                }
+                case instruct::opcode::subh:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type);
+
+                    opnum1->handle -= opnum2->handle;
+                    break;
+                }
+
+                case instruct::opcode::adds:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::string_type);
+
+                    string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
+                    break;
+                }
+                /// OPERATE
+                case instruct::opcode::mov:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    opnum1->set_val(opnum2);
+                    break;
+                }
+                case instruct::opcode::movcast:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
+                    if (aim_type == opnum2->type)
                         opnum1->set_val(opnum2);
-                        break;
-                    }
-                    case instruct::opcode::movcast:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        value::valuetype aim_type = static_cast<value::valuetype>(WO_IPVAL_MOVE_1);
-                        if (aim_type == opnum2->type)
-                            opnum1->set_val(opnum2);
-                        else
-                            switch (aim_type)
+                    else
+                        switch (aim_type)
+                        {
+                        case value::valuetype::integer_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::real_type:
+                                opnum1->set_integer((wo_integer_t)opnum2->real); break;
+                            case value::valuetype::handle_type:
+                                opnum1->set_integer((wo_integer_t)opnum2->handle); break;
+                            case value::valuetype::string_type:
+                                opnum1->set_integer((wo_integer_t)atoll(opnum2->string->c_str())); break;
+                            default:
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
+                                break;
+                            }
+                            break;
+                        case value::valuetype::real_type:
+                            switch (opnum2->type)
                             {
                             case value::valuetype::integer_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::real_type:
-                                    opnum1->set_integer((wo_integer_t)opnum2->real); break;
-                                case value::valuetype::handle_type:
-                                    opnum1->set_integer((wo_integer_t)opnum2->handle); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_integer((wo_integer_t)atoll(opnum2->string->c_str())); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
-                                    break;
-                                }
-                                break;
-                            case value::valuetype::real_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->set_real((wo_real_t)opnum2->integer); break;
-                                case value::valuetype::handle_type:
-                                    opnum1->set_real((wo_real_t)opnum2->handle); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_real((wo_real_t)std::stod(*opnum2->string)); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
-                                    break;
-                                }
-                                break;
+                                opnum1->set_real((wo_real_t)opnum2->integer); break;
                             case value::valuetype::handle_type:
-                                switch (opnum2->type)
-                                {
-                                case value::valuetype::integer_type:
-                                    opnum1->set_handle((wo_handle_t)opnum2->integer); break;
-                                case value::valuetype::real_type:
-                                    opnum1->set_handle((wo_handle_t)opnum2->real); break;
-                                case value::valuetype::string_type:
-                                    opnum1->set_handle((wo_handle_t)std::stoull(*opnum2->string)); break;
-                                default:
-                                    WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
-                                    break;
-                                }
-                                break;
+                                opnum1->set_real((wo_real_t)opnum2->handle); break;
                             case value::valuetype::string_type:
-                                opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
-
-                            case value::valuetype::array_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
-                                break;
-                            case value::valuetype::dict_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
-                                break;
-                            case value::valuetype::gchandle_type:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
-                                break;
+                                opnum1->set_real((wo_real_t)std::stod(*opnum2->string)); break;
                             default:
-                                wo_error("Unknown type.");
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
+                                break;
                             }
+                            break;
+                        case value::valuetype::handle_type:
+                            switch (opnum2->type)
+                            {
+                            case value::valuetype::integer_type:
+                                opnum1->set_handle((wo_handle_t)opnum2->integer); break;
+                            case value::valuetype::real_type:
+                                opnum1->set_handle((wo_handle_t)opnum2->real); break;
+                            case value::valuetype::string_type:
+                                opnum1->set_handle((wo_handle_t)std::stoull(*opnum2->string)); break;
+                            default:
+                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
+                                break;
+                            }
+                            break;
+                        case value::valuetype::string_type:
+                            opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
 
-                        break;
-                    }
-                    case instruct::opcode::typeas:
-                    {
-                        WO_ADDRESSING_N1;
-                        if (dr & 0b01)
-                        {
-                            if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
-                                rt_cr->set_integer(0);
-                            else
-                                rt_cr->set_integer(1);
+                        case value::valuetype::array_type:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
+                            break;
+                        case value::valuetype::dict_type:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'map'.").c_str());
+                            break;
+                        case value::valuetype::gchandle_type:
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
+                            break;
+                        default:
+                            wo_error("Unknown type.");
                         }
+
+                    break;
+                }
+                case instruct::opcode::typeas:
+                {
+                    WO_ADDRESSING_N1;
+                    if (dr & 0b01)
+                    {
+                        if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
+                            rt_cr->set_integer(0);
                         else
-                            if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
+                            rt_cr->set_integer(1);
+                    }
+                    else
+                        if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
+                    break;
+                }
+                case instruct::opcode::lds:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    opnum1->set_val(rt_bp + opnum2->integer);
+                    break;
+                }
+                case instruct::opcode::sts:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    (rt_bp + opnum2->integer)->set_val(opnum1);
+                    break;
+                }
+                case instruct::opcode::equb:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    rt_cr->set_integer(opnum1->integer == opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::nequb:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    rt_cr->set_integer(opnum1->integer != opnum2->integer);
+                    break;
+                }
+                case instruct::opcode::equr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                    rt_cr->set_integer(opnum1->real == opnum2->real);
+
+                    break;
+                }
+                case instruct::opcode::nequr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                    rt_cr->set_integer(opnum1->real != opnum2->real);
+                    break;
+                }
+                case instruct::opcode::equs:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                    rt_cr->set_integer(*opnum1->string == *opnum2->string);
+
+                    break;
+                }
+                case instruct::opcode::nequs:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                    rt_cr->set_integer(*opnum1->string != *opnum2->string);
+                    break;
+                }
+                case instruct::opcode::land:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    rt_cr->set_integer(opnum1->integer && opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::lor:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    rt_cr->set_integer(opnum1->integer || opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::lmov:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    opnum1->set_integer(opnum2->integer ? 1 : 0);
+
+                    break;
+                }
+                case instruct::opcode::lti:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    rt_cr->set_integer(opnum1->integer < opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::gti:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    rt_cr->set_integer(opnum1->integer > opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::elti:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    rt_cr->set_integer(opnum1->integer <= opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::egti:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type);
+
+                    rt_cr->set_integer(opnum1->integer >= opnum2->integer);
+
+                    break;
+                }
+                case instruct::opcode::ltr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    rt_cr->set_integer(opnum1->real < opnum2->real);
+
+                    break;
+                }
+                case instruct::opcode::gtr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    rt_cr->set_integer(opnum1->real > opnum2->real);
+
+                    break;
+                }
+                case instruct::opcode::eltr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    rt_cr->set_integer(opnum1->real <= opnum2->real);
+
+                    break;
+                }
+                case instruct::opcode::egtr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type);
+
+                    rt_cr->set_integer(opnum1->real >= opnum2->real);
+
+                    break;
+                }
+                case instruct::opcode::ltx:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type);
+
+                    switch (opnum1->type)
+                    {
+                    case value::valuetype::integer_type:
+                        rt_cr->set_integer(opnum1->integer < opnum2->integer); break;
+                    case value::valuetype::handle_type:
+                        rt_cr->set_integer(opnum1->handle < opnum2->handle); break;
+                    case value::valuetype::real_type:
+                        rt_cr->set_integer(opnum1->real < opnum2->real); break;
+                    case value::valuetype::string_type:
+                        rt_cr->set_integer(*opnum1->string < *opnum2->string); break;
+                    default:
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                        rt_cr->set_integer(0);
                         break;
                     }
-                    case instruct::opcode::lds:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
 
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        opnum1->set_val(rt_bp + opnum2->integer);
+                    break;
+                }
+                case instruct::opcode::gtx:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type);
+                    switch (opnum1->type)
+                    {
+                    case value::valuetype::integer_type:
+                        rt_cr->set_integer(opnum1->integer > opnum2->integer); break;
+                    case value::valuetype::handle_type:
+                        rt_cr->set_integer(opnum1->handle > opnum2->handle); break;
+                    case value::valuetype::real_type:
+                        rt_cr->set_integer(opnum1->real > opnum2->real); break;
+                    case value::valuetype::string_type:
+                        rt_cr->set_integer(*opnum1->string > *opnum2->string); break;
+                    default:
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                        rt_cr->set_integer(0);
                         break;
                     }
-                    case instruct::opcode::sts:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
 
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        (rt_bp + opnum2->integer)->set_val(opnum1);
+
+                    break;
+                }
+                case instruct::opcode::eltx:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type);
+
+                    switch (opnum1->type)
+                    {
+                    case value::valuetype::integer_type:
+                        rt_cr->set_integer(opnum1->integer <= opnum2->integer); break;
+                    case value::valuetype::handle_type:
+                        rt_cr->set_integer(opnum1->handle <= opnum2->handle); break;
+                    case value::valuetype::real_type:
+                        rt_cr->set_integer(opnum1->real <= opnum2->real); break;
+                    case value::valuetype::string_type:
+                        rt_cr->set_integer(*opnum1->string <= *opnum2->string); break;
+                    default:
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                        rt_cr->set_integer(0);
                         break;
                     }
-                    case instruct::opcode::equb:
+
+                    break;
+                }
+                case instruct::opcode::egtx:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(opnum1->type == opnum2->type);
+
+                    switch (opnum1->type)
                     {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        rt_cr->set_integer(opnum1->integer == opnum2->integer);
-
+                    case value::valuetype::integer_type:
+                        rt_cr->set_integer(opnum1->integer >= opnum2->integer); break;
+                    case value::valuetype::handle_type:
+                        rt_cr->set_integer(opnum1->handle >= opnum2->handle); break;
+                    case value::valuetype::real_type:
+                        rt_cr->set_integer(opnum1->real >= opnum2->real); break;
+                    case value::valuetype::string_type:
+                        rt_cr->set_integer(*opnum1->string >= *opnum2->string); break;
+                    default:
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
+                        rt_cr->set_integer(0);
                         break;
                     }
-                    case instruct::opcode::nequb:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
 
-                        rt_cr->set_integer(opnum1->integer != opnum2->integer);
-                        break;
+                    break;
+                }
+                case instruct::opcode::ret:
+                {
+                    wo_assert((rt_bp + 1)->type == value::valuetype::callstack
+                        || (rt_bp + 1)->type == value::valuetype::nativecallstack);
+
+                    uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
+
+                    if ((++rt_bp)->type == value::valuetype::nativecallstack)
+                    {
+                        rt_sp = rt_bp;
+                        rt_sp += pop_count;
+                        return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                     }
-                    case instruct::opcode::equr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
-                        rt_cr->set_integer(opnum1->real == opnum2->real);
 
-                        break;
+                    value* stored_bp = stack_mem_begin - rt_bp->bp;
+                    rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
+                    rt_sp = rt_bp;
+                    rt_bp = stored_bp;
+
+                    rt_sp += pop_count;
+                    // TODO If rt_ip is outof range, return...
+
+                    break;
+                }
+                case instruct::opcode::call:
+                {
+                    WO_ADDRESSING_N1;
+
+                    wo_assert(0 != opnum1->handle && 0 != opnum1->closure);
+
+                    if (opnum1->type == value::valuetype::closure_type)
+                    {
+                        gcbase::gc_read_guard gwg1(opnum1->closure);
+                        // Call closure, unpack closure captured arguments.
+                        // 
+                        // NOTE: Closure arguments should be poped by closure function it self.
+                        //       Can use ret(n) to pop arguments when call.
+                        for (auto res = opnum1->closure->m_closure_args.rbegin();
+                            res != opnum1->closure->m_closure_args.rend();
+                            ++res)
+                            (rt_sp--)->set_val(&*res);
                     }
-                    case instruct::opcode::nequr:
+
+                    rt_sp->type = value::valuetype::callstack;
+                    rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                    rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
+                    rt_bp = --rt_sp;
+
+                    if (opnum1->type == value::valuetype::handle_type)
                     {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
-                        rt_cr->set_integer(opnum1->real != opnum2->real);
-                        break;
-                    }
-                    case instruct::opcode::equs:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
-                        rt_cr->set_integer(*opnum1->string == *opnum2->string);
+                        // Call native
+                        bp = sp = rt_sp;
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
+                        ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+                        rt_cr->set_nil();
 
-                        break;
-                    }
-                    case instruct::opcode::nequs:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
-                        rt_cr->set_integer(*opnum1->string != *opnum2->string);
-                        break;
-                    }
-                    case instruct::opcode::land:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
+                        wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
-                        rt_cr->set_integer(opnum1->integer && opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::lor:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        rt_cr->set_integer(opnum1->integer || opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::lmov:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        opnum1->set_integer(opnum2->integer ? 1 : 0);
-
-                        break;
-                    }
-                    case instruct::opcode::lti:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        rt_cr->set_integer(opnum1->integer < opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::gti:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        rt_cr->set_integer(opnum1->integer > opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::elti:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        rt_cr->set_integer(opnum1->integer <= opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::egti:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::integer_type);
-
-                        rt_cr->set_integer(opnum1->integer >= opnum2->integer);
-
-                        break;
-                    }
-                    case instruct::opcode::ltr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
-
-                        rt_cr->set_integer(opnum1->real < opnum2->real);
-
-                        break;
-                    }
-                    case instruct::opcode::gtr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
-
-                        rt_cr->set_integer(opnum1->real > opnum2->real);
-
-                        break;
-                    }
-                    case instruct::opcode::eltr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
-
-                        rt_cr->set_integer(opnum1->real <= opnum2->real);
-
-                        break;
-                    }
-                    case instruct::opcode::egtr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type
-                            && opnum1->type == value::valuetype::real_type);
-
-                        rt_cr->set_integer(opnum1->real >= opnum2->real);
-
-                        break;
-                    }
-                    case instruct::opcode::ltx:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type);
-
-                        switch (opnum1->type)
-                        {
-                        case value::valuetype::integer_type:
-                            rt_cr->set_integer(opnum1->integer < opnum2->integer); break;
-                        case value::valuetype::handle_type:
-                            rt_cr->set_integer(opnum1->handle < opnum2->handle); break;
-                        case value::valuetype::real_type:
-                            rt_cr->set_integer(opnum1->real < opnum2->real); break;
-                        case value::valuetype::string_type:
-                            rt_cr->set_integer(*opnum1->string < *opnum2->string); break;
-                        default:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                            rt_cr->set_integer(0);
-                            break;
-                        }
-
-                        break;
-                    }
-                    case instruct::opcode::gtx:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type);
-                        switch (opnum1->type)
-                        {
-                        case value::valuetype::integer_type:
-                            rt_cr->set_integer(opnum1->integer > opnum2->integer); break;
-                        case value::valuetype::handle_type:
-                            rt_cr->set_integer(opnum1->handle > opnum2->handle); break;
-                        case value::valuetype::real_type:
-                            rt_cr->set_integer(opnum1->real > opnum2->real); break;
-                        case value::valuetype::string_type:
-                            rt_cr->set_integer(*opnum1->string > *opnum2->string); break;
-                        default:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                            rt_cr->set_integer(0);
-                            break;
-                        }
-
-
-                        break;
-                    }
-                    case instruct::opcode::eltx:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type);
-
-                        switch (opnum1->type)
-                        {
-                        case value::valuetype::integer_type:
-                            rt_cr->set_integer(opnum1->integer <= opnum2->integer); break;
-                        case value::valuetype::handle_type:
-                            rt_cr->set_integer(opnum1->handle <= opnum2->handle); break;
-                        case value::valuetype::real_type:
-                            rt_cr->set_integer(opnum1->real <= opnum2->real); break;
-                        case value::valuetype::string_type:
-                            rt_cr->set_integer(*opnum1->string <= *opnum2->string); break;
-                        default:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                            rt_cr->set_integer(0);
-                            break;
-                        }
-
-                        break;
-                    }
-                    case instruct::opcode::egtx:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(opnum1->type == opnum2->type);
-
-                        switch (opnum1->type)
-                        {
-                        case value::valuetype::integer_type:
-                            rt_cr->set_integer(opnum1->integer >= opnum2->integer); break;
-                        case value::valuetype::handle_type:
-                            rt_cr->set_integer(opnum1->handle >= opnum2->handle); break;
-                        case value::valuetype::real_type:
-                            rt_cr->set_integer(opnum1->real >= opnum2->real); break;
-                        case value::valuetype::string_type:
-                            rt_cr->set_integer(*opnum1->string >= *opnum2->string); break;
-                        default:
-                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                            rt_cr->set_integer(0);
-                            break;
-                        }
-
-                        break;
-                    }
-                    case instruct::opcode::ret:
-                    {
-                        wo_assert((rt_bp + 1)->type == value::valuetype::callstack
-                            || (rt_bp + 1)->type == value::valuetype::nativecallstack);
-
-                        uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
-
-                        if ((++rt_bp)->type == value::valuetype::nativecallstack)
-                        {
-                            rt_sp = rt_bp;
-                            rt_sp += pop_count;
-                            return; // last stack is native_func, just do return; stack balance should be keeped by invoker
-                        }
-
-                        value* stored_bp = stack_mem_begin - rt_bp->bp;
-                        rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
+                        wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
-
-                        rt_sp += pop_count;
-                        // TODO If rt_ip is outof range, return...
-
-                        break;
                     }
-                    case instruct::opcode::call:
+                    else if (opnum1->type == value::valuetype::integer_type)
                     {
-                        WO_ADDRESSING_N1;
-
-                        wo_assert(0 != opnum1->handle && 0 != opnum1->closure);
-
-                        if (opnum1->type == value::valuetype::closure_type)
+                        rt_ip = rt_env->rt_codes + opnum1->integer;
+                    }
+                    else
+                    {
+                        wo_assert(opnum1->type == value::valuetype::closure_type);
+                        if (opnum1->closure->m_native_call)
                         {
-                            gcbase::gc_read_guard gwg1(opnum1->closure);
-                            // Call closure, unpack closure captured arguments.
-                            // 
-                            // NOTE: Closure arguments should be poped by closure function it self.
-                            //       Can use ret(n) to pop arguments when call.
-                            for (auto res = opnum1->closure->m_closure_args.rbegin();
-                                res != opnum1->closure->m_closure_args.rend();
-                                ++res)
-                                (rt_sp--)->set_val(&*res);
+                            opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                            value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                            rt_sp = rt_bp;
+                            rt_bp = stored_bp;
                         }
+                        else
+                            rt_ip = rt_env->rt_codes + opnum1->closure->m_vm_func;
+                    }
+                    break;
+                }
+                case instruct::opcode::calln:
+                {
+                    wo_assert(dr == 0b11 || dr == 0b01 || dr == 0b00);
+
+                    if (dr)
+                    {
+                        // Call native
+                        wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
+
+                        rt_sp->type = value::valuetype::callstack;
+                        rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
+                        rt_bp = --rt_sp;
+                        bp = sp = rt_sp;
+                        rt_cr->set_nil();
+
+                        ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+                        if (dr & 0b10)
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        else
+                        {
+                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                        }
+
+                        wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                        rt_sp = rt_bp;
+                        rt_bp = stored_bp;
+                    }
+                    else
+                    {
+                        const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                        rt_ip += 4; // skip reserved place.
 
                         rt_sp->type = value::valuetype::callstack;
                         rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
                         rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
                         rt_bp = --rt_sp;
 
-                        if (opnum1->type == value::valuetype::handle_type)
-                        {
-                            // Call native
-                            bp = sp = rt_sp;
-                            wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
-                            ip = reinterpret_cast<byte_t*>(call_aim_native_func);
-                            rt_cr->set_nil();
+                        rt_ip = aimplace;
 
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-
-                            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
-                            value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                            rt_sp = rt_bp;
-                            rt_bp = stored_bp;
-                        }
-                        else if (opnum1->type == value::valuetype::integer_type)
-                        {
-                            rt_ip = rt_env->rt_codes + opnum1->integer;
-                        }
-                        else
-                        {
-                            wo_assert(opnum1->type == value::valuetype::closure_type);
-                            if (opnum1->closure->m_native_call)
-                            {
-                                opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                                wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
-                                value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                                rt_sp = rt_bp;
-                                rt_bp = stored_bp;
-                            }
-                            else
-                                rt_ip = rt_env->rt_codes + opnum1->closure->m_vm_func;
-                        }
-                        break;
                     }
-                    case instruct::opcode::calln:
+                    break;
+                }
+                case instruct::opcode::jmp:
+                {
+                    auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                    rt_ip = restore_ip;
+                    break;
+                }
+                case instruct::opcode::jt:
+                {
+                    uint32_t aimplace = WO_IPVAL_MOVE_4;
+                    if (rt_cr->integer)
+                        rt_ip = rt_env->rt_codes + aimplace;
+                    break;
+                }
+                case instruct::opcode::jf:
+                {
+                    uint32_t aimplace = WO_IPVAL_MOVE_4;
+                    if (!rt_cr->integer)
+                        rt_ip = rt_env->rt_codes + aimplace;
+                    break;
+                }
+                case instruct::opcode::mkstruct:
+                {
+                    WO_ADDRESSING_N1; // Aim
+                    uint16_t size = WO_IPVAL_MOVE_2;
+
+                    rt_sp = make_struct_impl(opnum1, size, rt_sp);
+                    break;
+                }
+                case instruct::opcode::idstruct:
+                {
+                    WO_ADDRESSING_N1; // Aim
+                    WO_ADDRESSING_N2; // Struct
+                    uint16_t offset = WO_IPVAL_MOVE_2;
+
+                    wo_assert(opnum2->type == value::valuetype::struct_type);
+                    wo_assert(opnum2->structs != nullptr);
+                    wo_assert(offset < opnum2->structs->m_count);
+
+                    // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
+                    gcbase::gc_read_guard gwg1(opnum2->structs);
+
+                    auto* result = &opnum2->structs->m_values[offset];
+                    if (wo::gc::gc_is_marking())
+                        opnum2->structs->add_memo(result);
+                    opnum1->set_val(result);
+
+                    break;
+                }
+                case instruct::opcode::jnequb:
+                {
+                    WO_ADDRESSING_N1;
+                    uint32_t offset = WO_IPVAL_MOVE_4;
+
+                    if (opnum1->integer != rt_cr->integer)
                     {
-                        wo_assert(dr == 0b11 || dr == 0b01 || dr == 0b00);
-
-                        if (dr)
-                        {
-                            // Call native
-                            wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
-
-                            rt_sp->type = value::valuetype::callstack;
-                            rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                            rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
-                            rt_bp = --rt_sp;
-                            bp = sp = rt_sp;
-                            rt_cr->set_nil();
-
-                            ip = reinterpret_cast<byte_t*>(call_aim_native_func);
-
-                            if (dr & 0b10)
-                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            else
-                            {
-                                wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                                call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                                wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            }
-
-                            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
-                            value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                            rt_sp = rt_bp;
-                            rt_bp = stored_bp;
-                        }
-                        else
-                        {
-                            const byte_t* aimplace = rt_env->rt_codes + WO_IPVAL_MOVE_4;
-                            rt_ip += 4; // skip reserved place.
-
-                            rt_sp->type = value::valuetype::callstack;
-                            rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                            rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
-                            rt_bp = --rt_sp;
-
-                            rt_ip = aimplace;
-
-                        }
-                        break;
-                    }
-                    case instruct::opcode::jmp:
-                    {
-                        auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
+                        auto* restore_ip = rt_env->rt_codes + offset;
                         rt_ip = restore_ip;
-                        break;
                     }
-                    case instruct::opcode::jt:
+                    break;
+                }
+                case instruct::opcode::mkarr:
+                {
+                    WO_ADDRESSING_N1;
+                    uint16_t size = WO_IPVAL_MOVE_2;
+
+                    rt_sp = make_array_impl(opnum1, size, rt_sp);
+                    break;
+                }
+                case instruct::opcode::mkmap:
+                {
+                    WO_ADDRESSING_N1;
+                    uint16_t size = WO_IPVAL_MOVE_2;
+
+                    rt_sp = make_map_impl(opnum1, size, rt_sp);
+                    break;
+                }
+                case instruct::opcode::idarr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(nullptr != opnum1->gcunit);
+
+                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                    wo_assert(opnum1->type == value::valuetype::array_type);
+                    wo_assert(opnum2->type == value::valuetype::integer_type);
+
+                    size_t index = opnum2->integer;
+                    if (opnum2->integer < 0)
+                        index = opnum1->array->size() + opnum2->integer;
+                    if (index >= opnum1->array->size())
                     {
-                        uint32_t aimplace = WO_IPVAL_MOVE_4;
-                        if (rt_cr->integer)
-                            rt_ip = rt_env->rt_codes + aimplace;
-                        break;
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                        rt_cr->set_nil();
                     }
-                    case instruct::opcode::jf:
+                    else
                     {
-                        uint32_t aimplace = WO_IPVAL_MOVE_4;
-                        if (!rt_cr->integer)
-                            rt_ip = rt_env->rt_codes + aimplace;
-                        break;
-                    }
-                    case instruct::opcode::mkstruct:
-                    {
-                        WO_ADDRESSING_N1; // Aim
-                        uint16_t size = WO_IPVAL_MOVE_2;
-
-                        rt_sp = make_struct_impl(opnum1, size, rt_sp);
-                        break;
-                    }
-                    case instruct::opcode::idstruct:
-                    {
-                        WO_ADDRESSING_N1; // Aim
-                        WO_ADDRESSING_N2; // Struct
-                        uint16_t offset = WO_IPVAL_MOVE_2;
-
-                        wo_assert(opnum2->type == value::valuetype::struct_type);
-                        wo_assert(opnum2->structs != nullptr);
-                        wo_assert(offset < opnum2->structs->m_count);
-
-                        // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
-                        gcbase::gc_read_guard gwg1(opnum2->structs);
-
-                        auto* result = &opnum2->structs->m_values[offset];
+                        auto* result = &opnum1->array->at(index);
                         if (wo::gc::gc_is_marking())
-                            opnum2->structs->add_memo(result);
-                        opnum1->set_val(result);
-
-                        break;
+                            opnum1->array->add_memo(result);
+                        rt_cr->set_val(result);
                     }
-                    case instruct::opcode::jnequb:
+                    break;
+                }
+                case instruct::opcode::iddict:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(nullptr != opnum1->gcunit);
+                    wo_assert(opnum1->type == value::valuetype::dict_type);
+                    do
                     {
-                        WO_ADDRESSING_N1;
-                        uint32_t offset = WO_IPVAL_MOVE_4;
-
-                        if (opnum1->integer != rt_cr->integer)
-                        {
-                            auto* restore_ip = rt_env->rt_codes + offset;
-                            rt_ip = restore_ip;
-                        }
-                        break;
-                    }
-                    case instruct::opcode::mkarr:
-                    {
-                        WO_ADDRESSING_N1;
-                        uint16_t size = WO_IPVAL_MOVE_2;
-
-                        rt_sp = make_array_impl(opnum1, size, rt_sp);
-                        break;
-                    }
-                    case instruct::opcode::mkmap:
-                    {
-                        WO_ADDRESSING_N1;
-                        uint16_t size = WO_IPVAL_MOVE_2;
-
-                        rt_sp = make_map_impl(opnum1, size, rt_sp);
-                        break;
-                    }
-                    case instruct::opcode::idarr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-
                         gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::array_type);
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-
-                        size_t index = opnum2->integer;
-                        if (opnum2->integer < 0)
-                            index = opnum1->array->size() + opnum2->integer;
-                        if (index >= opnum1->array->size())
+                        auto fnd = opnum1->dict->find(*opnum2);
+                        if (fnd != opnum1->dict->end())
                         {
-                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
-                            rt_cr->set_nil();
-                        }
-                        else
-                        {
-                            auto* result = &opnum1->array->at(index);
-                            if (wo::gc::gc_is_marking())
-                                opnum1->array->add_memo(result);
-                            rt_cr->set_val(result);
-                        }
-                        break;
-                    }
-                    case instruct::opcode::iddict:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::dict_type);
-                        do
-                        {
-                            gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                            auto fnd = opnum1->dict->find(*opnum2);
-                            if (fnd != opnum1->dict->end())
-                            {
-                                auto* result = &fnd->second;
-                                if (wo::gc::gc_is_marking())
-                                    opnum1->dict->add_memo(result);
-                                rt_cr->set_val(result);
-                                break;
-                            }
-                            else
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
-
-                        } while (0);
-
-                        break;
-                    }
-                    case instruct::opcode::sidmap:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        WO_ADDRESSING_N3_REG_BPOFF;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::dict_type);
-
-                        do
-                        {
-                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &(*opnum1->dict)[*opnum2];
+                            auto* result = &fnd->second;
                             if (wo::gc::gc_is_marking())
                                 opnum1->dict->add_memo(result);
-                            result->set_val(opnum3);
-                        } while (0);
-                        break;
-                    }
-                    case instruct::opcode::sidarr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        WO_ADDRESSING_N3_REG_BPOFF;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-                        wo_assert(opnum1->type == value::valuetype::array_type);
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        do
-                        {
-                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &(*opnum1->array)[opnum2->integer];
-                            if (wo::gc::gc_is_marking())
-                                opnum1->array->add_memo(result);
-                            result->set_val(opnum3);
-                        } while (0);
-                        break;
-                    }
-                    case instruct::opcode::sidstruct:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-                        uint16_t offset = WO_IPVAL_MOVE_2;
-
-                        wo_assert(opnum1->type == value::valuetype::struct_type);
-                        wo_assert(nullptr != opnum1->structs);
-                        wo_assert(offset < opnum1->structs->m_count);
-                        do
-                        {
-                            gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                            auto* result = &opnum1->structs->m_values[offset];
-                            if (wo::gc::gc_is_marking())
-                                opnum1->structs->add_memo(result);
-                            result->set_val(opnum2);
-                        } while (0);
-                        break;
-                    }
-                    case instruct::opcode::idstr:
-                    {
-                        WO_ADDRESSING_N1;
-                        WO_ADDRESSING_N2;
-
-                        wo_assert(nullptr != opnum1->gcunit);
-
-                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
-
-                        wo_assert(opnum2->type == value::valuetype::integer_type);
-                        size_t strlength = 0;
-                        wo_string_t out_str = u8substr(opnum1->string->c_str(), opnum2->integer, 1, &strlength);
-                        rt_cr->set_string(std::string(out_str, strlength).c_str());
-                        break;
-                    }
-                    case instruct::opcode::mkclos:
-                    {
-                        uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
-
-                        wo_assert((dr & 0b01) == 0);
-
-                        rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                        auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
-
-                        gcbase::gc_write_guard gwg1(created_closure);
-
-                        created_closure->m_native_call = !!dr;
-                        created_closure->m_closure_args_count = closure_arg_count;
-
-                        if (dr)
-                            created_closure->m_native_func = (wo_native_func)WO_IPVAL_MOVE_8;
+                            rt_cr->set_val(result);
+                            break;
+                        }
                         else
-                        {
-                            created_closure->m_vm_func = WO_IPVAL_MOVE_4;
-                            ip += 4;
-                        }
+                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
-                        created_closure->m_closure_args.resize(closure_arg_count);
-                        for (size_t i = 0; i < (size_t)closure_arg_count; i++)
-                        {
-                            auto* arr_val = ++rt_sp;
-                            created_closure->m_closure_args[i].set_val(arr_val);
-                        }
-                        break;
-                    }
-                    case instruct::opcode::ext:
+                    } while (0);
+
+                    break;
+                }
+                case instruct::opcode::sidmap:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    WO_ADDRESSING_N3_REG_BPOFF;
+
+                    wo_assert(nullptr != opnum1->gcunit);
+                    wo_assert(opnum1->type == value::valuetype::dict_type);
+
+                    do
                     {
-                        // extern code page:
-                        int page_index = dr;
+                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                        auto* result = &(*opnum1->dict)[*opnum2];
+                        if (wo::gc::gc_is_marking())
+                            opnum1->dict->add_memo(result);
+                        result->set_val(opnum3);
+                    } while (0);
+                    break;
+                }
+                case instruct::opcode::sidarr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    WO_ADDRESSING_N3_REG_BPOFF;
 
-                        opcode_dr = *(rt_ip++);
-                        opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
-                        dr = opcode_dr & 0b00000011u;
+                    wo_assert(nullptr != opnum1->gcunit);
+                    wo_assert(opnum1->type == value::valuetype::array_type);
+                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    do
+                    {
+                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                        auto* result = &(*opnum1->array)[opnum2->integer];
+                        if (wo::gc::gc_is_marking())
+                            opnum1->array->add_memo(result);
+                        result->set_val(opnum3);
+                    } while (0);
+                    break;
+                }
+                case instruct::opcode::sidstruct:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    uint16_t offset = WO_IPVAL_MOVE_2;
 
-                        switch (page_index)
+                    wo_assert(opnum1->type == value::valuetype::struct_type);
+                    wo_assert(nullptr != opnum1->structs);
+                    wo_assert(offset < opnum1->structs->m_count);
+                    do
+                    {
+                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                        auto* result = &opnum1->structs->m_values[offset];
+                        if (wo::gc::gc_is_marking())
+                            opnum1->structs->add_memo(result);
+                        result->set_val(opnum2);
+                    } while (0);
+                    break;
+                }
+                case instruct::opcode::idstr:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+
+                    wo_assert(nullptr != opnum1->gcunit);
+
+                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    size_t strlength = 0;
+                    wo_string_t out_str = u8substr(opnum1->string->c_str(), opnum2->integer, 1, &strlength);
+                    rt_cr->set_string(std::string(out_str, strlength).c_str());
+                    break;
+                }
+                case instruct::opcode::mkclos:
+                {
+                    uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
+
+                    wo_assert((dr & 0b01) == 0);
+
+                    rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
+                    auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
+
+                    gcbase::gc_write_guard gwg1(created_closure);
+
+                    created_closure->m_native_call = !!dr;
+                    created_closure->m_closure_args_count = closure_arg_count;
+
+                    if (dr)
+                        created_closure->m_native_func = (wo_native_func)WO_IPVAL_MOVE_8;
+                    else
+                    {
+                        created_closure->m_vm_func = WO_IPVAL_MOVE_4;
+                        ip += 4;
+                    }
+
+                    created_closure->m_closure_args.resize(closure_arg_count);
+                    for (size_t i = 0; i < (size_t)closure_arg_count; i++)
+                    {
+                        auto* arr_val = ++rt_sp;
+                        created_closure->m_closure_args[i].set_val(arr_val);
+                    }
+                    break;
+                }
+                case instruct::opcode::ext:
+                {
+                    // extern code page:
+                    int page_index = dr;
+
+                    opcode_dr = *(rt_ip++);
+                    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
+                    dr = opcode_dr & 0b00000011u;
+
+                    switch (page_index)
+                    {
+                    case 0:     // extern-opcode-page-0
+                        switch ((instruct::extern_opcode_page_0)(opcode))
                         {
-                        case 0:     // extern-opcode-page-0
-                            switch ((instruct::extern_opcode_page_0)(opcode))
+                        case instruct::extern_opcode_page_0::packargs:
+                        {
+                            uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
+
+                            WO_ADDRESSING_N1;
+                            WO_ADDRESSING_N2;
+
+                            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
+                            auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+                            packed_array->resize(tc->integer - opnum2->integer);
+                            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {
-                            case instruct::extern_opcode_page_0::packargs:
-                            {
-                                uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
-
-                                WO_ADDRESSING_N1;
-                                WO_ADDRESSING_N2;
-
-                                opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                                auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
-                                packed_array->resize(tc->integer - opnum2->integer);
-                                for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
-                                {
-                                    (*packed_array)[argindex - opnum2->integer].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
-                                }
-
-                                break;
+                                (*packed_array)[argindex - opnum2->integer].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                             }
-                            case instruct::extern_opcode_page_0::unpackargs:
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::unpackargs:
+                        {
+                            WO_ADDRESSING_N1;
+                            WO_ADDRESSING_N2;
+
+
+                            if (opnum1->is_nil())
                             {
-                                WO_ADDRESSING_N1;
-                                WO_ADDRESSING_N2;
-
-
-                                if (opnum1->is_nil())
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+                            }
+                            else if (opnum1->type == value::valuetype::struct_type)
+                            {
+                                auto* arg_tuple = opnum1->structs;
+                                gcbase::gc_read_guard gwg1(arg_tuple);
+                                if (opnum2->integer > 0)
                                 {
-                                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
-                                }
-                                else if (opnum1->type == value::valuetype::struct_type)
-                                {
-                                    auto* arg_tuple = opnum1->structs;
-                                    gcbase::gc_read_guard gwg1(arg_tuple);
-                                    if (opnum2->integer > 0)
+                                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
                                     {
-                                        if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
-                                        {
-                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                        }
-                                        else
-                                        {
-                                            for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
-                                                (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-                                        }
+                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                                     }
                                     else
                                     {
-                                        if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
-                                        {
-                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                        }
-                                        for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
                                             (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-
-                                        tc->integer += (wo_integer_t)arg_tuple->m_count;
                                     }
                                 }
-                                else if (opnum1->type == value::valuetype::array_type)
+                                else
                                 {
-                                    if (opnum2->integer > 0)
+                                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
                                     {
-                                        auto* arg_array = opnum1->array;
-                                        gcbase::gc_read_guard gwg1(arg_array);
+                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                    }
+                                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
+                                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
 
-                                        if ((size_t)opnum2->integer > arg_array->size())
-                                        {
-                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                        }
-                                        else
-                                        {
-                                            for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
-                                                arg_idx != arg_array->rend();
-                                                arg_idx++)
-                                                (rt_sp--)->set_val(&*arg_idx);
-                                        }
+                                    tc->integer += (wo_integer_t)arg_tuple->m_count;
+                                }
+                            }
+                            else if (opnum1->type == value::valuetype::array_type)
+                            {
+                                if (opnum2->integer > 0)
+                                {
+                                    auto* arg_array = opnum1->array;
+                                    gcbase::gc_read_guard gwg1(arg_array);
+
+                                    if ((size_t)opnum2->integer > arg_array->size())
+                                    {
+                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
                                     }
                                     else
                                     {
-                                        auto* arg_array = opnum1->array;
-                                        gcbase::gc_read_guard gwg1(arg_array);
-
-                                        if (arg_array->size() < (size_t)(-opnum2->integer))
-                                        {
-                                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                        }
-                                        for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                                        for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
+                                            arg_idx != arg_array->rend();
+                                            arg_idx++)
                                             (rt_sp--)->set_val(&*arg_idx);
-
-                                        tc->integer += arg_array->size();
                                     }
                                 }
                                 else
                                 {
-                                    WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+                                    auto* arg_array = opnum1->array;
+                                    gcbase::gc_read_guard gwg1(arg_array);
+
+                                    if (arg_array->size() < (size_t)(-opnum2->integer))
+                                    {
+                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                    }
+                                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
+                                        (rt_sp--)->set_val(&*arg_idx);
+
+                                    tc->integer += arg_array->size();
                                 }
-                                break;
-                            }
-                            case instruct::extern_opcode_page_0::veh:
-                            {
-                                if (dr & 0b10)
-                                {
-                                    //begin
-                                    wo::exception_recovery::ready(this, rt_env->rt_codes + WO_IPVAL_MOVE_4, rt_sp, rt_bp);
-                                }
-                                else if (dr & 0b01)
-                                {
-                                    // throw
-                                    wo::exception_recovery::rollback(this);
-                                }
-                                else
-                                {
-                                    // clean
-                                    wo::exception_recovery::ok(this);
-                                    auto* restore_ip = rt_env->rt_codes + WO_IPVAL_MOVE_4;
-                                    rt_ip = restore_ip;
-                                }
-                                break;
-                            }
-                            case instruct::extern_opcode_page_0::mkunion:
-                            {
-                                WO_ADDRESSING_N1; // data
-                                uint16_t id = WO_IPVAL_MOVE_2;
-
-                                rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
-                                auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, 2);
-                                gcbase::gc_write_guard gwg1(struct_data);
-
-                                struct_data->m_values[0].set_integer((wo_integer_t)id);
-                                struct_data->m_values[1].set_val(opnum1);
-
-                                break;
-                            }
-                            case instruct::extern_opcode_page_0::panic:
-                            {
-                                WO_ADDRESSING_N1; // data
-
-                                wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
-                                break;
-                            }
-                            default:
-                                wo_error("Unknown instruct.");
-                                break;
-                            }
-                            break;
-                        case 1:     // extern-opcode-page-1
-                            wo_error("Invalid instruct page(empty page 1).");
-                            break;
-                        case 2:     // extern-opcode-page-2
-                            wo_error("Invalid instruct page(empty page 2).");
-                            break;
-                        case 3:     // extern-opcode-page-3
-                            wo_error("Invalid instruct page(flag page).");
-                            break;
-                        default:
-                            wo_error("Unknown extern-opcode-page.");
-                        }
-
-                        break;
-                    }
-                    case instruct::opcode::nop:
-                    {
-                        rt_ip += dr; // may need take place, skip them
-                        break;
-                    }
-                    case instruct::opcode::abrt:
-                    {
-                        if (dr & 0b10)
-                            return;
-                        else
-                            wo_error("executed 'abrt'.");
-                    }
-                    default:
-                    {
-                        --rt_ip;    // Move back one command.
-                        if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
-                        {
-                            gc_checkpoint(rt_sp);
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
-                        {
-                            wo_asure(clear_interrupt(vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT));
-                            rt_ip = ip;
-                            rt_sp = sp;
-                            rt_bp = bp;
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
-                        {
-                            // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
-                            // CLEAR ABORT_INTERRUPT
-                            return;
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::CO_YIELD_INTERRUPT)
-                        {
-                            wo_asure(clear_interrupt(vm_interrupt_type::CO_YIELD_INTERRUPT));
-
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            wo_co_yield();
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
-                        {
-                            wo_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
-                            if (get_br_yieldable())
-                            {
-                                mark_br_yield();
-                                return;
                             }
                             else
-                                wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
-                        {
-                            // That should not be happend...
-                            wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
-                        }
-                        else if (vm_interrupt & vm_interrupt_type::PENDING_INTERRUPT)
-                        {
-                            // That should not be happend...
-                            wo_error("Virtual machine handled a PENDING_INTERRUPT.");
-                        }
-                        // it should be last interrupt..
-                        else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
-                        {
-                            rtopcode = opcode;
-
-                            ip = rt_ip;
-                            sp = rt_sp;
-                            bp = rt_bp;
-                            if (attaching_debuggee)
                             {
-                                // check debuggee here
-                                wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                                attaching_debuggee->_vm_invoke_debuggee(this);
-                                wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
                             }
-                            ++rt_ip;
-                            goto re_entry_for_interrupt;
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::mkunion:
+                        {
+                            WO_ADDRESSING_N1; // data
+                            uint16_t id = WO_IPVAL_MOVE_2;
+
+                            rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
+                            auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, 2);
+                            gcbase::gc_write_guard gwg1(struct_data);
+
+                            struct_data->m_values[0].set_integer((wo_integer_t)id);
+                            struct_data->m_values[1].set_val(opnum1);
+
+                            break;
+                        }
+                        case instruct::extern_opcode_page_0::panic:
+                        {
+                            WO_ADDRESSING_N1; // data
+
+                            wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+                            break;
+                        }
+                        default:
+                            wo_error("Unknown instruct.");
+                            break;
+                        }
+                        break;
+                    case 1:     // extern-opcode-page-1
+                        wo_error("Invalid instruct page(empty page 1).");
+                        break;
+                    case 2:     // extern-opcode-page-2
+                        wo_error("Invalid instruct page(empty page 2).");
+                        break;
+                    case 3:     // extern-opcode-page-3
+                        wo_error("Invalid instruct page(flag page).");
+                        break;
+                    default:
+                        wo_error("Unknown extern-opcode-page.");
+                    }
+
+                    break;
+                }
+                case instruct::opcode::nop:
+                {
+                    rt_ip += dr; // may need take place, skip them
+                    break;
+                }
+                case instruct::opcode::abrt:
+                {
+                    if (dr & 0b10)
+                        return;
+                    else
+                        wo_error("executed 'abrt'.");
+                }
+                default:
+                {
+                    --rt_ip;    // Move back one command.
+                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+                    {
+                        gc_checkpoint(rt_sp);
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
+                    {
+                        wo_asure(clear_interrupt(vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT));
+                        rt_ip = ip;
+                        rt_sp = sp;
+                        rt_bp = bp;
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
+                    {
+                        // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
+                        // CLEAR ABORT_INTERRUPT
+                        return;
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::CO_YIELD_INTERRUPT)
+                    {
+                        wo_asure(clear_interrupt(vm_interrupt_type::CO_YIELD_INTERRUPT));
+
+                        wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                        wo_co_yield();
+                        wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
+                    {
+                        wo_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
+                        if (get_br_yieldable())
+                        {
+                            mark_br_yield();
+                            return;
                         }
                         else
+                            wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                    {
+                        // That should not be happend...
+                        wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
+                    }
+                    else if (vm_interrupt & vm_interrupt_type::PENDING_INTERRUPT)
+                    {
+                        // That should not be happend...
+                        wo_error("Virtual machine handled a PENDING_INTERRUPT.");
+                    }
+                    // it should be last interrupt..
+                    else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
+                    {
+                        rtopcode = opcode;
+
+                        ip = rt_ip;
+                        sp = rt_sp;
+                        bp = rt_bp;
+                        if (attaching_debuggee)
                         {
-                            // a vm_interrupt is invalid now, just roll back one byte and continue~
-                            // so here do nothing
+                            // check debuggee here
+                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            attaching_debuggee->_vm_invoke_debuggee(this);
+                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         }
+                        ++rt_ip;
+                        goto re_entry_for_interrupt;
                     }
+                    else
+                    {
+                        // a vm_interrupt is invalid now, just roll back one byte and continue~
+                        // so here do nothing
                     }
-                }// vm loop end.
+                }
+                }
+            }// vm loop end.
 #undef WO_VM_FAIL
 #undef WO_ADDRESSING_N2
 #undef WO_ADDRESSING_N1
@@ -2568,29 +2448,6 @@ namespace wo
 #undef WO_IPVAL_MOVE_2
 #undef WO_IPVAL_MOVE_1
 #undef WO_IPVAL
-
-            }
-            catch (const wo::rsruntime_exception& any_excep)
-            {
-                bool force_unexcept = false;
-                if (any_excep.rsexception_code >= WO_FAIL_HEAVY)
-                {
-                    interrupt(ABORT_INTERRUPT);
-                    force_unexcept = true;
-                }
-
-                er->set_string(any_excep.what());
-                wo::exception_recovery::rollback(this, force_unexcept);
-                clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
-                goto VM_SIM_BEGIN;
-            }
-            catch (const std::exception& any_excep)
-            {
-                er->set_string(any_excep.what());
-                wo::exception_recovery::rollback(this);
-                clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
-                goto VM_SIM_BEGIN;
-            }
         }
 
         void gc_checkpoint(value* rtsp) override

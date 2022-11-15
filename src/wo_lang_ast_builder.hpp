@@ -2604,28 +2604,7 @@ namespace wo
                 return dumm;
             }
         };
-        struct ast_except : virtual public grammar::ast_base
-        {
-            ast_base* execute_sentence;
-            ast_except(ast_base* exec)
-                :execute_sentence(exec)
-            {
-                wo_test(execute_sentence);
-            }
-            ast_except() {}
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_value::instance(dumm);
-                // Write self copy functions here..
 
-                WO_REINSTANCE(dumm->execute_sentence);
-
-                return dumm;
-            }
-        };
         struct ast_while : virtual public grammar::ast_base
         {
             ast_value* judgement_value;
@@ -4080,14 +4059,7 @@ namespace wo
                 return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
             }
         };
-        struct pass_except : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                wo_test(input.size() == 2);
-                return (grammar::ast_base*)new ast_except(WO_NEED_AST(1));
-            }
-        };
+
         struct pass_if : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -6116,8 +6088,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_assign_op>] = _register_builder<pass_assign_op>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_while>] = _register_builder<pass_while>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_except>] = _register_builder<pass_except>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_if>] = _register_builder<pass_if>();
 

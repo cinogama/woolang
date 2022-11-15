@@ -70,10 +70,10 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_MEDIUM)
     {
         // Just throw it..
-        wo::wo_stderr << ANSI_HIY "This is a medium failure, it will be throw." ANSI_RST << wo::wo_endl;
+        wo::wo_stderr << ANSI_HIY "This is a medium failure, abort." ANSI_RST << wo::wo_endl;
 
         if (wo::vmbase::_this_thread_vm)
-            wo_ret_throw(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
+            wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
         return;
     }
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_HEAVY)
@@ -89,10 +89,8 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
         wo::wo_stderr << "This failure may cause a crash or nothing happens." << wo::wo_endl;
         wo::wo_stderr << "1) Abort program.(You can attatch debuggee.)" << wo::wo_endl;
         wo::wo_stderr << "2) Continue.(May cause unknown errors.)" << wo::wo_endl;
-        wo::wo_stderr << "3) Roll back to last WO-EXCEPTION-RECOVERY.(Not immediatily)" << wo::wo_endl;
-        wo::wo_stderr << "4) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
-        wo::wo_stderr << "5) Throw exception.(Not exactly safe)" << wo::wo_endl;
-        wo::wo_stderr << "6) Attach debuggee and break immediately." << wo::wo_endl;
+        wo::wo_stderr << "3) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
+        wo::wo_stderr << "4) Attach debuggee and break immediately." << wo::wo_endl;
         do
         {
             int choice;
@@ -108,9 +106,8 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
             case 3:
                 if (wo::vmbase::_this_thread_vm)
                 {
-                    wo::vmbase::_this_thread_vm->er->set_gcunit_with_barrier(wo::value::valuetype::string_type);
-                    wo::string_t::gc_new<wo::gcbase::gctype::eden>(wo::vmbase::_this_thread_vm->er->gcunit, reason);
-                    wo::exception_recovery::rollback(wo::vmbase::_this_thread_vm);
+                    wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
+                    wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
                     return;
                 }
                 else
@@ -118,21 +115,6 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
 
                 break;
             case 4:
-                wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
-                throw wo::rsruntime_exception(rterrcode, reason);
-
-                // in debug, if there is no catcher for wo_runtime_error, 
-                // the program may continue working.
-                // Abort here.
-                wo_error(reason);
-            case 5:
-                throw wo::rsruntime_exception(WO_FAIL_MEDIUM, reason);
-
-                // in debug, if there is no catcher for wo_runtime_error, 
-                // the program may continue working.
-                // Abort here.
-                wo_error(reason);
-            case 6:
                 if (wo::vmbase::_this_thread_vm)
                 {
                     if (!wo_has_attached_debuggee((wo_vm)wo::vmbase::_this_thread_vm))
@@ -1187,26 +1169,20 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
     return 0;
 }
 
-wo_result_t wo_ret_throw(wo_vm vm, wo_string_t reason)
-{
-    WO_VM(vm)->er->set_string(reason);
-    wo::exception_recovery::rollback(WO_VM(vm), false);
-
-    return 0;
-}
-
 wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
 {
-    WO_VM(vm)->er->set_string(reason);
-    wo::exception_recovery::rollback(WO_VM(vm), true);
-
+    auto* vmptr = WO_VM(vm);
+    vmptr->er->set_string(reason);
+    vmptr->dump_call_stack();
+    vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
+    wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
+    vmptr->dump_call_stack(32, true, std::cerr);
     return 0;
 }
 
 wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
 {
     wo_fail(WO_FAIL_DEADLY, reason);
-
     return 0;
 }
 
@@ -2132,15 +2108,8 @@ wo_value wo_dispatch(wo_vm vm)
     {
         WO_VM(vm)->run();
 
-        if (WO_VM(vm)->veh)
-        {
-            if (WO_VM(vm)->get_and_clear_br_yield_flag())
-                return WO_CONTINUE;
-
-            return reinterpret_cast<wo_value>(WO_VM(vm)->cr);
-        }
-        else
-            return nullptr;
+        if (WO_VM(vm)->get_and_clear_br_yield_flag())
+            return WO_CONTINUE;
     }
     return nullptr;
 }
@@ -2181,10 +2150,8 @@ wo_value wo_run(wo_vm vm)
     {
         WO_VM(vm)->ip = WO_VM(vm)->env->rt_codes;
         WO_VM(vm)->run();
-        if (WO_VM(vm)->veh)
-            return reinterpret_cast<wo_value>(WO_VM(vm)->cr);
-        else
-            return nullptr;
+
+        return reinterpret_cast<wo_value>(WO_VM(vm)->cr);
     }
     return nullptr;
 }
