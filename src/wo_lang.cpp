@@ -38,9 +38,6 @@ namespace wo
         analyze_pass1(a_value_bin->left);
         analyze_pass1(a_value_bin->right);
 
-        a_value_bin->add_child(a_value_bin->left);
-        a_value_bin->add_child(a_value_bin->right);
-
         if (!a_value_bin->left->value_type->is_builtin_basic_type()
             || !a_value_bin->right->value_type->is_builtin_basic_type())
             // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
@@ -182,9 +179,6 @@ namespace wo
         auto* a_value_logic_bin = WO_AST();
         analyze_pass1(a_value_logic_bin->left);
         analyze_pass1(a_value_logic_bin->right);
-
-        a_value_logic_bin->add_child(a_value_logic_bin->left);
-        a_value_logic_bin->add_child(a_value_logic_bin->right);
 
         bool has_default_op = false;
         if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
