@@ -1,0 +1,118 @@
+import woo.std;
+
+using std;
+
+let block = [mut" ", " ", " ", " ", " ", " ", " ", " ", " "];
+
+func check_win(){
+    for(let mut i=0; i<3; i+=1){
+        if(block[i] == block[i+3] && block[i]==block[i+6] && block[i]!=" "){
+            if(block[i] == "O") {
+                println("游戏结束！玩家A获胜！");
+                return 1;
+            }
+            else {
+                println("游戏结束！玩家B获胜！");
+                return 1;
+            }
+        }
+    }
+    for(let mut i=0; i<=6; i+=3){
+        if(block[i] == block[i+1] && block[i]==block[i+2] && block[i]!=" ")
+        {
+            if(block[i] == "O") {
+                println("游戏结束！玩家A获胜！");
+                return 1;
+            }
+            else {
+                println("游戏结束！玩家B获胜！");
+                return 1;
+            }
+        }
+    }
+    if(block[0] == block[4] && block[0] == block[8] && block[0] != " ")
+    {
+        if(block[0] == "O") {
+            println("游戏结束！玩家A获胜！");
+            return 1;
+        }
+        else {
+            println("游戏结束！玩家B获胜！");
+            return 1;
+        }
+    }
+
+    if((block[2]==block[4])&&(block[2]==block[6])&&(block[2]!=" "))
+    {
+        if(block[2]=="O"){
+            println("游戏结束！玩家A获胜！");
+            return 1;
+        }else{
+            println("游戏结束！玩家B获胜！");
+            return 1;
+        }
+    }
+    return 0;
+}
+
+func main()
+{
+    println("欢迎来到井字棋游戏！\n");
+    
+    for(let mut round=1;;round+=1){
+
+        print("   1 | 2 | 3 \n  ---|---|---\n1 ",block[0],"|",block[1],"|",block[2],
+        " \n  ---|---|---",
+        "\n2 ",block[3],"|",block[4],"|",block[5],
+        " \n  ---|---|---\n3 ",block[6],"|",block[7],"|",block[8],"\n");        
+        let winner = check_win();
+        if(winner==1){
+            println("\n\n游戏结束，玩家A获胜！\n");
+            break;
+        }else{
+            if(winner==2){
+                println("\n\n游戏结束，玩家B获胜！\n");
+                break;
+            }
+        }
+
+        if(check_win()!=0){
+            break;
+        }
+
+        if(round%2==0){
+            println("现在轮到 玩家B 行动了");
+            println("请先输入您落子的行：");
+            let line=input(\n:int=n>=1&&n<=3;);
+            println("请再输入您落子的列：");
+            let row=input(\n:int=n>=1&&n<=3;);
+            if(block[(line-1)*3+row-1]==" "){
+                block[(line-1)*3+row-1]="X";
+            }else{
+                println("===== ！错误！ =====\n您不能在此落子！请重试...\n===== ！错误！ =====\n\n");
+                round-=1;
+                continue;
+            }
+        }else
+        {
+            println("现在轮到 玩家A 行动了");
+            println("请先输入您落子的行：");
+            let line=input(\n:int=n>=1&&n<=3;);
+            println("请再输入您落子的列：");
+            let row=input(\n:int=n>=1&&n<=3;);
+            if(block[(line-1)*3+row-1]==" "){
+                block[(line-1)*3+row-1]="O";
+            }else{
+                println("===== ！错误！ =====\n您不能在此落子！请重试...\n===== ！错误！ =====\n\n");
+                round-=1;
+                continue;
+            }
+
+        }
+    }
+
+}
+
+
+
+main();
