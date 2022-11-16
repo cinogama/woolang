@@ -1051,6 +1051,54 @@ WO_API wo_api rslib_std_declval(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_panic(vm, "This function cannot be invoke");
 }
 
+WO_API wo_api rslib_std_bit_or(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = wo_int(args + 0) | wo_int(args + 1);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+
+WO_API wo_api rslib_std_bit_and(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = wo_int(args + 0) & wo_int(args + 1);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+
+WO_API wo_api rslib_std_bit_xor(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = wo_int(args + 0) ^ wo_int(args + 1);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+
+WO_API wo_api rslib_std_bit_not(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = ~wo_int(args + 0);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+
+WO_API wo_api rslib_std_bit_shl(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = wo_int(args + 0) << wo_int(args + 1);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+WO_API wo_api rslib_std_bit_ashr(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = wo_int(args + 0) >> wo_int(args + 1);
+    static_assert(std::is_same<decltype(result), wo_integer_t>::value);
+    return wo_ret_int(vm, result);
+}
+WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
+{
+    auto result = ((wo_handle_t)wo_int(args + 0) >> (wo_handle_t)wo_int(args + 1));
+    static_assert(std::is_same<decltype(result), wo_handle_t>::value);
+    return wo_ret_int(vm, (wo_integer_t)result);
+}
+
+
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
@@ -1063,6 +1111,15 @@ namespace std
     extern("rslib_std_panic") public func panic(msg: string)=> void;
 
     extern("rslib_std_declval") public func declval<T>()=> T;
+
+    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
+    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;
+    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> int;
+    extern("rslib_std_bit_not") public func bitnot(a: int)=> int;
+
+    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
+    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
+    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
 }
 
 public using mutable<T> = struct {
