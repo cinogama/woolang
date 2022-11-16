@@ -1564,7 +1564,7 @@ namespace wo
             {
                 lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , L"int"
-                    , a_value_index->from->value_type->get_type_name().c_str());
+                    , a_value_index->index->value_type->get_type_name().c_str());
             }
         }
         if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())

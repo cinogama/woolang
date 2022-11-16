@@ -4976,6 +4976,12 @@ namespace wo
                     const_result->constant_value.set_string_nogc(
                         wstr_to_str(right_tk.identifier).c_str());
 
+                    const_result->source_file = left_v->source_file;
+                    const_result->row_begin_no = lex.now_file_rowno;
+                    const_result->row_end_no = lex.now_file_rowno;
+                    const_result->col_begin_no = lex.now_file_colno;
+                    const_result->col_end_no = lex.now_file_colno;
+
                     ast_value_index* vbin = new ast_value_index();
                     vbin->from = left_v;
                     vbin->index = const_result;
