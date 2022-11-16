@@ -2,38 +2,41 @@ import woo.std;
 
 using std;
 
-let block =[mut" "," "," "," "," "," "," "," "," "];
+let block = [mut" ", " ", " ", " ", " ", " ", " ", " ", " "];
 
 func check_win(){
-    for(let mut i=0;i<3;i+=1){
-        if((block[i]==block[i+3])&&(block[i]==block[i+6])&&(block[i]!=" ")){
-            if(block[i]=="O"){
+    for(let mut i=0; i<3; i+=1){
+        if(block[i] == block[i+3] && block[i]==block[i+6] && block[i]!=" "){
+            if(block[i] == "O") {
                 println("游戏结束！玩家A获胜！");
                 return 1;
-            }else{
+            }
+            else {
                 println("游戏结束！玩家B获胜！");
                 return 1;
             }
         }
     }
-    for(let mut i=0;i<=6;i+=3){
-        if((block[i]==block[i+1])&&(block[i]==block[i+2])&&(block[i]!=" "))
+    for(let mut i=0; i<=6; i+=3){
+        if(block[i] == block[i+1] && block[i]==block[i+2] && block[i]!=" ")
         {
-            if(block[i]=="O"){
+            if(block[i] == "O") {
                 println("游戏结束！玩家A获胜！");
                 return 1;
-            }else{
+            }
+            else {
                 println("游戏结束！玩家B获胜！");
                 return 1;
             }
         }
     }
-    if((block[0]==block[4])&&(block[0]==block[8])&&(block[0]!=" "))
+    if(block[0] == block[4] && block[0] == block[8] && block[0] != " ")
     {
-        if(block[0]=="O"){
+        if(block[0] == "O") {
             println("游戏结束！玩家A获胜！");
             return 1;
-        }else{
+        }
+        else {
             println("游戏结束！玩家B获胜！");
             return 1;
         }
