@@ -83,7 +83,7 @@ namespace wo
             jf = 43 WO_OPCODE_SPACE,    // jf               DIFF(4BYTE)
             jmp = 44 WO_OPCODE_SPACE,   // jmp              DIFF(4BYTE)
 
-            RESERVED_3 = 45 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
+            mkunion = 45 WO_OPCODE_SPACE,   // mkunion(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF ID  5-11 byte
             movcast = 46 WO_OPCODE_SPACE,   // movcast(dr)       REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF TYPE  4-10 byte
             mkclos = 47 WO_OPCODE_SPACE,      //mkclos(00)       FUNC(8BYTE) CAPTURE_ARG_COUNT(2BYTE) 11 byte
 
@@ -123,7 +123,6 @@ namespace wo
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
             packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
-            mkunion = 8 WO_OPCODE_SPACE,        // mkunion(dr_0) REGID(1BYTE)/DIFF(4BYTE) id(2BYTE)
             panic = 9 WO_OPCODE_SPACE,          // panic(dr_0) REGID(1BYTE)/DIFF(4BYTE)
 
         };

@@ -473,7 +473,10 @@ namespace wo
                 invoke_node->setArg(2, targc);
             }
         }
-
+        static void _vmjitcall_panic(wo::value* opnum1)
+        {
+            wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+        }
         static void _vmjitcall_addstring(wo::value* opnum1, wo::value* opnum2)
         {
             wo_assert(opnum1->type == opnum2->type
@@ -722,7 +725,24 @@ namespace wo
                     break;
                 }
                 case instruct::opcode::sts:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+
+                    if (opnum2.is_constant())
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
+                        x86_set_val(x86compiler, bpoffset, opnum1.gp_value());
+                    }
+                    else
+                    {
+                        auto bpoffset = x86compiler.newUIntPtr();
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.gp_value(), sizeof(value))));
+                        x86_set_val(x86compiler, bpoffset, opnum1.gp_value());
+                    }
+                    break;
+                }
                 case instruct::equb:
                 {
                     WO_JIT_ADDRESSING_N1;
@@ -1277,6 +1297,24 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::movcast:
                     WO_JIT_NOT_SUPPORT;
+                case instruct::mkunion:
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    uint16_t id = WO_IPVAL_MOVE_2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&vm::make_union_impl,
+                            asmjit::FuncSignatureT<wo::value*, wo::value*, wo::value*, uint16_t>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, asmjit::Imm(id));
+                    break;
+                }
                 case instruct::mkclos:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::typeas:
@@ -1376,8 +1414,18 @@ namespace wo
                             WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::unpackargs:
                             WO_JIT_NOT_SUPPORT;
-                        case instruct::extern_opcode_page_0::mkunion:
-                            WO_JIT_NOT_SUPPORT;
+                        case instruct::extern_opcode_page_0::panic:
+                        {
+                            WO_JIT_ADDRESSING_N1;
+                            auto op1 = opnum1.gp_value();
+
+                            auto invoke_node =
+                                x86compiler.call((size_t)&_vmjitcall_panic,
+                                    asmjit::FuncSignatureT<void, wo::value*>());
+
+                            invoke_node->setArg(0, op1);
+                            break;
+                        }
                         default:
                             WO_JIT_NOT_SUPPORT;
                         }

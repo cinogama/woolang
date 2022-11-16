@@ -3563,10 +3563,10 @@ namespace wo
                 = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
             {
                 if (a_union_make_option_ob_to_cr_and_ret->argument_may_nil)
-                    compiler->ext_mkunion(auto_analyze_value(a_union_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
+                    compiler->mkunion(reg(reg::cr), auto_analyze_value(a_union_make_option_ob_to_cr_and_ret->argument_may_nil, compiler),
                         a_union_make_option_ob_to_cr_and_ret->id);
                 else
-                    compiler->ext_mkunion(reg(reg::ni), a_union_make_option_ob_to_cr_and_ret->id);
+                    compiler->mkunion(reg(reg::cr), reg(reg::ni), a_union_make_option_ob_to_cr_and_ret->id);
 
                 // TODO: ast_union_make_option_ob_to_cr_and_ret not exist in closure function, so we just ret here.
                 //       need check!

@@ -1737,6 +1737,8 @@ namespace wo
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value,
                 "Argument(s) should be opnum.");
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not move value to immediate.");
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::mkstruct, WO_OPNUM(op1), nullptr, (int32_t)size);
         }
@@ -1781,12 +1783,16 @@ namespace wo
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
         }
 
-        template<typename OP1T>
-        void ext_mkunion(const OP1T& op1, uint16_t id)
+        template<typename OP1T, typename OP2T>
+        void mkunion(const OP1T& op1, const OP2T& op2, uint16_t id)
         {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), nullptr, (int32_t)id);
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::mkunion;
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value 
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+            static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
+                "Can not move value to immediate.");
+
+            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::mkunion, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)id);
         }
 
         template<typename OP1T>
@@ -2496,6 +2502,18 @@ namespace wo
 
                     break;
                 }
+                case instruct::mkunion:
+                {
+                    temp_this_command_code_buf.push_back(WO_OPCODE(mkunion));
+                    WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                    WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+
+                    uint16_t id = (uint16_t)WO_IR.opinteger;
+                    byte_t* readptr = (byte_t*)&id;
+                    temp_this_command_code_buf.push_back(readptr[0]);
+                    temp_this_command_code_buf.push_back(readptr[1]);
+                    break;
+                }
                 case instruct::mkclos:
                 {
                     if (config::ENABLE_JUST_IN_TIME)
@@ -2549,17 +2567,6 @@ namespace wo
                             WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                             WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                             break;
-                        case instruct::extern_opcode_page_0::mkunion:
-                        {
-                            temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(mkunion));
-                            WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-
-                            uint16_t id = (uint16_t)WO_IR.opinteger;
-                            byte_t* readptr = (byte_t*)&id;
-                            temp_this_command_code_buf.push_back(readptr[0]);
-                            temp_this_command_code_buf.push_back(readptr[1]);
-                            break;
-                        }
                         case instruct::extern_opcode_page_0::panic:
                         {
                             temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(panic));

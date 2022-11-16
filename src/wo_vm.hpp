@@ -654,6 +654,9 @@ namespace wo
                     tmpos << wo_type_name((wo_type) * (this_command_ptr++));
 
                     break;
+                case instruct::mkunion:
+                    tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
+                    break;
                 case instruct::mkclos:
                     tmpos << "mkclos\t";
                     tmpos << *(uint16_t*)((this_command_ptr += 2) - 2);
@@ -742,9 +745,6 @@ namespace wo
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                        case instruct::extern_opcode_page_0::mkunion:
-                            tmpos << "mkunion\t"; print_opnum1(); tmpos << ",\t id=" << *(uint16_t*)((this_command_ptr += 2) - 2);
-                            break;
                         case instruct::extern_opcode_page_0::panic:
                             tmpos << "panic\t"; print_opnum1();
                             break;
@@ -1098,7 +1098,17 @@ namespace wo
         }
 
     public:
+        inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
+        {
+            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
+            auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, 2);
+            gcbase::gc_write_guard gwg1(struct_data);
 
+            struct_data->m_values[0].set_integer((wo_integer_t)id);
+            struct_data->m_values[1].set_val(opnum2);
+
+            return opnum1;
+        }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
@@ -2170,6 +2180,16 @@ namespace wo
                     rt_cr->set_string(std::string(out_str, strlength).c_str());
                     break;
                 }
+                case instruct::opcode::mkunion:
+                {
+                    WO_ADDRESSING_N1; // aim
+                    WO_ADDRESSING_N2; // data
+                    uint16_t id = WO_IPVAL_MOVE_2;
+
+                    make_union_impl(opnum1, opnum2, id);
+
+                    break;
+                }
                 case instruct::opcode::mkclos:
                 {
                     uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
@@ -2307,20 +2327,6 @@ namespace wo
                             {
                                 WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
                             }
-                            break;
-                        }
-                        case instruct::extern_opcode_page_0::mkunion:
-                        {
-                            WO_ADDRESSING_N1; // data
-                            uint16_t id = WO_IPVAL_MOVE_2;
-
-                            rt_cr->set_gcunit_with_barrier(value::valuetype::struct_type);
-                            auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, 2);
-                            gcbase::gc_write_guard gwg1(struct_data);
-
-                            struct_data->m_values[0].set_integer((wo_integer_t)id);
-                            struct_data->m_values[1].set_val(opnum1);
-
                             break;
                         }
                         case instruct::extern_opcode_page_0::panic:
