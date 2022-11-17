@@ -285,8 +285,11 @@ namespace wo
             }
             return 0;
         }
-        static void make_checkpoint(asmjit::X86Compiler& x86compiler, asmjit::X86Gp rtvm, asmjit::X86Gp stack_sp, asmjit::X86Gp stack_bp, const byte_t* ip)
+        static void make_checkpoint(asmjit::X86Compiler& x86compiler, asmjit::X86Gp rtvm, asmjit::X86Gp stack_sp, asmjit::X86Gp stack_bp, const byte_t* ip, bool force)
         {
+            if (!force)
+                return;
+
             // TODO: OPTIMIZE!
             auto no_interrupt_label = x86compiler.newLabel();
 
@@ -965,7 +968,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip, false);
                         wo_asure(!x86compiler.jmp(fnd->second));
                     }
                     else
@@ -985,7 +988,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip, false);
                         wo_asure(!x86compiler.je(fnd->second));
                     }
                     else
@@ -1005,7 +1008,7 @@ namespace wo
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
                     {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip, false);
                         wo_asure(!x86compiler.jne(fnd->second));
                     }
                     else
@@ -1049,7 +1052,7 @@ namespace wo
                     }
 
                     // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
-                    make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                    make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip, false);
                     break;
                 }
                 case instruct::addr:
