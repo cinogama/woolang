@@ -1173,7 +1173,7 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
 {
     auto* vmptr = WO_VM(vm);
     vmptr->er->set_string(reason);
-    vmptr->dump_call_stack();
+
     vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
     vmptr->dump_call_stack(32, true, std::cerr);
