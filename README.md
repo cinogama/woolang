@@ -38,21 +38,6 @@ let f = main(func(msg: string)
 f();    // Will display "Helloworld"
 ```
 
-Woolang 内置协程调度器，并向宿主提供一系列关于协程调度的API，可以简单快速地编写出高并发的程序。
-
-```rs
-import woo.std;
-import woo.co;
-
-func work(val: int)
-{
-    std::println(F"I'm work: {val}");
-}
-
-for (let i=0; i<1000; i+=1)
-    std::co(work, i);      // Launch a coroutine.
-```
-
 作为脚本语言，Woolang 允许用户基于基本类型定义新的“自定义类型”，配合`指向调用`语法糖和`运算符重载`功能，让Woolang能够更好地配合宿主完成工作。
 
 ```rs

@@ -11,8 +11,6 @@
 #include "wo_runtime_debuggee.hpp"
 #include "wo_global_setting.hpp"
 #include "wo_io.hpp"
-#include "wo_roroutine_simulate_mgr.hpp"
-#include "wo_roroutine_thread_mgr.hpp"
 #include "wo_crc_64.hpp"
 
 #include <csignal>
@@ -179,9 +177,6 @@ void wo_finish()
     // Ready to shutdown all vm & coroutine.
     do
     {
-        if (scheduler_need_shutdown)
-            wo_coroutine_stopall();
-
         do
         {
             std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
@@ -190,11 +185,6 @@ void wo_finish()
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
         } while (false);
 
-        if (scheduler_need_shutdown)
-        {
-            wo::fvmscheduler::shutdown();
-            scheduler_need_shutdown = false;
-        }
         wo_gc_immediately();
 
         std::this_thread::yield();
@@ -232,8 +222,6 @@ void wo_init(int argc, char** argv)
                 enable_gc = atoi(argv[++command_idx]);
             else if ("enable-ansi-color" == current_arg)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
-            else if ("coroutine-thread-count" == current_arg)
-                coroutine_mgr_thread_count = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
             else if ("enable-pdb" == current_arg)
@@ -266,15 +254,12 @@ void wo_init(int argc, char** argv)
     if (enable_gc)
         wo::gc::gc_start(); // I dont know who will disable gc..
 
-    wo::fvmscheduler::init(coroutine_mgr_thread_count);
-
     if (enable_std_package)
     {
         wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
         wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
         wo_virtual_source(wo_stdlib_vm_src_path, wo_stdlib_vm_src_data, false);
         wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
-        wo_virtual_source(wo_stdlib_roroutine_src_path, wo_stdlib_roroutine_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
         wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
     }
@@ -1541,20 +1526,6 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
 //    return CS_VAL(_rsvalue);
 //}
 
-void wo_coroutine_pauseall()
-{
-    wo::fvmscheduler::pause_all();
-}
-void wo_coroutine_resumeall()
-{
-    wo::fvmscheduler::resume_all();
-}
-
-void wo_coroutine_stopall()
-{
-    wo::fvmscheduler::stop_all();
-}
-
 void _wo_check_atexit()
 {
     std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
@@ -1660,49 +1631,6 @@ wo_vm wo_gc_vm(wo_vm vm)
 void wo_close_vm(wo_vm vm)
 {
     delete (wo::vmbase*)vm;
-}
-
-void wo_co_yield()
-{
-    wo::fthread::yield();
-}
-
-void wo_co_sleep(double time)
-{
-    wo::fvmscheduler::wait(time);
-}
-
-struct wo_custom_waitter : public wo::fvmscheduler_fwaitable_base
-{
-    void* m_custom_data;
-
-    bool be_pending()override
-    {
-        return true;
-    }
-};
-
-wo_waitter_t wo_co_create_waitter()
-{
-    wo::shared_pointer<wo_custom_waitter>* cwaitter
-        = new wo::shared_pointer<wo_custom_waitter>(new wo_custom_waitter);
-    return cwaitter;
-}
-
-void wo_co_awake_waitter(wo_waitter_t waitter, void* val)
-{
-    (*(wo::shared_pointer<wo_custom_waitter>*)waitter)->m_custom_data = val;
-    (*(wo::shared_pointer<wo_custom_waitter>*)waitter)->awake();
-}
-
-void* wo_co_wait_for(wo_waitter_t waitter)
-{
-    wo::fthread::wait(*(wo::shared_pointer<wo_custom_waitter>*)waitter);
-
-    auto result = (*(wo::shared_pointer<wo_custom_waitter>*)waitter)->m_custom_data;
-    delete (wo::shared_pointer<wo_custom_waitter>*)waitter;
-
-    return result;
 }
 
 std::variant<
@@ -2114,9 +2042,10 @@ wo_value wo_dispatch(wo_vm vm)
     return nullptr;
 }
 
-void wo_break_yield(wo_vm vm)
+wo_result_t wo_yield(wo_vm vm, wo_result_t _useless_)
 {
     WO_VM(vm)->interrupt(wo::vmbase::BR_YIELD_INTERRUPT);
+    return _useless_;
 }
 
 wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)

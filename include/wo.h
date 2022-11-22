@@ -202,17 +202,6 @@ WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_valu
 //WO_API wo_value wo_set_ret_option_struct(wo_vm vm, uint16_t count);
 //WO_API wo_value wo_set_ret_option_map(wo_vm vm);
 
-WO_API void         wo_coroutine_pauseall();
-WO_API void         wo_coroutine_resumeall();
-WO_API void         wo_coroutine_stopall();
-WO_API void         wo_co_yield();
-WO_API void         wo_co_sleep(double time);
-
-typedef void* wo_waitter_t;
-WO_API wo_waitter_t        wo_co_create_waitter();
-WO_API void                wo_co_awake_waitter(wo_waitter_t waitter, void* val);
-WO_API void* wo_co_wait_for(wo_waitter_t waitter);
-
 WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
 
 WO_API void         wo_abort_all_vm_to_exit();
@@ -223,6 +212,7 @@ typedef enum _wo_inform_style
 
     WO_NOTHING = 1,
     WO_NEED_COLOR = 2,
+
 } wo_inform_style;
 
 WO_API wo_string_t  wo_locale_name();
@@ -273,7 +263,17 @@ WO_API wo_value     wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc);
 #define WO_HAPPEND_ERR ((wo_value)NULL)
 #define WO_CONTINUE    ((wo_value)(void*)-1)
 WO_API wo_value     wo_dispatch(wo_vm vm);
-WO_API void         wo_break_yield(wo_vm vm);
+
+// ATTENTION: This function used for let vm yield-break by setting
+//            yield flag. But this flag only work after return from
+//            native function (in vm-loop).
+//            So, you should make sure it called in `return`. Such as:
+//
+//                return wo_yield(vm, wo_ret_int(vm, 1));
+//
+//            Return value of yield-function is useless now, only reserved
+//            for yield-value in future.
+WO_API wo_result_t  wo_yield(wo_vm vm, wo_result_t _useless_);
 
 WO_API wo_int_t     wo_lengthof(wo_value value);
 

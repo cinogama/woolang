@@ -221,24 +221,11 @@ namespace wo
         {
             if (vmm->vm_interrupt & wo::vmbase::GC_INTERRUPT)
                 vmm->gc_checkpoint(rt_sp);
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
-            {
-                // jit not support EXCEPTION_ROLLBACK_INTERRUPT, return to last callframe.
-                return 1;
-            }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
             {
                 // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                 // CLEAR ABORT_INTERRUPT
                 return 1;
-            }
-            else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::CO_YIELD_INTERRUPT)
-            {
-                wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::CO_YIELD_INTERRUPT));
-
-                wo_asure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-                wo_co_yield();
-                wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
             }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT)
             {
