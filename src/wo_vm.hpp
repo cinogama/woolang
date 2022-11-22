@@ -102,19 +102,14 @@ namespace wo
             ABORT_INTERRUPT = 1 << 11,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            CO_YIELD_INTERRUPT = 1 << 12,
-            // If virtual machine interrupt with CO_YIELD_INTERRUPT, vm will stop immediately.
-            //  * Unlike ABORT_INTERRUPT, VM will clear CO_YIELD_INTERRUPT flag after detective.
-            //  * This flag used for wo_coroutine
+            // ------------ = 1 << 12,
 
             PENDING_INTERRUPT = 1 << 13,
-            // VM will be pending when roroutine_mgr finish using pooled-vm, PENDING_INTERRUPT
+            // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
 
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
-
-            EXCEPTION_ROLLBACK_INTERRUPT = 1 << 15,
         };
 
         vmbase(const vmbase&) = delete;
@@ -2375,26 +2370,11 @@ namespace wo
                     {
                         gc_checkpoint(rt_sp);
                     }
-                    else if (vm_interrupt & vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT)
-                    {
-                        wo_asure(clear_interrupt(vm_interrupt_type::EXCEPTION_ROLLBACK_INTERRUPT));
-                        rt_ip = ip;
-                        rt_sp = sp;
-                        rt_bp = bp;
-                    }
                     else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
                     {
                         // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                         // CLEAR ABORT_INTERRUPT
                         return;
-                    }
-                    else if (vm_interrupt & vm_interrupt_type::CO_YIELD_INTERRUPT)
-                    {
-                        wo_asure(clear_interrupt(vm_interrupt_type::CO_YIELD_INTERRUPT));
-
-                        wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                        wo_co_yield();
-                        wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                     }
                     else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
                     {

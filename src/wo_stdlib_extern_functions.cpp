@@ -2,8 +2,6 @@
 #include "wo_lang_extern_symbol_loader.hpp"
 #include "wo_utf8.hpp"
 #include "wo_vm.hpp"
-#include "wo_roroutine_simulate_mgr.hpp"
-#include "wo_roroutine_thread_mgr.hpp"
 #include "wo_io.hpp"
 #include "wo_exceptions.hpp"
 
@@ -534,8 +532,7 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_break_yield(vm);
-    return wo_ret_void(vm);
+    return wo_yield(vm, wo_ret_val(vm, args + 0));
 }
 
 WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
@@ -1021,12 +1018,6 @@ WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
     return wo_gchandle_close(args);
 }
 
-WO_API wo_api rslib_std_thread_yield(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_co_yield();
-    return wo_ret_void(vm);
-}
-
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_string(vm, wo::exe_path());
@@ -1383,7 +1374,7 @@ namespace std
         public func randreal(from:real, to:real)=>real;
 
     extern("rslib_std_break_yield") 
-        public func yield()=>void;
+        public func yield<T>(val: T)=>void;
 
     extern("rslib_std_thread_sleep")
         public func sleep(tm:real)=>void;
@@ -2371,168 +2362,6 @@ namespace std
 
         extern("rslib_std_thread_spin_write_end")
             public func unlock(mtx : spin)=>void;
-    }
-}
-
-)" };
-
-
-///////////////////////////////////////////////////////////////////////////////////////
-// roroutine APIs
-///////////////////////////////////////////////////////////////////////////////////////
-
-struct wo_co_waitable_base
-{
-    virtual ~wo_co_waitable_base() = default;
-    virtual void wait_at_current_fthread() = 0;
-};
-
-template<typename T>
-struct wo_co_waitable : wo_co_waitable_base
-{
-    wo::shared_pointer<T> sp_waitable;
-
-    wo_co_waitable(const wo::shared_pointer<T>& sp)
-        :sp_waitable(sp)
-    {
-        static_assert(std::is_base_of<wo::fwaitable, T>::value);
-    }
-
-    virtual void wait_at_current_fthread() override
-    {
-        wo::fthread::wait(sp_waitable);
-    }
-};
-
-WO_API wo_api rslib_std_roroutine_launch(wo_vm vm, wo_value args, size_t argc)
-{
-    // rslib_std_roroutine_launch(...)   
-    auto* _nvm = RSCO_WorkerPool::get_usable_vm(reinterpret_cast<wo::vmbase*>(vm));
-    wo_int_t arg_count = 0;
-
-    wo_value wo_calling_function = wo_push_val((wo_vm)_nvm, args + 0);
-
-    wo_value arg_pack = args + 1;
-    arg_count = wo_lengthof(arg_pack);
-
-    for (size_t i = arg_count; i > 0; i--)
-        wo_push_val(reinterpret_cast<wo_vm>(_nvm), wo_struct_get(arg_pack, (uint16_t)i - 1));
-
-    wo::shared_pointer<wo::RSCO_Waitter> gchandle_roroutine;
-
-    auto functype = wo_valuetype(args + 0);
-    if (WO_INTEGER_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_int(args + 0), arg_count);
-    else if (WO_HANDLE_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, wo_handle(args + 0), arg_count);
-    else if (WO_CLOSURE_TYPE == functype)
-        gchandle_roroutine = wo::fvmscheduler::new_work(_nvm, reinterpret_cast<wo::value*>(args + 0)->closure, arg_count);
-    else
-        return wo_ret_halt(vm, "Unknown type to call.");
-
-    return wo_ret_gchandle(vm,
-        new wo_co_waitable<wo::RSCO_Waitter>(gchandle_roroutine),
-        nullptr,
-        [](void* gchandle_roroutine_ptr)
-        {
-            delete (wo_co_waitable_base*)gchandle_roroutine_ptr;
-        });
-}
-
-WO_API wo_api rslib_std_roroutine_abort(wo_vm vm, wo_value args, size_t argc)
-{
-    auto* gchandle_roroutine = (wo_co_waitable<wo::RSCO_Waitter>*) wo_pointer(args);
-    if (gchandle_roroutine->sp_waitable)
-        gchandle_roroutine->sp_waitable->abort();
-
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_completed(wo_vm vm, wo_value args, size_t argc)
-{
-    auto* gchandle_roroutine = (wo_co_waitable<wo::RSCO_Waitter>*) wo_pointer(args);
-    if (gchandle_roroutine->sp_waitable)
-        return wo_ret_bool(vm, gchandle_roroutine->sp_waitable->complete_flag);
-    else
-        return wo_ret_bool(vm, true);
-}
-
-WO_API wo_api rslib_std_roroutine_pause_all(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_coroutine_pauseall();
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_resume_all(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_coroutine_resumeall();
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_stop_all(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_coroutine_stopall();
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_sleep(wo_vm vm, wo_value args, size_t argc)
-{
-    using namespace std;
-    wo::fthread::wait(wo::fvmscheduler::wait(wo_real(args)));
-
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_yield(wo_vm vm, wo_value args, size_t argc)
-{
-    wo::fthread::yield();
-    return wo_ret_void(vm);
-}
-
-WO_API wo_api rslib_std_roroutine_wait(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_co_waitable_base* waitable = (wo_co_waitable_base*)wo_pointer(args);
-
-    waitable->wait_at_current_fthread();
-    return wo_ret_void(vm);
-}
-
-const char* wo_stdlib_roroutine_src_path = u8"woo/co.wo";
-const char* wo_stdlib_roroutine_src_data = {
-u8R"(
-namespace std
-{
-    public using co = gchandle
-    {
-        extern("rslib_std_roroutine_launch")
-            public func create<FT, ArgTs>(f: FT, args: ArgTs)=> co 
-            where f(args...) is anything;
-        
-        extern("rslib_std_roroutine_abort")
-            public func abort(co:co)=>void;
-
-        extern("rslib_std_roroutine_completed")
-            public func completed(co:co)=>bool;
-
-        // Static functions:
-
-        extern("rslib_std_roroutine_pause_all")
-            public func pauseall()=>void;
-
-        extern("rslib_std_roroutine_resume_all")
-            public func resumeall()=>void;
-
-        extern("rslib_std_roroutine_stop_all")
-            public func stopall()=>void;
-
-        extern("rslib_std_roroutine_sleep")
-            public func sleep(time:real)=>void;
-
-        extern("rslib_std_thread_yield")
-            public func yield()=>bool;
-
-        extern("rslib_std_roroutine_wait")
-            public func wait(condi:co)=>void;
     }
 }
 
