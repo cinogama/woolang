@@ -2055,9 +2055,13 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
     return CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
 }
 
-wo_value wo_dispatch_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
+wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
     auto* vmm = WO_VM(vm);
+
+    if (WO_VAL(vmfunc)->type != wo::value::valuetype::closure_type)
+        wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-closure value by 'wo_dispatch_closure'.");
+
     vmm->set_br_yieldable(true);
     return CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
 }
