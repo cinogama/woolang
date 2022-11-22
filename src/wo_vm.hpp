@@ -105,7 +105,7 @@ namespace wo
             // ------------ = 1 << 12,
 
             PENDING_INTERRUPT = 1 << 13,
-            // VM will be pending when roroutine_mgr finish using pooled-vm, PENDING_INTERRUPT
+            // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
             // only setted when vm is not running.
 
             BR_YIELD_INTERRUPT = 1 << 14,

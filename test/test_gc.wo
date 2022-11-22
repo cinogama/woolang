@@ -1,5 +1,4 @@
 import woo.std;
-import woo.co;
 import woo.thread;
 import test_tool;
 
@@ -83,7 +82,7 @@ namespace test_gc
         global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
         
         std::thread::create(\ = test_gchandle_work();, ());
-        std::co::create(\ = test_gc_parallel_work(1);, ());
+        std::thread::create(\ = test_gc_parallel_work(1);, ());
         std::thread::create(\ = test_gc_parallel_work(2);, ());
         test_gc_parallel_work(0);
     }

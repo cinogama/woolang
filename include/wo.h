@@ -227,6 +227,12 @@ WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);
 WO_API wo_vm        wo_gc_vm(wo_vm vm);
 WO_API wo_bool_t    wo_abort_vm(wo_vm vm);
 WO_API void         wo_close_vm(wo_vm vm);
+
+// The function wo_borrow_vm/wo_release_vm just likes wo_sub_vm/wo_close_vm
+// but the vm will managed by a pool to reduce the creation of vm.
+WO_API wo_vm        wo_borrow_vm(wo_vm vm);
+WO_API void         wo_release_vm(wo_vm vm);
+
 WO_API wo_bool_t    wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src);
 WO_API wo_bool_t    wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t    wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz);

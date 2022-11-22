@@ -194,21 +194,21 @@ func main()
             let a = 1; let b = (a == 1) as string;
         "@);
         assure_compile_fail(@"
-            import woo.co;
-            std::co::create(func(x: int){});
+            import woo.thread;
+            std::thread::create(func(x: int){});
         "@);
         assure_compile_fail(@"
-            import woo.co;
-            std::co::create(func(x: int){}, ());
+            import woo.thread;
+            std::thread::create(func(x: int){}, ());
         "@);
         assure_compile_fail(@"
-            import woo.co;
-            std::co::create(func(x: int){}, (1, 2, 3));
+            import woo.thread;
+            std::thread::create(func(x: int){}, (1, 2, 3));
         "@);
         assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
-            import woo.co;
-            std::co::create(func(){}, ());
+            import woo.thread;
+            std::thread::create(func(){}, ());
         "@);
         assure_compile_success(@"
             import  woo.std;

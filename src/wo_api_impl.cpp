@@ -12,6 +12,7 @@
 #include "wo_global_setting.hpp"
 #include "wo_io.hpp"
 #include "wo_crc_64.hpp"
+#include "wo_vm_pool.hpp"
 
 #include <csignal>
 #include <sstream>
@@ -170,11 +171,22 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 #undef wo_init
 
+wo::vmpool* global_vm_pool = nullptr;
+
 void wo_finish()
 {
     bool scheduler_need_shutdown = true;
 
     // Ready to shutdown all vm & coroutine.
+
+    // Free all vm in pool, because vm in pool is PENDING, we can free them directly.
+    // ATTENTION: If somebody using global_vm_pool when finish, here may crash or dead loop.
+    if (global_vm_pool != nullptr)
+    {
+        delete global_vm_pool;
+        global_vm_pool = nullptr;
+    }
+
     do
     {
         do
@@ -204,6 +216,7 @@ void wo_init(int argc, char** argv)
     bool enable_std_package = true;
     bool enable_ctrl_c_to_debug = true;
     bool enable_gc = true;
+    bool enable_vm_pool = true;
     size_t coroutine_mgr_thread_count = 4;
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
@@ -226,6 +239,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
             else if ("enable-pdb" == current_arg)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
+            else if ("enable-vm-pool" == current_arg)
+                enable_vm_pool = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
@@ -233,6 +248,9 @@ void wo_init(int argc, char** argv)
 
     wo::wo_init_locale(basic_env_local);
     wo::wstring_pool::init_global_str_pool();
+
+    if (enable_vm_pool)
+        global_vm_pool = new wo::vmpool;
 
 #ifdef _DEBUG
     do
@@ -1631,6 +1649,20 @@ wo_vm wo_gc_vm(wo_vm vm)
 void wo_close_vm(wo_vm vm)
 {
     delete (wo::vmbase*)vm;
+}
+
+wo_vm wo_borrow_vm(wo_vm vm)
+{
+    if (global_vm_pool != nullptr)
+        return CS_VM(global_vm_pool->borrow_vm_from_exists_vm(WO_VM(vm)));
+    return wo_sub_vm(vm, 1024);
+}
+void wo_release_vm(wo_vm vm)
+{
+    if (global_vm_pool != nullptr)
+        global_vm_pool->release_vm(WO_VM(vm));
+    else
+        wo_close_vm(vm);
 }
 
 std::variant<
