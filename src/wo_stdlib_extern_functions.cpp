@@ -532,7 +532,7 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_yield(vm, wo_ret_void(vm));
+    return wo_ret_yield(vm);
 }
 
 WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
@@ -1374,7 +1374,7 @@ namespace std
         public func randreal(from:real, to:real)=>real;
 
     extern("rslib_std_break_yield") 
-        public func yield<T>(val: T)=>void;
+        public func yield()=>void;
 
     extern("rslib_std_thread_sleep")
         public func sleep(tm:real)=>void;

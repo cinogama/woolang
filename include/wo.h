@@ -279,7 +279,7 @@ WO_API wo_value     wo_dispatch(wo_vm vm);
 //
 //            Return value of yield-function is useless now, only reserved
 //            for yield-value in future.
-WO_API wo_result_t  wo_yield(wo_vm vm, wo_result_t _useless_);
+WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 
 WO_API wo_int_t     wo_lengthof(wo_value value);
 
