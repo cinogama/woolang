@@ -532,7 +532,7 @@ WO_API wo_api rslib_std_randomreal(wo_vm vm, wo_value args)
 
 WO_API wo_api rslib_std_break_yield(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_yield(vm, wo_ret_val(vm, args + 0));
+    return wo_yield(vm, wo_ret_void(vm));
 }
 
 WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
