@@ -142,7 +142,7 @@
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"此处泛型不能用于修饰非变量/函数对象"
 
-#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"模板参数不匹配"
+#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"泛型参数不匹配"
 
 #define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
 
@@ -187,6 +187,8 @@
 #define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"无法访问 '%ls'，这是一个保护对象，只能在定义所在的命名空间中访问"
 
 #define WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC L"不能在非匿名函数中捕获变量 '%ls'"
+
+#define WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR L"不能捕获泛型变量 '%ls'"
 
 #define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"运算符 '%ls' 的重载函数不能接收引用参数"
 
@@ -378,6 +380,8 @@
 #define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"Cannot reach '%ls'，protected target only usable in same namespace."
 
 #define WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC L"Cannot capture '%ls' in named-function."
+
+#define WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR L"Cannot capture template variable '%ls'."
 
 #define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"Operator overloading function of '%ls' cannot have 'ref' paraments."
 

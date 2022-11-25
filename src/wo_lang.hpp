@@ -4434,6 +4434,10 @@ namespace wo
                     && symb_defined_in_func != current_function
                     && symb_defined_in_func->function_node != current_function->function_node)
                 {
+                    if (result->is_template_symbol)
+                        lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR,
+                            result->name->c_str());
+
                     // The variable is not static and define outside the function. ready to capture it!
                     if (current_function->function_node->function_name != nullptr)
                         // Only anonymous can capture variablel;
