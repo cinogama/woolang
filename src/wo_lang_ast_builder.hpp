@@ -3975,7 +3975,7 @@ namespace wo
                 wo_assert(key);
 
                 if (key->array_items->children == nullptr || key->array_items->children->sibling != nullptr)
-                    return lex.parser_error(0x0000, L"创建map时遇到了非法的键表达式，继续");
+                    return lex.parser_error(0x0000, WO_ERR_INVALID_KEY_EXPR);
 
                 ast_value* keyval = dynamic_cast<ast_value*>(key->array_items->children);
                 wo_assert(keyval);
@@ -5961,7 +5961,7 @@ namespace wo
                             tuple_type->template_arguments.push_back(type);
                         }
                         else
-                            lex.parser_error(0x0000, L"元组类型中不允许出现 '...'，继续");
+                            lex.parser_error(0x0000, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG);
 
                     }
                 }

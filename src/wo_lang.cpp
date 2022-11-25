@@ -1081,18 +1081,8 @@ namespace wo
         auto* a_check_naming = WO_AST();
         fully_update_type(a_check_naming->template_type, false);
         fully_update_type(a_check_naming->naming_const, false);
-
-        for (auto& namings : a_check_naming->template_type->template_impl_naming_checking)
-        {
-            if (a_check_naming->naming_const->is_pending() || namings->is_pending())
-                break;
-            if (namings->is_same(a_check_naming->naming_const, false, false))
-                goto checking_naming_end;
-        }
-        lang_anylizer->lang_error(0x0000, a_check_naming, L"泛型参数'%ls'没有具名'%ls'约束，继续",
-            a_check_naming->template_type->get_type_name(false).c_str(),
-            a_check_naming->naming_const->get_type_name(false).c_str());
-    checking_naming_end:;
+    
+        // TODO: Support or remove type class?
 
         return true;
     }
@@ -1126,7 +1116,7 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(0x0000, a_match->match_value, L"不允许使用 'match' 语句匹配 '%ls' 类型的值，继续",
+                lang_anylizer->lang_error(0x0000, a_match->match_value, WO_ERR_CANNOT_MATCH_SUCH_TYPE,
                     a_match->match_value->value_type->get_type_name(false).c_str());
             }
         }
@@ -1176,7 +1166,7 @@ namespace wo
                                 a_pattern_union_value->union_expr->symbol->name);
                             if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
                             {
-                                lang_anylizer->lang_error(0x0000, a_pattern_union_value, L"'%ls' 不是 '%ls' 的合法项，继续",
+                                lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_INVALID_ITEM_OF,
                                     a_pattern_union_value->union_expr->symbol->name->c_str(),
                                     a_match_union_case->in_match->match_value->value_type->get_type_name(false).c_str());
                             }
@@ -1267,7 +1257,7 @@ namespace wo
             {
                 // Current constraint failed, store it to list;
                 a_where_constraint->unmatched_constraint.push_back(
-                    lang_anylizer->make_error(0x0000, val, L"约束项存在语法错误，以下是错误内容，继续："));
+                    lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_GRAMMAR_ERR));
                 a_where_constraint->unmatched_constraint.insert(
                     a_where_constraint->unmatched_constraint.end(),
                     lang_anylizer->get_cur_error_frame().begin(),
@@ -1280,20 +1270,20 @@ namespace wo
                 if (!val->is_constant)
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, L"约束项必须得出一个常量结果，继续"));
+                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_SHOULD_BE_CONST));
                     a_where_constraint->accept = false;
                 }
                 else if (!val->value_type->is_bool())
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, L"约束项得出的结果类型应该是 'bool'，但此处是 '%ls'，继续"
+                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_TYPE_ERR
                             , val->value_type->get_type_name(false).c_str()));
                     a_where_constraint->accept = false;
                 }
                 else if (0 == val->get_constant_value().handle)
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, L"检查发现不满足的条件，继续"));
+                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_NOT_MEET));
                     a_where_constraint->accept = false;
                 }
             }
@@ -1507,12 +1497,12 @@ namespace wo
                             a_value_index->struct_offset = (uint16_t)index;
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_value_index, L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项），继续",
+                            lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX,
                                 (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_index, L"只允许使用 'int' 类型的常量索引元组，继续");
+                        lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_TYPE);
                     }
                 }
                 else if (a_value_index->from->value_type->is_string())
@@ -1585,7 +1575,7 @@ namespace wo
 
         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
         {
-            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, L"'变长参数包' 的索引只能是 'int' 类型的值，继续");
+            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
         }
         return true;
     }
@@ -1630,8 +1620,6 @@ namespace wo
                     a_value_bin->value_type = ast_type::create_type_at(a_value_bin, *a_value_bin->overrided_operation_call->value_type);
                 else if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
-                else if (!a_value_bin->value_type->is_same(a_value_bin->overrided_operation_call->value_type, false, false))
-                    lang_anylizer->lang_error(0x0000, a_value_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
             }
 
         }
@@ -1669,8 +1657,6 @@ namespace wo
                     a_value_logic_bin->value_type = a_value_logic_bin->overrided_operation_call->value_type;
                 else if (a_value_logic_bin->value_type->is_pending())
                     a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
-                else if (!a_value_logic_bin->value_type->is_same(a_value_logic_bin->overrided_operation_call->value_type, false, false))
-                    lang_anylizer->lang_error(0x0000, a_value_logic_bin, L"无法兼容重置运算操作和原始运算类型，这可能导致类型推导错误，继续");
             }
 
         }
@@ -1735,9 +1721,9 @@ namespace wo
                 if (!decide_array_item_type->accept_type(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array");
                     else
-                        lang_anylizer->lang_error(0x0000, val, L"'vec' 序列中的值类型不一致，无法为 'array' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"vec");
                     break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
@@ -1774,9 +1760,9 @@ namespace wo
                 if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, L"'array' 序列中的值类型与泛型参数中指定的不一致，继续");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, "array");
                     else
-                        lang_anylizer->lang_error(0x0000, val, L"'vec' 序列中的值类型与泛型参数中指定的不一致，继续");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"vec");
                 }
                 reenplace_array_items.push_back(val);
 
@@ -1829,17 +1815,17 @@ namespace wo
                 if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->key, L"'dict' 序列中的键类型不一致，无法为 'dict' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->key, L"'map' 序列中的键类型不一致，无法为 'map' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map");
                     break;
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->val, L"'dict' 序列中的值类型不一致，无法为 'dict' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->val, L"'map' 序列中的值类型不一致，无法为 'map' 推导类型，继续");
+                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"map");
                     break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
@@ -1884,16 +1870,16 @@ namespace wo
                     if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
-                            lang_anylizer->lang_error(0x0000, pairs->key, L"'dict' 序列中的键类型与泛型参数中指定的不一致，继续");
+                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE,L"dict");
                         else
-                            lang_anylizer->lang_error(0x0000, pairs->key, L"'map' 序列中的键类型与泛型参数中指定的不一致，继续");
+                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"map");
                     }
                     if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
-                            lang_anylizer->lang_error(0x0000, pairs->val, L"'dict' 序列中的值类型与泛型参数中指定的不一致，继续");
+                            lang_anylizer->lang_error(0x0000, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"dict");
                         else
-                            lang_anylizer->lang_error(0x0000, pairs->val, L"'map' 序列中的值类型与泛型参数中指定的不一致，继续");
+                            lang_anylizer->lang_error(0x0000, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"map");
                     }
 
                 }
@@ -1928,7 +1914,7 @@ namespace wo
         }
         else
         {
-            lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, L"元组元素类型未决，因此无法推导元组类型，继续");
+            lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
         }
         return true;
     }
@@ -1960,7 +1946,7 @@ namespace wo
                         fully_update_type(fnd->second.member_type, false);
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
                         {
-                            lang_anylizer->lang_error(0x0000, membpair, L"成员 '%ls' 的类型为 '%ls'，但给定的初始值类型为 '%ls'，继续"
+                            lang_anylizer->lang_error(0x0000, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF
                                 , membpair->member_name->c_str()
                                 , fnd->second.member_type->get_type_name(false).c_str()
                                 , membpair->member_value_pair->value_type->get_type_name(false).c_str());
@@ -1990,8 +1976,8 @@ namespace wo
         analyze_pass2(a_value_trib_expr->judge_expr);
         if (!a_value_trib_expr->judge_expr->value_type->is_bool())
         {
-            lang_anylizer->lang_error(0x0000, a_value_trib_expr->judge_expr, L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'，继续"
-                , a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
+            lang_anylizer->lang_error(0x0000, a_value_trib_expr->judge_expr, WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR,
+                a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
         }
 
         a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
@@ -2023,7 +2009,7 @@ namespace wo
                 }
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_trib_expr, L"条件表达式的不同分支的值应该有相同的类型，但此处分别是 '%ls' 和 '%ls'，继续"
+                    lang_anylizer->lang_error(0x0000, a_value_trib_expr, WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR
                         , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
                         , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
                 }
@@ -2047,7 +2033,7 @@ namespace wo
             && funcdef->where_constraint != nullptr
             && !funcdef->where_constraint->accept)
         {
-            lang_anylizer->lang_error(0x0000, ast, L"不满足此函数调用的要求，继续：");
+            lang_anylizer->lang_error(0x0000, ast, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
             for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
             {
                 lang_anylizer->get_cur_error_frame().push_back(error_info);
@@ -2076,7 +2062,7 @@ namespace wo
                 {
                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                     if (!sym)
-                        lang_anylizer->lang_error(0x0000, a_value_var, L"具体化泛型标识符 '%ls' 时失败，继续",
+                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID,
                             a_value_var->var_name->c_str());
                 }
 
@@ -2346,7 +2332,8 @@ namespace wo
                 }
 
                 if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
-                    lang_anylizer->lang_error(0x0000, a_value_funccall, L"无法推导全部模板参数，继续"); // failed getting each of template args, abandon this one
+                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+                // failed getting each of template args, abandon this one
                 else
                 {
                     for (auto* templ_arg : template_args)

@@ -28,13 +28,13 @@
 
 #define WO_ERR_MISMATCH_ANNO_SYM L"不匹配的注释符"
 
-#define WO_ERR_UNEXCEPT_CH_AFTER_CH L"未预料的符号 '%lc' 位于 '%lc' 之后"
+#define WO_ERR_UNEXCEPT_CH_AFTER_CH L"未预料的字符 '%lc' 位于 '%lc' 之后"
 
-#define WO_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH L"未预料的符号 '%lc' 位于 '%lc' 之后, 此处应该是 '%lc'"
+#define WO_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH L"未预料的字符 '%lc' 位于 '%lc' 之后, 此处应该是 '%lc'"
 
 #define WO_ERR_UNEXCEPT_EOF L"未预料的文件尾"
 
-#define WO_ERR_UNEXCEPT_TOKEN L"未预料的符号: "
+#define WO_ERR_UNEXCEPT_TOKEN L"未预料的标识符: "
 
 #define WO_ERR_ILLEGAL_LITERAL L"非法的字面常量"
 
@@ -44,7 +44,7 @@
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误，未知的常量基数"
 
-#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"词法错误, 未知的符号: '%lc'"
+#define WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L"词法错误, 未知的字符: '%lc'"
 
 #define WO_ERR_UNEXCEPT_AST_NODE_TYPE L"未预料到的语法树节点类型: 应当是语法树节点或标识符"
 
@@ -65,10 +65,6 @@
 #define WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB L"无法找到外部符号: '%ls' 位于 '%ls'"
 
 #define WO_ERR_ARG_DEFINE_AFTER_VARIADIC L"在 '...' 之后不应该有其他参数"
-
-#define WO_ERR_CANNOT_CALC_STR_WITH_THIS_OP L"不支持对字符串进行该运算"
-
-#define WO_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP L"不支持对句柄类型进行该运算"
 
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"不允许向常量赋值"
 
@@ -114,10 +110,6 @@
 
 #define WO_ERR_SYMBOL_IS_AMBIGUOUS L"标识符 '%ls' 不明确, 它在以下命名空间中被找到: "
 
-#define WO_ERR_CANNOT_IMPLCAST_REF L"不能隐式转换引用传递对象的类型"
-
-#define WO_ERR_NOT_REFABLE_INIT_ITEM L"不可引用的对象不能作为 'ref' 的初始项"
-
 #define WO_ERR_UNINDEXABLE_TYPE L"不可索引的类型 '%ls'"
 
 #define WO_ERR_CANNOT_AS_TYPE L"类型 '%ls' 与要求的类型 '%ls' 不相同"
@@ -127,8 +119,6 @@
 #define WO_ERR_CANNOT_AS_DYNAMIC L"此处出现的 'dynamic' 是无效的"
 
 #define WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"不可赋值的对象"
-
-#define WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF L"不可赋值的对象不能被标注为引用传递"
 
 #define WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"不允许导出定义于函数中的符号"
 
@@ -147,10 +137,6 @@
 #define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"尝试使用非字符串常量索引具类型映射"
-
-#define WO_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT L"迭代器类型'%ls'的'next'方法无法接受%zu个迭代项目"
-
-#define WO_ERR_VARIADIC_NEXT_IS_ILEAGAL L"迭代器类型'%ls'的'next'方法不可以是变长的"
 
 #define WO_ERR_INVALID_OPERATE L"无效的'%ls'"
 
@@ -190,8 +176,6 @@
 
 #define WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR L"不能捕获泛型变量 '%ls'"
 
-#define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"运算符 '%ls' 的重载函数不能接收引用参数"
-
 #define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"类型 '%ls' 中没有名为 '%ls' 的成员"
 
 #define WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED L"构造结构体 '%ls' 时没有提供所有成员的初始值"
@@ -203,6 +187,60 @@
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"以 '%lc' 开头的未知转义序列."
 
 #define WO_ERR_REPEAT_ATTRIBUTE L"重复出现的属性"
+
+#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"给定的泛型参数过多"
+
+#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"给定的泛型参数过少"
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"不匹配的模式：值类型未决"
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE L"不匹配的模式：期待给定一个元组，但是给定的是 '%ls'"
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH L"不匹配的模式：期待给定一个拥有%d个元素的元组，但是给定的元组包含%d个元素"
+
+#define WO_ERR_CANNOT_MATCH_SUCH_TYPE L"不允许使用 'match' 语句检查 '%ls' 类型的值，只接受 union 类型"
+
+#define WO_ERR_INVALID_ITEM_OF L"'%ls' 不是 '%ls' 的合法项"
+
+#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"无法为当前函数调用推导全部的模板参数"
+
+#define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项）"
+
+#define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_TYPE L"只允许使用 'int' 类型的常量索引元组"
+
+#define WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE L"元组元素类型未决，因此无法推导元组类型"
+
+#define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG L"元组类型中不允许出现 '...'"
+
+#define WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR L"条件表达式的不同分支的值应该有相同的类型，但此处分别是 '%ls' 和 '%ls'"
+
+#define WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'"
+
+#define WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID L"具体化泛型标识符 '%ls' 时失败"
+
+#define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"'变长参数包' 的索引只能是 'int' 类型的值"
+
+#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"不满足此函数调用的要求，理由如下："
+
+#define WO_ERR_DIFFERENT_KEY_TYPE_OF L"'%ls' 序列中的键类型不一致，无法为 '%ls' 推导泛型参数"
+
+#define WO_ERR_DIFFERENT_VAL_TYPE_OF L"'%ls' 序列中的值类型不一致，无法为 '%ls' 推导泛型参数"
+
+#define WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE L"'%ls' 序列中的键类型与泛型参数中指定的不一致"
+
+#define WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE L"'%ls' 序列中的值类型与泛型参数中指定的不一致"
+
+#define WO_ERR_DIFFERENT_MEMBER_TYPE_OF L"结构体成员 '%ls' 的类型应该是 '%ls'，但给定的初始值类型为 '%ls'"
+
+#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"约束项必须得出一个常量结果"
+
+#define WO_ERR_WHERE_COND_TYPE_ERR L"约束项得出的结果类型应该是 'bool'，但此处是 '%ls'"
+
+#define WO_ERR_WHERE_COND_NOT_MEET L"检查发现不满足的条件"
+
+#define WO_ERR_WHERE_COND_GRAMMAR_ERR L"约束项存在语法错误，以下是错误内容："
+
+#define WO_ERR_INVALID_KEY_EXPR L"创建映射时遇到了非法的键表达式"
 
 #else
 
@@ -259,10 +297,6 @@
 
 #define WO_ERR_ARG_DEFINE_AFTER_VARIADIC L"There should be no argument after '...'."
 
-#define WO_ERR_CANNOT_CALC_STR_WITH_THIS_OP L"Unsupported string operations."
-
-#define WO_ERR_CANNOT_CALC_HANDLE_WITH_THIS_OP L"Unsupported handle operations."
-
 #define WO_ERR_CANNOT_ASSIGN_TO_CONSTANT L"Can not assign to a constant."
 
 #define WO_ERR_CANNOT_CALC_WITH_L_AND_R L"The value types on the left and right (%ls and %ls) are incompatible."
@@ -307,10 +341,6 @@
 
 #define WO_ERR_SYMBOL_IS_AMBIGUOUS L"'%ls' is ambiguous, it was found in namespace: "
 
-#define WO_ERR_CANNOT_IMPLCAST_REF L"Cannot implicit-cast the type of reference passing object."
-
-#define WO_ERR_NOT_REFABLE_INIT_ITEM L"Non-referenceable objects cannot be used as the initial item of 'ref'."
-
 #define WO_ERR_UNINDEXABLE_TYPE L"Unindexable type '%ls'."
 
 #define WO_ERR_CANNOT_AS_TYPE L"The type '%ls' is not the same as the requested type '%ls'."
@@ -320,8 +350,6 @@
 #define WO_ERR_CANNOT_AS_DYNAMIC L"'dynamic' here is useless."
 
 #define WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM L"Cannot assign to a non-assignable item."
-
-#define WO_ERR_CANNOT_MAKE_UNASSABLE_ITEM_REF L"Cannot mark a a non-assignable item as 'ref'."
 
 #define WO_ERR_CANNOT_EXPORT_SYMB_IN_FUNC L"Cannot export the symbol defined in function."
 
@@ -341,10 +369,6 @@
 
 #define WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR L"Typed mapping only indexable form 'string'."
 
-#define WO_ERR_TOO_MANY_ITER_ITEM_FROM_NEXT L"Iterator '%ls': Cannot get %zu items from function 'next'."
-
-#define WO_ERR_VARIADIC_NEXT_IS_ILEAGAL L"Function 'next' of iterator '%ls' cannot be variadic."
-
 #define WO_ERR_INVALID_OPERATE L"Invalid '%ls'."
 
 #define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"Different types of return values in function."
@@ -355,7 +379,7 @@
 
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"Unknown pre-compile command '%ls'."
 
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"Failed macro compiling result：\n%ls."
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"Failed macro compiling result: \n%ls."
 
 #define WO_ERR_HERE_SHOULD_HAVE L"Here should have '%ls'."
 
@@ -369,21 +393,19 @@
 
 #define WO_ERR_UNKNOWN_MATCHING_VAL_TYPE L"Type inference of the value in 'match' failed."
 
-#define WO_ERR_UNKNOWN_CASE_TYPE L"Illegal 'case'，here should be pattern of the type in 'match'."
+#define WO_ERR_UNKNOWN_CASE_TYPE L"Illegal 'case', here should be pattern of the type in 'match'."
 
-#define WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG L"Invalid 'case'，union pattern not match: need receive a variable."
+#define WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG L"Invalid 'case',,union pattern not match: need receive a variable."
 
-#define WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV L"Invalid 'case'，union pattern not match: cannot receive any variable."
+#define WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV L"Invalid 'case', union pattern not match: cannot receive any variable."
 
-#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"Cannot reach '%ls'，private target only usable in source: '%ls'."
+#define WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC L"Cannot reach '%ls', private target only usable in source: '%ls'."
 
-#define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"Cannot reach '%ls'，protected target only usable in same namespace."
+#define WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC L"Cannot reach '%ls', protected target only usable in same namespace."
 
 #define WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC L"Cannot capture '%ls' in named-function."
 
 #define WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR L"Cannot capture template variable '%ls'."
-
-#define WO_ERR_REF_ARG_IN_OPERATOR_OVERLOAD_FUNC L"Operator overloading function of '%ls' cannot have 'ref' paraments."
 
 #define WO_ERR_THERE_IS_NO_MEMBER_NAMED L"Type '%ls' have not member named '%ls'."
 
@@ -396,5 +418,59 @@
 #define WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH L"Unknown escape sequences begin with '%lc'."
 
 #define WO_ERR_REPEAT_ATTRIBUTE L"Duplicate attribute description."
+
+#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"Too many template arguments."
+
+#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"Too few template arguments"
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"Unmatched pattern: Value type is pending."
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE L"Unmatched pattern: Here should be a tuple, but get '%ls'"
+
+#define WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH L"Unmatched pattern: Expecting a tuplt with %d elems, but get tuple with %d elems."
+
+#define WO_ERR_CANNOT_MATCH_SUCH_TYPE L"Cannot check value with type named '%ls' in 'match' expr, expect union-type."
+
+#define WO_ERR_INVALID_ITEM_OF L"'%ls' is not a valid item of '%ls'."
+
+#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"Failed to decide all template arguments for this function call."
+
+#define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"Out of range, the tuple contain %d elmes, but trying index the elems %d."
+
+#define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_TYPE L"Can only index tuple with constant of 'int' type."
+
+#define WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE L"The type of elems not decided, failed to decide tuple type."
+
+#define WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG L"Tuple cannot contain '...'"
+
+#define WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR L"Different types found in conditional expr: '%ls' and '%ls'."
+
+#define WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR L"Judge expr in conditional expr should hava 'bool' type, but get '%ls'"
+
+#define WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID L"Failed to instance template identifier '%ls'."
+
+#define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"Can only index 'Variadic argument pack' by value of 'int' type."
+
+#define WO_ERR_FAILED_TO_INVOKE_BECAUSE L"Failed to invoke current function, because: "
+
+#define WO_ERR_DIFFERENT_KEY_TYPE_OF L"Different types of 'key' found in '%ls', failed to decided template arguments for '%ls'."
+
+#define WO_ERR_DIFFERENT_VAL_TYPE_OF L"Different types of 'value' found in '%ls', failed to decided template arguments for '%ls'."
+
+#define WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE L"The type of keys of '%ls' is different from template arguments."
+
+#define WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE L"The type of values of '%ls' is different from template arguments."
+
+#define WO_ERR_DIFFERENT_MEMBER_TYPE_OF L"The type of structure member '%ls' should be '%ls', but found '%ls'."
+
+#define WO_ERR_WHERE_COND_SHOULD_BE_CONST L"Constraints must be a constant."
+
+#define WO_ERR_WHERE_COND_TYPE_ERR L"Constraints should be 'bool', but here is '%ls'"
+
+#define WO_ERR_WHERE_COND_NOT_MEET L"Constraints didn't meet."
+
+#define WO_ERR_WHERE_COND_GRAMMAR_ERR L"Some error happend in constraints expr:"
+
+#define WO_ERR_INVALID_KEY_EXPR L"Invalid key expr found."
 
 #endif
