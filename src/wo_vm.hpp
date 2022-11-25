@@ -179,7 +179,10 @@ namespace wo
         {
             return attaching_debuggee;
         }
-
+        inline bool is_aborted() const noexcept
+        {
+            return vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT;
+        }
         inline bool interrupt(vm_interrupt_type type)
         {
             return !(type & vm_interrupt.fetch_or(type));
@@ -966,6 +969,9 @@ namespace wo
                 sp = return_sp;
                 bp = return_bp;
 
+                if (is_aborted())
+                    return nullptr;
+
                 return cr;
             }
             return nullptr;
@@ -996,6 +1002,9 @@ namespace wo
                 ip = return_ip;
                 sp = return_sp;
                 bp = return_bp;
+
+                if (is_aborted())
+                    return nullptr;
 
                 return cr;
             }
@@ -1043,6 +1052,9 @@ namespace wo
                     ip = return_ip;
                     sp = return_sp;
                     bp = return_bp;
+
+                    if (is_aborted())
+                        return nullptr;
 
                     return cr;
                 }
