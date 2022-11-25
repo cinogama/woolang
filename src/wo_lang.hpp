@@ -423,69 +423,9 @@ namespace wo
         bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
         {
             bool result = true;
-            // Check function
 
-            if (clstype->using_type_name && naming->using_type_name &&
-                clstype->using_type_name->symbol && naming->using_type_name->symbol)
-            {
-                auto cls_using = dynamic_cast<ast::ast_using_type_as*>(clstype->using_type_name->symbol->define_node);
-                auto naming_using = dynamic_cast<ast::ast_using_type_as*>(naming->using_type_name->symbol->define_node);
+            // TODO: Do some check here for typeclass?
 
-                for (auto& [naming_func_name, naming_funcs] : naming_using->class_methods_list)
-                {
-                    if (auto fnd = cls_using->class_methods_list.find(naming_func_name); fnd != cls_using->class_methods_list.end())
-                    {
-                        if (fnd->second.size() != naming_funcs.size())
-                        {
-                            lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 方法%ls的重载集不符，继续",
-                                clstype->get_type_name(false).c_str(),
-                                naming->get_type_name(false).c_str(),
-                                naming_func_name.c_str());
-                            result = false;
-                        }
-                        // TODO: do more check.. here just so~
-                    }
-                    else
-                    {
-                        lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 缺少方法%ls，继续",
-                            clstype->get_type_name(false).c_str(),
-                            naming->get_type_name(false).c_str(),
-                            naming_func_name.c_str());
-                        result = false;
-                    }
-                }
-
-            }
-
-            // Check member
-            for (auto& [naming_memb_name, naming_memb_name_val] : naming->struct_member_index)
-            {
-                wo_assert(naming_memb_name_val.member_type);
-                if (auto fnd = clstype->struct_member_index.find(naming_memb_name); fnd != clstype->struct_member_index.end())
-                {
-                    wo_assert(fnd->second.member_type);
-
-                    if (naming_memb_name_val.member_type->is_pending())
-                        ; // member type not computed, just pass
-                    else if (fnd->second.member_type->is_pending()
-                        || !fnd->second.member_type->is_same(naming_memb_name_val.member_type, false, false))
-                    {
-                        lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 成员%ls类型不同，继续",
-                            clstype->get_type_name(false).c_str(),
-                            naming->get_type_name(false).c_str(),
-                            naming_memb_name->c_str());
-                        result = false;
-                    }
-                }
-                else
-                {
-                    lang_anylizer->lang_error(0x0000, naming, L"类型%ls不满足具名%ls的要求: 缺少成员%ls，继续",
-                        clstype->get_type_name(false).c_str(),
-                        naming->get_type_name(false).c_str(),
-                        naming_memb_name->c_str());
-                    result = false;
-                }
-            }
             return result;
         }
 
@@ -618,11 +558,11 @@ namespace wo
                                     // Error! if template_arguments.size() is 0, it will be 
                                     // high-ranked-templated type.
                                     if (type->template_arguments.size() > type_sym->template_types.size())
-                                        lang_anylizer->lang_error(0x0000, type, L"给定的泛型参数过多，无法推导类型，继续");
+                                        lang_anylizer->lang_error(0x0000, type, WO_ERR_TOO_MANY_TEMPLATE_ARGS);
                                     else
                                     {
                                         wo_assert(type->template_arguments.size() < type_sym->template_types.size());
-                                        lang_anylizer->lang_error(0x0000, type, L"给定的泛型参数不足，无法推导类型，继续");
+                                        lang_anylizer->lang_error(0x0000, type, WO_ERR_TOO_FEW_TEMPLATE_ARGS);
                                     }
 
                                 }
@@ -904,12 +844,12 @@ namespace wo
                 else
                 {
                     if (initval->value_type->is_pending())
-                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：值类型未决，继续");
+                        lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED);
                     else if (!initval->value_type->is_tuple())
-                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：期待给定一个tuple类型，但给定的是 '%ls'，继续",
+                        lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
                             initval->value_type->get_type_name(false).c_str());
                     else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
-                        lang_anylizer->lang_error(0x0000, pattern, L"不匹配的模式：tuple元素数量不符，期待获取%d个值，但给定了%d个，继续",
+                        lang_anylizer->lang_error(0x0000, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
                             (int)a_pattern_tuple->tuple_takeplaces.size(),
                             (int)initval->value_type->template_arguments.size());
                 }
@@ -1913,11 +1853,7 @@ namespace wo
         {
             using namespace opnum;
 
-            if (!symb)
-            {
-                lang_anylizer->lang_error(0x0000, error_prud, L"找不到符号，继续");
-                return &WO_NEW_OPNUM(reg(reg::ni));
-            }
+            wo_assert(symb != nullptr);
 
             if (symb->is_constexpr
                 || (symb->decl == wo::ast::identifier_decl::IMMUTABLE
@@ -4434,6 +4370,10 @@ namespace wo
                     && symb_defined_in_func != current_function
                     && symb_defined_in_func->function_node != current_function->function_node)
                 {
+                    if (result->is_template_symbol)
+                        lang_anylizer->lang_error(0x0000, var_ident, WO_ERR_CANNOT_CAPTURE_TEMPLATE_VAR,
+                            result->name->c_str());
+
                     // The variable is not static and define outside the function. ready to capture it!
                     if (current_function->function_node->function_name != nullptr)
                         // Only anonymous can capture variablel;

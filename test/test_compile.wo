@@ -115,6 +115,9 @@ func main()
         assure_compile_fail(@"func main(){let f = func(){f();};}"@);
         assure_compile_fail(@"func foo<T>(a: T){}func main(){let f = \x: int = foo(f);;}"@);
 
+        // Cannot capture template variable.
+        assure_compile_fail(@"func main(){let t<T> = 0;return func(){return t:<int>;};}"@);
+
         // func cannot return different type from marked type
         assure_compile_fail(@"func xx()=> string{return;}"@);
         assure_compile_fail(@"func xx()=> int{return 1.;}"@);
