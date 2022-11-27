@@ -871,6 +871,79 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_val(vm, result_tuple);
 }
 
+WO_API wo_api rslib_std_take_token(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t input = wo_string(args + 0);
+    wo_string_t format = wo_string(args + 1);
+
+    std::string matching_format;
+
+    while (*format)
+    {
+        matching_format += *format;
+        if (*format == '%')
+            matching_format += *format;
+        ++format;
+    }
+    matching_format += "%zn";
+    size_t token_length;
+
+    if (sscanf(input, matching_format.c_str(), &token_length) >= 0)
+        return wo_ret_option_string(vm, input + token_length);
+    return wo_ret_option_none(vm);
+}
+
+WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t input = wo_string(args + 0);
+    size_t token_length;
+    char string_buf[1024];
+
+    if (sscanf(input, "%s%zn", string_buf, &token_length) == 1)
+    {
+        wo_value result =  wo_push_struct(vm, 2);
+        wo_set_string(wo_struct_get(result, 0), input + token_length);
+        wo_set_string(wo_struct_get(result, 1), string_buf);
+        return wo_ret_option_val(vm, result);
+    }
+
+    return wo_ret_option_none(vm);
+}
+
+WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t input = wo_string(args + 0);
+    size_t token_length;
+    wo_integer_t integer;
+
+    if (sscanf(input, "%lld%zn", &integer, &token_length) == 1)
+    {
+        wo_value result = wo_push_struct(vm, 2);
+        wo_set_string(wo_struct_get(result, 0), input + token_length);
+        wo_set_int(wo_struct_get(result, 1), integer);
+        return wo_ret_option_val(vm, result);
+    }
+
+    return wo_ret_option_none(vm);
+}
+
+WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t input = wo_string(args + 0);
+    size_t token_length;
+    wo_real_t real;
+
+    if (sscanf(input, "%lf%zn", &real, &token_length) == 1)
+    {
+        wo_value result = wo_push_struct(vm, 2);
+        wo_set_string(wo_struct_get(result, 0), input + token_length);
+        wo_set_real(wo_struct_get(result, 1), real);
+        return wo_ret_option_val(vm, result);
+    }
+
+    return wo_ret_option_none(vm);
+}
+
 WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
 {
     // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
@@ -1117,7 +1190,7 @@ public using mutable<T> = struct {
     }
     public func set<T>(self: mutable<T>, val: T)
     {
-        self.val = val;
+        return self.val = val;
     }
     public func get<T>(self: mutable<T>)
     {
@@ -1404,6 +1477,18 @@ namespace std
 public using char = int;
 namespace string
 {
+    extern("rslib_std_take_token") 
+    public func take_token(datstr: string, expect_str: string)=> option<string>;
+
+    extern("rslib_std_take_string") 
+    public func take_string(datstr: string)=> option<(string, string)>;
+
+    extern("rslib_std_take_int") 
+    public func take_int(datstr: string)=> option<(string, int)>;
+
+    extern("rslib_std_take_real") 
+    public func take_real(datstr: string)=> option<(string, real)>;
+    
     public func todict(val:string)=> option<dict<dynamic, dynamic>>
     {
         extern("rslib_std_parse_map_from_string") 
