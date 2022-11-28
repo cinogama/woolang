@@ -438,7 +438,7 @@ namespace wo
                 wo::value callstack;
                 callstack.type = wo::value::valuetype::callstack;
                 callstack.bp = 0;
-                callstack.ret_ip = rt_ip - codes;
+                callstack.ret_ip = (uint32_t)(rt_ip - codes);
 
                 x86_set_imm(x86compiler, rt_sp, callstack);
                 auto bpoffset = x86compiler.newUInt64();
@@ -700,7 +700,7 @@ namespace wo
                     if (opnum2.is_constant())
                     {
                         auto bpoffset = x86compiler.newUIntPtr();
-                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, (uint32_t)(opnum2.const_value()->integer * sizeof(value)))));
                         x86_set_val(x86compiler, opnum1.gp_value(), bpoffset);
                     }
                     else
@@ -719,7 +719,7 @@ namespace wo
                     if (opnum2.is_constant())
                     {
                         auto bpoffset = x86compiler.newUIntPtr();
-                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, opnum2.const_value()->integer * sizeof(value))));
+                        wo_asure(!x86compiler.lea(bpoffset, x86::qword_ptr(_vmsbp, (uint32_t)(opnum2.const_value()->integer * sizeof(value)))));
                         x86_set_val(x86compiler, bpoffset, opnum1.gp_value());
                     }
                     else
@@ -1375,7 +1375,7 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::sidmap:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::sidarr:
+                case instruct::sidvec:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::sidstruct:
                     WO_JIT_NOT_SUPPORT;

@@ -278,30 +278,13 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-
-        if (ast_value_check->aim_type->is_pure_pending())
-            ast_value_check->check_pending = true;
         else if (ast_value_check->aim_type->is_pending())
         {
             // ready for update..
             fully_update_type(ast_value_check->aim_type, true);
         }
 
-        if (ast_value_check->check_pending)
-            lang_anylizer->begin_trying_block();
-
         analyze_pass1(ast_value_check->_be_check_value_node);
-
-        if (ast_value_check->check_pending)
-        {
-            if (!lang_anylizer->get_cur_error_frame().empty())
-            {
-                // Expr has compile error, set constant.
-                ast_value_check->is_constant = true;
-                ast_value_check->constant_value.set_integer(1);
-            }
-            lang_anylizer->end_trying_block();
-        }
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -1429,21 +1412,7 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
-        if (a_value_type_check->check_pending)
-            lang_anylizer->begin_trying_block();
-
         analyze_pass2(a_value_type_check->_be_check_value_node);
-
-        if (a_value_type_check->check_pending)
-        {
-            if (!lang_anylizer->get_cur_error_frame().empty() || a_value_type_check->_be_check_value_node->value_type->is_pending())
-            {
-                // Expr has compile error, set constant.
-                a_value_type_check->is_constant = true;
-                a_value_type_check->constant_value.set_integer(1);
-            }
-            lang_anylizer->end_trying_block();
-        }
 
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;

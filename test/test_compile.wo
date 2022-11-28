@@ -136,13 +136,13 @@ func main()
             let b = s[i];
         "@);
 
-        // Only index struct by const str
-        assure_compile_fail(@"
+        assure_compile_success(@"
             using st = struct{a: int}; 
             let s = st{a = 1}; 
-            let mut i = "a"; 
+            let i = "a"; 
             let b = s[i];
         "@);
+
         // immutable member cannot be assign
         assure_compile_fail(@"
             using st = struct{a: int}; 
@@ -150,7 +150,6 @@ func main()
             s.a = 25;
         "@);
 
-          // immutable member cannot be assign
         assure_compile_success(@"
             using st = struct{mut a: int}; 
             let s = st{a = 1}; 
@@ -215,7 +214,7 @@ func main()
         "@);
         assure_compile_success(@"
             import  woo.std;
-            let Invokable<FT, AT> = (std::declval:<FT>())(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
             let Same<A, B> = (std::declval:<A>()) is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -227,8 +226,9 @@ func main()
             foo(func(x: int){return x*2;}, 2333);
         "@);
         assure_compile_fail(@"
-            let Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
-            let Same<A, B> = (nil: dynamic: A) is B;
+            import woo.std;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
                 where Invokable:<FT, AT>,  
@@ -239,8 +239,9 @@ func main()
             foo(func(x: string){}, 2333);
         "@);
         assure_compile_fail(@"
-            let Invokable<FT, AT> = !((nil: dynamic: FT)(nil: dynamic: AT) is pending);
-            let Same<A, B> = (nil: dynamic: A) is B;
+            import woo.std;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
                 where Invokable:<FT, AT>,  
@@ -249,6 +250,9 @@ func main()
             }
 
             foo(func(x: string){}, "Helloworld");
+        "@);
+        assure_compile_fail(@"
+            let x = std::declval:<nothing>() is pending;
         "@);
         assure_compile_fail(@"
             func foo(x:string){}

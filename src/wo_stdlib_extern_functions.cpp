@@ -627,7 +627,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     wo::gcbase::gc_read_guard rg2(arr1->array);
 
-    auto begin = wo_int(args + 1);
+    auto begin = (size_t)wo_int(args + 1);
     if (begin > arr1->array->size())
         return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");
 
@@ -637,7 +637,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     else
     {
         wo_assert(argc == 3);
-        auto count = wo_int(args + 2);
+        auto count = (size_t)wo_int(args + 2);
 
         if (begin + count > arr1->array->size())
             return wo_ret_panic(vm, "Index out of range when trying get sub array/vec.");

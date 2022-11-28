@@ -47,7 +47,7 @@ namespace wo
 
             psh = 16 WO_OPCODE_SPACE,       // psh(dr_0)            REGID(1BYTE)/DIFF(4BYTE)                    2-5 byte
             pop = 17 WO_OPCODE_SPACE,       // pop(dr_STORED?)   REGID(1BYTE)/DIFF(4BYTE)/COUNT(2BYTE)       2-5 byte
-            sidarr = 18 WO_OPCODE_SPACE,    // sidarr(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
+            sidvec = 18 WO_OPCODE_SPACE,    // sidvec(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
             sidstruct = 19 WO_OPCODE_SPACE,  // sidstruct(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
 
             lds = 20 WO_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   

@@ -2343,7 +2343,7 @@ namespace wo
                         // Do not generate any other command to make sure reg::pm usable!
 
                         if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                            compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                            compiler->sidvec(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
                         else if (a_value_index->from->value_type->is_map() || a_value_index->from->value_type->is_dict())
                             compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
                         else
