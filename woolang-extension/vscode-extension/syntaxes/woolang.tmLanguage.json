@@ -17,7 +17,7 @@
 		  },
 		  {
 			"name": "keyword.declear.woolang",
-			"match": "\\b(func|let|ref|namespace|using|enum|union|where|extern|public|private|protected|const|static|operator|struct|mut)\\b"
+			"match": "\\b(func|let|ref|namespace|using|alias|enum|union|where|extern|public|private|protected|const|static|operator|struct|mut)\\b"
 		  },
 		  {
 			"name": "keyword.import.woolang",
@@ -63,6 +63,13 @@
 		  {
 			"name": "decl_type.woolang",
 			"match": "[^:]:[^:]\\s*([A-Za-z_][A-Za-z0-9_::]*)",
+			"captures": {
+			  "1": { "name": "storage.type.identifier.woolang" }
+			}
+		  },
+		  {
+			"name": "decl_type.woolang",
+			"match": "=>\\s*([A-Za-z_][A-Za-z0-9_::]*)",
 			"captures": {
 			  "1": { "name": "storage.type.identifier.woolang" }
 			}
