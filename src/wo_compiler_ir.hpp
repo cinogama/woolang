@@ -1853,13 +1853,13 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
         }
         template<typename OP1T, typename OP2T>
-        void sidarr(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        void sidvec(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
 
-            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidarr, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidvec, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
         }
         template<typename OP1T, typename OP2T>
         void sidstruct(const OP1T& op1, const OP2T& op2, uint16_t offset)
@@ -2339,8 +2339,8 @@ namespace wo
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
                     break;
-                case instruct::opcode::sidarr:
-                    temp_this_command_code_buf.push_back(WO_OPCODE(sidarr));
+                case instruct::opcode::sidvec:
+                    temp_this_command_code_buf.push_back(WO_OPCODE(sidvec));
                     WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                     WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                     opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);

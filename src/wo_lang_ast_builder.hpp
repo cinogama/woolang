@@ -1528,7 +1528,6 @@ namespace wo
         {
             ast_value* _be_check_value_node;
             ast_type* aim_type;
-            bool check_pending = false;
 
             ast_value_type_check(ast_value* value, ast_type* type)
             {
@@ -1559,7 +1558,7 @@ namespace wo
 
                 _be_check_value_node->update_constant_value(lex);
 
-                if (!_be_check_value_node->value_type->is_pending() && (check_pending || !aim_type->is_pending()))
+                if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
                     auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
                     if (result)
@@ -1569,7 +1568,7 @@ namespace wo
                     }
                     if (_be_check_value_node->value_type->is_dynamic())
                     {
-                        if (!aim_type->is_dynamic() && !check_pending)
+                        if (!aim_type->is_dynamic())
                             return; // do nothing... give error in analyze_finalize
                     }
                     is_constant = true;

@@ -708,8 +708,8 @@ namespace wo
                     tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::sidmap:
                     tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
-                case instruct::sidarr:
-                    tmpos << "sidarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::sidvec:
+                    tmpos << "sidvec\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
                 case instruct::sidstruct:
                     tmpos << "sidstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::idstr:
@@ -1271,7 +1271,12 @@ namespace wo
                             (WO_IPVAL_MOVE_1 + reg_begin)
 
 #define WO_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
-
+#ifdef NDEBUG
+#define WO_VM_ASSERT(EXPR, REASON) wo_assert(EXPR, REASON)
+#else
+#define WO_VM_ASSERT(EXPR, REASON) if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_DEADLY,REASON);continue;}
+#endif
+            
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
@@ -1286,7 +1291,7 @@ namespace wo
 
             re_entry_for_interrupt:
 
-                wo_assert(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "VM STACK OVERFLOW!");
+                WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
 
                 switch (rtopcode)
                 {
@@ -1303,7 +1308,7 @@ namespace wo
                         for (uint32_t i = 0; i < psh_repeat; i++)
                             (rt_sp--)->set_nil();
                     }
-                    wo_assert(rt_sp <= rt_bp);
+                    WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
                     break;
                 }
                 case instruct::opcode::pop:
@@ -1316,7 +1321,7 @@ namespace wo
                     else
                         rt_sp += WO_IPVAL_MOVE_2;
 
-                    wo_assert(rt_sp <= rt_bp);
+                    WO_VM_ASSERT(rt_sp <= rt_bp && rt_sp > (stack_mem_begin - stack_size), "Woolang vm stack overflow!");
 
                     break;
                 }
@@ -1325,8 +1330,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'addi'.");
 
                     opnum1->integer += opnum2->integer;
                     break;
@@ -1336,8 +1341,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'subi'.");
 
                     opnum1->integer -= opnum2->integer;
                     break;
@@ -1347,8 +1352,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'muli'.");
 
                     opnum1->integer *= opnum2->integer;
                     break;
@@ -1358,8 +1363,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'divi'.");
 
                     opnum1->integer /= opnum2->integer;
                     break;
@@ -1369,8 +1374,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type, "Operand should be integer in 'modi'.");
 
                     opnum1->integer %= opnum2->integer;
                     break;
@@ -1381,8 +1386,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type, "Operand should be real in 'addr'.");
 
                     opnum1->real += opnum2->real;
                     break;
@@ -1392,8 +1397,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type, "Operand should be real in 'subr'.");
 
                     opnum1->real -= opnum2->real;
                     break;
@@ -1403,8 +1408,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type, "Operand should be real in 'mulr'.");
 
                     opnum1->real *= opnum2->real;
                     break;
@@ -1414,8 +1419,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type, "Operand should be real in 'divr'.");
 
                     opnum1->real /= opnum2->real;
                     break;
@@ -1425,8 +1430,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type, "Operand should be real in 'modr'.");
 
                     opnum1->real = fmod(opnum1->real, opnum2->real);
                     break;
@@ -1437,8 +1442,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type, "Operand should be handle in 'addh'.");
 
                     opnum1->handle += opnum2->handle;
                     break;
@@ -1448,8 +1453,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::handle_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::handle_type, "Operand should be handle in 'subh'.");
 
                     opnum1->handle -= opnum2->handle;
                     break;
@@ -1460,8 +1465,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::string_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
                     string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
                     break;
@@ -1566,7 +1571,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type, "Operand 2 should be integer in 'lds'.");
                     opnum1->set_val(rt_bp + opnum2->integer);
                     break;
                 }
@@ -1575,7 +1580,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type, "Operand 2 should be integer in 'sts'.");
                     (rt_bp + opnum2->integer)->set_val(opnum1);
                     break;
                 }
@@ -1600,7 +1605,8 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
-                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'equr'.");
                     rt_cr->set_integer(opnum1->real == opnum2->real);
 
                     break;
@@ -1609,7 +1615,8 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
-                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'nequr'.");
                     rt_cr->set_integer(opnum1->real != opnum2->real);
                     break;
                 }
@@ -1617,7 +1624,8 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
-                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
+                        "Operand should be string in 'equs'.");
                     rt_cr->set_integer(*opnum1->string == *opnum2->string);
 
                     break;
@@ -1626,7 +1634,8 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
-                    wo_assert(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
+                        "Operand should be string in 'nequs'.");
                     rt_cr->set_integer(*opnum1->string != *opnum2->string);
                     break;
                 }
@@ -1662,8 +1671,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type,
+                        "Operand should be integer in 'lti'.");
 
                     rt_cr->set_integer(opnum1->integer < opnum2->integer);
 
@@ -1674,8 +1684,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type,
+                        "Operand should be integer in 'gti'.");
 
                     rt_cr->set_integer(opnum1->integer > opnum2->integer);
 
@@ -1686,8 +1697,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type,
+                        "Operand should be integer in 'elti'.");
 
                     rt_cr->set_integer(opnum1->integer <= opnum2->integer);
 
@@ -1698,8 +1710,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::integer_type,
+                        "Operand should be integer in 'egti'.");
 
                     rt_cr->set_integer(opnum1->integer >= opnum2->integer);
 
@@ -1710,8 +1723,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'ltr'.");
 
                     rt_cr->set_integer(opnum1->real < opnum2->real);
 
@@ -1722,8 +1736,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'gtr'.");
 
                     rt_cr->set_integer(opnum1->real > opnum2->real);
 
@@ -1734,8 +1749,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'eltr'.");
 
                     rt_cr->set_integer(opnum1->real <= opnum2->real);
 
@@ -1746,8 +1762,9 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type
-                        && opnum1->type == value::valuetype::real_type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type
+                        && opnum1->type == value::valuetype::real_type,
+                        "Operand should be real in 'egtr'.");
 
                     rt_cr->set_integer(opnum1->real >= opnum2->real);
 
@@ -1758,7 +1775,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type,
+                        "Operand type should be same in 'ltx'.");
 
                     switch (opnum1->type)
                     {
@@ -1783,7 +1801,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type,
+                        "Operand type should be same in 'gtx'.");
                     switch (opnum1->type)
                     {
                     case value::valuetype::integer_type:
@@ -1808,7 +1827,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type,
+                        "Operand type should be same in 'eltx'.");
 
                     switch (opnum1->type)
                     {
@@ -1833,7 +1853,8 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(opnum1->type == opnum2->type);
+                    WO_VM_ASSERT(opnum1->type == opnum2->type,
+                        "Operand type should be same in 'egtx'.");
 
                     switch (opnum1->type)
                     {
@@ -1855,8 +1876,9 @@ namespace wo
                 }
                 case instruct::opcode::ret:
                 {
-                    wo_assert((rt_bp + 1)->type == value::valuetype::callstack
-                        || (rt_bp + 1)->type == value::valuetype::nativecallstack);
+                    WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack
+                        || (rt_bp + 1)->type == value::valuetype::nativecallstack,
+                        "Found broken stack in 'ret'.");
 
                     uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
 
@@ -1881,7 +1903,8 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
 
-                    wo_assert(0 != opnum1->handle && 0 != opnum1->closure);
+                    WO_VM_ASSERT(0 != opnum1->handle && nullptr != opnum1->closure,
+                        "Cannot invoke null function in 'call'.");
 
                     if (opnum1->type == value::valuetype::closure_type)
                     {
@@ -1913,7 +1936,8 @@ namespace wo
                         call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
                         wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
-                        wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                        WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                            "Found broken stack in 'call'.");
                         value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
@@ -1924,11 +1948,13 @@ namespace wo
                     }
                     else
                     {
-                        wo_assert(opnum1->type == value::valuetype::closure_type);
+                        WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
+                            "Unexpected invoke target type in 'call'.");
                         if (opnum1->closure->m_native_call)
                         {
                             opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                            WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                                "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                             rt_sp = rt_bp;
                             rt_bp = stored_bp;
@@ -1940,7 +1966,8 @@ namespace wo
                 }
                 case instruct::opcode::calln:
                 {
-                    wo_assert(dr == 0b11 || dr == 0b01 || dr == 0b00);
+                    WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
+                        "Found broken ir-code in 'calln'.");
 
                     if (dr)
                     {
@@ -1965,7 +1992,8 @@ namespace wo
                             wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         }
 
-                        wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+                        WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
+                            "Found broken stack in 'calln'.");
                         value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
@@ -2019,9 +2047,12 @@ namespace wo
                     WO_ADDRESSING_N2; // Struct
                     uint16_t offset = WO_IPVAL_MOVE_2;
 
-                    wo_assert(opnum2->type == value::valuetype::struct_type);
-                    wo_assert(opnum2->structs != nullptr);
-                    wo_assert(offset < opnum2->structs->m_count);
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::struct_type,
+                        "Cannot index non-struct value in 'idstruct'.");
+                    WO_VM_ASSERT(opnum2->structs != nullptr,
+                        "Unable to index null in 'idstruct'.");
+                    WO_VM_ASSERT(offset < opnum2->structs->m_count,
+                        "Index out of range in 'idstruct'.");
 
                     // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
                     gcbase::gc_read_guard gwg1(opnum2->structs);
@@ -2066,11 +2097,13 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(nullptr != opnum1->gcunit);
-
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'idarr'.");
                     gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                    wo_assert(opnum1->type == value::valuetype::array_type);
-                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
+                        "Cannot index non-array value in 'idarr'.");
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
+                        "Cannot index array by non-integer value in 'idarr'.");
 
                     size_t index = opnum2->integer;
                     if (opnum2->integer < 0)
@@ -2094,8 +2127,10 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(nullptr != opnum1->gcunit);
-                    wo_assert(opnum1->type == value::valuetype::dict_type);
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'iddict'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
+                        "Unable to index non-dict value in 'iddict'.");
                     do
                     {
                         gcbase::gc_read_guard gwg1(opnum1->gcunit);
@@ -2121,8 +2156,10 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_ADDRESSING_N3_REG_BPOFF;
 
-                    wo_assert(nullptr != opnum1->gcunit);
-                    wo_assert(opnum1->type == value::valuetype::dict_type);
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'sidmap'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
+                        "Unable to index non-map value in 'sidmap'.");
 
                     do
                     {
@@ -2134,15 +2171,18 @@ namespace wo
                     } while (0);
                     break;
                 }
-                case instruct::opcode::sidarr:
+                case instruct::opcode::sidvec:
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
                     WO_ADDRESSING_N3_REG_BPOFF;
 
-                    wo_assert(nullptr != opnum1->gcunit);
-                    wo_assert(opnum1->type == value::valuetype::array_type);
-                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'sidvec'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
+                        "Unable to index non-vec value in 'sidvec'.");
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
+                        "Unable to index vec by non-integer value in 'sidvec'.");
                     do
                     {
                         gcbase::gc_write_guard gwg1(opnum1->gcunit);
@@ -2159,9 +2199,12 @@ namespace wo
                     WO_ADDRESSING_N2;
                     uint16_t offset = WO_IPVAL_MOVE_2;
 
-                    wo_assert(opnum1->type == value::valuetype::struct_type);
-                    wo_assert(nullptr != opnum1->structs);
-                    wo_assert(offset < opnum1->structs->m_count);
+                    WO_VM_ASSERT(nullptr != opnum1->structs,
+                        "Unable to index null in 'sidstruct'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::struct_type,
+                        "Unable to index non-struct value in 'sidstruct'.");
+                    WO_VM_ASSERT(offset < opnum1->structs->m_count,
+                        "Index out of range in 'sidstruct'.");
                     do
                     {
                         gcbase::gc_write_guard gwg1(opnum1->gcunit);
@@ -2177,11 +2220,13 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    wo_assert(nullptr != opnum1->gcunit);
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'idstr'.");
 
                     gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
-                    wo_assert(opnum2->type == value::valuetype::integer_type);
+                    WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
+                        "Unable to index string by non-integer value in 'idstr'.");
                     size_t strlength = 0;
                     wo_string_t out_str = u8substr(opnum1->string->c_str(), opnum2->integer, 1, &strlength);
                     rt_cr->set_string(std::string(out_str, strlength).c_str());
@@ -2201,7 +2246,8 @@ namespace wo
                 {
                     uint16_t closure_arg_count = WO_IPVAL_MOVE_2;
 
-                    wo_assert((dr & 0b01) == 0);
+                    WO_VM_ASSERT((dr & 0b01) == 0,
+                        "Found broken ir-code in 'mkclos'.");
 
                     rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
                     auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
