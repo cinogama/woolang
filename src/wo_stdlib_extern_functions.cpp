@@ -968,7 +968,7 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t a
     wo_value result_array = wo_push_arr(vm, buf.size());
 
     for (size_t i = 0; i < buf.size(); ++i)
-        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)buf[i]);
+        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)(wo_handle_t)buf[i]);
 
     return wo_ret_val(vm, result_array);
 }
@@ -990,7 +990,7 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc
     wo_int_t size = wo_lengthof(args + 0);
 
     for (wo_int_t i = 0; i < size; ++i)
-        buf += (wchar_t)wo_int(wo_arr_get(args + 0, i));
+        buf += (wchar_t)(wo_handle_t)wo_int(wo_arr_get(args + 0, i));
 
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
