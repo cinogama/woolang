@@ -15,7 +15,13 @@ namespace wo
             if (strlength)
             {
                 uint8_t strsz = strlength > UINT8_MAX ? UINT8_MAX : (uint8_t)strlength;
-                return (uint8_t)std::mbrlen(chidx + 1, strsz - 1, &mb) + 1;
+                auto chsize = (uint8_t)(std::mbrlen(chidx + 1, strsz - 1, &mb) + 1);
+
+                // Failed to decode. 0 means code error, -1 means string has been cutdown.
+                if (chsize == 0 || chsize == (uint8_t)-1)
+                    return 1;
+
+                return chsize;
             }
 
         }
@@ -28,6 +34,7 @@ namespace wo
         {
             strlength++;
             u8str += u8chsize(u8str);
+
         }
         return strlength;
     }
@@ -44,9 +51,11 @@ namespace wo
     {
         std::mbstate_t mb = {};
         wchar_t wc;
-        if (std::mbrtowc(&wc, u8stridxstr(u8str, chidx), strlen(u8str), &mb) > 0)
+        wo_string_t target_place = u8stridxstr(u8str, chidx);
+        size_t parse_result = std::mbrtowc(&wc, target_place, strlen(target_place), &mb);
+        if (parse_result > 0 && parse_result != size_t(-1) && parse_result != size_t(-2))
             return wc;
-        return 0;
+        return (wchar_t)(unsigned char)*target_place;
     }
     wo_string_t u8substr(wo_string_t u8str, size_t from, size_t length, size_t* out_sub_len)
     {

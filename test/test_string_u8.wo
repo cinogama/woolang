@@ -34,6 +34,37 @@ namespace test_string_u8
 
         test_assure(wchars->len != cchars->len);
         test_equal(wchars->str(), cchars->cstr());
+
+        // Cannot crash when meet bad string.
+        let badstr_1 = "你好世界"->chars->>\ch=ch: int: cchar;->cstr;
+        std::println(F"BAD_STRING SIZE {badstr_1->len}= ", badstr_1);
+        for (let mut i = 0; i < badstr_1->len; i += 1)
+            std::println(badstr_1[i]);
+        
+        let badstr_2 = "你好世界"->cchars->>\ch=ch: int: char;->str;
+        std::println(F"BAD_STRING SIZE {badstr_2->len}= ", badstr_2);
+        for (let mut i = 0; i < badstr_2->len; i += 1)
+            std::println(badstr_2[i]);
+
+        let badstr_3 = F"你好{badstr_2}世界";
+        std::println(F"BAD_STRING SIZE {badstr_3->len}= ", badstr_3);
+        for (let mut i = 0; i < badstr_3->len; i += 1)
+            std::println(badstr_3[i]);
+
+        for (let mut r = 0; r < 1000; r += 1)
+        {
+            let bad_ch_set = F"你好世界"->cchars;
+            let badstr_r = [1, 2, 3, 4, 5, 6, 7]
+                ->> \idx = std::randint(0, bad_ch_set->len - 1);
+                ->> \idx = bad_ch_set[idx];
+                ->  cstr;
+            
+            test_assure(badstr_r->len <= 7);
+            
+            std::println(F"BAD_STRING SIZE {badstr_r->len}= ", badstr_r);
+            for (let mut i = 0; i < badstr_r->len; i += 1)
+                std::println(badstr_r[i]);
+        }
     }
 }
 

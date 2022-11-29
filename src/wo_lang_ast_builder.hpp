@@ -929,6 +929,16 @@ namespace wo
                 return !is_func() &&
                     (type_name == WO_PSTR(bool) || (using_type_name && using_type_name->type_name == WO_PSTR(bool)));
             }
+            bool is_char() const
+            {
+                return !is_func() &&
+                    (type_name == WO_PSTR(char) || (using_type_name && using_type_name->type_name == WO_PSTR(char)));
+            }
+            bool is_builtin_using_type() const
+            {
+                return is_bool() || is_char() || type_name == WO_PSTR(anything);
+            }
+
             bool is_union() const
             {
                 return !is_func() &&

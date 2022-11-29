@@ -1527,8 +1527,8 @@ namespace wo
 
                 a_value->update_constant_value(lang_anylizer);
 
-                // update_constant_value may set 'bool', it cannot used directly. update it.
-                if (a_value->value_type->is_bool())
+                // some expr may set 'bool'/'char'..., it cannot used directly. update it.
+                if (a_value->value_type->is_builtin_using_type())
                     fully_update_type(a_value->value_type, false);
                 if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
                     a_value->value_type->set_is_mutable(true);
