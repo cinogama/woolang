@@ -2227,9 +2227,8 @@ namespace wo
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index string by non-integer value in 'idstr'.");
-                    size_t strlength = 0;
-                    wo_string_t out_str = u8substr(opnum1->string->c_str(), opnum2->integer, 1, &strlength);
-                    rt_cr->set_string(std::string(out_str, strlength).c_str());
+                    wchar_t out_str = u8stridx(opnum1->string->c_str(), opnum2->integer);
+                    rt_cr->set_integer((wo_integer_t)(wo_handle_t)out_str);
                     break;
                 }
                 case instruct::opcode::mkunion:

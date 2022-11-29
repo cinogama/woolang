@@ -2909,7 +2909,7 @@ namespace wo
                     if (from->value_type->is_string())
                     {
                         is_constant = true;
-                        value_type = new ast_type(WO_PSTR(string));
+                        value_type = new ast_type(WO_PSTR(char));
 
                         if (!index->value_type->is_integer() && !index->value_type->is_handle())
                         {
@@ -2917,11 +2917,8 @@ namespace wo
                             return;
                         }
 
-                        size_t strlength = 0;
-                        wo_string_t out_str = u8substr(from->get_constant_value().string->c_str(), index->get_constant_value().integer, 1, &strlength);
-
-                        constant_value.set_string_nogc(
-                            std::string(out_str, strlength).c_str());
+                        wchar_t out_str = u8stridx(from->get_constant_value().string->c_str(), index->get_constant_value().integer);
+                        constant_value.set_integer((wo_integer_t)(wo_handle_t)out_str);
                     }
                 }
             }

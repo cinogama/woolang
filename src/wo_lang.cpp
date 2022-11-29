@@ -125,7 +125,7 @@ namespace wo
             }
             else if (a_value_idx->from->value_type->is_string())
             {
-                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(string));
+                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(char));
             }
             else if (!a_value_idx->from->value_type->is_pending())
             {
@@ -1476,7 +1476,7 @@ namespace wo
                 }
                 else if (a_value_index->from->value_type->is_string())
                 {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(string));
+                    a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(char));
                 }
                 else if (!a_value_index->from->value_type->is_pending())
                 {
