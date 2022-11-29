@@ -2,6 +2,7 @@
 import test_tool;
 
 import test_helloworld;
+import test_string_u8;
 import test_basic;
 import test_monad;
 import test_compile;
@@ -18,7 +19,6 @@ import test_struct;
 import test_namespace;
 import test_bool;
 import test_return;
-import test_string_u8;
 import test_while;
 import test_debug_invoke;
 import test_dup;

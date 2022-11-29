@@ -359,6 +359,13 @@ namespace wo
             using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
             define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
 
+            ast::ast_using_type_as* using_type_def_char = new ast::ast_using_type_as();
+            using_type_def_char->new_type_identifier = WO_PSTR(char);
+            using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));
+            using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
+            using_type_def_char->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
+            define_type_in_this_scope(using_type_def_char, using_type_def_char->old_type, using_type_def_char->declear_attribute);
+
             ast::ast_using_type_as* using_type_def_anything = new ast::ast_using_type_as();
             using_type_def_anything->is_alias = true;
             using_type_def_anything->new_type_identifier = WO_PSTR(anything);

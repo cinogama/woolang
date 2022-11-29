@@ -28,6 +28,12 @@ namespace test_string_u8
         test_equal(""->len(), 0);
         test_equal("ABC"->len(), 3);
         test_equal("你好"->len(), 2);
+
+        let wchars = combine->chars() as array<char>;
+        let cchars = combine->cchars() as array<cchar>;
+
+        test_assure(wchars->len != cchars->len);
+        test_equal(wchars->str(), cchars->cstr());
     }
 }
 

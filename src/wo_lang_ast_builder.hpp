@@ -1276,6 +1276,10 @@ namespace wo
                 case lex_type::l_format_string_end:
                     constant_value.set_string_nogc(wstr_to_str(te.identifier).c_str());
                     break;
+                case lex_type::l_literal_char:
+                    wo_assert(te.identifier.size() == 1);
+                    constant_value.set_integer((wo_integer_t)(wo_handle_t)te.identifier[0]);
+                    break;
                 case lex_type::l_nil:
                     constant_value.set_nil();
                     break;
@@ -1286,8 +1290,10 @@ namespace wo
                     wo_error("Unexcepted literal type.");
                     break;
                 }
-
-                value_type = new ast_type(constant_value);
+                if (te.type == +lex_type::l_literal_char)
+                    value_type = new ast_type(WO_PSTR(char));
+                else
+                    value_type = new ast_type(constant_value);
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override

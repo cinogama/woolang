@@ -34,6 +34,23 @@ namespace test_compile
     {
         let begin_tm = std::time();
         
+        // Bad constant
+        assure_compile_fail(@"
+        let a = '';
+        "@);
+        assure_compile_fail(@"
+        let a = 'abc';
+        "@);
+        assure_compile_fail(@"
+        let a = '你好';
+        "@);
+        assure_compile_success(@"
+        let a = '你';
+        "@);
+        assure_compile_success(@"
+        let a = 'y';
+        "@);
+
         // Empty source will failed.
         assure_compile_fail(@""@);
 

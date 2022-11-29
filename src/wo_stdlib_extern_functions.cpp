@@ -962,11 +962,10 @@ WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t 
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t argc)
 {
     std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
-    wo_value result_array = wo_push_empty(vm);
-    wo_set_arr(result_array, buf.size());
+    wo_value result_array = wo_push_arr(vm, buf.size());
 
     for (size_t i = 0; i < buf.size(); ++i)
         wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)buf[i]);
@@ -974,7 +973,18 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
     return wo_ret_val(vm, result_array);
 }
 
-WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t argc)
+WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string buf = wo_string(args + 0);
+    wo_value result_array = wo_push_arr(vm, buf.size());
+
+    for (size_t i = 0; i < buf.size(); ++i)
+        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)(wo_handle_t)(unsigned char)buf[i]);
+
+    return wo_ret_val(vm, result_array);
+}
+
+WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc)
 {
     std::wstring buf;
     wo_int_t size = wo_lengthof(args + 0);
@@ -984,6 +994,18 @@ WO_API wo_api rslib_std_create_str_by_asciis(wo_vm vm, wo_value args, size_t arg
 
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
+
+WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc)
+{
+    std::string buf;
+    wo_int_t size = wo_lengthof(args + 0);
+
+    for (wo_int_t i = 0; i < size; ++i)
+        buf += (char)(unsigned char)(wo_handle_t)wo_int(wo_arr_get(args + 0, i));
+
+    return wo_ret_string(vm, buf.c_str());
+}
+
 
 WO_API wo_api rslib_std_return_itself(wo_vm vm, wo_value args, size_t argc)
 {
@@ -1474,7 +1496,9 @@ namespace std
     extern("rslib_std_make_dup")
     public func dup<T>(dupval: T)=> T;
 }
-public using char = int;
+
+public using cchar = char;
+
 namespace string
 {
     extern("rslib_std_take_token") 
@@ -1504,13 +1528,11 @@ namespace string
         return _toarray(val);
     }
 
-    public func chars(buf: string)=> array<char>
-    {
-        extern("rslib_std_create_chars_from_str") 
-        func _chars(buf: string)=> array<char>;
+    extern("rslib_std_create_wchars_from_str")
+    public func chars(buf: string)=> array<char>;
 
-        return _chars(buf);
-    }
+    extern("rslib_std_create_chars_from_str")
+    public func cchars(buf: string)=> array<cchar>;
 
     extern("rslib_std_get_ascii_val_from_str") 
     public func getch(val:string, index: int)=> char;
@@ -1618,8 +1640,11 @@ namespace array
         return newarr->unsafe::astype:<array<T>>;
     }
 
-    extern("rslib_std_create_str_by_asciis") 
+    extern("rslib_std_create_str_by_wchar") 
         public func str(buf: array<char>)=> string;
+
+    extern("rslib_std_create_str_by_ascii") 
+        public func cstr(buf: array<cchar>)=> string;
 
     extern("rslib_std_lengthof") 
         public func len<T>(val: array<T>)=> int;
@@ -1737,8 +1762,11 @@ namespace vec
             private func astype<AimT, T>(val: vec<T>)=> AimT;
     }
 
-    extern("rslib_std_create_str_by_asciis") 
+    extern("rslib_std_create_str_by_wchar") 
         public func str(buf: vec<char>)=> string;
+
+    extern("rslib_std_create_str_by_ascii") 
+        public func cstr(buf: vec<cchar>)=> string;
 
     extern("rslib_std_lengthof") 
         public func len<T>(val: vec<T>)=> int;

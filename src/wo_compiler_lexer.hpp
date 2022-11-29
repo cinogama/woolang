@@ -34,6 +34,7 @@ namespace wo
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
         l_literal_string,       // "" "helloworld" @"println("hello");"@
+        l_literal_char,         // 'x'
         l_format_string,        // f"..{  /  }..{ 
         l_format_string_end,    // }.."
         l_semicolon,            // ;
@@ -1377,6 +1378,117 @@ namespace wo
                         return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
                 }
             }
+            else if (readed_ch == L'\'')
+            {
+                int following_ch;
+
+                following_ch = next_one();
+                if (following_ch == L'\'')
+                    return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, L'\'', L'\'');
+                else if (following_ch != EOF && following_ch != '\n')
+                {
+                    if (following_ch == L'\\')
+                    {
+                        // Escape character 
+                        int escape_ch = next_one();
+                        switch (escape_ch)
+                        {
+                        case L'\'':
+                        case L'"':
+                        case L'?':
+                        case L'\\':
+                            write_result(escape_ch); break;
+                        case L'a':
+                            write_result(L'\a'); break;
+                        case L'b':
+                            write_result(L'\b'); break;
+                        case L'f':
+                            write_result(L'\f'); break;
+                        case L'n':
+                            write_result(L'\n'); break;
+                        case L'r':
+                            write_result(L'\r'); break;
+                        case L't':
+                            write_result(L'\t'); break;
+                        case L'v':
+                            write_result(L'\v'); break;
+                        case L'0': case L'1': case L'2': case L'3': case L'4':
+                        case L'5': case L'6': case L'7': case L'8': case L'9':
+                        {
+                            // oct 1byte 
+                            int oct_ascii = escape_ch - L'0';
+                            for (int i = 0; i < 2; i++)
+                            {
+                                if (lex_isodigit(peek_one()))
+                                {
+                                    oct_ascii *= 8;
+                                    oct_ascii += lex_hextonum(next_one());
+                                }
+                                else
+                                    break;
+                            }
+                            write_result(oct_ascii);
+                            break;
+                        }
+                        case L'X':
+                        case L'x':
+                        {
+                            // hex 1byte 
+                            int hex_ascii = 0;
+                            for (int i = 0; i < 2; i++)
+                            {
+                                if (lex_isxdigit(peek_one()))
+                                {
+                                    hex_ascii *= 16;
+                                    hex_ascii += lex_hextonum(next_one());
+                                }
+                                else if (i == 0)
+                                    goto char_escape_sequences_fail;
+                                else
+                                    break;
+                            }
+                            write_result(hex_ascii);
+                            break;
+                        }
+                        case L'U':
+                        case L'u':
+                        {
+                            // hex 1byte 
+                            int hex_ascii = 0;
+                            for (int i = 0; i < 4; i++)
+                            {
+                                if (lex_isxdigit(peek_one()))
+                                {
+                                    hex_ascii *= 16;
+                                    hex_ascii += lex_hextonum(next_one());
+                                }
+                                else if (i == 0)
+                                    goto char_escape_sequences_fail;
+                                else
+                                    break;
+                            }
+                            write_result(hex_ascii);
+                            break;
+                        }
+                        default:
+                        char_escape_sequences_fail:
+                            lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                            write_result(escape_ch);
+                            break;
+                        }
+                    }
+                    else
+                        write_result(following_ch);
+                }
+                else
+                    return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_CHAR);
+
+                following_ch = next_one();
+                if (following_ch == L'\'')
+                    return lex_type::l_literal_char;
+                else
+                    return lex_error(0x0001, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L" " WO_TERM_EXCEPTED L" '\''", following_ch);
+            }
             else if (lex_isoperatorch(readed_ch))
             {
             checking_valid_operator:
@@ -1559,8 +1671,8 @@ namespace wo
         else
             lex.lex_error(0x0000, WO_ERR_HERE_SHOULD_HAVE, L"{");
 
-        }
     }
+}
 
 #ifdef ANSI_WIDE_CHAR_SIGN
 #undef ANSI_WIDE_CHAR_SIGN

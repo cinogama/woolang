@@ -25,6 +25,9 @@ namespace test_helloworld
 
     func test_lambda()
     {
+        let ascii_h = 'H';
+        test_assure(ascii_h == 72: char);
+
         let a = [1,2,3];
 
         let b = a->bind(\x:int = [x, x * 2];)

@@ -40,6 +40,8 @@
 
 #define WO_ERR_UNKNOW_OPERATOR_STR L"未知运算符: '%ls'"
 
+#define WO_ERR_UNEXCEPTED_EOL_IN_CHAR L"在字符常量中发现换行符"
+
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING L"在字符串常量中发现换行符"
 
 #define WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE L"词法错误，未知的常量基数"
@@ -270,6 +272,8 @@
 #define WO_ERR_ILLEGAL_LITERAL L"Illegal literal."
 
 #define WO_ERR_UNKNOW_OPERATOR_STR L"Unknown operator: '%ls'."
+
+#define WO_ERR_UNEXCEPTED_EOL_IN_CHAR L"Unexcepted end of line when parsing char."
 
 #define WO_ERR_UNEXCEPTED_EOL_IN_STRING L"Unexcepted end of line when parsing string."
 
