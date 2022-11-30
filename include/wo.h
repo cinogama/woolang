@@ -173,15 +173,15 @@ WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_v
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 #define     wo_ret_ok_void    wo_ret_option_void
+#define     wo_ret_ok_bool    wo_ret_option_bool
 #define     wo_ret_ok_int    wo_ret_option_int
 #define     wo_ret_ok_real   wo_ret_option_real
 #define     wo_ret_ok_float  wo_ret_option_float
 #define     wo_ret_ok_handle wo_ret_option_handle
 #define     wo_ret_ok_string wo_ret_option_string
-#define     wo_ret_ok_ptr    wo_ret_option_pointer
-#define     wo_ret_ok_pointer    wo_ret_option_val
+#define     wo_ret_ok_pointer    wo_ret_option_pointer
+#define     wo_ret_ok_val    wo_ret_option_val
 #define     wo_ret_ok_gchandle   wo_ret_option_gchandle
-
 
 WO_API wo_result_t  wo_ret_err_void(wo_vm vm);
 WO_API wo_result_t  wo_ret_err_int(wo_vm vm, wo_integer_t result);
