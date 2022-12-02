@@ -405,9 +405,7 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
 {
     std::string aim = wo_string(args + 0);
     wo_string_t match = wo_string(args + 1);
-    wo_value arr = wo_push_empty(vm);
-
-    wo_set_arr(arr, 0);
+    wo_value arr = wo_push_arr(vm, 0);
 
     size_t matchlen = strlen(match);
     size_t split_begin = 0;
@@ -1610,13 +1608,8 @@ namespace string
     extern("rslib_std_string_trim")
         public func trim(val:string)=>string;
 
-    public func split(val:string, spliter:string)
-    {
-        extern("rslib_std_string_split")
-            private func _split(val:string, spliter:string)=> array<string>;
-
-        return _split(val, spliter);
-    }
+    extern("rslib_std_string_split")
+        public func split(val:string, spliter:string)=> array<string>;
 }
 )" R"(
 namespace array
