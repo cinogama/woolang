@@ -2773,10 +2773,10 @@ import woo.std;
 namespace std::file
 {
     extern("rslib_std_file_readall")
-        func readall(path: string)=> option<string>;
+        public func readall(path: string)=> option<string>;
 
     extern("rslib_std_file_writeall")
-        func writeall(path: string, data: string)=> bool;
+        public func writeall(path: string, data: string)=> bool;
 }
 )" };
 
@@ -2791,6 +2791,6 @@ u8R"(
 namespace std
 {
     extern("rslib_std_call_shell")
-        func shell(cmd: string)=> int;
+        public func shell(cmd: string)=> int;
 }
 )" };
