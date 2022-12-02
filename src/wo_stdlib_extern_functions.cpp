@@ -1794,10 +1794,8 @@ namespace vec
         public func copy<T, C>(val: vec<T>, another: C<T>)=> void
             where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
 
-    public func get<T>(a: vec<T>, index: int)
-    {
-        return a[index];
-    }
+    extern("rslib_std_array_get")
+        public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=>void;
