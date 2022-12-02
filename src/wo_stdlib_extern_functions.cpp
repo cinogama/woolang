@@ -332,7 +332,7 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
     wo_string_t match = wo_string(args + 1);
 
     size_t fnd_place = aim.find(match);
-    if (fnd_place > 0 && fnd_place < aim.size())
+    if (fnd_place >= 0 && fnd_place < aim.size())
         return wo_ret_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_int(vm, -1);
@@ -345,7 +345,7 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
     size_t from = (size_t)wo_int(args + 2);
 
     size_t fnd_place = aim.find(match, from);
-    if (fnd_place > from && fnd_place < aim.size())
+    if (fnd_place >= from && fnd_place < aim.size())
         return wo_ret_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_int(vm, -1);
@@ -357,7 +357,7 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
     wo_string_t match = wo_string(args + 1);
 
     size_t fnd_place = aim.rfind(match);
-    if (fnd_place > 0 && fnd_place < aim.size())
+    if (fnd_place >= 0 && fnd_place < aim.size())
         return wo_ret_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_int(vm, -1);
@@ -370,7 +370,7 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
     size_t from = (size_t)wo_int(args + 2);
 
     size_t fnd_place = aim.rfind(match, from);
-    if (fnd_place > from && fnd_place < aim.size())
+    if (fnd_place >= from && fnd_place < aim.size())
         return wo_ret_int(vm, (wo_integer_t)fnd_place);
 
     return wo_ret_int(vm, -1);
@@ -583,6 +583,16 @@ WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_empty(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo_arr_is_empty(args + 0));
+}
+
+WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value arr = args + 0;
+    wo_integer_t idx = wo_int(args + 1);
+    if (idx >= 0 && idx < wo_lengthof(arr))
+        return wo_ret_option_val(vm, wo_arr_get(arr, idx));
+
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
@@ -901,7 +911,7 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
 
     if (sscanf(input, "%s%zn", string_buf, &token_length) == 1)
     {
-        wo_value result =  wo_push_struct(vm, 2);
+        wo_value result = wo_push_struct(vm, 2);
         wo_set_string(wo_struct_get(result, 0), input + token_length);
         wo_set_string(wo_struct_get(result, 1), string_buf);
         return wo_ret_option_val(vm, result);
@@ -1658,10 +1668,8 @@ namespace array
     extern("rslib_std_array_empty")
         public func empty<T>(val: array<T>)=> bool;
 
-    public func get<T>(a: array<T>, index: int)
-    {
-        return a[index];
-    }
+    extern("rslib_std_array_get")
+        public func get<T>(a: array<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_find")
         public func find<T>(val:array<T>, elem:T)=>int;
