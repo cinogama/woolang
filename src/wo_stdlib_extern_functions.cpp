@@ -2586,7 +2586,6 @@ WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_
     return wo_ret_int(vm, (wo_integer_t)lex->now_file_colno);
 }
 
-
 const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
 const char* wo_stdlib_macro_src_data = {
 u8R"(
@@ -2732,4 +2731,66 @@ namespace std
     }
 }
 
+)" };
+
+WO_API wo_api rslib_std_file_readall(wo_vm vm, wo_value args, size_t argc)
+{
+    auto* file = fopen(wo_string(args + 0), "rb");
+    if (file != nullptr)
+    {
+        std::string aimbuf;
+        char buf[256];
+        while (feof(file) == 0)
+        {
+            size_t rdsz = fread(buf, sizeof(char), sizeof(buf), file);
+            aimbuf.append(buf, rdsz);
+        }
+        fclose(file);
+        aimbuf.erase(std::remove(aimbuf.begin(), aimbuf.end(), '\0'), aimbuf.end());
+        return wo_ret_option_string(vm, aimbuf.c_str());
+    }
+    return wo_ret_option_none(vm);
+}
+WO_API wo_api rslib_std_file_writeall(wo_vm vm, wo_value args, size_t argc)
+{
+    auto* file = fopen(wo_string(args + 0), "wb");
+    if (file)
+    {
+        wo_string_t writebuf = wo_string(args + 1);
+        size_t buflen = strlen(writebuf);
+        bool write_result = fwrite(writebuf, sizeof(char), buflen, file) == buflen;
+        fclose(file);
+
+        return wo_ret_bool(vm, write_result);
+    }
+    return wo_ret_bool(vm, false);
+}
+
+const char* wo_stdlib_file_src_path = u8"woo/file.wo";
+const char* wo_stdlib_file_src_data = {
+u8R"(
+import woo.std;
+namespace std::file
+{
+    extern("rslib_std_file_readall")
+        func readall(path: string)=> option<string>;
+
+    extern("rslib_std_file_writeall")
+        func writeall(path: string, data: string)=> bool;
+}
+)" };
+
+WO_API wo_api rslib_std_call_shell(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_int(vm, system(wo_string(args + 0)));
+}
+
+const char* wo_stdlib_shell_src_path = u8"woo/shell.wo";
+const char* wo_stdlib_shell_src_data = {
+u8R"(
+namespace std
+{
+    extern("rslib_std_call_shell")
+        func shell(cmd: string)=> int;
+}
 )" };

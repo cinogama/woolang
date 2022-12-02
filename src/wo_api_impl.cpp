@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 0);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 0) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 4);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 4) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -217,6 +217,8 @@ void wo_init(int argc, char** argv)
     bool enable_ctrl_c_to_debug = true;
     bool enable_gc = true;
     bool enable_vm_pool = true;
+    bool enable_shell_package = true;
+    bool enable_file_package = true;
     size_t coroutine_mgr_thread_count = 4;
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
@@ -229,6 +231,10 @@ void wo_init(int argc, char** argv)
                 basic_env_local = argv[++command_idx];
             else if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
+            else if ("enable-file" == current_arg)
+                enable_file_package = atoi(argv[++command_idx]);
+            else if ("enable-shell" == current_arg)
+                enable_shell_package = atoi(argv[++command_idx]);
             else if ("enable-ctrlc-debug" == current_arg)
                 enable_ctrl_c_to_debug = atoi(argv[++command_idx]);
             else if ("enable-gc" == current_arg)
@@ -280,6 +286,10 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
         wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
+        if (enable_file_package)
+            wo_virtual_source(wo_stdlib_file_src_path, wo_stdlib_file_src_data, false);
+        if (enable_shell_package)
+            wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
     }
 
     if (enable_ctrl_c_to_debug)
