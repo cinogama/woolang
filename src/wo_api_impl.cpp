@@ -1464,7 +1464,7 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value val)
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_val(WO_VAL(val));
 
     return 0;
@@ -1478,7 +1478,7 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
-    structptr->m_values[0].set_integer(1);
+    structptr->m_values[0].set_integer(2);
     structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
 
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(structptr->m_values[1].gcunit);
