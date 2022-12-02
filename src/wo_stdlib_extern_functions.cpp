@@ -2603,6 +2603,7 @@ namespace std
         l_literal_handle,       // 0L 256L 0xFFL
         l_literal_real,         // 0.2  0.  .235
         l_literal_string,       // "" "helloworld" @"println("hello");"@
+        l_literal_char,         // 'x'
         l_format_string,        // f"..{  /  }..{ 
         l_format_string_end,    // }.."
         l_semicolon,            // ;
