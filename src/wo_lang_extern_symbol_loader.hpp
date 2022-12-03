@@ -57,24 +57,25 @@ namespace wo
         struct extern_lib_guard
         {
             void* extern_lib = nullptr;
-            extern_lib_guard(const std::string& libpath)
+            extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
 #if !defined(NDEBUG) && defined(PLATFORM_M32)
-                if ((extern_lib = osapi::loadlib((libpath + "32_debug").c_str())))
+                if ((extern_lib = osapi::loadlib((libpath + "32_debug").c_str(), script_path.c_str())))
                     return;
 #endif
 #if !defined(NDEBUG)
-                if ((extern_lib = osapi::loadlib((libpath + "_debug").c_str())))
+                if ((extern_lib = osapi::loadlib((libpath + "_debug").c_str(), script_path.c_str())))
                     return;
 #endif
 #if defined(PLATFORM_M32)
-                if ((extern_lib = osapi::loadlib((libpath + "32").c_str())))
+                if ((extern_lib = osapi::loadlib((libpath + "32").c_str(), script_path.c_str())))
                     return;
 #endif
-                if (extern_lib = wo_load_lib(libpath.c_str(), nullptr, true))
+
+                if ((extern_lib = osapi::loadlib(libpath.c_str(), script_path.c_str())))
                     return;
 
-                extern_lib = osapi::loadlib(libpath.c_str());
+                extern_lib = wo_load_lib(libpath.c_str(), nullptr, true);
             }
             wo_native_func load_func(const char* funcname)
             {
@@ -113,7 +114,7 @@ namespace wo
                     return fnd->second->load_func(funcname);
                 }
 
-                extern_lib elib = new extern_lib_guard(libpath);
+                extern_lib elib = new extern_lib_guard(libpath, srcpath);
                 srcloadedlibs[libpath] = elib;
 
                 if (auto * entry = (void(*)(void))elib->load_func("wolib_entry"))
