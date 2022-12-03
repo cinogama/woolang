@@ -166,7 +166,7 @@ void _wo_ctrl_c_signal_handler(int sig)
 
 void wo_handle_ctrl_c(void(*handler)(int))
 {
-    signal(SIGINT, handler ? handler : _wo_ctrl_c_signal_handler);
+    signal(SIGINT, handler);
 }
 
 #undef wo_init
@@ -293,7 +293,7 @@ void wo_init(int argc, char** argv)
     }
 
     if (enable_ctrl_c_to_debug)
-        wo_handle_ctrl_c(nullptr);
+        wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 }
 
 wo_string_t  wo_compile_date(void)

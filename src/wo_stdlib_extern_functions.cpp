@@ -2817,9 +2817,9 @@ WO_API wo_api rslib_std_filesys_mkdir(wo_vm vm, wo_value args, size_t argc)
     std::error_code ec;
     bool created = std::filesystem::create_directories(wo_string(args + 0), ec);
     if (ec)
-        return wo_ret_err_string(vm, ec.message().c_str());
+        return wo_ret_err_int(vm, ec.value());
     if (!created)
-        return wo_ret_err_string(vm, "Failed to create dirctory.");
+        return wo_ret_err_int(vm, 0);
     return wo_ret_ok_string(vm, normalize_path_str(wo_string(args + 0)).c_str());
 }
 
@@ -2911,7 +2911,7 @@ namespace std::file
         public func isfile(path: string)=> bool;
 
     extern("rslib_std_filesys_mkdir")
-        public func mkdir(path: string)=> bool;
+        public func mkdir(path: string)=> result<string, int>;
 
     extern("rslib_std_filesys_parent")
         public func parent(path: string)=> string;
@@ -2926,10 +2926,10 @@ namespace std::file
         public func allsubpath(path: string)=> array<string>;
 
     extern("rslib_std_filesys_copy")
-        public func copy(srcpath: string, dstpath: string)=> result<int, int>;
+        public func copy(srcpath: string, dstpath: string)=> result<string, int>;
 
     extern("rslib_std_filesys_move")
-        public func move(srcpath: string, dstpath: string)=> result<int, int>;
+        public func move(srcpath: string, dstpath: string)=> result<string, int>;
 
     extern("rslib_std_filesys_remove")
         public func remove(path: string)=> result<int, int>;
