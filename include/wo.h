@@ -217,6 +217,8 @@ typedef enum _wo_inform_style
 
 WO_API wo_string_t  wo_locale_name();
 WO_API wo_string_t  wo_exe_path();
+WO_API wo_string_t  wo_work_path();
+WO_API wo_bool_t    wo_set_work_path(wo_string_t path);
 
 WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
 

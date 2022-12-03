@@ -1094,7 +1094,7 @@ namespace wo
                 ast_using->used_namespace_chain.push_back(a_match->match_value->value_type->using_type_name->type_name);
                 ast_using->from_global_namespace = true;
                 ast_using->copy_source_info(a_match);
-                now_scope()->used_namespace.push_back(ast_using);
+                a_match->match_scope_in_pass->used_namespace.push_back(ast_using);
                 a_match->has_using_namespace = true;
             }
             else

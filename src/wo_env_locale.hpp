@@ -160,5 +160,12 @@ namespace wo
 
         return _work_path;
     }
-
+    inline bool set_work_path(const char* path)
+    {
+#ifdef _WIN32
+        return SetCurrentDirectoryA(path);
+#else
+        return  0 == chdir(path);
+#endif
     }
+}

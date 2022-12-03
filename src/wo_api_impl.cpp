@@ -325,6 +325,16 @@ wo_string_t wo_exe_path()
     return wo::exe_path();
 }
 
+wo_string_t wo_work_path()
+{
+    return wo::work_path();
+}
+
+wo_bool_t wo_set_work_path(wo_string_t path)
+{
+    return wo::set_work_path(path);
+}
+
 wo_bool_t wo_equal_byte(wo_value a, wo_value b)
 {
     auto left = WO_VAL(a), right = WO_VAL(b);
