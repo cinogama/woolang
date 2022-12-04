@@ -2838,22 +2838,36 @@ WO_API wo_api rslib_std_filesys_normalize(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_filesys_subpath(wo_vm vm, wo_value args, size_t argc)
 {
-    std::filesystem::directory_iterator di(wo_string(args + 0));
+    std::error_code ec;
+    std::filesystem::directory_iterator di(wo_string(args + 0), ec);
+    if (ec)
+        return wo_ret_err_int(vm, ec.value());
+
     wo_value arr = wo_push_arr(vm, 0);
     while (di != std::filesystem::directory_iterator())
+    {
         wo_set_string(wo_arr_add(arr, nullptr), normalize_path_str(di->path()).c_str());
+        ++di;
+    }
 
-    return wo_ret_val(vm, arr);
+    return wo_ret_ok_val(vm, arr);
 }
 
 WO_API wo_api rslib_std_filesys_allsubpath(wo_vm vm, wo_value args, size_t argc)
 {
-    std::filesystem::recursive_directory_iterator di(wo_string(args + 0));
+    std::error_code ec;
+    std::filesystem::recursive_directory_iterator di(wo_string(args + 0), ec);
+    if (ec)
+        return wo_ret_err_int(vm, ec.value());
+
     wo_value arr = wo_push_arr(vm, 0);
     while (di != std::filesystem::recursive_directory_iterator())
+    {
         wo_set_string(wo_arr_add(arr, nullptr), normalize_path_str(di->path()).c_str());
+        ++di;
+    }
 
-    return wo_ret_val(vm, arr);
+    return wo_ret_ok_val(vm, arr);
 }
 
 WO_API wo_api rslib_std_filesys_copy(wo_vm vm, wo_value args, size_t argc)
@@ -2920,10 +2934,10 @@ namespace std::file
         public func normalize(path: string)=> string;
 
     extern("rslib_std_filesys_subpath")
-        public func subpath(path: string)=> array<string>;
+        public func subpath(path: string)=> result<array<string>, int>;
 
     extern("rslib_std_filesys_allsubpath")
-        public func allsubpath(path: string)=> array<string>;
+        public func allsubpath(path: string)=> result<array<string>, int>;
 
     extern("rslib_std_filesys_copy")
         public func copy(srcpath: string, dstpath: string)=> result<string, int>;
