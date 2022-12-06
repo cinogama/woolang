@@ -2783,70 +2783,88 @@ WO_API wo_api rslib_std_file_writeall(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, false);
 }
 
-std::string normalize_path_str(const std::filesystem::path& p)
+std::wstring normalize_path_str(const std::filesystem::path& p)
 {
-    std::string path = p.lexically_normal().string();
-    std::replace(path.begin(), path.end(), '\\', '/');
+    std::wstring path = p.lexically_normal().wstring();
+    std::replace(path.begin(), path.end(), L'\\', L'/');
     return path;
 }
 
 WO_API wo_api rslib_std_filesys_exist(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    return wo_ret_bool(vm, std::filesystem::exists(wo_string(args + 0), ec));
+    return wo_ret_bool(vm, std::filesystem::exists(wo_str_to_wstr(wo_string(args + 0)), ec));
 }
 
 WO_API wo_api rslib_std_filesys_isdir(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    if (std::filesystem::exists(wo_string(args + 0), ec))
-        return wo_ret_bool(vm, std::filesystem::is_directory(wo_string(args + 0), ec));
+    if (std::filesystem::exists(wo_str_to_wstr(wo_string(args + 0)), ec))
+        return wo_ret_bool(vm, std::filesystem::is_directory(wo_str_to_wstr(wo_string(args + 0)), ec));
     return wo_ret_bool(vm, false);
 }
 
 WO_API wo_api rslib_std_filesys_isfile(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    if (std::filesystem::exists(wo_string(args + 0), ec))
-        return wo_ret_bool(vm, std::filesystem::is_regular_file(wo_string(args + 0), ec));
+    if (std::filesystem::exists(wo_str_to_wstr(wo_string(args + 0)), ec))
+        return wo_ret_bool(vm, std::filesystem::is_regular_file(wo_str_to_wstr(wo_string(args + 0)), ec));
     return wo_ret_bool(vm, false);
+}
+
+WO_API wo_api rslib_std_filesys_filename(wo_vm vm, wo_value args, size_t argc)
+{
+    std::filesystem::path p(wo_str_to_wstr(wo_string(args + 0)));
+    if (p.has_filename())
+        return wo_ret_string(vm, wo_wstr_to_str(p.filename().wstring().c_str()));
+    return wo_ret_string(vm, "");
+}
+
+WO_API wo_api rslib_std_filesys_extension(wo_vm vm, wo_value args, size_t argc)
+{
+    std::filesystem::path p(wo_str_to_wstr(wo_string(args + 0)));
+    if (p.has_extension())
+        return wo_ret_string(vm, wo_wstr_to_str(p.extension().wstring().c_str()));
+    return wo_ret_string(vm, "");
 }
 
 WO_API wo_api rslib_std_filesys_mkdir(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    bool created = std::filesystem::create_directories(wo_string(args + 0), ec);
+    bool created = std::filesystem::create_directories(wo_str_to_wstr(wo_string(args + 0)), ec);
     if (ec)
-        return wo_ret_err_int(vm, ec.value());
-    if (!created)
-        return wo_ret_err_int(vm, 0);
-    return wo_ret_ok_string(vm, normalize_path_str(wo_string(args + 0)).c_str());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
+    // Treate created path as success.
+    //if (!created)
+    //    return wo_ret_err_int(vm, 0);
+    return wo_ret_ok_string(vm, wo_wstr_to_str(normalize_path_str(wo_str_to_wstr(wo_string(args + 0))).c_str()));
 }
 
 WO_API wo_api rslib_std_filesys_parent(wo_vm vm, wo_value args, size_t argc)
 {
-    std::string p = wo_string(args + 0);
-    if (!p.empty() && p.back() == '/' || p.back() == '\\')
-        p = p.substr(0, p.size() - 1);
-    return wo_ret_string(vm, normalize_path_str(std::filesystem::path(p).parent_path()).c_str());
+    std::filesystem::path p(wo_str_to_wstr(wo_string(args + 0)));
+
+    if (p.has_parent_path())
+        return wo_ret_string(vm, wo_wstr_to_str(normalize_path_str(p.parent_path()).c_str()));
+    return wo_ret_string(vm, "");
 }
 
 WO_API wo_api rslib_std_filesys_normalize(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_string(vm, normalize_path_str(std::filesystem::path(wo_string(args + 0))).c_str());
+    return wo_ret_string(vm, wo_wstr_to_str(normalize_path_str(std::filesystem::path(wo_str_to_wstr(wo_string(args + 0)))).c_str()));
 }
 
 WO_API wo_api rslib_std_filesys_subpath(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    std::filesystem::directory_iterator di(wo_string(args + 0), ec);
+    std::filesystem::directory_iterator di(wo_str_to_wstr(wo_string(args + 0)), ec);
     if (ec)
-        return wo_ret_err_int(vm, ec.value());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
 
     wo_value arr = wo_push_arr(vm, 0);
     while (di != std::filesystem::directory_iterator())
     {
-        wo_set_string(wo_arr_add(arr, nullptr), normalize_path_str(di->path()).c_str());
+        wo_set_string(wo_arr_add(arr, nullptr), wo_wstr_to_str(normalize_path_str(di->path()).c_str()));
         ++di;
     }
 
@@ -2856,14 +2874,14 @@ WO_API wo_api rslib_std_filesys_subpath(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_filesys_allsubpath(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
-    std::filesystem::recursive_directory_iterator di(wo_string(args + 0), ec);
+    std::filesystem::recursive_directory_iterator di(wo_str_to_wstr(wo_string(args + 0)), ec);
     if (ec)
-        return wo_ret_err_int(vm, ec.value());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
 
     wo_value arr = wo_push_arr(vm, 0);
     while (di != std::filesystem::recursive_directory_iterator())
     {
-        wo_set_string(wo_arr_add(arr, nullptr), normalize_path_str(di->path()).c_str());
+        wo_set_string(wo_arr_add(arr, nullptr), wo_wstr_to_str(normalize_path_str(di->path()).c_str()));
         ++di;
     }
 
@@ -2874,32 +2892,32 @@ WO_API wo_api rslib_std_filesys_copy(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
     std::filesystem::copy(
-        std::filesystem::path(wo_string(args + 0)), 
-        std::filesystem::path(wo_string(args + 1)), 
+        std::filesystem::path(wo_str_to_wstr(wo_string(args + 0))),
+        std::filesystem::path(wo_str_to_wstr(wo_string(args + 1))),
         std::filesystem::copy_options::recursive, ec);
     if (ec) // has error?
-        return wo_ret_err_int(vm, ec.value());
-    return wo_ret_ok_string(vm, normalize_path_str(wo_string(args + 1)).c_str());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
+    return wo_ret_ok_string(vm, wo_wstr_to_str(normalize_path_str(wo_string(args + 1)).c_str()));
 }
 
 WO_API wo_api rslib_std_filesys_move(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
     std::filesystem::rename(
-        std::filesystem::path(wo_string(args + 0)), 
-        std::filesystem::path(wo_string(args + 1)), ec);
+        std::filesystem::path(wo_str_to_wstr(wo_string(args + 0))),
+        std::filesystem::path(wo_str_to_wstr(wo_string(args + 1))), ec);
     if (ec) // has error?
-        return wo_ret_err_int(vm, ec.value());
-    return wo_ret_ok_string(vm, normalize_path_str(wo_string(args + 1)).c_str());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
+    return wo_ret_ok_string(vm, wo_wstr_to_str(normalize_path_str(wo_string(args + 1)).c_str()));
 }
 
 WO_API wo_api rslib_std_filesys_remove(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
     auto remove_count = std::filesystem::remove_all(
-        std::filesystem::path(wo_string(args + 0)), ec);
+        std::filesystem::path(wo_str_to_wstr(wo_string(args + 0))), ec);
     if (ec)
-        return wo_ret_err_int(vm, ec.value());
+        return wo_ret_err_string(vm, wo_wstr_to_str(wo_str_to_wstr(ec.message().c_str())));
     return wo_ret_ok_int(vm, remove_count);
 }
 
@@ -2921,11 +2939,17 @@ namespace std::file
     extern("rslib_std_filesys_isdir")
         public func isdir(path: string)=> bool;
 
+    extern("rslib_std_filesys_filename")
+        public func filename(path: string)=> string;
+
+    extern("rslib_std_filesys_extension")
+        public func extension(path: string)=> string;
+
     extern("rslib_std_filesys_isfile")
         public func isfile(path: string)=> bool;
 
     extern("rslib_std_filesys_mkdir")
-        public func mkdir(path: string)=> result<string, int>;
+        public func mkdir(path: string)=> result<string, string>;
 
     extern("rslib_std_filesys_parent")
         public func parent(path: string)=> string;
@@ -2934,19 +2958,19 @@ namespace std::file
         public func normalize(path: string)=> string;
 
     extern("rslib_std_filesys_subpath")
-        public func subpath(path: string)=> result<array<string>, int>;
+        public func subpath(path: string)=> result<array<string>, string>;
 
     extern("rslib_std_filesys_allsubpath")
-        public func allsubpath(path: string)=> result<array<string>, int>;
+        public func allsubpath(path: string)=> result<array<string>, string>;
 
     extern("rslib_std_filesys_copy")
-        public func copy(srcpath: string, dstpath: string)=> result<string, int>;
+        public func copy(srcpath: string, dstpath: string)=> result<string, string>;
 
     extern("rslib_std_filesys_move")
-        public func move(srcpath: string, dstpath: string)=> result<string, int>;
+        public func move(srcpath: string, dstpath: string)=> result<string, string>;
 
     extern("rslib_std_filesys_remove")
-        public func remove(path: string)=> result<int, int>;
+        public func remove(path: string)=> result<int, string>;
 }
 )" };
 
