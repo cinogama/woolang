@@ -25,7 +25,7 @@ namespace wo
     inline std::locale wo_global_locale = std::locale::classic();
     inline std::string wo_global_locale_name = "";
 
-    std::vector<std::string> wo_args;
+    inline std::vector<std::string> wo_args;
 
     inline void wo_init_args(int argc, char** argv)
     {
