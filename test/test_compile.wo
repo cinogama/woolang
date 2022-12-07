@@ -479,6 +479,33 @@ func main()
             a[0] = 6;
             b[0] = 6;
         "@);
+
+        // Conflict gadt type is not allowed
+        assure_compile_success(@"
+            union gadt<T, A>
+            {
+                value(A): gadt<T, A>,
+            }
+        "@);
+        assure_compile_success(@"
+            union gadt<T>
+            {
+                value(int): gadt<T>,
+            }
+        "@);
+        assure_compile_fail(@"
+            union gadt<T, A>
+            {
+                value(A): gadt<A, T>,
+            }
+        "@);
+        assure_compile_fail(@"
+            union gadt<T>
+            {
+                value(T): gadt<string>,
+            }
+        "@);
+
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)
