@@ -5626,6 +5626,7 @@ namespace wo
                     if (items->type_may_nil)
                     {
                         find_used_template(items->type_may_nil, template_arg_defines, used_template_args);
+
                         // Generate func here!
                         ast_value_function_define* avfd_item_type_builder = new ast_value_function_define;
                         avfd_item_type_builder->function_name = items->identifier;
@@ -5639,11 +5640,40 @@ namespace wo
                         avfd_item_type_builder->argument_list->add_child(argdef);
                         argdef->copy_source_info(items);
 
+                        auto* adt_type = create_union_type();
                         if (items->gadt_out_type_may_nil)
-                            avfd_item_type_builder->value_type = new ast_type(items->gadt_out_type_may_nil);
-                        else
-                            avfd_item_type_builder->value_type = new ast_type(create_union_type());
+                        {
+                            auto* gadt_type = items->gadt_out_type_may_nil;
+                            bool conflict = false;
 
+                            // TODO: Need verify gadt type is current union?
+                            if (gadt_type->template_arguments.size() == template_arg_defines.size())
+                            {
+                                for (size_t i = 0; i < adt_type->template_arguments.size(); ++i)
+                                {
+                                    if (!adt_type->template_arguments[i]->is_nothing())
+                                    {
+                                        wo_assert(adt_type->template_arguments[i]->search_from_global_namespace == false
+                                            && adt_type->template_arguments[i]->scope_namespaces.empty());
+
+                                        if (adt_type->template_arguments[i]->type_name != gadt_type->template_arguments[i]->type_name
+                                            || gadt_type->template_arguments[i]->search_from_global_namespace
+                                            || !gadt_type->template_arguments[i]->scope_namespaces.empty())
+                                        {
+                                            conflict = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                                conflict = true;
+
+                            if (conflict)
+                                lex.lang_error(0x0000, items->gadt_out_type_may_nil, WO_ERR_INVALID_GADT_CONFLICT);
+
+                        }
+                        avfd_item_type_builder->value_type = new ast_type(adt_type);
                         avfd_item_type_builder->value_type->set_as_function_type();
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 

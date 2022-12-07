@@ -244,6 +244,8 @@
 
 #define WO_ERR_INVALID_KEY_EXPR L"创建映射时遇到了非法的键表达式"
 
+#define WO_ERR_INVALID_GADT_CONFLICT L"发现了冲突的union项类型"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -476,5 +478,7 @@
 #define WO_ERR_WHERE_COND_GRAMMAR_ERR L"Some error happend in constraints expr:"
 
 #define WO_ERR_INVALID_KEY_EXPR L"Invalid key expr found."
+
+#define WO_ERR_INVALID_GADT_CONFLICT L"Conflict type of union item."
 
 #endif
