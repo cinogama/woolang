@@ -1117,6 +1117,16 @@ WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
     return wo_gchandle_close(args);
 }
 
+WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
+    wo_value argsarr = wo_push_arr(vm, argcarr);
+    for (wo_integer_t i = 0; i < argcarr; ++i)
+        wo_set_string(wo_arr_get(argsarr, i), wo::wo_args[(size_t)i].c_str());
+    
+    return wo_ret_val(vm, argsarr);
+}
+
 WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_string(vm, wo::exe_path());
@@ -1488,6 +1498,9 @@ namespace std
     extern("rslib_std_thread_sleep")
         public func sleep(tm:real)=>void;
    
+    extern("rslib_std_get_args")
+        public func args()=>array<string>;
+
     extern("rslib_std_get_exe_path")
         public func exepath()=>string;
 

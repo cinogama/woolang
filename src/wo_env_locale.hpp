@@ -6,6 +6,7 @@
 #include <clocale>
 #include <memory>
 #include <cstring>
+#include <vector>
 
 #ifdef _WIN32
 #       include <Windows.h>
@@ -23,6 +24,15 @@ namespace wo
 
     inline std::locale wo_global_locale = std::locale::classic();
     inline std::string wo_global_locale_name = "";
+
+    std::vector<std::string> wo_args;
+
+    inline void wo_init_args(int argc, char** argv)
+    {
+        wo_args.clear();
+        for (int i = 0; i < argc; ++i)
+            wo_args.push_back(argv[i]);
+    }
 
     inline void wo_init_locale(const char* local_type)
     {

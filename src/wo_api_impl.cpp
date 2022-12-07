@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 6);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 6) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 7);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 7) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -220,6 +220,8 @@ void wo_init(int argc, char** argv)
     bool enable_shell_package = true;
     bool enable_file_package = true;
     size_t coroutine_mgr_thread_count = 4;
+
+    wo::wo_init_args(argc, argv);
 
     for (int command_idx = 0; command_idx + 1 < argc; command_idx++)
     {
