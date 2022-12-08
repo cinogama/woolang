@@ -160,11 +160,14 @@ namespace wo
         const size_t MAX_PATH_LEN = 8192;
         thread_local char _work_path[MAX_PATH_LEN] = {};
 #ifdef _WIN32
-        _work_path[GetCurrentDirectoryA(MAX_PATH_LEN, _work_path)] = '/';
+        auto write_length = GetCurrentDirectoryA(MAX_PATH_LEN - 2, _work_path);
 #else
-        [[maybe_unused]] auto reuslt = getcwd(_work_path, MAX_PATH_LEN);
-        _work_path[strlen(_work_path)] = '/';
+        [[maybe_unused]] auto reuslt = getcwd(_work_path, MAX_PATH_LEN - 2);
+        write_length = strlen(_work_path);
 #endif
+        _work_path[write_length] = '/';
+        _work_path[write_length + 1] = 0;
+
         auto _only_file_loc = get_file_loc(_work_path);
         memcpy(_work_path, _only_file_loc.c_str(), _only_file_loc.size() + 1);
 
