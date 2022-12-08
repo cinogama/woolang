@@ -284,6 +284,7 @@ WO_API wo_value     wo_dispatch(wo_vm vm);
 WO_API wo_result_t  wo_ret_yield(wo_vm vm);
 
 WO_API wo_int_t     wo_lengthof(wo_value value);
+WO_API wo_int_t     wo_str_bytelen(wo_value value);
 
 WO_API wchar_t      wo_str_get_char(wo_string_t str, wo_int_t index);
 WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);

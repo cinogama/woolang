@@ -34,6 +34,12 @@ WO_API wo_api rslib_std_lengthof(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_int(vm, wo_lengthof(args));
 }
+
+WO_API wo_api rslib_std_str_bytelen(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_int(vm, wo_str_bytelen(args));
+}
+
 WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_dup(vm, args + 0);
@@ -1578,6 +1584,9 @@ namespace string
 
     extern("rslib_std_lengthof") 
         public func len(val:string)=> int;
+
+    extern("rslib_std_str_bytelen") 
+        public func bytelen(val:string)=> int;
 
     extern("rslib_std_sub")
         public func sub(val:string, begin:int)=>string;

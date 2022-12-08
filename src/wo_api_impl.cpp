@@ -1626,6 +1626,16 @@ wo_integer_t wo_lengthof(wo_value value)
     }
 }
 
+wo_int_t wo_str_bytelen(wo_value value)
+{
+    auto _rsvalue = WO_VAL(value);
+    if (_rsvalue->type == wo::value::valuetype::string_type)
+        return (wo_int_t)_rsvalue->string->size();
+
+    wo_fail(WO_FAIL_TYPE_FAIL, "Only 'string' can get byte length.");
+    return 0;
+}
+
 wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
 {
     return wo::u8stridx(str, index);
