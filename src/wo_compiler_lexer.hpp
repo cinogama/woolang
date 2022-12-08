@@ -156,7 +156,8 @@ namespace wo
 
         wo_pstring_t   source_file;
 
-        std::set<wo_pstring_t> imported_file_list;
+        std::unordered_set<wo_pstring_t> imported_file_list;
+        std::unordered_set<size_t> imported_file_crc64_list;
 
         std::shared_ptr<std::unordered_map<std::wstring, std::shared_ptr<macro>>> used_macro_list;
 
@@ -164,6 +165,14 @@ namespace wo
         {
             if (imported_file_list.find(full_path) == imported_file_list.end())
                 imported_file_list.insert(full_path);
+            else
+                return true;
+            return false;
+        }
+        bool has_been_imported(size_t crc64)
+        {
+            if (imported_file_crc64_list.find(crc64) == imported_file_crc64_list.end())
+                imported_file_crc64_list.insert(crc64);
             else
                 return true;
             return false;

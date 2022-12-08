@@ -157,7 +157,18 @@ namespace wo
 
         return crc;
     }
+    inline uint64_t crc_64(const wchar_t* str)
+    {
+        uint64_t crc = 0;
+        while (*str)
+        {
+            for (size_t i = 0; i < sizeof(wchar_t) / sizeof(char); ++i)
+                crc = _crc_64(((char*)str)[i], crc);
+            str++;
+        }
 
+        return crc;
+    }
     inline uint64_t crc_64(std::ifstream& fle)
     {
         uint64_t crc = 0;

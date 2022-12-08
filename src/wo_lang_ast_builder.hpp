@@ -9,6 +9,7 @@
 #include "wo_utf8.hpp"
 #include "wo_memory.hpp"
 #include "wo_const_string_pool.hpp"
+#include "wo_crc_64.hpp"
 
 #include <any>
 #include <type_traits>
@@ -3946,8 +3947,9 @@ namespace wo
                     if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", &lex))
                         return lex.parser_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
                 }
-
-                if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path)))
+                
+                if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path))
+                    && !lex.has_been_imported(wo::crc_64(srcfile.c_str())))
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
