@@ -3953,6 +3953,7 @@ namespace wo
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;
+                    new_lex.imported_file_crc64_list = lex.imported_file_crc64_list;
                     new_lex.used_macro_list = lex.used_macro_list;
 
                     auto* imported_ast = wo::get_wo_grammar()->gen(new_lex);
@@ -3964,6 +3965,7 @@ namespace wo
                         new_lex.lex_error_list.end());
 
                     lex.imported_file_list = new_lex.imported_file_list;
+                    lex.imported_file_crc64_list = new_lex.imported_file_crc64_list;
 
                     if (imported_ast)
                     {
