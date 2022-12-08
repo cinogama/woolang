@@ -801,12 +801,11 @@ namespace wo
                     for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                     {
                         a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_is_mutable(false);
                     }
                 }
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                {
                     analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
-                }
             }
             else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
             {
@@ -843,7 +842,10 @@ namespace wo
                     && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
                 {
                     for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
                         a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_is_mutable(false);
+                    }
                     for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                         analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
 

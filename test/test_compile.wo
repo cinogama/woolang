@@ -506,6 +506,12 @@ func main()
             }
         "@);
 
+        assure_compile_success(@"
+            import woo.std;
+            for (let _, b : [mut "Hello"])
+                std::println(F"{b}");
+        "@);
+
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)
