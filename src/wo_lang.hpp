@@ -484,16 +484,24 @@ namespace wo
                 {
                     if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                         if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
+                        {
                             if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                                 stop_update = true;
+                        }
+                        else
+                            type->complex_type->set_is_mutable(false);
                 }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
                     {
                         if (a_t->is_custom() && !a_t->is_hkt())
                             if (fully_update_type(a_t, in_pass_1, template_types, s))
+                            {
                                 if (a_t->is_custom() && !a_t->is_hkt())
                                     stop_update = true;
+                            }
+                            else
+                                a_t->set_is_mutable(false);
                     }
 
                 if (type->has_template())
@@ -1115,7 +1123,7 @@ namespace wo
                 {
                     // TODO: finding repeated template? goon
                     ast_value_function_define* dumpped_template_func_define =
-                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
+                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args, false);
 
                     if (dumpped_template_func_define)
                         return dumpped_template_func_define->this_reification_lang_symbol;
@@ -1182,7 +1190,7 @@ namespace wo
             }
         }
 
-        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
+        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types, bool force_no_mutable)
         {
             using namespace ast;
 
@@ -1192,6 +1200,10 @@ namespace wo
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = true;
                 fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
+
+                if (force_no_mutable)
+                    temtype->set_is_mutable(false);
+
                 has_step_in_step2 = step_in_pass2;
 
                 if (temtype->is_pending() && !temtype->is_hkt())
@@ -1308,7 +1320,7 @@ namespace wo
                 {
                     if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
                     {
-                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
+                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args, true);
                         if (template_defines && template_args)
                             end_template_scope();
 

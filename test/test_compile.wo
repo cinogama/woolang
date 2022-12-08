@@ -512,6 +512,30 @@ func main()
                 std::println(F"{b}");
         "@);
 
+        assure_compile_success(@"
+            import woo.std;
+            let t = (mut 1, mut "Hello");
+            let (a, b) = t;
+            std::println(F"{b}");
+        "@);
+
+        assure_compile_success(@"
+            import woo.std;
+            [mut "Hello"]->>\s=F"{s}";;
+        "@);
+
+        assure_compile_success(@"
+            import woo.std;
+            let o = option::value(mut "Hello");
+            match (o)
+            {
+            value(b)?
+                std::println(F"{b}");
+            none?;
+            }
+           
+        "@);
+
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)

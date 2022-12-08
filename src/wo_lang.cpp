@@ -1175,7 +1175,8 @@ namespace wo
 
                                     auto* dumped_func = analyze_pass_template_reification(
                                         dynamic_cast<ast_value_function_define*>(final_function),
-                                        fact_used_template);
+                                        fact_used_template,
+                                        false);
                                     if (dumped_func)
                                         a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
                                     else
@@ -2319,7 +2320,7 @@ namespace wo
                         }
                     }
 
-                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
+                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args, false); //tara~ get analyze_pass_template_reification 
                     a_value_funccall->called_func = calling_function_define;
                 }
             failed_to_judge_template_params:;
