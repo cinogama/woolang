@@ -1140,14 +1140,17 @@ WO_API wo_api rslib_std_get_exe_path(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_get_work_path(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_string(vm, wo::work_path());
+    std::error_code ec;
+    auto p = std::filesystem::current_path(ec);
+    return wo_ret_string(vm, wo_wstr_to_str(p.wstring().c_str()));
 }
 
 WO_API wo_api rslib_std_set_work_path(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_bool(vm, wo::set_work_path(wo_string(args + 0)));
+    std::error_code ec;
+    std::filesystem::current_path(wo_str_to_wstr(wo_string(args + 0)), ec);
+    return wo_ret_bool(vm, !(bool)ec);
 }
-
 
 WO_API wo_api rslib_std_get_extern_symb(wo_vm vm, wo_value args, size_t argc)
 {
@@ -2944,6 +2947,7 @@ WO_API wo_api rslib_std_filesys_remove(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_err_int(vm, ec.value());
     return wo_ret_ok_int(vm, remove_count);
 }
+
 
 const char* wo_stdlib_file_src_path = u8"woo/file.wo";
 const char* wo_stdlib_file_src_data = {
