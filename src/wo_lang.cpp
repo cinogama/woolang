@@ -307,6 +307,7 @@ namespace wo
                             // ready for update..
                             fully_update_type(argdef->value_type, true);
                         }
+                        argdef->value_type->set_is_mutable(false);
 
                         if (!argdef->symbol)
                         {
@@ -1175,8 +1176,7 @@ namespace wo
 
                                     auto* dumped_func = analyze_pass_template_reification(
                                         dynamic_cast<ast_value_function_define*>(final_function),
-                                        fact_used_template,
-                                        false);
+                                        fact_used_template);
                                     if (dumped_func)
                                         a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
                                     else
@@ -1196,7 +1196,7 @@ namespace wo
                     wo_assert(a_match_union_case->take_place_value_may_nil);
 
                     if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
                     else
                     {
                         a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
@@ -1209,7 +1209,7 @@ namespace wo
                 else
                 {
                     if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
                 }
             }
             else
@@ -2320,7 +2320,7 @@ namespace wo
                         }
                     }
 
-                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args, false); //tara~ get analyze_pass_template_reification 
+                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
                     a_value_funccall->called_func = calling_function_define;
                 }
             failed_to_judge_template_params:;

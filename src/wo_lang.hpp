@@ -1123,7 +1123,7 @@ namespace wo
                 {
                     // TODO: finding repeated template? goon
                     ast_value_function_define* dumpped_template_func_define =
-                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args, false);
+                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
 
                     if (dumpped_template_func_define)
                         return dumpped_template_func_define->this_reification_lang_symbol;
@@ -1190,7 +1190,7 @@ namespace wo
             }
         }
 
-        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types, bool force_no_mutable)
+        ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
         {
             using namespace ast;
 
@@ -1200,9 +1200,6 @@ namespace wo
                 auto step_in_pass2 = has_step_in_step2;
                 has_step_in_step2 = true;
                 fully_update_type(temtype, true, origin_template_func_define->template_type_name_list);
-
-                if (force_no_mutable)
-                    temtype->set_is_mutable(false);
 
                 has_step_in_step2 = step_in_pass2;
 
@@ -1320,7 +1317,7 @@ namespace wo
                 {
                     if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
                     {
-                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args, true);
+                        auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
                         if (template_defines && template_args)
                             end_template_scope();
 
