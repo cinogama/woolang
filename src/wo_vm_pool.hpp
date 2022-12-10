@@ -39,9 +39,8 @@ namespace wo
                     m_free_vm.pop_front();
 
                     wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
-                    wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT) != 0);
 
-                    wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
+                    vm->clear_interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT);
                     vm->clear_interrupt(vmbase::vm_interrupt_type::ABORT_INTERRUPT);
                     vm->ip = nullptr; // IP Should be set by other function like invoke/dispatch.
 
@@ -54,7 +53,6 @@ namespace wo
                 std::lock_guard g1(m_guard);
 
                 wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0);
-                wo_assert((vm->vm_interrupt & vmbase::vm_interrupt_type::BR_YIELD_INTERRUPT) != 0);
 
                 wo_asure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
