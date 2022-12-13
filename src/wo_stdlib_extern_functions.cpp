@@ -1120,8 +1120,51 @@ WO_API wo_api rslib_std_vm_virtual_source(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_gchandle_close(args);
+    return wo_ret_bool(vm, wo_gchandle_close(args));
 }
+
+WO_API wo_api rslib_std_int_to_hex(wo_vm vm, wo_value args, size_t argc)
+{
+    char result[18];
+    wo_integer_t val = wo_int(args + 0);
+    if (val >= 0)
+        sprintf(result, "%llX", (unsigned long long)val);
+    else
+        sprintf(result, "-%llX", (unsigned long long) - val);
+    return wo_ret_string(vm, result);
+}
+
+WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
+{
+    char result[24];
+    wo_integer_t val = wo_int(args + 0);
+    if (val >= 0)
+        sprintf(result, "%llo", (unsigned long long)val);
+    else
+        sprintf(result, "-%llo", (unsigned long long) - val);
+    return wo_ret_string(vm, result);
+}
+
+WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
+{
+    char result[18];
+    wo_handle_t val = wo_handle(args + 0);
+
+    sprintf(result, "%llX", (unsigned long long)val);
+
+    return wo_ret_string(vm, result);
+}
+
+WO_API wo_api rslib_std_handle_to_oct(wo_vm vm, wo_value args, size_t argc)
+{
+    char result[24];
+    wo_handle_t val = wo_handle(args + 0);
+
+    sprintf(result, "%llo", (unsigned long long)val);
+
+    return wo_ret_string(vm, result);
+}
+
 
 WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
 {
@@ -1129,7 +1172,7 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
     wo_value argsarr = wo_push_arr(vm, argcarr);
     for (wo_integer_t i = 0; i < argcarr; ++i)
         wo_set_string(wo_arr_get(argsarr, i), wo::wo_args[(size_t)i].c_str());
-    
+
     return wo_ret_val(vm, argsarr);
 }
 
@@ -2176,10 +2219,26 @@ namespace map
     }
 }
 
+namespace int
+{
+    extern("rslib_std_int_to_hex")
+        public func tohex(val: int)=> string;
+    extern("rslib_std_int_to_oct")
+        public func tooct(val: int)=> string;
+}
+
+namespace handle
+{
+    extern("rslib_std_handle_to_hex")
+        public func tohex(val: handle)=> string;
+    extern("rslib_std_handle_to_oct")
+        public func tooct(val: handle)=> string;
+}
+
 namespace gchandle
 {
     extern("rslib_std_gchandle_close")
-        public func close(handle:gchandle)=>void;
+        public func close(handle:gchandle)=> bool;
 }
 
 public func assert(val: bool)

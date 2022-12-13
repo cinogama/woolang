@@ -2553,9 +2553,7 @@ wo_bool_t wo_map_is_empty(wo_value map)
 
 wo_bool_t wo_gchandle_close(wo_value gchandle)
 {
-    if (WO_VAL(gchandle)->gchandle)
-        return WO_VAL(gchandle)->gchandle->close();
-    return false;
+    return WO_VAL(gchandle)->gchandle->close();
 }
 
 // DEBUGGEE TOOLS
