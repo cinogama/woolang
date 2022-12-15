@@ -278,16 +278,16 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-        else if (ast_value_check->aim_type->is_pending())
-        {
-            // ready for update..
-            fully_update_type(ast_value_check->aim_type, true);
-        }
+else if (ast_value_check->aim_type->is_pending())
+    {
+        // ready for update..
+        fully_update_type(ast_value_check->aim_type, true);
+    }
 
-        analyze_pass1(ast_value_check->_be_check_value_node);
+    analyze_pass1(ast_value_check->_be_check_value_node);
 
-        ast_value_check->update_constant_value(lang_anylizer);
-        return true;
+    ast_value_check->update_constant_value(lang_anylizer);
+    return true;
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -1065,7 +1065,7 @@ namespace wo
         auto* a_check_naming = WO_AST();
         fully_update_type(a_check_naming->template_type, false);
         fully_update_type(a_check_naming->naming_const, false);
-    
+
         // TODO: Support or remove type class?
 
         return true;
@@ -1843,7 +1843,7 @@ namespace wo
                     if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
-                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE,L"dict");
+                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"dict");
                         else
                             lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"map");
                     }
@@ -2177,7 +2177,6 @@ namespace wo
                             goto start_ast_op_calling;
                         }
                     }
-
                     // End trying invoke from direct-type namespace
                 }
             }
@@ -2185,6 +2184,18 @@ namespace wo
 
             analyze_pass2(a_value_funccall->called_func);
             analyze_pass2(a_value_funccall->arguments);
+
+            if (a_value_funccall->callee_symbol_in_type_namespace != nullptr
+                && a_value_funccall->called_func->value_type->is_pure_pending())
+            {
+                if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
+                    callee_variable != nullptr && callee_variable->symbol == nullptr)
+                {
+                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
+                        a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
+                        a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
+                }
+            }
 
             auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
 

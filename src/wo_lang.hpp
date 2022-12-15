@@ -2327,7 +2327,8 @@ namespace wo
                 {
                     wo_assert(beassigned_value_from_stack == false);
 
-                    if (a_value_index->from->value_type->is_struct())
+                    if (a_value_index->from->value_type->is_struct()
+                        || a_value_index->from->value_type->is_tuple())
                     {
                         auto* _from_value = &analyze_value(a_value_index->from, compiler);
                         compiler->sidstruct(*_from_value, *_store_value, a_value_index->struct_offset);

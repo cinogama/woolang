@@ -184,6 +184,7 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 #define     wo_ret_ok_gchandle   wo_ret_option_gchandle
 
 WO_API wo_result_t  wo_ret_err_void(wo_vm vm);
+WO_API wo_result_t  wo_ret_err_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_err_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_err_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t  wo_ret_err_float(wo_vm vm, float result);

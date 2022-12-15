@@ -1397,6 +1397,19 @@ wo_result_t wo_ret_err_void(wo_vm vm)
 
     return 0;
 }
+wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(2);
+    structptr->m_values[1].set_integer(result ? 1 : 0);
+
+    return 0;
+}
 wo_result_t wo_ret_err_int(wo_vm vm, wo_integer_t result)
 {
     auto* wovm = WO_VM(vm);
