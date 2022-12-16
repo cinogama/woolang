@@ -938,7 +938,7 @@ namespace wo
             else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
             {
                 auto& struct_val = analyze_value(initval, compiler);
-                auto& current_values = get_useable_register_for_ref_value();
+                auto& current_values = get_useable_register_for_pure_value();
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
                     // FOR OPTIMIZE, SKIP TAKEPLACE PATTERN
@@ -1714,19 +1714,19 @@ namespace wo
             NORMAL,
             BLOCKING
         };
-        std::vector<RegisterUsingState> assigned_t_register_list = std::vector<RegisterUsingState>(opnum::reg::T_REGISTER_COUNT);   // will assign t register
-        std::vector<RegisterUsingState> assigned_r_register_list = std::vector<RegisterUsingState>(opnum::reg::R_REGISTER_COUNT);   // will assign r register
+        std::vector<RegisterUsingState> assigned_tr_register_list = std::vector<RegisterUsingState>(
+            opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT);   // will assign t register
 
         opnum::opnumbase& get_useable_register_for_pure_value(bool must_release = false)
         {
             using namespace ast;
             using namespace opnum;
 #define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
-            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
+            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT; i++)
             {
-                if (RegisterUsingState::FREE == assigned_t_register_list[i])
+                if (RegisterUsingState::FREE == assigned_tr_register_list[i])
                 {
-                    assigned_t_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
+                    assigned_tr_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
                     return WO_NEW_OPNUM(reg(reg::t0 + (uint8_t)i));
                 }
             }
@@ -1738,60 +1738,23 @@ namespace wo
             using namespace ast;
             using namespace opnum;
             if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
-                reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT)
+                reg_ptr && reg_ptr->id >= 0 && reg_ptr->id < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT)
             {
-                assigned_t_register_list[reg_ptr->id] = RegisterUsingState::FREE;
+                assigned_tr_register_list[reg_ptr->id] = RegisterUsingState::FREE;
             }
         }
         void _complete_using_all_register_for_pure_value()
         {
-            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT; i++)
+            for (size_t i = 0; i < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT; i++)
             {
-                if (assigned_t_register_list[i] != RegisterUsingState::BLOCKING)
-                    assigned_t_register_list[i] = RegisterUsingState::FREE;
-            }
-        }
-
-        opnum::opnumbase& get_useable_register_for_ref_value(bool must_release = false)
-        {
-            using namespace ast;
-            using namespace opnum;
-#define WO_NEW_OPNUM(...) (*generated_opnum_list_for_clean.emplace_back(new __VA_ARGS__))
-            for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
-            {
-                if (RegisterUsingState::FREE == assigned_r_register_list[i])
-                {
-                    assigned_r_register_list[i] = must_release ? RegisterUsingState::BLOCKING : RegisterUsingState::NORMAL;
-                    return WO_NEW_OPNUM(reg(reg::r0 + (uint8_t)i));
-                }
-            }
-            wo_error("cannot get a useable register..");
-            return WO_NEW_OPNUM(reg(reg::cr));
-        }
-        void _complete_using_register_for_ref_value(opnum::opnumbase& completed_reg)
-        {
-            using namespace ast;
-            using namespace opnum;
-            if (auto* reg_ptr = dynamic_cast<opnum::reg*>(&completed_reg);
-                reg_ptr && reg_ptr->id >= opnum::reg::T_REGISTER_COUNT
-                && reg_ptr->id < opnum::reg::T_REGISTER_COUNT + opnum::reg::R_REGISTER_COUNT)
-            {
-                assigned_r_register_list[reg_ptr->id - opnum::reg::T_REGISTER_COUNT] = RegisterUsingState::FREE;
-            }
-        }
-        void _complete_using_all_register_for_ref_value()
-        {
-            for (size_t i = 0; i < opnum::reg::R_REGISTER_COUNT; i++)
-            {
-                if (assigned_r_register_list[i] != RegisterUsingState::BLOCKING)
-                    assigned_r_register_list[i] = RegisterUsingState::FREE;
+                if (assigned_tr_register_list[i] != RegisterUsingState::BLOCKING)
+                    assigned_tr_register_list[i] = RegisterUsingState::FREE;
             }
         }
 
         opnum::opnumbase& complete_using_register(opnum::opnumbase& completed_reg)
         {
             _complete_using_register_for_pure_value(completed_reg);
-            _complete_using_register_for_ref_value(completed_reg);
 
             return completed_reg;
         }
@@ -1799,7 +1762,6 @@ namespace wo
         void complete_using_all_register()
         {
             _complete_using_all_register_for_pure_value();
-            _complete_using_all_register_for_ref_value();
         }
 
         bool is_reg(opnum::opnumbase& op_num)
@@ -1924,7 +1886,7 @@ namespace wo
                         }
                         else
                         {
-                            auto& lds_aim = get_useable_register_for_ref_value();
+                            auto& lds_aim = get_useable_register_for_pure_value();
                             compiler->lds(lds_aim, imm(-(int16_t)stackoffset));
                             return &lds_aim;
                         }
@@ -2373,7 +2335,7 @@ namespace wo
                 if (get_pure_value)
                 {
                     auto& treg = get_useable_register_for_pure_value();
-                    compiler->mov(treg, *_store_value);
+                    compiler->mov(treg, complete_using_register(*_store_value));
                     return treg;
                 }
                 else
@@ -2406,7 +2368,7 @@ namespace wo
                     // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
                     auto& treg = get_useable_register_for_pure_value();
                     compiler->lmov(treg,
-                        analyze_value(a_value_type_cast->_be_cast_value_node, compiler));
+                        complete_using_register(analyze_value(a_value_type_cast->_be_cast_value_node, compiler)));
                     return treg;
                 }
 
@@ -2418,7 +2380,7 @@ namespace wo
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->movcast(treg,
-                    analyze_value(a_value_type_cast->_be_cast_value_node, compiler),
+                    complete_using_register(analyze_value(a_value_type_cast->_be_cast_value_node, compiler)),
                     a_value_type_cast->aim_type->value_type);
                 return treg;
 
@@ -2464,7 +2426,7 @@ namespace wo
                         auto& result = analyze_value(a_value_type_check->_be_check_value_node, compiler);
 
                         wo_assert(!a_value_type_check->aim_type->is_pending());
-                        compiler->typeis(result, a_value_type_check->aim_type->value_type);
+                        compiler->typeis(complete_using_register(result), a_value_type_check->aim_type->value_type);
 
                         if (get_pure_value)
                         {
@@ -2610,6 +2572,7 @@ namespace wo
                             compiler->ext_unpackargs(packing,
                                 a_fakevalue_unpacked_args->expand_count);
                         }
+                        complete_using_register(packing);
                     }
                     else
                     {
@@ -2935,7 +2898,7 @@ namespace wo
                     wo_assert(a_value_index->struct_offset != 0xFFFF);
                     auto* _beoped_left_opnum = &analyze_value(a_value_index->from, compiler);
 
-                    compiler->idstruct(reg(reg::cr), *_beoped_left_opnum, a_value_index->struct_offset);
+                    compiler->idstruct(reg(reg::cr), complete_using_register(*_beoped_left_opnum), a_value_index->struct_offset);
                 }
                 else
                 {
@@ -3035,7 +2998,7 @@ namespace wo
                     }
                     else
                     {
-                        auto& result = get_useable_register_for_ref_value();
+                        auto& result = get_useable_register_for_pure_value();
                         compiler->lds(result, imm(_cv.integer + capture_count + 2
                             + function_arg_count));
                         return result;
@@ -3047,7 +3010,7 @@ namespace wo
                     compiler->addi(index, imm(2
                         + capture_count + function_arg_count));
                     complete_using_register(index);
-                    auto& result = get_useable_register_for_ref_value();
+                    auto& result = get_useable_register_for_pure_value();
                     compiler->lds(result, index);
                     return result;
                 }
@@ -3136,7 +3099,7 @@ namespace wo
 
                 for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
                 {
-                    compiler->psh(analyze_value(index->second, compiler));
+                    compiler->psh(complete_using_register(analyze_value(index->second, compiler)));
                 }
 
                 auto& result = get_useable_register_for_pure_value();
@@ -3157,9 +3120,7 @@ namespace wo
                     tuple_elems = tuple_elems->sibling;
                 }
                 for (auto val : arr_list)
-                {
-                    compiler->psh(analyze_value(val, compiler));
-                }
+                    compiler->psh(complete_using_register(analyze_value(val, compiler)));
 
                 auto& result = get_useable_register_for_pure_value();
                 compiler->mkstruct(result, (uint16_t)arr_list.size());
@@ -3180,12 +3141,12 @@ namespace wo
                     auto trib_expr_else = "trib_expr_else" + compiler->get_unique_tag_based_command_ip();
                     auto trib_expr_end = "trib_expr_end" + compiler->get_unique_tag_based_command_ip();
 
-                    mov_value_to_cr(analyze_value(a_value_trib_expr->judge_expr, compiler, false), compiler);
+                    mov_value_to_cr(complete_using_register(analyze_value(a_value_trib_expr->judge_expr, compiler, false)), compiler);
                     compiler->jf(tag(trib_expr_else));
-                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_if_true, compiler, false), compiler);
+                    mov_value_to_cr(complete_using_register(analyze_value(a_value_trib_expr->val_if_true, compiler, false)), compiler);
                     compiler->jmp(tag(trib_expr_end));
                     compiler->tag(trib_expr_else);
-                    mov_value_to_cr(analyze_value(a_value_trib_expr->val_or, compiler, false), compiler);
+                    mov_value_to_cr(complete_using_register(analyze_value(a_value_trib_expr->val_or, compiler, false)), compiler);
                     compiler->tag(trib_expr_end);
 
                     return WO_NEW_OPNUM(reg(reg::cr));
@@ -3563,7 +3524,7 @@ namespace wo
 
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
-                        auto& valreg = get_useable_register_for_ref_value();
+                        auto& valreg = get_useable_register_for_pure_value();
                         compiler->idstruct(valreg, reg(reg::pm), 1);
 
                         wo_assert(a_match_union_case->take_place_value_may_nil);
