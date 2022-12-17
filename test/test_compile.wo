@@ -36,6 +36,21 @@ namespace test_compile
         
         // Bad constant
         assure_compile_fail(@"
+        let a = 1eee;
+        "@);
+        assure_compile_fail(@"
+        let a = 1.5e6.2;
+        "@);
+        assure_compile_fail(@"
+        let a = 7.555e++5;
+        "@);
+        assure_compile_fail(@"
+        let a = 7.555e-+5;
+        "@);
+        assure_compile_fail(@"
+        let a = 7.555e+-5;
+        "@);
+        assure_compile_fail(@"
         let a = '';
         "@);
         assure_compile_fail(@"
