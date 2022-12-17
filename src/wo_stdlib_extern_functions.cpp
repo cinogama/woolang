@@ -2749,7 +2749,6 @@ namespace std
         l_right_curly_braces,   // }
         l_question,   // ?
         l_import,               // import
-        l_inf,
         l_nil,
         l_while,
         l_if,

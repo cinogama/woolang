@@ -1258,7 +1258,7 @@ namespace wo
             }
             static wo_real_t wstr_to_real(const std::wstring& str)
             {
-                return std::stod(str);
+                return (wo_real_t)std::stold(str);
             }
 
             ast_value_literal()
@@ -1293,9 +1293,6 @@ namespace wo
                     break;
                 case lex_type::l_nil:
                     constant_value.set_nil();
-                    break;
-                case lex_type::l_inf:
-                    constant_value.set_real(INFINITY);
                     break;
                 default:
                     wo_error("Unexcepted literal type.");

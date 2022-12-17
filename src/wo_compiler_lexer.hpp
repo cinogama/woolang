@@ -78,7 +78,6 @@ namespace wo
         l_right_curly_braces,   // }
         l_question,   // ?
         l_import,               // import
-        l_inf,
         l_nil,
         l_while,
         l_if,
@@ -225,7 +224,6 @@ namespace wo
         inline const static std::map<std::wstring, lex_keyword_info> key_word_list =
         {
             {L"import", {lex_type::l_import}},
-            {L"inf", {lex_type::l_inf}},
             {L"nil", {lex_type::l_nil}},
             {L"while", {lex_type::l_while}},
             {L"for", {lex_type::l_for}},
