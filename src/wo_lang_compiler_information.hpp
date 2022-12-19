@@ -248,6 +248,8 @@
 
 #define WO_ERR_INVALID_GADT_CONFLICT L"发现了冲突的union项类型"
 
+#define WO_ERR_USING_UNSAFE_NAMESPACE L"不允许使用包含 'unsafe' 的命名空间"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -484,5 +486,7 @@
 #define WO_ERR_INVALID_KEY_EXPR L"Invalid key expr found."
 
 #define WO_ERR_INVALID_GADT_CONFLICT L"Conflict type of union item."
+
+#define WO_ERR_USING_UNSAFE_NAMESPACE L"Using a namespace containing 'unsafe' is not allowed."
 
 #endif

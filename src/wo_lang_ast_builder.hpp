@@ -4726,8 +4726,15 @@ namespace wo
 
                 aunames->from_global_namespace = vs->search_from_global_namespace;
 
+                if (vs->var_name == WO_PSTR(unsafe))
+                    return lex.lang_error(0x0000, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
+
                 for (auto& space : vs->scope_namespaces)
+                {
+                    if (space == WO_PSTR(unsafe))
+                        return lex.lang_error(0x0000, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
                     aunames->used_namespace_chain.push_back(space);
+                }
                 aunames->used_namespace_chain.push_back(vs->var_name);
 
                 return (grammar::ast_base*)aunames;
