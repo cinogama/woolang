@@ -129,6 +129,11 @@ func main()
         assure_compile_fail(@"import woo.std; alias List<T> = option<(T, List<T>)>; 
                               let m = option::none: List<string>;"@); // Not crash!
 
+        assure_compile_success(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i = i: string;};"@);
+        assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i, x = i: string;};"@);
+        assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i = i: real;};"@);
+        assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \ = "";};"@);
+
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
         assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);

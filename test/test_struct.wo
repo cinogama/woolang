@@ -18,8 +18,14 @@ namespace test_struct
         mut a : int,
         mut b: bool,
     };
+    using autojudge = struct {
+        f: (int)=>string,
+    };
     func main()
     {
+        let j = autojudge{f = \i=i:string;};
+        test_equal(j.f(233666), "233666");
+
         func foo()
         {
             return 233;

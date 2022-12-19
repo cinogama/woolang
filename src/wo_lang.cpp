@@ -1917,6 +1917,10 @@ else if (ast_value_check->aim_type->is_pending())
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
+                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, 
+                            fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
+                            membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
+
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF

@@ -1270,10 +1270,10 @@ namespace wo
 
         using judge_result_t = std::variant<ast::ast_type*, ast::ast_value_function_define*>;
 
-        std::optional<judge_result_t> judge_auto_type_of_funcdef_in_funccall(
+        std::optional<judge_result_t> judge_auto_type_of_funcdef_with_type(
+            grammar::ast_base* errreport,
             ast::ast_type* param,
             ast::ast_value* callaim,
-            ast::ast_value_funccall* funccall,
             bool update,
             ast::ast_defines* template_defines,
             const std::vector<ast::ast_type*>* template_args)
@@ -1315,7 +1315,7 @@ namespace wo
                 // Auto judge here...
                 if (update)
                 {
-                    if (!(template_defines && template_args) || begin_template_scope(funccall, template_defines, *template_args))
+                    if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
                     {
                         auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
                         if (template_defines && template_args)
@@ -1331,7 +1331,7 @@ namespace wo
                 }
                 else
                 {
-                    if (begin_template_scope(funccall, function_define, arg_func_template_args))
+                    if (begin_template_scope(errreport, function_define, arg_func_template_args))
                     {
                         fully_update_type(new_type, false);
                         end_template_scope();
@@ -1364,9 +1364,10 @@ namespace wo
 
             for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
             {
-                judge_result[i] = judge_auto_type_of_funcdef_in_funccall(
+                judge_result[i] = judge_auto_type_of_funcdef_with_type(
+                    funccall, // Used for report error.
                     funccall->called_func->value_type->argument_types[i],
-                    args[i], funccall, update, template_defines, template_args);
+                    args[i], update, template_defines, template_args);
                 if (judge_result[i].has_value())
                 {
                     if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result[i].value()))
