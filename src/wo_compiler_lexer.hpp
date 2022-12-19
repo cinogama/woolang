@@ -1125,9 +1125,6 @@ namespace wo
                 bool is_real = false;
                 bool is_handle = false;
 
-                bool is_scinit = false;
-                bool is_able_to_be_signed = false;
-
                 // is digit, return l_literal_integer/l_literal_handle/l_literal_real
                 if (readed_ch == L'0')
                 {
@@ -1161,31 +1158,7 @@ namespace wo
                     if (base == 10)
                     {
                         if (lex_isdigit(following_chs))
-                        {
                             write_result(next_one());
-                            if (is_scinit && is_able_to_be_signed)
-                                is_able_to_be_signed = false;
-                        }
-                        else if (following_chs == L'e' || following_chs == L'E')
-                        {
-                            write_result(next_one());
-                            if (is_scinit)
-                                return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
-                            is_scinit = true;
-                            is_real = true;
-                            is_able_to_be_signed = true;
-                        }
-                        else if (following_chs == L'+' || following_chs == L'-')
-                        {
-                            if (!is_scinit)
-                                break;
-
-                            if (!is_able_to_be_signed)
-                                return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
-
-                            write_result(next_one());
-                            is_able_to_be_signed = false;
-                        }
                         else if (following_chs == L'.')
                         {
                             write_result(next_one());
