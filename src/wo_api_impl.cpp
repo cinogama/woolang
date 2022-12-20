@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 12);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 12) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 13);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 13) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
