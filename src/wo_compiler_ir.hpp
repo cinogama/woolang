@@ -862,7 +862,7 @@ namespace wo
                 if (library_name == "")
                     func = rslib_extern_symbols::get_global_symbol(function_name.c_str());
                 else
-                    func = result->loaded_libs.try_load_func_from_in(library_name.c_str(), library_name.c_str(), function_name.c_str());
+                    func = result->loaded_libs.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
 
                 wo_assert(func != nullptr);
 
