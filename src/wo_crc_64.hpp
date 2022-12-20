@@ -146,9 +146,8 @@ namespace wo
         return _crc_64(byte, lastcrc);
     }
 
-    inline uint64_t crc_64(const char* str)
+    inline uint64_t crc_64(const char* str, uint64_t crc)
     {
-        uint64_t crc = 0;
         while (*str)
         {
             crc = _crc_64((uint8_t)*str, crc);
@@ -157,9 +156,8 @@ namespace wo
 
         return crc;
     }
-    inline uint64_t crc_64(const wchar_t* str)
+    inline uint64_t crc_64(const wchar_t* str, uint64_t crc)
     {
-        uint64_t crc = 0;
         while (*str)
         {
             for (size_t i = 0; i < sizeof(wchar_t) / sizeof(char); ++i)
@@ -169,9 +167,8 @@ namespace wo
 
         return crc;
     }
-    inline uint64_t crc_64(std::ifstream& fle)
+    inline uint64_t crc_64(std::ifstream& fle, uint64_t crc)
     {
-        uint64_t crc = 0;
         int ch = EOF;
         do
         {

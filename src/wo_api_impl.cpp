@@ -2688,7 +2688,7 @@ wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc)
 }
 wo_integer_t wo_crc64_str(wo_string_t text)
 {
-    return (wo_integer_t)wo::crc_64(text);
+    return (wo_integer_t)wo::crc_64(text, 0);
 }
 wo_integer_t wo_crc64_file(wo_string_t filepath)
 {
@@ -2697,5 +2697,27 @@ wo_integer_t wo_crc64_file(wo_string_t filepath)
         // Failed to open file, return 0; ?
         return 0;
 
-    return (wo_integer_t)wo::crc_64(file);
+    return (wo_integer_t)wo::crc_64(file, 0);
+}
+
+#include<filesystem>
+
+wo_integer_t wo_crc64_dir(wo_string_t dirpath)
+{
+    std::error_code ec;
+    std::filesystem::recursive_directory_iterator di(dirpath, ec);
+    if (ec)
+        return 0;
+
+    uint64_t crc = 0;
+
+    while (di != std::filesystem::recursive_directory_iterator())
+    {
+        crc = wo::crc_64(di->path().string().c_str(), crc);
+        std::ifstream file(di->path(), std::ios_base::in | std::ios_base::binary);
+        if (file.is_open())
+            crc = wo::crc_64(file, crc);
+        ++di;
+    }
+    return (wo_integer_t)crc;
 }

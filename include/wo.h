@@ -349,6 +349,7 @@ WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);
 WO_API wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc);
 WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
+WO_API wo_integer_t wo_crc64_dir(wo_string_t dirpath);
 
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1

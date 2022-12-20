@@ -3946,7 +3946,7 @@ namespace wo
                 }
                 
                 if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path))
-                    && !lex.has_been_imported(wo::crc_64(srcfile.c_str())))
+                    && !lex.has_been_imported(wo::crc_64(srcfile.c_str(), 0)))
                 {
                     lexer new_lex(srcfile, wstr_to_str(src_full_path));
                     new_lex.imported_file_list = lex.imported_file_list;

@@ -4,7 +4,7 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0x72bbf90937709371ull
+#define WO_LANG_GRAMMAR_CRC64 0x5fedf20d614eefbaull
 
 
 namespace wo

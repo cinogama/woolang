@@ -38,7 +38,7 @@ namespace wo
 #endif // WO_LANG_GRAMMAR_LR1_AUTO_GENED
 
         }
-        wo_lang_grammar_crc64 = crc_64(this_grammar_file);
+        wo_lang_grammar_crc64 = crc_64(this_grammar_file, 0);
 
 #if defined(WO_LANG_GRAMMAR_LR1_AUTO_GENED) && !WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE
 
