@@ -3658,9 +3658,6 @@ namespace wo
                         + temp_reg_to_stack_count;
 
                     compiler->reserved_stackvalue(res_ip, (uint16_t)reserved_stack_size); // set reserved size
-
-                    compiler->pdb_info->generate_debug_info_at_funcend(funcdef, compiler);
-
                     compiler->tag(funcdef->get_ir_func_signature_tag() + "_do_ret");
 
                     wo_assert(funcdef->value_type->is_func() && funcdef->value_type->complex_type != nullptr);

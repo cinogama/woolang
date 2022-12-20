@@ -613,6 +613,9 @@ namespace wo
         size_t after_pick_next_file_rowno;
         size_t after_pick_next_file_colno;
 
+        size_t this_time_peek_from_rowno;
+        size_t this_time_peek_from_colno;
+
         lex_type peek(std::wstring* out_literal)
         {
             // Will store next_reading_index / file_rowno/file_colno
@@ -825,6 +828,9 @@ namespace wo
         re_try_read_next_one:
 
             int readed_ch = next_one();
+
+            this_time_peek_from_rowno = now_file_rowno;
+            this_time_peek_from_colno = now_file_colno;
 
             if (lex_isspace(readed_ch))
                 goto re_try_read_next_one;

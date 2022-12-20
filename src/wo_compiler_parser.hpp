@@ -1581,7 +1581,7 @@ namespace wo
                         }
                         else
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.next_file_rowno, tkr.next_file_colno }, token{ type, out_indentifier }));
+                            node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ type, out_indentifier }));
                             sym_stack.push(TERM_MAP.at(type));
                             tkr.next(nullptr);
 
@@ -1651,13 +1651,14 @@ namespace wo
                                         ast_node_->col_end_no = tkr.now_file_colno;
                                         ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
                                         ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
-                                        goto apply_src_info_end;
                                     }
-                                    ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
-                                    ast_node_->col_end_no = tkr.after_pick_next_file_colno;
-                                    ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
-                                    ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
-                                apply_src_info_end:;
+                                    else
+                                    {
+                                        ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
+                                        ast_node_->col_end_no = tkr.after_pick_next_file_colno;
+                                        ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
+                                        ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
+                                    }
                                 }
                                 ast_node_->source_file = tkr.source_file;
                             }

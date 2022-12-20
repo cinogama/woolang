@@ -824,7 +824,7 @@ namespace wo
             if (src_location_info)
             {
                 os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
             }
             else
                 os << call_trace_count << ": " << (void*)ip << std::endl;
@@ -846,7 +846,7 @@ namespace wo
 
                         os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
                             env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
-                        os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->row_no << ", " << src_location_info->col_no << ")" << std::endl;
+                        os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
                     }
                     else
                         os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->ret_ip) << std::endl;

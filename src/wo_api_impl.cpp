@@ -1855,7 +1855,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += L" ";
                 for (; i < pointplace; i++)
                     append_result += L"~";
-                append_result += L"\\ HERE";
+                append_result += L"~\\ HERE";
             }
             else if (current_row_no == beginaimrow)
             {
@@ -1874,7 +1874,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             {
                 for (size_t i = 1; i < pointplace; i++)
                     append_result += L"~";
-                append_result += L"\\ HERE";
+                append_result += L"~\\ HERE";
             }
             else
             {

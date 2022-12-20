@@ -395,7 +395,7 @@ stepir          si                            Execute next command.
                             ->get_src_location_by_runtime_ip(vmm->ip);
 
                         breakdown_temp_for_step = true;
-                        breakdown_temp_for_step_lineno = loc.row_no;
+                        breakdown_temp_for_step_lineno = loc.begin_row_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -413,7 +413,7 @@ stepir          si                            Execute next command.
 
                         breakdown_temp_for_next = true;
                         breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
-                        breakdown_temp_for_step_lineno = loc.row_no;
+                        breakdown_temp_for_step_lineno = loc.begin_row_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -472,14 +472,14 @@ stepir          si                            Execute next command.
                         std::string filename;
                         size_t display_range = 5;
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                        size_t display_rowno = loc.row_no;
+                        size_t display_rowno = loc.begin_row_no;
                         if (need_possiable_input(inputbuf, filename))
                         {
                             for (auto ch : filename)
                             {
                                 if (!lexer::lex_isdigit(ch))
                                 {
-                                    print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.row_no : 0));
+                                    print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.begin_row_no : 0));
                                     goto need_next_command;
                                 }
                             }
@@ -508,7 +508,7 @@ stepir          si                            Execute next command.
                                     auto& file_loc =
                                         _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
                                             _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                                    wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.row_no << "," << file_loc.col_no << ")" << wo_endl;;
+                                    wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.begin_row_no << "," << file_loc.begin_col_no << ")" << wo_endl;;
                                 }
                             }
                         }
@@ -741,11 +741,11 @@ stepir          si                            Execute next command.
 
                 if (breakdown_temp_for_stepir
                     || (breakdown_temp_for_step
-                        && (loc->row_no != breakdown_temp_for_step_lineno
+                        && (loc->begin_row_no != breakdown_temp_for_step_lineno
                             || loc->source_file != breakdown_temp_for_step_srcfile))
                     || (breakdown_temp_for_next
                         && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                        && (loc->row_no != breakdown_temp_for_step_lineno
+                        && (loc->begin_row_no != breakdown_temp_for_step_lineno
                             || loc->source_file != breakdown_temp_for_step_srcfile))
                     || (breakdown_temp_for_return
                         && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
@@ -759,7 +759,7 @@ stepir          si                            Execute next command.
                     breakdown_temp_for_return = false;
 
                     printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
-                        wstr_to_str(loc->source_file).c_str(), loc->row_no, loc->col_no,
+                        wstr_to_str(loc->source_file).c_str(), loc->begin_row_no, loc->begin_col_no,
                         vmm->env->program_debug_info == nullptr ?
                         "__unknown_func_without_pdb_" :
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()

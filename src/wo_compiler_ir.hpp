@@ -288,8 +288,11 @@ namespace wo
     {
         struct location
         {
-            size_t      row_no;
-            size_t      col_no;
+            size_t      ip;
+            size_t      begin_row_no;
+            size_t      begin_col_no;
+            size_t      end_row_no;
+            size_t      end_col_no;
             std::wstring source_file = L"not_found";
         };
         struct function_symbol_infor
@@ -319,7 +322,7 @@ namespace wo
             }
         };
 
-        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::map<size_t, std::map<size_t, size_t>>>;
+        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::vector<location>>;
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
@@ -328,12 +331,11 @@ namespace wo
         ip_src_location_info_t          _general_src_data_buf_b;
         function_signature_ip_info_t    _function_ip_data_buf;
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
+
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
         // for lang
-        void generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
-        void generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
         void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 
