@@ -4,6 +4,8 @@
 #include <string>
 #include <locale.h>
 
+#include <sstream>
+
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);

@@ -625,7 +625,7 @@ stepir          si                            Execute next command.
         void print_src_file(const std::string& filepath, size_t highlight = 0, size_t from = 0, size_t to = SIZE_MAX)
         {
             std::wstring srcfile, src_full_path;
-            if (!wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath)))
+            if (!wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), nullptr))
                 printf(ANSI_HIR "Cannot open source: '%s'.\n" ANSI_RST, filepath.c_str());
             else
             {

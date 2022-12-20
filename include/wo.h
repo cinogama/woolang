@@ -224,6 +224,7 @@ WO_API wo_bool_t    wo_set_work_path(wo_string_t path);
 WO_API wo_bool_t    wo_equal_byte(wo_value a, wo_value b);
 
 WO_API void         wo_enable_jit(wo_bool_t option);
+WO_API wo_bool_t    wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify);
 WO_API wo_bool_t    wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify);
 WO_API wo_vm        wo_create_vm();
 WO_API wo_vm        wo_sub_vm(wo_vm vm, size_t stacksz);
@@ -240,6 +241,11 @@ WO_API wo_bool_t    wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_st
 WO_API wo_bool_t    wo_load_file(wo_vm vm, wo_string_t virtual_src_path);
 WO_API wo_bool_t    wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz);
 WO_API wo_bool_t    wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, size_t stacksz);
+WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length, size_t stacksz);
+WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
+
+WO_API void*        wo_dump_binary(wo_vm vm, size_t * out_length);
+WO_API void         wo_free_binary(void* buffer);
 
 WO_API wo_value     wo_run(wo_vm vm);
 
