@@ -5,70 +5,28 @@
 
 namespace wo
 {
-    void program_debug_data_info::generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
-    {
-        if (ast_func->argument_list->source_file)
-        {
-            auto& row_buff = _general_src_data_buf_a[*ast_func->argument_list->source_file][ast_func->argument_list->row_end_no];
-            if (row_buff.find(ast_func->argument_list->col_end_no) == row_buff.end())
-                row_buff[ast_func->argument_list->col_end_no] = SIZE_MAX;
-
-            auto& old_ip = row_buff[ast_func->argument_list->col_end_no];
-            if (compiler->get_now_ip() < old_ip)
-                old_ip = compiler->get_now_ip();
-        }
-    }
-    void program_debug_data_info::generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler)
-    {
-        if (ast_func->source_file)
-        {
-            auto& row_buff = _general_src_data_buf_a[*ast_func->source_file][ast_func->row_end_no];
-            if (row_buff.find(ast_func->col_end_no) == row_buff.end())
-                row_buff[ast_func->col_end_no] = SIZE_MAX;
-
-            auto& old_ip = row_buff[ast_func->col_end_no];
-            if (compiler->get_now_ip() < old_ip)
-                old_ip = compiler->get_now_ip();
-        }
-    }
     void program_debug_data_info::generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler)
     {
         // funcdef should not genrate val..
-        if (dynamic_cast<ast::ast_value_function_define*>(ast_node)
-            || dynamic_cast<ast::ast_list*>(ast_node)
-            || dynamic_cast<ast::ast_namespace*>(ast_node)
-            || dynamic_cast<ast::ast_sentence_block*>(ast_node)
-            || dynamic_cast<ast::ast_if*>(ast_node)
-            || dynamic_cast<ast::ast_while*>(ast_node)
-            || dynamic_cast<ast::ast_forloop*>(ast_node)
-            || dynamic_cast<ast::ast_foreach*>(ast_node)
-            || dynamic_cast<ast::ast_match*>(ast_node))
-            return;
-
         if (ast_node->source_file)
         {
-            auto& row_buff = _general_src_data_buf_a[*ast_node->source_file][ast_node->row_end_no];
-            if (row_buff.find(ast_node->col_end_no) == row_buff.end())
-                row_buff[ast_node->col_end_no] = SIZE_MAX;
+            auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_file];
 
-            auto& old_ip = row_buff[ast_node->col_end_no];
-            if (compiler->get_now_ip() < old_ip)
-                old_ip = compiler->get_now_ip();
+            location loc = {
+                compiler->get_now_ip(),
+                ast_node->row_begin_no,
+                ast_node->col_begin_no,
+                ast_node->row_end_no,
+                ast_node->col_end_no,
+                *ast_node->source_file,
+            };
+
+            location_list_of_file.push_back(loc);
+            _general_src_data_buf_b[compiler->get_now_ip()] = loc;
         }
     }
     void program_debug_data_info::finalize_generate_debug_info()
     {
-        for (auto& [filename, rowbuf] : _general_src_data_buf_a)
-        {
-            for (auto& [rowno, colbuf] : rowbuf)
-            {
-                for (auto& [colno, ipxx] : colbuf)
-                {
-                    // if (_general_src_data_buf_b.find(ipxx) == _general_src_data_buf_b.end())
-                    _general_src_data_buf_b[ipxx] = location{ rowno , colno ,filename };
-                }
-            }
-        }
     }
     const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(const byte_t* rt_pos) const
     {
@@ -118,27 +76,23 @@ namespace wo
             return FAIL_INDEX;
 
         size_t result = FAIL_INDEX;
-        for (auto& [rowid, linebuf] : fnd->second)
+        for (auto& locinfo : fnd->second)
         {
             if (strict)
             {
-                if (rowid == rowno)
+                if (locinfo.begin_row_no == rowno)
                 {
-                    for (auto [colno, ip] : linebuf)
-                        if (ip < result)
-                            result = ip;
-                    return result;
+                    if (locinfo.ip < result)
+                        result = locinfo.ip;
                 }
             }
-            else if (rowid >= rowno)
+            else if (locinfo.begin_row_no >= rowno)
             {
-                for (auto [colno, ip] : linebuf)
-                    if (ip < result)
-                        result = ip;
-                return result;
+                if (locinfo.ip < result)
+                    result = locinfo.ip;
             }
         }
-        return FAIL_INDEX;
+        return result;
     }
     size_t program_debug_data_info::get_ip_by_runtime_ip(const byte_t* rt_pos) const
     {
@@ -176,7 +130,7 @@ namespace wo
     void program_debug_data_info::generate_func_begin(ast::ast_value_function_define* funcdef, ir_compiler* compiler)
     {
         _function_ip_data_buf[funcdef->get_ir_func_signature_tag()].ir_begin = compiler->get_now_ip();
-        generate_debug_info_at_funcbegin(funcdef, compiler);
+        generate_debug_info_at_astnode(funcdef, compiler);
     }
     void program_debug_data_info::generate_func_end(ast::ast_value_function_define* funcdef, size_t tmpreg_count, ir_compiler* compiler)
     {

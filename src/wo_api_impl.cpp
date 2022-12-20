@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 12);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 12) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 7, 13);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 7, 13) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -1529,56 +1529,6 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     return 0;
 }
 
-
-//wo_value wo_set_ret_option_arr(wo_vm vm, wo_int_t count)
-//{
-//    auto* wovm = WO_VM(vm);
-//
-//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-//    wo::gcbase::gc_write_guard gwg1(structptr);
-//
-//    structptr->m_values[0].set_integer(1);
-//
-//    auto* _rsvalue = &structptr->m_values[1];
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
-//
-//    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
-//    return CS_VAL(_rsvalue);
-//}
-//wo_value  wo_set_ret_option_struct(wo_vm vm, uint16_t count)
-//{
-//    auto* wovm = WO_VM(vm);
-//
-//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-//    wo::gcbase::gc_write_guard gwg1(structptr);
-//
-//    structptr->m_values[0].set_integer(1);
-//
-//    auto* _rsvalue = &structptr->m_values[1];
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-//
-//    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
-//    return CS_VAL(_rsvalue);
-//}
-//wo_value  wo_set_ret_option_map(wo_vm vm)
-//{
-//    auto* wovm = WO_VM(vm);
-//
-//    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-//    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
-//    wo::gcbase::gc_write_guard gwg1(structptr);
-//
-//    structptr->m_values[0].set_integer(1);
-//
-//    auto* _rsvalue = &structptr->m_values[1];
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
-//
-//    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
-//    return CS_VAL(_rsvalue);
-//}
-
 void _wo_check_atexit()
 {
     std::shared_lock g1(wo::vmbase::_alive_vm_list_mx);
@@ -1671,9 +1621,14 @@ void wo_enable_jit(wo_bool_t option)
     wo::config::ENABLE_JUST_IN_TIME = option;
 }
 
+wo_bool_t wo_virtual_binary(wo_string_t filepath, const void* data, size_t len, wo_bool_t enable_modify)
+{
+    return wo::create_virtual_binary((const char*)data, len, wo::str_to_wstr(filepath), enable_modify);
+}
+
 wo_bool_t wo_virtual_source(wo_string_t filepath, wo_string_t data, wo_bool_t enable_modify)
 {
-    return wo::create_virtual_source(wo::str_to_wstr(data), wo::str_to_wstr(filepath), enable_modify);
+    return wo_virtual_binary(filepath, data, strlen(data), enable_modify);
 }
 
 wo_vm wo_create_vm()
@@ -1713,14 +1668,39 @@ void wo_release_vm(wo_vm vm)
 std::variant<
     wo::shared_pointer<wo::runtime_env>,
     wo::lexer*
-> _wo_compile_to_nojit_env(wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
+> _wo_compile_to_nojit_env(wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
 {
-    wo::shared_pointer<wo::runtime_env> env_result = nullptr;
+    if (stacksz == 0)
+        stacksz = 1024;
+
+    // 0. Try load binary
+    const char* load_binary_failed_reason = nullptr;
+    bool is_valid_binary = false;
+    wo::shared_pointer<wo::runtime_env> env_result =
+        wo::runtime_env::load_create_env_from_binary(virtual_src_path, src, len, stacksz, &load_binary_failed_reason, &is_valid_binary);
+
+    if (env_result != nullptr)
+    {
+        // Load binary successfully!
+        wo_assert(load_binary_failed_reason == nullptr);
+        return env_result;
+    }
+    else if (is_valid_binary)
+    {
+        // Failed to load binary, maybe broken or version missing.
+        wo_assert(load_binary_failed_reason != nullptr);
+        // Has error, create a fake lexer to store error reason.
+
+        wo::lexer* lex = new wo::lexer(L"", virtual_src_path);
+        lex->lex_error(0x0000, wo_str_to_wstr(load_binary_failed_reason));
+
+        return lex;
+    }
 
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
-    if (src)
-        lex = new wo::lexer(wo::str_to_wstr(src), virtual_src_path);
+    if (src != nullptr)
+        lex = new wo::lexer(wo::str_to_wstr((const char*)src), virtual_src_path);
     else
         lex = new wo::lexer(virtual_src_path);
 
@@ -1770,16 +1750,13 @@ std::variant<
         return lex;
 }
 
-wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
+wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
 {
     wo::start_string_pool_guard sg;
 
-    auto&& env_or_lex = _wo_compile_to_nojit_env(virtual_src_path, src, stacksz);
+    auto&& env_or_lex = _wo_compile_to_nojit_env(virtual_src_path, src, len, stacksz);
     if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
     {
-        //auto &[bin, size] = (*env_p)->create_env_binary();
-        //auto env = wo::runtime_env::load_create_env_from_binary(bin, size, 16384);
-
         auto& env = *env_p;
 
         // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
@@ -1801,6 +1778,32 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t sr
     }
 }
 
+wo_bool_t wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length, size_t stacksz)
+{
+    if (virtual_src_path == nullptr)
+        virtual_src_path = "__runtime_script__";
+
+    wo_virtual_binary(virtual_src_path, buffer, length, true);
+
+    return _wo_load_source(vm, virtual_src_path, buffer, length, stacksz);
+}
+
+wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length)
+{
+    return wo_load_binary_with_stacksz(vm, virtual_src_path, buffer, length, 0);
+}
+
+void* wo_dump_binary(wo_vm vm, size_t* out_length)
+{
+    auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary();
+    *out_length = bufsz;
+    return bufptr;
+}
+void wo_free_binary(void* buffer)
+{
+    wo::free64(buffer);
+}
+
 wo_bool_t wo_has_compile_error(wo_vm vm)
 {
     if (vm && WO_VM(vm)->compile_info && WO_VM(vm)->compile_info->has_error())
@@ -1811,7 +1814,7 @@ wo_bool_t wo_has_compile_error(wo_vm vm)
 std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t beginpointplace, size_t aimrow, size_t pointplace, _wo_inform_style style)
 {
     std::wstring srcfile, src_full_path, result;
-    if (wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path)))
+    if (wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(path), nullptr))
     {
         constexpr size_t UP_DOWN_SHOWN_LINE = 2;
         size_t current_row_no = 1;
@@ -1855,7 +1858,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
                     append_result += L" ";
                 for (; i < pointplace; i++)
                     append_result += L"~";
-                append_result += L"\\ HERE";
+                append_result += L"~\\ HERE";
             }
             else if (current_row_no == beginaimrow)
             {
@@ -1874,7 +1877,7 @@ std::wstring _dump_src_info(const std::string& path, size_t beginaimrow, size_t 
             {
                 for (size_t i = 1; i < pointplace; i++)
                     append_result += L"~";
-                append_result += L"\\ HERE";
+                append_result += L"~\\ HERE";
             }
             else
             {
@@ -2131,17 +2134,12 @@ wo_result_t wo_ret_yield(wo_vm vm)
 
 wo_bool_t wo_load_source_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src, size_t stacksz)
 {
-    if (!virtual_src_path)
-        virtual_src_path = "__runtime_script__";
-
-    wo_virtual_source(virtual_src_path, src, true);
-
-    return _wo_load_source(vm, virtual_src_path, src, stacksz);
+    return wo_load_binary_with_stacksz(vm, virtual_src_path, src, strlen(src), stacksz);
 }
 
 wo_bool_t wo_load_file_with_stacksz(wo_vm vm, wo_string_t virtual_src_path, size_t stacksz)
 {
-    return _wo_load_source(vm, virtual_src_path, nullptr, stacksz);
+    return _wo_load_source(vm, virtual_src_path, nullptr, 0, stacksz);
 }
 
 wo_bool_t wo_load_source(wo_vm vm, wo_string_t virtual_src_path, wo_string_t src)

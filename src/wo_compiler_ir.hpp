@@ -288,8 +288,11 @@ namespace wo
     {
         struct location
         {
-            size_t      row_no;
-            size_t      col_no;
+            size_t      ip;
+            size_t      begin_row_no;
+            size_t      begin_col_no;
+            size_t      end_row_no;
+            size_t      end_col_no;
             std::wstring source_file = L"not_found";
         };
         struct function_symbol_infor
@@ -319,7 +322,7 @@ namespace wo
             }
         };
 
-        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::map<size_t, std::map<size_t, size_t>>>;
+        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::vector<location>>;
         using ip_src_location_info_t = std::map<size_t, location>;
         using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
@@ -328,12 +331,11 @@ namespace wo
         ip_src_location_info_t          _general_src_data_buf_b;
         function_signature_ip_info_t    _function_ip_data_buf;
         runtime_ip_compile_ip_info_t    pdd_rt_code_byte_offset_to_ir;
+
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
         // for lang
-        void generate_debug_info_at_funcbegin(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
-        void generate_debug_info_at_funcend(ast::ast_value_function_define* ast_func, ir_compiler* compiler);
         void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();
 
@@ -609,35 +611,42 @@ namespace wo
             return std::make_tuple(finalbinary, binary_buffer.size());
         }
 
-        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount)
+        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary)
         {
+            *out_is_binary = true;
+
+#define WO_LOAD_BIN_FAILED(reason) do{*out_reason = "Magic number failed."; return nullptr;}while(0)
             // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
             uint32_t magic_number;
             if (!stream->read_elem(&magic_number) || magic_number != (uint32_t)0x3001A26B)
-                printf(ANSI_HIR "Magic number failed." ANSI_RST);
+            {
+                *out_is_binary = false;
+                WO_LOAD_BIN_FAILED("Magic number failed.");
+            }
+
             stream->read_elem(&magic_number); // padding 4 byte.
 
             // 1.2 (+8) Version info
             uint64_t version_infrom;
             if (!stream->read_elem(&version_infrom) || version_infrom != (uint64_t)wo_version_int())
-                printf(ANSI_HIR "Woolang version missmatch." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Woolang version missmatch.");
 
             // 1.3 (+16) Source CRC64(TODO)
 
             // 2.1 (+16 + 2N * 8) Global space size * sizeof(Value)
             uint64_t global_value_count;
             if (!stream->read_elem(&global_value_count))
-                printf(ANSI_HIR "Failed to restore global value count." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore global value count.");
 
             // 2.2 Default register size
             uint64_t register_count;
             if (!stream->read_elem(&register_count))
-                printf(ANSI_HIR "Failed to restore register count." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore register count.");
 
             // 2.3 Constant data
             uint64_t constant_value_count;
             if (!stream->read_elem(&constant_value_count))
-                printf(ANSI_HIR "Failed to restore constant count." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore constant count.");
 
             shared_pointer<runtime_env> result = new runtime_env;
 
@@ -676,14 +685,14 @@ namespace wo
             {
                 uint64_t constant_type_scope, constant_value_scope;
                 if (!stream->read_elem(&constant_type_scope))
-                    printf(ANSI_HIR "Failed to restore constant type." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore constant type.");
 
                 preserved_memory[ci].type_space = constant_type_scope;
                 if (preserved_memory[ci].type == wo::value::valuetype::string_type)
                 {
                     uint32_t constant_string_pool_loc, constant_string_pool_size;
                     if (!stream->read_elem(&constant_string_pool_loc) || !stream->read_elem(&constant_string_pool_size))
-                        printf(ANSI_HIR "Failed to restore constant string." ANSI_RST);
+                        WO_LOAD_BIN_FAILED("Failed to restore constant string.");
 
                     auto& loc = constant_string_index_for_update[ci];
                     loc.index = constant_string_pool_loc;
@@ -692,7 +701,7 @@ namespace wo
                 else
                 {
                     if (!stream->read_elem(&constant_value_scope))
-                        printf(ANSI_HIR "Failed to restore constant value." ANSI_RST);
+                        WO_LOAD_BIN_FAILED("Failed to restore constant value.");
                     preserved_memory[ci].value_space = constant_value_scope;
                 }
             }
@@ -701,7 +710,7 @@ namespace wo
             //  3.1.1 Code data length
             uint64_t rt_code_with_padding_length;
             if (!stream->read_elem(&rt_code_with_padding_length))
-                printf(ANSI_HIR "Failed to restore code length." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore code length.");
 
             byte_t* code_buf = (byte_t*)alloc64(rt_code_with_padding_length * sizeof(byte_t));
             result->rt_codes = code_buf;
@@ -710,7 +719,7 @@ namespace wo
             wo_assert(code_buf != nullptr);
 
             if (!stream->read_buffer(code_buf, rt_code_with_padding_length * sizeof(byte_t)))
-                printf(ANSI_HIR "Failed to restore code." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore code.");
 
             struct extern_native_function
             {
@@ -727,7 +736,7 @@ namespace wo
             //  4.1.1 Extern function libname & symbname & used constant offset / code offset
             uint64_t extern_native_function_count;
             if (!stream->read_elem(&extern_native_function_count))
-                printf(ANSI_HIR "Failed to restore extern native function count." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore extern native function count.");
 
             for (uint64_t i = 0; i < extern_native_function_count; ++i)
             {
@@ -736,28 +745,28 @@ namespace wo
                 // 4.1.1.1 extern script name
                 if (!stream->read_elem(&loading_function.script_path_idx.index)
                     || !stream->read_elem(&loading_function.script_path_idx.size))
-                    printf(ANSI_HIR "Failed to restore extern native function symbol loader script." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function symbol loader script.");
 
                 // 4.1.1.2 extern library name
                 if (!stream->read_elem(&loading_function.library_name_idx.index)
                     || !stream->read_elem(&loading_function.library_name_idx.size))
-                    printf(ANSI_HIR "Failed to restore extern native function library name." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function library name.");
 
                 // 4.1.1.3 extern function name
                 if (!stream->read_elem(&loading_function.function_name_idx.index)
                     || !stream->read_elem(&loading_function.function_name_idx.size))
-                    printf(ANSI_HIR "Failed to restore extern native function symbol name." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function symbol name.");
 
                 // 4.1.1.4 used function in constant index
                 uint64_t used_constant_offset_count;
                 if (!stream->read_elem(&used_constant_offset_count))
-                    printf(ANSI_HIR "Failed to restore extern native function constant count." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function constant count.");
 
                 for (uint64_t i = 0; i < used_constant_offset_count; ++i)
                 {
                     uint64_t constant_index;
                     if (!stream->read_elem(&constant_index))
-                        printf(ANSI_HIR "Failed to restore extern native function constant index." ANSI_RST);
+                        WO_LOAD_BIN_FAILED("Failed to restore extern native function constant index.");
 
                     loading_function.constant_offsets.push_back(constant_index);
                 }
@@ -765,13 +774,13 @@ namespace wo
                 // 4.1.1.5 used function in ir binary code
                 uint64_t used_ir_offset_count;
                 if (!stream->read_elem(&used_ir_offset_count))
-                    printf(ANSI_HIR "Failed to restore extern native function ir-offset count." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset count.");
 
                 for (uint64_t i = 0; i < used_ir_offset_count; ++i)
                 {
                     uint64_t ir_code_offset;
                     if (!stream->read_elem(&ir_code_offset))
-                        printf(ANSI_HIR "Failed to restore extern native function ir-offset." ANSI_RST);
+                        WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset.");
 
                     loading_function.ir_command_offsets.push_back(ir_code_offset);
                 }
@@ -789,7 +798,7 @@ namespace wo
 
             uint64_t extern_script_function_count;
             if (!stream->read_elem(&extern_script_function_count))
-                printf(ANSI_HIR "Failed to restore extern script function count." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore extern script function count.");
 
             for (uint64_t i = 0; i < extern_script_function_count; ++i)
             {
@@ -797,11 +806,11 @@ namespace wo
 
                 if (!stream->read_elem(&loading_function.function_name.index)
                     || !stream->read_elem(&loading_function.function_name.size))
-                    printf(ANSI_HIR "Failed to restore extern script function count." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern script function count.");
 
                 uint64_t iroffset;
                 if (!stream->read_elem(&iroffset))
-                    printf(ANSI_HIR "Failed to restore extern script function ir-offset." ANSI_RST);
+                    WO_LOAD_BIN_FAILED("Failed to restore extern script function ir-offset.");
 
                 loading_function.ir_offset = iroffset;
 
@@ -811,32 +820,42 @@ namespace wo
             // 5.1 Constant string buffer
             uint64_t string_buffer_size_with_padding;
             if (!stream->read_elem(&string_buffer_size_with_padding))
-                printf(ANSI_HIR "Failed to restore string buffer size." ANSI_RST);
+                WO_LOAD_BIN_FAILED("Failed to restore string buffer size.");
 
             auto string_buffer_begin_offset = stream->readed_offset();
 
-            auto restore_string_from_buffer = [stream, string_buffer_begin_offset](const string_buffer_index& string_index) {
+            auto restore_string_from_buffer = [stream, string_buffer_begin_offset](const string_buffer_index& string_index, std::string* out_str)->bool {
                 auto current_string_begin_idx = stream->readed_offset() - string_buffer_begin_offset;
                 if (string_index.index != current_string_begin_idx)
-                    printf(ANSI_HIR "Failed to restore string from string buffer." ANSI_RST);
+                    return false;
 
                 std::vector<char> tmp_string_buffer(string_index.size + 1, 0);
                 stream->read_buffer(tmp_string_buffer.data(), string_index.size);
 
-                return std::string(tmp_string_buffer.data());
+                *out_str = tmp_string_buffer.data();
+                return true;
             };
 
+            std::string constant_string;
             for (auto& [constant_offset, string_index] : constant_string_index_for_update)
             {
                 wo_assert(preserved_memory[constant_offset].type == wo::value::valuetype::string_type);
-                preserved_memory[constant_offset].set_string_nogc(restore_string_from_buffer(string_index).c_str());
+
+                if (!restore_string_from_buffer(string_index, &constant_string))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+
+                preserved_memory[constant_offset].set_string_nogc(constant_string.c_str());
             }
 
             for (auto& extern_native_function : extern_native_functions)
             {
-                std::string script_path = restore_string_from_buffer(extern_native_function.script_path_idx);
-                std::string library_name = restore_string_from_buffer(extern_native_function.library_name_idx);
-                std::string function_name = restore_string_from_buffer(extern_native_function.function_name_idx);
+                std::string script_path, library_name, function_name;
+                if (!restore_string_from_buffer(extern_native_function.script_path_idx, &script_path))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+                if (!restore_string_from_buffer(extern_native_function.library_name_idx, &library_name))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+                if (!restore_string_from_buffer(extern_native_function.function_name_idx, &function_name))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
                 wo_native_func func = nullptr;
 
@@ -871,7 +890,10 @@ namespace wo
 
             for (auto& extern_script_function : extern_script_functions)
             {
-                std::string function_name = restore_string_from_buffer(extern_script_function.function_name);
+                std::string function_name;
+                if (!restore_string_from_buffer(extern_script_function.function_name, &function_name))
+                    WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
+
                 wo_assert(result->extern_script_functions.find(function_name) == result->extern_script_functions.end());
                 result->extern_script_functions[function_name] = extern_script_function.ir_offset;
             }
@@ -879,12 +901,28 @@ namespace wo
             // 6.1 Debug information(TODO)
 
             return result;
-
+#undef WO_LOAD_BIN_FAILED
         }
-        static shared_pointer<runtime_env> load_create_env_from_binary(const void* bytestream, size_t streamsz, size_t stack_count)
+        static shared_pointer<runtime_env> load_create_env_from_binary(
+            wo_string_t virtual_file, 
+            const void* bytestream, 
+            size_t streamsz, 
+            size_t stack_count, 
+            
+            wo_string_t* out_reason, 
+            bool* out_is_binary)
         {
-            binary_source_stream buf(bytestream, streamsz);
-            return _create_from_stream(&buf, stack_count);
+            std::string buffer_to_store_data_from_file_or_mem;
+            if (bytestream == nullptr)
+            {
+                std::wstring real_read_file;
+                wo::read_virtual_source<false>(&buffer_to_store_data_from_file_or_mem, &real_read_file, wo::str_to_wstr(virtual_file), nullptr);
+            }
+            else
+                buffer_to_store_data_from_file_or_mem = std::string((const char*)bytestream, streamsz);
+
+            binary_source_stream buf(buffer_to_store_data_from_file_or_mem.data(), buffer_to_store_data_from_file_or_mem.size());
+            return _create_from_stream(&buf, stack_count, out_reason, out_is_binary);
         }
     };
 
@@ -1154,7 +1192,7 @@ namespace wo
                                     ir_command{ instruct::lds, WO_OPNUM(reg_r1), WO_OPNUM(imm_offset) });         // lds r0, imm(real_offset)
                                 op2->id = opnum::reg::r1;
                                 i++;
-                                
+
                                 // No opcode will update opnum2, so here no need for update.
                                 //if (ir_command_buffer[i].opcode != instruct::call)
                                 //{
@@ -1632,7 +1670,7 @@ namespace wo
 
             WO_PUT_IR_TO_BUFFER(instruct::opcode::sts, WO_OPNUM(op1), WO_OPNUM(op2));
         }
- 
+
         template<typename OP1T, typename OP2T>
         void movcast(const OP1T& op1, const OP2T& op2, value::valuetype vtt)
         {
@@ -1786,7 +1824,7 @@ namespace wo
         template<typename OP1T, typename OP2T>
         void mkunion(const OP1T& op1, const OP2T& op2, uint16_t id)
         {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value 
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
                 && std::is_base_of<opnum::opnumbase, OP2T>::value,
                 "Argument(s) should be opnum.");
             static_assert(!std::is_base_of<opnum::immbase, OP1T>::value,
@@ -1922,7 +1960,7 @@ namespace wo
 #undef WO_OPNUM
 #undef WO_PUT_IR_TO_BUFFER
 
-        shared_pointer<runtime_env> finalize(size_t stacksz = 0)
+        shared_pointer<runtime_env> finalize(size_t stacksz)
         {
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
@@ -1944,7 +1982,7 @@ namespace wo
             }
 
             size_t real_register_count = 64;     // t0-t15 r0-r15 (32) special reg (32)
-            size_t runtime_stack_count = stacksz ? stacksz : 1024;  // by default
+            size_t runtime_stack_count = 1024;  // by default
 
             size_t preserve_memory_size =
                 constant_value_count

@@ -419,7 +419,7 @@ namespace wo
             // read_stream.peek
             std::wstring readed_real_path;
             std::wstring input_path = *source_file;
-            if (!wo::read_virtual_source(&reading_buffer, &readed_real_path, input_path))
+            if (!wo::read_virtual_source(&reading_buffer, &readed_real_path, input_path, nullptr))
             {
                 lex_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
             }
@@ -612,6 +612,9 @@ namespace wo
         size_t after_pick_now_file_colno;
         size_t after_pick_next_file_rowno;
         size_t after_pick_next_file_colno;
+
+        size_t this_time_peek_from_rowno;
+        size_t this_time_peek_from_colno;
 
         lex_type peek(std::wstring* out_literal)
         {
@@ -825,6 +828,9 @@ namespace wo
         re_try_read_next_one:
 
             int readed_ch = next_one();
+
+            this_time_peek_from_rowno = now_file_rowno;
+            this_time_peek_from_colno = now_file_colno;
 
             if (lex_isspace(readed_ch))
                 goto re_try_read_next_one;
