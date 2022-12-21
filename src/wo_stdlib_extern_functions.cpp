@@ -1298,7 +1298,7 @@ public using mutable<T> = struct {
 {
     public func create<T>(val: T)
     {
-        return mutable:<T>{val = val};
+        return mutable:<T>{val = mut val};
     }
     public func set<T>(self: mutable<T>, val: T)
     {
