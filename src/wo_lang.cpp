@@ -77,7 +77,6 @@ namespace wo
             if (!a_value_bin->overrided_operation_call->value_type->is_pending())
                 a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
         }
-
         return true;
     }
     WO_PASS1(ast_value_index)
@@ -100,7 +99,6 @@ namespace wo
                     {
                         a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *fnd->second.member_type);
                         a_value_idx->struct_offset = fnd->second.offset;
-                        a_value_idx->can_be_assign = fnd->second.is_mutable;
                     }
 
                 }
@@ -142,15 +140,6 @@ namespace wo
                     a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(dynamic));
                 }
             }
-
-            if (a_value_idx->value_type->is_mutable())
-            {
-                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->value_type);
-                a_value_idx->value_type->set_is_mutable(false);
-                a_value_idx->can_be_assign = true;
-            }
-            else
-                a_value_idx->can_be_assign = false;
         }
         return true;
     }
@@ -160,9 +149,6 @@ namespace wo
 
         analyze_pass1(a_value_assi->left);
         analyze_pass1(a_value_assi->right);
-
-        a_value_assi->add_child(a_value_assi->left);
-        a_value_assi->add_child(a_value_assi->right);
 
         a_value_assi->value_type = ast_type::create_type_at(a_value_assi, WO_PSTR(pending));
 
@@ -232,6 +218,7 @@ namespace wo
             if (!a_value_logic_bin->overrided_operation_call->value_type->is_pending())
                 a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
         }
+
         return true;
     }
     WO_PASS1(ast_value_variable)
@@ -240,13 +227,16 @@ namespace wo
         auto* sym = find_value_in_this_scope(a_value_var);
         if (sym)
         {
-            if (sym->type != lang_symbol::symbol_type::variable || sym->decl == identifier_decl::IMMUTABLE)
-                a_value_var->can_be_assign = false;
-
             if (sym->type == lang_symbol::symbol_type::variable)
             {
                 if (!sym->is_template_symbol)
+                {
                     a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
+                    if (sym->type == lang_symbol::symbol_type::variable && sym->decl == identifier_decl::MUTABLE)
+                        a_value_var->value_type->set_is_mutable(true);
+                    else
+                        a_value_var->value_type->set_is_mutable(false);
+                }
             }
         }
         for (auto* a_type : a_value_var->template_reification_args)
@@ -263,7 +253,6 @@ namespace wo
     {
         auto* a_value_cast = WO_AST();
         analyze_pass1(a_value_cast->_be_cast_value_node);
-        a_value_cast->add_child(a_value_cast->_be_cast_value_node);
         fully_update_type(a_value_cast->aim_type, true);
         return true;
     }
@@ -278,16 +267,16 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-else if (ast_value_check->aim_type->is_pending())
-    {
-        // ready for update..
-        fully_update_type(ast_value_check->aim_type, true);
-    }
+        else if (ast_value_check->aim_type->is_pending())
+        {
+            // ready for update..
+            fully_update_type(ast_value_check->aim_type, true);
+        }
 
-    analyze_pass1(ast_value_check->_be_check_value_node);
+        analyze_pass1(ast_value_check->_be_check_value_node);
 
-    ast_value_check->update_constant_value(lang_anylizer);
-    return true;
+        ast_value_check->update_constant_value(lang_anylizer);
+        return true;
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -422,10 +411,6 @@ else if (ast_value_check->aim_type->is_pending())
         analyze_pass1(a_value_funccall->called_func);
         analyze_pass1(a_value_funccall->arguments);
 
-        // NOTE There is no need for adding arguments and celled_func to child, pass2 must read them..
-        //a_value_funccall->add_child(a_value_funccall->called_func);
-        //a_value_funccall->add_child(a_value_funccall->arguments);
-
         // function call should be 'pending' type, then do override judgement in pass2
         return true;
     }
@@ -433,7 +418,6 @@ else if (ast_value_check->aim_type->is_pending())
     {
         auto* a_value_arr = WO_AST();
         analyze_pass1(a_value_arr->array_items);
-        a_value_arr->add_child(a_value_arr->array_items);
 
         if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
         {
@@ -482,7 +466,6 @@ else if (ast_value_check->aim_type->is_pending())
     {
         auto* a_value_map = WO_AST();
         analyze_pass1(a_value_map->mapping_pairs);
-        a_value_map->add_child(a_value_map->mapping_pairs);
 
         if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
         {
@@ -570,6 +553,11 @@ else if (ast_value_check->aim_type->is_pending())
             {
                 analyze_pass1(a_ret->return_value);
 
+                if (a_ret->return_mutable)
+                    a_ret->return_value->value_type->set_is_mutable(true);
+                else
+                    a_ret->return_value->value_type->set_is_mutable(false);
+
                 // NOTE: DONOT JUDGE FUNCTION'S RETURN VAL TYPE IN PASS1 TO AVOID TYPE MIXED IN CONSTEXPR IF
 
                 if (a_ret->located_function->auto_adjust_return_type)
@@ -598,8 +586,6 @@ else if (ast_value_check->aim_type->is_pending())
                         }
                     }
                 }
-
-                a_ret->add_child(a_ret->return_value);
             }
             else
             {
@@ -927,6 +913,11 @@ else if (ast_value_check->aim_type->is_pending())
         {
             analyze_pass2(a_ret->return_value);
 
+            if (a_ret->return_mutable)
+                a_ret->return_value->value_type->set_is_mutable(true);
+            else
+                a_ret->return_value->value_type->set_is_mutable(false);
+
             if (a_ret->return_value->value_type->is_pending())
             {
                 // error will report in analyze_pass2(a_ret->return_value), so here do nothing.. 
@@ -944,7 +935,7 @@ else if (ast_value_check->aim_type->is_pending())
                     }
                     else
                     {
-                        if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
+                        if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                         {
                             auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type, false);
                             if (mixed_type)
@@ -1377,9 +1368,8 @@ else if (ast_value_check->aim_type->is_pending())
         }
 
         if (!a_value_assi->left->can_be_assign)
-        {
             lang_anylizer->lang_error(0x0000, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
-        }
+
         a_value_assi->value_type->set_type(a_value_assi->left->value_type);
         return true;
     }
@@ -1441,7 +1431,6 @@ else if (ast_value_check->aim_type->is_pending())
                         {
                             a_value_index->value_type = ast_type::create_type_at(a_value_index, *fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
-                            a_value_index->can_be_assign = fnd->second.is_mutable;
                         }
                     }
                     else
@@ -1497,15 +1486,6 @@ else if (ast_value_check->aim_type->is_pending())
                         a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(dynamic));
                     }
                 }
-
-                if (a_value_index->value_type->is_mutable())
-                {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->value_type);
-                    a_value_index->value_type->set_is_mutable(false);
-                    a_value_index->can_be_assign = true;
-                }
-                else
-                    a_value_index->can_be_assign = false;
             }
         }
 
@@ -1917,11 +1897,11 @@ else if (ast_value_check->aim_type->is_pending())
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
-                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, 
+                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
                             fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
                             membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
 
-                        if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false))
+                        if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false, false))
                         {
                             lang_anylizer->lang_error(0x0000, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF
                                 , membpair->member_name->c_str()
@@ -2029,9 +2009,6 @@ else if (ast_value_check->aim_type->is_pending())
 
             if (sym)
             {
-                if (sym->type != lang_symbol::symbol_type::variable || sym->decl == identifier_decl::IMMUTABLE)
-                    a_value_var->can_be_assign = false;
-
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
                     lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
 
@@ -2047,6 +2024,11 @@ else if (ast_value_check->aim_type->is_pending())
                 {
                     analyze_pass2(sym->variable_value);
                     a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
+
+                    if (sym->type == lang_symbol::symbol_type::variable && sym->decl == identifier_decl::MUTABLE)
+                        a_value_var->value_type->set_is_mutable(true);
+                    else
+                        a_value_var->value_type->set_is_mutable(false);
 
                     a_value_var->symbol = sym;
 

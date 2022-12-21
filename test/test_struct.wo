@@ -30,7 +30,7 @@ namespace test_struct
         {
             return 233;
         }
-        let n = normalstruct{a=0, b=false};
+        let n = normalstruct{a=mut 0, b=mut false};
         n.a = foo() as int;
         n.b = foo() is int;
 
@@ -41,8 +41,8 @@ namespace test_struct
             a = 233,
             b = "Helloworld",
             c = 3.14,
-            d = chstruct:<string>{ a = "d", b = "dval" },
-            e = chstruct:<string>{ a = "e", b = "eval" },
+            d = chstruct:<string>{ a = "d", b = mut "dval" },
+            e = chstruct:<string>{ a = "e", b = mut "eval" },
         } ;
         
         x as mystruct<string>;

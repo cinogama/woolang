@@ -1280,7 +1280,7 @@ namespace std
 
     extern("rslib_std_declval") public func declval<T>()=> T;
 
-    public alias imutable_t<T> = typeof(std::declval:<T>());
+    public alias immutable_t<T> = typeof(\=std::declval:<T>();());
 
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
     extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;

@@ -205,7 +205,7 @@ namespace test_template
         func create<T>()
         {
             return mtest:<T>{
-                c = for_m_test_foo:<T>(16)
+                c = mut for_m_test_foo:<T>(16)
             };
         }
     }

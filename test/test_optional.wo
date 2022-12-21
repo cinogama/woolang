@@ -84,7 +84,7 @@ namespace test_optional
 
         func iter<T>(self: linknode<T>)
         {
-            return iterator:<T>{ node = self };
+            return iterator:<T>{ node = mut self };
         }
     }
 

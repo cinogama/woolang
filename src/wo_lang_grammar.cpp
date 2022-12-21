@@ -457,9 +457,12 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
+                gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_mut),gm::nt(L"RETNVALUE"), gm::te(gm::ttype::l_semicolon) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_return),
+
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
+                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"EXPRESSION") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon) }
@@ -525,6 +528,8 @@ namespace wo
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA") >> gm::symlist{ gm::nt(L"RETURN_EXPR_IN_LAMBDA") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
                 gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_return),
+                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"EXPRESSION") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
@@ -1045,7 +1050,7 @@ namespace wo
                 gm::nt(L"STRUCT_MEMBERS_INIT_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_INIT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_INIT_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"RIGHT") }
+                gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_identifier), gm::te(gm::ttype::l_assign), gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_init_pair),
 
                 ////////////////////////////////////////////////////

@@ -451,6 +451,7 @@ namespace wo
 
             if (type->typefrom)
             {
+                bool is_mutable_typeof = type->is_mutable();
                 auto used_type_info = type->using_type_name;
 
                 if (in_pass_1)
@@ -468,6 +469,8 @@ namespace wo
 
                 if (used_type_info)
                     type->using_type_name = used_type_info;
+                if (is_mutable_typeof)
+                    type->set_is_mutable(true);
             }
 
             if (type->using_type_name)
@@ -488,8 +491,6 @@ namespace wo
                             if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                                 stop_update = true;
                         }
-                        else
-                            type->complex_type->set_is_mutable(false);
                 }
                 if (type->is_func())
                     for (auto& a_t : type->argument_types)
@@ -1086,13 +1087,17 @@ namespace wo
                             // ready for update..
                             fully_update_type(a_val->value_type, true);
                     }
-
-                    if (!a_val->value_type->is_pending() && a_val->is_mark_as_using_mut)
+                    if (!a_val->value_type->is_pending())
                     {
-                        a_val->value_type->set_is_mutable(true);
-                    }
-                    // end if (ast_value* a_val = dynamic_cast<ast_value*>(ast_node))
+                        if (a_val->value_type->is_mutable())
+                        {
+                            a_val->can_be_assign = true;
+                            a_val->value_type->set_is_mutable(false);
+                        }
 
+                        if (a_val->is_mark_as_using_mut)
+                            a_val->value_type->set_is_mutable(true);
+                    }
                     a_val->update_constant_value(lang_anylizer);
                 }
 
@@ -1537,13 +1542,30 @@ namespace wo
 
                 }
 
-                a_value->update_constant_value(lang_anylizer);
+                if (ast_defines* a_def = dynamic_cast<ast_defines*>(ast_node);
+                    a_def && a_def->is_template_define)
+                {
+                    // Do nothing
+                }
+                else
+                {
+                    a_value->update_constant_value(lang_anylizer);
 
-                // some expr may set 'bool'/'char'..., it cannot used directly. update it.
-                if (a_value->value_type->is_builtin_using_type())
-                    fully_update_type(a_value->value_type, false);
-                if (!a_value->value_type->is_pending() && a_value->is_mark_as_using_mut)
-                    a_value->value_type->set_is_mutable(true);
+                    // some expr may set 'bool'/'char'..., it cannot used directly. update it.
+                    if (a_value->value_type->is_builtin_using_type())
+                        fully_update_type(a_value->value_type, false);
+
+                    if (!a_value->value_type->is_pending())
+                    {
+                        if (a_value->value_type->is_mutable())
+                        {
+                            a_value->can_be_assign = true;
+                            a_value->value_type->set_is_mutable(false);
+                        }
+                        if (a_value->is_mark_as_using_mut)
+                            a_value->value_type->set_is_mutable(true);
+                    }
+                }
             }
 
             WO_TRY_BEGIN;
@@ -1564,24 +1586,6 @@ namespace wo
             WO_TRY_PASS(ast_where_constraint);
 
             WO_TRY_END;
-
-            ast_value_type_judge* a_value_type_judge_for_attrb = dynamic_cast<ast_value_type_judge*>(ast_node);
-            ast_value_symbolable_base* a_value_base_for_attrb = dynamic_cast<ast_value_symbolable_base*>(ast_node);
-            if (ast_value_symbolable_base* a_value_base = a_value_base_for_attrb;
-                a_value_base ||
-                (a_value_type_judge_for_attrb &&
-                    (a_value_base = dynamic_cast<ast_value_symbolable_base*>(a_value_type_judge_for_attrb->_be_cast_value_node))
-                    )
-                )
-            {
-                if (a_value_base->symbol)
-                {
-                    if (a_value_base->symbol->decl == identifier_decl::IMMUTABLE)
-                    {
-                        a_value_base->can_be_assign = false;
-                    }
-                }
-            }
 
             grammar::ast_base* child = ast_node->children;
             while (child)

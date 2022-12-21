@@ -61,7 +61,7 @@ namespace test_string_u8
             
             test_assure(badstr_r->len <= 7);
             
-            std::println(F"BAD_STRING SIZE {badstr_r->len}= ", badstr_r);
+            std::println(F"\n\nBAD_STRING SIZE {badstr_r->len}= ", badstr_r);
             for (let mut i = 0; i < badstr_r->len; i += 1)
                 std::print(badstr_r[i], "");
         }

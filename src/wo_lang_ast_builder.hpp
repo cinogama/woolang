@@ -161,7 +161,6 @@ namespace wo
             {
                 ast_type* member_type = nullptr;
                 uint16_t offset = (uint16_t)0xFFFF;
-                bool is_mutable = false;
                 std::vector<size_t> union_used_template_index;
             };
 
@@ -306,7 +305,7 @@ namespace wo
 
                 type_name = WO_PSTR(complex);
                 complex_type = new ast_type(*_type);
-                complex_type->set_is_mutable(false); // Return type cannot be mut
+
                 is_pending_type = false; // reset state;
                 value_type = value::valuetype::invalid;
                 template_arguments.clear();
@@ -330,7 +329,6 @@ namespace wo
                 value_type = value::valuetype::invalid;
 
                 complex_type = _val;
-                complex_type->set_is_mutable(false);
             }
 
             template<typename ... ArgTs>
@@ -1728,7 +1726,6 @@ namespace wo
             {
                 var_name = _var_name;
                 value_type = new ast_type(WO_PSTR(pending));
-                can_be_assign = true;
             }
             ast_value_variable() {}
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -1940,6 +1937,7 @@ namespace wo
                 {
                     ast_type* type = new ast_type(WO_PSTR(pending));
                     type->set_type(left_v);
+                    type->set_is_mutable(false);
                     return type;
                 }
                 return nullptr;
@@ -2351,6 +2349,8 @@ namespace wo
         struct ast_return : virtual public grammar::ast_base
         {
             ast_value* return_value = nullptr;
+            bool return_mutable = false;
+
             ast_value_function_define* located_function = nullptr;
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
             {
@@ -2864,7 +2864,6 @@ namespace wo
             ast_value_index()
             {
                 value_type = new ast_type(WO_PSTR(pending));
-                can_be_assign = true; // or a[0]=x will be an error when lex
             }
 
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -2963,7 +2962,6 @@ namespace wo
             {
                 wo_assert(argindex);
                 value_type = new ast_type(WO_PSTR(dynamic));
-                can_be_assign = false;
             }
 
             ast_value_indexed_variadic_args() {}
@@ -3527,7 +3525,6 @@ namespace wo
             wo_pstring_t member_name = nullptr;
 
             bool is_value_pair;
-            bool is_mutable_decl;
             union
             {
                 ast_type* member_type;
@@ -4398,9 +4395,6 @@ namespace wo
                     result->called_func = dynamic_cast<ast_value*>(WO_NEED_AST(0));
 
                 result->value_type = new ast_type(WO_PSTR(pending));
-
-                // Issue N221109: No reference support, so function cannot return ref to assign.
-                result->can_be_assign = false;
                 return (ast_basic*)result;
             }
         };
@@ -5175,16 +5169,29 @@ namespace wo
                 ast_return* result = new ast_return();
                 if (input.size() == 3)
                 {
+                    result->return_mutable = false;
                     if (!ast_empty::is_empty(input[1]))
-                    {
                         result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
-                    }
                 }
-                else
+                else if (input.size() == 4)
                 {
-                    wo_assert(input.size() == 1);
+                    result->return_mutable = true;
+                    if (!ast_empty::is_empty(input[2]))
+                        result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
+                }
+                else if (input.size() == 1)
+                {
+                    result->return_mutable = false;
                     result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 }
+                else if (input.size() == 2)
+                {
+                    result->return_mutable = true;
+                    result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
+                }
+                else
+                    wo_error("Unexpected return format.");
+
                 return (grammar::ast_base*)result;
             }
         };
@@ -5901,7 +5908,6 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
-                result->is_mutable_decl = false;
                 result->is_value_pair = false;
 
                 if (input.size() == 2)
@@ -5916,8 +5922,9 @@ namespace wo
                     wo_assert(input.size() == 3);
                     // mut identifier TYPE_DECLEAR
                     result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
-                    result->is_mutable_decl = true;
                     result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                    result->member_type->set_is_mutable(true);
+
                     wo_assert(result->member_type);
                 }
                 return (ast_basic*)result;
@@ -5960,8 +5967,6 @@ namespace wo
                         = member_pair->member_type;
                     struct_type->struct_member_index[member_pair->member_name].offset
                         = membid++;
-                    struct_type->struct_member_index[member_pair->member_name].is_mutable
-                        = member_pair->is_mutable_decl;
 
                     wo_assert(struct_type->struct_member_index[member_pair->member_name].member_type);
 
