@@ -145,6 +145,46 @@ func main()
         assure_compile_fail(@"func xx()=> int{return 1.;}"@);
         assure_compile_fail(@"func xx()=> real{return 1;}"@);
 
+        assure_compile_fail(@"func xx()
+            {
+                return 1;
+                return mut 1;
+            }"@);
+        assure_compile_fail(@"func xx()
+            {
+                return mut 1;
+                return 1;
+            }"@);
+        assure_compile_success(@"func xx()
+            {
+                return mut 1;
+                return mut 1;
+            }"@);
+        assure_compile_success(@"func xx()
+            {
+                return 1;
+                return 1;
+            }"@);
+        assure_compile_fail(@"func xx()
+            {
+                return mut 1;
+            }
+            let p = [xx()];
+            p[0] = 1;
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+
+            let a = [1,2,3]->>\n=mut n;;
+            a[0] = 6;
+            "@);
+        assure_compile_fail(@"
+            import woo.std;
+
+            let a = [1,2,3]->>\n=n;;
+            a[0] = 6;
+            "@);
+
         // unknown type/identifier is invalid
         assure_compile_fail(@"let x = 1: noexist; let y = x;"@);
         assure_compile_fail(@"let x = 0; y = x;"@);

@@ -457,12 +457,9 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return),gm::nt(L"RETNVALUE"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
-                gm::nt(L"SENTENCE") >> gm::symlist{gm::te(gm::ttype::l_return), gm::te(gm::ttype::l_mut),gm::nt(L"RETNVALUE"), gm::te(gm::ttype::l_semicolon) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_return),
-
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"EXPRESSION") }
+                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon) }
@@ -527,9 +524,7 @@ namespace wo
 
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA") >> gm::symlist{ gm::nt(L"RETURN_EXPR_IN_LAMBDA") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
-                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"EXPRESSION") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_return),
-                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"EXPRESSION") }
+                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }

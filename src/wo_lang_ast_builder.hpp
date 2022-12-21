@@ -2349,7 +2349,6 @@ namespace wo
         struct ast_return : virtual public grammar::ast_base
         {
             ast_value* return_value = nullptr;
-            bool return_mutable = false;
 
             ast_value_function_define* located_function = nullptr;
             void display(std::wostream& os = std::wcout, size_t lay = 0) const override
@@ -5169,25 +5168,12 @@ namespace wo
                 ast_return* result = new ast_return();
                 if (input.size() == 3)
                 {
-                    result->return_mutable = false;
                     if (!ast_empty::is_empty(input[1]))
                         result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
                 }
-                else if (input.size() == 4)
-                {
-                    result->return_mutable = true;
-                    if (!ast_empty::is_empty(input[2]))
-                        result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                }
                 else if (input.size() == 1)
                 {
-                    result->return_mutable = false;
                     result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(0));
-                }
-                else if (input.size() == 2)
-                {
-                    result->return_mutable = true;
-                    result->return_value = dynamic_cast<ast_value*>(WO_NEED_AST(1));
                 }
                 else
                     wo_error("Unexpected return format.");

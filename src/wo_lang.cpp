@@ -553,11 +553,6 @@ namespace wo
             {
                 analyze_pass1(a_ret->return_value);
 
-                if (a_ret->return_mutable)
-                    a_ret->return_value->value_type->set_is_mutable(true);
-                else
-                    a_ret->return_value->value_type->set_is_mutable(false);
-
                 // NOTE: DONOT JUDGE FUNCTION'S RETURN VAL TYPE IN PASS1 TO AVOID TYPE MIXED IN CONSTEXPR IF
 
                 if (a_ret->located_function->auto_adjust_return_type)
@@ -912,11 +907,6 @@ namespace wo
         if (a_ret->return_value)
         {
             analyze_pass2(a_ret->return_value);
-
-            if (a_ret->return_mutable)
-                a_ret->return_value->value_type->set_is_mutable(true);
-            else
-                a_ret->return_value->value_type->set_is_mutable(false);
 
             if (a_ret->return_value->value_type->is_pending())
             {
