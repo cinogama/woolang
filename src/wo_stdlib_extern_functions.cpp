@@ -1271,6 +1271,9 @@ namespace unsafe
 {
     extern("rslib_std_return_itself") 
         public func cast<T>(val: anything)=> T;
+    
+    extern("rslib_std_get_extern_symb")
+        public func extsymbol<T>(fullname:string)=> option<T>;
 }
 
 namespace std
@@ -1570,11 +1573,8 @@ namespace std
     extern("rslib_std_set_work_path")
         public func setworkpath(path: string)=> bool;
 
-    extern("rslib_std_get_extern_symb")
-        public func extern_symbol<T>(fullname:string)=> option<T>;
-
     extern("rslib_std_equal_byte")
-    public func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
+        public func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
 
     public func max<T>(a:T, b:T)
         where (a<b) is bool;
