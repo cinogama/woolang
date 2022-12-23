@@ -2364,11 +2364,12 @@ struct wo_thread_pack
 {
     std::thread* _thread;
     wo_vm _vm;
+    bool _is_abort;
 };
 
 WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_vm new_thread_vm = wo_sub_vm(vm, reinterpret_cast<wo::vmbase*>(vm)->stack_size);
+    wo_vm new_thread_vm = wo_borrow_vm(vm);
 
     wo_value wo_calling_function = wo_push_val(new_thread_vm, args + 0);
     wo_int_t arg_count = 0;
@@ -2379,14 +2380,17 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
     for (size_t i = arg_count; i > 0; i--)
         wo_push_val(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
 
-    auto* _vmthread = new std::thread([=]() {
+    wo_thread_pack* pack = new wo_thread_pack{ nullptr , new_thread_vm, false };
+    pack->_thread = new std::thread([=]() {
         wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, arg_count);
         wo_pop_stack((wo_vm)new_thread_vm);
-        wo_close_vm(new_thread_vm);
+        pack->_is_abort = (reinterpret_cast<wo::vmbase*>(new_thread_vm)->vm_interrupt
+            & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT) != 0;
+        wo_release_vm(new_thread_vm);
         });
 
     return wo_ret_gchandle(vm,
-        new wo_thread_pack{ _vmthread , new_thread_vm },
+        pack,
         nullptr,
         [](void* wo_thread_pack_ptr)
         {
@@ -2404,7 +2408,7 @@ WO_API wo_api rslib_std_thread_wait(wo_vm vm, wo_value args, size_t argc)
     if (rtp->_thread->joinable())
         rtp->_thread->join();
 
-    return wo_ret_void(vm);
+    return wo_ret_bool(vm, false == rtp->_is_abort);
 }
 
 WO_API wo_api rslib_std_thread_abort(wo_vm vm, wo_value args, size_t argc)
@@ -2514,7 +2518,7 @@ namespace std
             where thread_work(args...) is anything;
 
         extern("rslib_std_thread_wait")
-            public func wait(threadhandle : thread)=>void;
+            public func wait(threadhandle : thread)=>bool;
 
         extern("rslib_std_thread_abort")
             public func abort(threadhandle : thread)=>bool;
