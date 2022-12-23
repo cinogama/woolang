@@ -1944,20 +1944,25 @@ namespace wo
                     {
                         WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
                             "Unexpected invoke target type in 'call'.");
-                        if (opnum1->closure->m_native_call)
+
+                        auto* closure_instance = opnum1->closure;
+                        
+                        gcbase::gc_read_guard gwg1(closure_instance);
+
+                        if (closure_instance->m_native_call)
                         {
                             // BUG: 221223
                             // Here will contain JIT-CODE, jit cannot effect rt_sp here,
                             // So we need restore stack here.
-                            opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            closure_instance->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                            rt_sp = rt_bp + opnum1->closure->m_closure_args_count;
+                            rt_sp = rt_bp + closure_instance->m_closure_args_count;
                             rt_bp = stored_bp;
                         }
                         else
-                            rt_ip = rt_env->rt_codes + opnum1->closure->m_vm_func;
+                            rt_ip = rt_env->rt_codes + closure_instance->m_vm_func;
                     }
                     break;
                 }
