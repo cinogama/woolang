@@ -1022,6 +1022,10 @@ namespace wo
                 if (a_symbol_ob->source_file == nullptr)
                     a_symbol_ob->copy_source_info(a_symbol_ob->searching_begin_namespace_in_pass2->last_entry_ast);
             }
+            if (ast_value* a_value = dynamic_cast<ast_value*>(ast_node))
+            {
+                a_value->value_type->copy_source_info(a_value);
+            }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
             WO_TRY_BEGIN;
@@ -1313,7 +1317,13 @@ namespace wo
                                 function_define->template_type_name_list,
                                 new_type->argument_types[index],
                                 param->argument_types[index]))
-                                arg_func_template_args[tempindex] = ast::ast_type::create_type_at(function_define, *pending_template_arg);
+                            {
+                                ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
+                                template_value_type->set_type(pending_template_arg);
+
+                                arg_func_template_args[tempindex] = template_value_type;
+
+                            }
                         }
                 }
 
@@ -1482,7 +1492,8 @@ namespace wo
                             lang_anylizer->lang_error(0x0000, a_value, WO_ERR_UNKNOWN_TYPE
                                 , a_value->value_type->get_type_name().c_str());
                     }
-                    if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
+                    if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value);
+                        ast_value_check != nullptr && ast_value_check->value_type->may_need_update())
                     {
                         // ready for update..
                         fully_update_type(ast_value_check->aim_type, false);
@@ -1492,28 +1503,6 @@ namespace wo
                                 , ast_value_check->aim_type->get_type_name().c_str());
 
                         ast_value_check->update_constant_value(lang_anylizer);
-                    }
-                    else if (ast_value_type_cast* ast_value_cast = dynamic_cast<ast_value_type_cast*>(a_value))
-                    {
-                        // ready for update..
-                        fully_update_type(ast_value_cast->aim_type, false);
-
-                        if (ast_value_cast->aim_type->is_custom())
-                            lang_anylizer->lang_error(0x0000, ast_value_cast, WO_ERR_UNKNOWN_TYPE
-                                , ast_value_cast->aim_type->get_type_name().c_str());
-
-                        ast_value_cast->update_constant_value(lang_anylizer);
-                    }
-                    else if (ast_value_type_judge* ast_value_judge = dynamic_cast<ast_value_type_judge*>(a_value))
-                    {
-                        // ready for update..
-                        fully_update_type(ast_value_judge->aim_type, false);
-
-                        if (ast_value_judge->aim_type->is_custom())
-                            lang_anylizer->lang_error(0x0000, ast_value_judge, WO_ERR_UNKNOWN_TYPE
-                                , ast_value_judge->aim_type->get_type_name().c_str());
-
-                        ast_value_judge->update_constant_value(lang_anylizer);
                     }
                     //
 
@@ -2368,7 +2357,7 @@ namespace wo
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
-                if (a_value_type_cast->aim_type->is_bool())
+                if (a_value_type_cast->value_type->is_bool())
                 {
                     // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
                     auto& treg = get_useable_register_for_pure_value();
@@ -2377,16 +2366,16 @@ namespace wo
                     return treg;
                 }
 
-                if (a_value_type_cast->aim_type->is_dynamic()
-                    || a_value_type_cast->aim_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
-                    || a_value_type_cast->aim_type->is_func())
+                if (a_value_type_cast->value_type->is_dynamic()
+                    || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
+                    || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
                     return analyze_value(a_value_type_cast->_be_cast_value_node, compiler, get_pure_value);
 
                 auto& treg = get_useable_register_for_pure_value();
                 compiler->movcast(treg,
                     complete_using_register(analyze_value(a_value_type_cast->_be_cast_value_node, compiler)),
-                    a_value_type_cast->aim_type->value_type);
+                    a_value_type_cast->value_type->value_type);
                 return treg;
 
             }
@@ -2394,17 +2383,17 @@ namespace wo
             {
                 auto& result = analyze_value(a_value_type_judge->_be_cast_value_node, compiler, get_pure_value);
 
-                if (a_value_type_judge->aim_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
+                if (a_value_type_judge->value_type->accept_type(a_value_type_judge->_be_cast_value_node->value_type, false))
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->aim_type->is_complex_type())
+                    if (a_value_type_judge->value_type->is_complex_type())
                         lang_anylizer->lang_error(0x0000, a_value_type_judge, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
 
-                    if (!a_value_type_judge->aim_type->is_dynamic())
+                    if (!a_value_type_judge->value_type->is_dynamic())
                     {
-                        wo_test(!a_value_type_judge->aim_type->is_pending());
-                        compiler->typeas(result, a_value_type_judge->aim_type->value_type);
+                        wo_test(!a_value_type_judge->value_type->is_pending());
+                        compiler->typeas(result, a_value_type_judge->value_type->value_type);
 
                         return result;
                     }
