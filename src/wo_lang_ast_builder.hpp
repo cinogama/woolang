@@ -806,14 +806,9 @@ namespace wo
                     if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
                         return false;
 
-                    auto* using_type = new ast_type(using_type_name->type_name);
-                    using_type->symbol = using_type_name->symbol;
-
                     for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
                         if (!using_type_name->template_arguments[i]->set_mix_types(another->using_type_name->template_arguments[i], false, flip, flip_write))
                             return false;
-
-                    result->using_type_name = using_type;
                 }
                 if (has_template())
                 {
@@ -4243,6 +4238,7 @@ namespace wo
                 {
                     // complex type;;
                     ast_func->value_type->set_ret_type(return_type);
+                    ast_func->value_type->get_return_type()->copy_source_info(return_type);
                     ast_func->auto_adjust_return_type = false;
                 }
                 else
@@ -4957,6 +4953,7 @@ namespace wo
                 result = new ast_type(WO_PSTR(pending));
                 result->set_as_function_type();
                 result->set_ret_type(complex_type);
+                result->get_return_type()->copy_source_info(complex_type);
 
                 auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 auto* child = arg_list->children;
@@ -5609,10 +5606,13 @@ namespace wo
 
                         }
                         avfd_item_type_builder->value_type->set_ret_type(adt_type);
+                        
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
                         avfd_item_type_builder->copy_source_info(items);
+                        avfd_item_type_builder->value_type->get_return_type()->copy_source_info(items);
+
                         if (using_type->is_template_define)
                         {
                             size_t id = 0;
@@ -5656,6 +5656,7 @@ namespace wo
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
                         avfd_item_type_builder->copy_source_info(items);
+                        avfd_item_type_builder->value_type->get_return_type()->copy_source_info(items);
 
                         avfd_item_type_builder->in_function_sentence = new ast_list;
 
