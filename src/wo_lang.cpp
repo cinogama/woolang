@@ -2322,8 +2322,7 @@ namespace wo
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
-                a_value_funccall->value_type = ast_type::create_type_at(a_value_funccall,
-                    *a_value_funccall->called_func->value_type->get_return_type());
+                a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
 
             if (a_value_funccall->called_func
                 && a_value_funccall->called_func->value_type->is_func()
@@ -2521,7 +2520,7 @@ namespace wo
             }
 
             if (failed_to_call_cur_func)
-                a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
+                a_value_funccall->value_type = ast::ast_type::create_type_at(a_value_funccall, WO_PSTR(pending));
         }
         return true;
     }
