@@ -2322,7 +2322,8 @@ namespace wo
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
-                a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
+                a_value_funccall->value_type = ast_type::create_type_at(a_value_funccall,
+                    *a_value_funccall->called_func->value_type->get_return_type());
 
             if (a_value_funccall->called_func
                 && a_value_funccall->called_func->value_type->is_func()
