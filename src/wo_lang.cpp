@@ -38,26 +38,25 @@ namespace wo
         analyze_pass1(a_value_bin->left);
         analyze_pass1(a_value_bin->right);
 
+        ast_type* a_value_binary_target_type = nullptr;
         if (!a_value_bin->left->value_type->is_builtin_basic_type()
             || !a_value_bin->right->value_type->is_builtin_basic_type())
             // IS CUSTOM TYPE, DELAY THE TYPE CALC TO PASS2
-            a_value_bin->value_type = nullptr;
+            ;
         else
-            a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
+            a_value_binary_target_type = ast_value_binary::binary_upper_type_with_operator(
                 a_value_bin->left->value_type,
                 a_value_bin->right->value_type,
                 a_value_bin->operate);
 
-        if (nullptr == a_value_bin->value_type)
+        if (nullptr == a_value_binary_target_type)
         {
-            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, WO_PSTR(pending));
-
             ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
             try_operator_func_overload->copy_source_info(a_value_bin);
 
             try_operator_func_overload->try_invoke_operator_override_function = true;
             try_operator_func_overload->arguments = new ast_list();
-            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
+            try_operator_func_overload->value_type;
 
             try_operator_func_overload->called_func = new ast_value_variable(
                 wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_bin->operate)));
@@ -77,6 +76,8 @@ namespace wo
             if (!a_value_bin->overrided_operation_call->value_type->is_pending())
                 a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
         }
+        else
+            a_value_bin->value_type->set_type(a_value_binary_target_type);
         return true;
     }
     WO_PASS1(ast_value_index)
@@ -97,7 +98,7 @@ namespace wo
                 {
                     if (!fnd->second.member_type->is_pending())
                     {
-                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *fnd->second.member_type);
+                        a_value_idx->value_type->set_type(fnd->second.member_type);
                         a_value_idx->struct_offset = fnd->second.offset;
                     }
 
@@ -114,31 +115,25 @@ namespace wo
                     auto index = a_value_idx->index->get_constant_value().integer;
                     if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
                     {
-                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[index]);
+                        a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[index]);
                         a_value_idx->struct_offset = (uint16_t)index;
                     }
                     else
-                        a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(pending));
+                        wo_assert(a_value_idx->value_type->is_pure_pending());
                 }
             }
             else if (a_value_idx->from->value_type->is_string())
             {
-                a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(char));
+                a_value_idx->value_type->set_type_with_name(WO_PSTR(char));
             }
             else if (!a_value_idx->from->value_type->is_pending())
             {
                 if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
-                {
-                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[0]);
-                }
+                    a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[0]);
                 else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
-                {
-                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, *a_value_idx->from->value_type->template_arguments[1]);
-                }
+                    a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[1]);
                 else
-                {
-                    a_value_idx->value_type = ast_type::create_type_at(a_value_idx, WO_PSTR(dynamic));
-                }
+                    a_value_idx->value_type->set_type_with_name(WO_PSTR(dynamic));
             }
         }
         return true;
@@ -149,8 +144,6 @@ namespace wo
 
         analyze_pass1(a_value_assi->left);
         analyze_pass1(a_value_assi->right);
-
-        a_value_assi->value_type = ast_type::create_type_at(a_value_assi, WO_PSTR(pending));
 
         auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
         if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
@@ -167,16 +160,14 @@ namespace wo
         analyze_pass1(a_value_logic_bin->right);
 
         bool has_default_op = false;
+
         if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
             && a_value_logic_bin->right->value_type->is_builtin_basic_type())
         {
             if (a_value_logic_bin->operate == +lex_type::l_lor || a_value_logic_bin->operate == +lex_type::l_land)
             {
                 if (a_value_logic_bin->left->value_type->is_bool() && a_value_logic_bin->right->value_type->is_bool())
-                {
-                    a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
                     has_default_op = true;
-                }
             }
             else if ((a_value_logic_bin->left->value_type->is_integer()
                 || a_value_logic_bin->left->value_type->is_handle()
@@ -184,21 +175,16 @@ namespace wo
                 || a_value_logic_bin->left->value_type->is_string()
                 || a_value_logic_bin->left->value_type->is_gchandle())
                 && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
-            {
-                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
                 has_default_op = true;
-            }
-
         }
         if (!has_default_op)
         {
-            a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(pending));
+            a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(pending));
+
             ast_value_funccall* try_operator_func_overload = new ast_value_funccall();
             try_operator_func_overload->copy_source_info(a_value_logic_bin);
-
             try_operator_func_overload->try_invoke_operator_override_function = true;
             try_operator_func_overload->arguments = new ast_list();
-            try_operator_func_overload->value_type = ast_type::create_type_at(try_operator_func_overload, WO_PSTR(pending));
 
             try_operator_func_overload->called_func = new ast_value_variable(
                 wstring_pool::get_pstr(std::wstring(L"operator ") + lexer::lex_is_operate_type(a_value_logic_bin->operate)));
@@ -218,6 +204,8 @@ namespace wo
             if (!a_value_logic_bin->overrided_operation_call->value_type->is_pending())
                 a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
         }
+        else
+            a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(bool));
 
         return true;
     }
@@ -231,7 +219,7 @@ namespace wo
             {
                 if (!sym->is_template_symbol)
                 {
-                    a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
+                    a_value_var->value_type->set_type(sym->variable_value->value_type);
                     if (sym->type == lang_symbol::symbol_type::variable && sym->decl == identifier_decl::MUTABLE)
                         a_value_var->value_type->set_is_mutable(true);
                     else
@@ -253,30 +241,30 @@ namespace wo
     {
         auto* a_value_cast = WO_AST();
         analyze_pass1(a_value_cast->_be_cast_value_node);
-        fully_update_type(a_value_cast->aim_type, true);
+        fully_update_type(a_value_cast->value_type, true);
         return true;
     }
     WO_PASS1(ast_value_type_judge)
     {
         auto* ast_value_judge = WO_AST();
         analyze_pass1(ast_value_judge->_be_cast_value_node);
-        fully_update_type(ast_value_judge->aim_type, true);
+        fully_update_type(ast_value_judge->value_type, true);
         return true;
     }
     WO_PASS1(ast_value_type_check)
     {
         auto* ast_value_check = WO_AST();
 
-        else if (ast_value_check->aim_type->is_pending())
-        {
-            // ready for update..
-            fully_update_type(ast_value_check->aim_type, true);
-        }
+else if (ast_value_check->aim_type->is_pending())
+    {
+        // ready for update..
+        fully_update_type(ast_value_check->aim_type, true);
+    }
 
-        analyze_pass1(ast_value_check->_be_check_value_node);
+    analyze_pass1(ast_value_check->_be_check_value_node);
 
-        ast_value_check->update_constant_value(lang_anylizer);
-        return true;
+    ast_value_check->update_constant_value(lang_anylizer);
+    return true;
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -359,11 +347,12 @@ namespace wo
                 else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
                 {
                     // This function has no return, set it as void
-                    a_value_func->value_type->set_ret_type(ast_type::create_type_at(a_value_func, WO_PSTR(void)));
+                    wo_assert(a_value_func->value_type->is_complex());
+                    a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(void));
                 }
             }
             else
-                a_value_func->value_type->set_type_with_name(WO_PSTR(pending));
+                a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(pending));
         }
 
         if (a_value_func->externed_func_info)
@@ -421,43 +410,32 @@ namespace wo
 
         if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
         {
-            // 
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, WO_PSTR(nothing));
+            auto* arr_elem_type = a_value_arr->value_type->template_arguments[0];
+            arr_elem_type->set_type_with_name(WO_PSTR(nothing));
 
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
             {
                 if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(val->value_type);
+                    arr_elem_type->set_type(val->value_type);
                 else
-                    decide_array_item_type = nullptr;
+                    arr_elem_type->set_type_with_name(WO_PSTR(pending));
             }
 
             while (val)
             {
                 if (val->value_type->is_pending())
                 {
-                    decide_array_item_type = nullptr;
+                    arr_elem_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
-
-                if (!decide_array_item_type->accept_type(val->value_type, false))
+                if (!arr_elem_type->accept_type(val->value_type, false)
+                    && !arr_elem_type->set_mix_types(val->value_type, false))
                 {
-                    auto* mixed_type = decide_array_item_type->mix_types(val->value_type, false);
-                    if (mixed_type)
-                        decide_array_item_type->set_type_with_name(mixed_type->type_name);
-                    else
-                    {
-                        decide_array_item_type = nullptr;
-                        break;
-                    }
+                    arr_elem_type->set_type_with_name(WO_PSTR(pending));
+                    break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
-            }
-
-            if (decide_array_item_type)
-            {
-                a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
             }
         }
         return true;
@@ -469,8 +447,11 @@ namespace wo
 
         if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
+            ast_type* decide_map_key_type = a_value_map->value_type->template_arguments[0];
+            ast_type* decide_map_val_type = a_value_map->value_type->template_arguments[1];
+
+            decide_map_key_type->set_type_with_name(WO_PSTR(nothing));
+            decide_map_val_type->set_type_with_name(WO_PSTR(nothing));
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
@@ -482,51 +463,33 @@ namespace wo
                 }
                 else
                 {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                 }
             }
             while (map_pair)
             {
                 if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false)
+                    && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
-                    auto* mixed_type = decide_map_key_type->mix_types(map_pair->key->value_type, false);
-                    if (mixed_type)
-                    {
-                        decide_map_key_type->set_type_with_name(mixed_type->type_name);
-                    }
-                    else
-                    {
-                        decide_map_key_type->set_type_with_name(WO_PSTR(dynamic));
-                        // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                    }
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
+                    break;
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
+                    && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
-                    auto* mixed_type = decide_map_val_type->mix_types(map_pair->val->value_type, false);
-                    if (mixed_type)
-                    {
-                        decide_map_val_type->set_type_with_name(mixed_type->type_name);
-                    }
-                    else
-                    {
-                        decide_map_val_type->set_type_with_name(WO_PSTR(dynamic));
-                        // lang_anylizer->lang_warning(0x0000, a_ret, WO_WARN_FUNC_WILL_RETURN_DYNAMIC);
-                    }
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
+                    break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
-            }
-
-            if (decide_map_key_type && decide_map_val_type)
-            {
-                a_value_map->value_type->template_arguments[0] = decide_map_key_type;
-                a_value_map->value_type->template_arguments[1] = decide_map_val_type;
             }
         }
         return true;
@@ -549,6 +512,9 @@ namespace wo
         {
             a_ret->located_function = located_function_scope->function_node;
             a_ret->located_function->has_return_value = true;
+
+            wo_assert(a_ret->located_function->value_type->is_complex());
+
             if (a_ret->return_value)
             {
                 analyze_pass1(a_ret->return_value);
@@ -568,13 +534,10 @@ namespace wo
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
                             {
-                                auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type, false);
-                                if (mixed_type)
-                                    a_ret->located_function->value_type->set_ret_type(mixed_type);
-                                else
+                                if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                                 {
                                     // current function might has constexpr if, set delay_return_type_judge flag
-                                    a_ret->located_function->value_type->set_type_with_name(WO_PSTR(pending));
+                                    func_return_type->set_type_with_name(WO_PSTR(pending));
                                     a_ret->located_function->delay_adjust_return_type = true;
                                 }
                             }
@@ -588,7 +551,7 @@ namespace wo
                 {
                     if (located_function_scope->function_node->value_type->is_pending())
                     {
-                        located_function_scope->function_node->value_type->set_ret_type(ast_type::create_type_at(located_function_scope->function_node, WO_PSTR(void)));
+                        located_function_scope->function_node->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                         located_function_scope->function_node->auto_adjust_return_type = false;
                     }
                     else
@@ -663,8 +626,8 @@ namespace wo
         analyze_pass1(a_value_unary->val);
 
         if (a_value_unary->operate == +lex_type::l_lnot)
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
-        a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
+            a_value_unary->value_type->set_type_with_name(WO_PSTR(bool));
+        a_value_unary->value_type->set_type(a_value_unary->val->value_type);
         return true;
     }
     WO_PASS1(ast_mapping_pair)
@@ -829,30 +792,22 @@ namespace wo
     {
         auto* a_value_make_tuple_instance = WO_AST();
         analyze_pass1(a_value_make_tuple_instance->tuple_member_vals);
-        std::vector<ast_type*> types;
-        bool tuple_type_not_pending = true;
+
         auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+
+        size_t count = 0;
         while (tuple_elems)
         {
             ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
             if (!val->value_type->is_pending())
-                types.push_back(val->value_type);
+                a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
             else
-            {
-                tuple_type_not_pending = false;
                 break;
-            }
+
             tuple_elems = tuple_elems->sibling;
+            ++count;
         }
-        if (tuple_type_not_pending)
-        {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(tuple));
-            a_value_make_tuple_instance->value_type->template_arguments = types;
-        }
-        else
-        {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(pending));
-        }
+
         return true;
     }
     WO_PASS1(ast_struct_member_define)
@@ -879,14 +834,9 @@ namespace wo
         analyze_pass1(a_value_trib_expr->val_if_true);
         analyze_pass1(a_value_trib_expr->val_or);
 
-
-        if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type, false))
-        {
-            a_value_trib_expr->value_type = updated_type;
-            updated_type->copy_source_info(a_value_trib_expr);
-        }
-        else
-            a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, WO_PSTR(pending));
+        a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
+        if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
+            a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
 
         return true;
     }
@@ -927,12 +877,9 @@ namespace wo
                     {
                         if (!func_return_type->accept_type(a_ret->return_value->value_type, false, false))
                         {
-                            auto* mixed_type = func_return_type->mix_types(a_ret->return_value->value_type, false);
-                            if (mixed_type)
-                                a_ret->located_function->value_type->set_ret_type(mixed_type);
-                            else
+                            if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                             {
-                                a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, WO_PSTR(void)));
+                                func_return_type->set_type_with_name(WO_PSTR(void));
                                 lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }
@@ -954,7 +901,7 @@ namespace wo
             {
                 if (a_ret->located_function->value_type->is_pending())
                 {
-                    a_ret->located_function->value_type->set_ret_type(ast_type::create_type_at(a_ret->located_function, WO_PSTR(void)));
+                    a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     a_ret->located_function->auto_adjust_return_type = false;
                 }
                 else
@@ -1309,7 +1256,7 @@ namespace wo
                         if (a_value_funcdef->has_return_value)
                             lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
 
-                        a_value_funcdef->value_type->set_ret_type(ast_type::create_type_at(a_value_funcdef, WO_PSTR(void)));
+                        a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     }
                 }
             }
@@ -1338,7 +1285,7 @@ namespace wo
 
 
                 // Error happend in cur function
-                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+                a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
             }
 
         }
@@ -1368,17 +1315,15 @@ namespace wo
         auto* a_value_typecast = WO_AST();
         // check: cast is valid?
         ast_value* origin_value = a_value_typecast->_be_cast_value_node;
-        fully_update_type(a_value_typecast->aim_type, false);
         fully_update_type(a_value_typecast->value_type, false);
         analyze_pass2(origin_value);
 
-        if (!ast_type::check_castable(a_value_typecast->aim_type, origin_value->value_type))
+        if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
         {
             lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 origin_value->value_type->get_type_name(false).c_str(),
-                a_value_typecast->aim_type->get_type_name(false).c_str()
+                a_value_typecast->value_type->get_type_name(false).c_str()
             );
-            a_value_typecast->aim_type = ast_type::create_type_at(a_value_typecast, WO_PSTR(pending));
         }
 
         return true;
@@ -1419,7 +1364,7 @@ namespace wo
                     {
                         if (!fnd->second.member_type->is_pending())
                         {
-                            a_value_index->value_type = ast_type::create_type_at(a_value_index, *fnd->second.member_type);
+                            a_value_index->value_type->set_type(fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
                         }
                     }
@@ -1445,7 +1390,7 @@ namespace wo
                         auto index = a_value_index->index->get_constant_value().integer;
                         if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
                         {
-                            a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[index]);
+                            a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[index]);
                             a_value_index->struct_offset = (uint16_t)index;
                         }
                         else
@@ -1459,22 +1404,16 @@ namespace wo
                 }
                 else if (a_value_index->from->value_type->is_string())
                 {
-                    a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(char));
+                    a_value_index->value_type->set_type_with_name(WO_PSTR(char));
                 }
                 else if (!a_value_index->from->value_type->is_pending())
                 {
                     if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                    {
-                        a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[0]);
-                    }
+                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[0]);
                     else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
-                    {
-                        a_value_index->value_type = ast_type::create_type_at(a_value_index, *a_value_index->from->value_type->template_arguments[1]);
-                    }
+                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[1]);
                     else
-                    {
-                        a_value_index->value_type = ast_type::create_type_at(a_value_index, WO_PSTR(dynamic));
-                    }
+                        a_value_index->value_type->set_type_with_name(WO_PSTR(dynamic));
                 }
             }
         }
@@ -1549,18 +1488,21 @@ namespace wo
             {
                 // Failed to call override func
                 a_value_bin->overrided_operation_call = nullptr;
-
-                a_value_bin->value_type = ast_value_binary::binary_upper_type_with_operator(
+                auto* lnr_type = ast_value_binary::binary_upper_type_with_operator(
                     a_value_bin->left->value_type,
                     a_value_bin->right->value_type,
                     a_value_bin->operate
                 );
+                if (lnr_type != nullptr)
+                    a_value_bin->value_type->set_type(lnr_type);
+                else
+                    a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
             }
             else
             {
                 // Apply this type to func
                 if (nullptr == a_value_bin->value_type)
-                    a_value_bin->value_type = ast_type::create_type_at(a_value_bin, *a_value_bin->overrided_operation_call->value_type);
+                    a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
                 else if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
             }
@@ -1572,7 +1514,7 @@ namespace wo
             lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                 a_value_bin->left->value_type->get_type_name(false).c_str(),
                 a_value_bin->right->value_type->get_type_name(false).c_str());
-            a_value_bin->value_type = ast_type::create_type_at(a_value_bin, WO_PSTR(pending));
+            a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
         }
         return true;
     }
@@ -1596,14 +1538,12 @@ namespace wo
             else
             {
                 // Apply this type to func
-                if (nullptr == a_value_logic_bin->value_type)
-                    a_value_logic_bin->value_type = a_value_logic_bin->overrided_operation_call->value_type;
-                else if (a_value_logic_bin->value_type->is_pending())
-                    a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
+                wo_assert(a_value_logic_bin->value_type != nullptr);
+                a_value_logic_bin->value_type->set_type(a_value_logic_bin->overrided_operation_call->value_type);
             }
 
         }
-        if (!a_value_logic_bin->value_type || a_value_logic_bin->value_type->is_pending())
+        if (a_value_logic_bin->value_type->is_pending())
         {
             bool type_ok = false;
             /*if (a_value_logic_bin->left->value_type->is_builtin_basic_type()
@@ -1630,7 +1570,7 @@ namespace wo
                     a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
                     a_value_logic_bin->right->value_type->get_type_name(false).c_str());
             else
-                a_value_logic_bin->value_type = ast_type::create_type_at(a_value_logic_bin, WO_PSTR(bool));
+                a_value_logic_bin->value_type->set_type_with_name(WO_PSTR(bool));
             fully_update_type(a_value_logic_bin->value_type, false);
         }
 
@@ -1643,25 +1583,28 @@ namespace wo
 
         if (a_value_arr->value_type->is_pending())
         {
-            ast_type* decide_array_item_type = ast_type::create_type_at(a_value_arr, WO_PSTR(nothing));
+            ast_type* decide_array_item_type = a_value_arr->value_type->template_arguments[0];
+            decide_array_item_type->set_type_with_name(WO_PSTR(nothing));
+
             ast_value* val = dynamic_cast<ast_value*>(a_value_arr->array_items->children);
             if (val)
             {
                 if (!val->value_type->is_pending())
-                    decide_array_item_type->set_type(decide_array_item_type->mix_types(val->value_type, false));
+                    decide_array_item_type->set_type(val->value_type);
                 else
-                    decide_array_item_type = nullptr;
+                    decide_array_item_type->set_type_with_name(WO_PSTR(pending));
             }
 
             while (val)
             {
                 if (val->value_type->is_pending())
                 {
-                    decide_array_item_type = nullptr;
+                    decide_array_item_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
 
-                if (!decide_array_item_type->accept_type(val->value_type, false))
+                if (!decide_array_item_type->accept_type(val->value_type, false)
+                    && !decide_array_item_type->set_mix_types(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
                         lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array");
@@ -1670,11 +1613,6 @@ namespace wo
                     break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
-            }
-
-            if (decide_array_item_type)
-            {
-                a_value_arr->value_type->template_arguments[0] = decide_array_item_type;
             }
         }
 
@@ -1729,33 +1667,37 @@ namespace wo
 
         if (a_value_map->value_type->is_pending())
         {
-            ast_type* decide_map_key_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
-            ast_type* decide_map_val_type = ast_type::create_type_at(a_value_map, WO_PSTR(nothing));
+            ast_type* decide_map_key_type = a_value_map->value_type->template_arguments[0];
+            ast_type* decide_map_val_type = a_value_map->value_type->template_arguments[1];
+
+            decide_map_key_type->set_type_with_name(WO_PSTR(nothing));
+            decide_map_val_type->set_type_with_name(WO_PSTR(nothing));
 
             ast_mapping_pair* map_pair = dynamic_cast<ast_mapping_pair*>(a_value_map->mapping_pairs->children);
             if (map_pair)
             {
                 if (!map_pair->key->value_type->is_pending() && !map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type->set_type(decide_map_key_type->mix_types(map_pair->key->value_type, false));
-                    decide_map_val_type->set_type(decide_map_val_type->mix_types(map_pair->val->value_type, false));
+                    decide_map_key_type->set_type(map_pair->key->value_type);
+                    decide_map_val_type->set_type(map_pair->val->value_type);
                 }
                 else
                 {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                 }
             }
             while (map_pair)
             {
                 if (map_pair->key->value_type->is_pending() || map_pair->val->value_type->is_pending())
                 {
-                    decide_map_key_type = nullptr;
-                    decide_map_val_type = nullptr;
+                    decide_map_key_type->set_type_with_name(WO_PSTR(pending));
+                    decide_map_val_type->set_type_with_name(WO_PSTR(pending));
                     break;
                 }
 
-                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false))
+                if (!decide_map_key_type->accept_type(map_pair->key->value_type, false)
+                    && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
                         lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict");
@@ -1763,7 +1705,8 @@ namespace wo
                         lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map");
                     break;
                 }
-                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false))
+                if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
+                    && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
                         lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict");
@@ -1772,12 +1715,6 @@ namespace wo
                     break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
-            }
-
-            if (decide_map_key_type && decide_map_val_type)
-            {
-                a_value_map->value_type->template_arguments[0] = decide_map_key_type;
-                a_value_map->value_type->template_arguments[1] = decide_map_val_type;
             }
         }
 
@@ -1835,30 +1772,24 @@ namespace wo
     {
         auto* a_value_make_tuple_instance = WO_AST();
         analyze_pass2(a_value_make_tuple_instance->tuple_member_vals);
-        std::vector<ast_type*> types;
-        bool tuple_type_not_pending = true;
+
         auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
+
+        size_t count = 0;
         while (tuple_elems)
         {
             ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
             if (!val->value_type->is_pending())
-                types.push_back(val->value_type);
+                a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
             else
             {
-                tuple_type_not_pending = false;
+                lang_anylizer->lang_error(0x0000, val, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
                 break;
             }
             tuple_elems = tuple_elems->sibling;
+            ++count;
         }
-        if (tuple_type_not_pending)
-        {
-            a_value_make_tuple_instance->value_type = ast_type::create_type_at(a_value_make_tuple_instance, WO_PSTR(tuple));
-            a_value_make_tuple_instance->value_type->template_arguments = types;
-        }
-        else
-        {
-            lang_anylizer->lang_error(0x0000, a_value_make_tuple_instance, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
-        }
+
         return true;
     }
     WO_PASS2(ast_value_make_struct_instance)
@@ -1934,12 +1865,12 @@ namespace wo
             if (a_value_trib_expr->judge_expr->get_constant_value().integer)
             {
                 analyze_pass2(a_value_trib_expr->val_if_true);
-                a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, *a_value_trib_expr->val_if_true->value_type);
+                a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
             }
             else
             {
                 analyze_pass2(a_value_trib_expr->val_or);
-                a_value_trib_expr->value_type = ast_type::create_type_at(a_value_trib_expr, *a_value_trib_expr->val_or->value_type);
+                a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
             }
         }
         else
@@ -1949,12 +1880,8 @@ namespace wo
 
             if (a_value_trib_expr->value_type->is_pending())
             {
-                if (auto* updated_type = a_value_trib_expr->val_if_true->value_type->mix_types(a_value_trib_expr->val_or->value_type, false))
-                {
-                    a_value_trib_expr->value_type = updated_type;
-                    updated_type->copy_source_info(a_value_trib_expr);
-                }
-                else
+                a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
+                if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
                 {
                     lang_anylizer->lang_error(0x0000, a_value_trib_expr, WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR
                         , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
@@ -2013,7 +1940,7 @@ namespace wo
                 if (sym)
                 {
                     analyze_pass2(sym->variable_value);
-                    a_value_var->value_type = ast_type::create_type_at(a_value_var, *sym->variable_value->value_type);
+                    a_value_var->value_type->set_type(sym->variable_value->value_type);
 
                     if (sym->type == lang_symbol::symbol_type::variable && sym->decl == identifier_decl::MUTABLE)
                         a_value_var->value_type->set_is_mutable(true);
@@ -2042,7 +1969,7 @@ namespace wo
             {
                 lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
                     a_value_var->var_name->c_str());
-                a_value_var->value_type = ast_type::create_type_at(a_value_var, WO_PSTR(pending));
+                a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
         return true;
@@ -2055,10 +1982,10 @@ namespace wo
 
         if (a_value_unary->operate == +lex_type::l_lnot)
         {
-            a_value_unary->value_type = ast_type::create_type_at(a_value_unary, WO_PSTR(bool));
+            a_value_unary->value_type->set_type_with_name(WO_PSTR(bool));
             fully_update_type(a_value_unary->value_type, false);
         }
-        a_value_unary->value_type = ast_type::create_type_at(a_value_unary, *a_value_unary->val->value_type);
+        a_value_unary->value_type->set_type(a_value_unary->val->value_type);
 
         return true;
     }
@@ -2109,7 +2036,7 @@ namespace wo
                                 auto* funcdef = direct_called_func_symbol->get_funcdef();
                                 if (funcdef->is_template_define)
                                 {
-                                    a_value_funccall->called_func->value_type = funcdef->value_type;
+                                    a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
                                     // Make sure it will not be analyze in pass2
                                     a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
                                 }
@@ -2145,7 +2072,7 @@ namespace wo
                                 auto* funcdef = direct_called_func_symbol->get_funcdef();
                                 if (funcdef->is_template_define)
                                 {
-                                    a_value_funccall->called_func->value_type = funcdef->value_type;
+                                    a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
                                     // Make sure it will not be analyze in pass2
                                     a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
                                 }
@@ -2301,7 +2228,7 @@ namespace wo
                         fully_update_type(templ_arg, false);
                         if (templ_arg->is_pending() && !templ_arg->is_hkt())
                         {
-                            lang_anylizer->lang_error(0x0000, templ_arg, WO_ERR_UNKNOWN_TYPE,
+                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNKNOWN_TYPE,
                                 templ_arg->get_type_name(false).c_str());
                             goto failed_to_judge_template_params;
                         }
@@ -2322,7 +2249,7 @@ namespace wo
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
-                a_value_funccall->value_type = a_value_funccall->called_func->value_type->get_return_type();
+                a_value_funccall->value_type->set_type(a_value_funccall->called_func->value_type->get_return_type());
 
             if (a_value_funccall->called_func
                 && a_value_funccall->called_func->value_type->is_func()
@@ -2336,7 +2263,7 @@ namespace wo
                     if (funcsymb->has_return_value)
                         lang_anylizer->lang_error(0x0000, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
-                    funcsymb->value_type->set_ret_type(ast_type::create_type_at(funcsymb, WO_PSTR(void)));
+                    funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     funcsymb->auto_adjust_return_type = false;
                 }
 
@@ -2520,7 +2447,7 @@ namespace wo
             }
 
             if (failed_to_call_cur_func)
-                a_value_funccall->value_type = ast::ast_type::create_type_at(a_value_funccall, WO_PSTR(pending));
+                a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
         }
         return true;
     }
