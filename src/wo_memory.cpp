@@ -16,5 +16,8 @@ void* _wo_aligned_alloc(size_t allocsz, size_t allign)
 void _wo_aligned_free(void* memptr)
 {
 	size_t originalPStorage = reinterpret_cast<size_t>(memptr) - sizeof(void*);
-	free(*reinterpret_cast<void**>(originalPStorage));
+	void** p = reinterpret_cast<void**>(originalPStorage);
+	void* p2free = *p;
+	*p = (void*)(intptr_t)-1; // Debug flag.
+	free(p2free);
 }
