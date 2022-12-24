@@ -255,16 +255,16 @@ namespace wo
     {
         auto* ast_value_check = WO_AST();
 
-else if (ast_value_check->aim_type->is_pending())
-    {
-        // ready for update..
-        fully_update_type(ast_value_check->aim_type, true);
-    }
+        if (ast_value_check->aim_type->is_pending())
+        {
+            // ready for update..
+            fully_update_type(ast_value_check->aim_type, true);
+        }
 
-    analyze_pass1(ast_value_check->_be_check_value_node);
+        analyze_pass1(ast_value_check->_be_check_value_node);
 
-    ast_value_check->update_constant_value(lang_anylizer);
-    return true;
+        ast_value_check->update_constant_value(lang_anylizer);
+        return true;
     }
     WO_PASS1(ast_value_function_define)
     {
@@ -1261,7 +1261,7 @@ else if (ast_value_check->aim_type->is_pending())
                 }
             }
             else
-                a_value_funcdef->value_type->set_type_with_name(WO_PSTR(pending));
+                a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
 
             if (lang_anylizer->get_cur_error_frame().size() != anylizer_error_count)
             {
@@ -2164,12 +2164,16 @@ else if (ast_value_check->aim_type->is_pending())
                                 calling_function_define->template_type_name_list);
                             //fully_update_type(real_argument_types[index], false); // USELESS
 
-                            pending_template_arg = analyze_template_derivation(
+                            if (pending_template_arg = analyze_template_derivation(
                                 calling_function_define->template_type_name_list[tempindex],
                                 calling_function_define->template_type_name_list,
                                 calling_function_define->value_type->argument_types[index],
                                 updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
-                            );
+                            ))
+                            {
+                                if (pending_template_arg->is_pure_pending())
+                                    pending_template_arg = nullptr;
+                            }
 
                             if (pending_template_arg)
                                 break;
