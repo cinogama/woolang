@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cstdint>
 
 // From https://www.cnblogs.com/deatharthas/p/14502337.html
 
