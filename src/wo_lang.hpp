@@ -1492,8 +1492,7 @@ namespace wo
                             lang_anylizer->lang_error(0x0000, a_value, WO_ERR_UNKNOWN_TYPE
                                 , a_value->value_type->get_type_name().c_str());
                     }
-                    if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value);
-                        ast_value_check != nullptr && ast_value_check->value_type->may_need_update())
+                    if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
                     {
                         // ready for update..
                         fully_update_type(ast_value_check->aim_type, false);
