@@ -18,6 +18,10 @@ namespace test_enum
         SPECIAL_FIVE = 5,
         SIX,
     }
+    func foo(a: EnumA, b: EnumB)
+    {
+        return a: int + b: int;
+    }
 
     func main()
     {
@@ -25,6 +29,7 @@ namespace test_enum
         test_equal(EnumB::ZERO, 0);
         test_equal(EnumA::FIVE, 5);
         test_equal(EnumB::SIX, 6);
+        test_equal(foo(EnumA::ZERO, EnumB::ZERO), 0);
     }
 }
 
