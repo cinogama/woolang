@@ -273,6 +273,9 @@ namespace wo
                     template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
                     template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
                 }
+
+                if (is_custom_type(_type_name))
+                    is_pending_type = true;
             }
             void set_type(const ast_type* _type)
             {
@@ -308,8 +311,6 @@ namespace wo
             ast_type(wo_pstring_t _type_name)
             {
                 set_type_with_name(_type_name);
-                if (is_custom_type(_type_name))
-                    is_pending_type = true;
             }
 
             void set_as_function_type()
