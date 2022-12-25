@@ -1320,6 +1320,7 @@ namespace wo
                             {
                                 ast::ast_type* template_value_type = new ast::ast_type(WO_PSTR(pending));
                                 template_value_type->set_type(pending_template_arg);
+                                template_value_type->copy_source_info(function_define);
 
                                 arg_func_template_args[tempindex] = template_value_type;
 

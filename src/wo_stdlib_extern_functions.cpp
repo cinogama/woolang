@@ -1353,14 +1353,14 @@ namespace option
             return option::none;
         }
     }
-    public func or<T>(self: option<T>, orfunctor: ()=>T)
+    public func or<T>(self: option<T>, orfunctor: ()=>T)=> T
     {
         match(self)
         {
         value(x)?
-            return self;
+            return x;
         none?
-            return value(orfunctor());
+            return orfunctor();
         }
     }
     public func valor<T>(self: option<T>, default_val: T)
@@ -1473,12 +1473,12 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func or<T, F, U>(self: result<T, F>, functor: (F)=>U)=> result<T, U>
+    public func or<T, F>(self: result<T, F>, functor: (F)=>T)=> T
     {
         match(self)
         {
-        ok(v)? return ok(v);
-        err(e)? return err(functor(e));
+        ok(v)? return v;
+        err(e)? return functor(e);
         }
     }
 }
