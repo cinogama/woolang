@@ -378,6 +378,10 @@ wo_integer_t wo_int(wo_value value)
     }
     return _rsvalue->integer;
 }
+wo_char_t wo_char(const wo_value value)
+{
+    return (wchar_t)wo_int(value);
+}
 wo_real_t wo_real(wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
@@ -457,6 +461,10 @@ void wo_set_int(wo_value value, wo_integer_t val)
 {
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_integer(val);
+}
+void wo_set_char(wo_value value, wo_char_t val)
+{
+    wo_set_int(value, (wo_integer_t)val);
 }
 void wo_set_real(wo_value value, wo_real_t val)
 {
@@ -1141,6 +1149,10 @@ wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_integer(result));
 }
+wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result)
+{
+    return wo_ret_int(vm, (wo_integer_t)result);
+}
 wo_result_t wo_ret_real(wo_vm vm, wo_real_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_real(result));
@@ -1236,6 +1248,10 @@ wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
     structptr->m_values[1].set_integer(result ? 1 : 0);
 
     return 0;
+}
+wo_result_t wo_ret_option_char(wo_vm vm, wo_char_t result)
+{
+    return wo_ret_option_int(vm, (wo_integer_t)result);
 }
 wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
 {
@@ -1396,6 +1412,10 @@ wo_result_t wo_ret_err_void(wo_vm vm)
     structptr->m_values[1].set_nil();
 
     return 0;
+}
+wo_result_t wo_ret_err_char(wo_vm vm, wo_char_t result)
+{
+    return wo_ret_err_int(vm, (wo_integer_t)result);
 }
 wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
 {

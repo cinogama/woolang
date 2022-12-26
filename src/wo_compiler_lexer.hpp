@@ -353,38 +353,45 @@ namespace wo
             if (ch == EOF)
                 return false;
 
-            return isdigit(ch);
+            return iswdigit(ch);
         }
         static bool lex_isxdigit(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return isxdigit(ch);
+            return iswxdigit(ch);
         }
         static bool lex_isodigit(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return ch >= '0' && ch <= '7';
+            return ch >= L'0' && ch <= L'7';
         }
         static int lex_toupper(int ch)
         {
             if (ch == EOF)
                 return EOF;
 
-            return toupper(ch);
+            return towupper(ch);
+        }
+        static int lex_tolower(int ch)
+        {
+            if (ch == EOF)
+                return EOF;
+
+            return towlower(ch);
         }
         static int lex_hextonum(int ch)
         {
             wo_assert(lex_isxdigit(ch));
 
-            if (isdigit(ch))
+            if (iswdigit(ch))
             {
                 return ch - L'0';
             }
-            return toupper(ch) - L'A' + 10;
+            return towupper(ch) - L'A' + 10;
         }
 
     public:

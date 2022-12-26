@@ -47,29 +47,27 @@ WO_API wo_api rslib_std_make_dup(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_toupper(wo_vm vm, wo_value args, size_t argc)
 {
-    std::string str = wo_string(args + 0);
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
-        ch = (char)toupper((int)(unsigned char)ch);
-    return wo_ret_string(vm, str.c_str());
+        ch = wo::lexer::lex_toupper(ch);
+    return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
 WO_API wo_api rslib_std_string_tolower(wo_vm vm, wo_value args, size_t argc)
 {
-    std::string str = wo_string(args + 0);
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
     for (auto& ch : str)
-        ch = (char)tolower((int)(unsigned char)ch);
-    return wo_ret_string(vm, str.c_str());
+        ch = wo::lexer::lex_tolower(ch);
+    return wo_ret_string(vm, wo_wstr_to_str(str.c_str()));
 }
 
 WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isspace(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isspace(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
@@ -78,13 +76,11 @@ WO_API wo_api rslib_std_string_isspace(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isalpha(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isalpha(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
@@ -93,13 +89,11 @@ WO_API wo_api rslib_std_string_isalpha(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isalnum(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isalnum(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
@@ -108,13 +102,11 @@ WO_API wo_api rslib_std_string_isalnum(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isdigit(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isdigit(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
@@ -123,13 +115,11 @@ WO_API wo_api rslib_std_string_isnumber(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isxdigit(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isxdigit(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
@@ -138,17 +128,61 @@ WO_API wo_api rslib_std_string_ishex(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_string_t str = wo_string(args + 0);
-
-    if (*str)
+    std::wstring str = wo_str_to_wstr(wo_string(args + 0));
+    if (!str.empty())
     {
-        auto&& wstr = wo::str_to_wstr(str);
-        for (auto& wch : wstr)
-            if (!wo::lexer::lex_isodigit(wch))
+        for (auto& ch : str)
+            if (!wo::lexer::lex_isodigit(ch))
                 return wo_ret_bool(vm, false);
         return wo_ret_bool(vm, true);
     }
     return wo_ret_bool(vm, false);
+}
+
+WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_char_t str[] = { wo_char(args + 0), 0};
+    return wo_ret_string(vm, wo_wstr_to_str(str));
+}
+
+WO_API wo_api rslib_std_char_toupper(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_char(vm, wo::lexer::lex_toupper(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_tolower(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_char(vm, wo::lexer::lex_tolower(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_isspace(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isspace(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_isalpha(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isalpha(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_isalnum(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isalnum(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_isnumber(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isdigit(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isxdigit(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_isodigit(wo_char(args + 0)));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
@@ -1597,6 +1631,36 @@ namespace std
 }
 
 public using cchar = char;
+
+namespace char
+{
+    extern("rslib_std_char_tostring")
+        public func tostring(val:char)=>string;
+
+    extern("rslib_std_char_toupper")
+        public func upper(val:char)=>char;
+
+    extern("rslib_std_char_tolower")
+        public func lower(val:char)=>char;
+
+    extern("rslib_std_char_isspace")
+        public func isspace(val:char)=>bool;
+
+    extern("rslib_std_char_isalpha")
+        public func isalpha(val:char)=> bool;
+
+    extern("rslib_std_char_isalnum")
+        public func isalnum(val:char)=> bool;
+
+    extern("rslib_std_char_isnumber")
+        public func isnumber(val:char)=> bool;
+
+    extern("rslib_std_char_ishex")
+        public func ishex(val:char)=> bool;
+
+    extern("rslib_std_char_isoct")
+        public func isoct(val:char)=> bool;
+}
 
 namespace string
 {
