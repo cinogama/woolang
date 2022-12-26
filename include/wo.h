@@ -43,9 +43,10 @@ WO_FORCE_CAPI
 
 typedef int64_t     wo_integer_t, wo_int_t;
 typedef uint64_t    wo_handle_t;
-typedef void* wo_ptr_t;
+typedef void*       wo_ptr_t;
 typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
+typedef wchar_t     wo_char_t;
 typedef double      wo_real_t;
 typedef size_t      wo_result_t, wo_api, wo_size_t;
 typedef bool        wo_bool_t;
@@ -110,6 +111,7 @@ WO_API void         wo_unload_lib(void* lib);
 
 WO_API wo_type      wo_valuetype(const wo_value value);
 
+WO_API wo_char_t    wo_char(const wo_value value);
 WO_API wo_integer_t wo_int(const wo_value value);
 WO_API wo_real_t    wo_real(const wo_value value);
 WO_API wo_handle_t  wo_handle(const wo_value value);
@@ -119,6 +121,7 @@ WO_API wo_bool_t    wo_bool(const wo_value value);
 //WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(const wo_value value);
 
+WO_API void wo_set_char(wo_value value, wo_char_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
 WO_API void wo_set_real(wo_value value, wo_real_t val);
 WO_API void wo_set_float(wo_value value, float val);
@@ -144,6 +147,7 @@ WO_API wo_string_t  wo_type_name(wo_type value);
 
 WO_API wo_integer_t wo_argc(wo_vm vm);
 
+WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t  wo_ret_float(wo_vm vm, float result);
@@ -160,6 +164,7 @@ WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
 WO_API wo_result_t  wo_ret_panic(wo_vm vm, wo_string_t reason);
 
 WO_API wo_result_t  wo_ret_option_void(wo_vm vm);
+WO_API wo_result_t  wo_ret_option_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_option_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_option_real(wo_vm vm, wo_real_t result);
@@ -173,6 +178,7 @@ WO_API wo_result_t  wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_v
 WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 
 #define     wo_ret_ok_void    wo_ret_option_void
+#define     wo_ret_ok_char    wo_ret_option_char
 #define     wo_ret_ok_bool    wo_ret_option_bool
 #define     wo_ret_ok_int    wo_ret_option_int
 #define     wo_ret_ok_real   wo_ret_option_real
@@ -184,6 +190,7 @@ WO_API wo_result_t  wo_ret_option_none(wo_vm vm);
 #define     wo_ret_ok_gchandle   wo_ret_option_gchandle
 
 WO_API wo_result_t  wo_ret_err_void(wo_vm vm);
+WO_API wo_result_t  wo_ret_err_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_err_bool(wo_vm vm, wo_bool_t result);
 WO_API wo_result_t  wo_ret_err_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_err_real(wo_vm vm, wo_real_t result);
