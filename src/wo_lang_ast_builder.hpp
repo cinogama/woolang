@@ -4626,9 +4626,6 @@ namespace wo
 
                 token tk = WO_NEED_TOKEN(0);
 
-                if (tk.identifier == L"_")
-                    lex.parser_error(0x0000, WO_ERR_UNEXCEPT_TOKEN L"'_'");
-
                 wo_test(tk.type == +lex_type::l_identifier);
                 return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
@@ -5783,10 +5780,20 @@ namespace wo
                 wo_assert(input.size() == 1 || input.size() == 4);
 
                 result->union_expr = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
+                if (result->union_expr->var_name == WO_PSTR(_) 
+                    && result->union_expr->scope_namespaces.empty() 
+                    && !result->union_expr->search_from_global_namespace)
+                    result->union_expr = nullptr;
 
                 if (input.size() == 4)
+                {
                     result->pattern_arg_in_union_may_nil
-                    = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
+                        = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
+
+                    if (result->union_expr == nullptr)
+                        lex.lang_error(0x0000, result->pattern_arg_in_union_may_nil,
+                            WO_ERR_NO_AGR_FOR_DEFAULT_PATTERN);
+                }
                 return (ast_basic*)result;
             }
         };

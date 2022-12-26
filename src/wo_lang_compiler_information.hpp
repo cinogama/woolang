@@ -250,6 +250,12 @@
 
 #define WO_ERR_USING_UNSAFE_NAMESPACE L"不允许使用包含 'unsafe' 的命名空间"
 
+#define WO_ERR_NO_AGR_FOR_DEFAULT_PATTERN L"默认的 `union` 模式不可接受参数"
+
+#define WO_ERR_CASE_AFTER_DEFAULT_PATTERN L"默认的 `union` 模式之后不可有其他匹配项"
+
+#define WO_ERR_USELESS_DEFAULT_PATTERN L"无效的默认 `union` 模式，不可能执行到默认分支"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -488,5 +494,11 @@
 #define WO_ERR_INVALID_GADT_CONFLICT L"Conflict type of union item."
 
 #define WO_ERR_USING_UNSAFE_NAMESPACE L"Using a namespace containing 'unsafe' is not allowed."
+
+#define WO_ERR_NO_AGR_FOR_DEFAULT_PATTERN L"Cannot match argument from default union pattern."
+
+#define WO_ERR_CASE_AFTER_DEFAULT_PATTERN L"Cannot match other cases after default union pattern."
+
+#define WO_ERR_USELESS_DEFAULT_PATTERN L"Useless default union pattern, default case cannot be execute."
 
 #endif

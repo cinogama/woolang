@@ -3507,14 +3507,18 @@ namespace wo
                     if (a_match_union_case->in_match->match_value->value_type->is_pending())
                         lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
 
-                    ast_value_variable* case_item = a_pattern_union_value->union_expr;
-                    auto fnd = a_match_union_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
-                    if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_CASE_TYPE);
-                    else
+                    if (ast_value_variable* case_item = a_pattern_union_value->union_expr)
                     {
-                        compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
+                        auto fnd = a_match_union_case->in_match->match_value->value_type->struct_member_index.find(case_item->var_name);
+                        if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
+                            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_CASE_TYPE);
+                        else
+                        {
+                            compiler->jnequb(imm((wo_integer_t)fnd->second.offset), tag(current_case_end));
+                        }
                     }
+                    else
+                        ; // Meet default pattern, just goon, no need to check tag.
 
                     if (a_pattern_union_value->pattern_arg_in_union_may_nil)
                     {
@@ -3528,7 +3532,8 @@ namespace wo
                     }
                     else
                     {
-                        if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
+                        if (a_pattern_union_value->union_expr != nullptr
+                            && a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
                             lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
                     }
                 }

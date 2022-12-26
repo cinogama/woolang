@@ -409,6 +409,127 @@ func main()
                     std::println(n); 
             }
         "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                B(n)?;
+                _?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                B(n)?;
+                C(n)?;
+                _?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                _?;
+                C(n)?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                _?;
+                C(n)?; 
+            }
+        "@);
         
         // Issue N221109: ref has been removed.
         assure_compile_success(@"let (a, b) = (1, mut 2);"@);
