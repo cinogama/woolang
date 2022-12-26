@@ -141,7 +141,7 @@ WO_API wo_api rslib_std_string_isoct(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_char_tostring(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_char_t str[] = { wo_char(args + 0), 0};
+    wo_char_t str[] = { wo_char(args + 0), 0 };
     return wo_ret_string(vm, wo_wstr_to_str(str));
 }
 
@@ -183,6 +183,11 @@ WO_API wo_api rslib_std_char_ishex(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_char_isoct(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo::lexer::lex_isodigit(wo_char(args + 0)));
+}
+
+WO_API wo_api rslib_std_char_hexnum(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_bool(vm, wo::lexer::lex_hextonum(wo_char(args + 0)));
 }
 
 WO_API wo_api rslib_std_string_enstring(wo_vm vm, wo_value args, size_t argc)
@@ -1179,6 +1184,58 @@ WO_API wo_api rslib_std_int_to_oct(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, result);
 }
 
+WO_API wo_api rslib_std_hex_to_int(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t str = wo_string(args + 0);
+    while (*str && wo::lexer::lex_isspace(*str))
+        ++str;
+    unsigned long long result;
+    if (*str != '-')
+    {
+        sscanf(str, "%llX", &result);
+        return wo_ret_int(vm, (wo_integer_t)result);
+    }
+    else
+    {
+        sscanf(str, "-%llX", &result);
+        return wo_ret_int(vm, -(wo_integer_t)result);
+    }
+}
+
+WO_API wo_api rslib_std_oct_to_int(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t str = wo_string(args + 0);
+    while (*str && wo::lexer::lex_isspace(*str))
+        ++str;
+    unsigned long long result;
+    if (*str != '-')
+    {
+        sscanf(str, "%llo", &result);
+        return wo_ret_int(vm, (wo_integer_t)result);
+    }
+    else
+    {
+        sscanf(str, "-%llo", &result);
+        return wo_ret_int(vm, -(wo_integer_t)result);
+    }
+}
+
+WO_API wo_api rslib_std_hex_to_handle(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t str = wo_string(args + 0);
+    unsigned long long result;
+    sscanf(str, "%llX", &result);
+    return wo_ret_handle(vm, result);
+}
+
+WO_API wo_api rslib_std_oct_to_handle(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t str = wo_string(args + 0);
+    unsigned long long result;
+    sscanf(str, "%llo", &result);
+    return wo_ret_handle(vm, result);
+}
+
 WO_API wo_api rslib_std_handle_to_hex(wo_vm vm, wo_value args, size_t argc)
 {
     char result[18];
@@ -1660,6 +1717,9 @@ namespace char
 
     extern("rslib_std_char_isoct")
         public func isoct(val:char)=> bool;
+
+    extern("rslib_std_char_hexnum")
+        public func hexnum(val:char)=> int;
 }
 
 namespace string
@@ -2271,6 +2331,11 @@ namespace int
         public func tohex(val: int)=> string;
     extern("rslib_std_int_to_oct")
         public func tooct(val: int)=> string;
+
+    extern("rslib_std_hex_to_int")
+        public func parsehex(val: string)=> int;
+    extern("rslib_std_oct_to_int")
+        public func parseoct(val: string)=> int;
 }
 
 namespace handle
@@ -2279,6 +2344,11 @@ namespace handle
         public func tohex(val: handle)=> string;
     extern("rslib_std_handle_to_oct")
         public func tooct(val: handle)=> string;
+
+    extern("rslib_std_hex_to_handle")
+        public func parsehex(val: string)=> handle;
+    extern("rslib_std_oct_to_handle")
+        public func parseoct(val: string)=> handle;
 }
 
 namespace gchandle
