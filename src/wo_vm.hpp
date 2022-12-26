@@ -706,10 +706,10 @@ namespace wo
                     tmpos << "idarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::iddict:
                     tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::sidmap:
-                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
-                case instruct::sidvec:
-                    tmpos << "sidvec\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::siddict:
+                    tmpos << "siddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::sidarr:
+                    tmpos << "sidarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
                 case instruct::sidstruct:
                     tmpos << "sidstruct\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << " offset=" << *(uint16_t*)((this_command_ptr += 2) - 2); break;
                 case instruct::idstr:
@@ -2152,16 +2152,16 @@ namespace wo
 
                     break;
                 }
-                case instruct::opcode::sidmap:
+                case instruct::opcode::siddict:
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
                     WO_ADDRESSING_N3_REG_BPOFF;
 
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
-                        "Unable to index null in 'sidmap'.");
+                        "Unable to index null in 'siddict'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-map value in 'sidmap'.");
+                        "Unable to index non-map value in 'siddict'.");
 
                     do
                     {
@@ -2173,18 +2173,18 @@ namespace wo
                     } while (0);
                     break;
                 }
-                case instruct::opcode::sidvec:
+                case instruct::opcode::sidarr:
                 {
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
                     WO_ADDRESSING_N3_REG_BPOFF;
 
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
-                        "Unable to index null in 'sidvec'.");
+                        "Unable to index null in 'sidarr'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
-                        "Unable to index non-vec value in 'sidvec'.");
+                        "Unable to index non-vec value in 'sidarr'.");
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
-                        "Unable to index vec by non-integer value in 'sidvec'.");
+                        "Unable to index vec by non-integer value in 'sidarr'.");
                     do
                     {
                         gcbase::gc_write_guard gwg1(opnum1->gcunit);
