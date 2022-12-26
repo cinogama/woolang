@@ -913,7 +913,6 @@ namespace wo
             }
             return nullptr;
         }
-
         value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
         {
             wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
@@ -925,20 +924,19 @@ namespace wo
                 wo::gcbase::gc_read_guard rg1(wo_func_addr);
                 if (!wo_func_addr->m_vm_func && !wo_func_addr->m_native_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
+                else if (wo_func_addr->m_native_call)
+                    wo_fail(WO_FAIL_CALL_FAIL, "Cannot dispatch a natived closure.");
                 else
                 {
                     auto* return_sp = sp;
 
-                    for (auto idx = wo_func_addr->m_closure_args.rbegin();
-                        idx != wo_func_addr->m_closure_args.rend();
-                        ++idx)
-                        (sp--)->set_val(&*idx);
+                    for (uint16_t idx = wo_func_addr->m_closure_args_count; idx > 0; --idx)
+                        (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
 
                     (sp--)->set_native_callstack(ip);
                     ip = env->rt_codes + wo_func_addr->m_vm_func;
                     tc->set_integer(argc);
                     bp = sp;
-
 
                     return return_sp;
                 }
@@ -1027,10 +1025,8 @@ namespace wo
                     auto* return_sp = sp + argc;
                     auto* return_bp = bp;
 
-                    for (auto idx = wo_func_closure->m_closure_args.rbegin();
-                        idx != wo_func_closure->m_closure_args.rend();
-                        ++idx)
-                        (sp--)->set_val(&*idx);
+                    for (uint16_t idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
+                        (sp--)->set_val(&wo_func_closure->m_closure_args[idx - 1]);
 
                     (sp--)->set_native_callstack(ip);
                     bp = sp;
@@ -1276,7 +1272,7 @@ namespace wo
 #else
 #define WO_VM_ASSERT(EXPR, REASON) if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_DEADLY,REASON);continue;}
 #endif
-            
+
             byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
@@ -1913,10 +1909,8 @@ namespace wo
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
                         //       Can use ret(n) to pop arguments when call.
-                        for (auto res = opnum1->closure->m_closure_args.rbegin();
-                            res != opnum1->closure->m_closure_args.rend();
-                            ++res)
-                            (rt_sp--)->set_val(&*res);
+                        for (uint16_t idx = opnum1->closure->m_closure_args_count; idx > 0; --idx)
+                            (rt_sp--)->set_val(&opnum1->closure->m_closure_args[idx - 1]);
                     }
 
                     rt_sp->type = value::valuetype::callstack;
@@ -1957,6 +1951,9 @@ namespace wo
 
                         if (closure_instance->m_native_call)
                         {
+                            // BUG: 221223
+                            // Here will contain JIT-CODE, jit cannot effect rt_sp here,
+                            // So we need restore stack here.
                             closure_instance->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
@@ -2254,22 +2251,18 @@ namespace wo
                         "Found broken ir-code in 'mkclos'.");
 
                     rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                    auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit);
+                    auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, closure_arg_count);
 
                     gcbase::gc_write_guard gwg1(created_closure);
-
                     created_closure->m_native_call = !!dr;
-                    created_closure->m_closure_args_count = closure_arg_count;
 
-                    if (dr)
+                    if (created_closure->m_native_call)
                         created_closure->m_native_func = (wo_native_func)WO_IPVAL_MOVE_8;
                     else
                     {
                         created_closure->m_vm_func = WO_IPVAL_MOVE_4;
-                        ip += 4;
+                        ip += 4; // Skip 4 byte.
                     }
-
-                    created_closure->m_closure_args.resize(closure_arg_count);
                     for (size_t i = 0; i < (size_t)closure_arg_count; i++)
                     {
                         auto* arr_val = ++rt_sp;
