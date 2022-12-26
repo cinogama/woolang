@@ -1376,9 +1376,9 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::nequs:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::sidmap:
+                case instruct::siddict:
                     WO_JIT_NOT_SUPPORT;
-                case instruct::sidvec:
+                case instruct::sidarr:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::sidstruct:
                     WO_JIT_NOT_SUPPORT;
