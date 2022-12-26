@@ -99,12 +99,6 @@ namespace test_container
 
         test_assure("{}"->todict->val->len == 0);
         test_assure(!@"{"\invalid"}"@->todict->has);
-
-        // BUG: 221223-JIT-ret pop not work when jit.
-        let x = []mut: vec<string>;
-        for (let mut i = 0; i < 100000; i += 1)
-            x->add(F"str_{i}");
-        x->forall(\s = s->beginwith("0"););
     }
 }
 

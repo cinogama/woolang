@@ -337,27 +337,14 @@ namespace wo
     struct closure_function
     {
         bool m_native_call;
-        const uint16_t m_closure_args_count;
+        uint16_t m_closure_args_count;
         union
         {
             wo_integer_t m_vm_func;
             wo_native_func m_native_func;
         };
         // TODO: Optimize, donot use vector to store args
-        value* m_closure_args;
-
-        closure_function(uint16_t sz) noexcept
-            : m_closure_args_count(sz)
-        {
-            m_closure_args = (value*)malloc(sz * sizeof(value));
-            for (uint16_t i = 0; i < sz; ++i)
-                m_closure_args[i].set_nil();
-        }
-        ~closure_function()
-        {
-            wo_assert(m_closure_args);
-            free(m_closure_args);
-        }
+        std::vector<value> m_closure_args;
     };
 
     struct gc_handle_base_t
