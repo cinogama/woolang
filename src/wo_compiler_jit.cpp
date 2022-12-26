@@ -942,15 +942,8 @@ namespace wo
                 }
                 case instruct::ret:
                 {
-                    // NOTE: ret-pop is useless for jit function, 
-                    // only used for making sure code correct after ret-pop.
                     if (dr)
-                        WO_IPVAL_MOVE_2;
-#if 0
-                    uint16_t pop_count = dr ? WO_IPVAL_MOVE_2 : 0;
-                    if (pop_count != 0)
-                        wo_asure(!x86compiler.add(_vmssp, pop_count * sizeof(value)));
-#endif
+                        (void)WO_IPVAL_MOVE_2;
 
                     wo_asure(x86compiler.ret());
                     break;
