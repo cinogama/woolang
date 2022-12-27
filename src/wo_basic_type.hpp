@@ -323,14 +323,14 @@ namespace wo
         struct_values(uint16_t sz) noexcept
             : m_count(sz)
         {
-            m_values = (value*)malloc(sz * sizeof(value));
+            m_values = sz == 0 ? nullptr : (value*)malloc(sz * sizeof(value));
             for (uint16_t i = 0; i < sz; ++i)
                 m_values[i].set_nil();
         }
         ~struct_values()
         {
-            wo_assert(m_values);
-            free(m_values);
+            if (m_values != nullptr)
+                free(m_values);
         }
     };
 
@@ -349,6 +349,7 @@ namespace wo
         closure_function(uint16_t sz) noexcept
             : m_closure_args_count(sz)
         {
+            wo_assert(sz != 0);
             m_closure_args = (value*)malloc(sz * sizeof(value));
             for (uint16_t i = 0; i < sz; ++i)
                 m_closure_args[i].set_nil();
