@@ -1627,9 +1627,9 @@ namespace wo
                     && !decide_array_item_type->set_mix_types(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array", L"array");
                     else
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"vec");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"vec", L"vec");
                     break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
@@ -1661,7 +1661,7 @@ namespace wo
                 if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, "array");
+                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"array");
                     else
                         lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"vec");
                 }
@@ -1720,18 +1720,18 @@ namespace wo
                     && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict");
+                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict", L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map");
+                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map", L"map");
                     break;
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
                     && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict");
+                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict", L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"map");
+                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"map", L"map");
                     break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
