@@ -1,4 +1,4 @@
-﻿# libwoo
+# libwoo
 #
 cmake_minimum_required (VERSION 3.8)
 
@@ -16,7 +16,7 @@ endif()
 
 if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
-        list(APPEND woo_system_libs gcov)
+        list(APPEND woo_system_libs gcov efence)
     endif()
 endif()
 
