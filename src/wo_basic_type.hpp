@@ -329,8 +329,11 @@ namespace wo
         }
         ~struct_values()
         {
-            if (m_values != nullptr)
+            if (m_count != 0)
+            {
+                wo_assert(m_values != nullptr);
                 free(m_values);
+            }
         }
     };
 
