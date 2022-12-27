@@ -30,11 +30,9 @@ namespace test_compile
         vm->close();
     }
 
-    func main()
+    func test_compile_success_or_fail()
     {
-        let begin_tm = std::time();
-        
-        // Bad constant
+          // Bad constant
         assure_compile_fail(@"
         let a = '';
         "@);
@@ -705,7 +703,21 @@ func main()
             }
            
         "@);
+    }
 
+    func main()
+    {
+        let test_threads = []mut: vec<std::thread>;
+        for (let mut i = 0 ; i < 4; i += 1)
+            test_threads->add(std::thread::create(test_compile_success_or_fail, ()));
+
+        test_compile_success_or_fail();
+
+        for (let _, t : test_threads)
+            t->wait();
+        
+
+        let begin_tm = std::time();
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)
