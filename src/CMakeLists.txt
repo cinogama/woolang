@@ -16,7 +16,7 @@ endif()
 
 if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
-        list(APPEND woo_system_libs gcov efence)
+        list(APPEND woo_system_libs gcov)
     endif()
 endif()
 

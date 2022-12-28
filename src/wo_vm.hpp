@@ -921,7 +921,6 @@ namespace wo
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
-                wo::gcbase::gc_read_guard rg1(wo_func_addr);
                 if (!wo_func_addr->m_vm_func && !wo_func_addr->m_native_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else if (wo_func_addr->m_native_call)
@@ -1016,7 +1015,6 @@ namespace wo
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
             else
             {
-                wo::gcbase::gc_read_guard rg1(wo_func_closure);
                 if (!wo_func_closure->m_vm_func)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else
@@ -1622,7 +1620,11 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
                         "Operand should be string in 'equs'.");
-                    rt_cr->set_integer(*opnum1->string == *opnum2->string);
+
+                    if (opnum1->string == opnum2->string)
+                        rt_cr->set_integer(1);
+                    else
+                        rt_cr->set_integer(*opnum1->string == *opnum2->string);
 
                     break;
                 }
@@ -1632,7 +1634,11 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
                         "Operand should be string in 'nequs'.");
-                    rt_cr->set_integer(*opnum1->string != *opnum2->string);
+
+                    if (opnum1->string == opnum2->string)
+                        rt_cr->set_integer(0);
+                    else
+                        rt_cr->set_integer(*opnum1->string != *opnum2->string);
                     break;
                 }
                 case instruct::opcode::land:
@@ -1904,7 +1910,6 @@ namespace wo
 
                     if (opnum1->type == value::valuetype::closure_type)
                     {
-                        gcbase::gc_read_guard gwg1(opnum1->closure);
                         // Call closure, unpack closure captured arguments.
                         // 
                         // NOTE: Closure arguments should be poped by closure function it self.
@@ -1946,8 +1951,6 @@ namespace wo
                             "Unexpected invoke target type in 'call'.");
 
                         auto* closure_instance = opnum1->closure;
-                        
-                        gcbase::gc_read_guard gwg1(closure_instance);
 
                         if (closure_instance->m_native_call)
                         {
@@ -2224,8 +2227,6 @@ namespace wo
 
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'idstr'.");
-
-                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index string by non-integer value in 'idstr'.");
