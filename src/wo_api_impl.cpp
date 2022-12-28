@@ -438,7 +438,6 @@ wo_string_t wo_string(wo_value value)
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
         return wo_cast_string(value);
     }
-    wo::gcbase::gc_read_guard rg1(_rsvalue->string);
     return _rsvalue->string->c_str();
 }
 wo_bool_t wo_bool(const wo_value value)
@@ -579,10 +578,7 @@ wo_integer_t wo_cast_int(wo_value value)
     case wo::value::valuetype::real_type:
         return (wo_integer_t)_rsvalue->real;
     case wo::value::valuetype::string_type:
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return (wo_integer_t)atoll(_rsvalue->string->c_str());
-    }
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to integer.");
         return 0;
@@ -602,10 +598,7 @@ wo_real_t wo_cast_real(wo_value value)
     case wo::value::valuetype::real_type:
         return _rsvalue->real;
     case wo::value::valuetype::string_type:
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return atof(_rsvalue->string->c_str());
-    }
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to real.");
         return 0;
@@ -633,10 +626,7 @@ wo_handle_t wo_cast_handle(wo_value value)
     case wo::value::valuetype::real_type:
         return (wo_handle_t)_rsvalue->real;
     case wo::value::valuetype::string_type:
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return (wo_handle_t)atoll(_rsvalue->string->c_str());
-    }
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to handle.");
         return 0;
@@ -938,16 +928,12 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
         *out_str += std::to_string((wo_handle_t)wo_safety_pointer(value->gchandle));
         return;
     case wo::value::valuetype::string_type:
-    {
-        wo::gcbase::gc_read_guard rg1(value->string);
         *out_str += _enstring(*value->string, true);
         return;
-    }
     case wo::value::valuetype::dict_type:
     {
         wo::dict_t* map = value->dict;
         wo::gcbase::gc_read_guard rg1(map);
-
 
         if ((*traveled_gcunit)[map] >= 1)
         {
@@ -1090,10 +1076,7 @@ wo_string_t wo_cast_string(const wo_value value)
         _buf = std::to_string(_rsvalue->real);
         return _buf.c_str();
     case wo::value::valuetype::string_type:
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return _rsvalue->string->c_str();
-    }
     case wo::value::valuetype::closure_type:
         return "<closure function>";
     case wo::value::valuetype::invalid:
@@ -1593,10 +1576,7 @@ wo_integer_t wo_lengthof(wo_value value)
         return _rsvalue->dict->size();
     }
     else if (_rsvalue->type == wo::value::valuetype::string_type)
-    {
-        wo::gcbase::gc_read_guard rg1(_rsvalue->string);
         return wo::u8strlen(_rsvalue->string->c_str());
-    }
     else if (_rsvalue->type == wo::value::valuetype::struct_type)
     {
         // no need lock for struct's count
