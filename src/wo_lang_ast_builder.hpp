@@ -978,6 +978,9 @@ namespace wo
             ast_value& operator = (ast_value&&) = delete;
             ast_value& operator = (const ast_value&) = default;
 
+            ast_value(const ast_value&) = delete;
+            ast_value(ast_value&&) = delete;
+
             ~ast_value()
             {
                 if (auto* gcunit = constant_value.get_gcunit_with_barrier())

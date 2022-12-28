@@ -129,8 +129,6 @@ namespace wo
             }
             ast_base& operator = (ast_base&& another) = delete;
 
-            bool completed_in_pass2 = false;
-
             static void clean_this_thread_ast()
             {
                 if (nullptr == list)
@@ -155,6 +153,8 @@ namespace wo
                 return false;
             }
 
+            bool completed_in_pass2 = false;
+
             ast_base* parent;
             ast_base* children;
             ast_base* sibling;
@@ -166,8 +166,28 @@ namespace wo
 
             wo_pstring_t marking_label = nullptr;
 
-            virtual ~ast_base() = default;
-            ast_base(const ast_base&) = default;
+            virtual ~ast_base()
+            {
+
+            }
+            ast_base(const ast_base& another)
+            {
+                completed_in_pass2 = another.completed_in_pass2;
+                parent = another.parent;
+                children = another.children;
+                sibling = another.sibling;
+                last = another.last;
+                row_begin_no = another.row_begin_no;
+                row_end_no = another.row_end_no;
+                col_begin_no = another.col_begin_no;
+                col_end_no = another.col_end_no;
+                source_file = another.source_file;
+                marking_label = another.marking_label;
+
+                if (!list)
+                    list = new std::forward_list<ast_base*>;
+                list->push_front(this);
+            }
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)
@@ -307,7 +327,7 @@ namespace wo
             virtual ast_base* instance(ast_base* child_instance = nullptr) const = 0;
         };
 
-        struct ast_default :public ast_base
+        struct ast_default :virtual public ast_base
         {
             bool stores_terminal = false;
 
