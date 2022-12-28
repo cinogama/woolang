@@ -1470,8 +1470,8 @@ namespace wo
             for (size_t func_offset : env->_functions_offsets)
                 if (auto& stat = analyze_function(codebuf + func_offset, env); stat.m_state == function_jit_state::FINISHED)
                 {
-                    wo_assert(nullptr != stat.m_jitfunc);
-                    env->_jit_functions.push_back(stat.m_jitfunc);
+                    wo_assert(nullptr != stat.m_func);
+                    env->_jit_functions.push_back((void*)stat.m_func);
                 }
 
             for (size_t calln_offset : env->_calln_opcode_offsets)
@@ -1542,8 +1542,8 @@ namespace wo
 
     void free_jit(runtime_env* env)
     {
-        for (auto& jitfunc : env->_jit_functions)
-            asmjit_compiler_x64::get_jit_runtime().release(jitfunc);
+        for (auto& _func : env->_jit_functions)
+            wo_asure(!asmjit_compiler_x64::get_jit_runtime().release(_func));
     }
 }
 #else

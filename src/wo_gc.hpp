@@ -5,13 +5,13 @@
 #include <shared_mutex>
 #include <atomic>
 
-
 namespace wo
 {
     namespace gc
     {
         void gc_start();
         bool gc_is_marking();
+        bool gc_is_recycling();
     }
 
     template<typename NodeT>
@@ -21,11 +21,8 @@ namespace wo
 
         void add_one(NodeT* node)
         {
-            NodeT* last_last_node = last_node;// .exchange(node);
-            do
-            {
-                node->last = last_last_node;
-            } while (!last_node.compare_exchange_weak(last_last_node, node));
+            node->last = last_node.load();// .exchange(node);
+            while (!last_node.compare_exchange_weak(node->last, node));
         }
 
         NodeT* pick_all()
@@ -114,7 +111,7 @@ namespace wo
 
         enum class gctype : uint8_t
         {
-            no_gc,
+            no_gc= 0x6c,
 
             eden,
             young,
@@ -122,15 +119,33 @@ namespace wo
         };
         enum class gcmarkcolor : uint8_t
         {
-            no_mark,
+            no_mark = 0x7c,
             self_mark,
             full_mark,
         };
+
+        struct memo_unit
+        {
+            gcbase* gcunit;
+            memo_unit* last;
+        };
+        using rw_lock = _shared_spin;
 
         gctype gc_type = gctype::no_gc;
         gcmarkcolor gc_mark_color = gcmarkcolor::no_mark;
         uint16_t gc_mark_version = 0;
         uint16_t gc_mark_alive_count = 0;
+
+        rw_lock gc_read_write_mx;
+
+        // used in linklist;
+        gcbase* last = nullptr;
+        std::atomic<memo_unit*> m_memo = nullptr;
+
+#ifndef NDEBUG
+        bool gc_destructed = false;
+        const char* gc_typename = nullptr;
+#endif
 
         inline void gc_mark(uint16_t version, gcmarkcolor color)
         {
@@ -157,7 +172,6 @@ namespace wo
                 }
             }
         }
-
         inline gcmarkcolor gc_marked(uint16_t version)
         {
             if (version == gc_mark_version)
@@ -167,8 +181,6 @@ namespace wo
             return gc_mark_color = gcmarkcolor::no_mark;
         }
 
-        using rw_lock = _shared_spin;
-        rw_lock gc_read_write_mx;
         inline void write()
         {
             gc_read_write_mx.lock();
@@ -186,17 +198,6 @@ namespace wo
             gc_read_write_mx.unlock_shared();
         }
 
-        // used in linklist;
-        gcbase* last = nullptr;
-
-        struct memo_unit
-        {
-            gcbase* gcunit;
-            memo_unit* last;
-        };
-
-        std::atomic<memo_unit*> m_memo = nullptr;
-
         memo_unit* pick_memo()
         {
             return m_memo.exchange(nullptr);
@@ -205,6 +206,11 @@ namespace wo
 
         virtual ~gcbase() 
         {
+            wo_assert(gc_type == gctype::no_gc || gc::gc_is_recycling());
+         
+#ifndef NDEBUG
+            gc_destructed = false;
+#endif
             auto memoptr = pick_memo();
             while (memoptr)
             {
@@ -230,6 +236,10 @@ namespace wo
             *reinterpret_cast<std::atomic<gcbase*>*>(&write_aim) = created_gcnuit;
 
             created_gcnuit->gc_type = AllocType;
+
+#ifndef NDEBUG
+            created_gcnuit->gc_typename = typeid(T).name();
+#endif
 
             switch (AllocType)
             {
@@ -259,11 +269,9 @@ namespace wo
 
         }
 
-        template<typename TT>
-        inline gcunit& operator = (TT&& _val)
+        T* elem()
         {
-            (*(T*)this) = _val;
-            return *this;
+            return static_cast<T*>(this);
         }
     };
 

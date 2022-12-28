@@ -125,15 +125,6 @@ namespace wo
         static_assert(sizeof(std::atomic<uint32_t>) == sizeof(uint32_t));
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
-        void* operator new(size_t sz)
-        {
-            return alloc64(sz);
-        }
-        void operator delete(void* ptr)
-        {
-            return free64(ptr);
-        }
-
     private:
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
@@ -2294,6 +2285,7 @@ namespace wo
 
                             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
                             auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+                            wo::gcbase::gc_write_guard g1(packed_array);
                             packed_array->resize(tc->integer - opnum2->integer);
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {

@@ -619,7 +619,7 @@ WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
             arr1->array->add_memo(&elem);
     }
 
-    *arr1->array = *arr2->array;
+    *arr1->array->elem() = *arr2->array->elem();
 
     return wo_ret_void(vm);
 }
@@ -658,7 +658,7 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     do
     {
         wo::gcbase::gc_read_guard rg2(arr1->array);
-        *arr_result->array = *arr1->array;
+        *arr_result->array->elem() = *arr1->array->elem();
     } while (0);
     do
     {
@@ -865,7 +865,7 @@ WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
         }
     }
 
-    *map1->dict = *map2->dict;
+    *map1->dict->elem() = *map2->dict->elem();
 
     return wo_ret_void(vm);
 }

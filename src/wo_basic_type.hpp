@@ -323,7 +323,7 @@ namespace wo
         struct_values(uint16_t sz) noexcept
             : m_count(sz)
         {
-            m_values = sz == 0 ? nullptr : (value*)malloc(sz * sizeof(value));
+            m_values = sz == 0 ? nullptr : (value*)alloc64(sz * sizeof(value));
             for (uint16_t i = 0; i < sz; ++i)
                 m_values[i].set_nil();
         }
@@ -332,7 +332,7 @@ namespace wo
             if (m_count != 0)
             {
                 wo_assert(m_values != nullptr);
-                free(m_values);
+                free64(m_values);
             }
         }
     };
@@ -349,18 +349,23 @@ namespace wo
         // TODO: Optimize, donot use vector to store args
         value* m_closure_args;
 
+        closure_function(const closure_function&) = delete;
+        closure_function(closure_function&&) = delete;
+        closure_function& operator=(const closure_function&) = delete;
+        closure_function& operator=(closure_function&&) = delete;
+
         closure_function(uint16_t sz) noexcept
             : m_closure_args_count(sz)
         {
             wo_assert(sz != 0);
-            m_closure_args = (value*)malloc(sz * sizeof(value));
+            m_closure_args = (value*)alloc64(sz * sizeof(value));
             for (uint16_t i = 0; i < sz; ++i)
                 m_closure_args[i].set_nil();
         }
         ~closure_function()
         {
             wo_assert(m_closure_args);
-            free(m_closure_args);
+            free64(m_closure_args);
         }
     };
 
@@ -407,7 +412,8 @@ namespace wo
                 set_gcunit_with_barrier(valuetype::array_type);
 
                 auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
-                *created_arr = *dup_arrray;
+                gcbase::gc_write_guard g2(created_arr);
+                *created_arr->elem() = *dup_arrray->elem();
             }
             else
                 set_nil();
@@ -422,7 +428,8 @@ namespace wo
                 set_gcunit_with_barrier(valuetype::dict_type);
 
                 auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(gcunit);
-                *created_map = *dup_mapping;
+                gcbase::gc_write_guard g2(created_map);
+                *created_map->elem() = *dup_mapping->elem();
             }
             else
                 set_nil();
@@ -436,6 +443,7 @@ namespace wo
                 set_gcunit_with_barrier(valuetype::struct_type);
 
                 auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
+                gcbase::gc_write_guard g2(created_struct);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)
                     created_struct->m_values[i].set_val(&dup_struct->m_values[i]);
             }

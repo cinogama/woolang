@@ -19,6 +19,8 @@ GC will do following work to instead of old-gc:
 7. Recycle all white unit.
 */
 
+#define WO_GC_FORCE_STOP_WORLD false
+
 namespace wo
 {
     void gcbase::add_memo(const value* val)
@@ -26,13 +28,8 @@ namespace wo
         // TODO: IF HAS BEEN FULL-MAKRED, SKIP MEMORY OPERATION
         if (auto* mem = val->get_gcunit_with_barrier())
         {
-            memo_unit* last_memo = m_memo;
-            memo_unit* new_memo = new memo_unit{ mem, nullptr };
-            do
-            {
-                new_memo->last = last_memo;
-
-            } while (!m_memo.compare_exchange_weak(last_memo, new_memo));
+            memo_unit* new_memo = new memo_unit{ mem, m_memo.load() };
+            while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
         }
     }
 
@@ -59,11 +56,17 @@ namespace wo
         std::atomic<vmbase**> _gc_vm_list;
 
         std::atomic_bool _gc_is_marking = false;
-        bool _gc_stopping_world_gc = false;
+        std::atomic_bool _gc_is_recycling = false;
+
+        bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
 
         bool gc_is_marking()
         {
             return _gc_is_marking.load();
+        }
+        bool gc_is_recycling()
+        {
+            return _gc_is_recycling.load();
         }
 
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
@@ -456,9 +459,37 @@ namespace wo
 
             } while (0);
             // just full gc:
+
+#ifndef NDEBUG
+            std::unordered_set<gcbase*> _existed_list;
+#endif
             auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
             auto* young_list = gcbase::young_age_gcunit_list.pick_all();
             auto* old_list = gcbase::old_age_gcunit_list.pick_all();
+
+#ifndef NDEBUG
+            auto* e = eden_list;
+            while (e)
+            {
+                wo_assert(_existed_list.end() == _existed_list.find(e));
+                _existed_list.insert(e);
+                e = e->last;
+            }
+            e = young_list;
+            while (e)
+            {
+                wo_assert(_existed_list.end() == _existed_list.find(e));
+                _existed_list.insert(e);
+                e = e->last;
+            }
+            e = old_list;
+            while (e)
+            {
+                wo_assert(_existed_list.end() == _existed_list.find(e));
+                _existed_list.insert(e);
+                e = e->last;
+            }
+#endif
 
             // Mark all no_gc_object
             // mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
@@ -470,6 +501,7 @@ namespace wo
 
             // Marking finished.
             _gc_is_marking = false;
+            _gc_is_recycling = true;
 
             // 5. OK, All unit has been marked. reduce gcunits
             check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
@@ -510,8 +542,10 @@ namespace wo
             for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 delete destruct_vm;
 
+            _gc_is_recycling = false;
+
             // All jobs done.
-            _gc_stopping_world_gc = false;
+            _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
         }
 
         void _gc_main_thread()
