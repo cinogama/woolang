@@ -30,8 +30,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(de, 1, 8, 0);
-constexpr char         version_str[] = WO_VERSION_STR(de, 1, 8, 0) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 8, 5);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 8, 5) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -345,6 +345,7 @@ wo_bool_t wo_equal_byte(wo_value a, wo_value b)
 
 wo_ptr_t wo_safety_pointer_ignore_fail(wo::gchandle_t* gchandle)
 {
+    wo::gcbase::gc_read_guard g1(gchandle);
     if (gchandle->has_been_closed)
     {
         return nullptr;
@@ -354,6 +355,7 @@ wo_ptr_t wo_safety_pointer_ignore_fail(wo::gchandle_t* gchandle)
 
 wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
 {
+    wo::gcbase::gc_read_guard g1(gchandle);
     if (gchandle->has_been_closed)
     {
         wo_fail(WO_FAIL_ACCESS_NIL, "Reading a closed gchandle.");
@@ -501,6 +503,7 @@ void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val
 {
     WO_VAL(value)->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
+    wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
     {
@@ -1162,6 +1165,7 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
 {
     WO_VM(vm)->cr->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VM(vm)->cr->gcunit);
+    wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
     {
@@ -1360,6 +1364,7 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
     structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
 
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(structptr->m_values[1].gcunit);
+    wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
     {
@@ -1520,6 +1525,7 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
 
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(structptr->m_values[1].gcunit);
+    wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
     {
@@ -2011,6 +2017,7 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
 
     csp->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(csp->gcunit);
+    wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
     {
@@ -2564,7 +2571,9 @@ wo_bool_t wo_map_is_empty(wo_value map)
 
 wo_bool_t wo_gchandle_close(wo_value gchandle)
 {
-    return WO_VAL(gchandle)->gchandle->close();
+    auto* gchandle_ptr = WO_VAL(gchandle)->gchandle;
+    wo::gcbase::gc_read_guard g1(gchandle_ptr);
+    return gchandle_ptr->close();
 }
 
 // DEBUGGEE TOOLS
@@ -2616,10 +2625,9 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
     std::stringstream sstream;
     WO_VM(vm)->dump_call_stack(layer, false, sstream);
 
-    wo_set_string(CS_VAL(WO_VM(vm)->er), "");
+    wo_set_string(CS_VAL(WO_VM(vm)->er), sstream.str().c_str());
     wo_assert(WO_VM(vm)->er->type == wo::value::valuetype::string_type);
 
-    *(WO_VM(vm)->er->string) = sstream.str();
     return WO_VM(vm)->er->string->c_str();
 }
 

@@ -394,15 +394,27 @@ namespace wo
         using extern_function_map_t = std::map<std::string, size_t>;
         extern_function_map_t extern_script_functions;
 
+        runtime_env() = default;
+        runtime_env(const runtime_env&) = delete;
+        runtime_env(runtime_env&&) = delete;
+        runtime_env& operator = (const runtime_env&) = delete;
+        runtime_env& operator = (runtime_env&&) = delete;
+
         ~runtime_env()
         {
             free_jit(this);
-
+#ifndef NDEBUG
+            std::unordered_set<wo::gcbase*> freed_gcunits;
+#endif
             for (size_t ci = 0; ci < constant_value_count; ++ci)
                 if (constant_global_reg_rtstack[ci].is_gcunit())
                 {
                     wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
-
+                    wo_assert(constant_global_reg_rtstack[ci].gcunit->gc_type == wo::gcbase::gctype::no_gc);
+#ifndef NDEBUG
+                    wo_assert(freed_gcunits.find(constant_global_reg_rtstack[ci].gcunit) == freed_gcunits.end());
+                    freed_gcunits.insert(constant_global_reg_rtstack[ci].gcunit);
+#endif
                     constant_global_reg_rtstack[ci].gcunit->~gcbase();
                     free64(constant_global_reg_rtstack[ci].gcunit);
                 }
@@ -418,7 +430,6 @@ namespace wo
         {
             const char* stream;
             size_t stream_size;
-
             size_t readed_size;
 
             binary_source_stream(const void* bytestream, size_t streamsz)
@@ -904,12 +915,12 @@ namespace wo
 #undef WO_LOAD_BIN_FAILED
         }
         static shared_pointer<runtime_env> load_create_env_from_binary(
-            wo_string_t virtual_file, 
-            const void* bytestream, 
-            size_t streamsz, 
-            size_t stack_count, 
-            
-            wo_string_t* out_reason, 
+            wo_string_t virtual_file,
+            const void* bytestream,
+            size_t streamsz,
+            size_t stack_count,
+
+            wo_string_t* out_reason,
             bool* out_is_binary)
         {
             std::string buffer_to_store_data_from_file_or_mem;
@@ -1816,7 +1827,7 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::abrt, nullptr, nullptr, 1);
         }
 
-        void tag(const string_t& tagname)
+        void tag(const std::string& tagname)
         {
             tag_irbuffer_offset[ir_command_buffer.size()].push_back(tagname);
         }
@@ -2736,7 +2747,6 @@ namespace wo
             env->rt_code_len = generated_runtime_code_buf.size();
             byte_t* code_buf = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
 
-            wo_test(reinterpret_cast<size_t>(code_buf) % 8 == 0);
             pdb_info->runtime_codes_length = env->rt_code_len;
 
             wo_assert(code_buf, "Alloc memory fail.");
