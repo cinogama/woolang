@@ -172,8 +172,7 @@ namespace wo
             else if ((a_value_logic_bin->left->value_type->is_integer()
                 || a_value_logic_bin->left->value_type->is_handle()
                 || a_value_logic_bin->left->value_type->is_real()
-                || a_value_logic_bin->left->value_type->is_string()
-                || a_value_logic_bin->left->value_type->is_gchandle())
+                || a_value_logic_bin->left->value_type->is_string())
                 && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
                 has_default_op = true;
         }
@@ -1579,8 +1578,7 @@ namespace wo
                 else if ((a_value_logic_bin->left->value_type->is_integer()
                     || a_value_logic_bin->left->value_type->is_handle()
                     || a_value_logic_bin->left->value_type->is_real()
-                    || a_value_logic_bin->left->value_type->is_string()
-                    || a_value_logic_bin->left->value_type->is_gchandle())
+                    || a_value_logic_bin->left->value_type->is_string())
                     && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
                     type_ok = true;
             }

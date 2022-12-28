@@ -1622,7 +1622,11 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
                         "Operand should be string in 'equs'.");
-                    rt_cr->set_integer(*opnum1->string == *opnum2->string);
+
+                    if (opnum1->string == opnum2->string)
+                        rt_cr->set_integer(1);
+                    else
+                        rt_cr->set_integer(*opnum1->string == *opnum2->string);
 
                     break;
                 }
@@ -1632,7 +1636,11 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::string_type,
                         "Operand should be string in 'nequs'.");
-                    rt_cr->set_integer(*opnum1->string != *opnum2->string);
+
+                    if (opnum1->string == opnum2->string)
+                        rt_cr->set_integer(0);
+                    else
+                        rt_cr->set_integer(*opnum1->string != *opnum2->string);
                     break;
                 }
                 case instruct::opcode::land:
