@@ -370,7 +370,7 @@ namespace wo
 
         std::vector<size_t> _functions_offsets;
         std::vector<size_t> _calln_opcode_offsets;
-        std::vector<size_t> _mkclos_opcode_offsets;
+
         std::vector<void*> _jit_functions;
 
         shared_pointer<program_debug_data_info> program_debug_info;
@@ -2554,9 +2554,6 @@ namespace wo
                 }
                 case instruct::mkclos:
                 {
-                    if (config::ENABLE_JUST_IN_TIME)
-                        env->_mkclos_opcode_offsets.push_back(generated_runtime_code_buf.size());
-
                     temp_this_command_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
                     uint16_t capture_count = (uint16_t)WO_IR.opinteger;
