@@ -132,9 +132,9 @@ namespace wo
         using rw_lock = _shared_spin;
 
         gctype gc_type = gctype::no_gc;
-        gcmarkcolor gc_mark_color = gcmarkcolor::no_mark;
-        uint16_t gc_mark_version = 0;
-        uint16_t gc_mark_alive_count = 0;
+        std::atomic<gcmarkcolor> gc_mark_color = gcmarkcolor::no_mark;
+        std::atomic_uint16_t gc_mark_version = 0;
+        std::atomic_uint16_t gc_mark_alive_count = 0;
 
         rw_lock gc_read_write_mx;
 
