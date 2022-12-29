@@ -143,7 +143,6 @@ namespace wo
             auto&& parsed_path = wstr_to_str(_w_exe_path);
 
             wo_assert(parsed_path.size() < MAX_PATH_LEN);
-
             strcpy(_exe_path, parsed_path.c_str());
 
 #else
