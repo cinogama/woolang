@@ -30,11 +30,9 @@ namespace test_compile
         vm->close();
     }
 
-    func main()
+    func test_compile_success_or_fail()
     {
-        let begin_tm = std::time();
-        
-        // Bad constant
+          // Bad constant
         assure_compile_fail(@"
         let a = '';
         "@);
@@ -409,6 +407,127 @@ func main()
                     std::println(n); 
             }
         "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                _?; 
+            }
+        "@);
+
+        assure_compile_success(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                B(n)?;
+                _?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                A(n)?; 
+                B(n)?;
+                C(n)?;
+                _?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test
+            {
+                A(int),
+                B(int),
+                C(int),
+            }
+
+            match(Test::A(3))
+            { 
+                _?;
+                C(n)?; 
+            }
+        "@);
+
+        assure_compile_fail(@"
+            union Test<T>
+            {
+                A(T),
+                B(T),
+                C(T),
+            }
+
+            match(Test::A(3))
+            { 
+                _?;
+                C(n)?; 
+            }
+        "@);
         
         // Issue N221109: ref has been removed.
         assure_compile_success(@"let (a, b) = (1, mut 2);"@);
@@ -584,7 +703,21 @@ func main()
             }
            
         "@);
+    }
 
+    func main()
+    {
+        let test_threads = []mut: vec<std::thread>;
+        for (let mut i = 0 ; i < 4; i += 1)
+            test_threads->add(std::thread::create(test_compile_success_or_fail, ()));
+
+        test_compile_success_or_fail();
+
+        for (let _, t : test_threads)
+            t->wait();
+        
+
+        let begin_tm = std::time();
         std::println("Compile 1000 vm!");
 
         for (let mut i=0; i<1000; i+=1)
