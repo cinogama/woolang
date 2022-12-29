@@ -137,11 +137,9 @@ namespace wo
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
-                for (auto& captured : wo_closure->m_closure_args)
-                {
-                    if (gcbase* gcunit_addr = captured.get_gcunit_with_barrier())
+                for (uint16_t i = 0; i < wo_closure->m_closure_args_count; ++i)
+                    if (gcbase* gcunit_addr = wo_closure->m_closure_args[i].get_gcunit_with_barrier())
                         gc_mark_unit_as_gray(workerid, gcunit_addr);
-                }
             }
             else if (struct_t* wo_struct = dynamic_cast<struct_t*>(unit))
             {
