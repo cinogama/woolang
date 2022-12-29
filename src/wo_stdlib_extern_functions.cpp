@@ -2503,7 +2503,7 @@ struct wo_thread_pack
 
 WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_vm new_thread_vm = wo_borrow_vm(vm);
+    wo_vm new_thread_vm = wo_sub_vm(vm, 16384);
 
     wo_value wo_calling_function = wo_push_val(new_thread_vm, args + 0);
     wo_int_t arg_count = 0;
@@ -2520,7 +2520,7 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
         wo_pop_stack((wo_vm)new_thread_vm);
         pack->_is_abort = (reinterpret_cast<wo::vmbase*>(new_thread_vm)->vm_interrupt
             & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT) != 0;
-        wo_release_vm(new_thread_vm);
+        wo_close_vm(new_thread_vm);
         });
 
     return wo_ret_gchandle(vm,
