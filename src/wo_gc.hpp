@@ -161,24 +161,15 @@ namespace wo
             {
                 gcmarkcolor aim_color = color;
                 while (aim_color > gc_mark_color)
-                {
-                    static_assert(sizeof(std::atomic<gcmarkcolor>) == sizeof(gcmarkcolor));
-
-                    gcmarkcolor old_color = ((std::atomic<gcmarkcolor>&)gc_mark_color).exchange(aim_color);
-                    if (aim_color < old_color)
-                    {
-                        aim_color = old_color;
-                    }
-                }
+                    aim_color = gc_mark_color.exchange(aim_color);
             }
         }
         inline gcmarkcolor gc_marked(uint16_t version)
         {
             if (version == gc_mark_version)
-            {
                 return gc_mark_color;
-            }
-            return gc_mark_color = gcmarkcolor::no_mark;
+
+            return gcmarkcolor::no_mark;
         }
 
         inline void write()

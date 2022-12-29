@@ -170,9 +170,9 @@ namespace wo
 
             static void _gcmarker_thread_work(_gc_mark_thread_groups* self, size_t worker_id)
             {
-#ifdef WO_PLATRORM_OS_WINDOWS
-                SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
-#endif
+//#ifdef WO_PLATRORM_OS_WINDOWS
+//                SetThreadDescription(GetCurrentThread(), L"wo_gc_marker");
+//#endif
                 do
                 {
                     do
@@ -416,9 +416,9 @@ namespace wo
 
         void _gc_work_list()
         {
-#ifdef WO_PLATRORM_OS_WINDOWS
-            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
-#endif
+//#ifdef WO_PLATRORM_OS_WINDOWS
+//            SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
+//#endif
 
             // 0. get current vm list, set stop world flag to TRUE:
             do
