@@ -942,6 +942,9 @@ namespace wo
                 }
                 case instruct::ret:
                 {
+                    if (dr != 0)
+                        WO_JIT_NOT_SUPPORT;
+
                     wo_asure(x86compiler.ret());
                     break;
                 }
@@ -1484,36 +1487,6 @@ namespace wo
                     *calln = (wo::instruct::opcode)(wo::instruct::opcode::calln | 0b11);
                     byte_t* jitfunc = (byte_t*)&func_state.m_func;
                     byte_t* ipbuf = codebuf + calln_offset + 1;
-
-                    for (size_t i = 0; i < 8; ++i)
-                        *(ipbuf + i) = *(jitfunc + i);
-                }
-                else
-                    wo_assert(func_state.m_state == function_jit_state::state::FAILED);
-            }
-            for (size_t mkclos_offset : env->_mkclos_opcode_offsets)
-            {
-                wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(codebuf + mkclos_offset);
-                wo_assert(((*mkclos) & 0b11111100) == wo::instruct::opcode::mkclos);
-                wo_assert(((*mkclos) & 0b00000011) == 0b00);
-
-                byte_t* rt_ip = codebuf + mkclos_offset + 1;
-
-                // SKIP 2 BYTE
-                WO_SAFE_READ_MOVE_2;
-
-                // READ NEXT 4 BYTE
-                size_t offset = (size_t)WO_SAFE_READ_MOVE_4;
-
-                // m_compiling_functions must have this ip
-                auto& func_state = m_compiling_functions.at(codebuf + offset);
-                if (func_state.m_state == function_jit_state::state::FINISHED)
-                {
-                    wo_assert(func_state.m_func != nullptr);
-
-                    *mkclos = (wo::instruct::opcode)(wo::instruct::opcode::mkclos | 0b10);
-                    byte_t* jitfunc = (byte_t*)&func_state.m_func;
-                    byte_t* ipbuf = codebuf + mkclos_offset + 1 + 2;
 
                     for (size_t i = 0; i < 8; ++i)
                         *(ipbuf + i) = *(jitfunc + i);
