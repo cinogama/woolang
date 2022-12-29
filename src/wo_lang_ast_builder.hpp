@@ -932,21 +932,9 @@ namespace wo
             }
             inline void set_is_mutable(bool is_mutable)
             {
-                if (is_mutable)
-                {
-                    is_mutable_type = true;
-                    if (using_type_name && !using_type_name->is_mutable())
-                        using_type_name->is_mutable_type = true;
-                }
-                else
-                {
-                    is_mutable_type = false;
-                    if (using_type_name && using_type_name->is_mutable())
-                    {
-                        using_type_name = new ast_type(*using_type_name);
-                        using_type_name->is_mutable_type = false;
-                    }
-                }
+                is_mutable_type = is_mutable;
+                if (using_type_name && using_type_name->is_mutable() != is_mutable)
+                    using_type_name->is_mutable_type = is_mutable;
             }
             std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
@@ -5607,7 +5595,7 @@ namespace wo
 
                         }
                         avfd_item_type_builder->value_type->set_ret_type(adt_type);
-                        
+
                         avfd_item_type_builder->value_type->argument_types.push_back(dynamic_cast<ast_type*>(items->type_may_nil->instance()));
 
                         avfd_item_type_builder->auto_adjust_return_type = true;
@@ -5783,8 +5771,8 @@ namespace wo
                 wo_assert(input.size() == 1 || input.size() == 4);
 
                 result->union_expr = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
-                if (result->union_expr->var_name == WO_PSTR(_) 
-                    && result->union_expr->scope_namespaces.empty() 
+                if (result->union_expr->var_name == WO_PSTR(_)
+                    && result->union_expr->scope_namespaces.empty()
                     && !result->union_expr->search_from_global_namespace)
                     result->union_expr = nullptr;
 
