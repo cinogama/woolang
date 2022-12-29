@@ -731,7 +731,7 @@ stepir          si                            Execute next command.
                     loc = &vmm->env->program_debug_info->get_src_location_by_runtime_ip(next_execute_ip);
                 }
                 else
-                    loc = &vmm->env->program_debug_info->get_src_location_by_runtime_ip(nullptr);
+                    loc = &program_debug_data_info::get_failed_location();
 
                 // check breakpoint..
                 std::lock_guard g1(_mx);

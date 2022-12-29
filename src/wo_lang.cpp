@@ -1520,9 +1520,9 @@ namespace wo
             else
             {
                 // Apply this type to func
-                if (nullptr == a_value_bin->value_type)
-                    a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
-                else if (a_value_bin->value_type->is_pending())
+                wo_assert(a_value_bin->value_type!=nullptr);
+
+                if (a_value_bin->value_type->is_pending())
                     a_value_bin->value_type->set_type(a_value_bin->overrided_operation_call->value_type);
             }
 

@@ -348,6 +348,8 @@ namespace wo
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;
+
+        static const location& get_failed_location();
     };
 
     struct runtime_env
