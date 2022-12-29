@@ -51,20 +51,45 @@ namespace test_string_u8
         for (let mut i = 0; i < badstr_3->len; i += 1)
             std::print(badstr_3[i], "");
 
-        for (let mut r = 0; r < 1000; r += 1)
-        {
-            let bad_ch_set = F"你好世界"->cchars;
-            let badstr_r = [1, 2, 3, 4, 5, 6, 7]
-                ->> \idx = std::randint(0, bad_ch_set->len - 1);
-                ->> \idx = bad_ch_set[idx];
-                ->  cstr;
-            
-            test_assure(badstr_r->len <= 7);
-            
-            std::println(F"\n\nBAD_STRING SIZE {badstr_r->len}= ", badstr_r);
-            for (let mut i = 0; i < badstr_r->len; i += 1)
-                std::print(badstr_r[i], "");
-        }
+        [1, 2, 3, 4]
+            ->> \_ = std::thread::create(
+                func()
+                {
+                    for (let mut r = 0; r < 1000; r += 1)
+                    {
+                        let bad_ch_set = F"你好世界"->cchars;
+                        let badstr_r = [1, 2, 3, 4, 5, 6, 7]
+                            ->> \idx = std::randint(0, bad_ch_set->len - 1);
+                            ->> \idx = bad_ch_set[idx];
+                            ->  cstr;
+                        
+                        test_assure(badstr_r->len <= 7);
+                        
+                        std::println(F"\n\nBAD_STRING SIZE {badstr_r->len}= ", badstr_r);
+                        for (let mut i = 0; i < badstr_r->len; i += 1)
+                            std::print(badstr_r[i], "");
+                    }
+                }, ()
+            );
+            ->> \t = t->wait;
+            ->> \_ = std::thread::create(
+                func()
+                {
+                    for (let mut r = 0; r < 100000; r += 1)
+                    {
+                        let bad_ch_set = F"你好世界"->cchars;
+                        let badstr_r = [1, 2, 3, 4, 5, 6, 7]
+                            ->> \idx = std::randint(0, bad_ch_set->len - 1);
+                            ->> \idx = bad_ch_set[idx];
+                            ->  cstr;
+                        
+                        test_assure(badstr_r->len <= 7);
+                    }
+                }, ()
+            );
+            ->> \t = t->wait;
+            ;
+        
     }
 }
 
