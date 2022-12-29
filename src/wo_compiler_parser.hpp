@@ -170,24 +170,8 @@ namespace wo
             {
 
             }
-            ast_base(const ast_base& another)
-            {
-                completed_in_pass2 = another.completed_in_pass2;
-                parent = another.parent;
-                children = another.children;
-                sibling = another.sibling;
-                last = another.last;
-                row_begin_no = another.row_begin_no;
-                row_end_no = another.row_end_no;
-                col_begin_no = another.col_begin_no;
-                col_end_no = another.col_end_no;
-                source_file = another.source_file;
-                marking_label = another.marking_label;
-
-                if (!list)
-                    list = new std::forward_list<ast_base*>;
-                list->push_front(this);
-            }
+            ast_base(const ast_base& another) = delete;
+            ast_base(ast_base&& another) = delete;
             ast_base()
                 : parent(nullptr)
                 , children(nullptr)
