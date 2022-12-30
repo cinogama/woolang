@@ -256,6 +256,8 @@
 
 #define WO_ERR_USELESS_DEFAULT_PATTERN L"无效的默认 `union` 模式，不可能执行到默认分支"
 
+#define WO_ERR_INDEX_OUT_OF_RANGE L"索引常量时发生了访问越界"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -500,5 +502,7 @@
 #define WO_ERR_CASE_AFTER_DEFAULT_PATTERN L"Cannot match other cases after default union pattern."
 
 #define WO_ERR_USELESS_DEFAULT_PATTERN L"Useless default union pattern, default case cannot be execute."
+
+#define WO_ERR_INDEX_OUT_OF_RANGE L"Index out of range."
 
 #endif

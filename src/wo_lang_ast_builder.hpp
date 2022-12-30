@@ -2857,7 +2857,12 @@ namespace wo
                             return;
                         }
 
-                        wchar_t out_str = u8stridx(from->get_constant_value().string->c_str(), index->get_constant_value().integer);
+                        wchar_t out_str = u8stridx(from->get_constant_value().string->c_str(), 
+                            index->get_constant_value().integer);
+                        if (out_str == 0 && u8strlen(from->get_constant_value().string->c_str())
+                            <= (size_t)index->get_constant_value().integer)
+                            lex->lang_error(0x0000, index, WO_ERR_INDEX_OUT_OF_RANGE);
+
                         constant_value.set_integer((wo_integer_t)(wo_handle_t)out_str);
                     }
                 }

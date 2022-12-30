@@ -1607,7 +1607,10 @@ wo_int_t wo_str_bytelen(wo_value value)
 
 wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
 {
-    return wo::u8stridx(str, index);
+    wchar_t ch = wo::u8stridx(str, index);
+    if (ch == 0 && wo::u8strlen(str) <= (size_t)index)
+        wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+    return ch;
 }
 
 wo_wstring_t wo_str_to_wstr(wo_string_t str)

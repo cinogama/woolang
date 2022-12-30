@@ -2220,7 +2220,8 @@ namespace wo
 
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index string by non-integer value in 'idstr'.");
-                    wchar_t out_str = u8stridx(opnum1->string->c_str(), opnum2->integer);
+                    wchar_t out_str = wo_str_get_char(opnum1->string->c_str(), opnum2->integer);
+
                     rt_cr->set_integer((wo_integer_t)(wo_handle_t)out_str);
                     break;
                 }
