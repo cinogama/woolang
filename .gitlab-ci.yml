@@ -40,7 +40,7 @@ test_coverage_debug:
     - make -j 4
     - cd ..
     # Begin coverage test
-    - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - sudo ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
     - cd build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
@@ -103,21 +103,12 @@ test_memory_debug:
     - make -j 4
     - cd ..
     # Begin coverage test
-    - sudo ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
-    - cd build/src/CMakeFiles/woolang.dir
-    - sudo gcov -b -l -p -c *.gcno
-    - cd ../../../../
-    - pwd
-    - sudo sudo gcovr . -r ./src -g -k
-    - sudo gcovr . -r ./src -g -k --html --html-details -o report.html
+    - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
       - build/woodriver_debug
       - build/libwoo_debug.so
-      - build/*.gcov
-      - "*.html"
-      - core
     expire_in: 1 week
   # depending on your build setup it's most likely a good idea to cache outputs to reduce the build time
   cache:
