@@ -914,7 +914,15 @@ namespace wo
             else
             {
                 wo::gcbase::gc_read_guard rg1(wo_func_addr);
-                if (!wo_func_addr->m_vm_func && !wo_func_addr->m_native_func)
+
+                wo_integer_t vm_sfuncaddr = wo_func_addr->m_vm_func;
+                if (wo_func_addr->m_native_call)
+                {
+                    // Current closure stores jit function, find vm func from jit-record;
+                    vm_sfuncaddr = (wo_integer_t)env->_jit_functions.at((void*)wo_func_addr->m_native_func);
+                }
+
+                if (vm_sfuncaddr == 0)
                     wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
                 else
                 {
@@ -924,10 +932,9 @@ namespace wo
                         (sp--)->set_val(&wo_func_addr->m_closure_args[idx - 1]);
 
                     (sp--)->set_native_callstack(ip);
-                    ip = env->rt_codes + wo_func_addr->m_vm_func;
+                    ip = env->rt_codes + vm_sfuncaddr;
                     tc->set_integer(argc);
                     bp = sp;
-
 
                     return return_sp;
                 }
@@ -1013,7 +1020,7 @@ namespace wo
                 else
                 {
                     auto* return_ip = ip;
-                    auto* return_sp = sp + argc;
+                    auto* return_sp = sp + argc + wo_func_closure->m_closure_args_count;
                     auto* return_bp = bp;
 
                     for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
@@ -1943,17 +1950,23 @@ namespace wo
                     {
                         WO_VM_ASSERT(opnum1->type == value::valuetype::closure_type,
                             "Unexpected invoke target type in 'call'.");
-                        if (opnum1->closure->m_native_call)
+
+                        auto* closure = opnum1->closure;
+
+                        if (closure->m_native_call)
                         {
-                            opnum1->closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
-                            rt_sp = rt_bp;
+                            // Here to invoke jit closure, jit function cannot pop captured arguments,
+                            // So we pop them here.
+                            rt_sp = rt_bp + closure->m_closure_args_count; 
                             rt_bp = stored_bp;
+
                         }
                         else
-                            rt_ip = rt_env->rt_codes + opnum1->closure->m_vm_func;
+                            rt_ip = rt_env->rt_codes + closure->m_vm_func;
                     }
                     break;
                 }
