@@ -2494,8 +2494,15 @@ namespace std
 }
 )" };
 
+struct wo_thread_pack_sync
+{
+    std::atomic_flag _spin;
+    std::atomic_uint8_t _count;
+};
+
 struct wo_thread_pack
 {
+    wo_thread_pack_sync* _sync;
     std::thread* _thread;
     wo_vm _vm;
     bool _is_abort;
@@ -2503,7 +2510,7 @@ struct wo_thread_pack
 
 WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_vm new_thread_vm = wo_sub_vm(vm, 16384);
+    wo_vm new_thread_vm = wo_borrow_vm(vm);
 
     wo_value wo_calling_function = wo_push_val(new_thread_vm, args + 0);
     wo_int_t arg_count = 0;
@@ -2514,13 +2521,30 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
     for (size_t i = arg_count; i > 0; i--)
         wo_push_val(new_thread_vm, wo_struct_get(arg_pack, (uint16_t)i - 1));
 
-    wo_thread_pack* pack = new wo_thread_pack{ nullptr , new_thread_vm, false };
+    wo_thread_pack_sync* thread_pack_closed_sync = new wo_thread_pack_sync;
+    thread_pack_closed_sync->_spin.clear();
+    thread_pack_closed_sync->_count.store(2);
+
+    wo_thread_pack* pack = new wo_thread_pack{ thread_pack_closed_sync, nullptr , new_thread_vm, false };
     pack->_thread = new std::thread([=]() {
         wo_invoke_value((wo_vm)new_thread_vm, wo_calling_function, arg_count);
         wo_pop_stack((wo_vm)new_thread_vm);
-        pack->_is_abort = (reinterpret_cast<wo::vmbase*>(new_thread_vm)->vm_interrupt
-            & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT) != 0;
-        wo_close_vm(new_thread_vm);
+
+        while (!thread_pack_closed_sync->_spin.test_and_set());
+
+        auto count = thread_pack_closed_sync->_count--;
+        if (2 == count)
+        {
+            pack->_is_abort = (reinterpret_cast<wo::vmbase*>(new_thread_vm)->vm_interrupt
+                & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT) != 0;
+            thread_pack_closed_sync->_spin.clear();
+        }
+        else
+        {
+            wo_assert(count == 1);
+            delete thread_pack_closed_sync;
+        }
+        wo_release_vm(new_thread_vm);
         });
 
     return wo_ret_gchandle(vm,
@@ -2528,8 +2552,20 @@ WO_API wo_api rslib_std_thread_create(wo_vm vm, wo_value args, size_t argc)
         nullptr,
         [](void* wo_thread_pack_ptr)
         {
+            while (!((wo_thread_pack*)wo_thread_pack_ptr)->_sync->_spin.test_and_set());
+
+            auto count = ((wo_thread_pack*)wo_thread_pack_ptr)->_sync->_count--;
+            if (2 == count)
+                ((wo_thread_pack*)wo_thread_pack_ptr)->_sync->_spin.clear();
+            else
+            {
+                wo_assert(count == 1);
+                delete ((wo_thread_pack*)wo_thread_pack_ptr)->_sync;
+            }
+
             if (((wo_thread_pack*)wo_thread_pack_ptr)->_thread->joinable())
                 ((wo_thread_pack*)wo_thread_pack_ptr)->_thread->detach();
+            
             delete ((wo_thread_pack*)wo_thread_pack_ptr)->_thread;
             delete (wo_thread_pack*)wo_thread_pack_ptr;
         });
