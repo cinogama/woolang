@@ -3491,6 +3491,7 @@ namespace wo
                 compiler->idstruct(reg(reg::cr), reg(reg::pm), 0);
 
                 real_analyze_finalize(a_match->cases, compiler);
+                compiler->ext_panic(opnum::imm("All cases failed to match, may be wrong type value returned by the external function."));
 
                 compiler->tag(a_match->match_end_tag_in_final_pass);
 
