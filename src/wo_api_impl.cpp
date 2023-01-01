@@ -2732,3 +2732,10 @@ wo_integer_t wo_crc64_dir(wo_string_t dirpath)
     }
     return (wo_integer_t)crc;
 }
+
+wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
+{
+    auto* old_one = wo::vmbase::_this_thread_vm;
+    wo::vmbase::_this_thread_vm = WO_VM(vm_may_null);
+    return CS_VM(old_one);
+}

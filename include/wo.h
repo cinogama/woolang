@@ -358,6 +358,8 @@ WO_API wo_integer_t wo_crc64_str(wo_string_t text);
 WO_API wo_integer_t wo_crc64_file(wo_string_t filepath);
 WO_API wo_integer_t wo_crc64_dir(wo_string_t dirpath);
 
+WO_API wo_vm        wo_set_this_thread_vm(wo_vm vm_may_null);
+
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1
