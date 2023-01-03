@@ -335,6 +335,8 @@ namespace wo
         const byte_t* runtime_codes_base;
         size_t runtime_codes_length;
 
+        static const location FAIL_LOC;
+
         // for lang
         void generate_debug_info_at_astnode(grammar::ast_base* ast_node, ir_compiler* compiler);
         void finalize_generate_debug_info();

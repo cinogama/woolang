@@ -28,10 +28,10 @@ namespace wo
     void program_debug_data_info::finalize_generate_debug_info()
     {
     }
+    const program_debug_data_info::location program_debug_data_info::FAIL_LOC;
     const program_debug_data_info::location& program_debug_data_info::get_src_location_by_runtime_ip(const byte_t* rt_pos) const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
-        static program_debug_data_info::location     FAIL_LOC;
 
         if (rt_pos == nullptr)
             return FAIL_LOC;
