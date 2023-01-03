@@ -194,11 +194,14 @@ namespace wo
                             if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
                             {
                                 // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                for (size_t cgr_index = 0;
+                                auto* global_and_const_values = env->constant_global_reg_rtstack;
+
+                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                                for (size_t cgr_index = env->constant_value_count;
                                     cgr_index < env->constant_and_global_value_takeplace_count;
                                     cgr_index++)
                                 {
-                                    auto global_val = env->constant_global_reg_rtstack + cgr_index;
+                                    auto* global_val = global_and_const_values + cgr_index;
 
                                     gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
                                     if (gcunit_address)
