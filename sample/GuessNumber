@@ -1,0 +1,22 @@
+import woo.std;
+import woo.shell;
+
+std::println("Guess The Number!");
+let ans = std::randint(1000, 9999);
+
+while (true)
+{
+    std::print("Please input the number you guess(between 1000-9999): ");
+    let gues = std::input(\a: int = a >= 1000 && a<= 9999;);
+    if (gues < ans)
+        std::println("Too small!");
+    else if (gues > ans)
+        std::println("Too big!");
+    else
+    {
+        std::println("Correct!");
+        break;
+    }
+}
+
+std::shell("pause"); // Works in windows.
