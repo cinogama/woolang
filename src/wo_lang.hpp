@@ -773,6 +773,7 @@ namespace wo
                     if (!a_pattern_identifier->symbol)
                     {
                         a_pattern_identifier->symbol = define_variable_in_this_scope(
+                            a_pattern_identifier,
                             a_pattern_identifier->identifier,
                             initval,
                             a_pattern_identifier->attr,
@@ -785,7 +786,9 @@ namespace wo
                     // Template variable!!! we just define symbol here.
                     if (!a_pattern_identifier->symbol)
                     {
-                        auto* symb = define_variable_in_this_scope(a_pattern_identifier->identifier,
+                        auto* symb = define_variable_in_this_scope(
+                            a_pattern_identifier,
+                            a_pattern_identifier->identifier,
                             initval,
                             a_pattern_identifier->attr,
                             template_style::IS_TEMPLATE_VARIABLE_DEFINE,
@@ -1177,7 +1180,9 @@ namespace wo
 
                     analyze_pass1(dumpped_template_init_value);
                     analyze_pass1(origin_variable);
-                    template_reification_symb = define_variable_in_this_scope(origin_variable->var_name,
+                    template_reification_symb = define_variable_in_this_scope(
+                        dumpped_template_init_value,
+                        origin_variable->var_name,
                         dumpped_template_init_value,
                         origin_variable->symbol->attribute,
                         template_style::IS_TEMPLATE_VARIABLE_IMPL,
@@ -3780,7 +3785,9 @@ namespace wo
                 if (ast_value_funcdef->function_name != nullptr && !ast_value_funcdef->is_template_reification)
                 {
                     // Not anymous function or template_reification , define func-symbol..
-                    auto* sym = define_variable_in_this_scope(ast_value_funcdef->function_name,
+                    auto* sym = define_variable_in_this_scope(
+                        ast_value_funcdef,
+                        ast_value_funcdef->function_name,
                         ast_value_funcdef,
                         ast_value_funcdef->declear_attribute,
                         template_style::NORMAL,
@@ -3824,6 +3831,7 @@ namespace wo
         };
 
         lang_symbol* define_variable_in_this_scope(
+            grammar::ast_base* errreporter, 
             wo_pstring_t names,
             ast::ast_value* init_val,
             ast::ast_decl_attribute* attr,
@@ -3837,7 +3845,7 @@ namespace wo
             {
                 auto* last_func_symbol = lang_scopes.back()->symbols[names];
 
-                lang_anylizer->lang_error(0x0000, init_val, WO_ERR_REDEFINED, names->c_str());
+                lang_anylizer->lang_error(0x0000, errreporter, WO_ERR_REDEFINED, names->c_str());
                 return last_func_symbol;
             }
 
@@ -4390,7 +4398,14 @@ namespace wo
                             capture_list.push_back(result);
                             // Define a closure symbol instead of current one.
                             temporary_entry_scope_in_pass1(cur_capture_func_scope);
-                            result = define_variable_in_this_scope(result->name, result->variable_value, result->attribute, template_style::NORMAL, ast::identifier_decl::IMMUTABLE, capture_list.size() - 1);
+                            result = define_variable_in_this_scope(
+                                result->variable_value,
+                                result->name,
+                                result->variable_value, 
+                                result->attribute, 
+                                template_style::NORMAL, 
+                                ast::identifier_decl::IMMUTABLE,
+                                capture_list.size() - 1);
                             temporary_leave_scope_in_pass1();
                         }
                     }

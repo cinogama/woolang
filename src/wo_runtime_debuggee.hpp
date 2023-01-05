@@ -75,13 +75,15 @@ list            l               <listitem>    List something, such as:
                                             break, var, vm(thread)
 next            n                             Execute next line of src.
 print           p               <varname>     Print the value.
-quit                                          Exit(0)
+quit                                          Stop all vm to exit.
+exit                                          Invoke _Exit(0) to shutdown.
 source          src             [file name]   Get current source
                                 [range = 5]   
 stackframe      sf                            Get current function's stack frame.
 step            s                             Execute next line of src, will step
                                             in functions.
 stepir          si                            Execute next command.
+global          g               <offset>      Display global data.
 )"
 << wo_endl;
         }
@@ -195,6 +197,18 @@ stepir          si                            Execute next command.
                 wo_stdout << value_in_stack << " nil (not in stack)" << wo_endl;
             else
                 wo_stdout << value_in_stack << " " << wo_cast_string((wo_value)value_in_stack) << wo_endl;
+        }
+
+        void display_variable(wo::vmbase* vmm, size_t global_offset)
+        {
+            wo_stdout << "g[" << global_offset << "]: ";
+            if (global_offset < vmm->env->constant_and_global_value_takeplace_count)
+            {
+                auto* valueaddr = vmm->env->constant_global_reg_rtstack + vmm->env->constant_value_count + global_offset;
+                wo_stdout << valueaddr << " " << wo_cast_string((wo_value)valueaddr) << wo_endl;
+            }
+            else
+                wo_stdout << "<out of range>" << wo_endl;
         }
 
         bool debug_command(vmbase* vmm)
@@ -358,6 +372,11 @@ stepir          si                            Execute next command.
                     stop_attach_debuggee_for_exit_flag = true;
                     return false;
                 }
+                else if (main_command == "exit")
+                {
+                    _Exit(0);
+                    return false;
+                }
                 else if (main_command == "delbreak" || main_command == "deletebreak")
                 {
                     size_t breakno;
@@ -489,6 +508,16 @@ stepir          si                            Execute next command.
                         print_src_file(wstr_to_str(loc.source_file), display_rowno,
                             (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
 
+                    }
+                }
+                else if (main_command == "global" || main_command == "g")
+                {
+                    size_t offset;
+                    if (!need_possiable_input(inputbuf, offset))
+                        printf(ANSI_HIR "Need specify offset for command 'global'.\n" ANSI_RST);
+                    else
+                    {
+                        display_variable(vmm, offset);
                     }
                 }
                 else if (main_command == "l" || main_command == "list")

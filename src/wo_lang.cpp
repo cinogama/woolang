@@ -287,7 +287,12 @@ namespace wo
 
                         if (!argdef->symbol)
                         {
-                            argdef->symbol = define_variable_in_this_scope(argdef->arg_name, argdef, argdef->declear_attribute, template_style::NORMAL, argdef->decl);
+                            argdef->symbol = define_variable_in_this_scope(
+                                argdef,
+                                argdef->arg_name,
+                                argdef, 
+                                argdef->declear_attribute,
+                                template_style::NORMAL, argdef->decl);
                             argdef->symbol->is_argument = true;
                         }
                     }
