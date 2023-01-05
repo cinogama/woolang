@@ -629,7 +629,7 @@ namespace wo
         {
             *out_is_binary = true;
 
-#define WO_LOAD_BIN_FAILED(reason) do{*out_reason = "Magic number failed."; return nullptr;}while(0)
+#define WO_LOAD_BIN_FAILED(reason) do{*out_reason = reason; return nullptr;}while(0)
             // 1.1 (+0) Magic number(0x3001A26B look like WOOLANG B)
             uint32_t magic_number;
             if (!stream->read_elem(&magic_number) || magic_number != (uint32_t)0x3001A26B)
