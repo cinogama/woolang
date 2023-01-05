@@ -134,7 +134,7 @@
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"此处泛型不能用于修饰非变量/函数对象"
 
-#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"泛型参数不匹配"
+#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"具体化函数时的泛型参数不匹配"
 
 #define WO_ERR_UNDEFINED_MEMBER L"尝试索引未定义的成员 '%ls' "
 
@@ -381,7 +381,7 @@
 
 #define WO_ERR_NO_TEMPLATE_VARIABLE_OR_FUNCTION L"Templated items beside variable or function is invalid here."
 
-#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"Template arguments didn't matched."
+#define WO_ERR_NO_MATCHED_FUNC_TEMPLATE L"Template arguments didn't matched for this function."
 
 #define WO_ERR_UNDEFINED_MEMBER L"try index undefined '%ls'."
 

@@ -1316,6 +1316,13 @@ namespace wo
         analyze_pass2(a_value_assi->left);
         analyze_pass2(a_value_assi->right);
 
+        if (a_value_assi->left->value_type->is_func())
+        {
+            if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(a_value_assi->right,
+                a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
+                a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
+        }
+
         if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
         {
             lang_anylizer->lang_error(0x0000, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
