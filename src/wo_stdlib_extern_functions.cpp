@@ -2888,7 +2888,7 @@ namespace std
         l_or,                   // |
         l_lnot,                  // !
         l_scopeing,             // ::
-        l_template_using_begin,             // ::<
+        l_template_using_begin,             // :<
         l_typecast,              // :
         l_index_point,          // .
         l_double_index_point,          // ..  may be used? hey..

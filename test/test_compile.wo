@@ -707,6 +707,14 @@ func main()
             }
            
         "@);
+
+        assure_compile_success(@"
+            using st<T> = struct{a: T}; 
+            using st2<F> = struct{b: st:<F>, c: st<F>}; // Both :< & < in type is valid.
+
+            let x = st:<string>{a = "abc" };
+            let y = st2:<string>{b = x, c = x};
+        "@);
     }
 
     func main()
