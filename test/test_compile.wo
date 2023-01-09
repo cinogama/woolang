@@ -114,7 +114,7 @@ func main()
 
         assure_compile_success(@"let mut a = \x: int = 0;; a = \n = n;;"@);
         assure_compile_success(@"let mut a = []: array<mut (int)=>int>; a[0] = \n = n;;"@);
-        assure_compile_fail(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} a[0] = foo;"@);
+        assure_compile_success(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} a[0] = foo;"@);
 
         assure_compile_success(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i = i: string;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i, x = i: string;};"@);
