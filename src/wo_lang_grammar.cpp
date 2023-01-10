@@ -42,7 +42,8 @@ namespace wo
 
 #if defined(WO_LANG_GRAMMAR_LR1_AUTO_GENED) && !WO_GRAMMAR_SKIP_GEN_LR1_TABLE_CACHE
 
-        if (WO_LANG_GRAMMAR_CRC64 == wo_lang_grammar_crc64)
+        if (WO_LANG_GRAMMAR_CRC64 == wo_lang_grammar_crc64
+            || wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE == false)
         {
         load_from_buffer:
             wo_grammar = new grammar;

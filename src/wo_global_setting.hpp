@@ -71,6 +71,8 @@ namespace wo
     {
         inline bool ENABLE_OUTPUT_ANSI_COLOR_CTRL = true;
 
+        inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
+
         /*
         * ENABLE_JUST_IN_TIME = false
         * --------------------------------------------------------------------
