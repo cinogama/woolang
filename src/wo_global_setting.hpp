@@ -74,12 +74,6 @@ namespace wo
         inline bool ENABLE_CHECK_GRAMMAR_AND_UPDATE = false;
 
         /*
-        * ENABLE_AVOIDING_FALSE_SHARED = false
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_AVOIDING_FALSE_SHARED = false;
-
-        /*
         * ENABLE_JUST_IN_TIME = false
         * --------------------------------------------------------------------
         *   Woolang will use asmjit to generate code in runtime.
