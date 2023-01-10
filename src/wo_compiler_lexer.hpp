@@ -107,7 +107,8 @@ namespace wo
         l_operator,
         l_union,
         l_match,
-        l_struct
+        l_struct,
+        l_macro
     );
 
     class lexer;
@@ -745,19 +746,10 @@ namespace wo
             return result;
         }
 
-        //lex_type next(std::wstring* out_literal)
-        //{
-        //    std::wstring fff;
-        //    auto fffff = _next(&fff);
-        //    if (lex_enable_error_warn)
-        //        wo_wstdout << ANSI_HIG << "GET! " << fffff._to_string() << " " << fff << ANSI_RST << std::endl;
-        //    if (out_literal)*out_literal = fff;
-        //    return fffff;
-        //}
         lex_type try_handle_macro(std::wstring* out_literal, lex_type result_type, const std::wstring& result_str, bool workinpeek)
         {
             // ATTENTION: out_literal may point to result_str, please make sure donot read result_str after modify *out_literal.
-            if (result_type == +lex_type::l_identifier)
+            if (result_type == +lex_type::l_macro)
             {
                 if (used_macro_list)
                 {
@@ -1624,7 +1616,34 @@ namespace wo
                 }
 
                 if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
-                    return try_handle_macro(out_literal, lex_type::l_identifier, read_result(), false);
+                {
+                    bool is_macro = false;
+                    while (true)
+                    {
+                        following_ch = peek_one();
+                        if (lex_isspace(following_ch))
+                            next_one();
+                        else if (following_ch == L'!')
+                        {
+                            // Peek next character, make sure not "!=".
+                            // TODO: Too bad.
+                            if (next_reading_index + 1 >= reading_buffer.size()
+                                || reading_buffer[next_reading_index + 1] != L'=')
+                            {
+                                next_one();
+                                is_macro = true;
+                            }
+                            break;
+                        }
+                        else
+                            break;
+                    }
+
+                    if (is_macro)
+                        return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
+                    else
+                        return lex_type::l_identifier;
+                }
                 else
                     return keyword_type;
             }

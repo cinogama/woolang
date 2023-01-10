@@ -6012,6 +6012,15 @@ namespace wo
             }
         };
 
+        struct pass_macro_failed : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_macro);
+                return lex.parser_error(0x0000, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str());
+            }
+        };
+
         /////////////////////////////////////////////////////////////////////////////////
 #if 1
         inline void init_builder()
@@ -6178,6 +6187,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_direct<3>>] = _register_builder<pass_direct<3>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<4>>] = _register_builder<pass_direct<4>>();
             _registed_builder_function_id_list[meta::type_hash<pass_direct<5>>] = _register_builder<pass_direct<5>>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
         }
     }
 
