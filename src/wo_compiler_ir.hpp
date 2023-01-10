@@ -671,10 +671,6 @@ namespace wo
 
             result->runtime_stack_count = stackcount;
 
-            size_t global_allign_takeplace_for_avoiding_false_shared =
-                config::ENABLE_AVOIDING_FALSE_SHARED ?
-                ((size_t)(platform_info::CPU_CACHELINE_SIZE / (double)sizeof(wo::value) + 0.5)) : (1);
-
             size_t preserve_memory_size =
                 result->constant_and_global_value_takeplace_count
                 + register_count
@@ -1979,18 +1975,16 @@ namespace wo
         {
             // 1. Generate constant & global & register & runtime_stack memory buffer
             size_t constant_value_count = constant_record_list.size();
-            size_t global_allign_takeplace_for_avoiding_false_shared =
-                config::ENABLE_AVOIDING_FALSE_SHARED ?
-                ((size_t)(platform_info::CPU_CACHELINE_SIZE / (double)sizeof(wo::value) + 0.5)) : (1);
+
             size_t global_value_count = 0;
 
             for (auto* global_opnum : global_record_list)
             {
-                wo_assert(global_opnum->offset + constant_value_count + global_allign_takeplace_for_avoiding_false_shared
-                    < INT32_MAX&& global_opnum->offset >= 0);
+                wo_assert(global_opnum->offset + constant_value_count + 1
+                    < INT32_MAX && global_opnum->offset >= 0);
                 global_opnum->real_offset_const_glb = (int32_t)
-                    (global_opnum->offset * global_allign_takeplace_for_avoiding_false_shared
-                        + constant_value_count + global_allign_takeplace_for_avoiding_false_shared);
+                    (global_opnum->offset * 1
+                        + constant_value_count + 1);
 
                 if (((size_t)global_opnum->offset + 1) > global_value_count)
                     global_value_count = (size_t)global_opnum->offset + 1;
@@ -2001,9 +1995,9 @@ namespace wo
 
             size_t preserve_memory_size =
                 constant_value_count
-                + global_allign_takeplace_for_avoiding_false_shared
-                + global_value_count * global_allign_takeplace_for_avoiding_false_shared
-                + global_allign_takeplace_for_avoiding_false_shared
+                + 1
+                + global_value_count
+                + 1
                 + real_register_count
                 + runtime_stack_count;
 
@@ -2741,8 +2735,9 @@ namespace wo
             env->constant_value_count = constant_value_count;
             env->constant_and_global_value_takeplace_count =
                 constant_value_count
-                + global_value_count * global_allign_takeplace_for_avoiding_false_shared
-                + 2 * global_allign_takeplace_for_avoiding_false_shared;
+                + 1
+                + global_value_count
+                + 1;
 
 
             env->reg_begin = env->constant_global_reg_rtstack

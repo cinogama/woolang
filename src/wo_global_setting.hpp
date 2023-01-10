@@ -71,13 +71,6 @@ namespace wo
     {
         inline bool ENABLE_OUTPUT_ANSI_COLOR_CTRL = true;
 
-
-        /*
-        * ENABLE_AVOIDING_FALSE_SHARED = false
-        * --------------------------------------------------------------------
-        */
-        inline bool ENABLE_AVOIDING_FALSE_SHARED = false;
-
         /*
         * ENABLE_JUST_IN_TIME = false
         * --------------------------------------------------------------------
