@@ -23,8 +23,21 @@ namespace test_helloworld
             test_no_return_recursive(false);
     }
 
+    func test_named_template_func_auto_impl(x)
+    {
+        return x;
+    }
+
+    func test_named_template_accept(f: (string)=>string)
+    {
+        std::println(f("Helloworld"));
+    }
+
     func test_lambda()
     {
+        test_named_template_accept(test_named_template_func_auto_impl);
+        test_named_template_accept(\x=x;);
+
         let ascii_h = 'H';
         test_assure(ascii_h == 72: char);
 

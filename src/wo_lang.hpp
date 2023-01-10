@@ -1116,36 +1116,34 @@ namespace wo
 
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
         {
+            // NOTE: template_args_types will be modified in this function. donot use ref type.
+
             using namespace ast;
             std::vector<uint32_t> template_args_hashtypes;
 
-            if (!origin_variable->symbol)
-            {
-                lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_UNKNOWN_IDENTIFIER, origin_variable->var_name->c_str());
-                return nullptr;
-            }
-
+            wo_assert(origin_variable->symbol != nullptr);
             if (origin_variable->symbol->type == lang_symbol::symbol_type::function)
             {
-                if (!check_symbol_is_accessable(origin_variable->symbol->get_funcdef(), origin_variable->symbol, origin_variable->searching_begin_namespace_in_pass2, origin_variable, true))
-                    return nullptr;
-
                 if (origin_variable->symbol->get_funcdef()->is_template_define
-                    && origin_variable->symbol->get_funcdef()->template_type_name_list.size() == origin_variable->template_reification_args.size())
+                    && origin_variable->symbol->get_funcdef()->template_type_name_list.size() == template_args_types.size())
                 {
                     // TODO: finding repeated template? goon
                     ast_value_function_define* dumpped_template_func_define =
-                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), origin_variable->template_reification_args);
+                        analyze_pass_template_reification(origin_variable->symbol->get_funcdef(), template_args_types);
 
                     if (dumpped_template_func_define)
                         return dumpped_template_func_define->this_reification_lang_symbol;
                     return nullptr;
                 }
-                else
+                else if (!template_args_types.empty())
                 {
                     lang_anylizer->lang_error(0x0000, origin_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
                     return nullptr;
                 }
+                else
+                    // NOTE: Not specify template arguments, might want auto impl?
+                    // Give error in finalize step.
+                    return origin_variable->symbol;
 
             }
             else if (origin_variable->symbol->type == lang_symbol::symbol_type::variable)
@@ -1179,7 +1177,7 @@ namespace wo
                     has_step_in_step2 = false;
 
                     analyze_pass1(dumpped_template_init_value);
-                    analyze_pass1(origin_variable);
+
                     template_reification_symb = define_variable_in_this_scope(
                         dumpped_template_init_value,
                         origin_variable->var_name,
@@ -1192,9 +1190,7 @@ namespace wo
                     has_step_in_step2 = step_in_pass2;
                 }
                 temporary_leave_scope_in_pass1();
-
                 origin_variable->symbol->template_typehashs_reification_instance_symbol_list[template_args_hashtypes] = template_reification_symb;
-
                 return template_reification_symb;
             }
             else
@@ -1206,6 +1202,8 @@ namespace wo
 
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types)
         {
+            // NOTE: template_args_types will be modified in this function. donot use ref type.
+
             using namespace ast;
 
             std::vector<uint32_t> template_args_hashtypes;
@@ -2053,6 +2051,15 @@ namespace wo
             {
                 // ATTENTION: HERE JUST VALUE , NOT JUDGE FUNCTION
                 auto symb = a_value_variable->symbol;
+
+                if (symb->is_template_symbol)
+                {
+                    // In fact, all variable symbol cannot be templated, it must because of non-impl-template-function-name.
+                    // func foo<T>(x: T){...}
+                    // let f = foo;  // << here
+                    lang_anylizer->lang_error(0x0000, a_value_variable, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                }
+
                 auto opnum_or_stackoffset = get_opnum_by_symbol(a_value_variable, symb, compiler, get_pure_value);
                 if (auto* opnum = std::get_if<opnumbase*>(&opnum_or_stackoffset))
                     return **opnum;

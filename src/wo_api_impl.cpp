@@ -249,6 +249,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else if ("enable-vm-pool" == current_arg)
                 enable_vm_pool = (bool)atoi(argv[++command_idx]);
+            else if ("update-grammar" == current_arg)
+                wo::config::ENABLE_CHECK_GRAMMAR_AND_UPDATE = (bool)atoi(argv[++command_idx]);
             else
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
