@@ -258,6 +258,8 @@
 
 #define WO_ERR_INDEX_OUT_OF_RANGE L"索引常量时发生了访问越界"
 
+#define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -504,5 +506,7 @@
 #define WO_ERR_USELESS_DEFAULT_PATTERN L"Useless default union pattern, default case cannot be execute."
 
 #define WO_ERR_INDEX_OUT_OF_RANGE L"Index out of range."
+
+#define WO_ERR_UNKNOWN_MACRO_NAMED L"Unknown macro named: '%ls'."
 
 #endif
