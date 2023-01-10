@@ -1982,9 +1982,7 @@ namespace wo
             {
                 wo_assert(global_opnum->offset + constant_value_count + 1
                     < INT32_MAX && global_opnum->offset >= 0);
-                global_opnum->real_offset_const_glb = (int32_t)
-                    (global_opnum->offset * 1
-                        + constant_value_count + 1);
+                global_opnum->real_offset_const_glb = (int32_t)(global_opnum->offset + constant_value_count + 1);
 
                 if (((size_t)global_opnum->offset + 1) > global_value_count)
                     global_value_count = (size_t)global_opnum->offset + 1;
