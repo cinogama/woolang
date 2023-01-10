@@ -1615,26 +1615,35 @@ namespace wo
                         break;
                 }
 
-                bool is_macro = false;
-                while (true)
+                if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
                 {
-                    following_ch = peek_one();
-                    if (lex_isspace(following_ch))
-                        next_one();
-                    else if (following_ch == L'!')
+                    bool is_macro = false;
+                    while (true)
                     {
-                        next_one();
-                        is_macro = true;
-                        break;
+                        following_ch = peek_one();
+                        if (lex_isspace(following_ch))
+                            next_one();
+                        else if (following_ch == L'!')
+                        {
+                            // Peek next character, make sure not "!=".
+                            // TODO: Too bad.
+                            if (next_reading_index + 1 >= reading_buffer.size()
+                                || reading_buffer[next_reading_index + 1] != L'=')
+                            {
+                                next_one();
+                                is_macro = true;
+                            }
+                            break;
+                        }
+                        else
+                            break;
                     }
-                    else
-                        break;
-                }
 
-                if (is_macro)
-                    return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
-                else if (lex_type keyword_type = lex_is_keyword(read_result()); +lex_type::l_error == keyword_type)
-                    return lex_type::l_identifier;
+                    if (is_macro)
+                        return try_handle_macro(out_literal, lex_type::l_macro, read_result(), false);
+                    else
+                        return lex_type::l_identifier;
+                }
                 else
                     return keyword_type;
             }
