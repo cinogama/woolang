@@ -260,7 +260,12 @@
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
 
+
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
+
+#define WO_INFO_INIT_EXPR_IS_HERE L"编译器找到了 '%ls' 的初始化表达式"
+
+#define WO_INFO_IS_THIS_ONE L"是否指的是这里定义的 '%ls'？"
 
 #else
 
@@ -511,5 +516,10 @@
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"Unknown macro named: '%ls'."
 
+
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
+
+#define WO_INFO_FUNCTION_TYPE_IS_PENDING L"The type '%ls' of function is pending."
+
+#define WO_INFO_IS_THIS_ONE L"Do you measn '%ls', which is defined here?"
 #endif

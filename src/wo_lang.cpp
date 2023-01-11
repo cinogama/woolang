@@ -290,7 +290,7 @@ namespace wo
                             argdef->symbol = define_variable_in_this_scope(
                                 argdef,
                                 argdef->arg_name,
-                                argdef, 
+                                argdef,
                                 argdef->declear_attribute,
                                 template_style::NORMAL, argdef->decl);
                             argdef->symbol->is_argument = true;
@@ -1952,11 +1952,8 @@ namespace wo
         {
             auto* sym = find_value_in_this_scope(a_value_var);
 
-            if (sym)
+            if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
             {
-                if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
-
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
@@ -1964,7 +1961,6 @@ namespace wo
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID,
                             a_value_var->var_name->c_str());
                 }
-
                 if (sym)
                 {
                     analyze_pass2(sym->variable_value);
@@ -1985,11 +1981,23 @@ namespace wo
 
                     if (a_value_var->value_type->is_pending())
                     {
-                        if (a_value_var->symbol->type == lang_symbol::symbol_type::function
-                            && a_value_var->symbol->is_template_symbol)
-                            ; /* function call may be template, do not report error here~ */
+                        if (a_value_var->symbol->type == lang_symbol::symbol_type::function)
+                        {
+                            if (a_value_var->symbol->is_template_symbol)
+                                ; /* function call may be template, do not report error here~ */
+                            else
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                                lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_ITEM_IS_DEFINED_HERE,
+                                    a_value_var->var_name->c_str());
+                            }
+                        }
                         else
+                        {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                            lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_INIT_EXPR_IS_HERE,
+                                a_value_var->var_name->c_str());
+                        }
                     }
                 }
             }
@@ -1997,6 +2005,18 @@ namespace wo
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
                     a_value_var->var_name->c_str());
+                auto fuzz_symbol = find_symbol_in_this_scope(a_value_var, a_value_var->var_name, lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
+                if (fuzz_symbol != nullptr)
+                {
+                    auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
+                    if (!fuzz_symbol_full_name.empty())
+                        fuzz_symbol_full_name += L"::";
+                    fuzz_symbol_full_name += *fuzz_symbol->name;
+                    lang_anylizer->lang_error(lexer::errorlevel::infom,
+                        fuzz_symbol->variable_value,
+                        WO_INFO_IS_THIS_ONE,
+                        fuzz_symbol_full_name.c_str());
+                }
                 a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
@@ -2071,7 +2091,8 @@ namespace wo
                             }
                             goto start_ast_op_calling;
                         }
-
+                        else
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
                     }
                     // base type?
                     else
@@ -2107,6 +2128,8 @@ namespace wo
                             }
                             goto start_ast_op_calling;
                         }
+                        else
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
                     }
                     // End trying invoke from direct-type namespace
                 }
@@ -2125,6 +2148,59 @@ namespace wo
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
                         a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
                         a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
+
+                    // Here to truing to find fuzzy name function.
+                    lang_symbol* fuzzy_method_function_symbol = nullptr;
+                    if (!a_value_funccall->directed_value_from->value_type->is_pending())
+                    {
+                        // trying finding type_function
+                        auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+
+                        // Is using type?
+                        if (a_value_funccall->directed_value_from->value_type->using_type_name)
+                        {
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
+                                a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                            (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                origin_namespace.begin(),
+                                origin_namespace.end()
+                            );
+                        }
+                        // base type?
+                        else
+                        {
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                            (a_value_funccall->directed_value_from->value_type->type_name);
+                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                                origin_namespace.begin(),
+                                origin_namespace.end()
+                            );
+                        }
+
+                        fuzzy_method_function_symbol = find_symbol_in_this_scope(
+                            a_value_funccall->callee_symbol_in_type_namespace,
+                            a_value_funccall->callee_symbol_in_type_namespace->var_name,
+                            lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
+
+                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
+                    }
+
+                    if (fuzzy_method_function_symbol != nullptr)
+                    {
+                        auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzzy_method_function_symbol));
+                        if (!fuzz_symbol_full_name.empty())
+                            fuzz_symbol_full_name += L"::";
+                        fuzz_symbol_full_name += *fuzzy_method_function_symbol->name;
+                        lang_anylizer->lang_error(lexer::errorlevel::infom,
+                            fuzzy_method_function_symbol->variable_value,
+                            WO_INFO_IS_THIS_ONE,
+                            fuzz_symbol_full_name.c_str());
+                    }
                 }
             }
 
@@ -2251,7 +2327,16 @@ namespace wo
                 }
 
                 if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+                {
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+
+                    // Skip when invoke anonymous function.
+                    if (calling_function_define->function_name != nullptr)
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::infom, calling_function_define, WO_INFO_ITEM_IS_DEFINED_HERE,
+                            calling_function_define->function_name->c_str());
+                    }
+                }
                 // failed getting each of template args, abandon this one
                 else
                 {

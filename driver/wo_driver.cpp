@@ -50,7 +50,7 @@ int main(int argc, char** argv)
         if (!compile_successful_flag)
             ret = -2;
         else if (return_state)
-            ret = wo_cast_int(return_state);
+            ret = 0;
         else if (out_binary_path != nullptr)
         {
             if (out_binary_file_ok)

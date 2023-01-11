@@ -1493,8 +1493,23 @@ namespace wo
 
                         if (dynamic_cast<ast_value_function_define*>(a_value) == nullptr
                             && a_value->value_type->is_custom())
+                        {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_UNKNOWN_TYPE
                                 , a_value->value_type->get_type_name().c_str());
+
+                            auto fuzz_symbol = find_symbol_in_this_scope(a_value->value_type, a_value->value_type->type_name, lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
+                            if (fuzz_symbol)
+                            {
+                                auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
+                                if (!fuzz_symbol_full_name.empty())
+                                    fuzz_symbol_full_name += L"::";
+                                fuzz_symbol_full_name += *fuzz_symbol->name;
+                                lang_anylizer->lang_error(lexer::errorlevel::infom,
+                                    fuzz_symbol->type_informatiom,
+                                    WO_INFO_IS_THIS_ONE,
+                                    fuzz_symbol_full_name.c_str());
+                            }
+                        }
                     }
                     if (ast_value_type_check* ast_value_check = dynamic_cast<ast_value_type_check*>(a_value))
                     {
@@ -1502,9 +1517,23 @@ namespace wo
                         fully_update_type(ast_value_check->aim_type, false);
 
                         if (ast_value_check->aim_type->is_custom())
+                        {
                             lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_check, WO_ERR_UNKNOWN_TYPE
                                 , ast_value_check->aim_type->get_type_name().c_str());
 
+                            auto fuzz_symbol = find_symbol_in_this_scope(ast_value_check->aim_type, ast_value_check->aim_type->type_name, lang_symbol::symbol_type::typing | lang_symbol::symbol_type::type_alias, true);
+                            if (fuzz_symbol)
+                            {
+                                auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzz_symbol));
+                                if (!fuzz_symbol_full_name.empty())
+                                    fuzz_symbol_full_name += L"::";
+                                fuzz_symbol_full_name += *fuzz_symbol->name;
+                                lang_anylizer->lang_error(lexer::errorlevel::infom,
+                                    fuzz_symbol->type_informatiom,
+                                    WO_INFO_IS_THIS_ONE,
+                                    fuzz_symbol_full_name.c_str());
+                            }
+                        }
                         ast_value_check->update_constant_value(lang_anylizer);
                     }
                     //
@@ -3853,7 +3882,7 @@ namespace wo
                 auto* last_found_symbol = lang_scopes.back()->symbols[names];
 
                 lang_anylizer->lang_error(lexer::errorlevel::error, errreporter, WO_ERR_REDEFINED, names->c_str());
-                lang_anylizer->lang_error(lexer::errorlevel::infrom,
+                lang_anylizer->lang_error(lexer::errorlevel::infom,
                     (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
                     ? (grammar::ast_base*)last_found_symbol->type_informatiom
                     : (grammar::ast_base*)last_found_symbol->variable_value
@@ -3961,7 +3990,7 @@ namespace wo
                 auto* last_found_symbol = lang_scopes.back()->symbols[def->new_type_identifier];
 
                 lang_anylizer->lang_error(lexer::errorlevel::error, as_type, WO_ERR_REDEFINED, def->new_type_identifier->c_str());
-                lang_anylizer->lang_error(lexer::errorlevel::infrom,
+                lang_anylizer->lang_error(lexer::errorlevel::infom,
                     (last_found_symbol->type == lang_symbol::symbol_type::typing || last_found_symbol->type == lang_symbol::symbol_type::type_alias)
                     ? (grammar::ast_base*)last_found_symbol->type_informatiom
                     : (grammar::ast_base*)last_found_symbol->variable_value
@@ -4057,17 +4086,73 @@ namespace wo
             return true;
         }
 
-        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask)
+        template<typename T>
+        static double levenshtein_distance(const T& s, const T& t)
+        {
+            size_t n = s.size();
+            size_t m = t.size();
+            std::vector<size_t> d((n + 1) * (m + 1));
+
+            auto df = [&d, n](size_t x, size_t y)->size_t& {return d[y * (n + 1) + x]; };
+
+            if (n == m && n == 0)
+                return 0.;
+            if (n == 0)
+                return (double)m / (double)std::max(n, m);
+            if (m == 0)
+                return (double)n / (double)std::max(n, m);
+
+            for (size_t i = 0; i <= n; ++i)
+                df(i, 0) = i;
+            for (size_t j = 0; j <= m; ++j)
+                df(0, j) = j;
+
+            for (size_t i = 1; i <= n; i++)
+            {
+                for (size_t j = 1; j <= m; j++)
+                {
+                    size_t cost = (t[j - 1] == s[i - 1]) ? 0 : 1;
+                    df(i, j) = std::min(
+                        std::min(df(i - 1, j) + 1, df(i, j - 1) + 1),
+                        df(i - 1, j - 1) + cost);
+                }
+            }
+
+            return (double)df(n, m) / (double)std::max(n, m);
+        }
+
+        lang_symbol* find_symbol_in_this_scope(ast::ast_symbolable_base* var_ident, wo_pstring_t ident_str, int target_type_mask, bool fuzzy_for_err_report)
         {
             wo_assert(lang_scopes.size());
 
-            if (var_ident->symbol)
+            if (var_ident->symbol && !fuzzy_for_err_report)
                 return var_ident->symbol;
+
+            lang_symbol* fuzzy_nearest_symbol = nullptr;
+            auto update_fuzzy_nearest_symbol =
+                [&fuzzy_nearest_symbol, fuzzy_for_err_report, ident_str, target_type_mask]
+            (lang_symbol* symbol) {
+                if (fuzzy_for_err_report)
+                {
+                    auto distance = levenshtein_distance(*symbol->name, *ident_str);
+                    if (distance <= 0.3 && (symbol->type & target_type_mask) != 0)
+                    {
+                        if (fuzzy_nearest_symbol == nullptr
+                            || distance < levenshtein_distance(*fuzzy_nearest_symbol->name, *ident_str))
+                            fuzzy_nearest_symbol = symbol;
+                    }
+                }
+            };
 
             if (!var_ident->search_from_global_namespace && var_ident->scope_namespaces.empty())
                 for (auto rind = template_stack.rbegin(); rind != template_stack.rend(); rind++)
                 {
-                    if (auto fnd = rind->find(ident_str); fnd != rind->end())
+                    if (fuzzy_for_err_report)
+                    {
+                        for (auto& finding_symbol : *rind)
+                            update_fuzzy_nearest_symbol(finding_symbol.second);
+                    }
+                    else if (auto fnd = rind->find(ident_str); fnd != rind->end())
                     {
                         if ((fnd->second->type & target_type_mask) != 0)
                             return fnd->second;
@@ -4164,7 +4249,12 @@ namespace wo
                         goto TRY_UPPER_SCOPE;
                 }
 
-                if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
+                if (fuzzy_for_err_report)
+                {
+                    for (auto& finding_symbol : indet_finding_namespace->symbols)
+                        update_fuzzy_nearest_symbol(finding_symbol.second);
+                }
+                else if (auto fnd = indet_finding_namespace->symbols.find(ident_str);
                     fnd != indet_finding_namespace->symbols.end())
                 {
                     if ((fnd->second->type & target_type_mask) != 0
@@ -4264,7 +4354,12 @@ namespace wo
                     }
 
                     searched_scopes.insert(_searching);
-                    if (auto fnd = _searching->symbols.find(ident_str);
+                    if (fuzzy_for_err_report)
+                    {
+                        for (auto& finding_symbol : _searching->symbols)
+                            update_fuzzy_nearest_symbol(finding_symbol.second);
+                    }
+                    else if (auto fnd = _searching->symbols.find(ident_str);
                         fnd != _searching->symbols.end())
                     {
                         if ((fnd->second->type & target_type_mask) != 0)
@@ -4281,6 +4376,9 @@ namespace wo
 
             next_searching_point:;
             }
+
+            if (fuzzy_for_err_report)
+                return fuzzy_nearest_symbol;
 
             if (searching_result.empty())
                 return var_ident->symbol = nullptr;
@@ -4326,7 +4424,7 @@ namespace wo
         lang_symbol* find_type_in_this_scope(ast::ast_type* var_ident)
         {
             auto* result = find_symbol_in_this_scope(var_ident, var_ident->type_name,
-                lang_symbol::symbol_type::type_alias | lang_symbol::symbol_type::typing);
+                lang_symbol::symbol_type::type_alias | lang_symbol::symbol_type::typing, false);
 
             return result;
         }
@@ -4335,7 +4433,7 @@ namespace wo
         lang_symbol* find_value_symbol_in_this_scope(ast::ast_value_variable* var_ident)
         {
             return find_symbol_in_this_scope(var_ident, var_ident->var_name,
-                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function);
+                lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, false);
         }
 
         lang_symbol* find_value_in_this_scope(ast::ast_value_variable* var_ident)

@@ -440,7 +440,7 @@ namespace wo
         enum class errorlevel
         {
             error,
-            infrom,
+            infom,
         };
 
         struct lex_error_msg
