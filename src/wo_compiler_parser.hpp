@@ -419,7 +419,7 @@ namespace wo
                     }
                     else
                     {
-                        return lex.parser_error(0x0000, WO_ERR_UNEXCEPT_AST_NODE_TYPE);
+                        return lex.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_AST_NODE_TYPE);
                     }
                 }
                 return (ast_base*)defaultAST;
@@ -1684,7 +1684,7 @@ namespace wo
                         }
                         else
                         {
-                            tkr.parser_error(0x0000, WO_ERR_SHOULD_BE_AST_BASE);
+                            tkr.parser_error(lexer::errorlevel::error, WO_ERR_SHOULD_BE_AST_BASE);
                             return nullptr;
                         }
                     }
@@ -1803,7 +1803,7 @@ namespace wo
                     else
                     {
                         try_recover_count = 0;
-                        tkr.parser_error(0x0000, err_info.c_str());
+                        tkr.parser_error(lexer::errorlevel::error, err_info.c_str());
                         last_error_rowno = tkr.now_file_rowno;
                         last_error_colno = tkr.now_file_colno;
 
@@ -1924,7 +1924,7 @@ namespace wo
                         }
                     }
                 error_handle_fail:
-                    tkr.parser_error(0x0000, WO_ERR_UNABLE_RECOVER_FROM_ERR);
+                    tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
@@ -1932,7 +1932,7 @@ namespace wo
 
             } while (true);
 
-            tkr.parser_error(0x0000, WO_ERR_UNEXCEPT_EOF);
+            tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
 
             return nullptr;
         }

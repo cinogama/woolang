@@ -1531,7 +1531,7 @@ namespace wo
                     {
                         if (has_describe != +lex_type::l_error)
                         {
-                            lex->parser_error(0x0000, WO_ERR_CANNOT_DECL_PUB_PRI_PRO_SAME_TIME);
+                            lex->parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_DECL_PUB_PRI_PRO_SAME_TIME);
                             break;
                         }
                         has_describe = att;
@@ -1545,7 +1545,7 @@ namespace wo
                     attributes.insert(attr);
                 }
                 else
-                    lex->parser_error(0x0000, WO_ERR_REPEAT_ATTRIBUTE);
+                    lex->parser_error(lexer::errorlevel::error, WO_ERR_REPEAT_ATTRIBUTE);
             }
             bool is_static_attr() const
             {
@@ -1914,7 +1914,7 @@ namespace wo
                 {
                     // Donot give error here.
 
-                    // lex->lang_error(0x0000, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
+                    // lex->lang_error(lexer::errorlevel::error, this, WO_ERR_CANNOT_CALC_WITH_L_AND_R);
                     value_type = new ast_type(WO_PSTR(pending));
 
                     return;
@@ -2861,7 +2861,7 @@ namespace wo
                             index->get_constant_value().integer);
                         if (out_str == 0 && u8strlen(from->get_constant_value().string->c_str())
                             <= (size_t)index->get_constant_value().integer)
-                            lex->lang_error(0x0000, index, WO_ERR_INDEX_OUT_OF_RANGE);
+                            lex->lang_error(lexer::errorlevel::error, index, WO_ERR_INDEX_OUT_OF_RANGE);
 
                         constant_value.set_integer((wo_integer_t)(wo_handle_t)out_str);
                     }
@@ -3006,7 +3006,7 @@ namespace wo
                         }
                         else
                         {
-                            lex->lang_error(0x0000, this, WO_ERR_TYPE_CANNOT_NEGATIVE, val->value_type->get_type_name().c_str());
+                            lex->lang_error(lexer::errorlevel::error, this, WO_ERR_TYPE_CANNOT_NEGATIVE, val->value_type->get_type_name().c_str());
                             return;
                         }
                     }
@@ -3879,7 +3879,7 @@ namespace wo
                 {
                     // import a.b; cannot open a/b.wo, trying a/b/b.wo
                     if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
-                        return lex.parser_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
+                        return lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
                 }
 
                 if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path))
@@ -3925,7 +3925,7 @@ namespace wo
                 wo_assert(key);
 
                 if (key->array_items->children == nullptr || key->array_items->children->sibling != nullptr)
-                    return lex.parser_error(0x0000, WO_ERR_INVALID_KEY_EXPR);
+                    return lex.parser_error(lexer::errorlevel::error, WO_ERR_INVALID_KEY_EXPR);
 
                 ast_value* keyval = dynamic_cast<ast_value*>(key->array_items->children);
                 wo_assert(keyval);
@@ -3953,7 +3953,7 @@ namespace wo
                     auto expand_count = ast_value_literal::wstr_to_integer(WO_NEED_TOKEN(2).identifier);
 
                     if (!expand_count)
-                        lex.parser_error(0x0000, WO_ERR_UNPACK_ARG_LESS_THEN_ONE);
+                        lex.parser_error(lexer::errorlevel::error, WO_ERR_UNPACK_ARG_LESS_THEN_ONE);
 
                     return (ast_basic*)new ast_fakevalue_unpacked_args(
                         dynamic_cast<ast_value*>(WO_NEED_AST(0)),
@@ -3982,7 +3982,7 @@ namespace wo
                             wstr_to_str(extern_symb->symbol_name).c_str());
 
                     if (!extern_symb->externed_func)
-                        lex.parser_error(0x0000, WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
+                        lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
                 }
                 else if (input.size() == 6)
                 {
@@ -4268,7 +4268,7 @@ namespace wo
                         }
 
                         if (ast_func->value_type->is_variadic_function_type)
-                            return lex.parser_error(0x0000, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
+                            return lex.parser_error(lexer::errorlevel::error, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
 
                         ast_func->value_type->append_function_argument_type(arg_node->value_type);
                     }
@@ -4566,7 +4566,7 @@ namespace wo
                 }
                 else if (!value_node->value_type->is_same(type_node, false, false))
                 {
-                    lex.parser_error(0x0000, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
+                    lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;
                 }
                 return value_node;
@@ -4655,12 +4655,12 @@ namespace wo
                 aunames->from_global_namespace = vs->search_from_global_namespace;
 
                 if (vs->var_name == WO_PSTR(unsafe))
-                    return lex.lang_error(0x0000, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
+                    return lex.lang_error(lexer::errorlevel::error, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
 
                 for (auto& space : vs->scope_namespaces)
                 {
                     if (space == WO_PSTR(unsafe))
-                        return lex.lang_error(0x0000, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
+                        return lex.lang_error(lexer::errorlevel::error, vs, WO_ERR_USING_UNSAFE_NAMESPACE);
                     aunames->used_namespace_chain.push_back(space);
                 }
                 aunames->used_namespace_chain.push_back(vs->var_name);
@@ -4843,7 +4843,7 @@ namespace wo
                 wo_test(lexer::lex_is_operate_type(_token.type));
 
                 if (left_v->is_constant)
-                    return lex.parser_error(0x0000, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
+                    return lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
 
                 ast_value_assign* vbin = new ast_value_assign();
                 vbin->left = left_v;
@@ -4929,7 +4929,7 @@ namespace wo
                 }
 
                 wo_error("Unexcepted token type.");
-                return lex.parser_error(0x0000, L"Unexcepted token type.");
+                return lex.parser_error(lexer::errorlevel::error, L"Unexcepted token type.");
             }
         };
 
@@ -5006,10 +5006,10 @@ namespace wo
                     result->template_arguments = template_args;
                     if (result->is_array() || result->is_vec())
                         if (result->template_arguments.size() != 1)
-                            lex.parser_error(0x0000, WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
                     if (result->is_dict() || result->is_map())
                         if (result->template_arguments.size() != 2)
-                            lex.parser_error(0x0000, WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
 
                     return (ast_basic*)result;
                 }
@@ -5596,7 +5596,7 @@ namespace wo
                                 conflict = true;
 
                             if (conflict)
-                                lex.lang_error(0x0000, items->gadt_out_type_may_nil, WO_ERR_INVALID_GADT_CONFLICT);
+                                lex.lang_error(lexer::errorlevel::error, items->gadt_out_type_may_nil, WO_ERR_INVALID_GADT_CONFLICT);
 
                         }
                         avfd_item_type_builder->value_type->set_ret_type(adt_type);
@@ -5787,7 +5787,7 @@ namespace wo
                         = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
 
                     if (result->union_expr == nullptr)
-                        lex.lang_error(0x0000, result->pattern_arg_in_union_may_nil,
+                        lex.lang_error(lexer::errorlevel::error, result->pattern_arg_in_union_may_nil,
                             WO_ERR_NO_AGR_FOR_DEFAULT_PATTERN);
                 }
                 return (ast_basic*)result;
@@ -5940,7 +5940,7 @@ namespace wo
                             tuple_type->template_arguments.push_back(type);
                         }
                         else
-                            lex.parser_error(0x0000, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG);
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG);
 
                     }
                 }
@@ -6017,7 +6017,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_macro);
-                return lex.parser_error(0x0000, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str());
+                return lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str());
             }
         };
 

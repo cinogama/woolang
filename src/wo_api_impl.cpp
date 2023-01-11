@@ -1703,7 +1703,7 @@ std::variant<
         // Has error, create a fake lexer to store error reason.
 
         wo::lexer* lex = new wo::lexer(L"", virtual_src_path);
-        lex->lex_error(0x0000, wo_str_to_wstr(load_binary_failed_reason));
+        lex->lex_error(wo::lexer::errorlevel::error, wo_str_to_wstr(load_binary_failed_reason));
 
         return lex;
     }

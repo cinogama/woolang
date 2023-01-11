@@ -260,6 +260,8 @@
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
 
+#define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -509,4 +511,5 @@
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"Unknown macro named: '%ls'."
 
+#define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
 #endif
