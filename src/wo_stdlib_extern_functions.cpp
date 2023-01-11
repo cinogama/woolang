@@ -2762,7 +2762,7 @@ WO_API wo_api rslib_std_macro_lexer_error(wo_vm vm, wo_value args, size_t argc)
 {
     wo::lexer* lex = (wo::lexer*)wo_pointer(args + 0);
 
-    lex->lex_error(0x0000, wo::str_to_wstr(wo_string(args + 1)).c_str());
+    lex->lex_error(wo::lexer::errorlevel::error, wo::str_to_wstr(wo_string(args + 1)).c_str());
     return wo_ret_void(vm);
 }
 

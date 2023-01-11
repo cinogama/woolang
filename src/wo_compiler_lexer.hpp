@@ -429,7 +429,7 @@ namespace wo
             std::wstring input_path = *source_file;
             if (!wo::read_virtual_source(&reading_buffer, &readed_real_path, input_path, nullptr))
             {
-                lex_error(0x0000, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
+                lex_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, input_path.c_str());
             }
             else
             {
@@ -437,9 +437,15 @@ namespace wo
             }
         }
     public:
+        enum class errorlevel
+        {
+            error,
+            infrom,
+        };
+
         struct lex_error_msg
         {
-            uint32_t errorno;
+            errorlevel error_level;
             size_t   begin_row;
             size_t   end_row;
             size_t   begin_col;
@@ -451,14 +457,20 @@ namespace wo
             {
                 using namespace std;
 
-                wchar_t error_num_str[10] = {};
-                swprintf(error_num_str, 10, L"%04X", errorno);
                 if (need_ansi_describe)
-                    return (ANSI_HIR L"error" ANSI_RST)
+                    return (
+                        error_level == errorlevel::error
+                        ? (ANSI_HIR L"error" ANSI_RST)
+                        : (ANSI_HIC L"infom" ANSI_RST)
+                        )
                     + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
                     + (L") " + describe);
                 else
-                    return (L"error")
+                    return (
+                        error_level == errorlevel::error
+                        ? (L"error")
+                        : (L"info")
+                        )
                     + (L" (" + std::to_wstring(end_row) + L"," + std::to_wstring(end_col))
                     + (L") " + describe);
             }
@@ -492,7 +504,7 @@ namespace wo
         bool just_have_err = false; // it will be clear at next()
 
         template<typename AstT, typename ... TS>
-        lex_error_msg make_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
+        lex_error_msg make_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
             size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
             size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
@@ -505,7 +517,7 @@ namespace wo
             return
                 lex_error_msg
             {
-                0x1000 + errorno,
+                errorlevel,
                 begin_row_no,
                 end_row_no,
                 begin_col_no,
@@ -516,14 +528,14 @@ namespace wo
         }
 
         template<typename ... TS>
-        lex_type lex_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        lex_type lex_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
             lex_error_msg msg = lex_error_msg
             {
-                0x1000 + errorno,
+                errorlevel,
                 now_file_rowno,
                 next_file_rowno,
                 now_file_colno,
@@ -538,14 +550,14 @@ namespace wo
         }
 
         template<typename ... TS>
-        lex_type parser_error(uint32_t errorno, const wchar_t* fmt, TS&& ... args)
+        lex_type parser_error(lexer::errorlevel errorlevel, const wchar_t* fmt, TS&& ... args)
         {
             wchar_t describe[256] = {};
             swprintf(describe, 255, fmt, args...);
 
             lex_error_msg msg = lex_error_msg
             {
-                0x1000 + errorno,
+                errorlevel,
                 now_file_rowno,
                 next_file_rowno,
                 now_file_colno,
@@ -560,10 +572,10 @@ namespace wo
         }
 
         template<typename AstT, typename ... TS>
-        lex_type lang_error(uint32_t errorno, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
+        lex_type lang_error(lexer::errorlevel errorlevel, AstT* tree_node, const wchar_t* fmt, TS&& ... args)
         {
             if (tree_node->source_file == nullptr)
-                return parser_error(errorno, fmt, args...);
+                return parser_error(errorlevel, fmt, args...);
 
             size_t begin_row_no = tree_node->row_begin_no ? tree_node->row_begin_no : now_file_rowno;
             size_t begin_col_no = tree_node->col_begin_no ? tree_node->col_begin_no : now_file_colno;
@@ -575,7 +587,7 @@ namespace wo
 
             lex_error_msg msg = lex_error_msg
             {
-                0x1000 + errorno,
+                errorlevel,
                 begin_row_no,
                 end_row_no,
                 begin_col_no,
@@ -864,7 +876,7 @@ namespace wo
                         {
                             now_file_colno = fcol_begin;
                             now_file_rowno = frow_begin;
-                            lex_error(0x0005, WO_ERR_MISMATCH_ANNO_SYM);
+                            lex_error(lexer::errorlevel::error, WO_ERR_MISMATCH_ANNO_SYM);
                             fcol_begin = now_file_colno;
                             frow_begin = now_file_rowno;
 
@@ -881,7 +893,7 @@ namespace wo
                 {
                     // Is f"..."
                     if (format_string_count)
-                        return lex_error(0x0006, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
+                        return lex_error(lexer::errorlevel::error, WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID);
 
                     next_one();
 
@@ -986,7 +998,7 @@ namespace wo
                                 }
                                 default:
                                 str_escape_sequences_fail_in_format_begin:
-                                    lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                    lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                                     write_result(escape_ch);
                                     break;
                                 }
@@ -995,7 +1007,7 @@ namespace wo
                                 write_result(following_ch);
                         }
                         else
-                            return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
                     }
                 }
                 //else if (peek_ch() == L'@')
@@ -1108,7 +1120,7 @@ namespace wo
                             }
                             default:
                             str_escape_sequences_fail_in_format_string:
-                                lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                                 write_result(escape_ch);
                                 break;
                             }
@@ -1117,7 +1129,7 @@ namespace wo
                             write_result(following_ch);
                     }
                     else
-                        return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                        return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
                 }
 
             }
@@ -1144,7 +1156,7 @@ namespace wo
                     else if (!lex_isdigit(sec_ch))
                         base = 10;                      // is dec"0"
                     else
-                        return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, sec_ch, readed_ch);
+                        return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, sec_ch, readed_ch);
                 }
 
                 int following_chs;
@@ -1168,19 +1180,19 @@ namespace wo
                         {
                             write_result(next_one());
                             if (is_real)
-                                return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
+                                return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                             is_real = true;
                         }
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             if (is_real)
-                                return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
+                                return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                             next_one();
                             is_handle = true;
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, WO_ERR_ILLEGAL_LITERAL);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -1189,7 +1201,7 @@ namespace wo
                         if (lex_isxdigit(following_chs) || lex_toupper(following_chs) == L'X')
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
@@ -1197,7 +1209,7 @@ namespace wo
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, WO_ERR_ILLEGAL_LITERAL);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -1206,7 +1218,7 @@ namespace wo
                         if (lex_isodigit(following_chs))
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
@@ -1214,7 +1226,7 @@ namespace wo
                             break;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, WO_ERR_ILLEGAL_LITERAL);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
@@ -1223,19 +1235,19 @@ namespace wo
                         if (following_chs == L'1' || following_chs == L'0' || lex_toupper(following_chs) == L'B')
                             write_result(next_one());
                         else if (following_chs == L'.')
-                            return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, following_chs, readed_ch);
                         else if (lex_toupper(following_chs) == L'H')
                         {
                             next_one();
                             is_handle = true;
                         }
                         else if (lex_isalnum(following_chs))
-                            return lex_error(0x0004, WO_ERR_ILLEGAL_LITERAL);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_ILLEGAL_LITERAL);
                         else
                             break;                  // end read
                     }
                     else
-                        return lex_error(0x0000, WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
+                        return lex_error(lexer::errorlevel::error, WO_ERR_LEXER_ERR_UNKNOW_NUM_BASE);
 
                 } while (true);
 
@@ -1276,12 +1288,12 @@ namespace wo
                         if (following_ch != EOF)
                             write_result(following_ch);
                         else
-                            return lex_error(0x0002, WO_ERR_UNEXCEPT_EOF);
+                            return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
                     }
                 }
                 else
                     goto checking_valid_operator;
-                /*return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');*/
+                /*return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH_EXCEPT_CH, tmp_ch, readed_ch, L'\"');*/
             }
             else if (readed_ch == L'"')
             {
@@ -1378,7 +1390,7 @@ namespace wo
                             }
                             default:
                             str_escape_sequences_fail:
-                                lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                                lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                                 write_result(escape_ch);
                                 break;
                             }
@@ -1387,7 +1399,7 @@ namespace wo
                             write_result(following_ch);
                     }
                     else
-                        return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
+                        return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_STRING);
                 }
             }
             else if (readed_ch == L'\'')
@@ -1396,7 +1408,7 @@ namespace wo
 
                 following_ch = next_one();
                 if (following_ch == L'\'')
-                    return lex_error(0x0001, WO_ERR_UNEXCEPT_CH_AFTER_CH, L'\'', L'\'');
+                    return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_CH_AFTER_CH, L'\'', L'\'');
                 else if (following_ch != EOF && following_ch != '\n')
                 {
                     if (following_ch == L'\\')
@@ -1484,7 +1496,7 @@ namespace wo
                         }
                         default:
                         char_escape_sequences_fail:
-                            lex_error(0x0001, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
+                            lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_ESCSEQ_BEGIN_WITH_CH, escape_ch);
                             write_result(escape_ch);
                             break;
                         }
@@ -1493,13 +1505,13 @@ namespace wo
                         write_result(following_ch);
                 }
                 else
-                    return lex_error(0x0002, WO_ERR_UNEXCEPTED_EOL_IN_CHAR);
+                    return lex_error(lexer::errorlevel::error, WO_ERR_UNEXCEPTED_EOL_IN_CHAR);
 
                 following_ch = next_one();
                 if (following_ch == L'\'')
                     return lex_type::l_literal_char;
                 else
-                    return lex_error(0x0001, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L" " WO_TERM_EXCEPTED L" '\''", following_ch);
+                    return lex_error(lexer::errorlevel::error, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH L" " WO_TERM_EXCEPTED L" '\''", following_ch);
             }
             else if (lex_isoperatorch(readed_ch))
             {
@@ -1532,7 +1544,7 @@ namespace wo
                 } while (true);
 
                 if (operator_type == +lex_type::l_error)
-                    return lex_error(0x0003, WO_ERR_UNKNOW_OPERATOR_STR, read_result().c_str());
+                    return lex_error(lexer::errorlevel::error, WO_ERR_UNKNOW_OPERATOR_STR, read_result().c_str());
 
                 return operator_type;
             }
@@ -1583,7 +1595,7 @@ namespace wo
                         this->used_macro_list = std::make_shared<std::unordered_map<std::wstring, std::shared_ptr<macro>>>();
 
                     if (this->used_macro_list->find(p->macro_name) != this->used_macro_list->end())
-                        lex_error(0x0000, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, p->macro_name.c_str());
+                        lex_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_REPEAT_MACRO_DEFINE, p->macro_name.c_str());
                     else
                         (*this->used_macro_list)[p->macro_name] = p;
 
@@ -1591,7 +1603,7 @@ namespace wo
                 }
                 else
                 {
-                    lex_error(0x0000, WO_ERR_UNKNOWN_PRAGMA_COMMAND, pragma_name.c_str());
+                    lex_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_PRAGMA_COMMAND, pragma_name.c_str());
                 }
 
                 goto re_try_read_next_one;
@@ -1648,7 +1660,7 @@ namespace wo
                     return keyword_type;
             }
             ///////////////////////////////////////////////////////////////////////////////////////
-            return lex_error(0x000, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH, readed_ch);
+            return lex_error(lexer::errorlevel::error, WO_ERR_LEXER_ERR_UNKNOW_BEGIN_CH, readed_ch);
         }
 
         void push_temp_for_error_recover(lex_type type, const std::wstring& out_literal)
@@ -1698,7 +1710,7 @@ namespace wo
                 ("macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
                 wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
             {
-                lex.lex_error(0x0000, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR,
+                lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR,
                     str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)).c_str());
 
                 wo_close_vm(_macro_action_vm);
@@ -1708,7 +1720,7 @@ namespace wo
                 wo_run(_macro_action_vm);
         }
         else
-            lex.lex_error(0x0000, WO_ERR_HERE_SHOULD_HAVE, L"{");
+            lex.lex_error(lexer::errorlevel::error, WO_ERR_HERE_SHOULD_HAVE, L"{");
 
     }
 }

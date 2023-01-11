@@ -340,7 +340,7 @@ namespace wo
                             if (a_value_func->externed_func_info->externed_func)
                                 a_value_func->is_constant = true;
                             else
-                                lang_anylizer->lang_error(0x0000, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_FIND_EXT_SYM_IN_LIB,
                                     a_value_func->externed_func_info->symbol_name.c_str(),
                                     a_value_func->externed_func_info->load_from_lib.c_str());
                         }
@@ -511,7 +511,7 @@ namespace wo
 
         auto* located_function_scope = in_function();
         if (!located_function_scope)
-            lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_DO_RET_OUSIDE_FUNC);
         else
         {
             a_ret->located_function = located_function_scope->function_node;
@@ -560,13 +560,13 @@ namespace wo
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
                     }
                 }
                 else
                 {
                     if (!located_function_scope->function_node->value_type->get_return_type()->is_void())
-                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", located_function_scope->function_node->value_type->type_name->c_str());
                 }
             }
         }
@@ -659,7 +659,7 @@ namespace wo
         //    else
         //    {
         //        
-        //        // lang_anylizer->lang_error(0x0000, a_using_namespace, WO_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
+        //        // lang_anylizer->lang_error(lexer::errorlevel::error, a_using_namespace, WO_ERR_ERR_PLACE_FOR_USING_NAMESPACE);
         //        break;
         //    }
         //    parent_child = parent_child->sibling;
@@ -780,7 +780,7 @@ namespace wo
             }
         }
         else
-            lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
 
         analyze_pass1(a_match_union_case->in_case_sentence);
 
@@ -885,7 +885,7 @@ namespace wo
                             if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                             {
                                 func_return_type->set_type_with_name(WO_PSTR(void));
-                                lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                             }
                         }
                     }
@@ -895,7 +895,7 @@ namespace wo
                     if (!func_return_type->is_pending()
                         && !func_return_type->accept_type(a_ret->return_value->value_type, false))
                     {
-                        lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
                     }
                 }
             }
@@ -911,13 +911,13 @@ namespace wo
                 }
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
                 }
             }
             else
             {
                 if (!a_ret->located_function->value_type->get_return_type()->is_void())
-                    lang_anylizer->lang_error(0x0000, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_CANNOT_RET_TYPE_AND_TYPE_AT_SAME_TIME, L"void", a_ret->located_function->value_type->type_name->c_str());
             }
         }
         return true;
@@ -1033,7 +1033,7 @@ namespace wo
             }
             else
             {
-                lang_anylizer->lang_error(0x0000, a_match->match_value, WO_ERR_CANNOT_MATCH_SUCH_TYPE,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_match->match_value, WO_ERR_CANNOT_MATCH_SUCH_TYPE,
                     a_match->match_value->value_type->get_type_name(false).c_str());
             }
         }
@@ -1050,23 +1050,23 @@ namespace wo
             wo_assert(case_ast);
 
             if (has_default_pattern)
-                lang_anylizer->lang_error(0x0000, case_ast->union_pattern, WO_ERR_CASE_AFTER_DEFAULT_PATTERN);
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, WO_ERR_CASE_AFTER_DEFAULT_PATTERN);
 
             if (case_ast->union_pattern->union_expr == nullptr)
             {
                 if (case_names.size() >= a_match->match_value->value_type->struct_member_index.size())
-                    lang_anylizer->lang_error(0x0000, case_ast->union_pattern, WO_ERR_USELESS_DEFAULT_PATTERN);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern, WO_ERR_USELESS_DEFAULT_PATTERN);
 
                 has_default_pattern = true;
             }
             else if (case_names.end() != case_names.find(case_ast->union_pattern->union_expr->var_name))
-                lang_anylizer->lang_error(0x0000, case_ast->union_pattern->union_expr, WO_ERR_REPEAT_MATCH_CASE);
+                lang_anylizer->lang_error(lexer::errorlevel::error, case_ast->union_pattern->union_expr, WO_ERR_REPEAT_MATCH_CASE);
             else
                 case_names.insert(case_ast->union_pattern->union_expr->var_name);
             cases = cases->sibling;
         }
         if (!has_default_pattern && case_names.size() < a_match->match_value->value_type->struct_member_index.size())
-            lang_anylizer->lang_error(0x0000, a_match, WO_ERR_MATCH_CASE_NOT_COMPLETE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_match, WO_ERR_MATCH_CASE_NOT_COMPLETE);
 
         return true;
     }
@@ -1079,7 +1079,7 @@ namespace wo
             if (ast_pattern_union_value* a_pattern_union_value = dynamic_cast<ast_pattern_union_value*>(a_match_union_case->union_pattern))
             {
                 if (a_match_union_case->in_match->match_value->value_type->is_pending())
-                    lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_UNKNOWN_MATCHING_VAL_TYPE);
                 else
                 {
                     if (!a_match_union_case->in_match->match_value->value_type->using_type_name->template_arguments.empty())
@@ -1098,7 +1098,7 @@ namespace wo
                                     a_pattern_union_value->union_expr->symbol->name);
                                 if (fnd == a_match_union_case->in_match->match_value->value_type->struct_member_index.end())
                                 {
-                                    lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_INVALID_ITEM_OF,
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_pattern_union_value, WO_ERR_INVALID_ITEM_OF,
                                         a_pattern_union_value->union_expr->symbol->name->c_str(),
                                         a_match_union_case->in_match->match_value->value_type->get_type_name(false).c_str());
                                 }
@@ -1128,7 +1128,7 @@ namespace wo
                                         if (dumped_func)
                                             a_pattern_union_value->union_expr->symbol = dumped_func->this_reification_lang_symbol;
                                         else
-                                            lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_TEMPLATE_ARG_NOT_MATCH);
+                                            lang_anylizer->lang_error(lexer::errorlevel::error, a_pattern_union_value, WO_ERR_TEMPLATE_ARG_NOT_MATCH);
                                     }
                                 }
                             }
@@ -1136,7 +1136,7 @@ namespace wo
                                 ;
                         }
                         /* Donot give error here, it will be given in following 'analyze_pass2' */
-                        //lang_anylizer->lang_error(0x0000, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
+                        //lang_anylizer->lang_error(lexer::errorlevel::error, a_pattern_union_value, WO_ERR_UNKNOWN_IDENTIFIER, a_pattern_union_value->union_expr->var_name.c_str());
                     }
                     if (a_pattern_union_value->union_expr != nullptr)
                         analyze_pass2(a_pattern_union_value->union_expr);
@@ -1147,7 +1147,7 @@ namespace wo
                     wo_assert(a_pattern_union_value->union_expr != nullptr);
 
                     if (a_pattern_union_value->union_expr->value_type->argument_types.size() != 1)
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NEED_ACCEPT_ARG);
                     else
                     {
                         a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
@@ -1161,11 +1161,11 @@ namespace wo
                 {
                     if (a_pattern_union_value->union_expr != nullptr
                         && a_pattern_union_value->union_expr->value_type->argument_types.size() != 0)
-                        lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_INVALID_CASE_TYPE_NO_ARG_RECV);
                 }
             }
             else
-                lang_anylizer->lang_error(0x0000, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_match_union_case, WO_ERR_UNEXPECT_PATTERN_CASE);
         }
 
         analyze_pass2(a_match_union_case->in_case_sentence);
@@ -1196,7 +1196,7 @@ namespace wo
             {
                 // Current constraint failed, store it to list;
                 a_where_constraint->unmatched_constraint.push_back(
-                    lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_GRAMMAR_ERR));
+                    lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_GRAMMAR_ERR));
                 a_where_constraint->unmatched_constraint.insert(
                     a_where_constraint->unmatched_constraint.end(),
                     lang_anylizer->get_cur_error_frame().begin(),
@@ -1209,20 +1209,20 @@ namespace wo
                 if (!val->is_constant)
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_SHOULD_BE_CONST));
+                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_SHOULD_BE_CONST));
                     a_where_constraint->accept = false;
                 }
                 else if (!val->value_type->is_bool())
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_TYPE_ERR
+                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_TYPE_ERR
                             , val->value_type->get_type_name(false).c_str()));
                     a_where_constraint->accept = false;
                 }
                 else if (0 == val->get_constant_value().handle)
                 {
                     a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(0x0000, val, WO_ERR_WHERE_COND_NOT_MEET));
+                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_NOT_MEET));
                     a_where_constraint->accept = false;
                 }
             }
@@ -1278,7 +1278,7 @@ namespace wo
                     if (a_value_funcdef->auto_adjust_return_type)
                     {
                         if (a_value_funcdef->has_return_value)
-                            lang_anylizer->lang_error(0x0000, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funcdef, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(a_value_funcdef->get_ir_func_signature_tag()).c_str());
 
                         a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     }
@@ -1330,13 +1330,13 @@ namespace wo
 
         if (!a_value_assi->left->value_type->accept_type(a_value_assi->right->value_type, false))
         {
-            lang_anylizer->lang_error(0x0000, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->right, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                 a_value_assi->left->value_type->get_type_name(false).c_str(),
                 a_value_assi->right->value_type->get_type_name(false).c_str());
         }
 
         if (!a_value_assi->left->can_be_assign)
-            lang_anylizer->lang_error(0x0000, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
 
         a_value_assi->value_type->set_type(a_value_assi->left->value_type);
         return true;
@@ -1351,7 +1351,7 @@ namespace wo
 
         if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
         {
-            lang_anylizer->lang_error(0x0000, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 origin_value->value_type->get_type_name(false).c_str(),
                 a_value_typecast->value_type->get_type_name(false).c_str()
             );
@@ -1401,13 +1401,13 @@ namespace wo
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_UNDEFINED_MEMBER,
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNDEFINED_MEMBER,
                             str_to_wstr(*a_value_index->index->get_constant_value().string).c_str());
                     }
                 }
                 else
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_CANNOT_INDEX_MEMB_WITHOUT_STR);
                 }
 
             }
@@ -1425,12 +1425,12 @@ namespace wo
                             a_value_index->struct_offset = (uint16_t)index;
                         }
                         else
-                            lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX,
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX,
                                 (int)a_value_index->from->value_type->template_arguments.size(), (int)(index + 1));
                     }
                     else
                     {
-                        lang_anylizer->lang_error(0x0000, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_TYPE);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_TYPE);
                     }
                 }
                 else if (a_value_index->from->value_type->is_string())
@@ -1457,7 +1457,7 @@ namespace wo
             && !a_value_index->from->value_type->is_struct()
             && !a_value_index->from->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(0x0000, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
                 , a_value_index->from->value_type->get_type_name().c_str());
         }
 
@@ -1465,7 +1465,7 @@ namespace wo
         {
             if (!a_value_index->index->value_type->is_integer())
             {
-                lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , L"int"
                     , a_value_index->index->value_type->get_type_name().c_str());
             }
@@ -1474,7 +1474,7 @@ namespace wo
         {
             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false, true))
             {
-                lang_anylizer->lang_error(0x0000, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
                     , a_value_index->from->value_type->get_type_name().c_str());
             }
@@ -1488,7 +1488,7 @@ namespace wo
 
         if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
         {
-            lang_anylizer->lang_error(0x0000, a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
         }
         return true;
     }
@@ -1499,7 +1499,7 @@ namespace wo
         if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
             && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(0x0000, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
         }
         return true;
     }
@@ -1540,7 +1540,7 @@ namespace wo
 
         if (nullptr == a_value_bin->value_type)
         {
-            lang_anylizer->lang_error(0x0000, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                 a_value_bin->left->value_type->get_type_name(false).c_str(),
                 a_value_bin->right->value_type->get_type_name(false).c_str());
             a_value_bin->value_type->set_type_with_name(WO_PSTR(pending));
@@ -1594,7 +1594,7 @@ namespace wo
             }
 
             if (!type_ok)
-                lang_anylizer->lang_error(0x0000, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_logic_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                     a_value_logic_bin->left->value_type->get_type_name(false).c_str(),
                     a_value_logic_bin->right->value_type->get_type_name(false).c_str());
             else
@@ -1635,9 +1635,9 @@ namespace wo
                     && !decide_array_item_type->set_mix_types(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array", L"array");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"array", L"array");
                     else
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"vec", L"vec");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"vec", L"vec");
                     break;
                 }
                 val = dynamic_cast<ast_value*>(val->sibling);
@@ -1646,14 +1646,14 @@ namespace wo
 
         if (!a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_array())
         {
-            lang_anylizer->lang_error(0x0000, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 L"array<...>",
                 a_value_arr->value_type->get_type_name().c_str()
             );
         }
         else if (a_value_arr->is_mutable_vector && !a_value_arr->value_type->is_vec())
         {
-            lang_anylizer->lang_error(0x0000, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arr, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 L"vec<...>",
                 a_value_arr->value_type->get_type_name().c_str()
             );
@@ -1669,9 +1669,9 @@ namespace wo
                 if (!a_value_arr->value_type->template_arguments[0]->accept_type(val->value_type, false))
                 {
                     if (!a_value_arr->is_mutable_vector)
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"array");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"array");
                     else
-                        lang_anylizer->lang_error(0x0000, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"vec");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"vec");
                 }
                 reenplace_array_items.push_back(val);
 
@@ -1728,18 +1728,18 @@ namespace wo
                     && !decide_map_key_type->set_mix_types(map_pair->key->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict", L"dict");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"dict", L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map", L"map");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, map_pair->key, WO_ERR_DIFFERENT_KEY_TYPE_OF, L"map", L"map");
                     break;
                 }
                 if (!decide_map_val_type->accept_type(map_pair->val->value_type, false)
                     && !decide_map_val_type->set_mix_types(map_pair->val->value_type, false))
                 {
                     if (!a_value_map->is_mutable_map)
-                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict", L"dict");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"dict", L"dict");
                     else
-                        lang_anylizer->lang_error(0x0000, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"map", L"map");
+                        lang_anylizer->lang_error(lexer::errorlevel::error, map_pair->val, WO_ERR_DIFFERENT_VAL_TYPE_OF, L"map", L"map");
                     break;
                 }
                 map_pair = dynamic_cast<ast_mapping_pair*>(map_pair->sibling);
@@ -1748,14 +1748,14 @@ namespace wo
 
         if (!a_value_map->is_mutable_map && !a_value_map->value_type->is_dict())
         {
-            lang_anylizer->lang_error(0x0000, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 L"dict<..., ...>",
                 a_value_map->value_type->get_type_name().c_str()
             );
         }
         else if (a_value_map->is_mutable_map && !a_value_map->value_type->is_map())
         {
-            lang_anylizer->lang_error(0x0000, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_map, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
                 L"map<..., ...>",
                 a_value_map->value_type->get_type_name().c_str()
             );
@@ -1778,16 +1778,16 @@ namespace wo
                     if (!a_value_map->value_type->template_arguments[0]->accept_type(pairs->key->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
-                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"dict");
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"dict");
                         else
-                            lang_anylizer->lang_error(0x0000, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"map");
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pairs->key, WO_ERR_DIFFERENT_KEY_TYPE_OF_TEMPLATE, L"map");
                     }
                     if (!a_value_map->value_type->template_arguments[1]->accept_type(pairs->val->value_type, false))
                     {
                         if (!a_value_map->is_mutable_map)
-                            lang_anylizer->lang_error(0x0000, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"dict");
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"dict");
                         else
-                            lang_anylizer->lang_error(0x0000, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"map");
+                            lang_anylizer->lang_error(lexer::errorlevel::error, pairs->val, WO_ERR_DIFFERENT_VAL_TYPE_OF_TEMPLATE, L"map");
                     }
 
                 }
@@ -1811,7 +1811,7 @@ namespace wo
                 a_value_make_tuple_instance->value_type->template_arguments[count]->set_type(val->value_type);
             else
             {
-                lang_anylizer->lang_error(0x0000, val, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
+                lang_anylizer->lang_error(lexer::errorlevel::error, val, WO_ERR_FAILED_TO_DECIDE_TUPLE_TYPE);
                 break;
             }
             tuple_elems = tuple_elems->sibling;
@@ -1852,27 +1852,27 @@ namespace wo
 
                         if (!fnd->second.member_type->accept_type(membpair->member_value_pair->value_type, false, false))
                         {
-                            lang_anylizer->lang_error(0x0000, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF
+                            lang_anylizer->lang_error(lexer::errorlevel::error, membpair, WO_ERR_DIFFERENT_MEMBER_TYPE_OF
                                 , membpair->member_name->c_str()
                                 , fnd->second.member_type->get_type_name(false).c_str()
                                 , membpair->member_value_pair->value_type->get_type_name(false).c_str());
                         }
                     }
                     else
-                        lang_anylizer->lang_error(0x0000, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
+                        lang_anylizer->lang_error(lexer::errorlevel::error, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
                             a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
                             membpair->member_name->c_str());
                 }
 
                 if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
-                    lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
                         a_value_make_struct_instance->value_type->get_type_name(false).c_str());
             }
             else
-                lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
         }
         else
-            lang_anylizer->lang_error(0x0000, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
                 a_value_make_struct_instance->value_type->get_type_name(false).c_str());
         return true;
     }
@@ -1882,7 +1882,7 @@ namespace wo
         analyze_pass2(a_value_trib_expr->judge_expr);
         if (!a_value_trib_expr->judge_expr->value_type->is_bool())
         {
-            lang_anylizer->lang_error(0x0000, a_value_trib_expr->judge_expr, WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR,
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_trib_expr->judge_expr, WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR,
                 a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
         }
 
@@ -1911,7 +1911,7 @@ namespace wo
                 a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
                 if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_trib_expr, WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_trib_expr, WO_ERR_DIFFERENT_TYPES_IN_COND_EXPR
                         , a_value_trib_expr->val_if_true->value_type->get_type_name(false).c_str()
                         , a_value_trib_expr->val_or->value_type->get_type_name(false).c_str());
                 }
@@ -1935,7 +1935,7 @@ namespace wo
             && funcdef->where_constraint != nullptr
             && !funcdef->where_constraint->accept)
         {
-            lang_anylizer->lang_error(0x0000, ast, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_FAILED_TO_INVOKE_BECAUSE);
             for (auto& error_info : funcdef->where_constraint->unmatched_constraint)
             {
                 lang_anylizer->get_cur_error_frame().push_back(error_info);
@@ -1955,13 +1955,13 @@ namespace wo
             if (sym)
             {
                 if (sym->define_in_function && !sym->has_been_defined_in_pass2 && !sym->is_captured_variable)
-                    lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER, a_value_var->var_name->c_str());
 
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
                 {
                     sym = analyze_pass_template_reification(a_value_var, a_value_var->template_reification_args);
                     if (!sym)
-                        lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID,
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID,
                             a_value_var->var_name->c_str());
                 }
 
@@ -1989,13 +1989,13 @@ namespace wo
                             && a_value_var->symbol->is_template_symbol)
                             ; /* function call may be template, do not report error here~ */
                         else
-                            lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
                     }
                 }
             }
             else
             {
-                lang_anylizer->lang_error(0x0000, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNKNOWN_IDENTIFIER,
                     a_value_var->var_name->c_str());
                 a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
@@ -2122,7 +2122,7 @@ namespace wo
                 if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
                     callee_variable != nullptr && callee_variable->symbol == nullptr)
                 {
-                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
                         a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
                         a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
                 }
@@ -2159,7 +2159,7 @@ namespace wo
                 if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
                 {
                     if (variable->template_reification_args.size() > template_args.size())
-                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
                     else
                         for (size_t index = 0; index < variable->template_reification_args.size(); index++)
                             template_args[index] = variable->template_reification_args[index];
@@ -2251,7 +2251,7 @@ namespace wo
                 }
 
                 if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
-                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
                 // failed getting each of template args, abandon this one
                 else
                 {
@@ -2260,7 +2260,7 @@ namespace wo
                         fully_update_type(templ_arg, false);
                         if (templ_arg->is_pending() && !templ_arg->is_hkt())
                         {
-                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_UNKNOWN_TYPE,
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_UNKNOWN_TYPE,
                                 templ_arg->get_type_name(false).c_str());
                             goto failed_to_judge_template_params;
                         }
@@ -2293,7 +2293,7 @@ namespace wo
                 {
                     // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
                     if (funcsymb->has_return_value)
-                        lang_anylizer->lang_error(0x0000, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
 
                     funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     funcsymb->auto_adjust_return_type = false;
@@ -2317,7 +2317,7 @@ namespace wo
                     {
                         // default arg mgr here, now just kill
                         failed_to_call_cur_func = true;
-                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                         break;
                     }
                     else
@@ -2376,13 +2376,13 @@ namespace wo
                                         {
                                             // There is no enough value for tuple to expand. match failed!
                                             failed_to_call_cur_func = true;
-                                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                             break;
                                         }
                                         else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
                                         {
                                             failed_to_call_cur_func = true;
-                                            lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                             break;
                                         }
                                         else
@@ -2399,7 +2399,7 @@ namespace wo
                                 else
                                 {
                                     failed_to_call_cur_func = true;
-                                    lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                                     break;
                                 }
                                 ecount--;
@@ -2419,7 +2419,7 @@ namespace wo
                             if (!(*a_type_index)->accept_type(arg_val->value_type, false))
                             {
                                 failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(0x0000, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                                lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
                                     (*a_type_index)->get_type_name(false, false).c_str(),
                                     arg_val->value_type->get_type_name(false, true).c_str());
                                 break;
@@ -2460,21 +2460,21 @@ namespace wo
                             if (tuple_arg_sz != 0)
                             {
                                 failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                             }
                         }
                     }
                     else
                     {
                         failed_to_call_cur_func = true;
-                        lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
                     }
                 }
             }
             else
             {
                 failed_to_call_cur_func = true;
-                lang_anylizer->lang_error(0x0000, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
                     a_value_funccall->called_func->value_type->get_type_name(false).c_str());
             }
 
