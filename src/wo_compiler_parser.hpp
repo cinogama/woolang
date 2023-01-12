@@ -1580,7 +1580,7 @@ namespace wo
                         state_stack.push(take_action.state);
                         if (e_rule)
                         {
-                            node_stack.push(std::make_pair(source_info{ tkr.after_pick_next_file_rowno, tkr.after_pick_next_file_colno }, token{ grammar::ttype::l_empty }));
+                            node_stack.push(std::make_pair(source_info{ tkr.this_time_peek_from_rowno, tkr.this_time_peek_from_colno }, token{ grammar::ttype::l_empty }));
                             sym_stack.push(te_lempty_index);
                         }
                         else
@@ -1640,30 +1640,12 @@ namespace wo
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
                                 wo_assert(!te_or_nt_bnodes.empty());
-                                if (te_or_nt_bnodes.size() == 1 && ast_empty::is_empty(te_or_nt_bnodes[0]))
-                                {
-                                    ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
-                                    ast_node_->col_end_no = tkr.after_pick_next_file_colno;
-                                    ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
-                                    ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
-                                }
-                                else
-                                {
-                                    if (!srcinfo_bnodes.empty())
-                                    {
-                                        ast_node_->row_end_no = tkr.now_file_rowno;
-                                        ast_node_->col_end_no = tkr.now_file_colno;
-                                        ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
-                                        ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
-                                    }
-                                    else
-                                    {
-                                        ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
-                                        ast_node_->col_end_no = tkr.after_pick_next_file_colno;
-                                        ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
-                                        ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
-                                    }
-                                }
+
+                                ast_node_->row_end_no = tkr.now_file_rowno;
+                                ast_node_->col_end_no = tkr.now_file_colno;
+                                ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
+                                ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+
                                 ast_node_->source_file = tkr.source_file;
                             }
                             node_stack.push(std::make_pair(srcinfo_bnodes.front(), astnode));
