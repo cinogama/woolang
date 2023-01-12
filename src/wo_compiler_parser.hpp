@@ -1640,11 +1640,21 @@ namespace wo
                             if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
                             {
                                 wo_assert(!te_or_nt_bnodes.empty());
-
-                                ast_node_->row_end_no = tkr.now_file_rowno;
-                                ast_node_->col_end_no = tkr.now_file_colno;
-                                ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
-                                ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                               
+                                if (!srcinfo_bnodes.empty())
+                                {
+                                    ast_node_->row_end_no = tkr.now_file_rowno;
+                                    ast_node_->col_end_no = tkr.now_file_colno;
+                                    ast_node_->row_begin_no = srcinfo_bnodes.front().row_no;
+                                    ast_node_->col_begin_no = srcinfo_bnodes.front().col_no;
+                                }
+                                else
+                                {
+                                    ast_node_->row_end_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_end_no = tkr.after_pick_next_file_colno;
+                                    ast_node_->row_begin_no = tkr.after_pick_next_file_rowno;
+                                    ast_node_->col_begin_no = tkr.after_pick_next_file_colno;
+                                }
 
                                 ast_node_->source_file = tkr.source_file;
                             }
@@ -1892,7 +1902,7 @@ namespace wo
                                 goto error_progress_end;
                             }
 #endif
-                        }
+                                }
 
                         if (node_stack.size())
                         {
@@ -1904,21 +1914,21 @@ namespace wo
                         {
                             goto error_handle_fail;
                         }
-                    }
+                            }
                 error_handle_fail:
                     tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNABLE_RECOVER_FROM_ERR);
                     return nullptr;
 
                 error_progress_end:;
+                        }
+
+                    } while (true);
+
+                    tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
+
+                    return nullptr;
                 }
-
-            } while (true);
-
-            tkr.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_EOF);
-
-            return nullptr;
-        }
-    };
+            };
 
     inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
@@ -2006,4 +2016,4 @@ namespace wo
 
         return ost;
     }
-}
+        }
