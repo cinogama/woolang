@@ -8,9 +8,6 @@
 #define WO_USED_LANGUAGE WO_LANG_ZH_CN
 
 
-
-
-
 #if WO_USED_LANGUAGE == WO_LANG_ZH_CN
 
 #define WO_TERM_GLOBAL_NAMESPACE L"全局作用域"
@@ -519,7 +516,8 @@
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
 
-#define WO_INFO_FUNCTION_TYPE_IS_PENDING L"The type '%ls' of function is pending."
+#define WO_INFO_INIT_EXPR_IS_HERE L"The compiler found the initialization expression of '%ls'."
 
-#define WO_INFO_IS_THIS_ONE L"Do you measn '%ls', which is defined here?"
+#define WO_INFO_IS_THIS_ONE L"Do you means '%ls', which is defined here?"
+
 #endif
