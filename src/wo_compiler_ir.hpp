@@ -875,7 +875,8 @@ namespace wo
                 else
                     func = result->loaded_libs.try_load_func_from_in(script_path.c_str(), library_name.c_str(), function_name.c_str());
 
-                wo_assert(func != nullptr);
+                if (func == nullptr)
+                    WO_LOAD_BIN_FAILED("Failed to restore native function, might be changed?");
 
                 for (auto constant_offset : extern_native_function.constant_offsets)
                 {

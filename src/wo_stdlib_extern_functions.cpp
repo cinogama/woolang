@@ -1484,6 +1484,26 @@ namespace option
             return false;
         }
     }
+    public func okay<T>(self: option<T>)=> result<T, anything>
+    {
+        match(self)
+        {
+        value(v)?
+            return result::ok(v);
+        none?
+            return result::err(nil);
+        }
+    }
+    public func error<T>(self: option<T>)=> result<anything, T>
+    {
+        match(self)
+        {
+        value(v)?
+            return result::err(v);
+        none?
+            return result::ok(nil);
+        }
+    }
 }
 public union result<T, F>
 {
@@ -3069,6 +3089,16 @@ WO_API wo_api rslib_std_filesys_extension(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_string(vm, "");
 }
 
+WO_API wo_api rslib_std_filesys_purename(wo_vm vm, wo_value args, size_t argc)
+{
+    std::filesystem::path p(wo_str_to_wstr(wo_string(args + 0)));
+    auto filename = p.filename().wstring();
+    if (p.has_extension())
+        return wo_ret_string(vm, wo_wstr_to_str(
+            filename.substr(0, filename.size() - p.extension().wstring().size()).c_str()));
+    return wo_ret_string(vm, wo_wstr_to_str(filename.c_str()));
+}
+
 WO_API wo_api rslib_std_filesys_mkdir(wo_vm vm, wo_value args, size_t argc)
 {
     std::error_code ec;
@@ -3186,6 +3216,9 @@ namespace std::file
 
     extern("rslib_std_filesys_extension")
         public func extension(path: string)=> string;
+
+    extern("rslib_std_filesys_purename")
+        public func purename(path: string)=> string;
 
     extern("rslib_std_filesys_isfile")
         public func isfile(path: string)=> bool;
