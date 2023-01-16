@@ -54,7 +54,7 @@ namespace wo
 #endif
         if (nullptr == std::setlocale(LC_CTYPE, local_type))
         {
-            wo_stderr << ANSI_HIR "RS: " ANSI_RST "Unable to initialize locale character set environment: " << wo_endl;
+            wo_stderr << ANSI_HIR "Woolang: " ANSI_RST "Unable to initialize locale character set environment: " << wo_endl;
             wo_stderr << "\t" << ANSI_HIY << local_type << ANSI_RST << " is not a valid locale type." << wo_endl;
 
             std::exit(-1);
