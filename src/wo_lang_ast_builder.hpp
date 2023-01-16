@@ -44,16 +44,14 @@ namespace wo
             }
         };
 
-        inline static std::unordered_map<size_t, size_t> _registed_builder_function_id_list;
-        inline static std::vector<astnode_builder::builder_func_t> _registed_builder_function;
+        inline std::unordered_map<size_t, size_t> _registed_builder_function_id_list;
+        inline std::vector<astnode_builder::builder_func_t> _registed_builder_function;
 
         template <typename T>
         size_t _register_builder()
         {
             static_assert(std::is_base_of<astnode_builder, T>::value);
-
             _registed_builder_function.push_back(T::build);
-
             return _registed_builder_function.size();
         }
 
@@ -62,14 +60,12 @@ namespace wo
         {
             size_t idx = _registed_builder_function_id_list[meta::type_hash<T>];
             wo_test(idx != 0);
-
             return idx;
         }
 
         inline astnode_builder::builder_func_t get_builder(size_t idx)
         {
             wo_test(idx != 0);
-
             return _registed_builder_function[idx - 1];
         }
 #endif
