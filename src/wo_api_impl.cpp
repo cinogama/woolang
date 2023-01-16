@@ -298,6 +298,8 @@ void wo_init(int argc, char** argv)
 
     if (enable_ctrl_c_to_debug)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
+
+    wo_asure(wo::get_wo_grammar()); // Create grammar when init.
 }
 
 wo_string_t  wo_compile_date(void)
