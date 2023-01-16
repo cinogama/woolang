@@ -1484,26 +1484,6 @@ namespace option
             return false;
         }
     }
-    public func okay<T>(self: option<T>)=> result<T, anything>
-    {
-        match(self)
-        {
-        value(v)?
-            return result::ok(v);
-        none?
-            return result::err(nil);
-        }
-    }
-    public func error<T>(self: option<T>)=> result<anything, T>
-    {
-        match(self)
-        {
-        value(v)?
-            return result::err(v);
-        none?
-            return result::ok(nil);
-        }
-    }
 }
 public union result<T, F>
 {
@@ -1512,6 +1492,14 @@ public union result<T, F>
 }
 namespace result
 {
+    public func flip<T, F>(self: result<T, F>)=> result<F, T>
+    {
+        match(self)
+        {
+        ok(v)? return err(v);
+        err(e)? return ok(e);
+        }
+    }
     public func unwarp<T, F>(self: result<T, F>)=> T
     {
         match(self)
@@ -1564,7 +1552,7 @@ namespace result
     {
         match(self)
         {
-        ok(v)? std::panic(F"Current result is not failed.");
+        ok(v)? std::panic(F"Current result: {e} is not failed.");
         err(e)? return err(e);
         }
     }
