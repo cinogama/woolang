@@ -275,10 +275,6 @@ namespace wo
                     os << "  ";
                 }
             }
-            virtual void display(std::wostream& os = std::wcout, size_t lay = 0) const
-            {
-                space(os, lay); os << L"<ast_base from " << typeid(*this).name() << L">" << std::endl;
-            }
 
             template<typename T, typename ... Args>
             static T* MAKE_INSTANCE(const T* datfrom, Args && ... args)
@@ -328,27 +324,6 @@ namespace wo
 
                 return dumm;
             }
-
-            void display(std::wostream& os = std::wcout, size_t lay = 0)const override
-            {
-                if (stores_terminal)
-                {
-                    space(os, lay); os << "<ast_default: " << (terminal_token) << ">" << std::endl;
-                }
-                else
-                {
-                    space(os, lay); os << "<ast_default: " << (nonterminal_name) << ">" << std::endl;
-                }
-
-                auto* mychild = children;
-                while (mychild)
-                {
-                    mychild->display(os, lay + 1);
-
-                    mychild = mychild->sibling;
-                }
-
-            }
         };
 
         struct ast_empty : virtual public ast_base
@@ -374,10 +349,6 @@ namespace wo
                 }
 
                 return false;
-            }
-            void display(std::wostream& os = std::wcout, size_t lay = 0) const override
-            {
-                /*display nothing*/
             }
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
