@@ -1552,7 +1552,7 @@ namespace result
     {
         match(self)
         {
-        ok(v)? std::panic(F"Current result: {e} is not failed.");
+        ok(v)? std::panic(F"Current result is ok({v}), is not failed.");
         err(e)? return err(e);
         }
     }
