@@ -386,6 +386,8 @@ func main()
         assure_compile_fail(@"let a = 0; let a = 1;"@);
         assure_compile_fail(@"func a(){} let a = 1;"@);
         assure_compile_fail(@"using a = int; let a = 1;"@);
+        assure_compile_fail(@"let a = 1; using a = int;"@);
+        assure_compile_fail(@"using a = int; using a = real;"@);
 
         // invalid index of tuple
         assure_compile_fail(@"let a = (1,2); a[5] = 6;"@);
@@ -676,6 +678,14 @@ func main()
             {
                 value(T): gadt<string>,
             }
+        "@);
+        
+        assure_compile_fail(@"
+            namespace prot
+            {
+                protected func foo(){}
+            }
+            foo();
         "@);
 
         assure_compile_success(@"
