@@ -2365,6 +2365,15 @@ namespace gchandle
         public func close(handle:gchandle)=> bool;
 }
 
+namespace tuple
+{
+    public func unpack<TupleT, Ft>(self: TupleT, f: Ft)
+        where f(self...) is anything;
+    {
+        return f(self...);
+    }
+}
+
 public func assert(val: bool)
 {
     if (!val)
@@ -2375,6 +2384,7 @@ public func assertmsg(val: bool, msg: string)
     if (!val)
         std::panic(F"Assert failed: {msg}");
 }
+
 )" };
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
