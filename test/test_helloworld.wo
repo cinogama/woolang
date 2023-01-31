@@ -117,6 +117,9 @@ namespace test_helloworld
         test_no_return_recursive as (bool)=>void;
 
         \=func(){}; as ()=>()=>void;
+
+        \a,b=std::println(a, b);("hello", "world");
+        \a,b=std::println(a, b);(("hello", "world")...);
     }
 }
 
