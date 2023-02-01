@@ -120,6 +120,10 @@ namespace test_helloworld
 
         \a,b=std::println(a, b);("hello", "world");
         \a,b=std::println(a, b);(("hello", "world")...);
+        ("hello", "world")...->\a,b=std::println(a, b);;
+
+        let t = ("hello", "world");
+        t...->\a,b=std::println(a, b);;
     }
 }
 

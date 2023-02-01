@@ -828,14 +828,17 @@ namespace wo
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNCTION_CALL") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_LEFT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
-
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"CALLABLE_RIGHT_WITH_BRACKET") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
-
-                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
+                gm::nt(L"DIRECT_CALLABLE_VALUE") >> gm::symlist{ gm::nt(L"DIRECT_CALL_FIRST_ARG"), gm::te(gm::ttype::l_direct), gm::nt(L"FUNC_DEFINE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_directed_value_for_call),
+                    
+                gm::nt(L"DIRECT_CALL_FIRST_ARG") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING") }
+                    >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+                gm::nt(L"DIRECT_CALL_FIRST_ARG") >> gm::symlist{ gm::nt(L"ARGUMENT_EXPAND") }
+                    >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 // MONAD GRAMMAR~~~ SUGAR!
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_bind_monad), gm::nt(L"CALLABLE_LEFT") }
