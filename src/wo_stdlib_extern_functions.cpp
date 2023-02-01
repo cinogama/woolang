@@ -2365,15 +2365,6 @@ namespace gchandle
         public func close(handle:gchandle)=> bool;
 }
 
-namespace tuple
-{
-    public func unpack<TupleT, Ft>(self: TupleT, f: Ft)
-        where f(self...) is anything;
-    {
-        return f(self...);
-    }
-}
-
 public func assert(val: bool)
 {
     if (!val)
