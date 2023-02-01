@@ -461,36 +461,9 @@ namespace wo
             } while (0);
             // just full gc:
 
-#ifndef NDEBUG
-            std::unordered_set<gcbase*> _existed_list;
-#endif
             auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
             auto* young_list = gcbase::young_age_gcunit_list.pick_all();
             auto* old_list = gcbase::old_age_gcunit_list.pick_all();
-
-#ifndef NDEBUG
-            auto* e = eden_list;
-            while (e)
-            {
-                wo_assert(_existed_list.end() == _existed_list.find(e));
-                _existed_list.insert(e);
-                e = e->last;
-            }
-            e = young_list;
-            while (e)
-            {
-                wo_assert(_existed_list.end() == _existed_list.find(e));
-                _existed_list.insert(e);
-                e = e->last;
-            }
-            e = old_list;
-            while (e)
-            {
-                wo_assert(_existed_list.end() == _existed_list.find(e));
-                _existed_list.insert(e);
-                e = e->last;
-            }
-#endif
 
             // Mark all no_gc_object
             // mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
