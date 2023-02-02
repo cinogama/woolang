@@ -2955,10 +2955,35 @@ namespace std
             public func error(lex:lexer, msg:string)=>void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peek(lex:lexer)=> (token_type, string);
+            public func peektoken(lex:lexer)=> (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func next(lex:lexer)=> (token_type, string);
+            public func nexttoken(lex:lexer)=> (token_type, string);
+
+        public func peek(lex: lexer)
+        {
+            let (type, str) = lex->peektoken;
+            if (type == token_type::l_literal_string)
+                return str->enstring;
+            else if (type == token_type::l_literal_char)
+            {
+                let enstr = str->enstring;
+                return F"'{enstr->subto(1, enstr->len-2)}'";
+            }
+            return str;
+        }
+        public func next(lex: lexer)
+        {
+            let (type, str) = lex->nexttoken;
+            if (type == token_type::l_literal_string)
+                return str->enstring;
+            else if (type == token_type::l_literal_char)
+            {
+                let enstr = str->enstring;
+                return F"'{enstr->subto(1, enstr->len-2)}'";
+            }
+            return str;
+        }
 
         extern("rslib_std_macro_lexer_nextch")
             public func nextch(lex:lexer) => string;
