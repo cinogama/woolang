@@ -3015,14 +3015,14 @@ namespace std
             self->error("Unexpected token here.");
             return option::none;
         }
-        public func trytoken(self: lexer, str: string)=> option<string>
+        public func try(self: lexer, str: string)=> option<string>
         {
             let res = self->peek();
             if (res == str)
                 return option::value(self->next());
             return option::none;
         }
-        public func expecttoken(self: lexer, str: string)=> option<string>
+        public func expect(self: lexer, str: string)=> option<string>
         {
             let res = self->next();
             if (res == str)
