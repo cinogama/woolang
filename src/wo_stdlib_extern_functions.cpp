@@ -3004,7 +3004,7 @@ namespace std
         {
             let (tok, res) = self->peektoken();
             if (token == tok)
-                return option::value(self->next()[1]);
+                return option::value(self->nexttoken()[1]);
             return option::none;
         }
         public func expecttoken(self: lexer, token: token_type)=> option<string>
