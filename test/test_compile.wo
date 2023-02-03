@@ -1,6 +1,8 @@
 import woo.std;
 import woo.vm;
 
+import pkg.thread;
+
 import test_tool;
 
 namespace test_compile
@@ -264,21 +266,21 @@ func main()
             let a = 1; let b = (a == 1) as string;
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){});
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){});
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){}, ());
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){}, ());
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){}, (1, 2, 3));
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){}, (1, 2, 3));
         "@);
         assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
-            import woo.thread;
-            std::thread::create(func(){}, ());
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(){}, ());
         "@);
         assure_compile_success(@"
             import  woo.std;
@@ -729,9 +731,9 @@ func main()
 
     func main()
     {
-        let test_threads = []mut: vec<std::thread>;
+        let test_threads = []mut: vec<thread>;
         for (let mut i = 0 ; i < 4; i += 1)
-            test_threads->add(std::thread::create(test_compile_success_or_fail, ()));
+            test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();
 

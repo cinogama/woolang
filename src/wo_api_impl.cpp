@@ -287,7 +287,6 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
         wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
         wo_virtual_source(wo_stdlib_vm_src_path, wo_stdlib_vm_src_data, false);
-        wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
         wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
         if (enable_file_package)
