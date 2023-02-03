@@ -233,8 +233,6 @@ void wo_init(int argc, char** argv)
                 basic_env_local = argv[++command_idx];
             else if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
-            else if ("enable-file" == current_arg)
-                enable_file_package = atoi(argv[++command_idx]);
             else if ("enable-shell" == current_arg)
                 enable_shell_package = atoi(argv[++command_idx]);
             else if ("enable-ctrlc-debug" == current_arg)
@@ -290,8 +288,6 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
         wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
-        if (enable_file_package)
-            wo_virtual_source(wo_stdlib_file_src_path, wo_stdlib_file_src_data, false);
         if (enable_shell_package)
             wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
     }
