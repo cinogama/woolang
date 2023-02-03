@@ -1651,12 +1651,6 @@ namespace std
     extern("rslib_std_get_exe_path")
         public func exepath()=>string;
 
-    extern("rslib_std_get_work_path")
-        public func workpath()=> string;
-
-    extern("rslib_std_set_work_path")
-        public func setworkpath(path: string)=> bool;
-
     extern("rslib_std_equal_byte")
         public func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
 
