@@ -50,6 +50,8 @@ test_coverage_debug:
     - pwd
     - sudo sudo gcovr . -r ./src -g -k
     - sudo gcovr . -r ./src -g -k --html --html-details -o report.html
+    # HOLY! HOW DANGEROUS!
+    - sudo rm -rf ./test/pkg
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
@@ -82,6 +84,8 @@ test_release:
     - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    # HOLY! HOW DANGEROUS!
+    - sudo rm -rf ./test/pkg
   tags:
     - ubuntu1804_cicd
   artifacts:
@@ -115,6 +119,8 @@ test_memory_debug:
     - sudo baozi install
     - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    # HOLY! HOW DANGEROUS!
+    - sudo rm -rf ./test/pkg
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
@@ -142,6 +148,8 @@ test_memory_release:
     - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    # HOLY! HOW DANGEROUS!
+    - sudo rm -rf ./test/pkg
   tags:
     - ubuntu1804_cicd
   artifacts:
