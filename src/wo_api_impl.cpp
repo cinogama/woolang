@@ -17,6 +17,7 @@
 #include <csignal>
 #include <sstream>
 #include <new>
+#include <chrono>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -197,9 +198,10 @@ void wo_finish()
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
         } while (false);
 
-        wo_gc_immediately();
+        using namespace std;
 
-        std::this_thread::yield();
+        wo_gc_immediately();
+        std::this_thread::sleep_for(10ms);
 
         std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
         if (wo::vmbase::_alive_vm_list.empty())
@@ -498,7 +500,7 @@ void wo_set_bool(wo_value value, wo_bool_t val)
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_integer(val ? 1 : 0);
 }
-void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VAL(value)->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
@@ -510,7 +512,12 @@ void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 }
 void wo_set_val(wo_value value, wo_value val)
 {
@@ -1172,7 +1179,12 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr);
 }
@@ -1371,7 +1383,12 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return 0;
 }
@@ -1532,7 +1549,12 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return 0;
 }
@@ -2027,7 +2049,12 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return CS_VAL(csp);
 }
