@@ -137,6 +137,25 @@ namespace wo
         debuggee_base* attaching_debuggee = nullptr;
 
     public:
+        void inc_destructable_instance_count() noexcept
+        {
+            wo_assert(env != nullptr);
+#ifndef NDEBUG
+            size_t count = 
+#endif
+                env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
+            wo_assert(count > 0);
+        }
+        void dec_destructable_instance_count() noexcept
+        {
+            wo_assert(env != nullptr);
+#ifndef NDEBUG
+            size_t count =
+#endif
+            env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
+            wo_assert(count >= 0);
+        }
+
         void set_br_yieldable(bool able) noexcept
         {
             _vm_br_yieldable = able;
@@ -280,19 +299,19 @@ namespace wo
                     if (excepted == INVALID_VM_PTR)
                         goto retry_to_fetch_gcvm;
                     return excepted;
-                }
-            } while (!exchange_result);
-
-            wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
-            // Create a new VM using for GC destruct
-            auto* created_subvm_for_gc = make_machine(1024);
-            // gc_thread will be destructed by gc_work..
-            created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
-
-            vmbase_atomic->store(created_subvm_for_gc);
-            return created_subvm_for_gc;
-#endif
         }
+    } while (!exchange_result);
+
+    wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
+    // Create a new VM using for GC destruct
+    auto* created_subvm_for_gc = make_machine(1024);
+    // gc_thread will be destructed by gc_work..
+    created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+
+    vmbase_atomic->store(created_subvm_for_gc);
+    return created_subvm_for_gc;
+#endif
+}
 
         virtual ~vmbase()
         {
@@ -1024,7 +1043,7 @@ namespace wo
                     auto* return_bp = bp;
 
                     for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
-                        (sp--)->set_val(&wo_func_closure->m_closure_args[idx-1]);
+                        (sp--)->set_val(&wo_func_closure->m_closure_args[idx - 1]);
 
                     (sp--)->set_native_callstack(ip);
                     bp = sp;
@@ -1961,7 +1980,7 @@ namespace wo
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
                             // Here to invoke jit closure, jit function cannot pop captured arguments,
                             // So we pop them here.
-                            rt_sp = rt_bp + closure->m_closure_args_count; 
+                            rt_sp = rt_bp + closure->m_closure_args_count;
                             rt_bp = stored_bp;
 
                         }
