@@ -141,19 +141,19 @@ namespace wo
         {
             wo_assert(env != nullptr);
 #ifndef NDEBUG
-            size_t count = 
+            size_t old_count = 
 #endif
                 env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
-            wo_assert(count > 0);
+            wo_assert(old_count >= 0);
         }
         void dec_destructable_instance_count() noexcept
         {
             wo_assert(env != nullptr);
 #ifndef NDEBUG
-            size_t count =
+            size_t old_count =
 #endif
             env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
-            wo_assert(count >= 0);
+            wo_assert(old_count > 0);
         }
 
         void set_br_yieldable(bool able) noexcept
