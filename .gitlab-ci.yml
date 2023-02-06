@@ -42,7 +42,8 @@ test_coverage_debug:
     # Begin coverage test
     - cd test
     - sudo baozi install
-    - sudo chmod 666 .
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
     - cd ..
     - sudo ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
     - cd build/src/CMakeFiles/woolang.dir
@@ -78,7 +79,8 @@ test_release:
   script:
     - cd test
     - sudo baozi install
-    - sudo chmod 666 .
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
     - cd ..
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo
     - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0
@@ -114,8 +116,8 @@ test_memory_debug:
     - cd ..
     # Begin coverage test
     - cd test
-    - sudo baozi install
-    - sudo chmod 666 .
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
     - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   artifacts:
@@ -142,7 +144,8 @@ test_memory_release:
   script:
     - cd test
     - sudo baozi install
-    - sudo chmod 666 .
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
     - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
