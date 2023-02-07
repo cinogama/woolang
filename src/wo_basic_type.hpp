@@ -132,6 +132,14 @@ namespace wo
             string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
             return this;
         }
+
+        inline value* set_buffer(const void* buf, size_t sz)
+        {
+            set_gcunit_with_barrier(valuetype::string_type);
+            string_t::gc_new<gcbase::gctype::eden>(gcunit, (const char*)buf, sz);
+            return this;
+        }
+
         inline value* set_string_nogc(const char* str)
         {
             // You must 'delete' it manual

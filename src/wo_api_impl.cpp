@@ -495,6 +495,13 @@ void wo_set_string(wo_value value, wo_string_t val)
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_string(val);
 }
+
+void wo_set_buffer(wo_value value, const void* val, size_t len)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_buffer(val, len);
+}
+
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
     auto _rsvalue = WO_VAL(value);
@@ -1167,6 +1174,10 @@ wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_string(result));
 }
+wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
+{
+    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_buffer(result, len));
+}
 wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VM(vm)->cr->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
@@ -1316,6 +1327,21 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
 
     return 0;
 }
+
+wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_buffer(result, len);
+
+    return 0;
+}
+
 wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -1499,6 +1525,21 @@ wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
 
     return 0;
 }
+
+wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(2);
+    structptr->m_values[1].set_buffer(result, len);
+
+    return 0;
+}
+
 wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -2061,6 +2102,10 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
 wo_value wo_push_string(wo_vm vm, wo_string_t val)
 {
     return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
+}
+wo_value wo_push_buffer(wo_vm vm, const void* val, size_t len)
+{
+    return CS_VAL((WO_VM(vm)->sp--)->set_buffer(val, len));
 }
 wo_value wo_push_empty(wo_vm vm)
 {
