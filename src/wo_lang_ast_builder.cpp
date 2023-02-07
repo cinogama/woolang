@@ -66,7 +66,7 @@ namespace wo
         {
             // MUST BE FORCE CAST HERE!
 
-            if (to->is_pending() || (to->is_void() && !to->is_func()))
+            if (to->is_pending())
                 return false;
 
             if (from->is_mutable() != to->is_mutable())
