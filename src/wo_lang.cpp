@@ -790,7 +790,11 @@ namespace wo
     WO_PASS1(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
+        fully_update_type(a_value_make_struct_instance->target_built_types, true);
         analyze_pass1(a_value_make_struct_instance->struct_member_vals);
+
+        if (a_value_make_struct_instance->target_built_types->is_pending() == false)
+            a_value_make_struct_instance->value_type->set_type(a_value_make_struct_instance->target_built_types);
         return true;
     }
     WO_PASS1(ast_value_make_tuple_instance)
@@ -1823,11 +1827,211 @@ namespace wo
     WO_PASS2(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
+        fully_update_type(a_value_make_struct_instance->target_built_types, false);
+
         analyze_pass2(a_value_make_struct_instance->struct_member_vals);
-        // Varify
-        if (!a_value_make_struct_instance->value_type->is_pending())
+
+        // Woolang 1.10: Struct's template param might be judge here, we just need do like ast_value_funccall.
+        bool need_judge_template_args = a_value_make_struct_instance->target_built_types->is_pending()
+            && a_value_make_struct_instance->target_built_types->symbol != nullptr
+            && a_value_make_struct_instance->target_built_types->symbol->type == lang_symbol::symbol_type::typing
+            && a_value_make_struct_instance->target_built_types->symbol->is_template_symbol
+            && a_value_make_struct_instance->target_built_types->template_arguments.size()
+            < a_value_make_struct_instance->target_built_types->symbol->template_types.size();
+
+        if (need_judge_template_args)
         {
-            if (a_value_make_struct_instance->value_type->is_struct())
+            auto* origin_define_struct_type = a_value_make_struct_instance->target_built_types->symbol->type_informatiom;
+
+            std::vector<ast_type*> template_args(a_value_make_struct_instance->target_built_types->symbol->template_types.size(), nullptr);
+
+            // Fill template_args with already exists arguments.
+            for (size_t index = 0; index < std::min(
+                a_value_make_struct_instance->target_built_types->symbol->template_types.size(),
+                a_value_make_struct_instance->target_built_types->template_arguments.size()); index++)
+                template_args[index] = a_value_make_struct_instance->target_built_types->template_arguments[index];
+
+            std::unordered_map<wo_pstring_t, ast_type*> updated_member_types;
+
+            // 1st, trying auto judge member init expr's instance(if is template function.)
+            auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
+            while (init_mem_val_pair)
+            {
+                auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                wo_assert(membpair);
+                init_mem_val_pair = init_mem_val_pair->sibling;
+
+                auto fnd = origin_define_struct_type->struct_member_index.find(membpair->member_name);
+                if (fnd != origin_define_struct_type->struct_member_index.end())
+                {
+                    wo_assert(membpair->is_value_pair);
+
+                    membpair->member_offset = fnd->second.offset;
+                    fully_update_type(fnd->second.member_type, false);
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
+                        fnd->second.member_type, membpair->member_value_pair, false, nullptr, nullptr))
+                    {
+                        updated_member_types[membpair->member_name] = std::get<ast::ast_type*>(result.value());
+                    }
+                }
+                else
+                {
+                    // TODO: No such member? just continue, error will be reported in following step.
+                }
+            }
+
+            // 2nd, Try derivation template arguments, it will used for next round of judge.
+            for (size_t tempindex = 0; tempindex < template_args.size(); ++tempindex)
+            {
+                auto& pending_template_arg = template_args[tempindex];
+
+                if (pending_template_arg == nullptr)
+                {
+                    // Walk through all member to get template arguments.
+                    auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
+                    while (init_mem_val_pair)
+                    {
+                        auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                        wo_assert(membpair);
+
+                        init_mem_val_pair = init_mem_val_pair->sibling;
+
+                        auto fnd = origin_define_struct_type->struct_member_index.find(membpair->member_name);
+                        if (fnd != origin_define_struct_type->struct_member_index.end())
+                        {
+                            fully_update_type(fnd->second.member_type, false,
+                                a_value_make_struct_instance->target_built_types->symbol->template_types);
+
+                            if (pending_template_arg = analyze_template_derivation(
+                                a_value_make_struct_instance->target_built_types->symbol->template_types[tempindex],
+                                a_value_make_struct_instance->target_built_types->symbol->template_types,
+                                fnd->second.member_type,
+                                updated_member_types[membpair->member_name]
+                                ? updated_member_types[membpair->member_name]
+                                : membpair->member_value_pair->value_type
+                            ))
+                            {
+                                if (pending_template_arg->is_pure_pending() ||
+                                    (pending_template_arg->search_from_global_namespace == false
+                                        && pending_template_arg->scope_namespaces.empty()
+                                        && a_value_make_struct_instance->target_built_types->symbol->template_types[tempindex]
+                                        == pending_template_arg->type_name))
+                                    pending_template_arg = nullptr;
+                            }
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                        else
+                        {
+                            // TODO: No such member? just continue, error will be reported in following step.
+                        }
+                    }
+                }
+            }
+
+            // 3rd, Make instance of member init expr.
+            init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
+            while (init_mem_val_pair)
+            {
+                auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                wo_assert(membpair);
+                init_mem_val_pair = init_mem_val_pair->sibling;
+
+                auto fnd = origin_define_struct_type->struct_member_index.find(membpair->member_name);
+                if (fnd != origin_define_struct_type->struct_member_index.end())
+                {
+                    wo_assert(membpair->is_value_pair);
+
+                    membpair->member_offset = fnd->second.offset;
+                    fully_update_type(fnd->second.member_type, false);
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
+                        fnd->second.member_type, membpair->member_value_pair, true,
+                        a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
+                    {
+                        membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
+                    }
+                }
+                else
+                {
+                    // TODO: No such member? just continue, error will be reported in following step.
+                }
+            }
+
+            // 4th! re-judge real-template arguments.
+            for (size_t tempindex = 0; tempindex < template_args.size(); ++tempindex)
+            {
+                auto& pending_template_arg = template_args[tempindex];
+
+                if (pending_template_arg == nullptr)
+                {
+                    // Walk through all member to get template arguments.
+                    auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
+                    while (init_mem_val_pair)
+                    {
+                        auto* membpair = dynamic_cast<ast_struct_member_define*>(init_mem_val_pair);
+                        wo_assert(membpair);
+
+                        init_mem_val_pair = init_mem_val_pair->sibling;
+
+                        auto fnd = origin_define_struct_type->struct_member_index.find(membpair->member_name);
+                        if (fnd != origin_define_struct_type->struct_member_index.end())
+                        {
+                            fully_update_type(fnd->second.member_type, false,
+                                a_value_make_struct_instance->target_built_types->symbol->template_types);
+
+                            if (pending_template_arg = analyze_template_derivation(
+                                a_value_make_struct_instance->target_built_types->symbol->template_types[tempindex],
+                                a_value_make_struct_instance->target_built_types->symbol->template_types,
+                                fnd->second.member_type,
+                                membpair->member_value_pair->value_type
+                            ))
+                            {
+                                if (pending_template_arg->is_pure_pending())
+                                    pending_template_arg = nullptr;
+                            }
+
+                            if (pending_template_arg)
+                                break;
+                        }
+                        else
+                        {
+                            // TODO: No such member? just continue, error will be reported in following step.
+                        }
+                    }
+                }
+            }
+
+            // 5th, apply & update template struct.
+            if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+                lang_anylizer->lang_error(lexer::errorlevel::infom, a_value_make_struct_instance->target_built_types->symbol->define_node, WO_INFO_ITEM_IS_DEFINED_HERE,
+                    a_value_make_struct_instance->target_built_types->get_type_name(false, true).c_str());
+            }
+            else
+            {
+                for (auto* templ_arg : template_args)
+                {
+                    fully_update_type(templ_arg, false);
+                    if (templ_arg->is_pending() && !templ_arg->is_hkt())
+                    {
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
+                            templ_arg->get_type_name(false).c_str());
+                        goto failed_to_judge_template_params;
+                    }
+                }
+
+                a_value_make_struct_instance->target_built_types->template_arguments = template_args;
+                fully_update_type(a_value_make_struct_instance->target_built_types, false);
+            }
+        failed_to_judge_template_params:;
+        }
+
+        // Varify
+        if (!a_value_make_struct_instance->target_built_types->is_pending())
+        {
+            if (a_value_make_struct_instance->target_built_types->is_struct())
             {
                 auto* init_mem_val_pair = a_value_make_struct_instance->struct_member_vals->children;
 
@@ -1839,8 +2043,8 @@ namespace wo
                     wo_assert(membpair);
                     init_mem_val_pair = init_mem_val_pair->sibling;
 
-                    auto fnd = a_value_make_struct_instance->value_type->struct_member_index.find(membpair->member_name);
-                    if (fnd != a_value_make_struct_instance->value_type->struct_member_index.end())
+                    auto fnd = a_value_make_struct_instance->target_built_types->struct_member_index.find(membpair->member_name);
+                    if (fnd != a_value_make_struct_instance->target_built_types->struct_member_index.end())
                     {
                         wo_assert(membpair->is_value_pair);
 
@@ -1860,20 +2064,22 @@ namespace wo
                     }
                     else
                         lang_anylizer->lang_error(lexer::errorlevel::error, membpair, WO_ERR_THERE_IS_NO_MEMBER_NAMED,
-                            a_value_make_struct_instance->value_type->get_type_name(false).c_str(),
+                            a_value_make_struct_instance->target_built_types->get_type_name(false).c_str(),
                             membpair->member_name->c_str());
                 }
 
-                if (member_count < a_value_make_struct_instance->value_type->struct_member_index.size())
+                if (member_count < a_value_make_struct_instance->target_built_types->struct_member_index.size())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_CONSTRUCT_STRUCT_NOT_FINISHED,
-                        a_value_make_struct_instance->value_type->get_type_name(false).c_str());
+                        a_value_make_struct_instance->target_built_types->get_type_name(false).c_str());
+                else
+                    a_value_make_struct_instance->value_type->set_type(a_value_make_struct_instance->target_built_types);
             }
             else
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_ONLY_CONSTRUCT_STRUCT_BY_THIS_WAY);
         }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_make_struct_instance, WO_ERR_UNKNOWN_TYPE,
-                a_value_make_struct_instance->value_type->get_type_name(false).c_str());
+                a_value_make_struct_instance->target_built_types->get_type_name(false).c_str());
         return true;
     }
     WO_PASS2(ast_value_trib_expr)
@@ -2263,7 +2469,6 @@ namespace wo
                             index < calling_function_define->value_type->argument_types.size();
                             index++)
                         {
-
                             fully_update_type(calling_function_define->value_type->argument_types[index], false,
                                 calling_function_define->template_type_name_list);
                             //fully_update_type(real_argument_types[index], false); // USELESS
@@ -2275,7 +2480,11 @@ namespace wo
                                 updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
                             ))
                             {
-                                if (pending_template_arg->is_pure_pending())
+                                if (pending_template_arg->is_pure_pending() ||
+                                    (pending_template_arg->search_from_global_namespace == false
+                                        && pending_template_arg->scope_namespaces.empty()
+                                        && calling_function_define->template_type_name_list[tempindex]
+                                        == pending_template_arg->type_name))
                                     pending_template_arg = nullptr;
                             }
 
@@ -3927,7 +4136,6 @@ namespace wo
                             template_value_type->copy_source_info(function_define);
 
                             arg_func_template_args[tempindex] = template_value_type;
-
                         }
                     }
             }
@@ -4091,6 +4299,8 @@ namespace wo
                     fully_update_type(a_value->value_type, false);
 
                     if (dynamic_cast<ast_value_function_define*>(a_value) == nullptr
+                        // ast_value_make_struct_instance might need to auto judge types.
+                        && dynamic_cast<ast_value_make_struct_instance*>(a_value) == nullptr
                         && a_value->value_type->is_custom())
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_UNKNOWN_TYPE

@@ -1778,9 +1778,9 @@ namespace wo
         struct ast_value_make_struct_instance : virtual public ast_value
         {
             ast_list* struct_member_vals;
+            ast_type* target_built_types;
 
             ast_value_make_struct_instance() : ast_value(new ast_type(WO_PSTR(pending))) {}
-            ast_value_make_struct_instance(ast_type* type) : ast_value(type) {}
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
@@ -1791,6 +1791,7 @@ namespace wo
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->struct_member_vals);
+                WO_REINSTANCE(dumm->target_built_types);
 
                 return dumm;
             }
@@ -3404,9 +3405,11 @@ namespace wo
                 // STRUCT_TYPE { ITEMS }
 
                 wo_assert(input.size() == 4);
-                ast_value_make_struct_instance* value =
-                    new ast_value_make_struct_instance(dynamic_cast<ast_type*>(WO_NEED_AST(0)));
+                ast_value_make_struct_instance* value = new ast_value_make_struct_instance();
+
+                value->target_built_types = dynamic_cast<ast_type*>(WO_NEED_AST(0));
                 wo_assert(value->value_type);
+                wo_assert(value->target_built_types);
 
                 value->struct_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(2));
                 wo_assert(value->struct_member_vals);

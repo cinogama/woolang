@@ -123,6 +123,15 @@ func main()
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i = i: real;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \ = "";};"@);
 
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget{f = \n: int = "";};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n = "";, n = 1};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n: int = "";, n = 1};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n: int = "";, n = 1.25};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget{f = \n = "";};"@);
+
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int, string>{f = \n = "";};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int>{f = \n = "";};"@);
+
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
         assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);
