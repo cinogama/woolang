@@ -57,22 +57,17 @@ namespace test_compile
         // Cannot cast nil
         assure_compile_fail(@"let a = nil: gchandle;"@);
 
-        // No longer support cast string to other type.
-        assure_compile_fail(@"
-            let a = 5;
-            let b = a: string;
-            let c = b: int; // error
-        "@);
-        assure_compile_success(@"
-            let a = 5;
-            let b = a: string;
-        "@);
         assure_compile_success(@"
             let a = 5;
             let b = a: string;
             let c = b: void;
         "@);
 
+        assure_compile_fail(@"
+            let a = 5;
+            let b = a: string;
+            let c = b: nothing;
+        "@);
 
         assure_compile_fail(@"
 let valof<T> = func()=>T{}();
