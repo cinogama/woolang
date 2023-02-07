@@ -1511,8 +1511,6 @@ namespace wo
                                 opnum1->set_integer((wo_integer_t)opnum2->real); break;
                             case value::valuetype::handle_type:
                                 opnum1->set_integer((wo_integer_t)opnum2->handle); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_integer((wo_integer_t)atoll(opnum2->string->c_str())); break;
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
                                 break;
@@ -1525,8 +1523,6 @@ namespace wo
                                 opnum1->set_real((wo_real_t)opnum2->integer); break;
                             case value::valuetype::handle_type:
                                 opnum1->set_real((wo_real_t)opnum2->handle); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_real((wo_real_t)atof(opnum2->string->c_str())); break;
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
                                 break;
@@ -1539,8 +1535,6 @@ namespace wo
                                 opnum1->set_handle((wo_handle_t)opnum2->integer); break;
                             case value::valuetype::real_type:
                                 opnum1->set_handle((wo_handle_t)opnum2->real); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_handle((wo_handle_t)std::stoull(*opnum2->string)); break;
                             default:
                                 WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
                                 break;
@@ -1548,7 +1542,6 @@ namespace wo
                             break;
                         case value::valuetype::string_type:
                             opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
-
                         case value::valuetype::array_type:
                             WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                             break;

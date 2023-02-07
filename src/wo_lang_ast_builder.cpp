@@ -66,7 +66,7 @@ namespace wo
         {
             // MUST BE FORCE CAST HERE!
 
-            if (to->is_pending() || (to->is_void() && !to->is_func()))
+            if (to->is_pending())
                 return false;
 
             if (from->is_mutable() != to->is_mutable())
@@ -110,8 +110,7 @@ namespace wo
             {
                 if (from->value_type == value::valuetype::integer_type
                     || from->value_type == value::valuetype::real_type
-                    || from->value_type == value::valuetype::handle_type
-                    || from->value_type == value::valuetype::string_type)
+                    || from->value_type == value::valuetype::handle_type)
                     return true;
             }
             return false;
