@@ -41,7 +41,7 @@ test_coverage_debug:
     - cd ..
     # Begin coverage test
     - cd test
-    - sudo baozi install
+    - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
@@ -78,7 +78,7 @@ test_release:
     - tags
   script:
     - cd test
-    - sudo baozi install
+    - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
@@ -116,6 +116,7 @@ test_memory_debug:
     - cd ..
     # Begin coverage test
     - cd test
+    - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
@@ -143,7 +144,7 @@ test_memory_release:
     - tags
   script:
     - cd test
-    - sudo baozi install
+    - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
