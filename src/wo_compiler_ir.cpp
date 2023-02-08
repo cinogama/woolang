@@ -10,6 +10,17 @@ namespace wo
         // funcdef should not genrate val..
         if (ast_node->source_file)
         {
+            bool unbreakable = dynamic_cast<ast::ast_value_function_define*>(ast_node)
+                || dynamic_cast<ast::ast_list*>(ast_node)
+                || dynamic_cast<ast::ast_namespace*>(ast_node)
+                || dynamic_cast<ast::ast_sentence_block*>(ast_node)
+                || dynamic_cast<ast::ast_if*>(ast_node)
+                || dynamic_cast<ast::ast_while*>(ast_node)
+                || dynamic_cast<ast::ast_forloop*>(ast_node)
+                || dynamic_cast<ast::ast_foreach*>(ast_node)
+                || dynamic_cast<ast::ast_match*>(ast_node)
+                ;
+
             auto& location_list_of_file = _general_src_data_buf_a[*ast_node->source_file];
 
             location loc = {
@@ -19,6 +30,7 @@ namespace wo
                 ast_node->row_end_no,
                 ast_node->col_end_no,
                 *ast_node->source_file,
+                unbreakable
             };
 
             location_list_of_file.push_back(loc);
@@ -67,7 +79,7 @@ namespace wo
 
         return _general_src_data_buf_b.at(result);
     }
-    size_t program_debug_data_info::get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict)const
+    size_t program_debug_data_info::get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const
     {
         const size_t FAIL_INDEX = SIZE_MAX;
 
@@ -86,10 +98,13 @@ namespace wo
                         result = locinfo.ip;
                 }
             }
-            else if (locinfo.begin_row_no >= rowno)
+            else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
             {
-                if (locinfo.ip < result)
-                    result = locinfo.ip;
+                if (ignore_unbreakable || locinfo.unbreakable == false)
+                {
+                    if (locinfo.ip < result)
+                        result = locinfo.ip;
+                }
             }
         }
         return result;
