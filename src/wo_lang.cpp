@@ -2454,7 +2454,22 @@ namespace wo
                 ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
                 while (funccall_arg)
                 {
-                    real_argument_types.push_back(funccall_arg->value_type);
+                    if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
+                    {
+                        if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                        {
+                            wo_assert(fake_unpack_value->expand_count >= 0);
+
+                            size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
+                                fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
+
+                            for (size_t i = 0; i < expand_count; ++i)
+                                real_argument_types.push_back(
+                                    fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
+                        }
+                    }
+                    else
+                        real_argument_types.push_back(funccall_arg->value_type);
                     funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
                 }
 
@@ -2473,12 +2488,12 @@ namespace wo
                                 calling_function_define->template_type_name_list);
                             //fully_update_type(real_argument_types[index], false); // USELESS
 
-                            if (pending_template_arg = analyze_template_derivation(
+                            if ((pending_template_arg = analyze_template_derivation(
                                 calling_function_define->template_type_name_list[tempindex],
                                 calling_function_define->template_type_name_list,
                                 calling_function_define->value_type->argument_types[index],
                                 updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
-                            ))
+                            )))
                             {
                                 if (pending_template_arg->is_pure_pending() ||
                                     (pending_template_arg->search_from_global_namespace == false
@@ -2502,7 +2517,22 @@ namespace wo
                 funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
                 while (funccall_arg)
                 {
-                    real_argument_types.push_back(funccall_arg->value_type);
+                    if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
+                    {
+                        if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                        {
+                            wo_assert(fake_unpack_value->expand_count >= 0);
+
+                            size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
+                                fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
+
+                            for (size_t i = 0; i < expand_count; ++i)
+                                real_argument_types.push_back(
+                                    fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
+                        }
+                    }
+                    else
+                        real_argument_types.push_back(funccall_arg->value_type);
                     funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
                 }
 
@@ -2517,7 +2547,6 @@ namespace wo
                             index < calling_function_define->value_type->argument_types.size();
                             index++)
                         {
-
                             fully_update_type(calling_function_define->value_type->argument_types[index], false,
                                 calling_function_define->template_type_name_list);
                             //fully_update_type(real_argument_types[index], false); // USELESS
@@ -4176,38 +4205,61 @@ namespace wo
     {
         using namespace ast;
 
-        std::vector<ast_value*> args;
+        std::vector<ast_value*> args_might_be_nullptr_if_unpack;
+        std::vector<ast::ast_type*> new_arguments_types_result;
+
         auto* arg = dynamic_cast<ast_value*>(funccall->arguments->children);
         while (arg)
         {
-            args.push_back(arg);
+            if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(arg))
+            {
+                if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                {
+                    wo_assert(fake_unpack_value->expand_count >= 0);
+
+                    size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
+                        fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
+
+                    for (size_t i = 0; i < expand_count; ++i)
+                    {
+                        args_might_be_nullptr_if_unpack.push_back(nullptr);
+                        new_arguments_types_result.push_back(nullptr);
+                    }
+                }
+            }
+            else
+            {
+                args_might_be_nullptr_if_unpack.push_back(arg);
+                new_arguments_types_result.push_back(nullptr);
+            }
             arg = dynamic_cast<ast_value*>(arg->sibling);
         }
-
-        std::vector<std::optional<judge_result_t>> judge_result(args.size(), std::nullopt);
-        std::vector<ast::ast_type*> new_arguments_types_result(args.size(), nullptr);
 
         // If a function has been implized, this flag will be setting and function's
         //  argument list will be updated later.
         bool has_updated_arguments = false;
 
-        for (size_t i = 0; i < args.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
+        for (size_t i = 0; i < args_might_be_nullptr_if_unpack.size() && i < funccall->called_func->value_type->argument_types.size(); ++i)
         {
-            judge_result[i] = judge_auto_type_of_funcdef_with_type(
+            if (args_might_be_nullptr_if_unpack[i] == nullptr)
+                continue;
+
+            std::optional<judge_result_t> judge_result = judge_auto_type_of_funcdef_with_type(
                 funccall, // Used for report error.
                 funccall->called_func->value_type->argument_types[i],
-                args[i], update, template_defines, template_args);
-            if (judge_result[i].has_value())
+                args_might_be_nullptr_if_unpack[i], update, template_defines, template_args);
+
+            if (judge_result.has_value())
             {
-                if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result[i].value()))
+                if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result.value()))
                 {
                     wo_assert((*realized_func)->is_template_define == false);
-                    args[i] = *realized_func;
+                    args_might_be_nullptr_if_unpack[i] = *realized_func;
                     has_updated_arguments = true;
                 }
                 else
                 {
-                    auto* updated_type = std::get<ast::ast_type*>(judge_result[i].value());
+                    auto* updated_type = std::get<ast::ast_type*>(judge_result.value());
                     wo_assert(updated_type != nullptr);
                     new_arguments_types_result[i] = updated_type;
                 }
@@ -4218,7 +4270,7 @@ namespace wo
         {
             // Re-generate argument list for current function-call;
             funccall->arguments->remove_allnode();
-            for (auto* arg : args)
+            for (auto* arg : args_might_be_nullptr_if_unpack)
             {
                 arg->sibling = nullptr;
                 funccall->arguments->append_at_end(arg);

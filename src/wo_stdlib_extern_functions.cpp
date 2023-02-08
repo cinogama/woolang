@@ -2354,6 +2354,7 @@ public func assertmsg(val: bool, msg: string)
     if (!val)
         std::panic(F"Assert failed: {msg}");
 }
+
 )" };
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
@@ -2694,10 +2695,35 @@ namespace std
             public func error(lex:lexer, msg:string)=>void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peek(lex:lexer)=> (token_type, string);
+            public func peektoken(lex:lexer)=> (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func next(lex:lexer)=> (token_type, string);
+            public func nexttoken(lex:lexer)=> (token_type, string);
+
+        public func peek(lex: lexer)
+        {
+            let (type, str) = lex->peektoken;
+            if (type == token_type::l_literal_string)
+                return str->enstring;
+            else if (type == token_type::l_literal_char)
+            {
+                let enstr = str->enstring;
+                return F"'{enstr->subto(1, enstr->len-2)}'";
+            }
+            return str;
+        }
+        public func next(lex: lexer)
+        {
+            let (type, str) = lex->nexttoken;
+            if (type == token_type::l_literal_string)
+                return str->enstring;
+            else if (type == token_type::l_literal_char)
+            {
+                let enstr = str->enstring;
+                return F"'{enstr->subto(1, enstr->len-2)}'";
+            }
+            return str;
+        }
 
         extern("rslib_std_macro_lexer_nextch")
             public func nextch(lex:lexer) => string;
@@ -2714,22 +2740,33 @@ namespace std
         extern("rslib_std_macro_lexer_current_colno")
             public func col(lex:lexer) => int;
 
-        public func try(self: lexer, token: token_type)=> option<string>
+        public func trytoken(self: lexer, token: token_type)=> option<string>
         {
-            let (tok, res) = self->peek();
+            let (tok, res) = self->peektoken();
             if (token == tok)
-            {
-                self->next();
-                return option::value(res);
-            }
+                return option::value(self->nexttoken()[1]);
             return option::none;
         }
-        public func expect(self: lexer, token: token_type)=> option<string>
+        public func expecttoken(self: lexer, token: token_type)=> option<string>
         {
-            let (tok, res) = self->next();
+            let (tok, res) = self->nexttoken();
             if (tok == token)
                 return option::value(res);
-
+            self->error("Unexpected token here.");
+            return option::none;
+        }
+        public func try(self: lexer, str: string)=> option<string>
+        {
+            let res = self->peek();
+            if (res == str)
+                return option::value(self->next());
+            return option::none;
+        }
+        public func expect(self: lexer, str: string)=> option<string>
+        {
+            let res = self->next();
+            if (res == str)
+                return option::value(res);
             self->error("Unexpected token here.");
             return option::none;
         }
