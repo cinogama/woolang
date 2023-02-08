@@ -40,6 +40,11 @@ test_coverage_debug:
     - make -j 4
     - cd ..
     # Begin coverage test
+    - cd test
+    - sudo baozi install --nowoo
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
+    - cd ..
     - sudo ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
     - cd build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
@@ -72,6 +77,11 @@ test_release:
   except: 
     - tags
   script:
+    - cd test
+    - sudo baozi install --nowoo
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
+    - cd ..
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo
     - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0
     - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
@@ -105,6 +115,11 @@ test_memory_debug:
     - make -j 4
     - cd ..
     # Begin coverage test
+    - cd test
+    - sudo baozi install --nowoo
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
+    - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -128,6 +143,11 @@ test_memory_release:
   only: 
     - tags
   script:
+    - cd test
+    - sudo baozi install --nowoo
+    - sudo chmod 777 ./pkg
+    - sudo chmod 777 .
+    - cd ..
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
     - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   tags:

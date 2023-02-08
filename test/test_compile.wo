@@ -1,6 +1,8 @@
 import woo.std;
 import woo.vm;
 
+import pkg.thread;
+
 import test_tool;
 
 namespace test_compile
@@ -54,6 +56,18 @@ namespace test_compile
 
         // Cannot cast nil
         assure_compile_fail(@"let a = nil: gchandle;"@);
+
+        assure_compile_success(@"
+            let a = 5;
+            let b = a: string;
+            let c = b: void;
+        "@);
+
+        assure_compile_fail(@"
+            let a = 5;
+            let b = a: string;
+            let c = b: nothing;
+        "@);
 
         assure_compile_fail(@"
 let valof<T> = func()=>T{}();
@@ -120,6 +134,15 @@ func main()
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i, x = i: string;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \i = i: real;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; autojudge{f = \ = "";};"@);
+
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget{f = \n: int = "";};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n = "";, n = 1};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n: int = "";, n = 1};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; autojudget{f = \n: int = "";, n = 1.25};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget{f = \n = "";};"@);
+
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int, string>{f = \n = "";};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int>{f = \n = "";};"@);
 
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
@@ -264,21 +287,21 @@ func main()
             let a = 1; let b = (a == 1) as string;
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){});
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){});
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){}, ());
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){}, ());
         "@);
         assure_compile_fail(@"
-            import woo.thread;
-            std::thread::create(func(x: int){}, (1, 2, 3));
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(x: int){}, (1, 2, 3));
         "@);
         assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
-            import woo.thread;
-            std::thread::create(func(){}, ());
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            foo(func(){}, ());
         "@);
         assure_compile_success(@"
             import  woo.std;
@@ -729,9 +752,9 @@ func main()
 
     func main()
     {
-        let test_threads = []mut: vec<std::thread>;
+        let test_threads = []mut: vec<thread>;
         for (let mut i = 0 ; i < 4; i += 1)
-            test_threads->add(std::thread::create(test_compile_success_or_fail, ()));
+            test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();
 

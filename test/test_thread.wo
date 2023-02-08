@@ -1,16 +1,16 @@
 import woo.std;
 import test_tool;
 
-import woo.thread;
+import pkg.thread;
 
 namespace test_thread
 {
-    let summ_mtx = std::spin::create();
     let mut summ = 0;
 
-    let created_threads = []mut: vec<std::thread>;
-
+    let created_threads = []mut: vec<thread>;
     let thread_count = 4;
+
+    let test_vec = []mut: vec<typeof(nil)>;
 
     func main()
     {
@@ -18,17 +18,14 @@ namespace test_thread
         while (i<thread_count)
         {
             created_threads->add(
-                std::thread::create(
+                thread::create(
                     func(id:int)
                     {
                         let mut c = 0;
-                        while (c<10_000_000)
+                        while (c < 100000)
                         {
-                            summ_mtx->lock();
-                            summ += 1;
-                            summ_mtx->unlock();
-
-                            c+=1;
+                            test_vec->add(nil);
+                            c += 1;
                         }
                         std::println("Thread:", id, "complete");
                     }, (i,)     
@@ -44,14 +41,13 @@ namespace test_thread
             created_threads[i]->wait();
             i+=1;
         }
-        std::println("Result:", summ);
-        test_equal(summ, 10_000_000 * thread_count);
+        std::println("Result:", test_vec->len);
+        test_equal(test_vec->len, 100000 * thread_count);
 
         // Thread should be abort-able..
-        summ = 0;
         let mut this_should_be_false = false;
         let __pack = [mut this_should_be_false];
-        let th = std::thread::create(
+        let th = thread::create(
             func(mut i: int)
             {
                 __pack[0] = true;
@@ -64,10 +60,10 @@ namespace test_thread
         th->abort();
         th->wait();
 
-        test_assure(this_should_be_false == false && summ==0);
+        test_assure(this_should_be_false == false && summ == 0);
 
-        test_assure(std::thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
-        test_assure(std::thread::create(\=0;, ())->wait == true);
+        test_assure(thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
+        test_assure(thread::create(\=0;, ())->wait == true);
     }
 }
 

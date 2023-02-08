@@ -132,6 +132,14 @@ namespace wo
             string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
             return this;
         }
+
+        inline value* set_buffer(const void* buf, size_t sz)
+        {
+            set_gcunit_with_barrier(valuetype::string_type);
+            string_t::gc_new<gcbase::gctype::eden>(gcunit, (const char*)buf, sz);
+            return this;
+        }
+
         inline value* set_string_nogc(const char* str)
         {
             // You must 'delete' it manual
@@ -362,28 +370,17 @@ namespace wo
 
     struct gc_handle_base_t
     {
-        gc_handle_base_t* last = nullptr;
-
         value holding_value = {};
         void* holding_handle = nullptr;
         void(*destructor)(void*) = nullptr;
 
+        // ATTENTION: Only used for decrease destructable count in env of vm;
+        wo_vm gc_vm = nullptr; 
+
         std::atomic_flag has_been_closed_af = {};
         bool has_been_closed = false;
 
-        bool close()
-        {
-            if (!has_been_closed_af.test_and_set())
-            {
-                has_been_closed = true;
-                if (destructor)
-                    destructor(holding_handle);
-                //if (auto* unit = holding_value.get_gcunit_with_barrier())
-                //    unit->gc_type = gcbase::gctype::young;
-                return true;
-            }
-            return false;
-        }
+        bool close();
 
         ~gc_handle_base_t()
         {

@@ -26,7 +26,7 @@ namespace wo
             std::lock_guard g1(_mx);
             if (_env)
             {
-                auto breakip = _env->program_debug_info->get_ip_by_src_location(src_file, rowno);
+                auto breakip = _env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false);
 
                 if (breakip < _env->rt_code_len)
                 {
@@ -44,7 +44,7 @@ namespace wo
         {
             std::lock_guard g1(_mx);
             if (_env)
-                break_point_traps.erase(_env->program_debug_info->get_ip_by_src_location(src_file, rowno));
+                break_point_traps.erase(_env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false));
             else
                 template_breakpoint[src_file][rowno] = false;
         }
@@ -628,7 +628,7 @@ global          g               <offset>      Display global data.
         }
         size_t print_src_file_print_lineno(const std::string& filepath, size_t current_row_no)
         {
-            auto ip = _env->program_debug_info->get_ip_by_src_location(str_to_wstr(filepath), current_row_no, true);
+            auto ip = _env->program_debug_info->get_ip_by_src_location(str_to_wstr(filepath), current_row_no, true, true);
             std::lock_guard g1(_mx);
 
             if (auto fnd = break_point_traps.find(ip); fnd == break_point_traps.end())

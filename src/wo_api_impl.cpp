@@ -17,6 +17,7 @@
 #include <csignal>
 #include <sstream>
 #include <new>
+#include <chrono>
 
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
@@ -30,8 +31,8 @@
 #define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(a, 1, 9, 5);
-constexpr char         version_str[] = WO_VERSION_STR(a, 1, 9, 5) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(de, 1, 10, 0);
+constexpr char         version_str[] = WO_VERSION_STR(de, 1, 10, 0) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -197,9 +198,10 @@ void wo_finish()
                 alive_vms->interrupt(wo::vmbase::ABORT_INTERRUPT);
         } while (false);
 
-        wo_gc_immediately();
+        using namespace std;
 
-        std::this_thread::yield();
+        wo_gc_immediately();
+        std::this_thread::sleep_for(10ms);
 
         std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
         if (wo::vmbase::_alive_vm_list.empty())
@@ -233,8 +235,6 @@ void wo_init(int argc, char** argv)
                 basic_env_local = argv[++command_idx];
             else if ("enable-std" == current_arg)
                 enable_std_package = atoi(argv[++command_idx]);
-            else if ("enable-file" == current_arg)
-                enable_file_package = atoi(argv[++command_idx]);
             else if ("enable-shell" == current_arg)
                 enable_shell_package = atoi(argv[++command_idx]);
             else if ("enable-ctrlc-debug" == current_arg)
@@ -287,11 +287,8 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_src_path, wo_stdlib_src_data, false);
         wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
         wo_virtual_source(wo_stdlib_vm_src_path, wo_stdlib_vm_src_data, false);
-        wo_virtual_source(wo_stdlib_thread_src_path, wo_stdlib_thread_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
         wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
-        if (enable_file_package)
-            wo_virtual_source(wo_stdlib_file_src_path, wo_stdlib_file_src_data, false);
         if (enable_shell_package)
             wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
     }
@@ -498,12 +495,19 @@ void wo_set_string(wo_value value, wo_string_t val)
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_string(val);
 }
+
+void wo_set_buffer(wo_value value, const void* val, size_t len)
+{
+    auto _rsvalue = WO_VAL(value);
+    _rsvalue->set_buffer(val, len);
+}
+
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_integer(val ? 1 : 0);
 }
-void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
+void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VAL(value)->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
     auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
@@ -515,7 +519,12 @@ void wo_set_gchandle(wo_value value, wo_ptr_t resource_ptr, wo_value holding_val
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 }
 void wo_set_val(wo_value value, wo_value val)
 {
@@ -1165,6 +1174,10 @@ wo_result_t wo_ret_string(wo_vm vm, wo_string_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_string(result));
 }
+wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
+{
+    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_buffer(result, len));
+}
 wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VM(vm)->cr->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
@@ -1177,7 +1190,12 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr);
 }
@@ -1309,6 +1327,21 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
 
     return 0;
 }
+
+wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(1);
+    structptr->m_values[1].set_buffer(result, len);
+
+    return 0;
+}
+
 wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -1376,7 +1409,12 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return 0;
 }
@@ -1487,6 +1525,21 @@ wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
 
     return 0;
 }
+
+wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
+{
+    auto* wovm = WO_VM(vm);
+
+    wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    wo::gcbase::gc_write_guard gwg1(structptr);
+
+    structptr->m_values[0].set_integer(2);
+    structptr->m_values[1].set_buffer(result, len);
+
+    return 0;
+}
+
 wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result)
 {
     auto* wovm = WO_VM(vm);
@@ -1537,7 +1590,12 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return 0;
 }
@@ -2032,13 +2090,22 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
         //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
         //    unit->gc_type = wo::gcbase::gctype::no_gc;
     }
-    handle_ptr->destructor = destruct_func;
+    if (nullptr != (handle_ptr->destructor = destruct_func))
+    {
+        // This function may defined in other libraries, so we need store gc vm for decrease.
+        WO_VM(vm)->inc_destructable_instance_count();
+        handle_ptr->gc_vm = wo_gc_vm(vm);
+    }
 
     return CS_VAL(csp);
 }
 wo_value wo_push_string(wo_vm vm, wo_string_t val)
 {
     return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
+}
+wo_value wo_push_buffer(wo_vm vm, const void* val, size_t len)
+{
+    return CS_VAL((WO_VM(vm)->sp--)->set_buffer(val, len));
 }
 wo_value wo_push_empty(wo_vm vm)
 {

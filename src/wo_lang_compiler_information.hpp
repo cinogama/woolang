@@ -203,7 +203,7 @@
 
 #define WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"找不到名为 '%ls' 的函数，'->' 前的值类型为 '%ls'"
 
-#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"无法为当前函数调用推导全部的模板参数"
+#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"一些泛型参数无法被推断"
 
 #define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"对元组的索引超出范围（元组包含 %d 项，而正在尝试索引第 %d 项）"
 
@@ -459,7 +459,7 @@
 
 #define WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE L"Unable to find function named '%ls' for type '%ls'."
 
-#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"Failed to decide all template arguments for this function call."
+#define WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS L"Some of template params failed to decide."
 
 #define WO_ERR_FAILED_TO_INDEX_TUPLE_ERR_INDEX L"Out of range, the tuple contain %d elmes, but trying index the elems %d."
 

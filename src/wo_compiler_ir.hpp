@@ -294,6 +294,8 @@ namespace wo
             size_t      end_row_no;
             size_t      end_col_no;
             std::wstring source_file = L"not_found";
+
+            bool        unbreakable; // Can set breakpoint?
         };
         struct function_symbol_infor
         {
@@ -346,7 +348,7 @@ namespace wo
         void add_func_variable(ast::ast_value_function_define* funcdef, const std::wstring& varname, size_t rowno, wo_integer_t loc);
 
         const location& get_src_location_by_runtime_ip(const  byte_t* rt_pos) const;
-        size_t get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict = false)const;
+        size_t get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const;
         size_t get_ip_by_runtime_ip(const  byte_t* rt_pos) const;
         size_t get_runtime_ip_by_ip(size_t ip) const;
         std::string get_current_func_signature_by_runtime_ip(const byte_t* rt_pos) const;

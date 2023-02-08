@@ -33,6 +33,24 @@ namespace wo
         }
     }
 
+    bool gc_handle_base_t::close()
+    {
+        if (!has_been_closed_af.test_and_set())
+        {
+            has_been_closed = true;
+            if (destructor != nullptr)
+            {
+                wo_assert(gc_vm != nullptr);
+
+                destructor(holding_handle);
+                reinterpret_cast<wo::vmbase*>(gc_vm)->dec_destructable_instance_count();
+            }
+            return true;
+        }
+        return false;
+    }
+
+
     // A very simply GC system, just stop the vm, then collect inform
 // #define WO_GC_DEBUG
     namespace gc
@@ -193,19 +211,23 @@ namespace wo
                         {
                             if (vm_type == vmbase::vm_type::GC_DESTRUCTOR)
                             {
-                                // Any code context only have one GC_DESTRUCTOR, here to mark global space.
-                                auto* global_and_const_values = env->constant_global_reg_rtstack;
-
-                                // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
-                                for (size_t cgr_index = env->constant_value_count;
-                                    cgr_index < env->constant_and_global_value_takeplace_count;
-                                    cgr_index++)
+                                // If current gc-vm is orphan, skip marking global value.
+                                if (env->_running_on_vm_count > 1)
                                 {
-                                    auto* global_val = global_and_const_values + cgr_index;
+                                    // Any code context only have one GC_DESTRUCTOR, here to mark global space.
+                                    auto* global_and_const_values = env->constant_global_reg_rtstack;
 
-                                    gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
-                                    if (gcunit_address)
-                                        gc_mark_unit_as_gray(worker_id, gcunit_address);
+                                    // Skip all constant, all constant cannot contain gc-type value beside no-gc-string.
+                                    for (size_t cgr_index = env->constant_value_count;
+                                        cgr_index < env->constant_and_global_value_takeplace_count;
+                                        cgr_index++)
+                                    {
+                                        auto* global_val = global_and_const_values + cgr_index;
+
+                                        gcbase* gcunit_address = global_val->get_gcunit_with_barrier();
+                                        if (gcunit_address)
+                                            gc_mark_unit_as_gray(worker_id, gcunit_address);
+                                    }
                                 }
                             }
                             else
@@ -368,47 +390,23 @@ namespace wo
                     picked_list->gc_type != gcbase::gctype::eden &&
                     gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
                 {
-                    // was not marked, delete it
-                    // TODO: is map? if is map check it if need gc_destruct?
-
+                    // Unit was not marked, delete it
                     picked_list->~gcbase();
                     free64(picked_list);
-
                 } // ~
                 else
                 {
-                    //ATTENTION: A BUG CAUSED BY OVERWRITE NO_GC FLAG
-                    //
-                    // In gchandle, guard_value will be set aas 'no_gc' to make sure it destruct after
-                    // gchandle, but in here, we overwrite gc_type, it will make guard_value destruct before
-                    // gchandle in once gc-work.
-                    // in this situation, gchandle destruct, and reset guard_value's gc-type. but memory has
-                    // been reused. this written operation will write to wrong place.
-                    //
-
                     if (!origin_list || ((picked_list->gc_type == gcbase::gctype::eden
                         || picked_list->gc_mark_alive_count > max_count) && aim_edge))
-                    {
-                        // gcbase::gc_write_guard gcwg1(picked_list);
-
-                        // over count, move it to old_edge.
+                        // It lived so long, move it to old_edge.
                         aim_edge->add_one(picked_list);
-
-                        // DONOT OVERWRITE NO_GC FLAG!
-                        if (picked_list->gc_type != gcbase::gctype::no_gc)
-                            picked_list->gc_type = aim_gc_type;
-                    }
                     else
-                    {
-                        // gcbase::gc_write_guard gcwg1(picked_list);
-
-                        // add it back
+                        // Add it back
                         origin_list->add_one(picked_list);
 
-                        // DONOT OVERWRITE NO_GC FLAG!
-                        if (picked_list->gc_type != gcbase::gctype::no_gc)
-                            picked_list->gc_type = aim_gc_type;
-                    }
+                    // ATTENTION: DONOT OVERWRITE NO_GC FLAG!
+                    if (picked_list->gc_type != gcbase::gctype::no_gc)
+                        picked_list->gc_type = aim_gc_type;
                 }
 
                 picked_list = last;
@@ -495,11 +493,12 @@ namespace wo
                 {
                     if (vmimpl->virtual_machine_type == vmbase::vm_type::GC_DESTRUCTOR && vmimpl->env->_running_on_vm_count == 1)
                     {
-                        // assure vm's stack if empty
+                        // Assure vm's stack if empty
                         wo_assert(vmimpl->sp == vmimpl->bp && vmimpl->bp == vmimpl->stack_mem_begin);
 
-                        // TODO: DO CLEAN
-                        if (vmimpl->env->_created_destructable_instance_count == 0)
+                        // If there is no instance of gc-handle which may use library loaded in env,
+                        // then free the gc destructor vm.
+                        if (0 == vmimpl->env->_created_destructable_instance_count.load(std::memory_order::memory_order_relaxed))
                             need_destruct_gc_destructor_list.push_back(vmimpl);
                     }
                 }

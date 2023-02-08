@@ -1,4 +1,7 @@
 import woo.std;
+
+import pkg.thread;
+
 import test_tool;
 
 namespace test_string_u8
@@ -52,7 +55,7 @@ namespace test_string_u8
             std::print(badstr_3[i], "");
 
         [1, 2, 3, 4]
-            ->> \_ = std::thread::create(
+            ->> \_ = thread::create(
                 func()
                 {
                     for (let mut r = 0; r < 1000; r += 1)
@@ -72,7 +75,7 @@ namespace test_string_u8
                 }, ()
             );
             ->> \t = t->wait;
-            ->> \_ = std::thread::create(
+            ->> \_ = thread::create(
                 func()
                 {
                     for (let mut r = 0; r < 100000; r += 1)
