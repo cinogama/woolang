@@ -144,6 +144,18 @@ func main()
         assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int, string>{f = \n = "";};"@);
         assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; autojudget:<int>{f = \n = "";};"@);
 
+        assure_compile_success(@"using autojudget<T> = struct{m: T}; autojudget{m = 2};"@);
+        assure_compile_fail(@"using autojudget<T> = struct{m: T}; autojudget{m = 2}.m = 5;"@);
+
+        assure_compile_success(@"using autojudget<T> = struct{m: T}; autojudget{m = mut 2};"@);
+        assure_compile_success(@"using autojudget<T> = struct{m: T}; autojudget{m = mut 2}.m = 5;"@);
+
+        assure_compile_success(@"using autojudget<T> = struct{m: mut T, i: T}; autojudget{m = mut 2, i = 6}.m = 5;"@);
+        assure_compile_fail(@"using autojudget<T> = struct{m: mut T, i: T}; autojudget{m = mut 2, i = 6}.i = 7;"@);
+
+        assure_compile_success(@"using autojudget<T> = struct{m: mut T, i: T}; autojudget{m = mut 2, i = 6} as autojudget<int>;"@);
+        assure_compile_fail(@"using autojudget<T> = struct{m: mut T, i: T}; autojudget{m = mut 2, i = 6} as autojudget<mut int>;"@);
+
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
         assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);

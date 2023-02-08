@@ -1867,7 +1867,9 @@ namespace wo
                     wo_assert(membpair->is_value_pair);
 
                     membpair->member_offset = fnd->second.offset;
-                    fully_update_type(fnd->second.member_type, false);
+                    fully_update_type(fnd->second.member_type, false,
+                        a_value_make_struct_instance->target_built_types->symbol->template_types);
+
                     if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
                         fnd->second.member_type, membpair->member_value_pair, false, nullptr, nullptr))
                     {
@@ -1944,7 +1946,10 @@ namespace wo
                     wo_assert(membpair->is_value_pair);
 
                     membpair->member_offset = fnd->second.offset;
-                    fully_update_type(fnd->second.member_type, false);
+
+                    fully_update_type(fnd->second.member_type, false,
+                        a_value_make_struct_instance->target_built_types->symbol->template_types);
+
                     if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
                         fnd->second.member_type, membpair->member_value_pair, true,
                         a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
@@ -4534,14 +4539,7 @@ namespace wo
             && para->scope_namespaces.empty()
             && !para->search_from_global_namespace)
         {
-            ast::ast_type* picked_type = nullptr;
-            if (para->is_func())
-            {
-                // T(...) should return args..
-                picked_type = args->get_return_type();
-            }
-            else
-                picked_type = args;
+            ast::ast_type* picked_type = args;
 
             wo_assert(picked_type);
             if (!para->template_arguments.empty())
@@ -4554,6 +4552,18 @@ namespace wo
 
                 type_hkt->template_arguments.clear();
                 return type_hkt;
+            }
+
+            if (picked_type->is_mutable() && para->is_mutable())
+            {
+                // mut T <<== mut InstanceT
+                // Should get (immutable) InstanceT.
+
+                ast::ast_type* immutable_type = new ast::ast_type(WO_PSTR(pending));
+                immutable_type->set_type(picked_type);
+                immutable_type->set_is_mutable(false);
+
+                return immutable_type;
             }
             return picked_type;
         }
