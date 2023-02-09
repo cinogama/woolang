@@ -1652,7 +1652,7 @@ namespace std
         public func exepath()=>string;
 
     extern("rslib_std_equal_byte")
-        public func equalbyte<LT, RT>(a:LT, b:RT)=> bool;
+        public func issame<LT, RT>(a:LT, b:RT)=> bool;
 
     public func max<T>(a:T, b:T)
         where (a<b) is bool;

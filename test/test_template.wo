@@ -317,19 +317,19 @@ namespace test_template
         test_equal(is_same:<MyTemplate<int>, MySecTemplate<int>>(), false);
         test_equal(is_same:<MyTemplate<int>, int>(), false);
 
-        test_assure(!std::equalbyte(fib:<real>, fib:<int>));
-        test_assure(!std::equalbyte(fib:<int>, fib:<real>));
-        test_assure(std::equalbyte(fib:<int>, fib:<int>));
-        test_assure(std::equalbyte(fib:<real>, fib:<real>));
+        test_assure(!std::issame(fib:<real>, fib:<int>));
+        test_assure(!std::issame(fib:<int>, fib:<real>));
+        test_assure(std::issame(fib:<int>, fib:<int>));
+        test_assure(std::issame(fib:<real>, fib:<real>));
 
         test_assure(fib:<int> is (int)=>int);
         test_assure(fib:<real> is (real)=>real);
 
         test_assure(diff_static:<int>() is array<int>);
         test_assure(diff_static:<real>() is array<real>);
-        test_assure(!std::equalbyte(diff_static:<real>(), diff_static:<int>()));
-        test_assure(std::equalbyte(diff_static:<real>(), diff_static:<real>()));
-        test_assure(std::equalbyte(diff_static:<int>(), diff_static:<int>()));
+        test_assure(!std::issame(diff_static:<real>(), diff_static:<int>()));
+        test_assure(std::issame(diff_static:<real>(), diff_static:<real>()));
+        test_assure(std::issame(diff_static:<int>(), diff_static:<int>()));
 
         let result = invokable(fib:<int>, 10);
 
