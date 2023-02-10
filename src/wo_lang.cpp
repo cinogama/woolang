@@ -6231,6 +6231,9 @@ namespace wo
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value, 
                     WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE, 
                     a_value->value_type->get_type_name(false, false).c_str());
+            else if (a_value->must_use)
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value,
+                    WO_ERR_VALUE_MUST_BE_USE);
 
             auto_analyze_value(a_value, compiler);
         }

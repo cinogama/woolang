@@ -220,6 +220,7 @@ namespace wo
 
             bool is_mark_as_using_mut = false;
             bool can_be_assign = false;
+            bool must_use = false;
 
             bool is_constant = false;
             wo::value constant_value = {};
