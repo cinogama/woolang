@@ -675,23 +675,24 @@ namespace wo
                     break;
                 }
                 case instruct::modi:
-                    WO_JIT_NOT_SUPPORT;
-                    // Following code have bug, need to remake...
-                    //{
-                    //    WO_JIT_ADDRESSING_N1;
-                    //    WO_JIT_ADDRESSING_N2;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
 
-                    //    auto int_of_op2 = x86compiler.newInt64();
-                    //    if (opnum2.is_constant())
-                    //        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
-                    //    else
-                    //        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
+                    auto int_of_op2 = x86compiler.newInt64();
+                    if (opnum2.is_constant())
+                        wo_asure(!x86compiler.mov(int_of_op2, opnum2.const_value()->integer));
+                    else
+                        wo_asure(!x86compiler.mov(int_of_op2, x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer))));
 
-                    //    wo_asure(!x86compiler.idiv(int_of_op2, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
-                    //    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), x86::rdx));
-
-                    //    break;
-                    //}
+                    auto int_of_op1 = x86compiler.newInt64();
+                    auto result = x86compiler.newInt64();
+                    wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                    wo_asure(!x86compiler.cqo(result, int_of_op1));
+                    wo_asure(!x86compiler.idiv(result, int_of_op1, int_of_op2));
+                    wo_asure(!x86compiler.mov(x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), result));
+                    break;
+                }
                 case instruct::opcode::lds:
                 {
                     WO_JIT_ADDRESSING_N1;
