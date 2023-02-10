@@ -354,6 +354,7 @@ namespace wo
             bool is_protected_attr() const;
             bool is_public_attr() const;
             bool is_extern_attr() const;
+            bool is_must_use() const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 

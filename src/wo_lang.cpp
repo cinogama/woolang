@@ -6223,6 +6223,15 @@ namespace wo
 
         else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
         {
+            // Woolang 1.10.1: Expr's type with `mustuse` attrib cannot be an sentence.
+            auto* using_type = a_value->value_type->using_type_name;
+
+            wo_assert(using_type == nullptr || using_type->symbol != nullptr);
+            if (using_type != nullptr && using_type->symbol->attribute->is_must_use())
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value, 
+                    WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE, 
+                    a_value->value_type->get_type_name(false, false).c_str());
+
             auto_analyze_value(a_value, compiler);
         }
         else if (auto* a_sentence_block = dynamic_cast<ast_sentence_block*>(ast_node))

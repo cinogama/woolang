@@ -220,6 +220,8 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
+                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_mustuse) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
