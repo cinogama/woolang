@@ -1236,6 +1236,10 @@ namespace wo
         {
             return attributes.find(+lex_type::l_extern) != attributes.end();
         }
+        bool ast_decl_attribute::is_must_use() const
+        {
+            return attributes.find(+lex_type::l_mustuse) != attributes.end();
+        }
         grammar::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));

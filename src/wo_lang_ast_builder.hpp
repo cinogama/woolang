@@ -220,6 +220,7 @@ namespace wo
 
             bool is_mark_as_using_mut = false;
             bool can_be_assign = false;
+            bool must_use = false;
 
             bool is_constant = false;
             wo::value constant_value = {};
@@ -354,6 +355,7 @@ namespace wo
             bool is_protected_attr() const;
             bool is_public_attr() const;
             bool is_extern_attr() const;
+            bool is_must_use() const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 

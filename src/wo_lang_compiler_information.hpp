@@ -257,6 +257,10 @@
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"未定义的宏：'%ls'"
 
+#define WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE L"类型 '%ls' 被标注为必须使用，但此处表达式的值被忽略"
+
+#define WO_ERR_VALUE_MUST_BE_USE L"被标记为不应当忽略的表达式，但其值确实被忽略了"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -512,6 +516,10 @@
 #define WO_ERR_INDEX_OUT_OF_RANGE L"Index out of range."
 
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"Unknown macro named: '%ls'."
+
+#define WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE L"Type '%ls' is marked as must use, but the value of the expression here is ignored."
+
+#define WO_ERR_VALUE_MUST_BE_USE L"This expression is marked as must use, but it's value was ignored."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
