@@ -1470,7 +1470,7 @@ namespace option
         }
     }
 }
-public mustuse union result<T, F>
+public union result<T, F>
 {
     ok(T),
     err(F),
@@ -1484,10 +1484,6 @@ namespace result
         ok(v)? return err(v);
         err(e)? return ok(e);
         }
-    }
-    public func ignore(self: result<anything, anything>)
-    {
-        // Do nothing
     }
     public func unwarp<T, F>(self: result<T, F>)=> T
     {

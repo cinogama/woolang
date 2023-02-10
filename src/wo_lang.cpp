@@ -2605,7 +2605,13 @@ namespace wo
 
             analyze_pass2(a_value_funccall->called_func);
             if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
+            {
+                // Woolang 1.10.1: If a function decleared as must use, the return type should not be ignore.
+                if (symbase->symbol != nullptr && symbase->symbol->attribute->is_must_use())
+                    a_value_funccall->must_use = true;
+
                 check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
+            }
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
@@ -2616,8 +2622,7 @@ namespace wo
                 && a_value_funccall->called_func->value_type->is_pending())
             {
                 auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
-
-                if (funcsymb && funcsymb->auto_adjust_return_type)
+                if (funcsymb != nullptr && funcsymb->auto_adjust_return_type)
                 {
                     // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
                     if (funcsymb->has_return_value)
@@ -2626,7 +2631,6 @@ namespace wo
                     funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     funcsymb->auto_adjust_return_type = false;
                 }
-
             }
 
             bool failed_to_call_cur_func = false;
@@ -6228,8 +6232,8 @@ namespace wo
 
             wo_assert(using_type == nullptr || using_type->symbol != nullptr);
             if (using_type != nullptr && using_type->symbol->attribute->is_must_use())
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value, 
-                    WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE, 
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value,
+                    WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE,
                     a_value->value_type->get_type_name(false, false).c_str());
             else if (a_value->must_use)
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value,
