@@ -640,8 +640,7 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_arr_add(args + 0, args + 1);
-    return wo_ret_void(vm);
+    return wo_ret_val(vm, wo_arr_add(args + 0, args + 1));
 }
 
 WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
@@ -1470,7 +1469,9 @@ namespace option
         }
     }
 }
-public mustuse union result<T, F>
+
+@[must_use = "The 'result' type may contain error information and must be handled promptly."]
+public union result<T, F>
 {
     ok(T),
     err(F),
@@ -1995,7 +1996,7 @@ namespace vec
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
-        public func add<T>(val: vec<T>, elem: T)=>void;
+        public func add<T>(val: vec<T>, elem: T)=> T;
 
     extern("rslib_std_array_connect")
     public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
