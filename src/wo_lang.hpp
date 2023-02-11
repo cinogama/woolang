@@ -240,7 +240,6 @@ namespace wo
         WO_PASS(ast_value_trib_expr);
 
 #undef WO_PASS
-
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);
         void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, ir_compiler* compiler);

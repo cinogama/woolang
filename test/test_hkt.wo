@@ -38,8 +38,8 @@ namespace test_hkt
         alias ArrInt_T = array<int>;
         let x = ([1, 2, 3] as ArrInt_T) as array<int>;
 
-        test_tval_is_spec_type:<ArrInt_T>(x);
-        test_tval_is_spec_type:<array<int>>(x);
+        do test_tval_is_spec_type:<ArrInt_T>(x);
+        do test_tval_is_spec_type:<array<int>>(x);
 
         alias MyArr_T<VT> = array<VT>;
         alias SpArr_T<VT> = array<VT>;

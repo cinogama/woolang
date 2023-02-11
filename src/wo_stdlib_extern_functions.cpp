@@ -18,7 +18,7 @@ WO_API wo_api rslib_std_print(wo_vm vm, wo_value args, size_t argc)
         if (i + 1 < argc)
             wo::wo_stdout << " ";
     }
-    return wo_ret_int(vm, argc);
+    return wo_ret_void(vm);
 }
 WO_API wo_api rslib_std_panic(wo_vm vm, wo_value args, size_t argc)
 {
@@ -1566,17 +1566,15 @@ namespace result
         }
     }
 }
-
 namespace std
 {
-    extern("rslib_std_print") public func print(...)=>int;
-    extern("rslib_std_time_sec") public func time()=>real;
+    extern("rslib_std_print") public func print(...)=> void;
+    extern("rslib_std_time_sec") public func time()=> real;
 
     public func println(...)
     {
         let c = print((...)...);
         print("\n");
-        return c;
     }
 
     public func input<T>(validator: (T)=>bool)
@@ -1914,8 +1912,8 @@ namespace array
             return option::none;
         
         let mut result = self[0];
-        for (let mut i = 1; i < self->len; i+=1)
-            result = reducer(result, self[i]);
+        for (let mut i = 1; i < self->len; do i+=1)
+            do result = reducer(result, self[i]);
 
         return option::value(result);
     }
@@ -1927,8 +1925,8 @@ namespace array
         
         let len = self->len;
         let mut result = self[len-1];
-        for (let mut i = len-2; i >= 0; i-=1)
-            result = reducer(self[i], result);
+        for (let mut i = len-2; i >= 0; do i-=1)
+            do result = reducer(self[i], result);
 
         return option::value(result);
     }
@@ -2065,8 +2063,8 @@ namespace vec
             return option::none;
         
         let mut result = self[0];
-        for (let mut i = 1; i < self->len; i+=1)
-            result = reducer(result, self[i]);
+        for (let mut i = 1; i < self->len; do i+=1)
+            do result = reducer(result, self[i]);
 
         return option::value(result);
     }
@@ -2078,8 +2076,8 @@ namespace vec
         
         let len = self->len;
         let mut result = self[len-1];
-        for (let mut i = len-2; i >= 0; i-=1)
-            result = reducer(self[i], result);
+        for (let mut i = len-2; i >= 0; do i-=1)
+            do result = reducer(self[i], result);
 
         return option::value(result);
     }
@@ -2476,7 +2474,7 @@ namespace std
 
         public func close(self: vm)
         {
-            self:gchandle->close();
+            return self:gchandle->close();
         }
     }
 }
@@ -2637,7 +2635,7 @@ namespace std
         l_or,                   // |
         l_lnot,                  // !
         l_scopeing,             // ::
-        l_template_using_begin,             // :<
+        l_template_using_begin,             // ::<
         l_typecast,              // :
         l_index_point,          // .
         l_double_index_point,          // ..  may be used? hey..
@@ -2679,11 +2677,13 @@ namespace std
         l_continue,
         l_lambda,
         l_at,
+        l_do,
         l_where,
         l_operator,
         l_union,
         l_match,
-        l_struct
+        l_struct,
+        l_macro
     }
 
     public using lexer = handle

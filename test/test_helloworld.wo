@@ -48,7 +48,7 @@ namespace test_helloworld
                 =>> \x:string = [x + "hello", x + "world"];
                 ;
 
-        b->map(\x:string = std::println(x););
+        do b->map(\x:string = std::println(x););
 
         test_assure(b[0] == "1hello");
         test_assure(b[1] == "1world");
@@ -101,22 +101,22 @@ namespace test_helloworld
         let fhello2 = func(){print("~~"); println("Helloworld~~");};
         fhello2();
 
-        execute_func() || non_execute_func();
+        do execute_func() || non_execute_func();
         test_assure(_should_be_set_flag && !_should_not_be_set_flag);
-        _should_be_set_flag = _should_not_be_set_flag = false;
+        do _should_be_set_flag = _should_not_be_set_flag = false;
 
-        !execute_func() && non_execute_func();
+        do !execute_func() && non_execute_func();
         test_assure(_should_be_set_flag && !_should_not_be_set_flag);
-        _should_be_set_flag = _should_not_be_set_flag = false;
+        do _should_be_set_flag = _should_not_be_set_flag = false;
 
-        (execute_func() || non_execute_func()) && (!execute_func() && non_execute_func());
+        do (execute_func() || non_execute_func()) && (!execute_func() && non_execute_func());
         test_assure(_should_be_set_flag && !_should_not_be_set_flag);
-        _should_be_set_flag = _should_not_be_set_flag = false;
+        do _should_be_set_flag = _should_not_be_set_flag = false;
 
         test_no_return_recursive(true) as void;
-        test_no_return_recursive as (bool)=>void;
+        do test_no_return_recursive as (bool)=>void;
 
-        \=func(){}; as ()=>()=>void;
+        do \=func(){}; as ()=>()=>void;
 
         \a,b=std::println(a, b);("hello", "world");
         \a,b=std::println(a, b);(("hello", "world")...);

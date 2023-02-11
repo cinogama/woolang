@@ -48,7 +48,7 @@ namespace test_container
         test_assure(b->len == 1);
 
         a->copy(b);
-        b["gratio"] = 0.618;
+        do b["gratio"] = 0.618;
 
         test_assure(a["pi"] == 3.14);
         test_assure(a->len == 1);
@@ -69,9 +69,9 @@ namespace test_container
         test_assure([4,5]->connect([2,3])->len == 4);
         test_assure([4,5]->connect([2,3])[3] == 3);
 
-        [mut true]->map(\f: bool = 1;);
-        {["k"] = mut false}->map(\k:string, v: bool = (0, 0););
-        {["k"] = mut false}->map(\k:string, v: bool = (0, mut 0);) as dict<int, mut int>;
+        do [mut true]->map(\f: bool = 1;);
+        do {["k"] = mut false}->map(\k:string, v: bool = (0, 0););
+        do {["k"] = mut false}->map(\k:string, v: bool = (0, mut 0);) as dict<int, mut int>;
     }
     func output_9x9()
     {
@@ -102,9 +102,9 @@ namespace test_container
 
         // BUG: 221223-JIT-ret pop not work when jit.
         let x = []mut: vec<string>;
-        for (let mut i = 0; i < 100000; i += 1)
+        for (let mut i = 0; i < 100000; do i += 1)
             x->add(F"str_{i}");
-        x->forall(\s = s->beginwith("0"););
+        do x->forall(\s = s->beginwith("0"););
     }
 }
 

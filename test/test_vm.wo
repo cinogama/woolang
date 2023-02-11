@@ -8,7 +8,7 @@ namespace test_vm
     func load_and_create_vmm(src:string)
     {
         let vmm = std::vm::create();
-        vmm->loadsrc("test_vm/test_tmp_script.wo", src);
+        assert(vmm->loadsrc("test_vm/test_tmp_script.wo", src));
         return vmm;
     }
 
@@ -27,14 +27,14 @@ namespace test_vm
 
         test_equal(vmm->haserr(), false);
 
-        vmm->run();
-        vmm->close();
+        do vmm->run();
+        do vmm->close();
 
         // Test memmory leak
         let mut i = 0;
         while (i < 1000)
         {
-            i += 1;
+            do i += 1;
             let vmm = load_and_create_vmm(
                 @"
                 import woo.std;
@@ -46,8 +46,8 @@ namespace test_vm
                 {
                     let a = [1,2,3,4,5];
                     
-                    test_template(233);
-                    test_template("My world!");
+                    do test_template(233);
+                    do test_template("My world!");
                 }
                 main();
                 "@
@@ -57,9 +57,9 @@ namespace test_vm
             {
                 std::println(vmm->errmsg());
             }
-            vmm->run();
+            do vmm->run();
 
-            vmm->close();
+            do vmm->close();
         }
     }
 }

@@ -2812,31 +2812,6 @@ namespace wo
         return true;
     }
 
-    /*
-    WO_TRY_BEGIN;
-                    //
-                    WO_TRY_PASS(ast_value_variable);
-                    WO_TRY_PASS(ast_value_function_define);
-                    WO_TRY_PASS(ast_value_assign);
-                    WO_TRY_PASS(ast_value_type_cast);
-                    WO_TRY_PASS(ast_value_type_judge);
-                    WO_TRY_PASS(ast_value_type_check);
-                    WO_TRY_PASS(ast_value_index);
-                    WO_TRY_PASS(ast_value_indexed_variadic_args);
-                    WO_TRY_PASS(ast_fakevalue_unpacked_args);
-                    WO_TRY_PASS(ast_value_binary);
-                    WO_TRY_PASS(ast_value_logical_binary);
-                    WO_TRY_PASS(ast_value_array);
-                    WO_TRY_PASS(ast_value_mapping);
-                    WO_TRY_PASS(ast_value_make_tuple_instance);
-                    WO_TRY_PASS(ast_value_make_struct_instance);
-                    WO_TRY_PASS(ast_value_trib_expr);
-                    WO_TRY_PASS(ast_value_unary);
-                    WO_TRY_PASS(ast_value_funccall);
-
-                    WO_TRY_END;
-    */
-
     namespace ast
     {
         bool ast_type::is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const
@@ -6220,9 +6195,16 @@ namespace wo
 
             loop_stack_for_break_and_continue.pop_back();
         }
-
         else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
         {
+            if (auto* a_val_funcdef = dynamic_cast<ast_value_function_define*>(ast_node);
+                a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
+            {
+                // Woolang 1.10.2: The value is not void type, cannot be a sentence.
+                if (!a_value->value_type->is_void())
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
+                        a_value->value_type->get_type_name(false).c_str());
+            }
             auto_analyze_value(a_value, compiler);
         }
         else if (auto* a_sentence_block = dynamic_cast<ast_sentence_block*>(ast_node))

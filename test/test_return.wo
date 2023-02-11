@@ -13,7 +13,7 @@ namespace test_return
     func main()
     {
         let mut b = ret_nonref_a();
-        b = 256;
+        do b = 256;
 
         test_equal(a, 233);
     }

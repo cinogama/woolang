@@ -58,7 +58,7 @@ namespace test_optional
         {
             let mut result = linknode::end : linknode<T>;
             for (let _, elem : val)
-                result = result->add(elem);
+                do result = result->add(elem);
             return result;
         }
 
@@ -73,7 +73,7 @@ namespace test_optional
                 {
                 linknode::next((elem, nextnode))?
                 {
-                    self.node = nextnode;
+                    do self.node = nextnode;
                     return option::value((elem,));
                 }
                 end?
@@ -106,13 +106,13 @@ namespace test_optional
 
         let mut p<T> = 0: T;
 
-        p:<real> = 128.0; 
+        do p:<real> = 128.0; 
         test_assure(p:<int> == 0);
 
-        p:<int> += 5;
+        do p:<int> += 5;
         test_assure(p:<real> == 128.0);
 
-        p:<handle> = 0x147H;
+        do p:<handle> = 0x147H;
         test_assure(p:<int> == 5);
         test_assure(p:<handle> == 0x147H);
 
@@ -122,15 +122,15 @@ namespace test_optional
         foo();
 
         let mut gval = option::none as option<vec<string>>;
-        gval = option::value([]mut: vec<string>);
+        do gval = option::value([]mut: vec<string>);
 
         match(gval)
         {
             option::value(x)?
             {
-                x as vec<string>;
+                do x as vec<string>;
                 x->add("Helloworld");
-                x[0] as string;
+                do x[0] as string;
                 test_assure(x->len() == 1);
             }
             option::none?

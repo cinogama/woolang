@@ -11,8 +11,8 @@ namespace test_dup
         let dict = {["key"] = mut "val"}mut;
         let dup_map = dict->dup();
 
-        dup_arr[0] = 233;
-        dup_map["key"] = "modify";
+        do dup_arr[0] = 233;
+        do dup_map["key"] = "modify";
 
         test_equal(arr[0], 1);
         test_equal(dict["key"], "val");

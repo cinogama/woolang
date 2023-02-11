@@ -21,11 +21,11 @@ namespace test_bool
         test_assure(!a == false);
         test_assure(!(256: bool) == false);
 
-        a = "": bool;
+        do a = "": bool;
         test_assure(a == true);
         test_assure(a != false);
 
-        a = nil: bool;
+        do a = nil: bool;
         test_assure(a == false);
         test_assure(a != true);
 

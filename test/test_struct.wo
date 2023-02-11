@@ -31,8 +31,8 @@ namespace test_struct
             return 233;
         }
         let n = normalstruct{a=mut 0, b=mut false};
-        n.a = foo() as int;
-        n.b = foo() is int;
+        do n.a = foo() as int;
+        do n.b = foo() is int;
 
         test_equal(n.a, 233);
         test_equal(n.b, true);
@@ -45,7 +45,7 @@ namespace test_struct
             e = chstruct:<string>{ a = "e", b = mut "eval" },
         } ;
         
-        x as mystruct<string>;
+        do x as mystruct<string>;
         
         test_equal(x.a, 233);
         test_equal(x.b, "Helloworld");
@@ -54,7 +54,7 @@ namespace test_struct
         test_equal(x.d.b, "dval");
         test_equal(x.e.a, "e");
         test_equal(x.e.b, "eval");
-        x.d.b = x.e.b;
+        do x.d.b = x.e.b;
         test_equal(x.d.b, "eval");
     }
 }

@@ -10,7 +10,7 @@ namespace test_basic
     }
     func test_capture_bug()
     {
-        for (let mut i = 0; i<3; i+=1)
+        for (let mut i = 0; i<3; do i+=1)
         {
             let f = func(){ return i; };
             let a = \ = i;;
@@ -30,7 +30,7 @@ namespace test_basic
             mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
             mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
 
-        a00 = a97 = 233;
+        do a00 = a97 = 233;
 
         test_equal(a00, 233);
         test_equal(a97, 233);
@@ -62,11 +62,11 @@ namespace test_basic
         test_equal(a%7, 1);
         test_equal(a%8, 7);
 
-        a += 1.75: int;
+        do a += 1.75: int;
         test_equal(a, 16);
-        a -= 0.75: int;
+        do a -= 0.75: int;
         test_equal(a, 16);
-        a -= 1;
+        do a -= 1;
         test_equal(a, 15);
 
         test_assure(abs(1.2 * 5.0 - 6.0) < 0.0000000001);
@@ -77,7 +77,7 @@ namespace test_basic
         test_assure(abs(x * 5.0 - 6.0) < 0.0000000001);
         test_assure(abs(x / 0.6 - 2.0) < 0.0000000001);
         test_assure(abs(x % 0.6) < 0.0000000001);
-        x += 1: real;
+        do x += 1: real;
         test_assure(abs(x - 2.2) < 0.0000000001);
 
         let b = 15:dynamic;
@@ -98,9 +98,9 @@ namespace test_basic
         let mut p = 1;
         let mut q = 1.0;
 
-        q = 75: real;
-        q += 0.62;
-        p = q: int;
+        do q = 75: real;
+        do q += 0.62;
+        do p = q: int;
         test_equal(p, 75);
 
         test_equal(q>1.0, true);
@@ -116,11 +116,11 @@ namespace test_basic
         test_equal(p:handle, 75H);
         test_equal(q:handle, 75H);
 
-        q += 1: real;
-        p += q: int;
+        do q += 1: real;
+        do p += q: int;
         test_equal(q:int, 76);
 
-        p -= 151.0: int;
+        do p -= 151.0: int;
         test_equal(p, 0);
 
         test_assure(" "->isspace());

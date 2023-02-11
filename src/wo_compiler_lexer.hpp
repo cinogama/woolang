@@ -103,6 +103,7 @@ namespace wo
         l_continue,
         l_lambda,
         l_at,
+        l_do,
         l_where,
         l_operator,
         l_union,
@@ -252,7 +253,8 @@ namespace wo
             {L"operator", {lex_type::l_operator}},
             {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
-            {L"struct", {lex_type::l_struct}}
+            {L"struct", {lex_type::l_struct}},
+            {L"do", {lex_type::l_do}},
         };
 
 

@@ -589,7 +589,7 @@ namespace wo
                 ast_value* init_val;
             };
             std::vector<varref_define> var_refs;
-           
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -618,7 +618,7 @@ namespace wo
                 , ast_value(type)
             {}
 
-          
+
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -795,7 +795,6 @@ namespace wo
         struct ast_return : virtual public grammar::ast_base
         {
             ast_value* return_value = nullptr;
-
             ast_value_function_define* located_function = nullptr;
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -803,13 +802,9 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
                  // Write self copy functions here..
-
                 WO_REINSTANCE(dumm->return_value);
-
                 dumm->located_function = nullptr;
-                // wo_assert(!located_function);
 
                 return dumm;
             }
@@ -3517,6 +3512,17 @@ namespace wo
             {
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_macro);
                 return lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str());
+            }
+        };
+
+        struct pass_do_expr_as_sentence : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_do);
+
+                ast_value_type_cast* result = new ast_value_type_cast(dynamic_cast<ast_value*>(WO_NEED_AST(1)), new ast_type(WO_PSTR(void)));
+                return (ast_basic*)result;
             }
         };
 

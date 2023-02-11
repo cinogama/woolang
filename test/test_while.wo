@@ -16,15 +16,15 @@ namespace test_while
         let mut n = 0;
         while (i < 100_0000)
         {
-                n += 1;
-                i += 1;
+            do n += 1;
+            do i += 1;
         }
 
         test_equal(n, 100_0000);
 
         let tm_beg = std::time();
 
-        for(i=0;i<=40;i+=1)
+        for(do i=0;i<=40;do i+=1)
             std::println("fib(", i, ")=", fib(i));
 
         let tm_end = std::time();

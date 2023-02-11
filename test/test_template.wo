@@ -75,7 +75,7 @@ namespace test_template
         let begin_time = std::time();
         let mut i = 0:T;
         while (i < 1_0000_0000:T)
-            i += 1:T;
+            do i += 1:T;
         let end_time = std::time();
 
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
@@ -105,7 +105,7 @@ namespace test_template
         {
             // do check:
             let p = option::none: option<SP>;
-            p ->> \e = e as T;;
+            do p ->> \e = e as T;;
         }
     }
 
@@ -164,7 +164,7 @@ namespace test_template
     let mut constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
-        std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
+        do std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
 
         if (func()=>T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
         {
@@ -232,24 +232,24 @@ namespace test_template
         using std;
         alias foo<A, B> = typeof(declval:<A>() + declval:<B>());
         
-        option::none : option<foo<int, int>> as option<int>;
+        do option::none : option<foo<int, int>> as option<int>;
     }
 
     func test_mut_mark_bug()
     {
         func mut_mark_bug1<T>(n: array<T>)
         {
-            []: array<mut T>;
+            do []: array<mut T>;
             return []: array<T>;
         }
         func mut_mark_bug2<T>(n: array<T>)
         {
-            []: array<T>;
+            do []: array<T>;
             return []: array<mut T>;
         }
 
-        mut_mark_bug1([true])->map(\b: bool = 0;);
-        mut_mark_bug2([true])->map(\b: bool = 0;);
+        do mut_mark_bug1([true])->map(\b: bool = 0;);
+        do mut_mark_bug2([true])->map(\b: bool = 0;);
     }
 
     let issame<A, B> = 
@@ -270,21 +270,21 @@ namespace test_template
 
         using myarr<T> = array<T>;
 
-        hkt_foo([[1]: myarr<int>]) as ()=>myarr<string>;
-        hkt_foo([[1]]) as ()=>array<string>;
+        do hkt_foo([[1]: myarr<int>]) as ()=>myarr<string>;
+        do hkt_foo([[1]]) as ()=>array<string>;
 
         using sparr<T> = array<real>;
         alias alarr<T> = array<bool>;
         alias alarrsp<T> = alarrsp_struct<bool>;
 
-        hkt_foo([[1.5]: sparr<int>]) as ()=>sparr<string>;
+        do hkt_foo([[1.5]: sparr<int>]) as ()=>sparr<string>;
 
         // 220901 alias not passed if alias is completed. 
-        hkt_foo([[true]: alarr<int>]) as ()=>array<string>;
-        hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
+        do hkt_foo([[true]: alarr<int>]) as ()=>array<string>;
+        do hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
 
         let mins = mtest::create:<string>();
-        mins.c = 66;
+        do mins.c = 66;
         
         test_assure(template_func_symb_inside:<real>() == template_func_symb_inside:<real>());
         test_assure(template_func_symb_inside:<string>() == template_func_symb_inside:<string>());
@@ -293,21 +293,21 @@ namespace test_template
         test_assure(template_func_symb_inside:<string>() == "pi");
 
         let mut xfunc = test_typeof_in_template:<int>;
-        xfunc = func(){return func(){};};
+        do xfunc = func(){return func(){};};
 
         let mut xfunc2 = test_typeof_in_template:<int>();
-        xfunc2 = func(){};
+        do xfunc2 = func(){};
  
         let mut xfunc3 = test_typeof_in_template2:<int>;
-        xfunc3 = func(){return func(){return 0;};};
+        do xfunc3 = func(){return func(){return 0;};};
 
         let mut xfunc4 = test_typeof_in_template2:<int>();
-        xfunc4 = func(){return 0;};
+        do xfunc4 = func(){return 0;};
 
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");
 
         // 220813: 'is' expr will be not eval if value in expr is not dynamic;
-        constexpr_if_test:<gchandle>();
+        do constexpr_if_test:<gchandle>();
         test_assure(!constexpr_if_test_flag);
 
         test_equal(is_same:<int, int>(), true);
@@ -342,8 +342,8 @@ namespace test_template
 
         test_equal(cast_to:<string>(3)+".14159", "3.14159");
 
-        template_if_constexpr_test:<int>():dynamic as int;
-        template_if_constexpr_test:<real>():dynamic as real;
+        do template_if_constexpr_test:<int>():dynamic as int;
+        do template_if_constexpr_test:<real>():dynamic as real;
 
         let mt_int = 0:MyTemplate<int>;
         let mt_real = 0:MyTemplate<real>;
