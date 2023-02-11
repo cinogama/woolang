@@ -640,7 +640,8 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_val(vm, wo_arr_add(args + 0, args + 1));
+    wo_arr_add(args + 0, args + 1);
+    return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
@@ -1996,7 +1997,7 @@ namespace vec
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
-        public func add<T>(val: vec<T>, elem: T)=> T;
+        public func add<T>(val: vec<T>, elem: T)=> void;
 
     extern("rslib_std_array_connect")
     public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
