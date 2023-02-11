@@ -220,19 +220,6 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
                 gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_extern) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_token),
-                gm::nt(L"DECL_ATTRIBUTE_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_at), gm::te(gm::ttype::l_index_begin), gm::nt(L"DECL_ATTRIBUTE_LIST"), gm::nt(L"COMMA_MAY_EMPTY"), gm::te(gm::ttype::l_index_end) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<2>),
-
-                gm::nt(L"DECL_ATTRIBUTE_LIST") >> gm::symlist{ gm::nt(L"ATTRIBUTE_ITEM") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
-
-                gm::nt(L"DECL_ATTRIBUTE_LIST") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE_LIST"), gm::nt(L"ATTRIBUTE_ITEM") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1, 0>),
-
-                gm::nt(L"ATTRIBUTE_ITEM") >> gm::symlist{ gm::nt(L"IDENTIFIER") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_valued_attrib),
-                gm::nt(L"ATTRIBUTE_ITEM") >> gm::symlist{ gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_assign), gm::te(gm::ttype::l_literal_string) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_valued_attrib),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),

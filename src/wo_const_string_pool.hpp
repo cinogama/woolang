@@ -42,7 +42,6 @@ WO_GLOBAL_PSTR(bind)\
 WO_GLOBAL_PSTR(value)\
 WO_GLOBAL_PSTR(none)\
 WO_GLOBAL_PSTR(unsafe)\
-WO_GLOBAL_PSTR(must_use)\
 WO_GLOBAL_PSTR(_)\
 // end
 

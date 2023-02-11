@@ -1470,8 +1470,6 @@ namespace option
         }
     }
 }
-
-@[must_use = "The 'result' type may contain error information and must be handled promptly."]
 public union result<T, F>
 {
     ok(T),
@@ -1486,10 +1484,6 @@ namespace result
         ok(v)? return err(v);
         err(e)? return ok(e);
         }
-    }
-    public func ignore(self: result<anything, anything>)
-    {
-        // Do nothing
     }
     public func unwarp<T, F>(self: result<T, F>)=> T
     {
@@ -1997,7 +1991,7 @@ namespace vec
         public func get<T>(a: vec<T>, index: int)=> option<T>;
 
     extern("rslib_std_array_add") 
-        public func add<T>(val: vec<T>, elem: T)=> void;
+        public func add<T>(val: vec<T>, elem: T)=>void;
 
     extern("rslib_std_array_connect")
     public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;

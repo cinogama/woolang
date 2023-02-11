@@ -417,7 +417,7 @@ namespace wo
                 return false;
             return true;
         }
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable, bool flipped) const
+        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable , bool flipped) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -1169,7 +1169,7 @@ namespace wo
 
             return dumm;
         }
-
+ 
         void ast_value_type_judge::update_constant_value(lexer* lex)
         {
             // do nothing
@@ -1236,17 +1236,6 @@ namespace wo
         {
             return attributes.find(+lex_type::l_extern) != attributes.end();
         }
-        bool ast_decl_attribute::is_must_use(wo_pstring_t* out_value) const
-        {
-            auto fnd = value_attributs.find(WO_PSTR(must_use));
-            if (fnd != value_attributs.end())
-            {
-                if (out_value != nullptr)
-                    *out_value = fnd->second;
-                return true;
-            }
-            return false;
-        }
         grammar::ast_base* ast_decl_attribute::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1260,7 +1249,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
+        
         ast_value_binary::ast_value_binary()
             : ast_value(new ast_type(WO_PSTR(pending)))
         {
@@ -1413,7 +1402,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
+        
         std::any pass_import_files::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             wo_test(input.size() == 3);
@@ -1614,7 +1603,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
+        
         void pass_union_define::find_used_template(
             ast_type* type_decl,
             const std::vector<wo_pstring_t>& template_defines,
@@ -2218,7 +2207,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
+        
         ast_value_logical_binary::ast_value_logical_binary() : ast_value(new ast_type(WO_PSTR(bool)))
         {
         }
@@ -2576,7 +2565,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_direct<5>>] = _register_builder<pass_direct<5>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
-            _registed_builder_function_id_list[meta::type_hash<pass_valued_attrib>] = _register_builder<pass_valued_attrib>();
         }
 
     }

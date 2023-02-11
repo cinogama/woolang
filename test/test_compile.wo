@@ -275,25 +275,6 @@ func main()
         opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
         "@);
 
-        assure_compile_fail(@"
-            import woo.std;
-           
-            func foo(b: bool)
-            {
-                return b ? result::ok(b) | result::err(b);
-            }
-            foo(false);
-        "@);
-        assure_compile_success(@"
-            import woo.std;
-           
-            func foo(b: bool)
-            {
-                return b ? result::ok(b) | result::err(b);
-            }
-            foo(false)->ignore;
-        "@);
-
         // Cannot index unindexable type or invalid index
         assure_compile_fail(@"let a = 5; let b = a[7];"@);
         assure_compile_fail(@"let a = [1]; let b = a["index"];"@);

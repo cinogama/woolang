@@ -39,7 +39,7 @@ namespace wo
             virtual ~astnode_builder() = default;
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_error("");
+                wo_test(false, "");
                 return nullptr;
             }
         };
@@ -59,13 +59,13 @@ namespace wo
         size_t index()
         {
             size_t idx = _registed_builder_function_id_list[meta::type_hash<T>];
-            wo_assert(idx != 0);
+            wo_test(idx != 0);
             return idx;
         }
 
         inline astnode_builder::builder_func_t get_builder(size_t idx)
         {
-            wo_assert(idx != 0);
+            wo_test(idx != 0);
             return _registed_builder_function[idx - 1];
         }
 #endif
@@ -220,7 +220,6 @@ namespace wo
 
             bool is_mark_as_using_mut = false;
             bool can_be_assign = false;
-            wo_pstring_t must_use_reason = nullptr;
 
             bool is_constant = false;
             wo::value constant_value = {};
@@ -348,7 +347,6 @@ namespace wo
         struct ast_decl_attribute : virtual public grammar::ast_base
         {
             std::set<lex_type> attributes;
-            std::unordered_map<wo_pstring_t, wo_pstring_t> value_attributs;
             void varify_attributes(lexer* lex) const;
             void add_attribute(lexer* lex, lex_type attr);
             bool is_static_attr() const;
@@ -356,7 +354,6 @@ namespace wo
             bool is_protected_attr() const;
             bool is_public_attr() const;
             bool is_extern_attr() const;
-            bool is_must_use(wo_pstring_t* out_value) const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
@@ -592,7 +589,7 @@ namespace wo
                 ast_value* init_val;
             };
             std::vector<varref_define> var_refs;
-
+           
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -621,7 +618,7 @@ namespace wo
                 , ast_value(type)
             {}
 
-
+          
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -871,7 +868,7 @@ namespace wo
                 , is_mutable_vector(is_mutable)
                 , ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
             {
-                wo_assert(array_items != nullptr);
+                wo_test(array_items);
                 value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
             }
 
@@ -904,7 +901,7 @@ namespace wo
                 , is_mutable_map(is_mutable)
                 , ast_value(is_mutable ? new ast_type(WO_PSTR(map)) : new ast_type(WO_PSTR(dict)))
             {
-                wo_assert(mapping_pairs != nullptr);
+                wo_test(mapping_pairs);
                 value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
                 value_type->template_arguments[1]->set_type_with_name(WO_PSTR(pending));
             }
@@ -936,7 +933,7 @@ namespace wo
             ast_sentence_block(ast_list* sentences)
                 : sentence_list(sentences)
             {
-                wo_assert(sentence_list != nullptr);
+                wo_test(sentence_list);
             }
 
             static ast_sentence_block* fast_parse_sentenceblock(grammar::ast_base* ast)
@@ -993,7 +990,7 @@ namespace wo
             ast_if(ast_value* jdg, ast_base* exe_true, ast_base* exe_else)
                 : judgement_value(jdg), execute_if_true(exe_true), execute_else(exe_else)
             {
-                wo_assert(judgement_value != nullptr && execute_if_true != nullptr);
+                wo_test(judgement_value && execute_if_true);
             }
 
             ast_if() {}
@@ -1830,22 +1827,6 @@ namespace wo
             }
         };
 
-        struct ast_attribute_value : virtual public grammar::ast_base
-        {
-            wo_pstring_t name = nullptr;
-            wo_pstring_t value_may_null = nullptr;
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-
-                // Write self copy functions here..
-                return dumm;
-            }
-        };
-
         struct ast_value_trib_expr : virtual public ast_value
         {
             ast_value* judge_expr;
@@ -1931,7 +1912,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() > pass_idx);
+                wo_test(input.size() > pass_idx);
                 return input[pass_idx];
             }
         };
@@ -1984,19 +1965,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto att = new ast_decl_attribute;
-                if (auto* token = dynamic_cast<ast_token*>(WO_NEED_AST(0)))
-                    att->add_attribute(&lex, token->tokens.type);
-                else
-                {
-                    ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
-
-                    ast_attribute_value* attr = dynamic_cast<ast_attribute_value*>(list->children);
-                    while (attr)
-                    {
-                        att->value_attributs[attr->name] = attr->value_may_null;
-                        attr = dynamic_cast<ast_attribute_value*>(attr->sibling);
-                    }
-                }
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
                 return (ast_basic*)att;
             }
         };
@@ -2138,19 +2107,7 @@ namespace wo
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 auto att = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
-                if (auto* token = dynamic_cast<ast_token*>(WO_NEED_AST(1)))
-                    att->add_attribute(&lex, token->tokens.type);
-                else
-                {
-                    ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(1));
-
-                    ast_attribute_value* attr = dynamic_cast<ast_attribute_value*>(list->children);
-                    while (attr)
-                    {
-                        att->value_attributs[attr->name] = attr->value_may_null;
-                        attr = dynamic_cast<ast_attribute_value*>(attr->sibling);
-                    }
-                }
+                att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(1))->tokens.type);
                 return (ast_basic*)att;
             }
         };
@@ -2159,13 +2116,13 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 token _token = WO_NEED_TOKEN(0);
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                wo_assert(right_v != nullptr);
-                wo_assert(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
+                wo_test(right_v);
+                wo_test(lexer::lex_is_operate_type(_token.type) && (_token.type == +lex_type::l_lnot || _token.type == +lex_type::l_sub));
 
                 ast_value_unary* vbin = new ast_value_unary();
                 vbin->operate = _token.type;
@@ -2186,7 +2143,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                wo_test(input.size() == 3);
                 // [x] = x
 
                 // Check 
@@ -2209,7 +2166,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2 || input.size() == 3);
+                wo_test(input.size() == 2 || input.size() == 3);
 
                 if (input.size() == 2)
                 {
@@ -2274,7 +2231,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 5);
+                wo_test(input.size() == 5);
                 return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
             }
         };
@@ -2283,7 +2240,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 6);
+                wo_test(input.size() == 6);
                 if (ast_empty::is_empty(input[5]))
                     return (grammar::ast_base*)new ast_if(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4), nullptr);
                 else
@@ -2296,7 +2253,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() > pass_idx);
+                wo_test(input.size() > pass_idx);
                 return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(WO_NEED_AST(pass_idx));
             }
         };
@@ -2346,7 +2303,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 auto* result = new ast_value_funccall;
 
@@ -2368,7 +2325,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                wo_test(input.size() == 3);
 
                 auto* result = new ast_directed_values();
                 auto* from = dynamic_cast<ast_value*>(WO_NEED_AST(0));
@@ -2384,7 +2341,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 1);
+                wo_test(input.size() == 1);
                 return (grammar::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
             }
         };
@@ -2398,11 +2355,11 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 4);
+                wo_test(input.size() == 4);
                 ast_varref_defines* result = new ast_varref_defines;
 
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(3));
-                wo_assert(init_val != nullptr);
+                wo_test(init_val);
 
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(0));
                 wo_assert(define_varref);
@@ -2430,11 +2387,11 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 6);
+                wo_test(input.size() == 6);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(0));
 
                 ast_value* init_val = dynamic_cast<ast_value*>(WO_NEED_AST(5));
-                wo_assert(result != nullptr && init_val != nullptr);
+                wo_test(result && init_val);
 
                 auto* define_varref = dynamic_cast<ast_pattern_base*>(WO_NEED_AST(2));
                 wo_assert(define_varref);
@@ -2460,9 +2417,9 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                wo_test(input.size() == 3);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(2));
-                wo_assert(result != nullptr);
+                wo_test(result);
 
                 result->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 wo_assert(result->declear_attribute);
@@ -2474,9 +2431,9 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(1));
-                wo_assert(result != nullptr);
+                wo_test(result);
 
                 result->declear_attribute = new ast_decl_attribute();
 
@@ -2484,11 +2441,29 @@ namespace wo
             }
         };
 
+        /*struct pass_type_decl :public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                wo_test(input.size() == 2);
+
+                token tk = WO_NEED_TOKEN(1);
+
+                if (tk.type == +lex_type::l_identifier)
+                {
+                    return (grammar::ast_base*)new ast_type(tk.identifier);
+                }
+
+                wo_error("Unexcepted token type.");
+                return 0;
+            }
+        };*/
+
         struct pass_type_cast : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2549,7 +2524,7 @@ namespace wo
 
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2569,7 +2544,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 ast_value* value_node;
                 ast_type* type_node;
@@ -2593,11 +2568,11 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 1);
+                wo_test(input.size() == 1);
 
                 token tk = WO_NEED_TOKEN(0);
 
-                wo_assert(tk.type == +lex_type::l_identifier);
+                wo_test(tk.type == +lex_type::l_identifier);
                 return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
         };
@@ -2606,7 +2581,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                wo_test(input.size() == 3);
 
                 token tk = WO_NEED_TOKEN(1);
                 ast_value_variable* result = dynamic_cast<ast_value_variable*>(WO_NEED_AST(2));
@@ -2648,7 +2623,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 if (WO_IS_TOKEN(0))
                 {
@@ -2682,11 +2657,11 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_test(input.size() == 2);
 
                 token tk = WO_NEED_TOKEN(1);
 
-                wo_assert(tk.type == +lex_type::l_identifier);
+                wo_test(tk.type == +lex_type::l_identifier);
 
                 return (grammar::ast_base*)new ast_value_variable(wstring_pool::get_pstr(tk.identifier));
             }
@@ -2697,7 +2672,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(first_node < input.size());
+                wo_test(first_node < input.size());
 
                 ast_list* result = new ast_list();
                 if (ast_empty::is_empty(input[first_node]))
@@ -2715,7 +2690,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() > std::max(from, to_list));
+                wo_test(input.size() > std::max(from, to_list));
 
                 ast_list* list = dynamic_cast<ast_list*>(WO_NEED_AST(to_list));
                 if (list)
@@ -2739,22 +2714,6 @@ namespace wo
                 }
                 wo_error("Unexcepted token type, should be 'ast_list' or inherit from 'ast_list'.");
                 return 0;
-            }
-        };
-
-        struct pass_valued_attrib : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                wo_assert(input.size() == 1 || input.size() == 3);
-                ast_attribute_value* attrib_value = new ast_attribute_value;
-
-                attrib_value->name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
-
-                if (input.size() == 3)
-                    attrib_value->value_may_null = wstring_pool::get_pstr(WO_NEED_TOKEN(2).identifier);
-
-                return (grammar::ast_base*)attrib_value;
             }
         };
 
@@ -2795,14 +2754,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() >= 3);
+                wo_test(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_assert(left_v != nullptr && right_v != nullptr);
+                wo_test(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_assert(lexer::lex_is_operate_type(_token.type));
+                wo_test(lexer::lex_is_operate_type(_token.type));
 
                 // calc type upgrade
 
@@ -2824,14 +2783,14 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() >= 3);
+                wo_test(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_assert(left_v != nullptr && right_v != nullptr);
+                wo_test(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_assert(lexer::lex_is_operate_type(_token.type));
+                wo_test(lexer::lex_is_operate_type(_token.type));
 
                 if (left_v->is_constant)
                     return lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_ASSIGN_TO_CONSTANT);
@@ -2851,14 +2810,14 @@ namespace wo
             {
                 // TODO Do optmize, like pass_binary_op
 
-                wo_assert(input.size() >= 3);
+                wo_test(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                wo_assert(left_v && right_v);
+                wo_test(left_v && right_v);
 
                 token _token = WO_NEED_TOKEN(1);
-                wo_assert(lexer::lex_is_operate_type(_token.type));
+                wo_test(lexer::lex_is_operate_type(_token.type));
 
                 ast_value_logical_binary* vbin = new ast_value_logical_binary();
                 vbin->left = left_v;
@@ -2873,7 +2832,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() >= 3);
+                wo_test(input.size() >= 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 token _token = WO_NEED_TOKEN(1);
@@ -2881,7 +2840,7 @@ namespace wo
                 if (_token.type == +lex_type::l_index_begin)
                 {
                     ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
-                    wo_assert(left_v != nullptr && right_v != nullptr);
+                    wo_test(left_v && right_v);
 
                     if (dynamic_cast<ast_value_packed_variadic_args*>(left_v))
                     {
@@ -2901,7 +2860,7 @@ namespace wo
                 else if (_token.type == +lex_type::l_index_point)
                 {
                     token right_tk = WO_NEED_TOKEN(2);
-                    wo_assert(left_v != nullptr && right_tk.type == +lex_type::l_identifier);
+                    wo_test(left_v && right_tk.type == +lex_type::l_identifier);
 
                     ast_value_literal* const_result = new ast_value_literal(right_tk);
                     const_result->value_type = new ast_type(WO_PSTR(string));
@@ -2928,12 +2887,12 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                wo_test(input.size() == 3);
 
                 ast_type* result = nullptr;
                 auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
 
-                wo_assert(complex_type);
+                wo_test(complex_type);
 
                 result = new ast_type(WO_PSTR(pending));
                 result->set_as_function_type();
@@ -2951,7 +2910,7 @@ namespace wo
                     else
                     {
                         auto* tktype = dynamic_cast<ast_token*>(child);
-                        wo_assert(child->sibling == nullptr && tktype != nullptr && tktype->tokens.type == +lex_type::l_variadic_sign);
+                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
                         //must be last elem..
 
                         result->set_as_variadic_arg_func();
@@ -2970,7 +2929,7 @@ namespace wo
                 ast_type* result = nullptr;
 
                 auto* scoping_type = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
-                wo_assert(scoping_type);
+                wo_test(scoping_type);
                 result = new ast_type(scoping_type->var_name);
                 result->search_from_global_namespace = scoping_type->search_from_global_namespace;
                 result->scope_namespaces = scoping_type->scope_namespaces;
@@ -2987,7 +2946,7 @@ namespace wo
                     ast_list* template_arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(1));
 
                     std::vector<ast_type*> template_args;
-                    wo_assert(template_arg_list != nullptr);
+                    wo_test(template_arg_list);
                     ast_type* type = dynamic_cast<ast_type*>(template_arg_list->children);
                     while (type)
                     {

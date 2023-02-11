@@ -2605,14 +2605,7 @@ namespace wo
 
             analyze_pass2(a_value_funccall->called_func);
             if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
-            {
-                // Woolang 1.10.1: If a function decleared as must use, the return type should not be ignore.
-                wo_pstring_t reason;
-                if (symbase->symbol != nullptr && symbase->symbol->attribute->is_must_use(&reason))
-                    a_value_funccall->must_use_reason = reason == nullptr ? wo::wstring_pool::get_pstr(WO_DEFAULT_MUST_USE_VALUE_REASON) : reason;
-
                 check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
-            }
 
             if (!a_value_funccall->called_func->value_type->is_pending()
                 && a_value_funccall->called_func->value_type->is_func())
@@ -2623,7 +2616,8 @@ namespace wo
                 && a_value_funccall->called_func->value_type->is_pending())
             {
                 auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
-                if (funcsymb != nullptr && funcsymb->auto_adjust_return_type)
+
+                if (funcsymb && funcsymb->auto_adjust_return_type)
                 {
                     // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
                     if (funcsymb->has_return_value)
@@ -2632,6 +2626,7 @@ namespace wo
                     funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     funcsymb->auto_adjust_return_type = false;
                 }
+
             }
 
             bool failed_to_call_cur_func = false;
@@ -6228,21 +6223,6 @@ namespace wo
 
         else if (auto* a_value = dynamic_cast<ast_value*>(ast_node))
         {
-            // Woolang 1.10.1: Expr's type with `mustuse` attrib cannot be an sentence.
-            auto* using_type = a_value->value_type->using_type_name;
-
-            wo_assert(using_type == nullptr || using_type->symbol != nullptr);
-
-            wo_pstring_t must_use_reason;
-            if (using_type != nullptr && using_type->symbol->attribute->is_must_use(&must_use_reason))
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value,
-                    WO_ERR_THIS_TYPE_OF_VALUE_MUST_BE_USE,
-                    a_value->value_type->get_type_name(false, false).c_str(),
-                    must_use_reason == nullptr ? WO_DEFAULT_MUST_USE_TYPE_REASON : must_use_reason->c_str());
-            else if (a_value->must_use_reason!=nullptr)
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value,
-                    WO_ERR_VALUE_MUST_BE_USE, a_value->must_use_reason->c_str());
-
             auto_analyze_value(a_value, compiler);
         }
         else if (auto* a_sentence_block = dynamic_cast<ast_sentence_block*>(ast_node))
