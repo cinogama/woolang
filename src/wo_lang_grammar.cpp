@@ -475,17 +475,30 @@ namespace wo
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_add_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_sub_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_mul_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_div_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
-                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"),gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_mod_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_add_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_sub_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_mul_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_div_assign),gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
+                gm::nt(L"ASSIGNMENT") >> gm::symlist{ gm::nt(L"LEFT"), gm::te(gm::ttype::l_value_mod_assign),gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_assign_op),
 
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"TRI_EXPR") }

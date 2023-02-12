@@ -1912,8 +1912,8 @@ namespace array
             return option::none;
         
         let mut result = self[0];
-        for (let mut i = 1; i < self->len; do i+=1)
-            do result = reducer(result, self[i]);
+        for (let mut i = 1; i < self->len; i+=1)
+            result = reducer(result, self[i]);
 
         return option::value(result);
     }
@@ -1925,8 +1925,8 @@ namespace array
         
         let len = self->len;
         let mut result = self[len-1];
-        for (let mut i = len-2; i >= 0; do i-=1)
-            do result = reducer(self[i], result);
+        for (let mut i = len-2; i >= 0; i-=1)
+            result = reducer(self[i], result);
 
         return option::value(result);
     }
@@ -2063,8 +2063,8 @@ namespace vec
             return option::none;
         
         let mut result = self[0];
-        for (let mut i = 1; i < self->len; do i+=1)
-            do result = reducer(result, self[i]);
+        for (let mut i = 1; i < self->len; i+=1)
+            result = reducer(result, self[i]);
 
         return option::value(result);
     }
@@ -2076,8 +2076,8 @@ namespace vec
         
         let len = self->len;
         let mut result = self[len-1];
-        for (let mut i = len-2; i >= 0; do i-=1)
-            do result = reducer(self[i], result);
+        for (let mut i = len-2; i >= 0; i-=1)
+            result = reducer(self[i], result);
 
         return option::value(result);
     }

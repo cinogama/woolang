@@ -75,7 +75,7 @@ namespace test_template
         let begin_time = std::time();
         let mut i = 0:T;
         while (i < 1_0000_0000:T)
-            do i += 1:T;
+            i += 1:T;
         let end_time = std::time();
 
         std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
@@ -284,7 +284,7 @@ namespace test_template
         do hkt_foo([alarrsp:<int>{memb = true}]) as ()=>alarrsp_struct<string>;
 
         let mins = mtest::create:<string>();
-        do mins.c = 66;
+        mins.c = 66;
         
         test_assure(template_func_symb_inside:<real>() == template_func_symb_inside:<real>());
         test_assure(template_func_symb_inside:<string>() == template_func_symb_inside:<string>());
@@ -293,16 +293,16 @@ namespace test_template
         test_assure(template_func_symb_inside:<string>() == "pi");
 
         let mut xfunc = test_typeof_in_template:<int>;
-        do xfunc = func(){return func(){};};
+        xfunc = func(){return func(){};};
 
         let mut xfunc2 = test_typeof_in_template:<int>();
-        do xfunc2 = func(){};
+        xfunc2 = func(){};
  
         let mut xfunc3 = test_typeof_in_template2:<int>;
-        do xfunc3 = func(){return func(){return 0;};};
+        xfunc3 = func(){return func(){return 0;};};
 
         let mut xfunc4 = test_typeof_in_template2:<int>();
-        do xfunc4 = func(){return 0;};
+        xfunc4 = func(){return 0;};
 
         test_equal(invoke_template(append_str_hello,"world"), "helloworld");
 

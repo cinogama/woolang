@@ -33,7 +33,7 @@ namespace test_debug_invoke
                             std::debug::invoke(variadic_func_call, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d"));
             test_equal(std::print("h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"),
                             std::debug::invoke(std::print, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"));
-            do i += 1;
+            i += 1;
         }
     }
 }

@@ -145,11 +145,14 @@ namespace wo
         analyze_pass1(a_value_assi->left);
         analyze_pass1(a_value_assi->right);
 
-        auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
-        if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
+        if (a_value_assi->is_value_assgin)
         {
-            // If symbol is template variable, delay the type calc.
-            a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+            auto lsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_assi->left);
+            if (lsymb && lsymb->symbol && !lsymb->symbol->is_template_symbol)
+            {
+                // If symbol is template variable, delay the type calc.
+                a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+            }
         }
         return true;
     }
@@ -1342,7 +1345,8 @@ namespace wo
         if (!a_value_assi->left->can_be_assign)
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_assi->left, WO_ERR_CANNOT_ASSIGN_TO_UNASSABLE_ITEM);
 
-        a_value_assi->value_type->set_type(a_value_assi->left->value_type);
+        if (a_value_assi->is_value_assgin)
+            a_value_assi->value_type->set_type(a_value_assi->left->value_type);
         return true;
     }
     WO_PASS2(ast_value_type_cast)
@@ -5044,7 +5048,8 @@ namespace wo
                     beassigned_value_stack_place = _last_stack_offset_to_write;
 
                     // Assign not need for this variable, revert it.
-                    if (a_value_assign->operate == +lex_type::l_assign)
+                    if (a_value_assign->operate == +lex_type::l_assign
+                        || a_value_assign->operate == +lex_type::l_value_assign)
                     {
                         complete_using_register(*beoped_left_opnum_ptr);
                         compiler->revert_code_to(revert_pos);
@@ -5075,6 +5080,7 @@ namespace wo
                     switch (a_value_assign->operate)
                     {
                     case lex_type::l_assign:
+                    case lex_type::l_value_assign:
                         wo_assert(a_value_assign->left->value_type->accept_type(a_value_assign->right->value_type, false));
                         if (beassigned_value_from_stack)
                             compiler->sts(op_right_opnum, imm(_last_stack_offset_to_write));
@@ -5082,6 +5088,7 @@ namespace wo
                             compiler->mov(beoped_left_opnum, op_right_opnum);
                         break;
                     case lex_type::l_add_assign:
+                    case lex_type::l_value_add_assign:
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
@@ -5100,7 +5107,7 @@ namespace wo
                         }
                         break;
                     case lex_type::l_sub_assign:
-
+                    case lex_type::l_value_sub_assign:
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
@@ -5118,6 +5125,7 @@ namespace wo
 
                         break;
                     case lex_type::l_mul_assign:
+                    case lex_type::l_value_mul_assign:
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
@@ -5133,6 +5141,7 @@ namespace wo
 
                         break;
                     case lex_type::l_div_assign:
+                    case lex_type::l_value_div_assign:
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
@@ -5147,6 +5156,7 @@ namespace wo
                         }
                         break;
                     case lex_type::l_mod_assign:
+                    case lex_type::l_value_mod_assign:
                         switch (optype)
                         {
                         case wo::value::valuetype::integer_type:
@@ -5170,7 +5180,8 @@ namespace wo
 
                     if (beassigned_value_from_stack)
                     {
-                        if (a_value_assign->operate == +lex_type::l_assign)
+                        if (a_value_assign->operate == +lex_type::l_assign
+                            || a_value_assign->operate == +lex_type::l_value_assign)
                             _store_value = &op_right_opnum;
                         else
                         {

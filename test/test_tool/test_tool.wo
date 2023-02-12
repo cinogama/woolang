@@ -21,8 +21,8 @@ public func execute_all_test()
     let mut i = 0;
     while (i < test_function_set->len())
     {
-        do test_success_count = 0;
-        do test_failed_count = 0;
+        test_success_count = 0;
+        test_failed_count = 0;
         std::println("Testing:", test_function_set[i].name, "...");
 
         test_function_set[i].function();
@@ -34,7 +34,7 @@ public func execute_all_test()
             std::panic("This test case has been failed...");
         }
 
-        do i += 1;
+        i += 1;
     }
 }
 
@@ -51,10 +51,10 @@ public func test_equal<AT, BT>(a: AT, b: BT)
     let result = _test_compare(a, b);
 
     if(result)
-        do test_success_count += 1;
+        test_success_count += 1;
     else
     {
-        do test_failed_count += 1;
+        test_failed_count += 1;
         std::println("Test fail:", a, " != ", b, ",but it should be equal.");
         std::println(std::debug::callstack(8));
     }
@@ -63,10 +63,10 @@ public func test_equal<AT, BT>(a: AT, b: BT)
 public func test_assure(a: bool)
 {
     if (a)
-        do test_success_count += 1;
+        test_success_count += 1;
     else
     {
-        do test_failed_count += 1;
+        test_failed_count += 1;
         std::println("Test fail:", a, " is not true..");
         std::println(std::debug::callstack(8));
     }

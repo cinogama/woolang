@@ -1039,7 +1039,9 @@ namespace wo
             lex_type operate = +lex_type::l_error;
             ast_value* right = nullptr;
 
-            ast_value_assign() : ast_value(new ast_type(WO_PSTR(pending)))
+            bool is_value_assgin = false;
+
+            ast_value_assign() : ast_value(new ast_type(WO_PSTR(void)))
             {
             }
 
@@ -2778,7 +2780,7 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() >= 3);
+                wo_test(input.size() == 3);
 
                 ast_value* left_v = dynamic_cast<ast_value*>(WO_NEED_AST(0));
                 ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
@@ -2794,6 +2796,19 @@ namespace wo
                 vbin->left = left_v;
                 vbin->operate = _token.type;
                 vbin->right = right_v;
+
+                if (_token.type == +lex_type::l_value_assign
+                    || _token.type == +lex_type::l_value_add_assign
+                    || _token.type == +lex_type::l_value_sub_assign
+                    || _token.type == +lex_type::l_value_mul_assign
+                    || _token.type == +lex_type::l_value_div_assign
+                    || _token.type == +lex_type::l_value_mod_assign)
+                {
+                    vbin->is_value_assgin = true;
+                    vbin->value_type = new ast_type(WO_PSTR(pending));
+                }
+                else
+                    vbin->is_value_assgin = false;
 
                 return (grammar::ast_base*)vbin;
             }

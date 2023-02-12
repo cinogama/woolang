@@ -6,7 +6,7 @@ namespace test_static
     func static_var_in_func()
     {
         static let mut invoke_count = 0;
-        do invoke_count += 1;
+        invoke_count += 1;
         return invoke_count;
     }
     func main()

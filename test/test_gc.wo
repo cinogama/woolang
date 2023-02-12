@@ -81,7 +81,7 @@ namespace test_gc
 
     func main()
     {
-        do global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
+        global_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
         
         do thread::create(\ = test_gchandle_work();, ());
         do thread::create(\ = test_gc_parallel_work(1);, ());

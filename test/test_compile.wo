@@ -126,9 +126,9 @@ func main()
         assure_compile_fail(@"import woo.std; alias List<T> = option<(T, List<T>)>; 
                               let m = option::none: List<string>;"@); // Not crash!
 
-        assure_compile_success(@"let mut a = \x: int = 0;; do a = \n = n;;"@);
-        assure_compile_success(@"let mut a = []: array<mut (int)=>int>; do a[0] = \n = n;;"@);
-        assure_compile_success(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} do a[0] = foo;"@);
+        assure_compile_success(@"let mut a = \x: int = 0;; a = \n = n;;"@);
+        assure_compile_success(@"let mut a = []: array<mut (int)=>int>; a[0] = \n = n;;"@);
+        assure_compile_success(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} a[0] = foo;"@);
 
         assure_compile_success(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i = i: string;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i, x = i: string;};"@);
@@ -207,19 +207,19 @@ func main()
                 return mut 1;
             }
             let p = [xx()];
-            do p[0] = 1;
+            p[0] = 1;
             "@);
         assure_compile_success(@"
             import woo.std;
 
             let a = [1,2,3]->>\n=mut n;;
-            do a[0] = 6;
+            a[0] = 6;
             "@);
         assure_compile_fail(@"
             import woo.std;
 
             let a = [1,2,3]->>\n=n;;
-            do a[0] = 6;
+            a[0] = 6;
             "@);
 
         // unknown type/identifier is invalid
@@ -246,17 +246,17 @@ func main()
         assure_compile_fail(@"
             using st = struct{a: int}; 
             let s = st{a = 1}; 
-            do s.a = 25;
+            s.a = 25;
         "@);
         assure_compile_fail(@"
             using st = struct{mut a: int}; 
             let s = st{a = 1}; 
-            do s.a = 25;
+            s.a = 25;
         "@);
         assure_compile_success(@"
             using st = struct{mut a: int}; 
             let s = st{a = mut 1}; 
-            do s.a = 25;
+            s.a = 25;
         "@);
 
         assure_compile_success(@"
@@ -272,7 +272,7 @@ func main()
             ? result::ok(233.5)
             | result::err("fuck");;
 
-        do opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
+        opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
         "@);
 
         // Cannot index unindexable type or invalid index
@@ -425,12 +425,12 @@ func main()
         assure_compile_fail(@"using a = int; using a = real;"@);
 
         // invalid index of tuple
-        assure_compile_fail(@"let a = (1,2); do a[5] = 6;"@);
-        assure_compile_fail(@"let a = (1,2); do a[-1] = 6;"@);
+        assure_compile_fail(@"let a = (1,2); a[5] = 6;"@);
+        assure_compile_fail(@"let a = (1,2); a[-1] = 6;"@);
 
         // invalid type of tuple
-        assure_compile_fail(@"let a = (1, 3, ["Hello"]); do a[2] = [1];"@);
-        assure_compile_fail(@"let a = (1, 3, ["Hello"]); do a[1] = 1.2;"@);
+        assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[2] = [1];"@);
+        assure_compile_fail(@"let a = (1, 3, ["Hello"]); a[1] = 1.2;"@);
 
         // invalid match for tuple
         assure_compile_fail(@"let (a, b) = (1,);"@);
@@ -579,7 +579,7 @@ func main()
         assure_compile_fail(@"match(1){value((a,))?;none?;}"@);
     
         assure_compile_fail(@"import woo.std; let a = []: array<int>; a->add(0);"@);
-        assure_compile_fail(@"let i = 0; do i += 5;"@);
+        assure_compile_fail(@"let i = 0; i += 5;"@);
         assure_compile_fail(@"func foo(x:vec<int>){} let v = []:array<int>; foo(v);"@);
 
         // constexpr if
@@ -674,19 +674,19 @@ func main()
         // array/dict is not modifiable
         assure_compile_fail(@"
             let a = [1,2,3];
-            do a[0] = 6;
+            a[0] = 6;
         "@);
         assure_compile_fail(@"
             let a = {[0] = 1};
-            do a[0] = 6;
+            a[0] = 6;
         "@);
         // vec/map can be modified;
         assure_compile_success(@"
             let a = [mut 1, mut 2,mut 3];
             let b = {[0] = mut 1};
             
-            do a[0] = 6;
-            do b[0] = 6;
+            a[0] = 6;
+            b[0] = 6;
         "@);
 
         // Conflict gadt type is not allowed
@@ -765,7 +765,7 @@ func main()
     func main()
     {
         let test_threads = []mut: vec<thread>;
-        for (let mut i = 0 ; i < 4; do i += 1)
+        for (let mut i = 0 ; i < 4; i += 1)
             test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();
@@ -777,7 +777,7 @@ func main()
         let begin_tm = std::time();
         std::println("Compile 1000 vm!");
 
-        for (let mut i=0; i<1000; do i += 1)
+        for (let mut i=0; i<1000; i += 1)
         {
             assure_compile_success(@"
                 import woo.std;
