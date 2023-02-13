@@ -90,12 +90,41 @@ namespace test_container
                 ;
             ;
     }
+    func test_array_construct()
+    {
+        let v = []mut : vec<int>;
+        let f = func(n: int){v->add(n); return n;};
+
+        let a = [f(1), f(2), f(3), f(4)];
+
+        test_assure(a->len == v->len);
+        for (let idx, val : v)
+        {
+            test_assure(a[idx] == val);
+        }
+    }
+    func test_map_construct()
+    {
+        let v = []mut : vec<int>;
+        let f = func(n: int){v->add(n); return n;};
+
+        let a = [1, 2, 3, 4];
+        let m = {[1] = f(1), [2] = f(2), [3] = f(3), [4] = f(4),};
+
+        test_assure(a->len == v->len);
+        for (let idx, val : v)
+        {
+            test_assure(a[idx] == val);
+        }
+    }
     func main()
     {
         output_9x9();
         test_array_swap_copy();
         test_map_swap_copy();
         test_reduce();
+        test_array_construct();
+        test_map_construct();
 
         test_assure("{}"->todict->val->len == 0);
         test_assure(!@"{"\invalid"}"@->todict->has);
