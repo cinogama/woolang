@@ -2253,7 +2253,7 @@ namespace map
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: map<KT, VT>, index: int)=> void;
+        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> void;
 
     extern("rslib_std_map_clear")
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
