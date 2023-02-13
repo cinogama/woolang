@@ -5695,23 +5695,21 @@ namespace wo
             else if (auto* a_value_array = dynamic_cast<ast_value_array*>(value))
             {
                 auto* _arr_item = a_value_array->array_items->children;
-                std::vector<ast_value*> arr_list;
+                uint16_t arr_item_count = 0;
+
                 while (_arr_item)
                 {
                     auto* arr_val = dynamic_cast<ast_value*>(_arr_item);
                     wo_test(arr_val);
 
-                    arr_list.insert(arr_list.begin(), arr_val);
+                    compiler->psh(complete_using_register(analyze_value(arr_val, compiler)));
+                    ++arr_item_count;
 
                     _arr_item = _arr_item->sibling;
                 }
 
-                for (auto* in_arr_val : arr_list)
-                    compiler->psh(complete_using_register(analyze_value(in_arr_val, compiler)));
-
                 auto& treg = get_useable_register_for_pure_value();
-                wo_assert(arr_list.size() <= UINT16_MAX);
-                compiler->mkarr(treg, (uint16_t)arr_list.size());
+                compiler->mkarr(treg, arr_item_count);
                 return treg;
 
             }
@@ -7263,6 +7261,14 @@ namespace wo
                     // Only anonymous can capture variablel;
                     lang_anylizer->lang_error(lexer::errorlevel::error, var_ident, WO_ERR_CANNOT_CAPTURE_IN_NAMED_FUNC,
                         result->name->c_str());
+
+                if (result->decl == identifier_decl::IMMUTABLE)
+                {
+                    result->variable_value->update_constant_value(lang_anylizer);
+                    if (result->variable_value->is_constant)
+                        // Woolang 1.10.4: Constant variable not need to capture.
+                        return result;
+                }
 
                 auto* current_func_defined_in_function = current_function->parent_scope;
                 while (current_func_defined_in_function->parent_scope &&

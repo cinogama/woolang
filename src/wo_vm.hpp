@@ -1139,7 +1139,7 @@ namespace wo
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 auto* arr_val = ++rt_sp;
-                (*created_array)[i].set_val(arr_val);
+                (*created_array)[size - i - 1].set_val(arr_val);
             }
             return rt_sp;
         }
