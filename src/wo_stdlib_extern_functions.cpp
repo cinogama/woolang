@@ -2145,6 +2145,14 @@ namespace dict
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
+    public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
+    {
+        let newmap = self->tomap;
+        newmap->remove(index);
+
+        return newmap->unsafe::cast:<dict<KT, VT>>;
+    }
+
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
