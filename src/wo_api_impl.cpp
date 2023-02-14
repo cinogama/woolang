@@ -32,7 +32,7 @@
 #endif
 
 constexpr wo_integer_t version = WO_VERSION(1, 10, 4, 1);
-constexpr char         version_str[] = WO_VERSION_STR(1, 10, 4, patch-1) WO_DEBUG_SFX;
+constexpr char         version_str[] = WO_VERSION_STR(1, 10, 4, 1) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
