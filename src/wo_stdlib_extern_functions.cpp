@@ -2632,6 +2632,14 @@ namespace std
         l_mul_assign,           // *=
         l_div_assign,           // /= 
         l_mod_assign,           // %= 
+
+        l_value_assign,               // :=
+        l_value_add_assign,           // :+=
+        l_value_sub_assign,           // :-= 
+        l_value_mul_assign,           // :*=
+        l_value_div_assign,           // :/= 
+        l_value_mod_assign,           // :%= 
+
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
