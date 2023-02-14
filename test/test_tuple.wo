@@ -8,8 +8,26 @@ namespace test_tuple
         b: real,
     };
 
+    func test_construct_tuple()
+    {
+        let v = []mut: vec<int>;
+        let foo = func(n: int){v->add(n); return n;};
+
+        let t = (foo(1), foo(2), foo(3));
+
+        test_equal(v[0], 1);
+        test_equal(v[1], 2);
+        test_equal(v[2], 3);
+
+        test_equal(t[0], 1);
+        test_equal(t[1], 2);
+        test_equal(t[2], 3);
+    }
+
     func main()
     {
+        test_construct_tuple();
+
         let x = (1, 2.2, "Helloworld");
         let s = st1 { a = x[2] as string, b = x[1] as real };
         let w = (s, 1, 2);

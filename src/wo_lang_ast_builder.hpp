@@ -121,13 +121,13 @@ namespace wo
                 std::vector<size_t> union_used_template_index;
             };
 
-            using struct_member_infos_t = std::map<wo_pstring_t, struct_offset>;
+            using struct_member_infos_t = std::unordered_map<wo_pstring_t, struct_offset>;
             struct_member_infos_t struct_member_index;
 
             ast_type* using_type_name = nullptr;
             ast_value* typefrom = nullptr;
 
-            inline static const std::map<wo_pstring_t, value::valuetype> name_type_pair =
+            inline static const std::unordered_map<wo_pstring_t, value::valuetype> name_type_pair =
             {
                 {WO_PSTR(int), value::valuetype::integer_type},
                 {WO_PSTR(handle), value::valuetype::handle_type},

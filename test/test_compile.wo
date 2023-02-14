@@ -242,6 +242,24 @@ func main()
             let b = s[i];
         "@);
 
+        assure_compile_success(@"
+            import woo.std;
+            using List<T> = struct{
+                e: T,
+                next: option<List<T>>,
+            };
+            let a = List:<string>{e = "Hello", next = option::none};
+        "@);
+
+        assure_compile_success(@"
+            import woo.std;
+            using List<T> = struct{
+                e: T,
+                next: option<List<T>>,
+            };
+            let a = List{e = "Hello", next = option::none};
+        "@);
+        
         // immutable member cannot be assign
         assure_compile_fail(@"
             using st = struct{a: int}; 
