@@ -3469,8 +3469,8 @@ namespace wo
                         else
                         {
                             if (type->has_template())
-                                using_template = type_sym->define_node
-                                ?
+                                using_template =
+                                type_sym->define_node != nullptr ?
                                 begin_template_scope(type, type_sym->define_node, type->template_arguments)
                                 : (type_sym->type_informatiom->using_type_name
                                     ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
@@ -3490,8 +3490,13 @@ namespace wo
                                     symboled_type->set_type(template_instance_type);
                                 }
                                 else
+                                {
                                     // Failed to instance current template type, skip.
+                                    if (using_template)
+                                        end_template_scope();
+
                                     return false;
+                                }
                             }
                             else
                                 *symboled_type = *type_sym->type_informatiom;
@@ -5941,7 +5946,7 @@ namespace wo
                     memb_values[membpair->member_offset] = membpair->member_value_pair;
                 }
 
-                for (auto index = memb_values.rbegin(); index != memb_values.rend(); ++index)
+                for (auto index = memb_values.begin(); index != memb_values.end(); ++index)
                 {
                     compiler->psh(complete_using_register(analyze_value(index->second, compiler)));
                 }
@@ -5954,20 +5959,21 @@ namespace wo
             else if (ast_value_make_tuple_instance* a_value_make_tuple_instance = dynamic_cast<ast_value_make_tuple_instance*>(value))
             {
                 auto* tuple_elems = a_value_make_tuple_instance->tuple_member_vals->children;
-                std::vector<ast_value*> arr_list;
+
+                uint16_t tuple_count = 0;
                 while (tuple_elems)
                 {
                     ast_value* val = dynamic_cast<ast_value*>(tuple_elems);
                     wo_assert(val);
-                    arr_list.insert(arr_list.begin(), val);
+
+                    ++tuple_count;
+                    compiler->psh(complete_using_register(analyze_value(val, compiler)));
 
                     tuple_elems = tuple_elems->sibling;
                 }
-                for (auto val : arr_list)
-                    compiler->psh(complete_using_register(analyze_value(val, compiler)));
 
                 auto& result = get_useable_register_for_pure_value();
-                compiler->mkstruct(result, (uint16_t)arr_list.size());
+                compiler->mkstruct(result, tuple_count);
 
                 return result;
             }

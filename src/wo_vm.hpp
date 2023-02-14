@@ -141,7 +141,7 @@ namespace wo
         {
             wo_assert(env != nullptr);
 #ifndef NDEBUG
-            size_t old_count = 
+            size_t old_count =
 #endif
                 env->_created_destructable_instance_count.fetch_add(1, std::memory_order::memory_order_relaxed);
             wo_assert(old_count >= 0);
@@ -152,7 +152,7 @@ namespace wo
 #ifndef NDEBUG
             size_t old_count =
 #endif
-            env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
+                env->_created_destructable_instance_count.fetch_sub(1, std::memory_order::memory_order_relaxed);
             wo_assert(old_count > 0);
         }
 
@@ -299,19 +299,19 @@ namespace wo
                     if (excepted == INVALID_VM_PTR)
                         goto retry_to_fetch_gcvm;
                     return excepted;
-        }
-    } while (!exchange_result);
+                }
+            } while (!exchange_result);
 
-    wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
-    // Create a new VM using for GC destruct
-    auto* created_subvm_for_gc = make_machine(1024);
-    // gc_thread will be destructed by gc_work..
-    created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
+            wo_assert(vmbase_atomic->load() == INVALID_VM_PTR);
+            // Create a new VM using for GC destruct
+            auto* created_subvm_for_gc = make_machine(1024);
+            // gc_thread will be destructed by gc_work..
+            created_subvm_for_gc->virtual_machine_type = vm_type::GC_DESTRUCTOR;
 
-    vmbase_atomic->store(created_subvm_for_gc);
-    return created_subvm_for_gc;
+            vmbase_atomic->store(created_subvm_for_gc);
+            return created_subvm_for_gc;
 #endif
-}
+        }
 
         virtual ~vmbase()
         {
@@ -1165,7 +1165,7 @@ namespace wo
             gcbase::gc_write_guard gwg1(new_struct);
 
             for (size_t i = 0; i < size; i++)
-                new_struct->m_values[i].set_val(rt_sp + 1 + i);
+                new_struct->m_values[size - i - 1].set_val(rt_sp + 1 + i);
 
             return rt_sp + size;
         }
