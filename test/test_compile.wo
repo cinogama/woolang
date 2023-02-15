@@ -69,6 +69,80 @@ namespace test_compile
             let c = b: nothing;
         "@);
 
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a: string;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a: int;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a: real;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a as string;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a as int;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a as real;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a is string;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a is int;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a is real;
+        "@);
+
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a: nothing;
+        "@);
+        assure_compile_success(@"
+            let a = nil: dynamic;
+            let b = a: void;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a: bool;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a as nothing;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a as void;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a as bool;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a is nothing;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a is void;
+        "@);
+        assure_compile_fail(@"
+            let a = nil: dynamic;
+            let b = a is bool;
+        "@);
+
         assure_compile_fail(@"
 let valof<T> = func()=>T{}();
 
@@ -285,12 +359,12 @@ func main()
             ok(T), err(F)
         }
 
-        let mut opt = \x: anything = 
+        let mut opt = \x: void = 
             dd == 1
             ? result::ok(233.5)
             | result::err("fuck");;
 
-        opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
+        opt = \x: void = result::ok(3.14); as (void)=>result<real, string>;
         "@);
 
         // Cannot index unindexable type or invalid index
@@ -317,25 +391,29 @@ func main()
             let a = 1; let b = (a == 1) as string;
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(x: int){});
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(x: int){}, ());
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(x: int){}, (1, 2, 3));
         "@);
         assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
             foo(func(){}, ());
         "@);
+        assure_compile_fail(@"
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is void;{}
+            foo(func(){return nil;}, ());
+        "@);
         assure_compile_success(@"
-            import  woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            import woo.std;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = (std::declval:<A>()) is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -344,11 +422,11 @@ func main()
             {
             }
 
-            foo(func(x: int){return x*2;}, 2333);
+            foo(func(x: int){}, 2333);
         "@);
         assure_compile_fail(@"
             import woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -361,7 +439,7 @@ func main()
         "@);
         assure_compile_fail(@"
             import woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -387,17 +465,17 @@ func main()
         assure_compile_success(@"
             import woo.std;
             let a = option::value(2);
-            do a->reduce() as option<int>;
+            do a as option<int>;
         "@);
         assure_compile_success(@"
             import woo.std;
             let a = option::value(option::value(option::value(2)));
-            do a->reduce() as option<int>;
+            do a=>>\elem = elem;=>>\elem = elem; as option<int>;
         "@);
         assure_compile_fail(@"
             import woo.std;
             let a = option::value(option::value(option::value(2)));
-            do a->reduce() as option<option<int>>;
+            do a=>>\elem = elem;=>>\elem = elem; as option<option<int>>;
         "@);
 
         // Logic op only accept bool
@@ -416,10 +494,10 @@ func main()
         assure_compile_fail(@"union x{a,b}; let r = x::a == x::b;"@);
         assure_compile_success(@"do [1,2,3] as array<int>;"@);
         assure_compile_success(@"do [1,2,3] is array<int>;"@);
-        assure_compile_success(@"do [3,2,1] as array<void>;"@);
+        assure_compile_fail(@"do [3,2,1] as array<void>;"@);
         assure_compile_success(@"do [1,2,3] is array<void>;"@);
         assure_compile_fail(@"do [3,2,1] as array<nothing>;"@);
-        test_assure([1,2,3] is array<anything>);
+        test_assure([1,2,3] is array<void> == false);
         test_assure(!([1,2,3] is array<nothing>));
 
         // if/while/for only accept bool
@@ -611,14 +689,14 @@ func main()
         // Type judge
         assure_compile_success(@"
             func foo(){}
-            let mut a = 0; let b = a == 1 ? foo() | 1; do b as void;"@);
+            let mut a = 0; let b = a == 1 ? foo() | 1: void; do b as void;"@);
         assure_compile_success(@"
             func foo(){}
-            let mut a = 0; let b = a == 1 ? foo() | 1; do b as void;"@);
+            let mut a = 0; let b = a == 1 ? foo() | 1: void; do b as void;"@);
         assure_compile_success(@"
             func foo(){}
-            let mut a = 0; let b = a == 1 ? foo() | func(){return func(){};}; do b as void;"@);
-        assure_compile_success(@"
+            let mut a = 0; let b = a == 1 ? foo() | func(){return func(){};}: void; do b as void;"@);
+        assure_compile_fail(@"
             import woo.std;
             func foo(){}
             using sp_t = string;
@@ -626,6 +704,15 @@ func main()
                 option::value(0)
                     ->map(\n:int=foo();)
                     ->or(\="":sp_t;);
+            "@);
+            assure_compile_success(@"
+            import woo.std;
+            func foo(){}
+
+            let v = 
+                option::value(0)
+                    ->map(\n:int=foo();)
+                    ->or(\=do "";);
             "@);
         assure_compile_fail(@"
             import woo.std;
@@ -637,10 +724,15 @@ func main()
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((int)=>nothing)=>int>());
             "@);
-        assure_compile_success(@"
+        assure_compile_fail(@"
             import woo.std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((void)=>string)=>int>());
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+            func foo(f: ((int)=>string)=>int) {}
+            foo(std::declval:<((int)=>string)=>int>());
             "@);
         assure_compile_fail(@"
             import woo.std;
@@ -663,8 +755,6 @@ func main()
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
 
             foo(std::declval:<nothing>());
-            foo(std::declval:<(void)=>int>());
-            foo(std::declval:<((void)=>void)=>int>());
             foo2(std::declval:<nothing>());
             foo2(std::declval:<((int)=>string)=>(real, string)=>(real,)>());
             foo2(std::declval:<((int)=>string)=>(real, string)=>nothing>());
@@ -681,12 +771,7 @@ func main()
 
             let mut a = true;
             assert_type:<typeof(a ? std::declval:<void>() | std::declval:<nothing>()), void>();
-            assert_type:<typeof(a ? std::declval:<()=>int>() | std::declval:<()=>void>()), ()=>void>();
-            assert_type:<typeof(a ? std::declval:<()=>array<int>>() | std::declval:<()=>void>()), ()=>void>();
-            assert_type:<typeof(a ? std::declval:<()=>(array<real>)=>array<int>>() | std::declval:<()=>(array<nothing>)=>void>()), ()=>(array<nothing>)=>void>();     // ERROR RESULT TODO;
             assert_type:<typeof(a ? std::declval:<()=>array<real>>() | std::declval:<()=>array<nothing>>()), ()=>array<real>>();
-            assert_type:<typeof(a ? std::declval:<(int)=>void>() | std::declval:<(nothing)=>int>()), (nothing)=>void>();
-            assert_type:<typeof(a ? std::declval:<(array<real>)=>void>() | std::declval:<(array<nothing>)=>int>()), (array<nothing>)=>void>();
             "@);
 
         // array/dict is not modifiable

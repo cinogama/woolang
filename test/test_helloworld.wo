@@ -83,7 +83,7 @@ namespace test_helloworld
     {
         using std;
 
-        func foo(_: anything)
+        func foo(_)
         {
             return 0;
         }

@@ -1558,7 +1558,7 @@ namespace wo
                             WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'gchandle'.").c_str());
                             break;
                         default:
-                            wo_error("Unknown type.");
+                            WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Unknown type.");
                         }
 
                     break;

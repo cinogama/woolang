@@ -1346,7 +1346,7 @@ public let true = 1: bool, false = 0: bool;
 namespace unsafe
 {
     extern("rslib_std_return_itself") 
-        public func cast<T>(val: anything)=> T;
+        public func cast<T, FromT>(val: FromT)=> T;
     
     extern("rslib_std_get_extern_symb")
         public func extsymbol<T>(fullname:string)=> option<T>;
@@ -1396,17 +1396,6 @@ public union option<T>
 }
 namespace option
 {
-    public func reduce<T>(self: option<T>)
-    {
-        if (self->val() is option<anything>)
-            match(self)
-            {
-            value(u)? return u->reduce();
-            none? return none;
-            }
-        else
-            return self;
-    }
     public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)=> option<R>
     {
         match(self)

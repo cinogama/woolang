@@ -65,42 +65,35 @@ namespace wo
         bool ast_type::check_castable(ast_type* to, ast_type* from)
         {
             // MUST BE FORCE CAST HERE!
-
-            if (to->is_pending())
+            if (from->is_pending() || to->is_pending())
                 return false;
 
             if (from->is_mutable() != to->is_mutable())
                 return false;
 
-            if (to->is_bool())
+            if (to->is_dynamic())
                 return true;
 
-            if (to->is_dynamic())
+            // Any type can cast to void;
+            if (to->is_void())
                 return true;
 
             if (from->is_dynamic())
             {
                 // Not allowed cast template type from dynamic
                 // In fact, cast func from dynamic is dangerous too...
-                if (to->is_complex_type())
+                if (to->is_complex_type()
+                    || to->is_nothing())
                     return false;
                 return true;
             }
 
-            if (to->accept_type(from, false))
+            // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
+            if (to->accept_type(from, true, false))
                 return true;
 
-            // Forbid 'nil' cast to any other value
-            if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
-                return false;
-
-            if (to->accept_type(from, true))
-                return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
-
-            if (from->is_func() || to->is_func())
-                return false;
-
-            if (to->value_type == value::valuetype::string_type)
+            if (to->value_type == value::valuetype::string_type
+                && to->using_type_name == nullptr)
                 return true;
 
             if (to->value_type == value::valuetype::integer_type
@@ -112,7 +105,10 @@ namespace wo
                     || from->value_type == value::valuetype::real_type
                     || from->value_type == value::valuetype::handle_type
                     || from->value_type == value::valuetype::string_type)
-                    return true;
+                {
+                    return to->using_type_name == nullptr
+                        && from->using_type_name == nullptr;
+                }
             }
             return false;
         }
@@ -164,7 +160,7 @@ namespace wo
         }
         void ast_type::set_ret_type(const ast_type* _type)
         {
-            wo_test(is_func());
+            wo_assert(is_func());
 
             type_name = WO_PSTR(complex);
 
@@ -237,7 +233,7 @@ namespace wo
         }
         bool ast_type::is_pure_pending() const
         {
-            return !is_func() && type_name == WO_PSTR(pending) && typefrom == nullptr;
+            return type_name == WO_PSTR(pending) && typefrom == nullptr;
         }
         bool ast_type::is_pending(std::unordered_set<const ast_type*>& s) const
         {
@@ -324,11 +320,11 @@ namespace wo
         }
         bool ast_type::is_void() const
         {
-            return type_name == WO_PSTR(void) && !is_func();
+            return type_name == WO_PSTR(void);
         }
         bool ast_type::is_nil() const
         {
-            return type_name == WO_PSTR(nil) && !is_func();
+            return type_name == WO_PSTR(nil);
         }
         bool ast_type::is_gc_type() const
         {
@@ -417,107 +413,7 @@ namespace wo
                 return false;
             return true;
         }
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable , bool flipped) const
-        {
-            if (is_pending_function() || another->is_pending_function())
-                return false;
 
-            if (is_pending() || another->is_pending())
-                return false;
-
-            // Might HKT: HKT << HKT?
-            if (is_hkt_typing() && another->is_hkt_typing())
-            {
-                // TODO: array/vec/dict/map support?
-                if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
-                    return true;
-                return false;
-            }
-
-            if (another->is_nothing())
-                return true; // top type, OK
-            if (is_void())
-                return true; // button type, OK
-
-            if (!ignore_mutable && is_mutable() != another->is_mutable())
-                return false;
-
-            if (is_func())
-            {
-                if (!another->is_func())
-                    return false;
-
-                if (argument_types.size() != another->argument_types.size())
-                    return false;
-                for (size_t index = 0; index < argument_types.size(); index++)
-                {
-                    // NOTE: Argument accept will inverse,
-                    // void accept anyother type,
-                    // but (void)=>x cannot accept (int)=> x
-                    // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
-                    if (flipped)
-                    {
-                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
-                            return false;
-                    }
-                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
-                        return false;
-                }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
-            }
-            else if (another->is_func())
-                return false;
-
-            if (is_complex() && another->is_complex())
-            {
-                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
-                    return false;
-            }
-            else
-            {
-                if (type_name == WO_PSTR(void) || another->type_name == WO_PSTR(nothing))
-                    return true;
-                else
-                {
-                    if (!is_complex() && !another->is_complex())
-                    {
-                        if (type_name != another->type_name)
-                            return false;
-                    }
-                    else
-                        return false;
-                }
-            }
-
-            if (!ignore_using_type && (using_type_name || another->using_type_name))
-            {
-                if (!using_type_name || !another->using_type_name)
-                    return false;
-
-                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
-                    return false;
-
-                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
-                    return false;
-
-                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
-                        return false;
-            }
-            if (has_template())
-            {
-                if (template_arguments.size() != another->template_arguments.size())
-                    return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
-                        return false;
-                }
-            }
-
-            return true;
-        }
         bool ast_type::set_mix_types(ast_type* another, bool ignore_mutable, bool flip, bool flip_write)
         {
             if (is_pending() || another->is_pending())
@@ -555,22 +451,6 @@ namespace wo
             if (is_pending() || another->is_pending())
                 return false;
 
-            if (is_void())
-            {
-                if (flip)
-                    result->set_type(another);
-                else
-                    result->set_type_with_name(WO_PSTR(void));
-                return true;
-            }
-            if (another->is_void())
-            {
-                if (flip)
-                    result->set_type(this);
-                else
-                    result->set_type_with_name(WO_PSTR(void));
-                return true;
-            }
             if (another->is_nothing())
             {
                 if (flip)
@@ -691,37 +571,31 @@ namespace wo
         }
         bool ast_type::is_bool() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(bool) || (using_type_name && using_type_name->type_name == WO_PSTR(bool)));
+            return type_name == WO_PSTR(bool) || (using_type_name && using_type_name->type_name == WO_PSTR(bool));
         }
         bool ast_type::is_char() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(char) || (using_type_name && using_type_name->type_name == WO_PSTR(char)));
+            return type_name == WO_PSTR(char) || (using_type_name && using_type_name->type_name == WO_PSTR(char));
         }
         bool ast_type::is_builtin_using_type() const
         {
-            return is_bool() || is_char() || type_name == WO_PSTR(anything);
+            return is_bool() || is_char();
         }
         bool ast_type::is_union() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(union));
+            return type_name == WO_PSTR(union);
         }
         bool ast_type::is_tuple() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(tuple));
+            return type_name == WO_PSTR(tuple);
         }
         bool ast_type::is_nothing() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(nothing));
+            return type_name == WO_PSTR(nothing);
         }
         bool ast_type::is_struct() const
         {
-            return !is_func() &&
-                (type_name == WO_PSTR(struct));
+            return type_name == WO_PSTR(struct);
         }
         bool ast_type::has_template() const
         {
@@ -733,7 +607,7 @@ namespace wo
         }
         bool ast_type::is_string() const
         {
-            return value_type == value::valuetype::string_type && !is_func();
+            return value_type == value::valuetype::string_type;
         }
         bool ast_type::is_waiting_create_template_for_auto() const
         {
@@ -757,39 +631,39 @@ namespace wo
         }
         bool ast_type::is_array() const
         {
-            return value_type == value::valuetype::array_type && !is_func() &&
+            return value_type == value::valuetype::array_type &&
                 (type_name == WO_PSTR(array) || (using_type_name && using_type_name->type_name == WO_PSTR(array)));
         }
         bool ast_type::is_dict() const
         {
-            return value_type == value::valuetype::dict_type && !is_func() &&
+            return value_type == value::valuetype::dict_type &&
                 (type_name == WO_PSTR(dict) || (using_type_name && using_type_name->type_name == WO_PSTR(dict)));
         }
         bool ast_type::is_vec() const
         {
-            return value_type == value::valuetype::array_type && !is_func() &&
+            return value_type == value::valuetype::array_type &&
                 (type_name == WO_PSTR(vec) || (using_type_name && using_type_name->type_name == WO_PSTR(vec)));
         }
         bool ast_type::is_map() const
         {
-            return value_type == value::valuetype::dict_type && !is_func() &&
+            return value_type == value::valuetype::dict_type &&
                 (type_name == WO_PSTR(map) || (using_type_name && using_type_name->type_name == WO_PSTR(map)));
         }
         bool ast_type::is_integer() const
         {
-            return value_type == value::valuetype::integer_type && !is_func();
+            return value_type == value::valuetype::integer_type;
         }
         bool ast_type::is_real() const
         {
-            return value_type == value::valuetype::real_type && !is_func();
+            return value_type == value::valuetype::real_type;
         }
         bool ast_type::is_handle() const
         {
-            return value_type == value::valuetype::handle_type && !is_func();
+            return value_type == value::valuetype::handle_type;
         }
         bool ast_type::is_gchandle() const
         {
-            return value_type == value::valuetype::gchandle_type && !is_func();
+            return value_type == value::valuetype::gchandle_type;
         }
         void ast_type::set_is_mutable(bool is_mutable)
         {
@@ -1073,9 +947,15 @@ namespace wo
                     // just cast the value!
                     value last_value = _be_cast_value_node->get_constant_value();
 
-                    if (value_type->is_bool())
+                    if (value_type->is_bool()
+                        && _be_cast_value_node->value_type->is_integer()
+                        && (_be_cast_value_node->value_type->using_type_name == nullptr
+                            || _be_cast_value_node->value_type->is_bool()))
+                    {
                         // Set bool (1 or 0)
                         constant_value.set_integer(last_value.integer ? 1 : 0);
+                        is_constant = true;
+                    }
                     else
                     {
                         value::valuetype aim_real_type = value_type->value_type;
@@ -1156,7 +1036,7 @@ namespace wo
             _be_cast_value_node = value;
             value_type = type;
         }
-        ast_value_type_judge::ast_value_type_judge() :ast_value(new ast_type(WO_PSTR(pending))) {}
+        ast_value_type_judge::ast_value_type_judge() : ast_value(new ast_type(WO_PSTR(pending))) {}
         grammar::ast_base* ast_value_type_judge::instance(ast_base* child_instance) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1169,7 +1049,7 @@ namespace wo
 
             return dumm;
         }
- 
+
         void ast_value_type_judge::update_constant_value(lexer* lex)
         {
             // do nothing
@@ -1249,7 +1129,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-        
+
         ast_value_binary::ast_value_binary()
             : ast_value(new ast_type(WO_PSTR(pending)))
         {
@@ -1402,7 +1282,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-        
+
         std::any pass_import_files::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             wo_test(input.size() == 3);
@@ -1603,7 +1483,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-        
+
         void pass_union_define::find_used_template(
             ast_type* type_decl,
             const std::vector<wo_pstring_t>& template_defines,
@@ -2207,7 +2087,7 @@ namespace wo
         }
 
         //////////////////////////////////////////
-        
+
         ast_value_logical_binary::ast_value_logical_binary() : ast_value(new ast_type(WO_PSTR(bool)))
         {
         }

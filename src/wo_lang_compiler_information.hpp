@@ -113,7 +113,7 @@
 
 #define WO_ERR_CANNOT_AS_TYPE L"类型 '%ls' 与要求的类型 '%ls' 不相同"
 
-#define WO_ERR_CANNOT_TEST_COMPLEX_TYPE L"不允许在运行时检查复杂类型"
+#define WO_ERR_CANNOT_TEST_COMPLEX_TYPE L"类型 '%ls' 无法在运行时验证"
 
 #define WO_ERR_CANNOT_AS_DYNAMIC L"此处出现的 'dynamic' 是无效的"
 
@@ -371,7 +371,7 @@
 
 #define WO_ERR_CANNOT_AS_TYPE L"The type '%ls' is not the same as the requested type '%ls'."
 
-#define WO_ERR_CANNOT_TEST_COMPLEX_TYPE L"Cannot testing complex types at runtime."
+#define WO_ERR_CANNOT_TEST_COMPLEX_TYPE L"Cannot validate type '%ls' at runtime."
 
 #define WO_ERR_CANNOT_AS_DYNAMIC L"'dynamic' here is useless."
 
