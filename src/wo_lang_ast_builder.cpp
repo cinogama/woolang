@@ -82,7 +82,8 @@ namespace wo
             {
                 // Not allowed cast template type from dynamic
                 // In fact, cast func from dynamic is dangerous too...
-                if (to->is_complex_type())
+                if (to->is_complex_type()
+                    || to->is_nothing())
                     return false;
                 return true;
             }

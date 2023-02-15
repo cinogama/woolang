@@ -2823,9 +2823,6 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
-            if (is_pending() || another->is_pending())
-                return false;
-
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
@@ -2867,6 +2864,9 @@ namespace wo
                 }
                 return false;
             }
+
+            if (is_pending() || another->is_pending())
+                return false;
 
             if (is_func())
             {
@@ -2925,14 +2925,8 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
-            if (is_pending() || another->is_pending())
-                return false;
-
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
-
-            if (another->is_nothing())
-                return true; // Buttom type, OK
 
             if (is_hkt() && another->is_hkt())
             {
@@ -2972,6 +2966,12 @@ namespace wo
                 }
                 return false;
             }
+
+            if (is_pending() || another->is_pending())
+                return false;
+
+            if (another->is_nothing())
+                return true; // Buttom type, OK
 
             if (is_func())
             {
@@ -5391,6 +5391,7 @@ namespace wo
                 }
 
                 if (a_value_type_cast->value_type->is_dynamic()
+                    || a_value_type_cast->value_type->is_void()
                     || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
                     || a_value_type_cast->value_type->is_func())
                     // no cast, just as origin value
@@ -5411,8 +5412,11 @@ namespace wo
                     return result;
                 else if (a_value_type_judge->_be_cast_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_judge->value_type->is_complex_type())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
+                    if (a_value_type_judge->value_type->is_complex_type()
+                        || a_value_type_judge->value_type->is_void()
+                        || a_value_type_judge->value_type->is_nothing())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge, 
+                            WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_judge->value_type->get_type_name(false).c_str());
 
                     if (!a_value_type_judge->value_type->is_dynamic())
                     {
@@ -5435,8 +5439,11 @@ namespace wo
                     return WO_NEW_OPNUM(imm(1));
                 if (a_value_type_check->_be_check_value_node->value_type->is_dynamic())
                 {
-                    if (a_value_type_check->aim_type->is_complex_type())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_CANNOT_TEST_COMPLEX_TYPE);
+                    if (a_value_type_check->aim_type->is_complex_type()
+                        || a_value_type_check->aim_type->is_void()
+                        || a_value_type_check->aim_type->is_nothing())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, 
+                            WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
 
                     if (!a_value_type_check->aim_type->is_dynamic())
                     {
