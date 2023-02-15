@@ -63,7 +63,7 @@ namespace test_thread
         test_assure(this_should_be_false == false && summ == 0);
 
         test_assure(thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
-        test_assure(thread::create(\=0;, ())->wait == true);
+        test_assure(thread::create(\=do nil;, ())->wait == true);
     }
 }
 

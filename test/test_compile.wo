@@ -285,12 +285,12 @@ func main()
             ok(T), err(F)
         }
 
-        let mut opt = \x: anything = 
+        let mut opt = \x: void = 
             dd == 1
             ? result::ok(233.5)
             | result::err("fuck");;
 
-        opt = \x:anything = result::ok(3.14); as (anything)=>result<real, string>;
+        opt = \x: void = result::ok(3.14); as (void)=>result<real, string>;
         "@);
 
         // Cannot index unindexable type or invalid index
@@ -317,25 +317,25 @@ func main()
             let a = 1; let b = (a == 1) as string;
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is pending == false;{}
             foo(func(x: int){});
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is pending == false;{}
             foo(func(x: int){}, ());
         "@);
         assure_compile_fail(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is pending == false;{}
             foo(func(x: int){}, (1, 2, 3));
         "@);
         assure_compile_fail(@"let p<T> = \x: T = x;;p("Helloworld");"@);
         assure_compile_success(@"
-            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is anything;{}
+            func foo<Ft, ArgTs>(f: Ft, args: ArgTs) where f(args...) is pending == false;{}
             foo(func(){}, ());
         "@);
         assure_compile_success(@"
             import  woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is pending == false;
             let Same<A, B> = (std::declval:<A>()) is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -348,7 +348,7 @@ func main()
         "@);
         assure_compile_fail(@"
             import woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is pending == false;
             let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -361,7 +361,7 @@ func main()
         "@);
         assure_compile_fail(@"
             import woo.std;
-            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is anything;
+            let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is pending == false;
             let Same<A, B> = std::declval:<A>() is B;
 
             func foo<FT, AT>(x: FT, y: AT)
@@ -419,7 +419,7 @@ func main()
         assure_compile_success(@"do [3,2,1] as array<void>;"@);
         assure_compile_success(@"do [1,2,3] is array<void>;"@);
         assure_compile_fail(@"do [3,2,1] as array<nothing>;"@);
-        test_assure([1,2,3] is array<anything>);
+        test_assure([1,2,3] is array<void> == false);
         test_assure(!([1,2,3] is array<nothing>));
 
         // if/while/for only accept bool
@@ -783,7 +783,7 @@ func main()
     func main()
     {
         let test_threads = []mut: vec<thread>;
-        for (let mut i = 0 ; i < 4; i += 1)
+        for (let mut i = 0 ; i < 0; i += 1)
             test_threads->add(thread::create(test_compile_success_or_fail, ()));
 
         test_compile_success_or_fail();

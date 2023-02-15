@@ -2823,6 +2823,9 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
+            if (is_pending() || another->is_pending())
+                return false;
+
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
@@ -2865,7 +2868,28 @@ namespace wo
                 return false;
             }
 
-            if (is_pending() || another->is_pending())
+            if (is_func())
+            {
+                if (!another->is_func())
+                    return false;
+
+                if (argument_types.size() != another->argument_types.size())
+                    return false;
+                for (size_t index = 0; index < argument_types.size(); index++)
+                {
+                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, true))
+                        return false;
+                }
+                if (is_variadic_function_type != another->is_variadic_function_type)
+                    return false;
+
+                wo_assert(is_complex() && another->is_complex());
+                complex_type->is_same(another->complex_type, ignore_using_type, false);
+            }
+            else if (another->is_func())
+                return false;
+
+            if (type_name != another->type_name)
                 return false;
 
             if (!ignore_using_type && (using_type_name || another->using_type_name))
@@ -2893,6 +2917,62 @@ namespace wo
                         return false;
                 }
             }
+            return true;
+        }
+
+        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable, bool flipped) const
+        {
+            if (is_pending_function() || another->is_pending_function())
+                return false;
+
+            if (is_pending() || another->is_pending())
+                return false;
+
+            if (!ignore_mutable && is_mutable() != another->is_mutable())
+                return false;
+
+            if (another->is_nothing())
+                return true; // Buttom type, OK
+
+            if (is_hkt() && another->is_hkt())
+            {
+                auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
+                auto* rtsymb = another->symbol ? base_typedef_symbol(another->symbol) : nullptr;
+
+                if (ltsymb && rtsymb && ltsymb == rtsymb)
+                    return true;
+                if (ltsymb == nullptr || rtsymb == nullptr)
+                {
+                    if (ltsymb && ltsymb->type == lang_symbol::symbol_type::type_alias)
+                    {
+                        wo_assert(another->value_type == wo::value::valuetype::dict_type
+                            || another->value_type == wo::value::valuetype::array_type);
+                        return ltsymb->type_informatiom->value_type == another->value_type
+                            && ltsymb->type_informatiom->type_name == another->type_name;
+                    }
+                    if (rtsymb && rtsymb->type == lang_symbol::symbol_type::type_alias)
+                    {
+                        wo_assert(value_type == wo::value::valuetype::dict_type
+                            || value_type == wo::value::valuetype::array_type);
+                        return rtsymb->type_informatiom->value_type == value_type
+                            && rtsymb->type_informatiom->type_name == type_name;
+                    }
+                    // both nullptr, check base type
+                    wo_assert(another->value_type == wo::value::valuetype::dict_type
+                        || another->value_type == wo::value::valuetype::array_type);
+                    wo_assert(value_type == wo::value::valuetype::dict_type
+                        || value_type == wo::value::valuetype::array_type);
+                    return value_type == another->value_type
+                        && type_name == another->type_name;
+                }
+                else if (ltsymb->type == lang_symbol::symbol_type::type_alias && rtsymb->type == lang_symbol::symbol_type::type_alias)
+                {
+                    // TODO: struct/pending type need check, struct!
+                    return ltsymb->type_informatiom->value_type == rtsymb->type_informatiom->value_type;
+                }
+                return false;
+            }
+
             if (is_func())
             {
                 if (!another->is_func())
@@ -2902,20 +2982,58 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, true))
+                    // NOTE: Argument accept will inverse,
+                    // void accept anyother type,
+                    // but (void)=>x cannot accept (int)=> x
+                    // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
+                    if (flipped)
+                    {
+                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
+                            return false;
+                    }
+                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
+                    return false;
+
+                wo_assert(is_complex() && another->is_complex());
+                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
                     return false;
             }
             else if (another->is_func())
                 return false;
 
-            if (is_complex() && another->is_complex())
-                return complex_type->is_same(another->complex_type, ignore_using_type, false);
-            else if (!is_complex() && !another->is_complex())
-                return this->value_type == another->value_type && this->type_name == another->type_name;
-            return false;
+            if (type_name != another->type_name)
+                return false;
+
+            if (!ignore_using_type && (using_type_name || another->using_type_name))
+            {
+                if (!using_type_name || !another->using_type_name)
+                    return false;
+
+                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                    return false;
+
+                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                    return false;
+
+                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
+                        return false;
+            }
+            if (has_template())
+            {
+                if (template_arguments.size() != another->template_arguments.size())
+                    return false;
+                for (size_t index = 0; index < template_arguments.size(); index++)
+                {
+                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
+                        return false;
+                }
+            }
+
+            return true;
         }
 
         std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const
@@ -3251,14 +3369,6 @@ namespace wo
         using_type_def_char->declear_attribute = new ast::ast_decl_attribute();
         using_type_def_char->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
         define_type_in_this_scope(using_type_def_char, using_type_def_char->old_type, using_type_def_char->declear_attribute);
-
-        ast::ast_using_type_as* using_type_def_anything = new ast::ast_using_type_as();
-        using_type_def_anything->is_alias = true;
-        using_type_def_anything->new_type_identifier = WO_PSTR(anything);
-        using_type_def_anything->old_type = new ast::ast_type(WO_PSTR(void));
-        using_type_def_anything->declear_attribute = new ast::ast_decl_attribute();
-        using_type_def_anything->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
-        define_type_in_this_scope(using_type_def_anything, using_type_def_anything->old_type, using_type_def_anything->declear_attribute);
     }
     lang::~lang()
     {

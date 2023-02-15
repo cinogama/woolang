@@ -15,12 +15,12 @@ namespace test_optional
         let y = option::none: option<int>;
         let m = {[1] = x, [2] = y};
 
-        match(m->get(1)->reduce())
+        match(m->get(1)=>>\elem = elem;)
         {
             value(v)? test_assure(v as int == 233);
             none? test_assure(false);
         }
-        match(m->get(2)->reduce())
+        match(m->get(2)=>>\elem = elem;)
         {
             value(v)? test_assure(false);
             none? ;

@@ -20,17 +20,6 @@ namespace test_bool
         test_assure(!(12: bool) == false);
         test_assure(!a == false);
         test_assure(!(256: bool) == false);
-
-        a = "": bool;
-        test_assure(a == true);
-        test_assure(a != false);
-
-        a = nil: bool;
-        test_assure(a == false);
-        test_assure(a != true);
-
-        foo_true({}: bool);
-        foo_false(nil: bool);
     }
 }
 
