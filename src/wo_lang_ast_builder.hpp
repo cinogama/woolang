@@ -183,7 +183,7 @@ namespace wo
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
             bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
             bool is_builtin_basic_type();
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false) const;
             bool set_mix_types(ast_type* another, bool ignore_mutable, bool flip = false, bool flip_write = false);
             bool is_func() const;
             bool is_bool() const;
@@ -327,7 +327,7 @@ namespace wo
 
                 if (!_be_check_value_node->value_type->is_pending() && !aim_type->is_pending())
                 {
-                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false, false);
+                    auto result = aim_type->accept_type(_be_check_value_node->value_type, false);
                     if (result)
                     {
                         is_constant = true;

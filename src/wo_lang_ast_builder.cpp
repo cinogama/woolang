@@ -87,14 +87,14 @@ namespace wo
                 return true;
             }
 
-            if (to->accept_type(from, false, false))
+            if (to->accept_type(from, false))
                 return true;
 
             // Forbid 'nil' cast to any other value
             if (from->is_pending() || to->is_pending() || from->is_nil() || to->is_nil())
                 return false;
 
-            if (to->accept_type(from, true, false))
+            if (to->accept_type(from, true))
                 return true; // ISSUE-16: using type is create a new type based on old-type, impl-cast from base-type & using-type is invalid.
 
             if (from->is_func() || to->is_func())
@@ -417,7 +417,7 @@ namespace wo
                 return false;
             return true;
         }
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const
+        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable , bool flipped) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -425,12 +425,98 @@ namespace wo
             if (is_pending() || another->is_pending())
                 return false;
 
+            // Might HKT: HKT << HKT?
+            if (is_hkt_typing() && another->is_hkt_typing())
+            {
+                // TODO: array/vec/dict/map support?
+                if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
+                    return true;
+                return false;
+            }
+
             if (another->is_nothing())
                 return true; // top type, OK
             if (is_void())
                 return true; // button type, OK
 
-            return is_same(another, ignore_using_type, ignore_mutable);
+            if (!ignore_mutable && is_mutable() != another->is_mutable())
+                return false;
+
+            if (is_func())
+            {
+                if (!another->is_func())
+                    return false;
+
+                if (argument_types.size() != another->argument_types.size())
+                    return false;
+                for (size_t index = 0; index < argument_types.size(); index++)
+                {
+                    // NOTE: Argument accept will inverse,
+                    // void accept anyother type,
+                    // but (void)=>x cannot accept (int)=> x
+                    // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
+                    if (flipped)
+                    {
+                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
+                            return false;
+                    }
+                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
+                        return false;
+                }
+                if (is_variadic_function_type != another->is_variadic_function_type)
+                    return false;
+            }
+            else if (another->is_func())
+                return false;
+
+            if (is_complex() && another->is_complex())
+            {
+                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
+                    return false;
+            }
+            else
+            {
+                if (type_name == WO_PSTR(void) || another->type_name == WO_PSTR(nothing))
+                    return true;
+                else
+                {
+                    if (!is_complex() && !another->is_complex())
+                    {
+                        if (type_name != another->type_name)
+                            return false;
+                    }
+                    else
+                        return false;
+                }
+            }
+
+            if (!ignore_using_type && (using_type_name || another->using_type_name))
+            {
+                if (!using_type_name || !another->using_type_name)
+                    return false;
+
+                if (find_type_in_this_scope(using_type_name) != find_type_in_this_scope(another->using_type_name))
+                    return false;
+
+                if (using_type_name->template_arguments.size() != another->using_type_name->template_arguments.size())
+                    return false;
+
+                for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
+                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
+                        return false;
+            }
+            if (has_template())
+            {
+                if (template_arguments.size() != another->template_arguments.size())
+                    return false;
+                for (size_t index = 0; index < template_arguments.size(); index++)
+                {
+                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
+                        return false;
+                }
+            }
+
+            return true;
         }
         bool ast_type::set_mix_types(ast_type* another, bool ignore_mutable, bool flip, bool flip_write)
         {
@@ -1093,7 +1179,7 @@ namespace wo
             _be_cast_value_node->update_constant_value(lex);
             if (!_be_cast_value_node->value_type->is_pending() && _be_cast_value_node->is_constant)
             {
-                if (value_type->accept_type(_be_cast_value_node->value_type, false, false))
+                if (value_type->accept_type(_be_cast_value_node->value_type, false))
                 {
                     constant_value.set_val_compile_time(&_be_cast_value_node->get_constant_value());
                     is_constant = true;

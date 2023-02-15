@@ -466,11 +466,11 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+                gm::nt(L"EXPRESSION") >> gm::symlist{ gm::te(gm::ttype::l_do),gm::nt(L"EXPRESSION") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_do_expr_as_sentence),
+
                 gm::nt(L"EXPRESSION") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-
-                gm::nt(L"RIGHT") >> gm::symlist{ gm::te(gm::ttype::l_do),gm::nt(L"RIGHT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_do_expr_as_sentence),
 
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ASSIGNMENT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
