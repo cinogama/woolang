@@ -142,6 +142,14 @@ namespace test_compile
             let a = nil: dynamic;
             let b = a is bool;
         "@);
+        assure_compile_success(@"
+            let a = do nil;
+            let b = a as void;
+        "@);
+        assure_compile_fail(@"
+            let a = do nil;
+            let b = a as void: dynamic;
+        "@);
 
         assure_compile_fail(@"
 let valof<T> = func()=>T{}();
