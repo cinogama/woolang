@@ -931,6 +931,8 @@ namespace wo
                         if (!stream->read_elem(&data))
                             WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's define_place bp_offset.");
                         varsym.bp_offset = data;
+
+                        variable_info.push_back(varsym);
                     }
 
                 }

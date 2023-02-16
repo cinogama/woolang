@@ -84,6 +84,7 @@ step            s                             Execute next line of src, will ste
                                             in functions.
 stepir          si                            Execute next command.
 global          g               <offset>      Display global data.
+clear           cls                           Clean the screen.
 )"
 << wo_endl;
         }
@@ -401,6 +402,14 @@ global          g               <offset>      Display global data.
                 {
                     breakdown_temp_for_stepir = true;
                     goto continue_run_command;
+                }
+                else if (main_command == "cls" || main_command == "clear")
+                {
+#ifdef _WIN32
+                    system("cls");
+#else
+                    system("clear");
+#endif
                 }
                 else if (main_command == "s" || main_command == "step")
                 {

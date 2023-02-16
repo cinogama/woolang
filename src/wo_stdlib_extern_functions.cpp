@@ -1562,7 +1562,7 @@ namespace std
 
     public func println(...)
     {
-        let c = print((...)...);
+        print((...)...);
         print("\n");
     }
 
