@@ -71,11 +71,15 @@ namespace wo
             if (from->is_mutable() != to->is_mutable())
                 return false;
 
-            if (to->is_dynamic())
-                return true;
-
             // Any type can cast to void;
             if (to->is_void())
+                return true;
+
+            // Cannot cast void to any other type.
+            if (from->is_void())
+                return false;
+
+            if (to->is_dynamic())
                 return true;
 
             if (from->is_dynamic())
