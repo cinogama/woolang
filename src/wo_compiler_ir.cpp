@@ -809,7 +809,6 @@ namespace wo
             uint32_t _general_src_data_buf_b_size;
             if (!stream->read_elem(&_general_src_data_buf_b_size))
                 WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B count.");
-            pdb->_general_src_data_buf_b.reserve(_general_src_data_buf_b_size);
             for (uint32_t bi = 0; bi < _general_src_data_buf_b_size; ++bi)
             {
                 uint32_t ip;
@@ -942,7 +941,6 @@ namespace wo
             uint32_t _pdd_rt_code_byte_offset_to_ir_size;
             if (!stream->read_elem(&_pdd_rt_code_byte_offset_to_ir_size))
                 WO_LOAD_BIN_FAILED("Failed to restore program debug informations record D count.");
-            pdb->pdd_rt_code_byte_offset_to_ir.reserve(_pdd_rt_code_byte_offset_to_ir_size);
             for (uint32_t di = 0; di < _pdd_rt_code_byte_offset_to_ir_size; ++di)
             {
                 uint32_t rtir, ir;

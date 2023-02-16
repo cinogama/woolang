@@ -324,9 +324,11 @@ namespace wo
             }
         };
 
+        // Attention: Do not use unordered_map for _general_src_data_buf_b & pdd_rt_code_byte_offset_to_ir
+        //            They should keep order.
         using filename_rowno_colno_ip_info_t = std::unordered_map<std::wstring, std::vector<location>>;
-        using ip_src_location_info_t = std::unordered_map<size_t, location>;
-        using runtime_ip_compile_ip_info_t = std::unordered_map<size_t, size_t>;
+        using ip_src_location_info_t = std::map<size_t, location>;
+        using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
         using function_signature_ip_info_t = std::unordered_map<std::string, function_symbol_infor>;
 
         filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
