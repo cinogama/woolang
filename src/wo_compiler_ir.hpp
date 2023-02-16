@@ -309,7 +309,7 @@ namespace wo
             size_t ir_end;
             size_t in_stack_reg_count;
 
-            std::map<std::string, std::vector<variable_symbol_infor>> variables;
+            std::unordered_map<std::string, std::vector<variable_symbol_infor>> variables;
 
             void add_variable_define(const std::wstring varname, size_t rowno, wo_integer_t locat)
             {
@@ -324,10 +324,10 @@ namespace wo
             }
         };
 
-        using filename_rowno_colno_ip_info_t = std::map<std::wstring, std::vector<location>>;
-        using ip_src_location_info_t = std::map<size_t, location>;
-        using runtime_ip_compile_ip_info_t = std::map<size_t, size_t>;
-        using function_signature_ip_info_t = std::map<std::string, function_symbol_infor>;
+        using filename_rowno_colno_ip_info_t = std::unordered_map<std::wstring, std::vector<location>>;
+        using ip_src_location_info_t = std::unordered_map<size_t, location>;
+        using runtime_ip_compile_ip_info_t = std::unordered_map<size_t, size_t>;
+        using function_signature_ip_info_t = std::unordered_map<std::string, function_symbol_infor>;
 
         filename_rowno_colno_ip_info_t  _general_src_data_buf_a;
         ip_src_location_info_t          _general_src_data_buf_b;

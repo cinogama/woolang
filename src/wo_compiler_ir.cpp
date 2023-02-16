@@ -349,7 +349,93 @@ namespace wo
 
         write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
-        // 6.1 Debug information(TODO)
+        // 6.1 Debug information
+        if (this->program_debug_info == nullptr)
+            write_buffer_to_buffer("nopdisup", 8, 1);
+        else
+        {
+            write_buffer_to_buffer("pdisuped", 8, 1);
+            // 6.1.1 Saving pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
+            // And used for getting ip(not runtime ip) by src location informs.
+            write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_a.size(), 4);
+            for (auto& [src_file_path, locations] : this->program_debug_info->_general_src_data_buf_a)
+            {
+                auto&& src_file = wstr_to_str(src_file_path);
+                write_binary_to_buffer((uint32_t)src_file.size(), 4);
+                write_buffer_to_buffer(src_file.c_str(), src_file.size(), 1);
+                write_buffer_to_buffer("_pad", (4ull - (src_file.size() % 4ull)) % 4ull, 1);
+
+                write_binary_to_buffer((uint32_t)locations.size(), 4);
+                for (auto& loc : locations)
+                {
+                    // Note: No need for storage `source_file`, this field has been restored.
+                    write_binary_to_buffer((uint32_t)loc.ip, 4);
+                    write_binary_to_buffer((uint32_t)loc.begin_row_no, 4);
+                    write_binary_to_buffer((uint32_t)loc.begin_col_no, 4);
+                    write_binary_to_buffer((uint32_t)loc.end_row_no, 4);
+                    write_binary_to_buffer((uint32_t)loc.end_col_no, 4);
+                    write_binary_to_buffer((uint32_t)(loc.unbreakable ? 1 : 0), 4);
+                }
+            }
+
+            // 6.1.2 Saving pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
+            // It used for getting src location informs by ip(not runtime ip).
+            write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_b.size(), 4);
+            for (auto& [ip, loc] : this->program_debug_info->_general_src_data_buf_b)
+            {
+                write_binary_to_buffer((uint32_t)ip, 4);
+
+                auto&& src_file = wstr_to_str(loc.source_file);
+                write_binary_to_buffer((uint32_t)src_file.size(), 4);
+                write_buffer_to_buffer(src_file.c_str(), src_file.size(), 1);
+                write_buffer_to_buffer("_pad", (4ull - (src_file.size() % 4ull)) % 4ull, 1);
+
+                write_binary_to_buffer((uint32_t)loc.ip, 4);
+                write_binary_to_buffer((uint32_t)loc.begin_row_no, 4);
+                write_binary_to_buffer((uint32_t)loc.begin_col_no, 4);
+                write_binary_to_buffer((uint32_t)loc.end_row_no, 4);
+                write_binary_to_buffer((uint32_t)loc.end_col_no, 4);
+                write_binary_to_buffer((uint32_t)(loc.unbreakable ? 1 : 0), 4);
+            }
+
+            // 6.1.3 Saving pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
+            write_binary_to_buffer((uint32_t)this->program_debug_info->_function_ip_data_buf.size(), 4);
+            for (auto& [function_name, func_symb_info] : this->program_debug_info->_function_ip_data_buf)
+            {
+                write_binary_to_buffer((uint32_t)function_name.size(), 4);
+                write_buffer_to_buffer(function_name.c_str(), function_name.size(), 1);
+                write_buffer_to_buffer("_pad", (4ull - (function_name.size() % 4ull)) % 4ull, 1);
+
+                write_binary_to_buffer((uint32_t)func_symb_info.ir_begin, 4);
+                write_binary_to_buffer((uint32_t)func_symb_info.ir_end, 4);
+                write_binary_to_buffer((uint32_t)func_symb_info.in_stack_reg_count, 4);
+
+                write_binary_to_buffer((uint32_t)func_symb_info.variables.size(), 4);
+                for (auto& [varname, varinfolist] : func_symb_info.variables)
+                {
+                    write_binary_to_buffer((uint32_t)varname.size(), 4);
+                    write_buffer_to_buffer(varname.c_str(), varname.size(), 1);
+                    write_buffer_to_buffer("_pad", (4ull - (varname.size() % 4ull)) % 4ull, 1);
+
+                    write_binary_to_buffer((uint32_t)varinfolist.size(), 4);
+                    for (auto& varinfo : varinfolist)
+                    {
+                        // Note: No need for storing varname of varinfo, it has been stored.
+                        write_binary_to_buffer((uint32_t)varinfo.define_place, 4);
+                        write_binary_to_buffer((uint32_t)varinfo.bp_offset, 4);
+                    }
+                }
+            }
+
+            // 6.1.4 Saving pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
+            // ip and runtime ip.
+            write_binary_to_buffer((uint32_t)this->program_debug_info->pdd_rt_code_byte_offset_to_ir.size(), 4);
+            for (auto& [rtir, ir] : this->program_debug_info->pdd_rt_code_byte_offset_to_ir)
+            {
+                write_binary_to_buffer((uint32_t)rtir, 4);
+                write_binary_to_buffer((uint32_t)ir, 4);
+            }
+        }
 
         auto* finalbinary = wo::alloc64(binary_buffer.size());
         memcpy(finalbinary, binary_buffer.data(), binary_buffer.size());
@@ -640,8 +726,240 @@ namespace wo
             wo_assert(result->extern_script_functions.find(function_name) == result->extern_script_functions.end());
             result->extern_script_functions[function_name] = extern_script_function.ir_offset;
         }
+        char magic_head_of_pdi[8] = {};
 
-        // 6.1 Debug information(TODO)
+        auto _padding_size = ((stream->readed_size + (8 - 1)) / 8) * 8 - stream->readed_size;
+        stream->read_buffer(magic_head_of_pdi, _padding_size);
+
+        // 6.1 Debug information
+        // 6.1.0 Magic head, "nopdisup" or "pdisuped"
+        stream->read_buffer(magic_head_of_pdi, 8);
+
+        if (memcmp(magic_head_of_pdi, "pdisuped", 8) == 0)
+        {
+            shared_pointer<program_debug_data_info> pdb = new program_debug_data_info;
+
+            // 6.1.1 Restoring pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
+            // And used for getting ip(not runtime ip) by src location informs.
+            char _useless_pad[4];
+
+            uint32_t _general_src_data_buf_a_size;
+            if (!stream->read_elem(&_general_src_data_buf_a_size))
+                WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A count.");
+            pdb->_general_src_data_buf_a.reserve(_general_src_data_buf_a_size);
+
+            for (uint32_t ai = 0; ai < _general_src_data_buf_a_size; ++ai)
+            {
+                uint32_t _filename_length;
+                if (!stream->read_elem(&_filename_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's filename length.");
+
+                std::vector<char> _filename_string(_filename_length + 1, 0);
+                if (!stream->read_buffer(_filename_string.data(), _filename_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's filename.");
+
+                auto padding_len = ((_filename_length + (4 - 1)) / 4) * 4 - _filename_length;
+
+                if (!stream->read_buffer(_useless_pad, padding_len))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's filename padding.");
+
+                std::wstring filename = str_to_wstr(_filename_string.data());
+                auto& locations = pdb->_general_src_data_buf_a[filename];
+                uint32_t _locations_count;
+                if (!stream->read_elem(&_locations_count))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location count.");
+
+                for (uint32_t ali = 0; ali < _locations_count; ++ali)
+                {
+                    program_debug_data_info::location loc;
+                    loc.source_file = filename;
+
+                    uint32_t data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location ip.");
+                    loc.ip = data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location begin_row_no.");
+                    loc.begin_row_no = data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location begin_col_no.");
+                    loc.begin_col_no = data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location end_row_no.");
+                    loc.end_row_no = data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location end_col_no.");
+                    loc.end_col_no = data;
+
+                    if (!stream->read_elem(&data))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record A's location unbreakable.");
+                    loc.unbreakable = (data != 0);
+
+                    locations.push_back(loc);
+                }
+            }
+
+            // 6.1.2 Restoring pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
+            // It used for getting src location informs by ip(not runtime ip).
+            uint32_t _general_src_data_buf_b_size;
+            if (!stream->read_elem(&_general_src_data_buf_b_size))
+                WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B count.");
+            pdb->_general_src_data_buf_b.reserve(_general_src_data_buf_b_size);
+            for (uint32_t bi = 0; bi < _general_src_data_buf_b_size; ++bi)
+            {
+                uint32_t ip;
+                if (!stream->read_elem(&ip))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's ip.");
+
+                program_debug_data_info::location loc;
+
+                uint32_t _filename_length;
+                if (!stream->read_elem(&_filename_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location filename length.");
+
+                std::vector<char> _filename_string(_filename_length + 1, 0);
+                if (!stream->read_buffer(_filename_string.data(), _filename_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location filename.");
+
+                auto padding_len = ((_filename_length + (4 - 1)) / 4) * 4 - _filename_length;
+
+                if (!stream->read_buffer(_useless_pad, padding_len))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location filename padding.");
+
+                loc.source_file = str_to_wstr(_filename_string.data());
+
+                uint32_t data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location ip.");
+                loc.ip = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location begin_row_no.");
+                loc.begin_row_no = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location begin_col_no.");
+                loc.begin_col_no = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location end_row_no.");
+                loc.end_row_no = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location end_col_no.");
+                loc.end_col_no = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B's location unbreakable.");
+                loc.unbreakable = (data != 0);
+
+                pdb->_general_src_data_buf_b[ip] = loc;
+            }
+
+            // 6.1.3 Restoring pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
+            uint32_t _function_ip_data_buf_size;
+            if (!stream->read_elem(&_function_ip_data_buf_size))
+                WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B count.");
+            pdb->_function_ip_data_buf.reserve(_function_ip_data_buf_size);
+            for (uint32_t ci = 0; ci < _function_ip_data_buf_size; ++ci)
+            {
+                uint32_t _funcname_length;
+                if (!stream->read_elem(&_funcname_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function name length.");
+
+                std::vector<char> _funcname_string(_funcname_length + 1, 0);
+                if (!stream->read_buffer(_funcname_string.data(), _funcname_length))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function name.");
+
+                auto padding_len = ((_funcname_length + (4 - 1)) / 4) * 4 - _funcname_length;
+
+                if (!stream->read_buffer(_useless_pad, padding_len))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function name padding.");
+
+                auto& function_inform = pdb->_function_ip_data_buf[_funcname_string.data()];
+
+                uint32_t data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function ir_begin.");
+                function_inform.ir_begin = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function ir_end.");
+                function_inform.ir_end = data;
+
+                if (!stream->read_elem(&data))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function in_stack_reg_count.");
+                function_inform.in_stack_reg_count = data;
+
+                uint32_t variable_count;
+                if (!stream->read_elem(&variable_count))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function variable count.");
+                for (uint32_t cvi = 0; cvi < variable_count; ++cvi)
+                {
+                    uint32_t _varname_length;
+                    if (!stream->read_elem(&_varname_length))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable name length.");
+
+                    std::vector<char> _varname_string(_varname_length + 1, 0);
+                    if (!stream->read_buffer(_varname_string.data(), _varname_length))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable name.");
+
+                    auto padding_len = ((_varname_length + (4 - 1)) / 4) * 4 - _varname_length;
+
+                    if (!stream->read_buffer(_useless_pad, padding_len))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable name padding.");
+
+                    auto& variable_info = function_inform.variables[_varname_string.data()];
+                    uint32_t varcount_with_current_name;
+                    if (!stream->read_elem(&varcount_with_current_name))
+                        WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's variable count.");
+                    for (uint32_t cvci = 0; cvci < varcount_with_current_name; ++cvci)
+                    {
+                        program_debug_data_info::function_symbol_infor::variable_symbol_infor varsym;
+                        varsym.name = _varname_string.data();
+
+                        if (!stream->read_elem(&data))
+                            WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's define_place ir_begin.");
+                        varsym.define_place = data;
+
+                        if (!stream->read_elem(&data))
+                            WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's define_place bp_offset.");
+                        varsym.bp_offset = data;
+                    }
+
+                }
+            }
+
+            // 6.1.4 Restoring pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
+            // ip and runtime ip.
+            uint32_t _pdd_rt_code_byte_offset_to_ir_size;
+            if (!stream->read_elem(&_pdd_rt_code_byte_offset_to_ir_size))
+                WO_LOAD_BIN_FAILED("Failed to restore program debug informations record D count.");
+            pdb->pdd_rt_code_byte_offset_to_ir.reserve(_pdd_rt_code_byte_offset_to_ir_size);
+            for (uint32_t di = 0; di < _pdd_rt_code_byte_offset_to_ir_size; ++di)
+            {
+                uint32_t rtir, ir;
+                if (!stream->read_elem(&rtir))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record D's rtir.");
+                if (!stream->read_elem(&ir))
+                    WO_LOAD_BIN_FAILED("Failed to restore program debug informations record D's ir.");
+
+                pdb->pdd_rt_code_byte_offset_to_ir[rtir] = ir;
+            }
+            pdb->runtime_codes_base = result->rt_codes;
+            pdb->runtime_codes_length = result->rt_code_len;
+
+            result->program_debug_info = pdb;
+        }
+        else if (memcmp(magic_head_of_pdi, "nopdisup", 8) != 0)
+            WO_LOAD_BIN_FAILED("Bad head of program debug informations.");
 
         return result;
 #undef WO_LOAD_BIN_FAILED
