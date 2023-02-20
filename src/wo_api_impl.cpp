@@ -1168,8 +1168,6 @@ wo_string_t wo_type_name(wo_type type)
         return "closure";
     case wo::value::valuetype::struct_type:
         return "struct";
-    case wo::value::valuetype::bool_type:
-        return "bool";
     case wo::value::valuetype::invalid:
         return "nil";
     default:
