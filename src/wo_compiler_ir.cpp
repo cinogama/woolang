@@ -251,6 +251,7 @@ namespace wo
             wo_assert(constant_value.type == wo::value::valuetype::integer_type
                 || constant_value.type == wo::value::valuetype::real_type
                 || constant_value.type == wo::value::valuetype::handle_type
+                || constant_value.type == wo::value::valuetype::bool_type
                 || constant_value.type == wo::value::valuetype::string_type
                 || constant_value.type == wo::value::valuetype::invalid);
 
