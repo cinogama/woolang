@@ -87,6 +87,8 @@ namespace wo
         l_question,   // ?
         l_import,               // import
         l_nil,
+        l_true,
+        l_false,
         l_while,
         l_if,
         l_else,
@@ -241,6 +243,8 @@ namespace wo
         {
             {L"import", {lex_type::l_import}},
             {L"nil", {lex_type::l_nil}},
+            {L"true", {lex_type::l_true}},
+            {L"false", {lex_type::l_false}},
             {L"while", {lex_type::l_while}},
             {L"for", {lex_type::l_for}},
             {L"if", {lex_type::l_if}},

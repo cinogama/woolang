@@ -58,6 +58,7 @@ namespace wo
             integer_type,
             real_type,
             handle_type,
+            bool_type,
 
             callstack,
             nativecallstack,
@@ -179,6 +180,12 @@ namespace wo
             handle = 0;
             return this;
         }
+        inline value* set_bool(bool val)
+        {
+            type = valuetype::bool_type;
+            integer = val ? 1 : 0;
+            return this;
+        }
         inline value* set_native_callstack(const wo::byte_t* ipplace)
         {
             type = valuetype::nativecallstack;
@@ -287,6 +294,7 @@ namespace wo
         {
             switch (lhs.type)
             {
+            case value::valuetype::bool_type:
             case value::valuetype::integer_type:
                 return lhs.integer < rhs.integer;
             case value::valuetype::real_type:
@@ -308,6 +316,7 @@ namespace wo
     static_assert((int)value::valuetype::integer_type == WO_INTEGER_TYPE);
     static_assert((int)value::valuetype::real_type == WO_REAL_TYPE);
     static_assert((int)value::valuetype::handle_type == WO_HANDLE_TYPE);
+    static_assert((int)value::valuetype::bool_type == WO_BOOL_TYPE);
     static_assert((int)value::valuetype::callstack == WO_CALLSTACK_TYPE);
     static_assert((int)value::valuetype::nativecallstack == WO_NATIVE_CALLSTACK_TYPE);
     static_assert((int)value::valuetype::need_gc == WO_NEED_GC_FLAG);
@@ -375,7 +384,7 @@ namespace wo
         void(*destructor)(void*) = nullptr;
 
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        wo_vm gc_vm = nullptr; 
+        wo_vm gc_vm = nullptr;
 
         std::atomic_flag has_been_closed_af = {};
         bool has_been_closed = false;

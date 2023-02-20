@@ -1152,7 +1152,7 @@ WO_API wo_api rslib_std_vm_virtual_source(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_bool(vm, wo_virtual_source(
         wo_string(args + 0),
         wo_string(args + 1),
-        wo_int(args + 2)
+        wo_bool(args + 2)
     ));
 }
 
@@ -1341,8 +1341,6 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
-public let true = 1: bool, false = 0: bool;
-
 namespace unsafe
 {
     extern("rslib_std_return_itself") 

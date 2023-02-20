@@ -1,0 +1,46 @@
+import woo.std;
+import pkg.math;
+
+namespace test_benchmark
+{
+    func isprime(n: int)
+    {
+        if (n != 2)
+            for (let mut i = 2; i <= math::sqrt(n as int: real) as real: int; i += 1)
+                if (n % i == 0)
+                    return false;
+        return true;
+    }
+
+    func bench_1m_prime()
+    {
+        let searching = []mut: vec<int>;
+
+        let b = std::time();
+        for (let mut i = 2; i < 100_0000; i += 1)
+        if (isprime(i))
+            searching->add(i);
+        
+        return std::time() - b;
+    }
+    func bench_1m_prime2()
+    {
+        let searching = []mut: vec<int>;
+
+        for (let mut i = 2; i < 100_0000; i += 1)
+            searching->add(i);
+
+        let b = std::time();
+        do searching->forall(\n=isprime(n););
+        return std::time() - b;
+    }
+
+    func main()
+    {
+        std::println("bench_1m_prime cost:", bench_1m_prime());
+        std::println("bench_1m_prime2 cost:", bench_1m_prime2());
+    }
+}
+
+test_function("test_benchmark.main", test_benchmark::main);
+

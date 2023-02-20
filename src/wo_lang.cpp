@@ -175,7 +175,8 @@ namespace wo
             else if ((a_value_logic_bin->left->value_type->is_integer()
                 || a_value_logic_bin->left->value_type->is_handle()
                 || a_value_logic_bin->left->value_type->is_real()
-                || a_value_logic_bin->left->value_type->is_string())
+                || a_value_logic_bin->left->value_type->is_string()
+                || a_value_logic_bin->left->value_type->is_bool())
                 && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
                 has_default_op = true;
         }
@@ -1196,45 +1197,29 @@ namespace wo
         ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
         while (val)
         {
-            lang_anylizer->begin_trying_block();
             analyze_pass2(val);
 
-            if (!lang_anylizer->get_cur_error_frame().empty())
+            val->update_constant_value(lang_anylizer);
+            if (!val->is_constant)
             {
-                // Current constraint failed, store it to list;
                 a_where_constraint->unmatched_constraint.push_back(
-                    lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_GRAMMAR_ERR));
-                a_where_constraint->unmatched_constraint.insert(
-                    a_where_constraint->unmatched_constraint.end(),
-                    lang_anylizer->get_cur_error_frame().begin(),
-                    lang_anylizer->get_cur_error_frame().end());
+                    lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_SHOULD_BE_CONST));
                 a_where_constraint->accept = false;
             }
-            else
+            else if (!val->value_type->is_bool())
             {
-                val->update_constant_value(lang_anylizer);
-                if (!val->is_constant)
-                {
-                    a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_SHOULD_BE_CONST));
-                    a_where_constraint->accept = false;
-                }
-                else if (!val->value_type->is_bool())
-                {
-                    a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_TYPE_ERR
-                            , val->value_type->get_type_name(false).c_str()));
-                    a_where_constraint->accept = false;
-                }
-                else if (0 == val->get_constant_value().handle)
-                {
-                    a_where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_NOT_MEET));
-                    a_where_constraint->accept = false;
-                }
+                a_where_constraint->unmatched_constraint.push_back(
+                    lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_TYPE_ERR
+                        , val->value_type->get_type_name(false).c_str()));
+                a_where_constraint->accept = false;
+            }
+            else if (0 == val->get_constant_value().handle)
+            {
+                a_where_constraint->unmatched_constraint.push_back(
+                    lang_anylizer->make_error(lexer::errorlevel::error, val, WO_ERR_WHERE_COND_NOT_MEET));
+                a_where_constraint->accept = false;
             }
 
-            lang_anylizer->end_trying_block();
             val = dynamic_cast<ast_value*>(val->sibling);
         }
 
@@ -1298,22 +1283,24 @@ namespace wo
             {
                 wo_assert(lang_anylizer->get_cur_error_frame().size() > anylizer_error_count);
 
-                if (!a_value_funcdef->where_constraint)
+                if (a_value_funcdef->is_template_reification)
                 {
-                    a_value_funcdef->where_constraint = new ast_where_constraint;
-                    a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
-                    a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
-                    a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                    if (!a_value_funcdef->where_constraint)
+                    {
+                        a_value_funcdef->where_constraint = new ast_where_constraint;
+                        a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
+                        a_value_funcdef->where_constraint->binded_func_define = a_value_funcdef;
+                        a_value_funcdef->where_constraint->where_constraint_list = new ast_list;
+                    }
+
+                    a_value_funcdef->where_constraint->accept = false;
+
+                    for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
+                    {
+                        a_value_funcdef->where_constraint->unmatched_constraint.push_back(
+                            lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
+                    }
                 }
-
-                a_value_funcdef->where_constraint->accept = false;
-
-                for (; anylizer_error_count < lang_anylizer->get_cur_error_frame().size(); ++anylizer_error_count)
-                {
-                    a_value_funcdef->where_constraint->unmatched_constraint.push_back(
-                        lang_anylizer->get_cur_error_frame()[anylizer_error_count]);
-                }
-
 
                 // Error happend in cur function
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
@@ -1596,7 +1583,8 @@ namespace wo
                 else if ((a_value_logic_bin->left->value_type->is_integer()
                     || a_value_logic_bin->left->value_type->is_handle()
                     || a_value_logic_bin->left->value_type->is_real()
-                    || a_value_logic_bin->left->value_type->is_string())
+                    || a_value_logic_bin->left->value_type->is_string()
+                    || a_value_logic_bin->left->value_type->is_bool())
                     && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
                     type_ok = true;
             }
@@ -2202,14 +2190,14 @@ namespace wo
                                 ; /* function call may be template, do not report error here~ */
                             else
                             {
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
                                 lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_ITEM_IS_DEFINED_HERE,
                                     a_value_var->var_name->c_str());
                             }
                         }
                         else
                         {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
                             lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_INIT_EXPR_IS_HERE,
                                 a_value_var->var_name->c_str());
                         }
@@ -4884,6 +4872,15 @@ namespace wo
             auto const_value = value->get_constant_value();
             switch (const_value.type)
             {
+            case value::valuetype::bool_type:
+                if (!get_pure_value)
+                    return WO_NEW_OPNUM(imm((bool)(const_value.integer != 0)));
+                else
+                {
+                    auto& treg = get_useable_register_for_pure_value();
+                    compiler->mov(treg, imm((bool)(const_value.integer != 0)));
+                    return treg;
+                }
             case value::valuetype::integer_type:
                 if (!get_pure_value)
                     return WO_NEW_OPNUM(imm(const_value.integer));
@@ -5381,15 +5378,6 @@ namespace wo
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
-                if (a_value_type_cast->value_type->is_bool())
-                {
-                    // ATTENTION: DO NOT USE ts REG TO STORE REF, lmov WILL MOVE A BOOL VALUE.
-                    auto& treg = get_useable_register_for_pure_value();
-                    compiler->lmov(treg,
-                        complete_using_register(analyze_value(a_value_type_cast->_be_cast_value_node, compiler)));
-                    return treg;
-                }
-
                 if (a_value_type_cast->value_type->is_dynamic()
                     || a_value_type_cast->value_type->is_void()
                     || a_value_type_cast->value_type->accept_type(a_value_type_cast->_be_cast_value_node->value_type, true)
@@ -5415,7 +5403,7 @@ namespace wo
                     if (a_value_type_judge->value_type->is_complex_type()
                         || a_value_type_judge->value_type->is_void()
                         || a_value_type_judge->value_type->is_nothing())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_judge,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_judge->value_type->get_type_name(false).c_str());
 
                     if (!a_value_type_judge->value_type->is_dynamic())
@@ -5442,7 +5430,7 @@ namespace wo
                     if (a_value_type_check->aim_type->is_complex_type()
                         || a_value_type_check->aim_type->is_void()
                         || a_value_type_check->aim_type->is_nothing())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, 
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check,
                             WO_ERR_CANNOT_TEST_COMPLEX_TYPE, a_value_type_check->aim_type->get_type_name(false).c_str());
 
                     if (!a_value_type_check->aim_type->is_dynamic())

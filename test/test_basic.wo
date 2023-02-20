@@ -144,6 +144,22 @@ namespace test_basic
         test_equal(m[0], 233);
         test_equal(m[1], 666);
         test_equal(m[2], 777);
+
+        let mut dyx = nil: dynamic;
+        let mut val = 1.6;
+
+        dyx = (1 > 6): dynamic;
+        test_assure(dyx is bool);
+
+        dyx = (val > 10.5): dynamic;
+        test_assure(dyx is bool);
+
+        dyx = (val < 10.5): dynamic;
+        test_assure(dyx is bool);
+
+        test_assure(dyx: string == "true");
+        test_assure("true": bool == true);
+        test_assure("false": bool == false);
     }
 }
 

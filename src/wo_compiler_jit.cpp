@@ -740,7 +740,7 @@ namespace wo
                     auto x86_equ_jmp_label = x86compiler.newLabel();
                     auto x86_nequ_jmp_label = x86compiler.newLabel();
 
-                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
                     auto int_of_op1 = x86compiler.newInt64();
                     wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
@@ -765,7 +765,7 @@ namespace wo
                     auto x86_equ_jmp_label = x86compiler.newLabel();
                     auto x86_nequ_jmp_label = x86compiler.newLabel();
 
-                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type));
+                    wo_asure(!x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type));
 
                     auto int_of_op1 = x86compiler.newInt64();
                     wo_asure(!x86compiler.mov(int_of_op1, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
@@ -790,7 +790,7 @@ namespace wo
                     auto x86_cmp_fail = x86compiler.newLabel();
                     auto x86_cmp_end = x86compiler.newLabel();
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
                     if (opnum1.is_constant())
                     {
@@ -830,7 +830,7 @@ namespace wo
                     auto x86_cmp_fail = x86compiler.newLabel();
                     auto x86_cmp_end = x86compiler.newLabel();
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
                     if (opnum1.is_constant())
                     {
@@ -870,7 +870,7 @@ namespace wo
                     auto x86_cmp_fail = x86compiler.newLabel();
                     auto x86_cmp_end = x86compiler.newLabel();
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
                     if (opnum1.is_constant())
                     {
@@ -910,7 +910,7 @@ namespace wo
                     auto x86_cmp_fail = x86compiler.newLabel();
                     auto x86_cmp_end = x86compiler.newLabel();
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
 
                     if (opnum1.is_constant())
                     {
@@ -1140,7 +1140,7 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
                     if (opnum1.is_constant() && opnum2.is_constant())
                     {
                         if (opnum1.const_value()->integer && opnum2.const_value()->integer)
@@ -1192,7 +1192,7 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(_vmcr, offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
                     if (opnum1.is_constant() && opnum2.is_constant())
                     {
                         if (opnum1.const_value()->integer || opnum2.const_value()->integer)
@@ -1246,7 +1246,7 @@ namespace wo
 
                     wo_assert(!opnum1.is_constant());
 
-                    x86compiler.mov(asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::integer_type);
+                    x86compiler.mov(asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
                     if (opnum2.is_constant())
                     {
                         if (opnum2.const_value()->integer)

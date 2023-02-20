@@ -184,6 +184,8 @@ namespace wo
                     return value::valuetype::string_type;
                 else if constexpr (std::is_pointer<T>::value)
                     return value::valuetype::handle_type;
+                else if constexpr (std::is_same<T, bool>::value)
+                    return value::valuetype::bool_type;
                 else if constexpr (std::is_integral<T>::value)
                     return value::valuetype::integer_type;
                 else if constexpr (std::is_floating_point<T>::value)
@@ -1495,6 +1497,3 @@ namespace wo
     };
 
 }
-
-extern const char* wo_stdlib_ir_src_path;
-extern const char* wo_stdlib_ir_src_data;

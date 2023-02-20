@@ -103,7 +103,8 @@ namespace wo
             if (to->value_type == value::valuetype::integer_type
                 || to->value_type == value::valuetype::real_type
                 || to->value_type == value::valuetype::handle_type
-                || to->value_type == value::valuetype::string_type)
+                || to->value_type == value::valuetype::string_type
+                || to->value_type == value::valuetype::bool_type)
             {
                 if (from->value_type == value::valuetype::integer_type
                     || from->value_type == value::valuetype::real_type
@@ -124,8 +125,6 @@ namespace wo
         }
         void ast_type::set_type_with_name(wo_pstring_t _type_name)
         {
-            wo_assert(!is_function_type);
-
             complex_type = nullptr;
             type_name = _type_name;
             value_type = get_type_from_name(_type_name);
@@ -411,8 +410,6 @@ namespace wo
         }
         bool ast_type::is_builtin_basic_type()
         {
-            if (is_bool())
-                return true;
             if (is_custom() || using_type_name)
                 return false;
             return true;
@@ -575,7 +572,7 @@ namespace wo
         }
         bool ast_type::is_bool() const
         {
-            return type_name == WO_PSTR(bool) || (using_type_name && using_type_name->type_name == WO_PSTR(bool));
+            return value_type == value::valuetype::bool_type;
         }
         bool ast_type::is_char() const
         {
@@ -583,7 +580,7 @@ namespace wo
         }
         bool ast_type::is_builtin_using_type() const
         {
-            return is_bool() || is_char();
+            return is_char();
         }
         bool ast_type::is_union() const
         {
@@ -890,6 +887,12 @@ namespace wo
             case lex_type::l_nil:
                 constant_value.set_nil();
                 break;
+            case lex_type::l_true:
+                constant_value.set_bool(true);
+                break;
+            case lex_type::l_false:
+                constant_value.set_bool(false);
+                break;
             default:
                 wo_error("Unexcepted literal type.");
                 break;
@@ -912,7 +915,6 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
 
         ast_value_type_cast::ast_value_type_cast(ast_value* value, ast_type* target_type)
             : ast_value(target_type)
@@ -951,83 +953,39 @@ namespace wo
                     // just cast the value!
                     value last_value = _be_cast_value_node->get_constant_value();
 
-                    if (value_type->is_bool()
-                        && _be_cast_value_node->value_type->is_integer()
-                        && (_be_cast_value_node->value_type->using_type_name == nullptr
-                            || _be_cast_value_node->value_type->is_bool()))
+                    value::valuetype aim_real_type = value_type->value_type;
+                    if (value_type->is_dynamic())
                     {
-                        // Set bool (1 or 0)
-                        constant_value.set_integer(last_value.integer ? 1 : 0);
-                        is_constant = true;
+                        aim_real_type = last_value.type;
                     }
-                    else
+
+                    is_constant = true;
+
+                    switch (aim_real_type)
                     {
-                        value::valuetype aim_real_type = value_type->value_type;
-                        if (value_type->is_dynamic())
-                        {
-                            aim_real_type = last_value.type;
-                        }
-
-                        is_constant = true;
-
-                        switch (aim_real_type)
-                        {
-                        case value::valuetype::real_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_real(wo_cast_real((wo_value)&last_value));
-                            break;
-                        case value::valuetype::integer_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_integer(wo_cast_int((wo_value)&last_value));
-                            break;
-                        case value::valuetype::string_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
-                            break;
-                        case value::valuetype::handle_type:
-                            if (last_value.is_nil())
-                                goto try_cast_nil_to_int_handle_real_str;
-                            constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
-                            break;
-                        case value::valuetype::dict_type:
-                            if (last_value.is_nil())
-                            {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::dict_type);
-                                break;
-                            }
-                            if (last_value.type != value::valuetype::string_type)
-                                goto try_cast_nil_to_int_handle_real_str;
-                            return; // cast it in runtime
-                        case value::valuetype::gchandle_type:
-                            if (last_value.is_nil())
-                            {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::gchandle_type);
-                                break;
-                            }
-                            goto try_cast_nil_to_int_handle_real_str;
-                            break;
-                        case value::valuetype::array_type:
-                            if (last_value.is_nil())
-                            {
-                                constant_value.set_gcunit_with_barrier(value::valuetype::array_type);
-                                break;
-                            }
-                            if (last_value.type != value::valuetype::string_type)
-                                goto try_cast_nil_to_int_handle_real_str;
-                            return; // cast it in runtime
-                        default:
-                        try_cast_nil_to_int_handle_real_str:
-                            if (last_value.is_nil() && value_type->is_nil())
-                                constant_value.set_val(&last_value);
-                            else
-                                is_constant = false;
-                            break;
-                        }
-                        // end of match
+                    case value::valuetype::real_type:
+                        constant_value.set_real(wo_cast_real((wo_value)&last_value));
+                        break;
+                    case value::valuetype::integer_type:
+                        constant_value.set_integer(wo_cast_int((wo_value)&last_value));
+                        break;
+                    case value::valuetype::string_type:
+                        constant_value.set_string_nogc(wo_cast_string((wo_value)&last_value));
+                        break;
+                    case value::valuetype::handle_type:
+                        constant_value.set_handle(wo_cast_handle((wo_value)&last_value));
+                        break;
+                    case value::valuetype::bool_type:
+                        constant_value.set_bool(wo_cast_bool((wo_value)&last_value));
+                        break;
+                    default:
+                        if (last_value.is_nil() && value_type->is_nil())
+                            constant_value.set_val(&last_value);
+                        else
+                            is_constant = false;
+                        break;
                     }
+                    // end of match
                 }
             }
         }
@@ -1072,7 +1030,6 @@ namespace wo
         }
 
         //////////////////////////////////////////
-
         void ast_decl_attribute::varify_attributes(lexer* lex) const
         {
             // 1) Check if public, protected or private at same time
@@ -2141,40 +2098,40 @@ namespace wo
                 switch (operate)
                 {
                 case lex_type::l_land:
-                    constant_value.set_integer(left->get_constant_value().handle && right->get_constant_value().handle);
+                    constant_value.set_bool(left->get_constant_value().handle && right->get_constant_value().handle);
                     break;
                 case lex_type::l_lor:
-                    constant_value.set_integer(left->get_constant_value().handle || right->get_constant_value().handle);
+                    constant_value.set_bool(left->get_constant_value().handle || right->get_constant_value().handle);
                     break;
                 case lex_type::l_equal:
                 case lex_type::l_not_equal:
-                    if (left->value_type->is_integer())
-                        constant_value.set_integer(left->get_constant_value().integer == right->get_constant_value().integer);
+                    if (left->value_type->is_integer() || left->value_type->is_bool())
+                        constant_value.set_bool(left->get_constant_value().integer == right->get_constant_value().integer);
                     else if (left->value_type->is_real())
-                        constant_value.set_integer(left->get_constant_value().real == right->get_constant_value().real);
+                        constant_value.set_bool(left->get_constant_value().real == right->get_constant_value().real);
                     else if (left->value_type->is_string())
-                        constant_value.set_integer(*left->get_constant_value().string == *right->get_constant_value().string);
+                        constant_value.set_bool(*left->get_constant_value().string == *right->get_constant_value().string);
                     else if (left->value_type->is_handle())
-                        constant_value.set_integer(left->get_constant_value().handle == right->get_constant_value().handle);
+                        constant_value.set_bool(left->get_constant_value().handle == right->get_constant_value().handle);
                     else
                     {
                         is_constant = false;
                         return;
                     }
                     if (operate == +lex_type::l_not_equal)
-                        constant_value.set_integer(!constant_value.integer);
+                        constant_value.set_bool(!constant_value.integer);
                     break;
 
                 case lex_type::l_less:
                 case lex_type::l_larg_or_equal:
                     if (left->value_type->is_integer())
-                        constant_value.set_integer(left->get_constant_value().integer < right->get_constant_value().integer);
+                        constant_value.set_bool(left->get_constant_value().integer < right->get_constant_value().integer);
                     else if (left->value_type->is_real())
-                        constant_value.set_integer(left->get_constant_value().real < right->get_constant_value().real);
+                        constant_value.set_bool(left->get_constant_value().real < right->get_constant_value().real);
                     else if (left->value_type->is_string())
-                        constant_value.set_integer(*left->get_constant_value().string < *right->get_constant_value().string);
+                        constant_value.set_bool(*left->get_constant_value().string < *right->get_constant_value().string);
                     else if (left->value_type->is_handle())
-                        constant_value.set_integer(left->get_constant_value().handle < right->get_constant_value().handle);
+                        constant_value.set_bool(left->get_constant_value().handle < right->get_constant_value().handle);
                     else
                     {
                         is_constant = false;
@@ -2183,20 +2140,20 @@ namespace wo
 
 
                     if (operate == +lex_type::l_larg_or_equal)
-                        constant_value.set_integer(!constant_value.integer);
+                        constant_value.set_bool(!constant_value.integer);
                     break;
 
                 case lex_type::l_larg:
                 case lex_type::l_less_or_equal:
 
                     if (left->value_type->is_integer())
-                        constant_value.set_integer(left->get_constant_value().integer > right->get_constant_value().integer);
+                        constant_value.set_bool(left->get_constant_value().integer > right->get_constant_value().integer);
                     else if (left->value_type->is_real())
-                        constant_value.set_integer(left->get_constant_value().real > right->get_constant_value().real);
+                        constant_value.set_bool(left->get_constant_value().real > right->get_constant_value().real);
                     else if (left->value_type->is_string())
-                        constant_value.set_integer(*left->get_constant_value().string > *right->get_constant_value().string);
+                        constant_value.set_bool(*left->get_constant_value().string > *right->get_constant_value().string);
                     else if (left->value_type->is_handle())
-                        constant_value.set_integer(left->get_constant_value().handle > right->get_constant_value().handle);
+                        constant_value.set_bool(left->get_constant_value().handle > right->get_constant_value().handle);
                     else
                     {
                         is_constant = false;
@@ -2204,7 +2161,7 @@ namespace wo
                     }
 
                     if (operate == +lex_type::l_less_or_equal)
-                        constant_value.set_integer(!constant_value.integer);
+                        constant_value.set_bool(!constant_value.integer);
                     break;
 
                 default:

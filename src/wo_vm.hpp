@@ -1504,50 +1504,15 @@ namespace wo
                         switch (aim_type)
                         {
                         case value::valuetype::integer_type:
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::real_type:
-                                opnum1->set_integer((wo_integer_t)opnum2->real); break;
-                            case value::valuetype::handle_type:
-                                opnum1->set_integer((wo_integer_t)opnum2->handle); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_integer((wo_integer_t)atoll(opnum2->string->c_str())); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'integer'.").c_str());
-                                break;
-                            }
-                            break;
+                            opnum1->set_integer(wo_cast_int(reinterpret_cast<wo_value>(opnum2))); break;
                         case value::valuetype::real_type:
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->set_real((wo_real_t)opnum2->integer); break;
-                            case value::valuetype::handle_type:
-                                opnum1->set_real((wo_real_t)opnum2->handle); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_real((wo_real_t)atof(opnum2->string->c_str())); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'real'.").c_str());
-                                break;
-                            }
-                            break;
+                            opnum1->set_real(wo_cast_real(reinterpret_cast<wo_value>(opnum2))); break;
                         case value::valuetype::handle_type:
-                            switch (opnum2->type)
-                            {
-                            case value::valuetype::integer_type:
-                                opnum1->set_handle((wo_handle_t)opnum2->integer); break;
-                            case value::valuetype::real_type:
-                                opnum1->set_handle((wo_handle_t)opnum2->real); break;
-                            case value::valuetype::string_type:
-                                opnum1->set_handle((wo_handle_t)std::stoull(*opnum2->string)); break;
-                            default:
-                                WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'handle'.").c_str());
-                                break;
-                            }
-                            break;
+                            opnum1->set_handle(wo_cast_handle(reinterpret_cast<wo_value>(opnum2))); break;
                         case value::valuetype::string_type:
                             opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
-
+                        case value::valuetype::bool_type:
+                            opnum1->set_bool(wo_cast_bool(reinterpret_cast<wo_value>(opnum2))); break;
                         case value::valuetype::array_type:
                             WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                             break;
@@ -1567,12 +1532,7 @@ namespace wo
                 {
                     WO_ADDRESSING_N1;
                     if (dr & 0b01)
-                    {
-                        if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
-                            rt_cr->set_integer(0);
-                        else
-                            rt_cr->set_integer(1);
-                    }
+                        rt_cr->set_bool(opnum1->type == (value::valuetype)(WO_IPVAL_MOVE_1));
                     else
                         if (opnum1->type != (value::valuetype)(WO_IPVAL_MOVE_1))
                             WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "The given value is not the same as the requested type.");
@@ -1601,7 +1561,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    rt_cr->set_integer(opnum1->integer == opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer == opnum2->integer);
 
                     break;
                 }
@@ -1610,7 +1570,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    rt_cr->set_integer(opnum1->integer != opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer != opnum2->integer);
                     break;
                 }
                 case instruct::opcode::equr:
@@ -1619,7 +1579,7 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'equr'.");
-                    rt_cr->set_integer(opnum1->real == opnum2->real);
+                    rt_cr->set_bool(opnum1->real == opnum2->real);
 
                     break;
                 }
@@ -1629,7 +1589,7 @@ namespace wo
                     WO_ADDRESSING_N2;
                     WO_VM_ASSERT(opnum1->type == opnum2->type && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'nequr'.");
-                    rt_cr->set_integer(opnum1->real != opnum2->real);
+                    rt_cr->set_bool(opnum1->real != opnum2->real);
                     break;
                 }
                 case instruct::opcode::equs:
@@ -1640,9 +1600,9 @@ namespace wo
                         "Operand should be string in 'equs'.");
 
                     if (opnum1->string == opnum2->string)
-                        rt_cr->set_integer(1);
+                        rt_cr->set_bool(true);
                     else
-                        rt_cr->set_integer(*opnum1->string == *opnum2->string);
+                        rt_cr->set_bool(*opnum1->string == *opnum2->string);
 
                     break;
                 }
@@ -1654,9 +1614,9 @@ namespace wo
                         "Operand should be string in 'nequs'.");
 
                     if (opnum1->string == opnum2->string)
-                        rt_cr->set_integer(0);
+                        rt_cr->set_bool(false);
                     else
-                        rt_cr->set_integer(*opnum1->string != *opnum2->string);
+                        rt_cr->set_bool(*opnum1->string != *opnum2->string);
                     break;
                 }
                 case instruct::opcode::land:
@@ -1664,7 +1624,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    rt_cr->set_integer(opnum1->integer && opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer && opnum2->integer);
 
                     break;
                 }
@@ -1673,7 +1633,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    rt_cr->set_integer(opnum1->integer || opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer || opnum2->integer);
 
                     break;
                 }
@@ -1682,7 +1642,7 @@ namespace wo
                     WO_ADDRESSING_N1;
                     WO_ADDRESSING_N2;
 
-                    opnum1->set_integer(opnum2->integer ? 1 : 0);
+                    opnum1->set_bool(opnum2->integer != false);
 
                     break;
                 }
@@ -1695,7 +1655,7 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type,
                         "Operand should be integer in 'lti'.");
 
-                    rt_cr->set_integer(opnum1->integer < opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer < opnum2->integer);
 
                     break;
                 }
@@ -1708,7 +1668,7 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type,
                         "Operand should be integer in 'gti'.");
 
-                    rt_cr->set_integer(opnum1->integer > opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer > opnum2->integer);
 
                     break;
                 }
@@ -1721,7 +1681,7 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type,
                         "Operand should be integer in 'elti'.");
 
-                    rt_cr->set_integer(opnum1->integer <= opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer <= opnum2->integer);
 
                     break;
                 }
@@ -1734,7 +1694,7 @@ namespace wo
                         && opnum1->type == value::valuetype::integer_type,
                         "Operand should be integer in 'egti'.");
 
-                    rt_cr->set_integer(opnum1->integer >= opnum2->integer);
+                    rt_cr->set_bool(opnum1->integer >= opnum2->integer);
 
                     break;
                 }
@@ -1747,7 +1707,7 @@ namespace wo
                         && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'ltr'.");
 
-                    rt_cr->set_integer(opnum1->real < opnum2->real);
+                    rt_cr->set_bool(opnum1->real < opnum2->real);
 
                     break;
                 }
@@ -1760,7 +1720,7 @@ namespace wo
                         && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'gtr'.");
 
-                    rt_cr->set_integer(opnum1->real > opnum2->real);
+                    rt_cr->set_bool(opnum1->real > opnum2->real);
 
                     break;
                 }
@@ -1773,7 +1733,7 @@ namespace wo
                         && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'eltr'.");
 
-                    rt_cr->set_integer(opnum1->real <= opnum2->real);
+                    rt_cr->set_bool(opnum1->real <= opnum2->real);
 
                     break;
                 }
@@ -1786,7 +1746,7 @@ namespace wo
                         && opnum1->type == value::valuetype::real_type,
                         "Operand should be real in 'egtr'.");
 
-                    rt_cr->set_integer(opnum1->real >= opnum2->real);
+                    rt_cr->set_bool(opnum1->real >= opnum2->real);
 
                     break;
                 }
@@ -1801,16 +1761,16 @@ namespace wo
                     switch (opnum1->type)
                     {
                     case value::valuetype::integer_type:
-                        rt_cr->set_integer(opnum1->integer < opnum2->integer); break;
+                        rt_cr->set_bool(opnum1->integer < opnum2->integer); break;
                     case value::valuetype::handle_type:
-                        rt_cr->set_integer(opnum1->handle < opnum2->handle); break;
+                        rt_cr->set_bool(opnum1->handle < opnum2->handle); break;
                     case value::valuetype::real_type:
-                        rt_cr->set_integer(opnum1->real < opnum2->real); break;
+                        rt_cr->set_bool(opnum1->real < opnum2->real); break;
                     case value::valuetype::string_type:
-                        rt_cr->set_integer(*opnum1->string < *opnum2->string); break;
+                        rt_cr->set_bool(*opnum1->string < *opnum2->string); break;
                     default:
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        rt_cr->set_integer(0);
+                        rt_cr->set_bool(false);
                         break;
                     }
 
@@ -1826,16 +1786,16 @@ namespace wo
                     switch (opnum1->type)
                     {
                     case value::valuetype::integer_type:
-                        rt_cr->set_integer(opnum1->integer > opnum2->integer); break;
+                        rt_cr->set_bool(opnum1->integer > opnum2->integer); break;
                     case value::valuetype::handle_type:
-                        rt_cr->set_integer(opnum1->handle > opnum2->handle); break;
+                        rt_cr->set_bool(opnum1->handle > opnum2->handle); break;
                     case value::valuetype::real_type:
-                        rt_cr->set_integer(opnum1->real > opnum2->real); break;
+                        rt_cr->set_bool(opnum1->real > opnum2->real); break;
                     case value::valuetype::string_type:
-                        rt_cr->set_integer(*opnum1->string > *opnum2->string); break;
+                        rt_cr->set_bool(*opnum1->string > *opnum2->string); break;
                     default:
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        rt_cr->set_integer(0);
+                        rt_cr->set_bool(false);
                         break;
                     }
 
@@ -1853,16 +1813,16 @@ namespace wo
                     switch (opnum1->type)
                     {
                     case value::valuetype::integer_type:
-                        rt_cr->set_integer(opnum1->integer <= opnum2->integer); break;
+                        rt_cr->set_bool(opnum1->integer <= opnum2->integer); break;
                     case value::valuetype::handle_type:
-                        rt_cr->set_integer(opnum1->handle <= opnum2->handle); break;
+                        rt_cr->set_bool(opnum1->handle <= opnum2->handle); break;
                     case value::valuetype::real_type:
-                        rt_cr->set_integer(opnum1->real <= opnum2->real); break;
+                        rt_cr->set_bool(opnum1->real <= opnum2->real); break;
                     case value::valuetype::string_type:
-                        rt_cr->set_integer(*opnum1->string <= *opnum2->string); break;
+                        rt_cr->set_bool(*opnum1->string <= *opnum2->string); break;
                     default:
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        rt_cr->set_integer(0);
+                        rt_cr->set_bool(false);
                         break;
                     }
 
@@ -1879,16 +1839,16 @@ namespace wo
                     switch (opnum1->type)
                     {
                     case value::valuetype::integer_type:
-                        rt_cr->set_integer(opnum1->integer >= opnum2->integer); break;
+                        rt_cr->set_bool(opnum1->integer >= opnum2->integer); break;
                     case value::valuetype::handle_type:
-                        rt_cr->set_integer(opnum1->handle >= opnum2->handle); break;
+                        rt_cr->set_bool(opnum1->handle >= opnum2->handle); break;
                     case value::valuetype::real_type:
-                        rt_cr->set_integer(opnum1->real >= opnum2->real); break;
+                        rt_cr->set_bool(opnum1->real >= opnum2->real); break;
                     case value::valuetype::string_type:
-                        rt_cr->set_integer(*opnum1->string >= *opnum2->string); break;
+                        rt_cr->set_bool(*opnum1->string >= *opnum2->string); break;
                     default:
                         WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
-                        rt_cr->set_integer(0);
+                        rt_cr->set_bool(false);
                         break;
                     }
 

@@ -721,6 +721,10 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_true) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_literal),
+                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_false) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_literal),
 
                 gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"FORMAT_STRING") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
