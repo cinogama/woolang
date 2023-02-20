@@ -27,7 +27,7 @@ namespace test_bool
         dynx = true as bool: dynamic;
         test_assure(dynx is bool);
 
-        dynx = (!dynx): dynamic;
+        dynx = (!(dynx as bool)): dynamic;
         test_assure(dynx is bool);
 
         dynx = 233: dynamic;
