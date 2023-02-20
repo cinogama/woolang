@@ -83,7 +83,7 @@
 
 #define WO_ERR_UNKNOWN_IDENTIFIER L"未定义的标识符 '%ls'"
 
-#define WO_ERR_UNABLE_DECIDE_VAR_TYPE L"无法决断变量类型"
+#define WO_ERR_UNABLE_DECIDE_EXPR_TYPE L"无法决断表达式类型"
 
 #define WO_ERR_ARGUMENT_TOO_FEW L"无法调用 '%ls': 参数过少"
 
@@ -217,7 +217,7 @@
 
 #define WO_ERR_NOT_BOOL_VAL_IN_COND_EXPR L"条件表达式的判断表达式应该是bool类型，但此处是 '%ls'"
 
-#define WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID L"具体化泛型标识符 '%ls' 时失败"
+#define WO_ERR_FAILED_TO_INSTANCE_TEMPLATE_ID L"具体化泛型表达式 '%ls' 时失败"
 
 #define WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE L"'变长参数包' 的索引只能是 'int' 类型的值"
 
@@ -341,7 +341,7 @@
 
 #define WO_ERR_UNKNOWN_IDENTIFIER L"Unknown identifier '%ls'."
 
-#define WO_ERR_UNABLE_DECIDE_VAR_TYPE L"Unable to decide variable type."
+#define WO_ERR_UNABLE_DECIDE_EXPR_TYPE L"Unable to decide the type of expression."
 
 #define WO_ERR_ARGUMENT_TOO_FEW L"Argument count too few to call '%ls'."
 

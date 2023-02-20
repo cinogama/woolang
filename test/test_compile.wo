@@ -241,6 +241,16 @@ func main()
         // Template args must match
         assure_compile_fail(@"func foo<T,U>(){} foo:<int>();"@);
         assure_compile_fail(@"func foo<T,U>(){} foo:<int, string, real>();"@);
+        assure_compile_fail(@"func foo<T,U>(){} foo();"@);
+        assure_compile_fail(@"let p<T> = 0; do p;"@);
+        assure_compile_success(@"let p<T> = 0; do p:<int>;"@);
+        assure_compile_fail(@"func p<T>(){} do p;"@);
+        assure_compile_success(@"func p<T>(){} do p:<int>;"@);
+
+        assure_compile_fail(@"func foo(){let fv = \=kv;; let kv = 0;};"@);
+        assure_compile_success(@"func foo(){let kv = 0; let fv = \=kv;;};"@);
+        assure_compile_fail(@"func foo(){let fv = \=kv;; let mut kv = 0;};"@);
+        assure_compile_success(@"func foo(){let mut kv = 0; let fv = \=kv;;};"@);
 
         // extern symbol must be found 
         assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);

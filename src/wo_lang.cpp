@@ -2202,14 +2202,14 @@ namespace wo
                                 ; /* function call may be template, do not report error here~ */
                             else
                             {
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
                                 lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_ITEM_IS_DEFINED_HERE,
                                     a_value_var->var_name->c_str());
                             }
                         }
                         else
                         {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_VAR_TYPE);
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_var, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
                             lang_anylizer->lang_error(lexer::errorlevel::infom, sym->variable_value, WO_INFO_INIT_EXPR_IS_HERE,
                                 a_value_var->var_name->c_str());
                         }
