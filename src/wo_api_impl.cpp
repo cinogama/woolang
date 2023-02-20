@@ -288,7 +288,6 @@ void wo_init(int argc, char** argv)
         wo_virtual_source(wo_stdlib_debug_src_path, wo_stdlib_debug_src_data, false);
         wo_virtual_source(wo_stdlib_vm_src_path, wo_stdlib_vm_src_data, false);
         wo_virtual_source(wo_stdlib_macro_src_path, wo_stdlib_macro_src_data, false);
-        wo_virtual_source(wo_stdlib_ir_src_path, wo_stdlib_ir_src_data, false);
         if (enable_shell_package)
             wo_virtual_source(wo_stdlib_shell_src_path, wo_stdlib_shell_src_data, false);
     }
@@ -446,7 +445,12 @@ wo_string_t wo_string(wo_value value)
 wo_bool_t wo_bool(const wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
-    return _rsvalue->handle != 0;
+    if (_rsvalue->type != wo::value::valuetype::bool_type)
+    {
+        wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a boolean.");
+        return wo_cast_int(value);
+    }
+    return (_rsvalue->integer != 0);
 }
 //wo_value wo_value_of_gchandle(wo_value value)
 //{
@@ -505,7 +509,7 @@ void wo_set_buffer(wo_value value, const void* val, size_t len)
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
     auto _rsvalue = WO_VAL(value);
-    _rsvalue->set_integer(val ? 1 : 0);
+    _rsvalue->set_bool(val);
 }
 void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
@@ -905,9 +909,9 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
     else if (lex_type == +wo::lex_type::l_nil) // is nil
         value->set_nil();
     else if (wstr == L"true")
-        value->set_integer(1);// true
+        value->set_bool(true);// true
     else if (wstr == L"false")
-        value->set_integer(0);// false
+        value->set_bool(false);// false
     else if (wstr == L"null")
         value->set_nil();// null
     else
@@ -931,6 +935,9 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
 {
     switch (value->type)
     {
+    case wo::value::valuetype::bool_type:
+        *out_str += value->integer ? "true" : "false";
+        return;
     case wo::value::valuetype::integer_type:
         *out_str += std::to_string(value->integer);
         return;
@@ -1071,6 +1078,27 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
         break;
     }
 }
+
+wo_bool_t wo_cast_bool(const wo_value value)
+{
+    auto _rsvalue = WO_VAL(value);
+    switch (_rsvalue->type)
+    {
+    case wo::value::valuetype::bool_type:
+    case wo::value::valuetype::integer_type:
+        return _rsvalue->integer != 0;
+    case wo::value::valuetype::handle_type:
+        return _rsvalue->handle != 0;
+    case wo::value::valuetype::real_type:
+        return _rsvalue->real != 0;
+    case wo::value::valuetype::string_type:
+        return _rsvalue->string->compare("true") == 0;
+    default:
+        wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to bool.");
+        break;
+    }
+    return false;
+}
 wo_string_t wo_cast_string(const wo_value value)
 {
     thread_local std::string _buf;
@@ -1079,6 +1107,9 @@ wo_string_t wo_cast_string(const wo_value value)
     auto _rsvalue = WO_VAL(value);
     switch (_rsvalue->type)
     {
+    case wo::value::valuetype::bool_type:
+        _buf = _rsvalue->integer ? "true" : "false";
+        return _buf.c_str();
     case wo::value::valuetype::integer_type:
         _buf = std::to_string(_rsvalue->integer);
         return _buf.c_str();
@@ -1111,6 +1142,8 @@ wo_string_t wo_type_name(wo_type type)
 {
     switch ((wo::value::valuetype)type)
     {
+    case wo::value::valuetype::bool_type:
+        return "bool";
     case wo::value::valuetype::integer_type:
         return "int";
     case wo::value::valuetype::handle_type:
@@ -1142,7 +1175,7 @@ wo_integer_t wo_argc(const wo_vm vm)
 }
 wo_result_t wo_ret_bool(wo_vm vm, wo_bool_t result)
 {
-    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_integer(result ? 1 : 0));
+    return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_bool(result));
 }
 wo_result_t wo_ret_int(wo_vm vm, wo_integer_t result)
 {
@@ -1254,7 +1287,7 @@ wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_integer(result ? 1 : 0);
+    structptr->m_values[1].set_bool(result);
 
     return 0;
 }
@@ -1456,7 +1489,7 @@ wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
-    structptr->m_values[1].set_integer(result ? 1 : 0);
+    structptr->m_values[1].set_bool(result);
 
     return 0;
 }

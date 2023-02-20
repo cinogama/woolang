@@ -138,6 +138,7 @@ namespace wo
                 {WO_PSTR(map), value::valuetype::dict_type},
                 {WO_PSTR(vec), value::valuetype::array_type},
                 {WO_PSTR(gchandle), value::valuetype::gchandle_type},
+                {WO_PSTR(bool), value::valuetype::bool_type},
                 {WO_PSTR(nil), value::valuetype::invalid},
 
                 // special type
@@ -145,8 +146,8 @@ namespace wo
                 {WO_PSTR(struct), value::valuetype::invalid},
                 {WO_PSTR(tuple), value::valuetype::invalid},
 
-                {WO_PSTR(void), value::valuetype::invalid}, // Button type
-                {WO_PSTR(nothing), value::valuetype::invalid}, // Top type.
+                {WO_PSTR(void), value::valuetype::invalid},
+                {WO_PSTR(nothing), value::valuetype::invalid}, // Buttom type.
                 {WO_PSTR(pending), value::valuetype::invalid},
                 {WO_PSTR(dynamic), value::valuetype::invalid},
             };
@@ -331,7 +332,7 @@ namespace wo
                     if (result)
                     {
                         is_constant = true;
-                        constant_value.set_integer(result);
+                        constant_value.set_bool(result);
                     }
                     if (_be_check_value_node->value_type->is_dynamic())
                     {
@@ -339,7 +340,7 @@ namespace wo
                             return; // do nothing... give error in analyze_finalize
                     }
                     is_constant = true;
-                    constant_value.set_integer(result);
+                    constant_value.set_bool(result);
                 }
             }
         };
@@ -1290,7 +1291,7 @@ namespace wo
                         if (val->value_type->is_bool())
                         {
                             value_type->set_type_with_name(WO_PSTR(bool));
-                            constant_value.set_integer(!val->get_constant_value().handle);
+                            constant_value.set_bool(val->get_constant_value().integer == false);
                         }
                         else
                             is_constant = false;

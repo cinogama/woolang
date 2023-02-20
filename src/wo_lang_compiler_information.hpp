@@ -239,8 +239,6 @@
 
 #define WO_ERR_WHERE_COND_NOT_MEET L"检查发现不满足的条件"
 
-#define WO_ERR_WHERE_COND_GRAMMAR_ERR L"约束项存在语法错误，以下是错误内容："
-
 #define WO_ERR_INVALID_KEY_EXPR L"创建映射时遇到了非法的键表达式"
 
 #define WO_ERR_INVALID_GADT_CONFLICT L"发现了冲突的union项类型"
@@ -496,8 +494,6 @@
 #define WO_ERR_WHERE_COND_TYPE_ERR L"Constraints should be 'bool', but here is '%ls'"
 
 #define WO_ERR_WHERE_COND_NOT_MEET L"Constraints didn't meet."
-
-#define WO_ERR_WHERE_COND_GRAMMAR_ERR L"Some error happend in constraints expr:"
 
 #define WO_ERR_INVALID_KEY_EXPR L"Invalid key expr found."
 
