@@ -1268,12 +1268,6 @@ namespace wo
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                 break;
-            case instruct::opcode::lmov:
-                temp_this_command_code_buf.push_back(WO_OPCODE(lmov));
-                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                break;
-
             case instruct::opcode::gti:
                 temp_this_command_code_buf.push_back(WO_OPCODE(gti));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
