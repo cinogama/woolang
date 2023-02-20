@@ -591,6 +591,8 @@ wo_integer_t wo_cast_int(wo_value value)
 
     switch (_rsvalue->type)
     {
+    case wo::value::valuetype::bool_type:
+        return _rsvalue->integer == 0 ? 0 : 1;
     case wo::value::valuetype::integer_type:
         return _rsvalue->integer;
     case wo::value::valuetype::handle_type:
@@ -611,6 +613,8 @@ wo_real_t wo_cast_real(wo_value value)
 
     switch (reinterpret_cast<wo::value*>(value)->type)
     {
+    case wo::value::valuetype::bool_type:
+        return _rsvalue->integer == 0 ? 0. : 1.;
     case wo::value::valuetype::integer_type:
         return (wo_real_t)_rsvalue->integer;
     case wo::value::valuetype::handle_type:
@@ -637,6 +641,8 @@ wo_handle_t wo_cast_handle(wo_value value)
 
     switch (reinterpret_cast<wo::value*>(value)->type)
     {
+    case wo::value::valuetype::bool_type:
+        return _rsvalue->integer == 0 ? 0 : 1;
     case wo::value::valuetype::integer_type:
         return (wo_handle_t)_rsvalue->integer;
     case wo::value::valuetype::handle_type:
@@ -1162,6 +1168,8 @@ wo_string_t wo_type_name(wo_type type)
         return "closure";
     case wo::value::valuetype::struct_type:
         return "struct";
+    case wo::value::valuetype::bool_type:
+        return "bool";
     case wo::value::valuetype::invalid:
         return "nil";
     default:
