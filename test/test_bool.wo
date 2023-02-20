@@ -24,7 +24,7 @@ namespace test_bool
         let mut dynx = nil: dynamic;
         test_assure(dynx is bool == false);
 
-        dynx = true: dynamic;
+        dynx = true as bool: dynamic;
         test_assure(dynx is bool);
 
         dynx = (!dynx): dynamic;
@@ -33,7 +33,7 @@ namespace test_bool
         dynx = 233: dynamic;
         test_assure(dynx is bool == false);
 
-        dynx = dynx as int: bool;
+        dynx = dynx as int: bool: dynamic;
         test_assure(dynx is bool);
         test_assure(1 == dynx->unsafe::cast:<int>); // Holy shit! type will not realy cast, 
                                                       // But equb ignored it !
