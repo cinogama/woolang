@@ -163,13 +163,13 @@ namespace test_basic
 
         let mut aav = 12;
 
-        test_equal(aav :+= 16, 28);
+        test_equal(aav +:= 16, 28);
         test_equal(aav, 28);
 
-        test_equal(aav :/ 2, 14);
+        test_equal(aav /: 2, 14);
         test_equal(aav, 14);
 
-        test_equal(aav :+ 2, 16);
+        test_equal(aav +: 2, 16);
         test_equal(aav, 16);
     }
 }

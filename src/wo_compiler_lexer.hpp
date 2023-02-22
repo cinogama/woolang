@@ -52,11 +52,11 @@ namespace wo
         l_mod_assign,           // %= 
 
         l_value_assign,               // :=
-        l_value_add_assign,           // :+=
-        l_value_sub_assign,           // :-= 
-        l_value_mul_assign,           // :*=
-        l_value_div_assign,           // :/= 
-        l_value_mod_assign,           // :%= 
+        l_value_add_assign,           // +:=
+        l_value_sub_assign,           // -:= 
+        l_value_mul_assign,           // *:=
+        l_value_div_assign,           // /:= 
+        l_value_mod_assign,           // %:= 
 
         l_equal,                // ==
         l_not_equal,            // !=
@@ -205,16 +205,16 @@ namespace wo
             {L"/=",     {lex_type::l_div_assign}},
             {L"%=",     {lex_type::l_mod_assign}},
             {L":=",      {lex_type::l_value_assign}},
-            {L":+=",     {lex_type::l_value_add_assign}},
-            {L":-=",     {lex_type::l_value_sub_assign}},
-            {L":*=",     {lex_type::l_value_mul_assign}},
-            {L":/=",     {lex_type::l_value_div_assign}},
-            {L":%=",     {lex_type::l_value_mod_assign}},
-            {L":+",     {lex_type::l_value_add_assign}},
-            {L":-",     {lex_type::l_value_sub_assign}},
-            {L":*",     {lex_type::l_value_mul_assign}},
-            {L":/",     {lex_type::l_value_div_assign}},
-            {L":%",     {lex_type::l_value_mod_assign}},
+            {L"+:=",     {lex_type::l_value_add_assign}},
+            {L"-:=",     {lex_type::l_value_sub_assign}},
+            {L"*:=",     {lex_type::l_value_mul_assign}},
+            {L"/:=",     {lex_type::l_value_div_assign}},
+            {L"%:=",     {lex_type::l_value_mod_assign}},
+            {L"+:",     {lex_type::l_value_add_assign}},
+            {L"-:",     {lex_type::l_value_sub_assign}},
+            {L"*:",     {lex_type::l_value_mul_assign}},
+            {L"/:",     {lex_type::l_value_div_assign}},
+            {L"%:",     {lex_type::l_value_mod_assign}},
             {L"==",     {lex_type::l_equal}},                // ==
             {L"!=",     {lex_type::l_not_equal}},            // !=
             {L">=",     {lex_type::l_larg_or_equal}},        // >=
