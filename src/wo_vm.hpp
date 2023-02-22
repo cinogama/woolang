@@ -599,9 +599,6 @@ namespace wo
                     tmpos << "land\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::lor:
                     tmpos << "lor\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-                case instruct::lmov:
-                    tmpos << "lmov\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
-
                 case instruct::ltx:
                     tmpos << "ltx\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::gtx:
@@ -1634,15 +1631,6 @@ namespace wo
                     WO_ADDRESSING_N2;
 
                     rt_cr->set_bool(opnum1->integer || opnum2->integer);
-
-                    break;
-                }
-                case instruct::opcode::lmov:
-                {
-                    WO_ADDRESSING_N1;
-                    WO_ADDRESSING_N2;
-
-                    opnum1->set_bool(opnum2->integer != false);
 
                     break;
                 }

@@ -1239,36 +1239,6 @@ namespace wo
                     }
                     break;
                 }
-                case instruct::lmov:
-                {
-                    WO_JIT_ADDRESSING_N1;
-                    WO_JIT_ADDRESSING_N2;
-
-                    wo_assert(!opnum1.is_constant());
-
-                    x86compiler.mov(asmjit::x86::byte_ptr(opnum1.gp_value(), offsetof(value, type)), (uint8_t)value::valuetype::bool_type);
-                    if (opnum2.is_constant())
-                    {
-                        if (opnum2.const_value()->integer)
-                            x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 1);
-                        else
-                            x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0);
-                    }
-                    else
-                    {
-                        auto set_op1_true = x86compiler.newLabel();
-                        auto lmov_end = x86compiler.newLabel();
-
-                        x86compiler.cmp(asmjit::x86::qword_ptr(opnum2.gp_value(), offsetof(value, integer)), 0);
-                        wo_asure(!x86compiler.jne(set_op1_true));
-                        x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 0);
-                        wo_asure(!x86compiler.jmp(lmov_end));
-                        wo_asure(!x86compiler.bind(set_op1_true));
-                        x86compiler.mov(asmjit::x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer)), 1);
-                        wo_asure(!x86compiler.bind(lmov_end));
-                    }
-                    break;
-                }
                 case instruct::ltx:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::gtx:

@@ -64,7 +64,7 @@ namespace wo
 
             land = 28 WO_OPCODE_SPACE,  // land             
             lor = 29 WO_OPCODE_SPACE,   // lor
-            lmov = 30 WO_OPCODE_SPACE,   // lmov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            RESERVED_1 = 30 WO_OPCODE_SPACE,   // lmov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
 
             ltx = 31 WO_OPCODE_SPACE,    // lt
             gtx = 32 WO_OPCODE_SPACE,    // gt
