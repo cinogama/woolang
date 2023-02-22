@@ -210,6 +210,11 @@ namespace wo
             {L":*=",     {lex_type::l_value_mul_assign}},
             {L":/=",     {lex_type::l_value_div_assign}},
             {L":%=",     {lex_type::l_value_mod_assign}},
+            {L":+",     {lex_type::l_value_add_assign}},
+            {L":-",     {lex_type::l_value_sub_assign}},
+            {L":*",     {lex_type::l_value_mul_assign}},
+            {L":/",     {lex_type::l_value_div_assign}},
+            {L":%",     {lex_type::l_value_mod_assign}},
             {L"==",     {lex_type::l_equal}},                // ==
             {L"!=",     {lex_type::l_not_equal}},            // !=
             {L">=",     {lex_type::l_larg_or_equal}},        // >=

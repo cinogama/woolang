@@ -160,6 +160,17 @@ namespace test_basic
         test_assure(dyx: string == "true");
         test_assure("true": bool == true);
         test_assure("false": bool == false);
+
+        let mut aav = 12;
+
+        test_equal(aav :+= 16, 28);
+        test_equal(aav, 28);
+
+        test_equal(aav :/ 2, 14);
+        test_equal(aav, 14);
+
+        test_equal(aav :+ 2, 16);
+        test_equal(aav, 16);
     }
 }
 
