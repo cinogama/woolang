@@ -50,12 +50,12 @@ namespace wo
             sidarr = 18 WO_OPCODE_SPACE,    // sidarr(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
             sidstruct = 19 WO_OPCODE_SPACE,  // sidstruct(dr)   REGID(1BYTE)/DIFF(4BYTE)    REGID/DIFF  REGID
 
-            lds = 20 WO_OPCODE_SPACE,   // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
-            sts = 21 WO_OPCODE_SPACE,  // sts(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
+            lds = 20 WO_OPCODE_SPACE,       // lds(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF   
+            sts = 21 WO_OPCODE_SPACE,       // sts(dr)           REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF  
 
             //  Logic operator, the result will store to logic_state
-            equb = 22 WO_OPCODE_SPACE,   // equb(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
-            nequb = 23 WO_OPCODE_SPACE,  // nequb
+            equb = 22 WO_OPCODE_SPACE,      // equb(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF         3-9 byte
+            nequb = 23 WO_OPCODE_SPACE,     // nequb
 
             lti = 24 WO_OPCODE_SPACE,    // lt
             gti = 25 WO_OPCODE_SPACE,    // gt
@@ -64,7 +64,7 @@ namespace wo
 
             land = 28 WO_OPCODE_SPACE,  // land             
             lor = 29 WO_OPCODE_SPACE,   // lor
-            RESERVED_1 = 30 WO_OPCODE_SPACE,   // lmov(dr)            REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
+            RESERVED_1 = 30 WO_OPCODE_SPACE,   // ---
 
             ltx = 31 WO_OPCODE_SPACE,    // lt
             gtx = 32 WO_OPCODE_SPACE,    // gt
