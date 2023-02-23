@@ -1285,7 +1285,7 @@ namespace wo
 
                 if (a_value_funcdef->is_template_reification)
                 {
-                    if (!a_value_funcdef->where_constraint)
+                    if (a_value_funcdef->where_constraint == nullptr)
                     {
                         a_value_funcdef->where_constraint = new ast_where_constraint;
                         a_value_funcdef->where_constraint->copy_source_info(a_value_funcdef);
@@ -1533,7 +1533,7 @@ namespace wo
 
         }
 
-        if (nullptr == a_value_bin->value_type)
+        if (a_value_bin->value_type->is_pending())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_bin, WO_ERR_CANNOT_CALC_WITH_L_AND_R,
                 a_value_bin->left->value_type->get_type_name(false).c_str(),
