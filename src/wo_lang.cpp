@@ -3575,7 +3575,6 @@ namespace wo
                                     : begin_template_scope(type, type_sym->template_types, type->template_arguments));
 
                             ast::ast_type* symboled_type = new ast::ast_type(WO_PSTR(pending));
-
                             do
                             {
                                 ast::ast_type* symboled_type_from = nullptr;
@@ -3594,7 +3593,7 @@ namespace wo
                                     symboled_type_from = type_sym->type_informatiom;
 
                                 wo_assert(symboled_type_from != nullptr && symboled_type != nullptr);
-                                symboled_type->set_type(symboled_type_from);
+                                *symboled_type = *symboled_type_from;
 
                             } while (false);
 
