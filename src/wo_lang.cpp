@@ -3574,24 +3574,30 @@ namespace wo
                                     ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
                                     : begin_template_scope(type, type_sym->template_types, type->template_arguments));
 
-                            ast::ast_type* symboled_type = nullptr;
+                            ast::ast_type* symboled_type = new ast::ast_type(WO_PSTR(pending));
 
-                            if (using_template)
+                            do
                             {
-                                // template arguments not anlyzed.
-                                if (auto* template_instance_type =
-                                    generate_type_instance_by_templates(type_sym, type->template_arguments))
-                                    // Get template type instance.
-                                    symboled_type = template_instance_type;
+                                ast::ast_type* symboled_type_from = nullptr;
+                                if (using_template)
+                                {
+                                    // template arguments not anlyzed.
+                                    if (auto* template_instance_type =
+                                        generate_type_instance_by_templates(type_sym, type->template_arguments))
+                                        // Get template type instance.
+                                        symboled_type_from = template_instance_type;
+                                    else
+                                        // Failed to instance current template type, skip.
+                                        return false;
+                                }
                                 else
-                                    // Failed to instance current template type, skip.
-                                    return false;
-                            }
-                            else
-                                symboled_type = type_sym->type_informatiom;
-                            //symboled_type->set_type(type_sym->type_informatiom);
+                                    symboled_type_from = type_sym->type_informatiom;
 
-                            wo_assert(symboled_type != nullptr);
+                                wo_assert(symboled_type_from != nullptr && symboled_type != nullptr);
+                                symboled_type->set_type(symboled_type_from);
+
+                            } while (false);
+
                             fully_update_type(symboled_type, in_pass_1, template_types, s);
 
                             // NOTE: In old version, function's return type is not stores in complex.
@@ -3654,7 +3660,7 @@ namespace wo
                                 analyze_pass2(naming);  // FORCE PASS2
                                 has_step_in_step2 = inpass2;
                             }
-                            
+
                             if (using_template)
                                 end_template_scope();
                         }// end template argu check & update
