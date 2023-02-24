@@ -3430,7 +3430,7 @@ namespace wo
                 type->copy_source_info(type->searching_begin_namespace_in_pass2->last_entry_ast);
         }
 
-        if (type->typefrom)
+        if (type->typefrom != nullptr)
         {
             bool is_mutable_typeof = type->is_mutable();
             auto used_type_info = type->using_type_name;
@@ -3574,37 +3574,41 @@ namespace wo
                                     ? begin_template_scope(type, type_sym->type_informatiom->using_type_name->symbol->define_node, type->template_arguments)
                                     : begin_template_scope(type, type_sym->template_types, type->template_arguments));
 
-                            auto* symboled_type = new ast::ast_type(WO_PSTR(pending));
+                            ast::ast_type* symboled_type = nullptr;
 
                             if (using_template)
                             {
                                 // template arguments not anlyzed.
                                 if (auto* template_instance_type =
                                     generate_type_instance_by_templates(type_sym, type->template_arguments))
-                                {
-                                    if (template_instance_type->is_pending())
-                                        fully_update_type(template_instance_type, in_pass_1, template_types, s);
-
-                                    symboled_type->set_type(template_instance_type);
-                                }
+                                    // Get template type instance.
+                                    symboled_type = template_instance_type;
                                 else
                                 {
                                     // Failed to instance current template type, skip.
-                                    if (using_template)
-                                        end_template_scope();
-
+                                    end_template_scope();
                                     return false;
                                 }
                             }
                             else
-                                *symboled_type = *type_sym->type_informatiom;
+                                symboled_type = type_sym->type_informatiom;
+                            //symboled_type->set_type(type_sym->type_informatiom);
 
+                            wo_assert(symboled_type != nullptr);
                             fully_update_type(symboled_type, in_pass_1, template_types, s);
 
-                            if (type->is_func())
-                                type->set_ret_type(symboled_type);
-                            else
+                            // NOTE: In old version, function's return type is not stores in complex.
+                            //       But now, the type here cannot be a function.
+                            wo_assert(type->is_func() == false);
+
+                            // NOTE: Set type will make new instance of typefrom, but it will cause symbol loss.
+                            //       To avoid dup-copy, we will let new type use typedef's typefrom directly.
+                            do {
+                                auto* defined_typefrom = symboled_type->typefrom;
+                                symboled_type->typefrom = nullptr;
                                 type->set_type(symboled_type);
+                                type->typefrom = symboled_type->typefrom = defined_typefrom;
+                            } while (false);
 
                             if (already_has_using_type_name)
                                 type->using_type_name = already_has_using_type_name;
@@ -3653,7 +3657,7 @@ namespace wo
                                 analyze_pass2(naming);  // FORCE PASS2
                                 has_step_in_step2 = inpass2;
                             }
-
+                            
                             if (using_template)
                                 end_template_scope();
                         }// end template argu check & update
