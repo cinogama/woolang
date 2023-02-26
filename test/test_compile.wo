@@ -202,6 +202,16 @@ func main()
             using st = struct{a: int, b: real};
             do st{a = 15};
         "@);
+
+        assure_compile_success(@"
+            using st = struct{m: array<mut int>};
+            do st{m = []};
+        "@);
+        assure_compile_success(@"
+            using st = struct{m: array<int>};
+            do st{m = []};
+        "@);
+
         assure_compile_fail(@"let t = int{a = ""};"@);
         assure_compile_fail(@"let t = y{a = ""};"@);
         assure_compile_fail(@"alias List<T> = (T, List<T>); do 0: List<int>;"@); // Not crash!

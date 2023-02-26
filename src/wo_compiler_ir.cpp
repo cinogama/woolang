@@ -1396,6 +1396,12 @@ namespace wo
                 WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
                 opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
                 break;
+            case instruct::opcode::sidmap:
+                temp_this_command_code_buf.push_back(WO_OPCODE(sidmap));
+                WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
+                WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
+                opnum::reg((uint8_t)WO_IR.opinteger).generate_opnum_to_buffer(temp_this_command_code_buf);
+                break;
             case instruct::opcode::sidarr:
                 temp_this_command_code_buf.push_back(WO_OPCODE(sidarr));
                 WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);

@@ -2811,9 +2811,6 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
-            if (!ignore_mutable && is_mutable() != another->is_mutable())
-                return false;
-
             if (is_hkt() && another->is_hkt())
             {
                 auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
@@ -2854,6 +2851,9 @@ namespace wo
             }
 
             if (is_pending() || another->is_pending())
+                return false;
+
+            if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
             if (is_func())
@@ -2913,9 +2913,6 @@ namespace wo
             if (is_pending_function() || another->is_pending_function())
                 return false;
 
-            if (!ignore_mutable && is_mutable() != another->is_mutable())
-                return false;
-
             if (is_hkt() && another->is_hkt())
             {
                 auto* ltsymb = symbol ? base_typedef_symbol(symbol) : nullptr;
@@ -2960,6 +2957,9 @@ namespace wo
 
             if (another->is_nothing())
                 return true; // Buttom type, OK
+
+            if (!ignore_mutable && is_mutable() != another->is_mutable())
+                return false;
 
             if (is_func())
             {
@@ -5364,8 +5364,10 @@ namespace wo
 
                         if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                             compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
-                        else if (a_value_index->from->value_type->is_map() || a_value_index->from->value_type->is_dict())
+                        else if (a_value_index->from->value_type->is_dict())
                             compiler->siddict(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
+                        else if (a_value_index->from->value_type->is_map())
+                            compiler->sidmap(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));
                         else
                             wo_error("Unknown unindex & storable type.");
                     }
