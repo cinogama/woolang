@@ -1411,6 +1411,15 @@ namespace wo
             WO_PUT_IR_TO_BUFFER(instruct::opcode::siddict, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
         }
         template<typename OP1T, typename OP2T>
+        void sidmap(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
+        {
+            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value
+                && std::is_base_of<opnum::opnumbase, OP2T>::value,
+                "Argument(s) should be opnum.");
+
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::sidmap, WO_OPNUM(op1), WO_OPNUM(op2), (int32_t)r.id);
+        }
+        template<typename OP1T, typename OP2T>
         void sidarr(const OP1T& op1, const OP2T& op2, const opnum::reg& r)
         {
             static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value

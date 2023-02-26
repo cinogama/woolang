@@ -715,6 +715,8 @@ namespace wo
                     tmpos << "iddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                 case instruct::siddict:
                     tmpos << "siddict\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
+                case instruct::sidmap:
+                    tmpos << "sidmap\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
                 case instruct::sidarr:
                     tmpos << "sidarr\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); tmpos << ",\t"; print_reg_bpoffset(); break;
                 case instruct::sidstruct:
@@ -2122,6 +2124,27 @@ namespace wo
 
                     break;
                 }
+                case instruct::opcode::sidmap:
+                {
+                    WO_ADDRESSING_N1;
+                    WO_ADDRESSING_N2;
+                    WO_ADDRESSING_N3_REG_BPOFF;
+
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'sidmap'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
+                        "Unable to index non-map value in 'sidmap'.");
+
+                    do
+                    {
+                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
+                        auto* result = &(*opnum1->dict)[*opnum2];
+                        if (wo::gc::gc_is_marking())
+                            opnum1->dict->add_memo(result);
+                        result->set_val(opnum3);
+                    } while (0);
+                    break;
+                }
                 case instruct::opcode::siddict:
                 {
                     WO_ADDRESSING_N1;
@@ -2133,14 +2156,27 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
                         "Unable to index non-map value in 'siddict'.");
 
+                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
+                        "Unable to index null in 'iddict'.");
+                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
+                        "Unable to index non-dict value in 'iddict'.");
                     do
                     {
-                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                        auto* result = &(*opnum1->dict)[*opnum2];
-                        if (wo::gc::gc_is_marking())
-                            opnum1->dict->add_memo(result);
-                        result->set_val(opnum3);
+                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
+                        auto fnd = opnum1->dict->find(*opnum2);
+                        if (fnd != opnum1->dict->end())
+                        {
+                            auto* result = &fnd->second;
+                            if (wo::gc::gc_is_marking())
+                                opnum1->dict->add_memo(result);
+                            result->set_val(opnum3);
+                            break;
+                        }
+                        else
+                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
+
                     } while (0);
+
                     break;
                 }
                 case instruct::opcode::sidarr:

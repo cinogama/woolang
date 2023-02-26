@@ -1348,6 +1348,8 @@ namespace wo
                     WO_JIT_NOT_SUPPORT;
                 case instruct::siddict:
                     WO_JIT_NOT_SUPPORT;
+                case instruct::sidmap:
+                    WO_JIT_NOT_SUPPORT;
                 case instruct::sidarr:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::sidstruct:
