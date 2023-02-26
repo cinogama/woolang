@@ -205,11 +205,11 @@ func main()
 
         assure_compile_success(@"
             using st = struct{m: array<mut int>};
-            st{m = []};
+            do st{m = []};
         "@);
         assure_compile_success(@"
             using st = struct{m: array<int>};
-            st{m = []};
+            do st{m = []};
         "@);
 
         assure_compile_fail(@"let t = int{a = ""};"@);
