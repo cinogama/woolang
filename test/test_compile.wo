@@ -212,6 +212,48 @@ func main()
             do st{m = []};
         "@);
 
+        assure_compile_success(@"
+            func foo(a){}
+
+            func foo2(f: (int)=>void){}
+            
+            foo2(foo);
+            foo2(foo);
+        "@);
+        assure_compile_success(@"
+            func foo(a){}
+            using St = struct{m: (int)=>void};
+
+            func foo2(f: (int)=>void){}
+            
+            do St{m = foo};
+            do St{m = foo};
+            foo2(foo);
+            foo2(foo);
+        "@);
+
+        assure_compile_success(@"
+            func foo(a) where a is int; {}
+            using St = struct{m: (int)=>void};
+            do St{m = foo};
+        "@);
+        assure_compile_success(@"
+            func foo(a) where a is int; {}
+            func foo2(f: (int)=>void){}    
+            foo2(foo);
+        "@);
+
+        assure_compile_fail(@"
+            func foo(a) where a is real; {}
+            using St = struct{m: (int)=>void};
+            do St{m = foo};
+        "@);
+        assure_compile_fail(@"
+            func foo(a) where a is real; {}
+            func foo2(f: (int)=>void){}    
+            foo2(foo);
+        "@);
+
         assure_compile_fail(@"let t = int{a = ""};"@);
         assure_compile_fail(@"let t = y{a = ""};"@);
         assure_compile_fail(@"alias List<T> = (T, List<T>); do 0: List<int>;"@); // Not crash!

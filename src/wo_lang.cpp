@@ -4271,6 +4271,7 @@ namespace wo
                 if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
                 {
                     auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
+
                     if (template_defines && template_args)
                         end_template_scope();
 
@@ -4350,7 +4351,19 @@ namespace wo
                 if (auto** realized_func = std::get_if<ast::ast_value_function_define*>(&judge_result.value()))
                 {
                     wo_assert((*realized_func)->is_template_define == false);
-                    args_might_be_nullptr_if_unpack[i] = *realized_func;
+
+                    auto* pending_variable = dynamic_cast<ast::ast_value_variable*>(args_might_be_nullptr_if_unpack[i]);
+                    if (pending_variable != nullptr)
+                    {
+                        pending_variable->value_type->set_type((*realized_func)->value_type);
+                        pending_variable->symbol = (*realized_func)->this_reification_lang_symbol;
+                        check_function_where_constraint(pending_variable, lang_anylizer, *realized_func);
+                    }
+                    else
+                    {
+                        wo_assert(dynamic_cast<ast::ast_value_function_define*>(args_might_be_nullptr_if_unpack[i]) != nullptr);
+                        args_might_be_nullptr_if_unpack[i] = *realized_func;
+                    }
                     has_updated_arguments = true;
                 }
                 else
