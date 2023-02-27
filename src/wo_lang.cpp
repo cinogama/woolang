@@ -3657,7 +3657,7 @@ namespace wo
                                 analyze_pass2(naming);  // FORCE PASS2
                                 has_step_in_step2 = inpass2;
                             }
-                            
+
                             if (using_template)
                                 end_template_scope();
                         }// end template argu check & update
@@ -3684,6 +3684,8 @@ namespace wo
     void lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types)
     {
         std::unordered_set<ast::ast_type*> us;
+        wo_assert(type != nullptr);
+
         wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
 
         if (type->using_type_name != nullptr)
@@ -4259,6 +4261,9 @@ namespace wo
                         }
                     }
             }
+
+            if (std::find(arg_func_template_args.begin(), arg_func_template_args.end(), nullptr) != arg_func_template_args.end())
+                return std::nullopt;
 
             // Auto judge here...
             if (update)
