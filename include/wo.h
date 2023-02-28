@@ -208,15 +208,6 @@ WO_API wo_result_t  wo_ret_err_pointer(wo_vm vm, wo_ptr_t result);
 WO_API wo_result_t  wo_ret_err_val(wo_vm vm, wo_value val);
 WO_API wo_result_t  wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 
-// Not safe, if wo_ret_val(vm, wo_set_ret_option_arr(vm, 0)) may get error result;
-//WO_API wo_value wo_set_ret_arr(wo_vm vm, wo_int_t count);
-//WO_API wo_value wo_set_ret_struct(wo_vm vm, uint16_t count);
-//WO_API wo_value wo_set_ret_map(wo_vm vm);
-//
-//WO_API wo_value wo_set_ret_option_arr(wo_vm vm, wo_int_t count);
-//WO_API wo_value wo_set_ret_option_struct(wo_vm vm, uint16_t count);
-//WO_API wo_value wo_set_ret_option_map(wo_vm vm);
-
 WO_API wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname);
 
 WO_API void         wo_abort_all_vm_to_exit();
