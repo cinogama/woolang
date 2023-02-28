@@ -31,8 +31,8 @@
 #   define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(1, 10, 6, 7);
-constexpr char         version_str[] = WO_VERSION_STR(1, 10, 6, 7) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(1, 10, 6, 8);
+constexpr char         version_str[] = WO_VERSION_STR(1, 10, 6, 8) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -366,13 +366,13 @@ wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
 
 wo_type wo_valuetype(wo_value value)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
 
     return (wo_type)_rsvalue->type;
 }
 wo_integer_t wo_int(wo_value value)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::integer_type)
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not an integer.");
@@ -406,7 +406,7 @@ float wo_float(wo_value value)
 }
 wo_handle_t wo_handle(wo_value value)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::handle_type
         && _rsvalue->type != wo::value::valuetype::gchandle_type)
     {
@@ -420,7 +420,7 @@ wo_handle_t wo_handle(wo_value value)
 }
 wo_ptr_t wo_pointer(wo_value value)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::handle_type
         && _rsvalue->type != wo::value::valuetype::gchandle_type)
     {
@@ -434,7 +434,7 @@ wo_ptr_t wo_pointer(wo_value value)
 }
 wo_string_t wo_string(wo_value value)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     if (_rsvalue->type != wo::value::valuetype::string_type)
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a string.");
@@ -465,7 +465,7 @@ wo_bool_t wo_bool(const wo_value value)
 
 void wo_set_int(wo_value value, wo_integer_t val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_integer(val);
 }
 void wo_set_char(wo_value value, wo_char_t val)
@@ -474,17 +474,17 @@ void wo_set_char(wo_value value, wo_char_t val)
 }
 void wo_set_real(wo_value value, wo_real_t val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_real(val);
 }
 void wo_set_float(wo_value value, float val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_real((wo_real_t)val);
 }
 void wo_set_handle(wo_value value, wo_handle_t val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_handle(val);
 }
 void wo_set_pointer(wo_value value, wo_ptr_t val)
@@ -496,25 +496,25 @@ void wo_set_pointer(wo_value value, wo_ptr_t val)
 }
 void wo_set_string(wo_value value, wo_string_t val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_string(val);
 }
 
 void wo_set_buffer(wo_value value, const void* val, size_t len)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_buffer(val, len);
 }
 
 void wo_set_bool(wo_value value, wo_bool_t val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_bool(val);
 }
 void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VAL(value)->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
-    auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
+    auto* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
     wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->holding_handle = resource_ptr;
     if (holding_val)
@@ -532,13 +532,13 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
 }
 void wo_set_val(wo_value value, wo_value val)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_val(WO_VAL(val));
 }
 
 void wo_set_struct(wo_value value, uint16_t structsz)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
 
     wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, structsz);
@@ -546,7 +546,7 @@ void wo_set_struct(wo_value value, uint16_t structsz)
 
 void wo_set_arr(wo_value value, wo_int_t count)
 {
-    auto _rsvalue = WO_VAL(value);
+    auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
     wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
@@ -559,31 +559,6 @@ void wo_set_map(wo_value value)
 
     wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
 }
-
-//wo_value wo_set_ret_arr(wo_vm vm, wo_int_t count)
-//{
-//    auto* _rsvalue = WO_VM(vm)->cr;
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
-//
-//    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
-//    return CS_VAL(_rsvalue);
-//}
-//wo_value wo_set_ret_struct(wo_vm vm, uint16_t count)
-//{
-//    auto* _rsvalue = WO_VM(vm)->cr;
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-//
-//    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
-//    return CS_VAL(_rsvalue);
-//}
-//wo_value wo_set_ret_map(wo_vm vm)
-//{
-//    auto* _rsvalue = WO_VM(vm)->cr;
-//    _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
-//
-//    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
-//    return CS_VAL(_rsvalue);
-//}
 
 wo_integer_t wo_cast_int(wo_value value)
 {

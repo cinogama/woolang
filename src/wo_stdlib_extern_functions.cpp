@@ -1037,6 +1037,17 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
     return wo_ret_val(vm, result_array);
 }
 
+WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_integer_t arrsz = wo_int(args + 0);
+
+    wo_value newarr = wo_push_arr(vm, arrsz);
+    for (wo_integer_t i = 0; i < arrsz; ++i)
+        wo_set_val(wo_arr_get(newarr, i), args + 1);
+
+    return wo_ret_val(vm, newarr);
+}
+
 WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc)
 {
     std::wstring buf;
@@ -1804,6 +1815,9 @@ namespace string
 )" R"(
 namespace array
 {
+    extern("rslib_std_array_create") 
+        public func create<T>(sz: int, init_val: T)=> array<T>;
+
     public func append<T>(self: array<T>, elem: T)
     {
         let newarr = self->tovec;
@@ -1941,6 +1955,9 @@ namespace array
 
 namespace vec
 {
+    extern("rslib_std_array_create") 
+        public func create<T>(sz: int, init_val: T)=> vec<T>;
+
     extern("rslib_std_create_str_by_wchar") 
         public func str(buf: vec<char>)=> string;
 
@@ -2621,11 +2638,11 @@ namespace std
         l_mod_assign,           // %= 
 
         l_value_assign,               // :=
-        l_value_add_assign,           // :+=
-        l_value_sub_assign,           // :-= 
-        l_value_mul_assign,           // :*=
-        l_value_div_assign,           // :/= 
-        l_value_mod_assign,           // :%= 
+        l_value_add_assign,           // +:=
+        l_value_sub_assign,           // -:= 
+        l_value_mul_assign,           // *:=
+        l_value_div_assign,           // /:= 
+        l_value_mod_assign,           // %:= 
 
         l_equal,                // ==
         l_not_equal,            // !=
@@ -2656,6 +2673,8 @@ namespace std
         l_question,   // ?
         l_import,               // import
         l_nil,
+        l_true,
+        l_false,
         l_while,
         l_if,
         l_else,
