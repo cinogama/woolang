@@ -16,6 +16,8 @@ func main()
 {
     std::println("Helloworld, woo~");
 }
+
+main(); // Execute `main`
 ```
 
 ---
