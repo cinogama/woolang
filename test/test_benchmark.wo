@@ -37,8 +37,8 @@ namespace test_benchmark
 
     func main()
     {
-        std::println("bench_1m_prime cost:", bench_1m_prime());
-        std::println("bench_1m_prime2 cost:", bench_1m_prime2());
+        std::println(F"bench_1m_prime cost: {bench_1m_prime()}");
+        std::println(F"bench_1m_prime2 cost: {bench_1m_prime2()}");
     }
 }
 

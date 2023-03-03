@@ -342,7 +342,6 @@ namespace wo
 
         // special regist
         value* cr = nullptr;  // op result trace & function return;
-        value* tc = nullptr;  // arugument count
         value* er = nullptr;  // exception result
 
         // stack info
@@ -375,7 +374,6 @@ namespace wo
 
             ip = env->rt_codes;
             cr = register_mem_begin + opnum::reg::spreg::cr;
-            tc = register_mem_begin + opnum::reg::spreg::tc;
             er = register_mem_begin + opnum::reg::spreg::er;
             sp = bp = stack_mem_begin;
 
@@ -416,7 +414,6 @@ namespace wo
 
             new_vm->ip = env->rt_codes;
             new_vm->cr = new_vm->register_mem_begin + opnum::reg::spreg::cr;
-            new_vm->tc = new_vm->register_mem_begin + opnum::reg::spreg::tc;
             new_vm->er = new_vm->register_mem_begin + opnum::reg::spreg::er;
             new_vm->sp = new_vm->bp = new_vm->stack_mem_begin;
 
@@ -741,15 +738,6 @@ namespace wo
                     case 0:
                         switch (main_command & 0b11111100)
                         {
-                        case instruct::extern_opcode_page_0::packargs:
-                        {
-                            auto skip_closure = *(uint16_t*)((this_command_ptr += 2) - 2);
-                            tmpos << "packargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2();
-
-                            if (skip_closure)
-                                tmpos << ": skip " << skip_closure;
-                            break;
-                        }
                         case instruct::extern_opcode_page_0::unpackargs:
                             tmpos << "unpackargs\t"; print_opnum1(); tmpos << ",\t"; print_opnum2(); break;
                         case instruct::extern_opcode_page_0::panic:
@@ -915,7 +903,6 @@ namespace wo
 
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
-                tc->set_integer(argc);
                 bp = sp;
 
                 return return_sp;
@@ -951,7 +938,6 @@ namespace wo
 
                     (sp--)->set_native_callstack(ip);
                     ip = env->rt_codes + vm_sfuncaddr;
-                    tc->set_integer(argc);
                     bp = sp;
 
                     return return_sp;
@@ -974,7 +960,6 @@ namespace wo
 
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
-                tc->set_integer(argc);
                 bp = sp;
 
                 run();
@@ -1004,14 +989,11 @@ namespace wo
 
                 (sp--)->set_native_callstack(ip);
                 ip = env->rt_codes + wo_func_addr;
-                tc->set_integer(argc);
                 bp = sp;
 
                 reinterpret_cast<wo_native_func>(wo_func_addr)(
                     reinterpret_cast<wo_vm>(this),
-                    reinterpret_cast<wo_value>(sp + 2),
-                    argc
-                    );
+                    reinterpret_cast<wo_value>(sp + 2));
 
                 ip = return_ip;
                 sp = return_sp;
@@ -1051,13 +1033,11 @@ namespace wo
                     {
                         wo_func_closure->m_native_func(
                             reinterpret_cast<wo_vm>(this),
-                            reinterpret_cast<wo_value>(sp + 2),
-                            argc);
+                            reinterpret_cast<wo_value>(sp + 2));
                     }
                     else
                     {
                         ip = env->rt_codes + wo_func_closure->m_vm_func;
-                        tc->set_integer(argc);
                         run();
                     }
 
@@ -1901,7 +1881,7 @@ namespace wo
                         rt_cr->set_nil();
 
                         wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2));
                         wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
@@ -1923,7 +1903,7 @@ namespace wo
 
                         if (closure->m_native_call)
                         {
-                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2));
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -1958,11 +1938,11 @@ namespace wo
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                         if (dr & 0b10)
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2));
                         else
                         {
                             wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2));
                             wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         }
 
@@ -2292,24 +2272,6 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
-                        case instruct::extern_opcode_page_0::packargs:
-                        {
-                            uint16_t skip_closure_arg_count = WO_IPVAL_MOVE_2;
-
-                            WO_ADDRESSING_N1;
-                            WO_ADDRESSING_N2;
-
-                            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                            auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
-                            wo::gcbase::gc_write_guard g1(packed_array);
-                            packed_array->resize(tc->integer - opnum2->integer);
-                            for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
-                            {
-                                (*packed_array)[argindex - opnum2->integer].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
-                            }
-
-                            break;
-                        }
                         case instruct::extern_opcode_page_0::unpackargs:
                         {
                             WO_ADDRESSING_N1;
@@ -2318,73 +2280,23 @@ namespace wo
 
                             if (opnum1->is_nil())
                             {
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid struct can used in unpack.");
                             }
                             else if (opnum1->type == value::valuetype::struct_type)
                             {
                                 auto* arg_tuple = opnum1->structs;
                                 gcbase::gc_read_guard gwg1(arg_tuple);
-                                if (opnum2->integer > 0)
-                                {
-                                    if ((size_t)opnum2->integer > (size_t)arg_tuple->m_count)
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    else
-                                    {
-                                        for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
-                                            (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
-                                    }
-                                }
-                                else
-                                {
-                                    if ((size_t)arg_tuple->m_count < (size_t)(-opnum2->integer))
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    for (uint16_t i = arg_tuple->m_count; i > 0; --i)
-                                        (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
+                                wo_assert(opnum2->integer >= 0);
 
-                                    tc->integer += (wo_integer_t)arg_tuple->m_count;
-                                }
-                            }
-                            else if (opnum1->type == value::valuetype::array_type)
-                            {
-                                if (opnum2->integer > 0)
-                                {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
-
-                                    if ((size_t)opnum2->integer > arg_array->size())
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    else
-                                    {
-                                        for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
-                                            arg_idx != arg_array->rend();
-                                            arg_idx++)
-                                            (rt_sp--)->set_val(&*arg_idx);
-                                    }
-                                }
-                                else
-                                {
-                                    auto* arg_array = opnum1->array;
-                                    gcbase::gc_read_guard gwg1(arg_array);
-
-                                    if (arg_array->size() < (size_t)(-opnum2->integer))
-                                    {
-                                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
-                                    }
-                                    for (auto arg_idx = arg_array->rbegin(); arg_idx != arg_array->rend(); arg_idx++)
-                                        (rt_sp--)->set_val(&*arg_idx);
-
-                                    tc->integer += arg_array->size();
-                                }
+                                WO_VM_ASSERT((size_t)opnum2->integer <= (size_t)arg_tuple->m_count, 
+                                    "The number of arguments required for unpack exceeds the number of arguments in the given arguments-package.");
+                                
+                                for (uint16_t i = (uint16_t)opnum2->integer; i > 0; --i)
+                                    (rt_sp--)->set_val(&arg_tuple->m_values[i - 1]);
                             }
                             else
                             {
-                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid array/struct can used in unpack.");
+                                WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Only valid struct can used in unpack.");
                             }
                             break;
                         }

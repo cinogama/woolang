@@ -27,7 +27,7 @@ namespace test_thread
                             test_vec->add(nil);
                             c += 1;
                         }
-                        std::println("Thread:", id, "complete");
+                        std::println(F"Thread: {id} complete");
                     }, (i,)     
             ));
             i+=1;
@@ -41,7 +41,7 @@ namespace test_thread
             do created_threads[i]->wait();
             i+=1;
         }
-        std::println("Result:", test_vec->len);
+        std::println(F"Result: {test_vec->len}");
         test_equal(test_vec->len, 100000 * thread_count);
 
         // Thread should be abort-able..

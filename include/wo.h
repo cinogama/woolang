@@ -87,7 +87,7 @@ typedef enum _wo_value_type
 }
 wo_type;
 
-typedef wo_result_t(*wo_native_func)(wo_vm, wo_value, size_t);
+typedef wo_result_t(*wo_native_func)(wo_vm, wo_value);
 
 typedef void(*wo_fail_handler)(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason);
 
@@ -147,8 +147,6 @@ WO_API wo_bool_t    wo_cast_value_from_str(wo_value value, wo_string_t str, wo_t
 WO_API float        wo_cast_float(const wo_value value);
 
 WO_API wo_string_t  wo_type_name(wo_type value);
-
-WO_API wo_integer_t wo_argc(wo_vm vm);
 
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);

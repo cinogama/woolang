@@ -1612,19 +1612,6 @@ namespace wo
                     temp_this_command_code_buf.push_back(WO_OPCODE(ext, 00));
                     switch (WO_IR.ext_opcode_p0)
                     {
-                    case instruct::extern_opcode_page_0::packargs:
-                    {
-                        temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(packargs));
-
-                        uint16_t skip_count = (uint16_t)WO_IR.opinteger;
-                        byte_t* readptr = (byte_t*)&skip_count;
-                        temp_this_command_code_buf.push_back(readptr[0]);
-                        temp_this_command_code_buf.push_back(readptr[1]);
-
-                        WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        WO_IR.op2->generate_opnum_to_buffer(temp_this_command_code_buf);
-                        break;
-                    }
                     case instruct::extern_opcode_page_0::unpackargs:
                         temp_this_command_code_buf.push_back(WO_OPCODE_EXT0(unpackargs));
                         WO_IR.op1->generate_opnum_to_buffer(temp_this_command_code_buf);

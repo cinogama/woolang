@@ -73,7 +73,7 @@ namespace wo
         l_typecast,              // :
         l_index_point,          // .
         l_double_index_point,          // ..  may be used? hey..
-        l_variadic_sign,          // ...
+        l_unpack_arg_sign,          // ...
         l_index_begin,          // '['
         l_index_end,            // ']'
         l_direct,               // '->'
@@ -231,7 +231,7 @@ namespace wo
             {L":",      {lex_type::l_typecast}},
             {L".",      {lex_type::l_index_point}},
             {L"..",      {lex_type::l_double_index_point}},
-            {L"...",      {lex_type::l_variadic_sign}},
+            {L"...",     {lex_type::l_unpack_arg_sign}},
             {L"[",      {lex_type::l_index_begin}},
             {L"]",      {lex_type::l_index_end}},
             {L"->",      {lex_type::l_direct }},

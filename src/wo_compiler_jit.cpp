@@ -357,7 +357,7 @@ namespace wo
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
             wo_asure(vm->interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
             wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 
             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
@@ -379,7 +379,7 @@ namespace wo
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2));
 
             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
             //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
@@ -411,8 +411,7 @@ namespace wo
             const byte_t* codes,
             const byte_t* rt_ip,
             asmjit::X86Gp rt_sp,
-            asmjit::X86Gp rt_bp,
-            asmjit::X86Gp rt_tc)
+            asmjit::X86Gp rt_bp)
         {
             if (vm_func.m_state == function_jit_state::state::FINISHED)
             {
@@ -447,17 +446,13 @@ namespace wo
                 wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, bp)), bpoffset));
 
                 auto callargptr = x86compiler.newUIntPtr();
-                auto targc = x86compiler.newInt64();
-                wo_asure(!x86compiler.lea(callargptr, asmjit::x86::qword_ptr(rt_sp, 1 * sizeof(value))));
-                wo_asure(!x86compiler.lea(targc, asmjit::x86::qword_ptr(rt_bp, offsetof(value, integer))));
 
                 auto invoke_node =
                     x86compiler.call(vm_func.m_jitfunc->getLabel(),
-                        asmjit::FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
+                        asmjit::FuncSignatureT<wo_result_t, vmbase*, value*>());
 
                 invoke_node->setArg(0, vm);
                 invoke_node->setArg(1, callargptr);
-                invoke_node->setArg(2, targc);
             }
         }
         static void _vmjitcall_panic(wo::value* opnum1)
@@ -500,7 +495,7 @@ namespace wo
             X86Compiler x86compiler(&code_buffer);
 
             // Generate function declear
-            state.m_jitfunc = x86compiler.addFunc(FuncSignatureT<wo_result_t, vmbase*, value*, size_t>());
+            state.m_jitfunc = x86compiler.addFunc(FuncSignatureT<wo_result_t, vmbase*, value*>());
             // void _jit_(vmbase*  vm , value* bp, value* reg, value* const_global);
 
             // 0. Get vmptr reg stack base global ptr.
@@ -509,8 +504,6 @@ namespace wo
             auto _vmssp = x86compiler.newUIntPtr();
             auto _vmreg = x86compiler.newUIntPtr();
             auto _vmcr = x86compiler.newUIntPtr();
-            auto _vmtc = x86compiler.newUIntPtr();
-
 
             x86compiler.setArg(0, _vmbase);
             x86compiler.setArg(1, _vmsbp);
@@ -518,7 +511,6 @@ namespace wo
             wo_asure(!x86compiler.mov(_vmssp, _vmsbp));                    // let sp = bp;
             wo_asure(!x86compiler.mov(_vmreg, intptr_ptr(_vmbase, offsetof(vmbase, register_mem_begin))));
             wo_asure(!x86compiler.mov(_vmcr, intptr_ptr(_vmbase, offsetof(vmbase, cr))));
-            wo_asure(!x86compiler.mov(_vmtc, intptr_ptr(_vmbase, offsetof(vmbase, tc))));
 
             byte_t              opcode_dr = (byte_t)(instruct::abrt << 2);
             instruct::opcode    opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
@@ -1035,7 +1027,7 @@ namespace wo
                             return state;
                         }
 
-                        x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, m_codes, rt_ip, _vmssp, _vmsbp, _vmtc);
+                        x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, m_codes, rt_ip, _vmssp, _vmsbp);
                     }
 
                     // ATTENTION: AFTER CALLING VM FUNCTION, DONOT MODIFY SP/BP/IP CONTEXT, HERE MAY HAPPEND/PASS BREAK INFO!!!
@@ -1372,8 +1364,6 @@ namespace wo
                     case 0:     // extern-opcode-page-0
                         switch ((instruct::extern_opcode_page_0)(opcode))
                         {
-                        case instruct::extern_opcode_page_0::packargs:
-                            WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::unpackargs:
                             WO_JIT_NOT_SUPPORT;
                         case instruct::extern_opcode_page_0::panic:

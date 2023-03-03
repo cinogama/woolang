@@ -190,10 +190,6 @@ namespace wo
         {
             argument_types.push_back(arg_type);
         }
-        void ast_type::set_as_variadic_arg_func()
-        {
-            is_variadic_function_type = true;
-        }
         bool ast_type::is_mutable() const
         {
             return is_mutable_type;
@@ -339,7 +335,6 @@ namespace wo
             auto* this_origin_type = this->using_type_name ? this->using_type_name : this;
             auto* another_origin_type = another->using_type_name ? another->using_type_name : another;
             if (this_origin_type->is_func() != another_origin_type->is_func()
-                || this_origin_type->is_variadic_function_type != another_origin_type->is_variadic_function_type
                 || this_origin_type->template_arguments.size() != another_origin_type->template_arguments.size()
                 || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
                 return false;
@@ -510,10 +505,6 @@ namespace wo
                     }
 
                 }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
-
-                result->is_variadic_function_type = is_variadic_function_type;
             }
             else if (another->is_func())
                 return false;
@@ -1920,33 +1911,28 @@ namespace wo
             auto* argchild = ast_func->argument_list->children;
             while (argchild)
             {
-                if (auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild))
+                auto* arg_node = dynamic_cast<ast_value_arg_define*>(argchild);
+                wo_assert(arg_node != nullptr);
+
+                if (arg_node->value_type->is_waiting_create_template_for_auto())
                 {
-                    if (arg_node->value_type->is_waiting_create_template_for_auto())
-                    {
-                        // Create a template for this fucking arguments...
-                        std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
+                    // Create a template for this fucking arguments...
+                    std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
 
-                        ast_template_define_with_naming* atn = new ast_template_define_with_naming;
-                        atn->template_ident = wstring_pool::get_pstr(auto_template_name);
-                        atn->naming_const = nullptr;
+                    ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                    atn->template_ident = wstring_pool::get_pstr(auto_template_name);
+                    atn->naming_const = nullptr;
 
-                        // If no template arguments defined, create a new list~
-                        if (template_types == nullptr)
-                            template_types = new ast_list;
+                    // If no template arguments defined, create a new list~
+                    if (template_types == nullptr)
+                        template_types = new ast_list;
 
-                        template_types->append_at_end(atn);
-                        // Update typename at last:
-                        arg_node->value_type->set_type_with_name(atn->template_ident);
-                    }
-
-                    if (ast_func->value_type->is_variadic_function_type)
-                        return lex.parser_error(lexer::errorlevel::error, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
-
-                    ast_func->value_type->append_function_argument_type(arg_node->value_type);
+                    template_types->append_at_end(atn);
+                    // Update typename at last:
+                    arg_node->value_type->set_type_with_name(atn->template_ident);
                 }
-                else if (dynamic_cast<ast_token*>(argchild))
-                    ast_func->value_type->set_as_variadic_arg_func();
+                ast_func->value_type->append_function_argument_type(arg_node->value_type);
+
                 argchild = argchild->sibling;
             }
 
@@ -2287,8 +2273,6 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_unary_op>] = _register_builder<pass_unary_op>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_unpack_args>] = _register_builder<pass_unpack_args>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_pack_variadic_args>] = _register_builder<pass_pack_variadic_args>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_extern>] = _register_builder<pass_extern>();
 

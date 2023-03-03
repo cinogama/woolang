@@ -100,7 +100,6 @@ namespace wo
         {
             bool is_mutable_type = false;
             bool is_function_type = false;
-            bool is_variadic_function_type = false;
 
             // if this type is function, following type information will describe the return type;
             wo_pstring_t type_name = nullptr;
@@ -164,7 +163,6 @@ namespace wo
             void set_as_function_type();
             ast_type* get_return_type() const;
             void append_function_argument_type(ast_type* arg_type);
-            void set_as_variadic_arg_func();
             bool is_mutable() const;
             bool is_dynamic() const;
             bool is_custom(std::unordered_set<const ast_type*>& s) const;
@@ -683,7 +681,6 @@ namespace wo
             std::string ir_func_signature_tag = "";
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
-            bool is_different_arg_count_in_same_extern_symbol = false;
             std::vector<lang_symbol*> capture_variables;
             ast_where_constraint* where_constraint = nullptr;
 
@@ -803,7 +800,7 @@ namespace wo
                 using astnode_type = decltype(MAKE_INSTANCE(this));
                 auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
                 if (!child_instance) *dumm = *this;
-                 // Write self copy functions here..
+                // Write self copy functions here..
                 WO_REINSTANCE(dumm->return_value);
                 dumm->located_function = nullptr;
 
@@ -1142,59 +1139,6 @@ namespace wo
                         constant_value.set_integer((wo_integer_t)(wo_handle_t)out_str);
                     }
                 }
-            }
-        };
-
-        struct ast_value_packed_variadic_args : virtual public ast_value
-        {
-            ast_value_packed_variadic_args() :ast_value(new ast_type(WO_PSTR(array)))
-            {
-            }
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                ast_value::instance(dumm);
-                // Write self copy functions here..
-                return dumm;
-            }
-
-            void update_constant_value(lexer* lex) override
-            {
-                // DO NOTHING
-            }
-        };
-
-        struct ast_value_indexed_variadic_args : virtual public ast_value
-        {
-            ast_value* argindex;
-            ast_value_indexed_variadic_args(ast_value* arg_index)
-                : argindex(arg_index)
-                , ast_value(new ast_type(WO_PSTR(dynamic)))
-            {
-                wo_assert(argindex);
-            }
-
-            ast_value_indexed_variadic_args() :ast_value(new ast_type(WO_PSTR(pending))) {}
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                ast_value::instance(dumm);
-                // Write self copy functions here..
-
-                WO_REINSTANCE(dumm->argindex);
-
-                return dumm;
-            }
-
-            void update_constant_value(lexer* lex) override
-            {
-                // DO NOTHING
             }
         };
 
@@ -2186,13 +2130,6 @@ namespace wo
             }
         };
 
-        struct pass_pack_variadic_args : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                return (ast_basic*)new ast_value_packed_variadic_args;
-            }
-        };
         struct pass_extern : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -2853,20 +2790,13 @@ namespace wo
                     ast_value* right_v = dynamic_cast<ast_value*>(WO_NEED_AST(2));
                     wo_test(left_v && right_v);
 
-                    if (dynamic_cast<ast_value_packed_variadic_args*>(left_v))
-                    {
-                        return (grammar::ast_base*)new ast_value_indexed_variadic_args(right_v);
-                    }
-                    else
-                    {
-                        ast_value_index* vbin = new ast_value_index();
-                        vbin->from = left_v;
-                        vbin->index = right_v;
+                    ast_value_index* vbin = new ast_value_index();
+                    vbin->from = left_v;
+                    vbin->index = right_v;
 
-                        vbin->update_constant_value(&lex);
+                    vbin->update_constant_value(&lex);
 
-                        return (grammar::ast_base*)vbin;
-                    }
+                    return (grammar::ast_base*)vbin;
                 }
                 else if (_token.type == +lex_type::l_index_point)
                 {
@@ -2914,19 +2844,9 @@ namespace wo
                 auto* child = arg_list->children;
                 while (child)
                 {
-                    if (auto* type = dynamic_cast<ast_type*>(child))
-                    {
-                        result->append_function_argument_type(type);
-                    }
-                    else
-                    {
-                        auto* tktype = dynamic_cast<ast_token*>(child);
-                        wo_test(child->sibling == nullptr && tktype && tktype->tokens.type == +lex_type::l_variadic_sign);
-                        //must be last elem..
-
-                        result->set_as_variadic_arg_func();
-                    }
-
+                    auto* type = dynamic_cast<ast_type*>(child);
+                    wo_assert(type != nullptr);
+                    result->append_function_argument_type(type);
                     child = child->sibling;
                 }
                 return (ast_basic*)result;
@@ -3462,17 +3382,9 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                //( LIST , ...)
+                //( LIST [,])
 
-                if (input.size() == 3)
-                    return WO_NEED_AST(1);
-
-                wo_assert(input.size() == 5);
-                if (ast_empty::is_empty(input[3]))
-                    return WO_NEED_AST(1);
-
-                dynamic_cast<ast_list*>(WO_NEED_AST(1))->append_at_end(WO_NEED_AST(3));
-
+                wo_assert(input.size() == 3 || input.size() == 4);
                 return WO_NEED_AST(1);
             }
         };

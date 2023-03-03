@@ -257,6 +257,8 @@
 
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"非void类型（此处为 '%ls'）的表达式不允许作为语句，这会导致重要的值被意外忽略"
 
+#define WO_ERR_NOT_ALLOW_REPEATED_USED_EXT_FUNC L"不允许将符号：'%ls' 导入声明为参数数量不同的函数"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -512,6 +514,8 @@
 #define WO_ERR_UNKNOWN_MACRO_NAMED L"Unknown macro named: '%ls'."
 
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"Expressions of type non-void are not allowed as statements(here is '%ls'), which causes important values to be accidentally ignored."
+
+#define WO_ERR_NOT_ALLOW_REPEATED_USED_EXT_FUNC L"Symbol: '%ls' import declaration not allowed as function with different number of arguments."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

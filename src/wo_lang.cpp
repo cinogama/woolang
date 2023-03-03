@@ -502,13 +502,6 @@ namespace wo
         }
         return true;
     }
-    WO_PASS1(ast_value_indexed_variadic_args)
-    {
-        auto* a_value_variadic_args_idx = WO_AST();
-        analyze_pass1(a_value_variadic_args_idx->argindex);
-
-        return true;
-    }
     WO_PASS1(ast_return)
     {
         auto* a_ret = WO_AST();
@@ -1476,25 +1469,13 @@ namespace wo
         }
         return true;
     }
-    WO_PASS2(ast_value_indexed_variadic_args)
-    {
-        auto* a_value_variadic_args_idx = WO_AST();
-        analyze_pass2(a_value_variadic_args_idx->argindex);
-
-        if (!a_value_variadic_args_idx->argindex->value_type->is_integer())
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_variadic_args_idx, WO_ERR_FAILED_TO_INDEX_VAARG_ERR_TYPE);
-        }
-        return true;
-    }
     WO_PASS2(ast_fakevalue_unpacked_args)
     {
         auto* a_fakevalue_unpacked_args = WO_AST();
         analyze_pass2(a_fakevalue_unpacked_args->unpacked_pack);
-        if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_array()
-            && !a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
+        if (!a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple())
         {
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"array, vec" WO_TERM_OR L"tuple");
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_fakevalue_unpacked_args, WO_ERR_NEED_TYPES, L"tuple");
         }
         return true;
     }
@@ -2667,17 +2648,6 @@ namespace wo
                                     ecount = unpacking_tuple_type->template_arguments.size();
                                     a_fakevalue_unpack_args->expand_count = ecount;
                                 }
-                                else
-                                {
-                                    ecount =
-                                        (wo_integer_t)(
-                                            a_value_funccall->called_func->value_type->argument_types.end()
-                                            - a_type_index);
-                                    if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                        a_fakevalue_unpack_args->expand_count = -ecount;
-                                    else
-                                        a_fakevalue_unpack_args->expand_count = ecount;
-                                }
                             }
 
                             size_t unpack_tuple_index = 0;
@@ -2710,11 +2680,6 @@ namespace wo
                                             ++unpack_tuple_index;
                                     }
                                     a_type_index++;
-                                }
-                                else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                {
-                                    // is variadic
-                                    break;
                                 }
                                 else
                                 {
@@ -2752,19 +2717,6 @@ namespace wo
                     }
                     if (!donot_move_forward)
                         a_type_index++;
-                }
-                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                {
-                    while (real_args)
-                    {
-                        auto tmp_sib = real_args->sibling;
-
-                        real_args->parent = nullptr;
-                        real_args->sibling = nullptr;
-
-                        a_value_funccall->arguments->add_child(real_args);
-                        real_args = tmp_sib;
-                    }
                 }
                 if (real_args)
                 {
@@ -2868,8 +2820,6 @@ namespace wo
                     if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, true))
                         return false;
                 }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
 
                 wo_assert(is_complex() && another->is_complex());
                 complex_type->is_same(another->complex_type, ignore_using_type, false);
@@ -2982,8 +2932,6 @@ namespace wo
                     else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
                         return false;
                 }
-                if (is_variadic_function_type != another->is_variadic_function_type)
-                    return false;
 
                 wo_assert(is_complex() && another->is_complex());
                 if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
@@ -3050,13 +2998,8 @@ namespace wo
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
                         result += argument_types[index]->get_type_name(s, ignore_using_type, false);
-                        if (index + 1 != argument_types.size() || is_variadic_function_type)
+                        if (index + 1 != argument_types.size())
                             result += L", ";
-                    }
-
-                    if (is_variadic_function_type)
-                    {
-                        result += L"...";
                     }
                     result += L")=>";
                 }
@@ -3981,7 +3924,6 @@ namespace wo
         WO_TRY_PASS(ast_value_funccall);
         WO_TRY_PASS(ast_value_array);
         WO_TRY_PASS(ast_value_mapping);
-        WO_TRY_PASS(ast_value_indexed_variadic_args);
         WO_TRY_PASS(ast_return);
         WO_TRY_PASS(ast_sentence_block);
         WO_TRY_PASS(ast_if);
@@ -4519,7 +4461,6 @@ namespace wo
                 WO_TRY_PASS(ast_value_type_judge);
                 WO_TRY_PASS(ast_value_type_check);
                 WO_TRY_PASS(ast_value_index);
-                WO_TRY_PASS(ast_value_indexed_variadic_args);
                 WO_TRY_PASS(ast_fakevalue_unpacked_args);
                 WO_TRY_PASS(ast_value_binary);
                 WO_TRY_PASS(ast_value_logical_binary);
@@ -5481,25 +5422,15 @@ namespace wo
             }
             else if (auto* a_value_funccall = dynamic_cast<ast_value_funccall*>(value))
             {
-                if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
-                    compiler->psh(reg(reg::tc));
-
                 std::vector<ast_value* >arg_list;
                 auto arg = a_value_funccall->arguments->children;
 
-                bool full_unpack_arguments = false;
                 wo_integer_t extern_unpack_arg_count = 0;
 
                 while (arg)
                 {
                     ast_value* arg_val = dynamic_cast<ast_value*>(arg);
                     wo_assert(arg_val);
-
-                    if (full_unpack_arguments)
-                    {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
-                        break;
-                    }
 
                     if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
                     {
@@ -5518,12 +5449,7 @@ namespace wo
                             }
                         }
 
-                        if (a_fakevalue_unpacked_args->expand_count <= 0)
-                        {
-                            if (!(a_fakevalue_unpacked_args->unpacked_pack->value_type->is_tuple()
-                                && a_fakevalue_unpacked_args->expand_count == 0))
-                                full_unpack_arguments = true;
-                        }
+                        wo_assert(a_fakevalue_unpacked_args->expand_count > 0);
                     }
 
                     arg_list.insert(arg_list.begin(), arg_val);
@@ -5544,11 +5470,7 @@ namespace wo
                         }
                         else
                         {
-                            if (a_fakevalue_unpacked_args->expand_count <= 0)
-                                compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count - 1));
-                            else
-                                extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
-
+                            extern_unpack_arg_count += a_fakevalue_unpacked_args->expand_count - 1;
                             compiler->ext_unpackargs(packing,
                                 a_fakevalue_unpacked_args->expand_count);
                         }
@@ -5570,69 +5492,17 @@ namespace wo
                         funcdef = fdef->symbol->get_funcdef();
                 }
 
-                bool need_using_tc = !dynamic_cast<opnum::immbase*>(called_func_aim)
-                    || a_value_funccall->called_func->value_type->is_variadic_function_type
-                    || (funcdef != nullptr && funcdef->is_different_arg_count_in_same_extern_symbol);
-
-                if (!full_unpack_arguments && need_using_tc)
-                    compiler->mov(reg(reg::tc), imm(arg_list.size() + extern_unpack_arg_count));
-
-                opnumbase* reg_for_current_funccall_argc = nullptr;
-                if (full_unpack_arguments)
-                {
-                    reg_for_current_funccall_argc = &get_useable_register_for_pure_value();
-                    compiler->mov(*reg_for_current_funccall_argc, reg(reg::tc));
-                }
-
                 compiler->call(complete_using_register(*called_func_aim));
 
                 last_value_stored_to_cr_flag.set_true();
 
-                opnum::opnumbase* result_storage_place = nullptr;
-
-                if (full_unpack_arguments)
-                {
-                    last_value_stored_to_cr_flag.set_false();
-
-                    result_storage_place = &get_useable_register_for_pure_value();
-                    compiler->mov(*result_storage_place, reg(reg::cr));
-
-                    wo_assert(reg_for_current_funccall_argc);
-                    auto pop_end = compiler->get_unique_tag_based_command_ip() + "_pop_end";
-                    auto pop_head = compiler->get_unique_tag_based_command_ip() + "_pop_head";
-
-                    // TODO: using duff's device to optmise
-                    if (arg_list.size() + extern_unpack_arg_count - 1)
-                    {
-                        compiler->pop(arg_list.size() + extern_unpack_arg_count - 1);
-                        compiler->subi(*reg_for_current_funccall_argc, imm(arg_list.size() + extern_unpack_arg_count - 1));
-                    }
-                    compiler->tag(pop_head);
-                    compiler->gti(*reg_for_current_funccall_argc, imm(0));
-                    compiler->jf(tag(pop_end));
-                    compiler->pop(1);
-                    compiler->subi(*reg_for_current_funccall_argc, imm(1));
-                    compiler->jmp(tag(pop_head));
-                    compiler->tag(pop_end);
-                }
-                else
-                {
-                    result_storage_place = &WO_NEW_OPNUM(reg(reg::cr));
-                    compiler->pop(arg_list.size() + extern_unpack_arg_count);
-                }
-
-                if (now_function_in_final_anylize && now_function_in_final_anylize->value_type->is_variadic_function_type)
-                    compiler->pop(reg(reg::tc));
+                opnum::opnumbase* result_storage_place = &WO_NEW_OPNUM(reg(reg::cr));
+                compiler->pop(arg_list.size() + extern_unpack_arg_count);
 
                 if (!get_pure_value)
-                {
                     return *result_storage_place;
-                }
                 else
                 {
-                    if (full_unpack_arguments)
-                        return *result_storage_place;
-
                     auto& funcresult = get_useable_register_for_pure_value();
                     compiler->mov(funcresult, *result_storage_place);
                     return funcresult;
@@ -5924,74 +5794,6 @@ namespace wo
                     return result;
                 }
 
-            }
-            else if (auto* a_value_packed_variadic_args = dynamic_cast<ast_value_packed_variadic_args*>(value))
-            {
-                if (!now_function_in_final_anylize
-                    || !now_function_in_final_anylize->value_type->is_variadic_function_type)
-                {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_packed_variadic_args, WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
-                    return WO_NEW_OPNUM(reg(reg::cr));
-                }
-                else
-                {
-                    auto& packed = get_useable_register_for_pure_value();
-
-                    compiler->ext_packargs(packed, imm(
-                        now_function_in_final_anylize->value_type->argument_types.size()
-                    ), (uint16_t)now_function_in_final_anylize->capture_variables.size());
-                    return packed;
-                }
-            }
-            else if (auto* a_value_indexed_variadic_args = dynamic_cast<ast_value_indexed_variadic_args*>(value))
-            {
-                if (!now_function_in_final_anylize
-                    || !now_function_in_final_anylize->value_type->is_variadic_function_type)
-                {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_packed_variadic_args, WO_ERR_USING_VARIADIC_IN_NON_VRIDIC_FUNC);
-                    return WO_NEW_OPNUM(reg(reg::cr));
-                }
-
-                auto capture_count = (uint16_t)now_function_in_final_anylize->capture_variables.size();
-                auto function_arg_count = now_function_in_final_anylize->value_type->argument_types.size();
-
-                if (a_value_indexed_variadic_args->argindex->is_constant)
-                {
-                    auto _cv = a_value_indexed_variadic_args->argindex->get_constant_value();
-                    if (_cv.integer + capture_count + function_arg_count <= 63 - 2)
-                    {
-                        if (!get_pure_value)
-                            return WO_NEW_OPNUM(reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
-                                + function_arg_count))));
-                        else
-                        {
-                            auto& result = get_useable_register_for_pure_value();
-
-                            last_value_stored_to_cr_flag.set_true();
-                            compiler->mov(result, reg(reg::bp_offset((int8_t)(_cv.integer + capture_count + 2
-                                + function_arg_count))));
-
-                            return result;
-                        }
-                    }
-                    else
-                    {
-                        auto& result = get_useable_register_for_pure_value();
-                        compiler->lds(result, imm(_cv.integer + capture_count + 2
-                            + function_arg_count));
-                        return result;
-                    }
-                }
-                else
-                {
-                    auto& index = analyze_value(a_value_indexed_variadic_args->argindex, compiler, true);
-                    compiler->addi(index, imm(2
-                        + capture_count + function_arg_count));
-                    complete_using_register(index);
-                    auto& result = get_useable_register_for_pure_value();
-                    compiler->lds(result, index);
-                    return result;
-                }
             }
             else if (auto* a_fakevalue_unpacked_args = dynamic_cast<ast_fakevalue_unpacked_args*>(value))
             {
@@ -6549,20 +6351,16 @@ namespace wo
                 if (last_fundef)
                 {
                     wo_assert(last_fundef->value_type->is_func());
-                    if (last_fundef->value_type->is_variadic_function_type
-                        != funcdef->value_type->is_variadic_function_type
-                        || (last_fundef->value_type->argument_types.size() !=
-                            funcdef->value_type->argument_types.size()))
+                    if (last_fundef->value_type->argument_types.size() !=
+                        funcdef->value_type->argument_types.size())
                     {
-                        goto _update_all_func_using_tc;
+                        lang_anylizer->lang_error(lexer::errorlevel::error, funcdef, WO_ERR_NOT_ALLOW_REPEATED_USED_EXT_FUNC,
+                            funcdef->externed_func_info->symbol_name.c_str());
+                        break;
                     }
                 }
                 last_fundef = funcdef;
             }
-            continue;
-        _update_all_func_using_tc:;
-            for (auto funcdef : funcdef_list)
-                funcdef->is_different_arg_count_in_same_extern_symbol = true;
         }
 
         size_t public_block_begin = compiler->get_now_ip();

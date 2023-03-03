@@ -33,7 +33,7 @@ namespace test_gc
 
     func test_gc_parallel_work(id: int)
     {
-        std::println("test_gc_co/thread id=", id, "begin");
+        std::println(F"test_gc_co/thread id = {id} begin.");
 
         let local_list = [1: dynamic,2: dynamic,3: dynamic,4: dynamic,5: dynamic]mut: vec<dynamic>;
         let tmp = []mut: vec<vec<int>>;
@@ -76,7 +76,7 @@ namespace test_gc
         }
         global_list->clear();
 
-        std::println("test_gc_co/thread id=", id, "finished!");
+        std::println(F"test_gc_co/thread id = {id} finished!");
     }
 
     func main()

@@ -86,7 +86,6 @@ namespace wo
 
                 // special regist
                 op_trace_result = 0b00100000, cr = op_trace_result,
-                argument_count, tc = argument_count,
                 exception_inform, er = exception_inform,
                 nil_constant, ni = nil_constant,
                 pattern_match, pm = pattern_match,
@@ -1459,18 +1458,6 @@ namespace wo
             auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext);
             codeb.ext_page_id = 3;
             codeb.ext_opcode_p3 = instruct::extern_opcode_page_3::funcend;
-        }
-
-        template<typename OP1T, typename OP2T>
-        void ext_packargs(const OP1T& op1, const OP2T& op2, uint16_t skipclosure)
-        {
-            static_assert(std::is_base_of<opnum::opnumbase, OP1T>::value &&
-                std::is_base_of<opnum::opnumbase, OP2T>::value,
-                "Argument(s) should be opnum.");
-
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::ext, WO_OPNUM(op1), WO_OPNUM(op2), skipclosure);
-            codeb.ext_page_id = 0;
-            codeb.ext_opcode_p0 = instruct::extern_opcode_page_0::packargs;
         }
 
         template<typename OP1T>

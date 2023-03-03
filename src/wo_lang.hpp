@@ -218,7 +218,6 @@ namespace wo
         WO_PASS(ast_value_funccall);
         WO_PASS(ast_value_array);
         WO_PASS(ast_value_mapping);
-        WO_PASS(ast_value_indexed_variadic_args);
         WO_PASS(ast_return);
         WO_PASS(ast_sentence_block);
         WO_PASS(ast_if);

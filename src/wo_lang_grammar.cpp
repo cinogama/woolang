@@ -562,10 +562,10 @@ namespace wo
                 gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST_ITEMS") ,gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_tuple_types_list),
 
-                gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::te(gm::ttype::l_comma), gm::nt(L"VARIADIC_MAY_EMPTY"),gm::te(gm::ttype::l_right_brackets) }
+                gm::nt(L"TUPLE_TYPE_LIST") >> gm::symlist{ gm::te(gm::ttype::l_left_brackets),gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::te(gm::ttype::l_comma),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_tuple_types_list),
 
-                gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::nt(L"VARIADIC_MAY_EMPTY") }
+                gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
                 gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::nt(L"TYPE") }
@@ -573,12 +573,6 @@ namespace wo
 
                 gm::nt(L"TUPLE_TYPE_LIST_ITEMS") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST_ITEMS"), gm::te(gm::ttype::l_comma), gm::nt(L"TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
-
-                gm::nt(L"VARIADIC_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
-
-                gm::nt(L"VARIADIC_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
 
                 ///////////////////////////////////////////////////
 
@@ -615,8 +609,6 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
                 gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::nt(L"DECL_ATTRIBUTE"), gm::te(gm::ttype::l_mut),gm::nt(L"IDENTIFIER"),gm::nt(L"TYPE_DECL_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_func_argument),
-                gm::nt(L"ARGDEFINE_VAR_ITEM") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"TRI_ITEM") >> gm::symlist{ gm::nt(L"LOGICAL_OR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
@@ -701,13 +693,10 @@ namespace wo
 
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"ARGUMENT_EXPAND") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign) }
+                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_unpack_arg_sign) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_unpack_args),
-                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_variadic_sign),gm::te(gm::ttype::l_literal_integer) }
+                gm::nt(L"ARGUMENT_EXPAND") >> gm::symlist{ gm::nt(L"FACTOR_TYPE_CASTING"), gm::te(gm::ttype::l_unpack_arg_sign),gm::te(gm::ttype::l_literal_integer) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_unpack_args),
-
-                gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_variadic_sign) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_pack_variadic_args),
 
                 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_literal_integer) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_literal),

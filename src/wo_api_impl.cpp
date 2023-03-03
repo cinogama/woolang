@@ -31,8 +31,8 @@
 #   define WO_DEBUG_SFX "debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(1, 10, 6, 8);
-constexpr char         version_str[] = WO_VERSION_STR(1, 10, 6, 8) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(1, 11, 0, 0);
+constexpr char         version_str[] = WO_VERSION_STR(1, 11, 0, 0) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
@@ -1150,10 +1150,6 @@ wo_string_t wo_type_name(wo_type type)
     }
 }
 
-wo_integer_t wo_argc(const wo_vm vm)
-{
-    return reinterpret_cast<const wo::vmbase*>(vm)->tc->integer;
-}
 wo_result_t wo_ret_bool(wo_vm vm, wo_bool_t result)
 {
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr->set_bool(result));

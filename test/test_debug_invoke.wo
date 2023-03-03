@@ -5,36 +5,13 @@ import test_tool;
 
 namespace test_debug_invoke
 {
-    func fib(val:int)
-    {
-        if (val <= 2)
-            return 1;
-        return fib(val-1) + fib(val-2);
-    }
-    func variadic_func_call(...)
-    {
-        std::println(......);
-        return ...->len;
-    }
     func cause_minor_fail()
     {
         std::debug::breakpoint();
     }
     func main()
     {
-        test_equal(fib(10), std::debug::invoke(fib, 10));
-        
-        std::debug::invoke(cause_minor_fail);
-
-        let mut i = 0;
-        while (i < 10)
-        {
-            test_equal(variadic_func_call("h", "e", "l", "l", "o", "w", "o", "r", "l", "d"),
-                            std::debug::invoke(variadic_func_call, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d"));
-            test_equal(std::print("h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"),
-                            std::debug::invoke(std::print, "h", "e", "l", "l", "o", "w", "o", "r", "l", "d", "\n"));
-            i += 1;
-        }
+        cause_minor_fail();
     }
 }
 

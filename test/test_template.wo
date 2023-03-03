@@ -4,6 +4,11 @@ import test_tool;
 
 namespace test_template
 {
+    func mkinstance<T>()
+    {
+        return nil->unsafe::cast:<T>;
+    }
+
     using wraped_iterator<IType, EType> = struct {
         iter : IType<EType>,
         pred : (EType)=>bool,
@@ -78,7 +83,7 @@ namespace test_template
             i += 1:T;
         let end_time = std::time();
 
-        std::println(typename_of:<T>(), "cost:", end_time - begin_time, "sec.");
+        std::println(F"{typename_of:<T>()} cost: {end_time - begin_time} secs.");
     }
 
     func cast_to<TO, FROM>(val:FROM)
@@ -133,7 +138,7 @@ namespace test_template
             }
             func instance()
             {
-                return std::debug::__empty_function:<xxtype>();
+                return mkinstance:<xxtype>();
             }
         }
     }
@@ -152,7 +157,7 @@ namespace test_template
         }
         func instance()
         {
-            return std::debug::__empty_function:<gchandle_type>();
+            return std::declval:<gchandle_type>();
         }
     }
 
@@ -164,9 +169,9 @@ namespace test_template
     let mut constexpr_if_test_flag = false;
     func constexpr_if_test<T>()
     {
-        do std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
+        do mkinstance:<gchandle>() as T; // T must same as gchandle for this test..
 
-        if (func()=>T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
+        if (func()=>T{constexpr_if_test_flag = true; return std::declval:<T>();}() is T)
         {
             return 233;
         }

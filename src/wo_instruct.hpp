@@ -121,7 +121,6 @@ namespace wo
             // Here is no nop in extern code page.
 
             // THIS PAGE USED FOR STORING SIMPLE EXTERN OPCODE THAT IS NOT CONTAINED IN ORIGIN OP CODE
-            packargs = 3 WO_OPCODE_SPACE,       // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             unpackargs = 4 WO_OPCODE_SPACE,     // ext(00) packargs(dr) REGID(1BYTE)/DIFF(4BYTE) REGID/DIFF
             panic = 9 WO_OPCODE_SPACE,          // panic(dr_0) REGID(1BYTE)/DIFF(4BYTE)
 
