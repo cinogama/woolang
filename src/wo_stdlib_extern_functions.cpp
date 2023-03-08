@@ -805,13 +805,6 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
-WO_API wo_api rslib_std_map_contain(wo_vm vm, wo_value args, size_t argc)
-{
-    bool _map_has_indexed_val = wo_map_find(args + 0, args + 1);
-
-    return wo_ret_int(vm, _map_has_indexed_val ? 1 : 0);
-}
-
 WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_val(vm, wo_map_get_or_set_default(args + 0, args + 1, args + 2));
@@ -2126,9 +2119,6 @@ namespace dict
     extern("rslib_std_make_dup")
         public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
-    extern("rslib_std_map_find") 
-        public func find<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
-
     public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=>bool)
     {
         for (let k, _ : self)
@@ -2140,7 +2130,7 @@ namespace dict
     extern("rslib_std_map_only_get") 
         public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
 
-    extern("rslib_std_map_contain") 
+    extern("rslib_std_map_find") 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=>bool;
 
     extern("rslib_std_map_get_or_default") 
@@ -2232,9 +2222,6 @@ namespace map
     extern("rslib_std_make_dup")
         public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
 
-    extern("rslib_std_map_find") 
-        public func find<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
-
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=>bool)
     {
         for (let k, _ : self)
@@ -2243,7 +2230,7 @@ namespace map
         return option::none;            
     }
 
-    extern("rslib_std_map_contain") 
+    extern("rslib_std_map_find") 
         public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
 
     extern("rslib_std_map_only_get") 
