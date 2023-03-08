@@ -19,8 +19,21 @@ namespace test_basic
             test_equal(f(), i);
         }
     }
+
+    using SidBugSt = struct{x: map<int, mut int>};
+
+    func test_bug_sidx()
+    {
+        let b = SidBugSt{x={}mut};
+
+        let mut i = 66;
+        b.x[1723] = i;
+
+        test_equal(b.x[1723], 66);
+    }
     func test_oversized()
     {
+        let b = SidBugSt{x={}mut};
         let mut a00 = 0, mut a10 = 0, a20 = 0, mut a30 = 0, a40 = 0, mut a50 = 0, a60 = 0, mut a70 = 0, a80 = 0, mut a90 = 0,
             mut a01 = 0, mut a11 = 0, a21 = 0, mut a31 = 0, a41 = 0, mut a51 = 0, a61 = 0, mut a71 = 0, a81 = 0, mut a91 = 0,
             mut a02 = 0, mut a12 = 0, a22 = 0, mut a32 = 0, a42 = 0, mut a52 = 0, a62 = 0, mut a72 = 0, a82 = 0, mut a92 = 0,
@@ -29,8 +42,20 @@ namespace test_basic
             mut a05 = 0, mut a15 = 0, a25 = 0, mut a35 = 0, a45 = 0, mut a55 = 0, a65 = 0, mut a75 = 0, a85 = 0, mut a95 = 0,
             mut a06 = 0, mut a16 = 10, a26 = 20, mut a36 = 30, a46 = 40, mut a56 = 50, a66 = 60, mut a76 = 0, a86 = 0, mut a96 = 0,
             mut a07 = 0, mut a17 = 0, a27 = 0, mut a37 = 0, a47 = 0, mut a57 = 0, a67 = 0, mut a77 = 0, a87 = 0, mut a97 = 0;
-
+        let c = SidBugSt{x={}mut};
         a00 = a97 := 233;
+
+        b.x[a01] = a46;
+        b.x[a66] = a00;
+        b.x[a16] = a97;
+        c.x[a00] = a66;
+        c.x[a66] = a00;
+
+        test_equal(b.x[0], 40);
+        test_equal(b.x[60], 233);
+        test_equal(b.x[10], 233);
+        test_equal(c.x[233], 60);
+        test_equal(c.x[60], 233);
 
         test_equal(a00, 233);
         test_equal(a97, 233);
@@ -45,6 +70,7 @@ namespace test_basic
     }
     func main()
     {
+        test_bug_sidx();
         test_oversized();
 
         let mut a = 15;

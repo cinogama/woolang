@@ -452,7 +452,7 @@ namespace wo
         };
 
         std::tuple<void*, size_t> create_env_binary() noexcept;
-        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary); 
+        static shared_pointer<runtime_env> _create_from_stream(binary_source_stream* stream, size_t stackcount, wo_string_t* out_reason, bool* out_is_binary);
         static shared_pointer<runtime_env> load_create_env_from_binary(
             wo_string_t virtual_file,
             const void* bytestream,
@@ -627,6 +627,23 @@ namespace wo
                             tr_regist_mapping[op2->id] = (int8_t)stack_idx;
                         }
                     }
+                    switch (ircmbuf.opcode & 0b11111100)
+                    {
+                    case instruct::opcode::sidarr:
+                    case instruct::opcode::sidmap:
+                    case instruct::opcode::siddict:
+                        if (ircmbuf.opinteger >= opnum::reg::t0
+                            && ircmbuf.opinteger <= opnum::reg::r15
+                            && tr_regist_mapping.find(ircmbuf.opinteger) == tr_regist_mapping.end())
+                        {
+                            // is temp reg 
+                            size_t stack_idx = tr_regist_mapping.size();
+                            tr_regist_mapping[(uint8_t)ircmbuf.opinteger] = (int8_t)stack_idx;
+                        }
+                        break;
+                    default:
+                        break;
+                    }
                 }
             }
 
@@ -647,6 +664,7 @@ namespace wo
             {
                 auto* opnum1 = ir_command_buffer[i].op1;
                 auto* opnum2 = ir_command_buffer[i].op2;
+
                 size_t skip_line = 0;
                 if (ir_command_buffer[i].opcode != instruct::calln)
                 {
@@ -738,6 +756,50 @@ namespace wo
                         }
 
                         updated_opnum.insert(opnum2);
+                    }
+
+                    switch (ir_command_buffer[i].opcode & 0b11111100)
+                    {
+                    case instruct::opcode::sidarr:
+                    case instruct::opcode::sidmap:
+                    case instruct::opcode::siddict:
+                    {
+                        opnum::reg op3((uint8_t)ir_command_buffer[i].opinteger);
+                        if (op3.is_tmp_regist())
+                            op3.id = opnum::reg::bp_offset(-tr_regist_mapping[op3.id]);
+                        else if (op3.is_bp_offset() && op3.get_bp_offset() <= 0)
+                        {
+                            auto offseted_bp_offset = op3.get_bp_offset() - maxim_offset;
+                            if (offseted_bp_offset >= -64)
+                            {
+                                op3.id = opnum::reg::bp_offset(offseted_bp_offset);
+                            }
+                            else
+                            {
+                                opnum::reg reg_r0(opnum::reg::r0);
+                                opnum::imm imm_offset(offseted_bp_offset);
+
+                                // out of bt_offset range, make lds ldsr
+                                ir_command_buffer.insert(ir_command_buffer.begin() + i,
+                                    ir_command{ instruct::lds, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // lds r0, imm(real_offset)
+                                op3.id = opnum::reg::r0;
+                                i++;
+
+                                if (ir_command_buffer[i].opcode != instruct::call)
+                                {
+                                    ir_command_buffer.insert(ir_command_buffer.begin() + i + 1,
+                                        ir_command{ instruct::sts, WO_OPNUM(reg_r0), WO_OPNUM(imm_offset) });         // sts r0, imm(real_offset)
+
+                                    ++skip_line;
+                                }
+                            }
+                        }
+
+                        ir_command_buffer[i].opinteger = (int32_t)op3.id;
+                        break;
+                    }
+                    default:
+                        break;
                     }
                 }
 
