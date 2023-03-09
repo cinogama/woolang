@@ -19,6 +19,16 @@ GC will do following work to instead of old-gc:
 7. Recycle all white unit.
 */
 
+// v1.1 Young-Old edge GC support.
+/*
+Will not search all unit to reduce the cost of marking.
+1. Old unit will be ignored when minor-mark
+2. If an young unit append to a old unit, move the old-unit into change set.
+!! Consider wo_set_str/wo_set_val, need mark unit as change set?.
+    or wo_arr_xx/wo_map_xx/wo_struct_xx move unit into change set directly?.
+!! Consider the safety of changeset-modify in leaving-call-native function?.
+*/
+
 #define WO_GC_FORCE_STOP_WORLD false
 
 namespace wo
@@ -57,7 +67,7 @@ namespace wo
     {
         uint16_t                    _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
-        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
+        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 15;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -386,8 +396,9 @@ namespace wo
             {
                 auto* last = picked_list->last;
 
-                if (picked_list->gc_type != gcbase::gctype::no_gc &&
-                    picked_list->gc_type != gcbase::gctype::eden &&
+                wo_assert(picked_list->gc_type != gcbase::gctype::no_gc);
+
+                if (picked_list->gc_type != gcbase::gctype::eden &&
                     gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
                 {
                     // Unit was not marked, delete it
