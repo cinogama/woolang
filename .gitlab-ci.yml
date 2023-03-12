@@ -8,7 +8,7 @@ build_release_win32:
     - git submodule update --init --recursive --force
     - if not exist build ( mkdir build )
     - cd build
-    - rm -f CMakeCache.txt
+    - del CMakeCache.txt
     - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - MSBuild driver/woodriver.vcxproj -p:Configuration=Release -m
     - cd ..
