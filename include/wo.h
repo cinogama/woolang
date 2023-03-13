@@ -96,6 +96,7 @@ WO_API void         wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_stri
 
 #define wo_fail(ERRID, REASON) ((void)wo_cause_fail(__FILE__, __LINE__, __func__,ERRID, REASON))
 
+WO_API wo_string_t  wo_commit_sha(void);
 WO_API wo_string_t  wo_compile_date(void);
 WO_API wo_string_t  wo_version(void);
 WO_API wo_integer_t wo_version_int(void);
