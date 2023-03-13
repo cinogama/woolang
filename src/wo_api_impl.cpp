@@ -22,23 +22,6 @@
 // TODO LIST
 // 1. ALL GC_UNIT OPERATE SHOULD BE ATOMIC
 
-#define WO_VERSION(DEV,MAIN,SUB,CORRECT) ((0x##DEV##ull)<<(3*16))|((0x##MAIN##ull)<<(2*16))|((0x##SUB##ull)<<(1*16))|((0x##CORRECT##ull)<<(0*16))
-#define WO_VERSION_STR(DEV,MAIN,SUB,CORRECT) #DEV "." #MAIN "." #SUB "." #CORRECT
-
-#ifdef NDEBUG
-#   define WO_DEBUG_SFX ""
-#else
-#   define WO_DEBUG_SFX "-debug"
-#endif
-
-constexpr wo_integer_t version = WO_VERSION(1, 10, 6, 11);
-constexpr char         version_str[] = WO_VERSION_STR(1, 10, 6, 11) WO_DEBUG_SFX;
-
-#undef WO_DEBUG_SFX
-#undef WO_VERSION_STR
-#undef WO_VERSION
-
-
 #include <atomic>
 #include <iostream>
 #include <cstdio>
@@ -296,19 +279,6 @@ void wo_init(int argc, char** argv)
         wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 
     wo_asure(wo::get_wo_grammar()); // Create grammar when init.
-}
-
-wo_string_t  wo_compile_date(void)
-{
-    return __DATE__ " " __TIME__;
-}
-wo_string_t  wo_version(void)
-{
-    return version_str;
-}
-wo_integer_t wo_version_int(void)
-{
-    return version;
 }
 
 #define WO_ORIGIN_VAL(v) (reinterpret_cast<wo::value*>(v))
