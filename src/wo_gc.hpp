@@ -38,7 +38,6 @@ namespace wo
 
     struct gcbase
     {
-        inline static atomic_list<gcbase> eden_age_gcunit_list;
         inline static atomic_list<gcbase> young_age_gcunit_list;
         inline static atomic_list<gcbase> old_age_gcunit_list;
 
@@ -114,7 +113,7 @@ namespace wo
             no_gc= 0x6c,
 
             eden,
-            young,
+            young = eden,
             old,
         };
         enum class gcmarkcolor : uint8_t
@@ -245,9 +244,6 @@ namespace wo
             {
             case wo::gcbase::gctype::no_gc:
                 /* DO NOTHING */
-                break;
-            case wo::gcbase::gctype::eden:
-                eden_age_gcunit_list.add_one(created_gcnuit);
                 break;
             case wo::gcbase::gctype::young:
                 young_age_gcunit_list.add_one(created_gcnuit);
