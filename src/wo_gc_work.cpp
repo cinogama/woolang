@@ -20,6 +20,7 @@ GC will do following work to instead of old-gc:
 */
 
 #define WO_GC_FORCE_STOP_WORLD false
+#define WO_GC_DEBUG false
 
 namespace wo
 {
@@ -57,7 +58,7 @@ namespace wo
     {
         uint16_t                    _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
-        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 5;
+        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 15;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -66,7 +67,7 @@ namespace wo
 
         std::atomic_flag            _gc_immediately = {};
 
-        uint32_t                    _gc_immediately_edge = 50000;
+        uint32_t                    _gc_immediately_edge = 100000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
 
         std::atomic_size_t _gc_scan_vm_index;
@@ -387,7 +388,6 @@ namespace wo
                 auto* last = picked_list->last;
 
                 if (picked_list->gc_type != gcbase::gctype::no_gc &&
-                    picked_list->gc_type != gcbase::gctype::eden &&
                     gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
                 {
                     // Unit was not marked, delete it
@@ -396,8 +396,7 @@ namespace wo
                 } // ~
                 else
                 {
-                    if (!origin_list || ((picked_list->gc_type == gcbase::gctype::eden
-                        || picked_list->gc_mark_alive_count > max_count) && aim_edge))
+                    if (!origin_list || ((picked_list->gc_mark_alive_count > max_count) && aim_edge))
                         // It lived so long, move it to old_edge.
                         aim_edge->add_one(picked_list);
                     else
@@ -418,6 +417,10 @@ namespace wo
 #ifdef WO_PLATRORM_OS_WINDOWS
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
+            // Pick all gcunit before 1st mark begin.
+            // It means all unit alloced when marking will be skiped to free.
+            auto* young_list = gcbase::young_age_gcunit_list.pick_all();
+            auto* old_list = gcbase::old_age_gcunit_list.pick_all();
 
             // 0. get current vm list, set stop world flag to TRUE:
             do
@@ -459,14 +462,34 @@ namespace wo
             } while (0);
             // just full gc:
 
-            auto* eden_list = gcbase::eden_age_gcunit_list.pick_all();
-            auto* young_list = gcbase::young_age_gcunit_list.pick_all();
-            auto* old_list = gcbase::old_age_gcunit_list.pick_all();
-
             // Mark all no_gc_object
             // mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
             // mark_nogc_child(young_list, 1 % _gc_work_thread_count);
             // mark_nogc_child(old_list, 2 % _gc_work_thread_count);
+
+#if WO_GC_DEBUG
+            wo::wo_stdout << "================================================" << wo::wo_endl;
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " A round of gc launched." << wo::wo_endl;
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " Before GC Free:" << wo::wo_endl;
+
+            size_t gcunit_count = 0;
+            auto* elem = young_list;
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
+
+            gcunit_count = 0;
+            elem = old_list;
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
+#endif
 
             // 4. OK, Continue mark gray to black
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
@@ -479,8 +502,29 @@ namespace wo
             check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
             check_and_move_edge_to_edge(young_list, &gcbase::young_age_gcunit_list, &gcbase::old_age_gcunit_list, gcbase::gctype::old, _gc_max_count_to_move_young_to_old);
 
-            // Move all eden to young
-            check_and_move_edge_to_edge(eden_list, nullptr, &gcbase::young_age_gcunit_list, gcbase::gctype::young, 0);
+#if WO_GC_DEBUG
+            wo::wo_stdout << "------------------------------------------------" << wo::wo_endl;
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " After GC Free:" << wo::wo_endl;
+
+            gcunit_count = 0;
+            elem = gcbase::young_age_gcunit_list.last_node;
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
+
+            gcunit_count = 0;
+            elem = gcbase::old_age_gcunit_list.last_node;
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
+            wo::wo_stdout << "================================================" << wo::wo_endl;
+#endif
 
             // 6. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
