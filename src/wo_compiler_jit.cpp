@@ -260,9 +260,9 @@ namespace wo
                 if (auto* debuggee = vmm->current_debuggee())
                 {
                     // check debuggee here
-                    wo_leave_gcguard(reinterpret_cast<wo_vm>(vmm));
+                    wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vmm)));
                     debuggee->_vm_invoke_debuggee(vmm);
-                    wo_enter_gcguard(reinterpret_cast<wo_vm>(vmm));
+                    wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vmm)));
                 }
             }
             else

@@ -271,7 +271,7 @@ namespace wo
             ++_alive_vm_count_for_gc_vm_destruct;
 
             vm_interrupt = vm_interrupt_type::NOTHING;
-            wo_leave_gcguard(reinterpret_cast<wo_vm>(this));
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
             std::lock_guard g1(_alive_vm_list_mx);
 
@@ -373,7 +373,7 @@ namespace wo
         shared_pointer<runtime_env> env;
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
-            wo_enter_gcguard(reinterpret_cast<wo_vm>(this ));
+            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
             env = runtime_environment;
@@ -390,7 +390,7 @@ namespace wo
             er = register_mem_begin + opnum::reg::spreg::er;
             sp = bp = stack_mem_begin;
 
-            wo_leave_gcguard(reinterpret_cast<wo_vm>(this));
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
             // Create a new VM using for GC destruct
             auto* created_subvm_for_gc = make_machine(1024);
@@ -407,7 +407,7 @@ namespace wo
 
             new_vm->gc_vm = get_or_alloc_gcvm();
 
-            wo_enter_gcguard(reinterpret_cast<wo_vm>(new_vm));
+            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(new_vm)));
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
@@ -434,7 +434,7 @@ namespace wo
 
             new_vm->attach_debuggee(this->attaching_debuggee);
 
-            wo_leave_gcguard(reinterpret_cast<wo_vm>(new_vm));
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(new_vm)));
             return new_vm;
         }
         inline void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const
@@ -914,7 +914,7 @@ namespace wo
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -934,7 +934,7 @@ namespace wo
 
         value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -971,7 +971,7 @@ namespace wo
 
         value* invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1001,7 +1001,7 @@ namespace wo
         }
         value* invoke(wo_handle_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1035,7 +1035,7 @@ namespace wo
         }
         value* invoke(closure_t* wo_func_closure, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_closure)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1181,21 +1181,9 @@ namespace wo
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
         {
-            block_interrupt(GC_INTERRUPT);
+            // Must not leave when run.
+            wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
-            struct auto_leave
-            {
-                vmbase* vm;
-                auto_leave(vmbase* _vm)
-                    :vm(_vm)
-                {
-                    wo_asure(vm->clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                }
-                ~auto_leave()
-                {
-                    wo_asure(vm->interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                }
-            };
             // used for restoring IP
             struct ip_restore_raii
             {
@@ -1240,7 +1228,6 @@ namespace wo
             value* reg_begin = register_mem_begin;
             value* const rt_cr = cr;
 
-            auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
             ip_restore_raii _o2((void*&)rt_sp, (void*&)sp);
             ip_restore_raii _o3((void*&)rt_bp, (void*&)bp);
@@ -2472,9 +2459,9 @@ namespace wo
                         if (attaching_debuggee)
                         {
                             // check debuggee here
-                            wo_leave_gcguard(reinterpret_cast<wo_vm>(this));
+                            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
                             attaching_debuggee->_vm_invoke_debuggee(this);
-                            wo_enter_gcguard(reinterpret_cast<wo_vm>(this));
+                            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                         }
                         ++rt_ip;
                         goto re_entry_for_interrupt;

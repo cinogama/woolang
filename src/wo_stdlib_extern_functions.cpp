@@ -1096,9 +1096,9 @@ WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
 {
     using namespace std;
 
-    wo_leave_gcguard(vm);
+    wo_asure(wo_leave_gcguard(vm));
     std::this_thread::sleep_for(wo_real(args) * 1s);
-    wo_enter_gcguard(vm);
+    wo_asure(wo_enter_gcguard(vm));
 
     return wo_ret_void(vm);
 }
