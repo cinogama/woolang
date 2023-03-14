@@ -3,7 +3,6 @@
 #include "wo_vm.hpp"
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
-#include "wo_exceptions.hpp"
 #include "wo_stdlib.hpp"
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_lang.hpp"
@@ -2793,4 +2792,19 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
     auto* old_one = wo::vmbase::_this_thread_vm;
     wo::vmbase::_this_thread_vm = WO_VM(vm_may_null);
     return CS_VM(old_one);
+}
+
+void wo_leave_gcguard(wo_vm vm)
+{
+    wo_asure(WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+}
+void wo_enter_gcguard(wo_vm vm)
+{
+    wo_asure(WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+    if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
+    {
+        // If in GC, hang up here to make sure safe.
+        if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_INTERRUPT))
+            WO_VM(vm)->hangup();
+    }
 }

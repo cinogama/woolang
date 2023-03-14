@@ -286,6 +286,9 @@ WO_API wo_value     wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc
 #define WO_CONTINUE    ((wo_value)(void*)-1)
 WO_API wo_value     wo_dispatch(wo_vm vm);
 
+WO_API void         wo_leave_gcguard(wo_vm vm);
+WO_API void         wo_enter_gcguard(wo_vm vm);
+
 // ATTENTION: This function used for let vm yield-break by setting
 //            yield flag. But this flag only work after return from
 //            native function (in vm-loop).
