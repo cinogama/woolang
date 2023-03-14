@@ -1119,15 +1119,19 @@ WO_API wo_api rslib_std_vm_load_src(wo_vm vm, wo_value args, size_t argc)
 
     bool compile_result;
 
+    wo_asure(wo_leave_gcguard(vm));
     compile_result = wo_load_source(vmm, wo_string(args + 1), wo_string(args + 2));
-
+    wo_asure(wo_enter_gcguard(vm));
     return wo_ret_bool(vm, compile_result);
 }
 
 WO_API wo_api rslib_std_vm_load_file(wo_vm vm, wo_value args, size_t argc)
 {
     wo_vm vmm = (wo_vm)wo_pointer(args);
+
+    wo_asure(wo_leave_gcguard(vm));
     bool compile_result = wo_load_file(vmm, wo_string(args + 1));
+    wo_asure(wo_enter_gcguard(vm));
     return wo_ret_bool(vm, compile_result);
 }
 
