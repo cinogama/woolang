@@ -260,9 +260,9 @@ namespace wo
                 if (auto* debuggee = vmm->current_debuggee())
                 {
                     // check debuggee here
-                    wo_asure(vmm->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                    wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vmm)));
                     debuggee->_vm_invoke_debuggee(vmm);
-                    wo_asure(vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                    wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vmm)));
                 }
             }
             else
@@ -356,9 +356,7 @@ namespace wo
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-            wo_asure(vm->interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
             call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
-            wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
 
             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
             //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;

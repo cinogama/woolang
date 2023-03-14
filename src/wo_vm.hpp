@@ -6,9 +6,7 @@
 #include "wo_global_setting.hpp"
 #include "wo_memory.hpp"
 #include "wo_compiler_jit.hpp"
-#include "wo_exceptions.hpp"
 
-#include <csetjmp>
 #include <shared_mutex>
 #include <thread>
 #include <mutex>
@@ -16,6 +14,7 @@
 #include <string>
 #include <cmath>
 #include <sstream>
+#include <ctime>
 
 namespace wo
 {
@@ -205,7 +204,9 @@ namespace wo
         {
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
-
+#ifndef NDEBUG
+            auto waitbegin_tm = clock();
+#endif
             uint32_t vm_interrupt_mask = 0xFFFFFFFF;
             do
             {
@@ -219,6 +220,19 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
+
+#ifndef NDEBUG
+                if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
+                {
+                    // Wait for too much time.
+                    std::string warning_info = "Wait for too much time(out of 1s) for GC notifying, maybe native function cost too much time?\n";
+                    std::stringstream dump_callstack_info;
+                    dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                    wo_warning(warning_info.c_str());
+                    return false;
+                }
+#endif
 
             } while (vm_interrupt_mask & type);
 
@@ -257,7 +271,7 @@ namespace wo
             ++_alive_vm_count_for_gc_vm_destruct;
 
             vm_interrupt = vm_interrupt_type::NOTHING;
-            interrupt(vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
             std::lock_guard g1(_alive_vm_list_mx);
 
@@ -359,12 +373,9 @@ namespace wo
         shared_pointer<runtime_env> env;
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
-            // using LEAVE_INTERRUPT to stop GC
-            block_interrupt(GC_INTERRUPT);  // must not working when gc
-            wo_asure(clear_interrupt(LEAVE_INTERRUPT));
+            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
-
             env = runtime_environment;
 
             ++env->_running_on_vm_count;
@@ -379,7 +390,7 @@ namespace wo
             er = register_mem_begin + opnum::reg::spreg::er;
             sp = bp = stack_mem_begin;
 
-            wo_asure(interrupt(LEAVE_INTERRUPT));
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
 
             // Create a new VM using for GC destruct
             auto* created_subvm_for_gc = make_machine(1024);
@@ -396,9 +407,7 @@ namespace wo
 
             new_vm->gc_vm = get_or_alloc_gcvm();
 
-            // using LEAVE_INTERRUPT to stop GC
-            new_vm->block_interrupt(GC_INTERRUPT);  // must not working when gc'
-            wo_asure(new_vm->clear_interrupt(LEAVE_INTERRUPT));
+            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(new_vm)));
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
@@ -425,7 +434,7 @@ namespace wo
 
             new_vm->attach_debuggee(this->attaching_debuggee);
 
-            wo_asure(new_vm->interrupt(LEAVE_INTERRUPT));
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(new_vm)));
             return new_vm;
         }
         inline void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const
@@ -905,7 +914,7 @@ namespace wo
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -925,7 +934,7 @@ namespace wo
 
         value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -962,7 +971,7 @@ namespace wo
 
         value* invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -992,7 +1001,7 @@ namespace wo
         }
         value* invoke(wo_handle_t wo_func_addr, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_addr)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1026,7 +1035,7 @@ namespace wo
         }
         value* invoke(closure_t* wo_func_closure, wo_int_t argc)
         {
-            wo_assert(vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT);
+            wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
             if (!wo_func_closure)
                 wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
@@ -1172,21 +1181,9 @@ namespace wo
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
         {
-            block_interrupt(GC_INTERRUPT);
+            // Must not leave when run.
+            wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
 
-            struct auto_leave
-            {
-                vmbase* vm;
-                auto_leave(vmbase* _vm)
-                    :vm(_vm)
-                {
-                    wo_asure(vm->clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                }
-                ~auto_leave()
-                {
-                    wo_asure(vm->interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                }
-            };
             // used for restoring IP
             struct ip_restore_raii
             {
@@ -1231,7 +1228,6 @@ namespace wo
             value* reg_begin = register_mem_begin;
             value* const rt_cr = cr;
 
-            auto_leave      _o0(this);
             ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
             ip_restore_raii _o2((void*&)rt_sp, (void*&)sp);
             ip_restore_raii _o3((void*&)rt_bp, (void*&)bp);
@@ -1900,9 +1896,7 @@ namespace wo
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
                         rt_cr->set_nil();
 
-                        wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
                         call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                        wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
@@ -1940,7 +1934,7 @@ namespace wo
                 }
                 case instruct::opcode::calln:
                 {
-                    WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
+                    WO_VM_ASSERT(dr == 0b10 || dr == 0b01 || dr == 0b00,
                         "Found broken ir-code in 'calln'.");
 
                     if (dr)
@@ -1957,14 +1951,7 @@ namespace wo
 
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-                        if (dr & 0b10)
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                        else
-                        {
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
-                        }
+                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'calln'.");
@@ -2472,9 +2459,9 @@ namespace wo
                         if (attaching_debuggee)
                         {
                             // check debuggee here
-                            wo_asure(interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
                             attaching_debuggee->_vm_invoke_debuggee(this);
-                            wo_asure(clear_interrupt(vm_interrupt_type::LEAVE_INTERRUPT));
+                            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                         }
                         ++rt_ip;
                         goto re_entry_for_interrupt;

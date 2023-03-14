@@ -3,7 +3,6 @@
 #include "wo_vm.hpp"
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
-#include "wo_exceptions.hpp"
 #include "wo_stdlib.hpp"
 #include "wo_lang_grammar_loader.hpp"
 #include "wo_lang.hpp"
@@ -2138,57 +2137,85 @@ void wo_pop_stack(wo_vm vm)
 }
 wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
-    return CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
+    auto entered = wo_enter_gcguard(vm);
+    wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
+    if (entered)
+        wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
-    return CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
+    auto entered = wo_enter_gcguard(vm);
+    wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
+    if (entered)
+        wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
+    auto entered = wo_enter_gcguard(vm);
     wo::value* valfunc = WO_VAL(vmfunc);
-
+    wo_value result = nullptr;
     if (!vmfunc)
         wo_fail(WO_FAIL_CALL_FAIL, "Cannot call a 'nil' function.");
     else if (valfunc->type == wo::value::valuetype::integer_type)
-        return CS_VAL(WO_VM(vm)->invoke(valfunc->integer, argc));
+        result = CS_VAL(WO_VM(vm)->invoke(valfunc->integer, argc));
     else if (valfunc->type == wo::value::valuetype::handle_type)
-        return CS_VAL(WO_VM(vm)->invoke(valfunc->handle, argc));
+        result = CS_VAL(WO_VM(vm)->invoke(valfunc->handle, argc));
     else if (valfunc->type == wo::value::valuetype::closure_type)
-        return CS_VAL(WO_VM(vm)->invoke(valfunc->closure, argc));
+        result = CS_VAL(WO_VM(vm)->invoke(valfunc->closure, argc));
     else
         wo_fail(WO_FAIL_CALL_FAIL, "Not callable type.");
-    return nullptr;
+
+    if (entered)
+        wo_asure(wo_leave_gcguard(vm));
+
+    return result;
 }
 
 wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
+    wo_asure(wo_enter_gcguard(vm));
+
     auto* vmm = WO_VM(vm);
     vmm->set_br_yieldable(true);
-    return CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
+    wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
+    
+    wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 
 wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
+    wo_asure(wo_enter_gcguard(vm));
     auto* vmm = WO_VM(vm);
 
     if (WO_VAL(vmfunc)->type != wo::value::valuetype::closure_type)
         wo_fail(WO_FAIL_TYPE_FAIL, "Cannot dispatch non-closure value by 'wo_dispatch_closure'.");
 
     vmm->set_br_yieldable(true);
-    return CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+    wo_value result = CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
+    wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 
 wo_value wo_dispatch(wo_vm vm)
 {
+    wo_asure(wo_enter_gcguard(vm));
+
+    wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
         WO_VM(vm)->run();
 
         if (WO_VM(vm)->get_and_clear_br_yield_flag())
-            return WO_CONTINUE;
+            result = WO_CONTINUE;
+        else 
+            result = CS_VAL(WO_VM(vm)->cr);
     }
-    return nullptr;
+
+    wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 
 wo_result_t wo_ret_yield(wo_vm vm)
@@ -2219,14 +2246,19 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 
 wo_value wo_run(wo_vm vm)
 {
+    wo_asure(wo_enter_gcguard(vm));
+
+    wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
         WO_VM(vm)->ip = WO_VM(vm)->env->rt_codes;
         WO_VM(vm)->run();
 
-        return reinterpret_cast<wo_value>(WO_VM(vm)->cr);
+        result = CS_VAL(WO_VM(vm)->cr);
     }
-    return nullptr;
+
+    wo_asure(wo_leave_gcguard(vm));
+    return result;
 }
 
 // CONTAINER OPERATE
@@ -2369,7 +2401,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                         return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
-                return false;
+        return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
@@ -2737,8 +2769,8 @@ void wo_unload_lib(void* lib)
         [lib](const auto& idx)
         {
             if (idx.second == lib)
-                return true;
-            return false;
+            return true;
+    return false;
         });
 
     wo_assert(fnd != loaded_named_libs.end());
@@ -2793,4 +2825,23 @@ wo_vm wo_set_this_thread_vm(wo_vm vm_may_null)
     auto* old_one = wo::vmbase::_this_thread_vm;
     wo::vmbase::_this_thread_vm = WO_VM(vm_may_null);
     return CS_VM(old_one);
+}
+
+wo_bool_t wo_leave_gcguard(wo_vm vm)
+{
+    return WO_VM(vm)->interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
+}
+wo_bool_t wo_enter_gcguard(wo_vm vm)
+{
+    if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    {
+        if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
+        {
+            // If in GC, hang up here to make sure safe.
+            if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_INTERRUPT))
+                WO_VM(vm)->hangup();
+        }
+        return true;
+    }
+    return false;
 }
