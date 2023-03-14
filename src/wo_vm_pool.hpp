@@ -57,13 +57,7 @@ namespace wo
                 wo_asure(vm->interrupt(vmbase::vm_interrupt_type::PENDING_INTERRUPT));
 
                 // Clear LEAVE_INTERRUPT to make sure hangup correctly before clear stack when GC.
-                wo_asure(vm->clear_interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
-                if ((vm->vm_interrupt & vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
-                {
-                    // If in GC, hang up here to make sure safe.
-                    if (vm->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT))
-                        vm->hangup();
-                }
+                wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
                 // Clear stack & register to make sure gc will not mark the useless data of current vm;
                 vm->sp = vm->bp = vm->stack_mem_begin;
@@ -73,7 +67,7 @@ namespace wo
                     vm->register_mem_begin[regi].set_nil();
                 }
 
-                wo_asure(vm->interrupt(vmbase::vm_interrupt_type::LEAVE_INTERRUPT));
+                wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
 
                 m_free_vm.push_back(vm);
             }
