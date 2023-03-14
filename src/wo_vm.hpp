@@ -1934,7 +1934,7 @@ namespace wo
                 }
                 case instruct::opcode::calln:
                 {
-                    WO_VM_ASSERT(dr == 0b10 || dr == 0b01 || dr == 0b00,
+                    WO_VM_ASSERT(dr == 0b11 || dr == 0b01 || dr == 0b00,
                         "Found broken ir-code in 'calln'.");
 
                     if (dr)
