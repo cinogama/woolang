@@ -202,6 +202,8 @@ namespace wo
         }
         inline bool wait_interrupt(vm_interrupt_type type)
         {
+            auto waitbegin_tm = clock();
+
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
             uint32_t vm_interrupt_mask = 0xFFFFFFFF;
@@ -217,6 +219,18 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
+
+                if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
+                {
+                    // Wait for too much time.
+                    std::string warning_info = "Wait for too much time(out of 1s) for GC notifying, maybe native function cost too much time?\n";
+                    std::stringstream dump_callstack_info;
+                    dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                    wo_warning(warning_info.c_str());
+                    return false;
+                }
+
             } while (vm_interrupt_mask & type);
 
             return true;
