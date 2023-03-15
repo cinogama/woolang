@@ -1095,11 +1095,7 @@ WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
 {
     using namespace std;
-
-    wo_asure(wo_leave_gcguard(vm));
     std::this_thread::sleep_for(wo_real(args) * 1s);
-    wo_asure(wo_enter_gcguard(vm));
-
     return wo_ret_void(vm);
 }
 
@@ -1118,20 +1114,14 @@ WO_API wo_api rslib_std_vm_load_src(wo_vm vm, wo_value args, size_t argc)
     wo_vm vmm = (wo_vm)wo_pointer(args);
 
     bool compile_result;
-
-    wo_asure(wo_leave_gcguard(vm));
     compile_result = wo_load_source(vmm, wo_string(args + 1), wo_string(args + 2));
-    wo_asure(wo_enter_gcguard(vm));
     return wo_ret_bool(vm, compile_result);
 }
 
 WO_API wo_api rslib_std_vm_load_file(wo_vm vm, wo_value args, size_t argc)
 {
     wo_vm vmm = (wo_vm)wo_pointer(args);
-
-    wo_asure(wo_leave_gcguard(vm));
     bool compile_result = wo_load_file(vmm, wo_string(args + 1));
-    wo_asure(wo_enter_gcguard(vm));
     return wo_ret_bool(vm, compile_result);
 }
 

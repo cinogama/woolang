@@ -2137,23 +2137,21 @@ void wo_pop_stack(wo_vm vm)
 }
 wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
-    auto entered = wo_enter_gcguard(vm);
+    wo_asure(wo_enter_gcguard(vm));
     wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
-    if (entered)
-        wo_asure(wo_leave_gcguard(vm));
+    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
-    auto entered = wo_enter_gcguard(vm);
+    wo_asure(wo_enter_gcguard(vm));
     wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
-    if (entered)
-        wo_asure(wo_leave_gcguard(vm));
+    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
-    auto entered = wo_enter_gcguard(vm);
+    wo_asure(wo_enter_gcguard(vm));
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
     if (!vmfunc)
@@ -2167,8 +2165,7 @@ wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
     else
         wo_fail(WO_FAIL_CALL_FAIL, "Not callable type.");
 
-    if (entered)
-        wo_asure(wo_leave_gcguard(vm));
+    wo_asure(wo_leave_gcguard(vm));
 
     return result;
 }
@@ -2180,7 +2177,7 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
     auto* vmm = WO_VM(vm);
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
-    
+
     wo_asure(wo_leave_gcguard(vm));
     return result;
 }
@@ -2210,7 +2207,7 @@ wo_value wo_dispatch(wo_vm vm)
 
         if (WO_VM(vm)->get_and_clear_br_yield_flag())
             result = WO_CONTINUE;
-        else 
+        else
             result = CS_VAL(WO_VM(vm)->cr);
     }
 
@@ -2401,7 +2398,7 @@ wo_int_t wo_arr_find(wo_value arr, wo_value elem)
                         return *_elem.string == *_aim->string;
                     return _elem.handle == _aim->handle;
                 }
-        return false;
+                return false;
             });
         if (fnd != _arr->array->end())
             return fnd - _arr->array->begin();
@@ -2769,8 +2766,8 @@ void wo_unload_lib(void* lib)
         [lib](const auto& idx)
         {
             if (idx.second == lib)
-            return true;
-    return false;
+                return true;
+            return false;
         });
 
     wo_assert(fnd != loaded_named_libs.end());

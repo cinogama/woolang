@@ -356,7 +356,9 @@ namespace wo
 
             vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
+            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(vm)));
             call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(vm)));
 
             wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
             //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
