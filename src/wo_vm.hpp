@@ -204,9 +204,6 @@ namespace wo
         {
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
-#ifndef NDEBUG
-            auto waitbegin_tm = clock();
-#endif
             uint32_t vm_interrupt_mask = 0xFFFFFFFF;
             do
             {
@@ -220,20 +217,6 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
-
-#ifndef NDEBUG
-                if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
-                {
-                    // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 1s) for GC notifying, maybe native function cost too much time?\n";
-                    std::stringstream dump_callstack_info;
-                    dump_call_stack(32, false, dump_callstack_info);
-                    warning_info += dump_callstack_info.str();
-                    wo_warning(warning_info.c_str());
-                    return false;
-                }
-#endif
-
             } while (vm_interrupt_mask & type);
 
             return true;
@@ -1896,7 +1879,9 @@ namespace wo
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
                         rt_cr->set_nil();
 
+                        wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
                         call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
@@ -1951,7 +1936,14 @@ namespace wo
 
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
-                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        if (dr & 0b10)
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        else
+                        {
+                            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+                        }
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'calln'.");
