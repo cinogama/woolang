@@ -3450,7 +3450,10 @@ namespace wo
                             tuple_type->template_arguments.push_back(type);
                         }
                         else
+                        {
                             lex.parser_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_CREATE_TUPLE_WITH_VAARG);
+                            break;
+                        }
 
                     }
                 }
