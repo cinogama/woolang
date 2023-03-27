@@ -997,6 +997,7 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
                 return;
             }
         }
+        (*traveled_gcunit)[struc]++;
 
         *out_str += _fit_layout ? "struct{" : "struct {\n";
         bool first_value = true;
@@ -1017,6 +1018,8 @@ void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcun
         for (int i = 0; !_fit_layout && i < depth; i++)
             *out_str += "    ";
         *out_str += "}";
+
+        (*traveled_gcunit)[struc]--;
         return;
     }
     case wo::value::valuetype::invalid:
