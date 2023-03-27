@@ -15,7 +15,7 @@ namespace wo
         std::map<std::wstring, std::map<size_t, bool>> template_breakpoint;
 
         inline static std::atomic_bool stop_attach_debuggee_for_exit_flag = false;
-
+        inline static std::atomic_bool first_time_to_breakdown = true;
     public:
         default_debuggee()
         {
@@ -642,7 +642,7 @@ clear           cls                           Clean the screen.
 
             if (auto fnd = break_point_traps.find(ip); fnd == break_point_traps.end())
             {
-                printf("%-5zu: ", current_row_no);
+                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no);
                 return SIZE_MAX;
             }
             else
@@ -796,14 +796,26 @@ clear           cls                           Clean the screen.
                     breakdown_temp_for_next = false;
                     breakdown_temp_for_return = false;
 
-                    printf("Breakdown: +%04d: at %s(%zu, %zu)\nin function: %s\n", (int)next_execute_ip_diff,
+                    printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\nin function: " ANSI_HIG " %s\n" ANSI_RST, (int)next_execute_ip_diff,
                         wstr_to_str(loc->source_file).c_str(), loc->begin_row_no, loc->begin_col_no,
                         vmm->env->program_debug_info == nullptr ?
                         "__unknown_func_without_pdb_" :
                         vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
                     );
-
+                    if (vmm->env->program_debug_info != nullptr)
+                    {
+                        printf("-------------------------------------------\n");
+                        auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
+                        size_t display_rowno = loc.begin_row_no;
+                        print_src_file(wstr_to_str(loc.source_file), display_rowno, (display_rowno < 2 ? 0 : display_rowno - 2), display_rowno + 2);
+                    }
                     printf("===========================================\n");
+
+                    if (first_time_to_breakdown)
+                    {
+                        first_time_to_breakdown = false;
+                        printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST "' for more information.\n");
+                    }
 
                     while (debug_command(vmm))
                     {
