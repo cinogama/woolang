@@ -132,19 +132,20 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
 
 void _wo_ctrl_c_signal_handler(int sig)
 {
-    // CTRL + C, 
-    wo::wo_stderr << ANSI_HIR "CTRL+C:" ANSI_RST " Pause all virtual-machine by default debuggee immediately." << wo::wo_endl;
-
+    // CTRL + C
     std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
+
+    wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
+
     for (auto vm : wo::vmbase::_alive_vm_list)
     {
         if (!wo_has_attached_debuggee((wo_vm)vm))
             wo_attach_default_debuggee((wo_vm)vm);
+
         wo_break_immediately((wo_vm)vm);
     }
 
     wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
-
 }
 
 void wo_handle_ctrl_c(void(*handler)(int))
