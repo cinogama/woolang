@@ -1426,6 +1426,16 @@ namespace option
             return orfunctor();
         }
     }
+    public func orbind<T>(self: option<T>, orfunctor: ()=>option<T>)=> option<T>
+    {
+        match(self)
+        {
+        value(_)?
+            return self;
+        none?
+            return orfunctor();
+        }
+    }
     public func valor<T>(self: option<T>, default_val: T)
     {
         match(self)
