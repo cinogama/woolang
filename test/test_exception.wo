@@ -1,7 +1,4 @@
 import woo.std;
-import woo.vm;
-import woo.debug;
-
 import test_tool;
 
 namespace test_exception

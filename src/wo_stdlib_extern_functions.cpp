@@ -1099,63 +1099,6 @@ WO_API wo_api rslib_std_thread_sleep(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
-WO_API wo_api rslib_std_vm_create(wo_vm vm, wo_value args, size_t argc)
-{
-    return wo_ret_gchandle(vm,
-        wo_create_vm(),
-        nullptr,
-        [](void* vm_ptr) {
-            wo_close_vm((wo_vm)vm_ptr);
-        });
-}
-
-WO_API wo_api rslib_std_vm_load_src(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-
-    bool compile_result;
-    compile_result = wo_load_source(vmm, wo_string(args + 1), wo_string(args + 2));
-    return wo_ret_bool(vm, compile_result);
-}
-
-WO_API wo_api rslib_std_vm_load_file(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    bool compile_result = wo_load_file(vmm, wo_string(args + 1));
-    return wo_ret_bool(vm, compile_result);
-}
-
-WO_API wo_api rslib_std_vm_run(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    wo_value ret = wo_run(vmm);
-
-    if (ret)
-        return wo_ret_option_val(vm, ret);
-    return wo_ret_option_none(vm);
-}
-
-WO_API wo_api rslib_std_vm_has_compile_error(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    return wo_ret_bool(vm, wo_has_compile_error(vmm));
-}
-
-WO_API wo_api rslib_std_vm_get_compile_error(wo_vm vm, wo_value args, size_t argc)
-{
-    wo_vm vmm = (wo_vm)wo_pointer(args);
-    return wo_ret_string(vm, wo_get_compile_error(vmm, WO_DEFAULT));
-}
-
-WO_API wo_api rslib_std_vm_virtual_source(wo_vm vm, wo_value args, size_t argc)
-{
-    return wo_ret_bool(vm, wo_virtual_source(
-        wo_string(args + 0),
-        wo_string(args + 1),
-        wo_bool(args + 2)
-    ));
-}
-
 WO_API wo_api rslib_std_gchandle_close(wo_vm vm, wo_value args, size_t argc)
 {
     return wo_ret_bool(vm, wo_gchandle_close(args));
@@ -2436,51 +2379,6 @@ namespace std
         // Used for create a value with specify type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
         public func __empty_function<T>()=>T;
-    }
-}
-)" };
-
-const char* wo_stdlib_vm_src_path = u8"woo/vm.wo";
-const char* wo_stdlib_vm_src_data = {
-u8R"(
-import woo.std;
-namespace std
-{
-    public using vm = gchandle
-    {
-        public enum info_style
-        {
-            WO_DEFAULT = 0,
-
-            WO_NOTHING = 1,
-            WO_NEED_COLOR = 2,
-        }
-
-        extern("rslib_std_vm_create")
-        public func create()=>vm;
-
-        extern("rslib_std_vm_load_src")
-        public func loadsrc(vmhandle:vm, vfilepath:string, src:string)=>bool;
-
-        extern("rslib_std_vm_load_file")
-        public func loadfile(vmhandle:vm, vfilepath:string)=>bool;
-
-        extern("rslib_std_vm_run")
-        public func run(vmhandle:vm)=> option<dynamic>;
-        
-        extern("rslib_std_vm_has_compile_error")
-        public func haserr(vmhandle:vm)=>bool;
-
-        extern("rslib_std_vm_get_compile_error")
-        public func errmsg(vmhandle:vm)=>string;
-
-        extern("rslib_std_vm_virtual_source")
-        public func virtualsrc(vfilepath:string, src:string, enable_overwrite:bool)=>bool;
-
-        public func close(self: vm)
-        {
-            return self:gchandle->close();
-        }
     }
 }
 )" };
