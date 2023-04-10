@@ -1370,7 +1370,7 @@ namespace std
 }
 
 public using mutable<T> = struct {
-    mut val : T
+    val : mut T
 }
 {
     public func create<T>(val: T)

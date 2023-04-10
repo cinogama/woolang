@@ -3342,23 +3342,11 @@ namespace wo
                 auto* result = new ast_struct_member_define;
                 result->is_value_pair = false;
 
-                if (input.size() == 2)
-                {
-                    // identifier TYPE_DECLEAR
-                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
-                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-                    wo_assert(result->member_type);
-                }
-                else
-                {
-                    wo_assert(input.size() == 3);
-                    // mut identifier TYPE_DECLEAR
-                    result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(1).identifier);
-                    result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
-                    result->member_type->set_is_mutable(true);
-
-                    wo_assert(result->member_type);
-                }
+                wo_assert(input.size() == 2);
+                // identifier TYPE_DECLEAR
+                result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
+                result->member_type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                wo_assert(result->member_type);
                 return (ast_basic*)result;
             }
         };

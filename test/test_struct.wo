@@ -5,7 +5,7 @@ namespace test_struct
 {
     using chstruct<T> = struct{
         a: string,
-        mut b: T
+        b: mut T
     };
     using mystruct<T> = struct{
         a: int,
@@ -15,8 +15,8 @@ namespace test_struct
         e: chstruct<T>
     };
     using normalstruct = struct {
-        mut a : int,
-        mut b: bool,
+        a : mut int,
+        b : mut bool,
     };
     using autojudge = struct {
         f: (int)=>string,
