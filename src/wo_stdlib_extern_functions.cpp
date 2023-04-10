@@ -1505,6 +1505,14 @@ namespace result
         err(e)? return functor(e);
         }
     }
+    public func orbind<T, F>(self: result<T, F>, functor: (F)=>result<T, F>)=> result<T, F>
+    {
+        match(self)
+        {
+        ok(v)? return self;
+        err(e)? return functor(e);
+        }
+    }
 }
 namespace std
 {
