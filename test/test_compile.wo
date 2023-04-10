@@ -419,12 +419,12 @@ func main()
             s.a = 25;
         "@);
         assure_compile_fail(@"
-            using st = struct{mut a: int}; 
+            using st = struct{a: mut int}; 
             let s = st{a = 1}; 
             s.a = 25;
         "@);
         assure_compile_success(@"
-            using st = struct{mut a: int}; 
+            using st = struct{a: mut int}; 
             let s = st{a = mut 1}; 
             s.a = 25;
         "@);
