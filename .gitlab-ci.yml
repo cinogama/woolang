@@ -59,6 +59,8 @@ test_coverage_debug:
   except: 
     - tags
   script:
+    - sudo sysctl -p
+    - ulimit -c unlimited
     - echo "\"$CI_COMMIT_SHA\"" > src/wo_info.hpp
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
@@ -105,6 +107,8 @@ test_release:
   except: 
     - tags
   script:
+    - sudo sysctl -p
+    - ulimit -c unlimited
     - cd test
     - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
@@ -135,6 +139,8 @@ test_memory_debug:
   only: 
     - tags
   script:
+    - sudo sysctl -p
+    - ulimit -c unlimited
     - git submodule update --init --recursive --force
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
@@ -171,6 +177,8 @@ test_memory_release:
   only: 
     - tags
   script:
+    - sudo sysctl -p
+    - ulimit -c unlimited
     - cd test
     - sudo baozi install --nowoo
     - sudo chmod 777 ./pkg
