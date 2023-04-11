@@ -1,5 +1,5 @@
 import woo.std;
-import woo.vm;
+import pkg.vm;
 
 import pkg.thread;
 
@@ -7,29 +7,37 @@ import test_tool;
 
 namespace test_compile
 {
-    func compile_program(src: string)=> (bool, std::vm)
+    func compile_program(src: string)
     {
-        let vmm = std::vm::create();
-        let result = vmm->loadsrc("test_compile/test_tmp_script.wo", src);
-        
-        return (result, vmm);
+        return vm::create("test_compile/test_tmp_script.wo", src);
     }
     func assure_compile_success(src: string)
     {
-        let (success, vm) = compile_program(src);
-        if (!success)
-            std::println(vm->errmsg());
+        let result = compile_program(src);
+        match (result)
+        {
+        err(msg)?
+            {
+                std::println(msg);
+                test_assure(false);
+            }
+        ok(vmm)?
+            do vmm->close();
+        }
 
-        test_assure(success);
-
-        do vm->close();
+        test_assure(result->isok == true);
     }
     func assure_compile_fail(src: string)
     {
-        let (success, vm) = compile_program(src);
-        test_assure(!success);
-        
-        do vm->close();
+        let result = compile_program(src);
+        match (result)
+        {
+        err(msg)?;
+        ok(vmm)?
+            do vmm->close();
+        }
+
+        test_assure(result->isok == false);
     }
 
     func test_compile_success_or_fail()
@@ -411,12 +419,12 @@ func main()
             s.a = 25;
         "@);
         assure_compile_fail(@"
-            using st = struct{mut a: int}; 
+            using st = struct{a: mut int}; 
             let s = st{a = 1}; 
             s.a = 25;
         "@);
         assure_compile_success(@"
-            using st = struct{mut a: int}; 
+            using st = struct{a: mut int}; 
             let s = st{a = mut 1}; 
             s.a = 25;
         "@);
@@ -579,7 +587,7 @@ func main()
         assure_compile_fail(@"extern func foo(){} extern func foo(a:int){}"@);
 
         // using namespace
-        do std::vm::virtualsrc("test/usingnamespace.wo", @"using std;"@, false);
+        do vm::create_virtual_script("test/usingnamespace.wo", @"using std;"@, false);
         assure_compile_fail(@"import woo.std; import test.usingnamespace; println("This should not been displayed!");"@);
         assure_compile_success(@"import woo.std; import test.usingnamespace; using std; println("Helloworld!");"@);
 

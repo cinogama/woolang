@@ -1,5 +1,5 @@
 import woo.std;
-import woo.vm;
+import pkg.vm;
 
 import test_tool;
 
@@ -7,8 +7,7 @@ namespace test_vm
 {
     func load_and_create_vmm(src:string)
     {
-        let vmm = std::vm::create();
-        assert(vmm->loadsrc("test_vm/test_tmp_script.wo", src));
+        let vmm = vm::create("test_vm/test_tmp_script.wo", src)->unwarp;
         return vmm;
     }
 
@@ -24,8 +23,6 @@ namespace test_vm
             main();
             "@
         );
-
-        test_equal(vmm->haserr(), false);
 
         do vmm->run();
         do vmm->close();
@@ -52,13 +49,8 @@ namespace test_vm
                 main();
                 "@
             );
-            test_equal(vmm->haserr(), false);
-            if (vmm->haserr())
-            {
-                std::println(vmm->errmsg());
-            }
-            do vmm->run();
 
+            do vmm->run();
             do vmm->close();
         }
     }
