@@ -38,6 +38,7 @@ namespace wo
     {
         if (!has_been_closed_af.test_and_set())
         {
+            wo_assert(has_been_closed == false);
             has_been_closed = true;
             if (destructor != nullptr)
             {

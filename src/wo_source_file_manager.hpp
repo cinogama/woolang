@@ -100,12 +100,13 @@ namespace wo
         do
         {
             *out_real_read_path = filepath;
-            std::shared_lock g1(vfile_list_guard);
 
-            auto fnd = vfile_list.find(filepath);
-            if (fnd != vfile_list.end())
+            if constexpr (width)
             {
-                if constexpr (width)
+                std::lock_guard g1(vfile_list_guard);
+
+                auto fnd = vfile_list.find(filepath);
+                if (fnd != vfile_list.end())
                 {
                     if (fnd->second.has_width_data == false)
                     {
@@ -114,9 +115,16 @@ namespace wo
                     }
                     return new sstream_t(fnd->second.wdata);
                 }
-                else
+            }
+            else
+            {
+                std::shared_lock g1(vfile_list_guard);
+
+                auto fnd = vfile_list.find(filepath);
+                if (fnd != vfile_list.end())
                     return new sstream_t(fnd->second.data);
             }
+
         } while (0);
 
         // 4) Read file from rpath
