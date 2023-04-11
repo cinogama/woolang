@@ -312,16 +312,6 @@ wo_bool_t wo_equal_byte(wo_value a, wo_value b)
     return left->type == right->type && left->handle == right->handle;
 }
 
-wo_ptr_t wo_safety_pointer_ignore_fail(wo::gchandle_t* gchandle)
-{
-    wo::gcbase::gc_read_guard g1(gchandle);
-    if (gchandle->has_been_closed)
-    {
-        return nullptr;
-    }
-    return gchandle->holding_handle;
-}
-
 wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
 {
     wo::gcbase::gc_read_guard g1(gchandle);
