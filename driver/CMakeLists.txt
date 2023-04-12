@@ -22,9 +22,3 @@ else()
 endif()
 
 target_link_libraries(woodriver woolang)
-
-if(UNIX)
-    if(WO_BUILD_FOR_COVERAGE_TEST)
-        target_link_libraries(woodriver gcov)
-    endif()
-endif()
