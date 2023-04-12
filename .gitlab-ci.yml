@@ -1,7 +1,7 @@
 # In 'build', we will use cmake & make to build woo..
 variables:
   CACHE_FALLBACK_KEY: wo-build-master
-  ENABLE_ASAN_TEST: OFF
+  ENABLE_ASAN_TEST: "OFF"
 
 build_release_win32:
   stage: build
