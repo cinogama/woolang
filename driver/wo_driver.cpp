@@ -5,9 +5,13 @@
 #include <iostream>
 #include <string>
 
+#include<Windows.h>
+
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
+
+    int ret = 0;
 
     if (argc >= 2)
     {
@@ -48,7 +52,6 @@ int main(int argc, char** argv)
             }
         }
 
-        int ret = -1;
         if (!compile_successful_flag)
             ret = -2;
         else if (return_state)
@@ -61,9 +64,6 @@ int main(int argc, char** argv)
                 ret = errno;
         }
         wo_close_vm(vmm);
-        wo_finish();
-
-        return ret;
     }
     else
     {
@@ -74,5 +74,5 @@ int main(int argc, char** argv)
     }
 
     wo_finish();
-    return 0;
+    return ret;
 }
