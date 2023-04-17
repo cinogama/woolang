@@ -41,7 +41,9 @@ int main(int argc, char** argv)
 
                     if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
                         out_binary_file_ok = true;
+                    
                     fclose(out_binary_file);
+                    wo_free_binary(binary_buf);
                 }
             }
         }
