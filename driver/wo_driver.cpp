@@ -9,6 +9,8 @@ int main(int argc, char** argv)
 {
     wo_init(argc, argv);
 
+    int ret = 0;
+
     if (argc >= 2)
     {
         wo_vm vmm = wo_create_vm();
@@ -41,12 +43,13 @@ int main(int argc, char** argv)
 
                     if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
                         out_binary_file_ok = true;
+                    
                     fclose(out_binary_file);
+                    wo_free_binary(binary_buf);
                 }
             }
         }
 
-        int ret = -1;
         if (!compile_successful_flag)
             ret = -2;
         else if (return_state)
@@ -59,9 +62,6 @@ int main(int argc, char** argv)
                 ret = errno;
         }
         wo_close_vm(vmm);
-        wo_finish();
-
-        return ret;
     }
     else
     {
@@ -72,5 +72,5 @@ int main(int argc, char** argv)
     }
 
     wo_finish();
-    return 0;
+    return ret;
 }

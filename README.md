@@ -5,6 +5,11 @@
 [![pipeline status](https://git.cinogama.net/cinogamaproject/woolang/badges/master/pipeline.svg)](https://gitlab.cinogama.com/cinogamaproject/woolang/-/commits/master)
 [![coverage report](https://git.cinogama.net/cinogamaproject/woolang/badges/master/coverage.svg)](https://gitlab.cinogama.com/cinogamaproject/woolang/-/commits/master)
 
+---
+
+如果需要获取Woolang的二进制文件，欢迎使用 [Chief](https://github.com/BiDuang/Chief)，这是由Biduang编写的Woolang安装器，可以一并获取包管理器Baozi。
+
+---
 
 Woolang（原名 RestorableScene）是第四代 scene 系列语言，拥有静态类型系统，性能也相对不错（在脚本语言中比较而言）。
 

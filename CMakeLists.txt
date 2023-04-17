@@ -28,6 +28,7 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 
 option(BUILD_SHARED_LIBS "Build woo as shared lib" ON)
 option(WO_BUILD_FOR_COVERAGE_TEST "Build woo for code coverage test" OFF)
+option(WO_BUILD_FOR_ASAN_TEST "Build woo for code asan test" OFF)
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     option(WO_SUPPORT_ASMJIT "Support asmjit for compile" ON)
@@ -44,10 +45,14 @@ if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
         add_compile_options("-fprofile-arcs")
         add_compile_options("-ftest-coverage")
+        add_link_options("-fprofile-arcs")
+        add_link_options("-ftest-coverage")
+    endif()
+    if (WO_BUILD_FOR_ASAN_TEST)
+        add_compile_options("-fsanitize=address")
+        add_link_options("-fsanitize=address")
     endif()
 endif()
-
-
 
 add_subdirectory ("src")
 add_subdirectory ("driver")

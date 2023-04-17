@@ -143,13 +143,14 @@ namespace wo
             {
                 wo_assert(out_list.empty() || nullptr == list || list->empty());
 
+                bool need_swap_back = true;
                 if (!list)
+                {
                     list = new std::forward_list<ast_base*>;
-
+                    need_swap_back = false;
+                }
                 out_list.swap(*list);
-                return true;
-
-                return false;
+                return need_swap_back;
             }
 
             bool completed_in_pass2 = false;

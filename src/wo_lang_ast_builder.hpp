@@ -2874,10 +2874,6 @@ namespace wo
                     wo_test(left_v && right_tk.type == +lex_type::l_identifier);
 
                     ast_value_literal* const_result = new ast_value_literal(right_tk);
-                    const_result->value_type = new ast_type(WO_PSTR(string));
-                    const_result->constant_value.set_string_nogc(
-                        wstr_to_str(right_tk.identifier).c_str());
-
                     const_result->copy_source_info(left_v);
 
                     ast_value_index* vbin = new ast_value_index();
