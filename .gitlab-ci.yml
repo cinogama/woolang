@@ -37,7 +37,7 @@ build_release:
     - if [ ! -d build ]; then mkdir build; fi
     - cd build
     - rm -f CMakeCache.txt
-    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON -DWO_BUILD_FOR_ASAN_TEST=ON
+    - cmake .. -DWO_MAKE_OUTPUT_IN_SAME_PATH=ON -DCMAKE_BUILD_TYPE=RELWITHDEBINFO -DBUILD_SHARED_LIBS=ON
     - make -j 4
     - cd ..
   artifacts:
