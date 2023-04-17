@@ -5,8 +5,6 @@
 #include <iostream>
 #include <string>
 
-#include<Windows.h>
-
 int main(int argc, char** argv)
 {
     wo_init(argc, argv);
