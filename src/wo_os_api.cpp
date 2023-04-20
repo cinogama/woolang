@@ -28,19 +28,19 @@ namespace wo
 
             // 1) Try get dll from script_path
             if (scriptpath)
-                if (result = LoadLibraryExA((get_file_loc(scriptpath) + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                if (result = LoadLibraryExW(wo::str_to_wstr(get_file_loc(scriptpath) + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                     return result;
 
             // 2) Try get dll from exe_path
-            if (result = LoadLibraryExA((exe_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(exe_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             // 3) Try get dll from work_path
-            if (result = LoadLibraryExA((work_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(work_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             // 4) Try load full path
-            if (result = LoadLibraryExA(dllpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             return nullptr;
