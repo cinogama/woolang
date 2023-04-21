@@ -1747,7 +1747,7 @@ std::variant<
     // 1. Prepare lexer..
     wo::lexer* lex = nullptr;
     if (src != nullptr)
-        lex = new wo::lexer(wo::str_to_wstr((const char*)src), virtual_src_path);
+        lex = new wo::lexer(wo::str_to_wstr(std::string((const char*)src, len).c_str()), virtual_src_path);
     else
         lex = new wo::lexer(virtual_src_path);
 
