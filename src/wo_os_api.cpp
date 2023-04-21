@@ -68,7 +68,7 @@ namespace wo
                     return result;
 
             // 2) Try get dll from exe_path
-            if ((result = dlopen(std::string(exe_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
+            if ((result = dlopen((std::string(exe_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
             return result;
 
             // 3) Try get dll from work_path
