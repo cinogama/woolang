@@ -2294,7 +2294,11 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
             for (size_t i = newsz; i < arrsz; ++i)
                 _arr->array->add_memo(&(*_arr->array)[i]);
         }
-        _arr->array->resize((size_t)newsz, *WO_VAL(init_val));
+
+        if (init_val != nullptr)
+            _arr->array->resize((size_t)newsz, *WO_VAL(init_val));
+        else
+            _arr->array->resize((size_t)newsz);
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
