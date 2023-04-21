@@ -71,7 +71,7 @@ namespace wo
         if (script_file)
         {
             auto src_file_loc = wo::get_file_loc(script_file);
-            *out_real_read_path = str_to_wstr(src_file_loc) + filepath;
+            *out_real_read_path = str_to_wstr(src_file_loc) + L"/" + filepath;
             auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
 
             src_1->imbue(wo_global_locale);
@@ -85,7 +85,7 @@ namespace wo
         // 2) Read file from exepath
         do
         {
-            *out_real_read_path = str_to_wstr(wo::exe_path()) + filepath;
+            *out_real_read_path = str_to_wstr(wo::exe_path()) + L"/" + filepath;
             auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
 
             src_1->imbue(wo_global_locale);
@@ -130,7 +130,7 @@ namespace wo
         // 4) Read file from rpath
         do
         {
-            *out_real_read_path = str_to_wstr(wo::work_path()) + filepath;
+            *out_real_read_path = str_to_wstr(wo::work_path()) + L"/" + filepath;
             auto* src_1 = new fstream_t(wstr_to_str(*out_real_read_path), std::ios_base::in | std::ios_base::binary);
 
             src_1->imbue(wo_global_locale);
