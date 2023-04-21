@@ -28,19 +28,19 @@ namespace wo
 
             // 1) Try get dll from script_path
             if (scriptpath)
-                if (result = LoadLibraryExA((get_file_loc(scriptpath) + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+                if (result = LoadLibraryExW(wo::str_to_wstr(get_file_loc(scriptpath) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                     return result;
 
             // 2) Try get dll from exe_path
-            if (result = LoadLibraryExA((exe_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(std::string(exe_path()) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             // 3) Try get dll from work_path
-            if (result = LoadLibraryExA((work_path() + std::string(dllpath) + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(std::string(work_path()) + "/" + dllpath + ".dll").c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             // 4) Try load full path
-            if (result = LoadLibraryExA(dllpath, NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
+            if (result = LoadLibraryExW(wo::str_to_wstr(dllpath).c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                 return result;
 
             return nullptr;
@@ -64,15 +64,15 @@ namespace wo
 
             // 1) Try get dll from script_path
             if (scriptpath)
-                if ((result = dlopen((get_file_loc(scriptpath) + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
+                if ((result = dlopen((std::string(get_file_loc(scriptpath)) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
                     return result;
 
             // 2) Try get dll from exe_path
-            if ((result = dlopen((exe_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
-                return result;
+            if ((result = dlopen((std::string(exe_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
+            return result;
 
             // 3) Try get dll from work_path
-            if ((result = dlopen((work_path() + std::string(dllpath) + ".so").c_str(), RTLD_LAZY)))
+            if ((result = dlopen((std::string(work_path()) + "/" + dllpath + ".so").c_str(), RTLD_LAZY)))
                 return result;
 
             // 4) Try load full path
