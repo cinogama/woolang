@@ -578,6 +578,17 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
+WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
+{
+    auto newsz = wo_int(args + 1);
+    if (newsz <= wo_lengthof(args + 0))
+    {
+        wo_arr_resize(args + 0, newsz, nullptr);
+        return wo_ret_bool(vm, true);
+    }
+    return wo_ret_bool(vm, false);
+}
+
 WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_insert(args + 0, wo_int(args + 1), args + 2);
@@ -1928,6 +1939,9 @@ namespace vec
 
     extern("rslib_std_array_resize") 
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
+
+    extern("rslib_std_array_shrink")
+        public func shrink<T>(val: vec<T>, newsz: int)=> bool;
 
     extern("rslib_std_array_insert") 
         public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
