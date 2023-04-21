@@ -125,7 +125,7 @@ namespace wo
         for (size_t index = path.size(); index > 0; index--)
             if (path[index - 1] == '/')
                 // find last '/' get substr and return..
-                return path.substr(0, index);
+                return path.substr(0, index - 1);
 
         return "";
     }
