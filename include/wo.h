@@ -43,7 +43,7 @@ WO_FORCE_CAPI
 
 typedef int64_t     wo_integer_t, wo_int_t;
 typedef uint64_t    wo_handle_t;
-typedef void*       wo_ptr_t;
+typedef void* wo_ptr_t;
 typedef const char* wo_string_t;
 typedef const wchar_t* wo_wstring_t;
 typedef wchar_t     wo_char_t;
@@ -107,7 +107,7 @@ WO_API void         wo_finish(void(* do_after_shutdown)(void*), void* custom_dat
 
 WO_API void         wo_gc_immediately();
 
-WO_API void*        wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
+WO_API void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
 WO_API void*/* func ptr */ wo_load_func(void* lib, const char* funcname);
 WO_API void         wo_unload_lib(void* lib);
 
@@ -371,7 +371,33 @@ WO_API wo_vm        wo_set_this_thread_vm(wo_vm vm_may_null);
 #if defined(WO_IMPL)
 #define WO_NEED_RTERROR_CODES 1
 #define WO_NEED_ANSI_CONTROL 1
+#define WO_NEED_LSP_API 1
 #endif
+
+#if defined(WO_NEED_LSP_API)
+// Following API named with wo_lsp_... will be used for getting meta-data by language-service.
+typedef enum _wo_lsp_error_level
+{
+    WO_LSP_ERROR,
+    WO_LSP_INFORMATION,
+
+} wo_lsp_error_level;
+typedef struct _wo_lsp_error_msg
+{
+    wo_lsp_error_level m_level;
+    const char* m_file_name;
+    const char* m_describe;
+    size_t begin_location[2];       // An array stores row & col
+    size_t end_location[2];         // An array stores row & col
+
+}wo_lsp_error_msg;
+
+WO_API size_t               wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm);
+WO_API wo_lsp_error_msg*    wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index);
+WO_API void                 wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg);
+
+#endif
+
 
 #if defined(WO_NEED_RTERROR_CODES) 
 
