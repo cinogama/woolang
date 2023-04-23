@@ -2882,10 +2882,10 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t 
         wo_error("Unknown error level.");
         break;
     }
-    msg->begin_location[0] = err_detail.begin_row;
-    msg->begin_location[1] = err_detail.begin_col;
-    msg->end_location[0] = err_detail.end_row;
-    msg->end_location[1] = err_detail.end_col;
+    msg->m_begin_location[0] = err_detail.begin_row;
+    msg->m_begin_location[1] = err_detail.begin_col;
+    msg->m_end_location[0] = err_detail.end_row;
+    msg->m_end_location[1] = err_detail.end_col;
 
     auto * filename = new char[err_detail.filename.size() + 1];
     strcpy(filename, err_detail.filename.data());

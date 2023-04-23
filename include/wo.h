@@ -387,8 +387,8 @@ typedef struct _wo_lsp_error_msg
     wo_lsp_error_level m_level;
     const char* m_file_name;
     const char* m_describe;
-    size_t begin_location[2];       // An array stores row & col
-    size_t end_location[2];         // An array stores row & col
+    size_t m_begin_location[2];       // An array stores row & col
+    size_t m_end_location[2];         // An array stores row & col
 
 }wo_lsp_error_msg;
 
