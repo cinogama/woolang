@@ -116,10 +116,6 @@ make -j 4
 
 ## 鸣谢（Acknowledgments）
 
-感谢 @Biduang 为woolang提供的 [Chief](https://github.com/BiDuang/Chief)，这能让安装woolang和baozi更方便快捷。
-
-Thanks to @Biduang for providing [Chief](https://github.com/BiDuang/Chief) for woolang, which makes installing woolang and baozi easier and faster.
-
 感谢 [asmjit](https://asmjit.com/) 提供的jit支持，虽然woolang对jit的支持尚未全部完成，但是asmjit让我拥有了愉快的开发体验。
 
 Thanks to [asmjit](https://asmjit.com/) for the jit support. Although Woolang's support for jit has not been fully completed, asmjit has given me a pleasant development experience.
