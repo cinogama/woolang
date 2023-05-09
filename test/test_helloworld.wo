@@ -33,6 +33,16 @@ namespace test_helloworld
         std::println(f("Helloworld"));
     }
 
+    func test_ignore_pattern(a: string, _: string, c: string)
+    {
+        return a + c;
+    }
+
+    func test_ignore_mut_pattern(mut a: string, _: string, mut c: string)
+    {
+        return a + c;
+    }
+
     func test_lambda()
     {
         test_named_template_accept(test_named_template_func_auto_impl);
@@ -64,6 +74,8 @@ namespace test_helloworld
         test_assure(b[11] == "6world");
 
         test_assure("Helloworld" == "Helloworld"->chars->str);
+        test_equal("Helloworld", test_ignore_pattern("Hello", "WORLD", "world"));
+        test_equal("Helloworld", test_ignore_mut_pattern("Hello", "WORLD", "world"));
 
         "Helloworld"->std::println;
 
@@ -124,6 +136,8 @@ namespace test_helloworld
 
         let t = ("hello", "world");
         t...->\a,b=std::println(a, b);;
+
+        test_lambda();
     }
 }
 

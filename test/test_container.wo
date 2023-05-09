@@ -1,6 +1,8 @@
 import woo.std;
 import test_tool;
 
+import pkg.worst;
+
 namespace test_container
 {
     func test_array_swap_copy()
@@ -157,6 +159,16 @@ namespace test_container
 
         let y = all(["hello", "world"])->>\t = t...->\i,e = F"{i}{e}";;->reduce(\l,r = l + r;)->val;
         test_equal(y, "0hello1world");
+
+        let a = [1, 3, 7, 2, 4, 9];
+        let b = a->std::sort(\_, _ = false;);
+
+        for (let i : std::range::create(0, 5))
+            test_equal(a[i], b[i]);
+        
+        let c = a->std::sort(\a, b = a < b;);
+        for (let i, v : [1, 2, 3, 4, 7, 9])
+            test_equal(c[i], v);
     }
 }
 
