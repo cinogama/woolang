@@ -10,7 +10,8 @@ namespace wo
             return "";
 
         if (scope->type != lang_scope::scope_type::namespace_scope)
-            return get_belong_namespace_path_with_lang_scope(scope->belong_namespace);
+            return get_belong_namespace_path_with_lang_scope(scope->belong_namespace)
+                + "@" + std::to_string((intptr_t)scope);
 
         if (scope->belong_namespace)
         {
