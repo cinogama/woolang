@@ -28,7 +28,12 @@ namespace wo
         auto* a_varref_defs = WO_AST();
         a_varref_defs->located_function = in_function();
         for (auto& varref : a_varref_defs->var_refs)
+        {
+            if (dynamic_cast<ast_pattern_takeplace*>(varref.pattern)!=nullptr)
+                lang_anylizer->lang_error(lexer::errorlevel::error, varref.pattern, WO_ERR_USELESS_IGNORE_PATTERN);
+
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
+        }
         return true;
     }
     WO_PASS1(ast_value_binary)
