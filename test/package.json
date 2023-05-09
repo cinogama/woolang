@@ -18,6 +18,11 @@
             "path" : "pkg",
             "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
             "version" : "1.0.0"
+        },
+        "worst" : {
+            "path" : "pkg",
+            "remote" : "https://git.cinogama.net/cinogamaproject/woolangpackages",
+            "version" : "1.0.0"
         }
     },
     "name" : "test",
