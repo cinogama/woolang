@@ -28,7 +28,12 @@ namespace wo
         auto* a_varref_defs = WO_AST();
         a_varref_defs->located_function = in_function();
         for (auto& varref : a_varref_defs->var_refs)
+        {
+            if (dynamic_cast<ast_pattern_takeplace*>(varref.pattern)!=nullptr)
+                lang_anylizer->lang_error(lexer::errorlevel::error, varref.pattern, WO_ERR_USELESS_IGNORE_PATTERN);
+
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
+        }
         return true;
     }
     WO_PASS1(ast_value_binary)
@@ -291,13 +296,16 @@ namespace wo
 
                         if (!argdef->symbol)
                         {
-                            argdef->symbol = define_variable_in_this_scope(
-                                argdef,
-                                argdef->arg_name,
-                                argdef,
-                                argdef->declear_attribute,
-                                template_style::NORMAL, argdef->decl);
-                            argdef->symbol->is_argument = true;
+                            if (argdef->arg_name != WO_PSTR(_))
+                            {
+                                argdef->symbol = define_variable_in_this_scope(
+                                    argdef,
+                                    argdef->arg_name,
+                                    argdef,
+                                    argdef->declear_attribute,
+                                    template_style::NORMAL, argdef->decl);
+                                argdef->symbol->is_argument = true;
+                            }
                         }
                     }
                 }
@@ -6621,13 +6629,18 @@ namespace wo
                     {
                         // Issue N221109: Reference will not support.
                         // All arguments will 'psh' to stack & no 'pshr' command in future.
-                        funcdef->this_func_scope->
-                            reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
+                        if (a_value_arg_define->symbol != nullptr)
+                        {
+                            funcdef->this_func_scope->
+                                reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
-                        wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
-                        a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
+                            wo_assert(0 == a_value_arg_define->symbol->stackvalue_index_in_funcs);
+                            a_value_arg_define->symbol->stackvalue_index_in_funcs = -2 - arg_count - (wo_integer_t)funcdef->capture_variables.size();
+                        }
+
+                        // NOTE: If argument's name is `_`, still need continue;
                     }
-                    else//variadic
+                    else // variadic
                         break;
                     arg_count++;
                     arg_index = arg_index->sibling;

@@ -941,6 +941,70 @@ func main()
             let x = st:<string>{a = "abc" };
             let y = st2:<string>{b = x, c = x};
         "@);
+
+        // 
+        assure_compile_fail(@"
+            import woo.std;
+
+            func main()
+            {
+                func f(){};
+                func f(){};
+            }
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+
+            func main()
+            {
+                func f(){};
+                {
+                    func f(){};
+                }
+            }
+            "@);
+        assure_compile_success(@"
+            import woo.std;
+
+            func main()
+            {
+                func f(){func f(){};};
+            }
+            "@);
+
+        // 
+        assure_compile_fail(@"
+            import woo.std;
+
+            func main(_: int)
+            {
+            }
+            main("Helloworld");
+            "@);
+
+        assure_compile_success(@"
+            import woo.std;
+
+            func main(_: int)
+            {
+            }
+            main(25);
+            "@);
+        
+        assure_compile_success(@"
+            import woo.std;
+
+            func main(_: int, _: real)
+            {
+            }
+            main(25, 6.25);
+            "@);
+
+        assure_compile_fail(@"
+            import woo.std;
+
+            let _ = 5;
+            "@);
     }
 
     func main()
