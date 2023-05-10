@@ -1821,7 +1821,7 @@ namespace array
         public func empty<T>(val: array<T>)=> bool;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: array<T>, index: int)=> option<T>;
+        public func get<T>(a: array<T>, index: int)=> option<std::immutable_t<T>>;
 
     extern("rslib_std_array_find")
         public func find<T>(val:array<T>, elem:T)=>int;
@@ -1896,7 +1896,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=>option<(int, std::immutable_t<T>)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -1954,7 +1954,7 @@ namespace vec
             where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: vec<T>, index: int)=> option<T>;
+        public func get<T>(a: vec<T>, index: int)=> option<std::immutable_t<T>>;
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=>void;
@@ -1969,10 +1969,10 @@ namespace vec
     public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
-        public func pop<T>(val: vec<T>)=> T;  
+        public func pop<T>(val: vec<T>)=> std::immutable_t<T>;  
 
     extern("rslib_std_array_dequeue") 
-        public func dequeue<T>(val: vec<T>)=> T;  
+        public func dequeue<T>(val: vec<T>)=> std::immutable_t<T>;  
 
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=>void;
@@ -2053,7 +2053,7 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=>option<(int, std::immutable_t<T>)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2080,7 +2080,7 @@ namespace dict
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
-
+)" R"(
     extern("rslib_std_lengthof") 
         public func len<KT, VT>(self: dict<KT, VT>)=>int;
 
@@ -2099,13 +2099,13 @@ namespace dict
     }
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
+        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<std::immutable_t<VT>>;
 
     extern("rslib_std_map_find") 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=>bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::immutable_t<VT>;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
@@ -2121,7 +2121,7 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, VT)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, std::immutable_t<VT>)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -2132,14 +2132,14 @@ namespace dict
     public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
     {
         let result = []mut: vec<KT>;
-        for (let key, val : self)
+        for (let key, _ : self)
             result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
         let result = []mut: vec<VT>;
-        for (let key, val : self)
+        for (let _, val : self)
             result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
@@ -2163,7 +2163,7 @@ namespace dict
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
-        let result = []mut: vec<(KT, VT)>;
+        let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
         for (let key, val : self)
             result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
@@ -2205,13 +2205,13 @@ namespace map
         public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<VT>;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<std::immutable_t<VT>>;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> VT;
+        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> std::immutable_t<VT>;
 
     extern("rslib_std_map_get_or_set_default") 
-        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>VT;
+        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>std::immutable_t<VT>;
 
     extern("rslib_std_map_swap") 
         public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
@@ -2231,7 +2231,7 @@ namespace map
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, VT)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, std::immutable_t<VT>)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -2242,14 +2242,14 @@ namespace map
     public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
     {
         let result = []mut: vec<KT>;
-        for (let key, val : self)
+        for (let key, _ : self)
             result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
     public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
         let result = []mut: vec<VT>;
-        for (let key, val : self)
+        for (let _, val : self)
             result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
@@ -2273,7 +2273,7 @@ namespace map
     }
     public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
-        let result = []mut: vec<(KT, VT)>;
+        let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
         for (let key, val : self)
             result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;

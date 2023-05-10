@@ -407,7 +407,7 @@ wo_bool_t wo_bool(const wo_value value)
     if (_rsvalue->type != wo::value::valuetype::bool_type)
     {
         wo_fail(WO_FAIL_TYPE_FAIL, "This value is not a boolean.");
-        return wo_cast_int(value);
+        return wo_cast_bool(value);
     }
     return (_rsvalue->integer != 0);
 }
