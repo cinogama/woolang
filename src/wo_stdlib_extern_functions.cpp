@@ -1862,10 +1862,10 @@ namespace array
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: map<std::immutable_t<K>, std::immutable_t<V> >;
+        let result = {}mut: map<K, V>;
         for (let _, (k, v) : val)
             result->set(k, v);
-        return result->unsafe::cast:<dict<std::immutable_t<K>, std::immutable_t<V>> >;
+        return result->unsafe::cast:<dict<K, V>>;
     }
 
     public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -2019,10 +2019,10 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: map<std::immutable_t<K>, std::immutable_t<V> >;
+        let result = {}mut: map<K, V>;
         for (let _, (k, v) : val)
             result->set(k, v);
-        return result->unsafe::cast:<dict<std::immutable_t<K>, std::immutable_t<V> >>;
+        return result->unsafe::cast:<dict<K, V>>;
     }
 
     public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
@@ -2129,19 +2129,19 @@ namespace dict
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:dict<KT, VT>)=>iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: dict<KT, VT>)=> array<std::immutable_t<KT>>
+    public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
     {
-        let result = []mut: vec<std::immutable_t<KT>>;
+        let result = []mut: vec<KT>;
         for (let key, _ : self)
             result->add(key);
-        return result->unsafe::cast:<array<std::immutable_t<KT>>>;
+        return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: dict<KT, VT>)=> array<std::immutable_t<VT>>
+    public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
-        let result = []mut: vec<std::immutable_t<VT>>;
+        let result = []mut: vec<VT>;
         for (let _, val : self)
             result->add(val);
-        return result->unsafe::cast:<array<std::immutable_t<VT>>>;
+        return result->unsafe::cast:<array<VT>>;
     }
     public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
     {
@@ -2161,12 +2161,12 @@ namespace dict
         }
         return result->unsafe::cast:<dict<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(std::immutable_t<KT>, std::immutable_t<VT>)>
+    public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
         for (let key, val : self)
             result->add((key, val));
-        return result->unsafe::cast:<array<(std::immutable_t<KT>, std::immutable_t<VT>)>>;
+        return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
 
@@ -2239,19 +2239,19 @@ namespace map
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:map<KT, VT>)=>iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)=> array<std::immutable_t<KT>>
+    public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
     {
-        let result = []mut: vec<std::immutable_t<KT>>;
+        let result = []mut: vec<KT>;
         for (let key, _ : self)
             result->add(key);
-        return result->unsafe::cast:<array<std::immutable_t<KT>>>;
+        return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: map<KT, VT>)=> array<std::immutable_t<VT>>
+    public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
     {
-        let result = []mut: vec<std::immutable_t<VT>>;
+        let result = []mut: vec<VT>;
         for (let _, val : self)
             result->add(val);
-        return result->unsafe::cast:<array<std::immutable_t<VT>>>;
+        return result->unsafe::cast:<array<VT>>;
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
     {
@@ -2271,12 +2271,12 @@ namespace map
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(std::immutable_t<KT>, std::immutable_t<VT>)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
     {
         let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
         for (let key, val : self)
             result->add((key, val));
-        return result->unsafe::cast:<array<(std::immutable_t<KT>, std::immutable_t<VT>)>>;
+        return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
 
