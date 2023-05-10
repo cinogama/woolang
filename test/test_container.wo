@@ -169,6 +169,16 @@ namespace test_container
         let c = a->std::sort(\a, b = a < b;);
         for (let i, v : [1, 2, 3, 4, 7, 9])
             test_equal(c[i], v);
+
+        do [(mut 0, mut 1)]->mapping as dict<int, int>;
+        do {[mut 0] = mut 1}->unmapping as array<(int, int)>;
+        do {[mut 0] = mut ""}->keys as array<int>;
+        do {[mut 0] = mut ""}->vals as array<string>;
+
+        do [(mut 0, mut 1)]mut->mapping as dict<int, int>;
+        do {[mut 0] = mut 1}mut->unmapping as array<(int, int)>;
+        do {[mut 0] = mut ""}mut->keys as array<int>;
+        do {[mut 0] = mut ""}mut->vals as array<string>;
     }
 }
 
