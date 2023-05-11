@@ -1790,7 +1790,7 @@ namespace array
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
-        newarr->remove(index);
+        do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
@@ -1975,7 +1975,7 @@ namespace vec
         public func dequeue<T>(val: vec<T>)=> std::immutable_t<T>;  
 
     extern("rslib_std_array_remove")
-        public func remove<T>(val:vec<T>, index:int)=>void;
+        public func remove<T>(val:vec<T>, index:int)=>bool;
 
     extern("rslib_std_array_find")
         public func find<T>(val:vec<T>, elem:T)=>int;
@@ -2113,7 +2113,7 @@ namespace dict
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
     {
         let newmap = self->tomap;
-        newmap->remove(index);
+        do newmap->remove(index);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
@@ -2223,7 +2223,7 @@ namespace map
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> void;
+        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_clear")
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
