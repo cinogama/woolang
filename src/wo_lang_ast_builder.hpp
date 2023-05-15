@@ -219,7 +219,6 @@ namespace wo
             // liter functioncall variable and so on will belong this type of node.
             ast_type* value_type = nullptr;
 
-            bool is_mark_as_using_mut = false;
             bool can_be_assign = false;
 
             bool is_constant = false;
@@ -232,10 +231,49 @@ namespace wo
             ast_value(ast_value&&) = delete;
 
             ~ast_value();
+        protected:
             ast_value(ast_type* type);
+        public:
             virtual wo::value& get_constant_value();
             virtual void update_constant_value(lexer* lex);
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+        };
+
+        struct ast_value_mutable : virtual public ast_value
+        {
+            ast_value* val = nullptr;
+
+            ast_value_mutable()
+                : ast_value(new ast_type(WO_PSTR(pending)))
+            {
+            }
+
+            void update_constant_value(lexer* lex) override
+            {
+                if (is_constant)
+                    return;
+
+                val->update_constant_value(lex);
+
+                if (val->is_constant)
+                {
+                    is_constant = true;
+                    constant_value.set_val_compile_time(&val->constant_value);
+                }
+            }
+
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+                WO_REINSTANCE(dumm->val);
+
+                return dumm;
+            }
         };
 
         struct ast_value_takeplace : virtual public ast_value
@@ -2036,10 +2074,10 @@ namespace wo
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
                 wo_assert(input.size() == 2);
 
-                ast_value* val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
-                val->is_mark_as_using_mut = true;
+                ast_value_mutable* result = new ast_value_mutable;
+                result->val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                return (ast_basic*)val;
+                return (ast_basic*)result;
             }
         };
 

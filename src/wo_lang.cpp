@@ -85,6 +85,20 @@ namespace wo
             a_value_bin->value_type->set_type(a_value_binary_target_type);
         return true;
     }
+    WO_PASS1(ast_value_mutable)
+    {
+        auto* a_value_mutable = WO_AST();
+
+        analyze_pass1(a_value_mutable->val);
+        
+        if (a_value_mutable->val->value_type->is_pending() == false)
+        {
+            a_value_mutable->value_type->set_type(a_value_mutable->val->value_type);
+            a_value_mutable->value_type->set_is_mutable(true);
+        }
+
+        return true;
+    }
     WO_PASS1(ast_value_index)
     {
         auto* a_value_idx = WO_AST();
@@ -292,7 +306,6 @@ namespace wo
                             // ready for update..
                             fully_update_type(argdef->value_type, true);
                         }
-                        argdef->value_type->set_is_mutable(false);
 
                         if (!argdef->symbol)
                         {
@@ -967,6 +980,22 @@ namespace wo
 
         return true;
     }
+    WO_PASS2(ast_value_mutable)
+    {
+        auto* a_value_mutable = WO_AST();
+
+        analyze_pass2(a_value_mutable->val);
+
+        if (a_value_mutable->val->value_type->is_pending() == false)
+        {
+            a_value_mutable->value_type->set_type(a_value_mutable->val->value_type);
+            a_value_mutable->value_type->set_is_mutable(true);
+        }
+        else
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_mutable->val, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
+
+        return true;
+    }
     WO_PASS2(ast_while)
     {
         auto* ast_while_sentence = WO_AST();
@@ -976,7 +1005,6 @@ namespace wo
 
         return true;
     }
-
     WO_PASS2(ast_forloop)
     {
         auto* a_forloop = WO_AST();
@@ -1233,7 +1261,6 @@ namespace wo
 
         return true;
     }
-
     WO_PASS2(ast_value_function_define)
     {
         auto* a_value_funcdef = WO_AST();
@@ -2984,10 +3011,10 @@ namespace wo
                     // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
                     if (flipped)
                     {
-                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, true, true))
+                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, false, true))
                             return false;
                     }
-                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, true, true))
+                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, false, true))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
@@ -3977,6 +4004,7 @@ namespace wo
         WO_TRY_PASS(ast_namespace);
         WO_TRY_PASS(ast_varref_defines);
         WO_TRY_PASS(ast_value_binary);
+        WO_TRY_PASS(ast_value_mutable);
         WO_TRY_PASS(ast_value_index);
         WO_TRY_PASS(ast_value_assign);
         WO_TRY_PASS(ast_value_logical_binary);
@@ -4038,14 +4066,11 @@ namespace wo
                 }
                 if (!a_val->value_type->is_pending())
                 {
-                    if (a_val->value_type->is_mutable())
+                    if (a_val->value_type->is_mutable() && dynamic_cast<ast_value_mutable*>(a_val) == nullptr)
                     {
                         a_val->can_be_assign = true;
                         a_val->value_type->set_is_mutable(false);
                     }
-
-                    if (a_val->is_mark_as_using_mut)
-                        a_val->value_type->set_is_mutable(true);
                 }
                 a_val->update_constant_value(lang_anylizer);
             }
@@ -4525,6 +4550,7 @@ namespace wo
                 WO_TRY_PASS(ast_value_funccall);
                 WO_TRY_PASS(ast_value_function_define);
                 WO_TRY_PASS(ast_value_unary);
+                WO_TRY_PASS(ast_value_mutable);
                 WO_TRY_PASS(ast_value_assign);
                 WO_TRY_PASS(ast_value_type_cast);
                 WO_TRY_PASS(ast_value_type_judge);
@@ -4559,13 +4585,11 @@ namespace wo
 
                 if (!a_value->value_type->is_pending())
                 {
-                    if (a_value->value_type->is_mutable())
+                    if (a_value->value_type->is_mutable() && dynamic_cast<ast_value_mutable*>(a_value) == nullptr)
                     {
                         a_value->can_be_assign = true;
                         a_value->value_type->set_is_mutable(false);
                     }
-                    if (a_value->is_mark_as_using_mut)
-                        a_value->value_type->set_is_mutable(true);
                 }
             }
         }
@@ -5411,6 +5435,10 @@ namespace wo
                 else
                     return *_store_value;
             }
+            else if (auto* a_value_mutable = dynamic_cast<ast_value_mutable*>(value))
+            {
+                return analyze_value(a_value_mutable->val, compiler, get_pure_value);
+            }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {
                 if (a_value_type_cast->value_type->is_dynamic()
@@ -5425,7 +5453,6 @@ namespace wo
                     complete_using_register(analyze_value(a_value_type_cast->_be_cast_value_node, compiler)),
                     a_value_type_cast->value_type->value_type);
                 return treg;
-
             }
             else if (ast_value_type_judge* a_value_type_judge = dynamic_cast<ast_value_type_judge*>(value))
             {
