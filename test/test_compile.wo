@@ -1005,6 +1005,33 @@ func main()
 
             let _ = 5;
             "@);
+        
+        //  
+        assure_compile_success(@"
+            func foo(mut _: int){}
+            func foo2(mut _: int){}
+            let mut a = foo;
+            a = foo2;
+            "@);
+        
+        assure_compile_fail(@"
+            func foo(_: mut int){}
+            func foo2(mut _: int){}
+            let mut a = foo;
+            a = foo2;
+            "@);
+
+        assure_compile_success(@"
+            func foo(_: mut int){}
+            func foo2(_: mut int){}
+            let mut a = foo;
+            a = foo2;
+            "@);
+
+        assure_compile_success(@"
+            using E = struct{a : mut string};
+            do E{a = mut 1: string};
+            "@);
     }
 
     func main()

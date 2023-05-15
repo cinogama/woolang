@@ -51,9 +51,9 @@ namespace test_gc
                 global_list->clear();
 
             tmp->add(arr_a[0]);
-            arr_a->remove(0);
+            do arr_a->remove(0);
             arr_b->add(tmp[0]);
-            tmp->remove(0);
+            do tmp->remove(0);
 
             local_list->add(arr_a: dynamic);
             local_list->add(arr_b: dynamic);
@@ -61,9 +61,9 @@ namespace test_gc
             test_assure(arr_b[0][0] == 12345678);
 
             tmp->add(arr_b[0]);
-            arr_b->remove(0);
+            do arr_b->remove(0);
             arr_a->add(tmp[0]);
-            tmp->remove(0);
+            do tmp->remove(0);
 
             local_list->add(arr_a: dynamic);
             local_list->add(arr_b: dynamic);

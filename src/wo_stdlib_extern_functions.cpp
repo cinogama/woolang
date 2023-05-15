@@ -578,6 +578,18 @@ WO_API wo_api rslib_std_array_resize(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_void(vm);
 }
 
+WO_API wo_api rslib_std_array_descrease(wo_vm vm, wo_value args, size_t argc)
+{
+    auto new_size = wo_int(args + 1);
+
+    if (new_size <= wo_lengthof(args + 0))
+    {
+        wo_arr_resize(args + 0, new_size, nullptr);
+        return wo_ret_bool(vm, true);
+    }
+    return wo_ret_bool(vm, false);
+}
+
 WO_API wo_api rslib_std_array_shrink(wo_vm vm, wo_value args, size_t argc)
 {
     auto newsz = wo_int(args + 1);
@@ -1790,7 +1802,7 @@ namespace array
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
-        newarr->remove(index);
+        do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
@@ -1940,6 +1952,9 @@ namespace vec
     extern("rslib_std_array_resize") 
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
 
+    extern("rslib_std_array_descrease")
+        public func decrease<T>(self: vec<T>, sz: int)=> bool;
+
     extern("rslib_std_array_shrink")
         public func shrink<T>(val: vec<T>, newsz: int)=> bool;
 
@@ -1975,7 +1990,7 @@ namespace vec
         public func dequeue<T>(val: vec<T>)=> std::immutable_t<T>;  
 
     extern("rslib_std_array_remove")
-        public func remove<T>(val:vec<T>, index:int)=>void;
+        public func remove<T>(val:vec<T>, index:int)=>bool;
 
     extern("rslib_std_array_find")
         public func find<T>(val:vec<T>, elem:T)=>int;
@@ -2113,7 +2128,7 @@ namespace dict
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
     {
         let newmap = self->tomap;
-        newmap->remove(index);
+        do newmap->remove(index);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
@@ -2223,7 +2238,7 @@ namespace map
         public func empty<KT, VT>(self: map<KT, VT>)=> bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> void;
+        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_clear")
         public func clear<KT, VT>(self: map<KT, VT>)=> void;
