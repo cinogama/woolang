@@ -735,10 +735,10 @@ namespace wo
         }
         grammar::ast_base* ast_value::instance(ast_base* child_instance) const
         {
-            using astnode_type = decltype(MAKE_INSTANCE(this));
-            auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, this->value_type);
-            if (!child_instance) *dumm = *this;
-            // ast_symbolable_base::instance(dumm);
+            wo_assert(child_instance != nullptr);
+            // ast_value is abstract class, will not make instance here.
+
+            auto* dumm = dynamic_cast<ast_value*>(child_instance) ;
 
             // Write self copy functions here..
             if (constant_value.type == value::valuetype::string_type)
