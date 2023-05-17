@@ -261,6 +261,8 @@
 
 #define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"纯函数中发现了存在副作用的行为：'%ls'"
 
+#define WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC L"外部函数必须指明是否是一个纯函数，请用 'pure' 或 'impure' 修饰函数的返回类型"
+
 
 #define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"访问了可变的静态生命周期的变量"
 
@@ -527,6 +529,8 @@
 #define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
 
 #define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"Behavior with side effects found in pure function: '%ls'"
+
+#define WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC L"The external function must indicate whether it is a pure function, please use 'pure' or 'impure' to modify the return type of the function."
 
 
 #define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"A variable with a mutable static lifetime is accessed"

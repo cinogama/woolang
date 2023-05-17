@@ -197,6 +197,9 @@ namespace wo
         }
         void ast_type::set_is_unpure(bool is_unpure)
         {
+            if (is_unpure == true)
+                is_force_pure_type = false;
+
             is_unpure_type = is_unpure;
             if (using_type_name && using_type_name->is_unpure() != is_unpure)
                 using_type_name->is_unpure_type = is_unpure;
@@ -204,6 +207,14 @@ namespace wo
         bool ast_type::is_unpure() const
         {
             return is_unpure_type;
+        }
+        bool ast_type::is_force_immutable() const
+        {
+            return is_force_immutable_type;
+        }
+        bool ast_type::is_force_pure() const
+        {
+            return is_force_pure_type;
         }
         bool ast_type::is_dynamic() const
         {
@@ -694,9 +705,23 @@ namespace wo
         }
         void ast_type::set_is_mutable(bool is_mutable)
         {
+            if (is_mutable == true)
+                is_force_immutable_type = false;
+
             is_mutable_type = is_mutable;
             if (using_type_name && using_type_name->is_mutable() != is_mutable)
                 using_type_name->is_mutable_type = is_mutable;
+        }
+
+        void ast_type::set_is_force_immutable()
+        {
+            set_is_mutable(false);
+            is_force_immutable_type = true;
+        }
+        void ast_type::set_is_force_pure()
+        {
+            set_is_unpure(false);
+            is_force_pure_type = true;
         }
 
         grammar::ast_base* ast_type::instance(ast_base* child_instance) const
@@ -2434,6 +2459,8 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
             _registed_builder_function_id_list[meta::type_hash<pass_do_expr_as_sentence>] = _register_builder<pass_do_expr_as_sentence>();
+
+            _registed_builder_function_id_list[meta::type_hash<pass_do_impure>] = _register_builder<pass_do_impure>();
         }
 
     }

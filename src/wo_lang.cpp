@@ -158,7 +158,7 @@ namespace wo
 
         if (a_value_idx->value_type->is_mutable())
         {
-            if (!this->in_typeof_expr)
+            if (!this->skip_side_effect_check)
             {
                 auto* located_function_scope = in_function();
                 if (located_function_scope != nullptr)
@@ -267,7 +267,7 @@ namespace wo
                 && sym->decl == ast::identifier_decl::MUTABLE 
                 && sym->static_symbol)
             {
-                if (!this->in_typeof_expr)
+                if (!this->skip_side_effect_check)
                 {
                     auto* located_function_scope = in_function();
                     if (located_function_scope != nullptr)
@@ -312,7 +312,12 @@ namespace wo
             fully_update_type(ast_value_check->aim_type, true);
         }
 
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass1(ast_value_check->_be_check_value_node);
+
+        this->skip_side_effect_check = old_state;
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -321,6 +326,17 @@ namespace wo
     {
         auto* a_value_func = WO_AST();
         a_value_func->this_func_scope = begin_function(a_value_func);
+
+        if (a_value_func->externed_func_info)
+        {
+            wo_assert(a_value_func->value_type->is_func());
+            if (!a_value_func->value_type->complex_type->is_force_pure() 
+                && !a_value_func->value_type->complex_type->is_unpure())
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC);
+            }
+        }
+
         if (!a_value_func->is_template_define)
         {
             auto arg_child = a_value_func->argument_list->children;
@@ -901,7 +917,14 @@ namespace wo
     WO_PASS1(ast_where_constraint)
     {
         auto* a_where_constraint = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass1(a_where_constraint->where_constraint_list);
+
+        this->skip_side_effect_check = old_state;
+
         return true;
     }
     WO_PASS1(ast_value_trib_expr)
@@ -915,6 +938,19 @@ namespace wo
         if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
             a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
 
+        return true;
+    }
+    WO_PASS1(ast_do_impure)
+    {
+        auto* a_do_impure = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
+        analyze_pass1(a_do_impure->block);
+
+        this->skip_side_effect_check = old_state;
+        
         return true;
     }
 
@@ -1282,6 +1318,10 @@ namespace wo
     WO_PASS2(ast_where_constraint)
     {
         auto* a_where_constraint = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
         while (val)
         {
@@ -1310,6 +1350,8 @@ namespace wo
 
             val = dynamic_cast<ast_value*>(val->sibling);
         }
+
+        this->skip_side_effect_check = old_state;
 
         return true;
     }
@@ -1462,7 +1504,12 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass2(a_value_type_check->_be_check_value_node);
+
+        this->skip_side_effect_check = old_state;
 
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;
@@ -1572,7 +1619,7 @@ namespace wo
 
         if (a_value_index->value_type->is_mutable())
         {
-            if (!this->in_typeof_expr)
+            if (!this->skip_side_effect_check)
             {
                 auto* located_function_scope = in_function_pass2();
                 if (located_function_scope != nullptr)
@@ -2231,6 +2278,19 @@ namespace wo
         }
         return true;
     }
+    WO_PASS2(ast_do_impure)
+    {
+        auto* a_do_impure = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
+        analyze_pass2(a_do_impure->block);
+
+        this->skip_side_effect_check = old_state;
+
+        return true;
+    }
 
     void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
@@ -2339,7 +2399,7 @@ namespace wo
                 && a_value_var->symbol->decl == ast::identifier_decl::MUTABLE
                 && a_value_var->symbol->static_symbol)
             {
-                if (!this->in_typeof_expr)
+                if (!this->skip_side_effect_check)
                 {
                     auto* located_function_scope = in_function_pass2();
                     if (located_function_scope != nullptr)
@@ -3169,7 +3229,10 @@ namespace wo
 
             if (is_mutable() && !ignore_mut)
                 result += L"mut ";
-
+            if (is_force_immutable())
+                result += L"immut ";
+            if (is_force_pure())
+                result += L"pure ";
             if (is_unpure())
                 result += L"impure ";
 
@@ -3575,17 +3638,20 @@ namespace wo
         {
             bool is_mutable_typeof = type->is_mutable();
             bool is_unpure_typeof = type->is_unpure();
+            bool is_force_immutable_typeof = type->is_force_immutable();
+            bool is_force_pure_typeof = type->is_force_pure();
+
             auto used_type_info = type->using_type_name;
 
-            auto old_state = this->in_typeof_expr;
-            this->in_typeof_expr = true;
+            auto old_state = this->skip_side_effect_check;
+            this->skip_side_effect_check = true;
 
             if (in_pass_1)
                 analyze_pass1(type->typefrom);
             if (has_step_in_step2)
                 analyze_pass2(type->typefrom);
 
-            this->in_typeof_expr = old_state;
+            this->skip_side_effect_check = old_state;
 
             if (!type->typefrom->value_type->is_pending())
             {
@@ -3601,6 +3667,10 @@ namespace wo
                 type->set_is_mutable(true);
             if (is_unpure_typeof)
                 type->set_is_unpure(true);
+            if (is_force_immutable_typeof)
+                type->set_is_mutable(false);
+            if (is_force_pure_typeof)
+                type->set_is_unpure(false);
         }
 
         if (type->using_type_name)
@@ -3692,6 +3762,8 @@ namespace wo
                         auto already_has_using_type_name = type->using_type_name;
                         auto type_has_mutable_mark = type->is_mutable();
                         auto type_has_unpure_mark = type->is_unpure();
+                        bool type_has_force_immutable_mark = type->is_force_immutable();
+                        bool type_has_force_pure_mark = type->is_force_pure();
 
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
@@ -3789,9 +3861,12 @@ namespace wo
                             if (type_has_mutable_mark)
                                 // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
                                 type->set_is_mutable(true);
-
                             if (type_has_unpure_mark)
                                 type->set_is_unpure(true);
+                            if (type_has_force_immutable_mark)
+                                type->set_is_mutable(false);
+                            if (type_has_force_pure_mark)
+                                type->set_is_unpure(false);
 
                             if (!type->template_impl_naming_checking.empty())
                             {
@@ -4156,6 +4231,7 @@ namespace wo
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
         WO_TRY_PASS(ast_value_trib_expr);
+        WO_TRY_PASS(ast_do_impure);
 
         grammar::ast_base* child = ast_node->children;
         while (child)
@@ -4194,7 +4270,7 @@ namespace wo
                     {
                         a_val->value_type->set_is_unpure(false);
                         
-                        if (!this->in_typeof_expr)
+                        if (!this->skip_side_effect_check)
                         {
                             auto* located_function_scope = in_function_pass2();
                             if (located_function_scope != nullptr)
@@ -4698,7 +4774,6 @@ namespace wo
                 WO_TRY_PASS(ast_value_make_tuple_instance);
                 WO_TRY_PASS(ast_value_make_struct_instance);
                 WO_TRY_PASS(ast_value_trib_expr);
-
                 WO_TRY_END;
 
             }
@@ -4728,7 +4803,7 @@ namespace wo
                     {
                         a_value->value_type->set_is_unpure(false);
 
-                        if (!this->in_typeof_expr)
+                        if (!this->skip_side_effect_check)
                         {
                             auto* located_function_scope = in_function_pass2();
                             if (located_function_scope != nullptr)
@@ -4758,6 +4833,7 @@ namespace wo
         WO_TRY_PASS(ast_match_union_case);
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
+        WO_TRY_PASS(ast_do_impure);
 
         WO_TRY_END;
 
@@ -6705,6 +6781,11 @@ namespace wo
 
             compiler->jmp(tag(a_match_union_case->in_match->match_end_tag_in_final_pass));
             compiler->tag(current_case_end);
+        }
+        else if (ast_do_impure* a_do_impure = dynamic_cast<ast_do_impure*>(ast_node))
+        {
+            wo_assert(a_do_impure->block != nullptr);
+            real_analyze_finalize(a_do_impure->block, compiler);
         }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_node, L"Bad ast node.");
