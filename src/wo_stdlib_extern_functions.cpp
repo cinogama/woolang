@@ -1941,19 +1941,19 @@ namespace vec
         public func create<T>(sz: int, init_val: T)=> pure vec<T>;
 
     extern("rslib_std_create_str_by_wchar") 
-        public func str(buf: vec<char>)=> impure string;
+        public func str(buf: vec<char>)=> pure string;
 
     extern("rslib_std_create_str_by_ascii") 
-        public func cstr(buf: vec<cchar>)=> impure string;
+        public func cstr(buf: vec<cchar>)=> pure string;
 
     extern("rslib_std_lengthof") 
-        public func len<T>(val: vec<T>)=> impure int;
+        public func len<T>(val: vec<T>)=> pure int;
 
     extern("rslib_std_make_dup")
-        public func dup<T>(val: vec<T>)=> impure vec<T>;
+        public func dup<T>(val: vec<T>)=> pure vec<T>;
 
     extern("rslib_std_make_dup")
-        public func toarray<T>(val: vec<T>)=> impure array<T>;
+        public func toarray<T>(val: vec<T>)=> pure array<T>;
 
     extern("rslib_std_array_empty")
         public func empty<T>(val: vec<T>)=> impure bool;
@@ -1978,7 +1978,7 @@ namespace vec
             where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: vec<T>, index: int)=> impure option<std::origin_t<T>>;
+        public func get<T>(a: vec<T>, index: int)=> pure option<std::origin_t<T>>;
 
     extern("rslib_std_array_add") 
         public func add<T>(val: vec<T>, elem: T)=> impure void;
@@ -1987,10 +1987,10 @@ namespace vec
     public func connect<T>(self: vec<T>, another: vec<T>)=> impure vec<T>;
 
     extern("rslib_std_array_sub")
-    public func sub<T>(self: vec<T>, begin: int)=> impure vec<T>;
+    public func sub<T>(self: vec<T>, begin: int)=> pure vec<T>;
     
     extern("rslib_std_array_sub")
-    public func subto<T>(self: vec<T>, begin: int, count: int)=> impure vec<T>;
+    public func subto<T>(self: vec<T>, begin: int, count: int)=> pure vec<T>;
 
     extern("rslib_std_array_pop") 
         public func pop<T>(val: vec<T>)=> impure std::origin_t<T>;  
@@ -2002,7 +2002,7 @@ namespace vec
         public func remove<T>(val:vec<T>, index:int)=> impure bool;
 
     extern("rslib_std_array_find")
-        public func find<T>(val:vec<T>, elem:T)=> impure int;
+        public func find<T>(val:vec<T>, elem:T)=> pure int;
 
     public func findif<T>(val:vec<T>, judger:(T)=>bool)
     {
@@ -2077,13 +2077,13 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=> impure option<(int, std::origin_t<T>)>;
+            public func next<T>(iter:iterator<T>)=> pure option<(int, std::origin_t<T>)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        public func iter<T>(val:vec<T>)=> impure iterator<T>;
+        public func iter<T>(val:vec<T>)=> pure iterator<T>;
 }
 
 namespace dict
