@@ -159,6 +159,10 @@ namespace wo
         std::unordered_set<lang_symbol*> traving_symbols;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
+        lang_scope* current_function_in_pass2 = nullptr;
+
+        // Used for ignore impure type when get type of expr.
+        bool skip_side_effect_check = false;
 
         std::map<uint32_t, ast::ast_type*> hashed_typing;
 
@@ -239,6 +243,7 @@ namespace wo
         WO_PASS(ast_struct_member_define);
         WO_PASS(ast_where_constraint);
         WO_PASS(ast_value_trib_expr);
+        WO_PASS(ast_do_impure);
 
 #undef WO_PASS
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
@@ -350,6 +355,7 @@ namespace wo
         void end_function();
         lang_scope* now_scope() const;
         lang_scope* in_function() const;
+        lang_scope* in_function_pass2() const;
 
         size_t global_symbol_index = 0;
 

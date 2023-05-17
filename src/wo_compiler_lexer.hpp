@@ -96,6 +96,7 @@ namespace wo
         l_for,
         l_extern,
         l_let,
+        l_immut,
         l_mut,
         l_func,
         l_return,
@@ -119,6 +120,8 @@ namespace wo
         l_union,
         l_match,
         l_struct,
+        l_unpure,
+        l_pure,
         l_macro
     );
 
@@ -256,6 +259,7 @@ namespace wo
             {L"else", {lex_type::l_else}},
             {L"let", {lex_type::l_let }},
             {L"mut", {lex_type::l_mut}},
+            {L"immut", {lex_type::l_immut}},
             {L"func", {lex_type::l_func}},
             {L"return", {lex_type::l_return}},
             {L"using", {lex_type::l_using} },
@@ -277,6 +281,8 @@ namespace wo
             {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
             {L"struct", {lex_type::l_struct}},
+            {L"pure", {lex_type::l_pure}},
+            {L"impure", {lex_type::l_unpure}},
             {L"do", {lex_type::l_do}},
         };
 
