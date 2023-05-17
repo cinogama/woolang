@@ -259,6 +259,15 @@
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"无意义的模式，此处使用 '_' 没有意义"
 
+#define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"纯函数中发现了存在副作用的行为：'%ls'"
+
+
+#define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"访问了可变的静态生命周期的变量"
+
+#define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"索引可变的元素"
+
+#define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"获取了非纯表达式的结果"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -516,6 +525,15 @@
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"Expressions of type non-void are not allowed as statements(here is '%ls'), which causes important values to be accidentally ignored."
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
+
+#define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"Behavior with side effects found in pure function: '%ls'"
+
+
+#define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"A variable with a mutable static lifetime is accessed"
+
+#define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"Index mutable elements"
+
+#define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"The result of an impure expression was fetched"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

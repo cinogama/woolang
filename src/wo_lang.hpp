@@ -159,6 +159,10 @@ namespace wo
         std::unordered_set<lang_symbol*> traving_symbols;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
+        lang_scope* current_function_in_pass2 = nullptr;
+
+        // Used for ignore impure type when get type of expr.
+        bool in_typeof_expr = false;
 
         std::map<uint32_t, ast::ast_type*> hashed_typing;
 
@@ -350,6 +354,7 @@ namespace wo
         void end_function();
         lang_scope* now_scope() const;
         lang_scope* in_function() const;
+        lang_scope* in_function_pass2() const;
 
         size_t global_symbol_index = 0;
 

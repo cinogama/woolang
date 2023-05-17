@@ -101,7 +101,7 @@ namespace wo
             bool is_mutable_type = false;
             bool is_function_type = false;
             bool is_variadic_function_type = false;
-            bool is_unpure_function = false;
+            bool is_unpure_type = false;
 
             // if this type is function, following type information will describe the return type;
             wo_pstring_t type_name = nullptr;
@@ -166,16 +166,10 @@ namespace wo
             ast_type* get_return_type() const;
             void append_function_argument_type(ast_type* arg_type);
             void set_as_variadic_arg_func();
-            void set_is_pure_function(bool pure)
-            {
-                is_unpure_function = !pure;
-            }
-            bool is_pure_function() const
-            {
-                wo_assert(is_func());
-                return !is_unpure_function;
-            }
+            void set_is_mutable(bool is_mutable);
             bool is_mutable() const;
+            void set_is_unpure(bool is_mutable);
+            bool is_unpure() const;
             bool is_dynamic() const;
             bool is_custom(std::unordered_set<const ast_type*>& s) const;
             bool is_custom() const;
@@ -217,7 +211,6 @@ namespace wo
             bool is_real() const;
             bool is_handle() const;
             bool is_gchandle() const;
-            void set_is_mutable(bool is_mutable);
             std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
@@ -728,7 +721,7 @@ namespace wo
             bool delay_adjust_return_type = false;
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
-            bool has_unpure_behavior = false;
+            bool has_impure_behavior = false;
             std::string ir_func_signature_tag = "";
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
@@ -743,6 +736,21 @@ namespace wo
                 type->set_as_function_type();
                 type->complex_type = new ast_type(WO_PSTR(pending));
                 type->set_ret_type(type->complex_type);
+            }
+
+            void mark_as_unpure_behavior_happend(lexer* lex, grammar::ast_base* errreporter, const wchar_t* action)noexcept
+            {
+                if (!has_impure_behavior)
+                {
+                    if (auto_adjust_return_type == false && value_type->is_func())
+                    {
+                        if (!value_type->complex_type->is_unpure())
+                            lex->lang_error(wo::lexer::errorlevel::error, errreporter, WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC,
+                                action);
+                    }
+                    else
+                        has_impure_behavior = true;
+                }
             }
 
             bool is_closure_function()const noexcept
@@ -1988,6 +1996,16 @@ namespace wo
             }
         };
 
+        struct pass_build_unpure_type : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
+                type->set_is_unpure(true);
+                return (ast_basic*)type;
+            }
+        };
+
         struct pass_template_reification : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -2943,17 +2961,10 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_test(input.size() == 3 || input.size() == 4);
-
-                bool is_unpure_func = false;
-                if (input.size() == 4)
-                {
-                    wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_unpure);
-                    is_unpure_func = true;
-                }
+                wo_test(input.size() == 3);
 
                 ast_type* result = nullptr;
-                auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2 + (is_unpure_func?1:0)));
+                auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
 
                 wo_test(complex_type);
 
@@ -2962,7 +2973,7 @@ namespace wo
                 result->set_ret_type(complex_type);
                 result->get_return_type()->copy_source_info(complex_type);
 
-                auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0 + (is_unpure_func ? 1 : 0)));
+                auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 auto* child = arg_list->children;
                 while (child)
                 {
@@ -2981,9 +2992,6 @@ namespace wo
 
                     child = child->sibling;
                 }
-
-                if (is_unpure_func)
-                    result->set_is_pure_function(false);
 
                 return (ast_basic*)result;
 

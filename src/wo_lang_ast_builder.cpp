@@ -68,9 +68,6 @@ namespace wo
             if (from->is_pending() || to->is_pending())
                 return false;
 
-            if (from->is_mutable() != to->is_mutable())
-                return false;
-
             // Any type can cast to void;
             if (to->is_void())
                 return true;
@@ -197,6 +194,16 @@ namespace wo
         bool ast_type::is_mutable() const
         {
             return is_mutable_type;
+        }
+        void ast_type::set_is_unpure(bool is_unpure)
+        {
+            is_unpure_type = is_unpure;
+            if (using_type_name && using_type_name->is_unpure() != is_unpure)
+                using_type_name->is_unpure_type = is_unpure;
+        }
+        bool ast_type::is_unpure() const
+        {
+            return is_unpure_type;
         }
         bool ast_type::is_dynamic() const
         {
@@ -344,13 +351,6 @@ namespace wo
                 || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
                 return false;
 
-            if (this_origin_type->is_func())
-            {
-                wo_assert(another_origin_type->is_func());
-                if (this_origin_type->is_pure_function() && !another_origin_type->is_pure_function())
-                    return false;
-            }
-
             if ((using_type_name == nullptr && another->using_type_name)
                 || (using_type_name && another->using_type_name == nullptr))
             {
@@ -390,8 +390,25 @@ namespace wo
                     || type_name != another->type_name)
                     return false;
             }
+
+            bool prefix_modified = false;
+            if (is_unpure())
+            {
+                prefix_modified = true;
+                if (out_para)
+                {
+                    *out_para = dynamic_cast<ast_type*>(this->instance());
+                    (**out_para).set_is_unpure(false);
+                }
+                if (out_args)
+                {
+                    *out_args = dynamic_cast<ast_type*>(another->instance());
+                    (**out_args).set_is_unpure(false);
+                }
+            }
             if (is_mutable())
             {
+                prefix_modified = true;
                 if (!another->is_mutable())
                     return false;
 
@@ -406,13 +423,13 @@ namespace wo
                     (**out_args).set_is_mutable(false);
                 }
             }
-            else
+
+            if (!prefix_modified)
             {
                 if (out_para)*out_para = const_cast<ast_type*>(this);
                 if (out_args)*out_args = const_cast<ast_type*>(another);
             }
             return true;
-
         }
         bool ast_type::is_builtin_basic_type()
         {
@@ -477,6 +494,9 @@ namespace wo
 
             if (is_mutable() != another->is_mutable())
                 return false;
+
+            if (is_unpure() || another->is_unpure())
+                result->set_is_unpure(true);
 
             // Might HKT
             if (is_hkt_typing() && another->is_hkt_typing())
@@ -2262,6 +2282,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
             _registed_builder_function_id_list[meta::type_hash<pass_build_mutable_type>] = _register_builder<pass_build_mutable_type>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_unpure_type>] = _register_builder<pass_build_unpure_type>();
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();

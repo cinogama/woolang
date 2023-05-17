@@ -588,6 +588,9 @@ namespace wo
                 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"ORIGIN_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_mutable_type),
 
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_unpure), gm::nt(L"ORIGIN_TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_unpure_type),
+
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
@@ -598,9 +601,6 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") , gm::te(gm::ttype::l_function_result) , gm::nt(L"TYPE"), }
-                >> WO_ASTBUILDER_INDEX(ast::pass_build_function_type),
-
-                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_unpure), gm::nt(L"TUPLE_TYPE_LIST") , gm::te(gm::ttype::l_function_result) , gm::nt(L"TYPE"), }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_function_type),
 
                 //////////////////////////////////////////////////////////////////////////////////////////////

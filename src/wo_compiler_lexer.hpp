@@ -278,7 +278,7 @@ namespace wo
             {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
             {L"struct", {lex_type::l_struct}},
-            {L"unpure", {lex_type::l_unpure}},
+            {L"impure", {lex_type::l_unpure}},
             {L"do", {lex_type::l_do}},
         };
 
