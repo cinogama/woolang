@@ -181,8 +181,8 @@ namespace wo
             bool is_mutable() const;
             bool is_unpure() const;
             bool is_dynamic() const;
-            bool ast_type::is_force_immutable() const;
-            bool ast_type::is_force_pure() const;
+            bool is_force_immutable() const;
+            bool is_force_pure() const;
             bool is_custom(std::unordered_set<const ast_type*>& s) const;
             bool is_custom() const;
             bool is_pure_pending() const;
