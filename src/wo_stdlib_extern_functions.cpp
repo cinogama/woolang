@@ -1310,29 +1310,29 @@ u8R"(
 namespace unsafe
 {
     extern("rslib_std_return_itself") 
-        public func cast<T, FromT>(val: FromT)=> T;
+        public func cast<T, FromT>(val: FromT)=> pure T;
     
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname:string)=> option<T>;
+        public func extsymbol<T>(fullname:string)=> pure option<T>;
 }
 
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => void;
-    extern("rslib_std_panic") public func panic(msg: string)=> void;
+    extern("rslib_std_halt") public func halt(msg: string) => pure void;
+    extern("rslib_std_panic") public func panic(msg: string)=> pure void;
 
-    extern("rslib_std_declval") public func declval<T>()=> T;
+    extern("rslib_std_declval") public func declval<T>()=> pure T;
 
-    public alias immutable_t<T> = typeof(\=std::declval:<T>();());
+    public alias origin_t<T> = typeof(\=std::declval:<T>();());
 
-    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
-    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;
-    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> int;
-    extern("rslib_std_bit_not") public func bitnot(a: int)=> int;
+    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_not") public func bitnot(a: int)=> pure int;
 
-    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
-    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
-    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
+    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> pure int;
 }
 
 public using mutable<T> = struct {
@@ -1360,7 +1360,7 @@ public union option<T>
 }
 namespace option
 {
-    public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)=> option<R>
+    public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)
     {
         match(self)
         {
@@ -1372,7 +1372,7 @@ namespace option
     {
         return option::value(value);
     }
-    public func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
+    public func map<T, R>(self: option<T>, functor: (T)=>R)
     {
         match(self)
         {
@@ -1504,7 +1504,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<pure U, F>
     {
         match(self)
         {
@@ -1539,8 +1539,8 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_print") public func print(...)=> void;
-    extern("rslib_std_time_sec") public func time()=> real;
+    extern("rslib_std_print") public func print(...)=> impure void;
+    extern("rslib_std_time_sec") public func time()=> impure real;
 
     public func println(...)
     {
@@ -1558,7 +1558,7 @@ namespace std
             if (std::declval:<T>() is int)
             {
                 extern("rslib_std_input_readint") 
-                public func _input_int()=>int;
+                public func _input_int()=>impure int;
 
                 let result = _input_int();
                 if (validator(result))
@@ -1567,7 +1567,7 @@ namespace std
             else if (std::declval:<T>() is real)
             {
                 extern("rslib_std_input_readreal") 
-                public func _input_real()=>real;
+                public func _input_real()=>impure real;
 
                 let result = _input_real();
                 if (validator(result))
@@ -1576,7 +1576,7 @@ namespace std
             else
             {
                 extern("rslib_std_input_readstring") 
-                public func _input_string()=>string;
+                public func _input_string()=>impure string;
 
                 let result = _input_string();
                 if (validator(result))
@@ -1590,7 +1590,7 @@ namespace std
         while (true)
         {
             extern("rslib_std_input_readline") 
-            public func _input_line()=>string;
+            public func _input_line()=>impure string;
 
             match (parser(_input_line()))
             {
@@ -1603,25 +1603,25 @@ namespace std
     }
 
     extern("rslib_std_randomint") 
-        public func randint(from: int, to: int)=>int;
+        public func randint(from: int, to: int)=>impure int;
 
     extern("rslib_std_randomreal") 
-        public func randreal(from:real, to:real)=>real;
+        public func randreal(from:real, to:real)=>impure real;
 
     extern("rslib_std_break_yield") 
-        public func yield()=>void;
+        public func yield()=>pure void;
 
     extern("rslib_std_thread_sleep")
-        public func sleep(tm:real)=>void;
+        public func sleep(tm:real)=>pure void;
    
     extern("rslib_std_get_args")
-        public func args()=>array<string>;
+        public func args()=>pure array<string>;
 
     extern("rslib_std_get_exe_path")
-        public func exepath()=>string;
+        public func exepath()=>pure string;
 
     extern("rslib_std_equal_byte")
-        public func issame<LT, RT>(a:LT, b:RT)=> bool;
+        public func issame<LT, RT>(a:LT, b:RT)=> pure bool;
 
     public func max<T>(a:T, b:T)
         where (a<b) is bool;
@@ -1640,7 +1640,7 @@ namespace std
     }
 
     extern("rslib_std_make_dup")
-    public func dup<T>(dupval: T)=> T;
+    public func dup<T>(dupval: T)=> pure T;
 }
 
 public using cchar = char;
@@ -1648,153 +1648,153 @@ public using cchar = char;
 namespace char
 {
     extern("rslib_std_char_tostring")
-        public func tostring(val:char)=>string;
+        public func tostring(val:char)=> pure string;
 
     extern("rslib_std_char_toupper")
-        public func upper(val:char)=>char;
+        public func upper(val:char)=>pure char;
 
     extern("rslib_std_char_tolower")
-        public func lower(val:char)=>char;
+        public func lower(val:char)=>pure char;
 
     extern("rslib_std_char_isspace")
-        public func isspace(val:char)=>bool;
+        public func isspace(val:char)=>pure bool;
 
     extern("rslib_std_char_isalpha")
-        public func isalpha(val:char)=> bool;
+        public func isalpha(val:char)=> pure bool;
 
     extern("rslib_std_char_isalnum")
-        public func isalnum(val:char)=> bool;
+        public func isalnum(val:char)=> pure bool;
 
     extern("rslib_std_char_isnumber")
-        public func isnumber(val:char)=> bool;
+        public func isnumber(val:char)=> pure bool;
 
     extern("rslib_std_char_ishex")
-        public func ishex(val:char)=> bool;
+        public func ishex(val:char)=> pure bool;
 
     extern("rslib_std_char_isoct")
-        public func isoct(val:char)=> bool;
+        public func isoct(val:char)=> pure bool;
 
     extern("rslib_std_char_hexnum")
-        public func hexnum(val:char)=> int;
+        public func hexnum(val:char)=> pure int;
 }
 
 namespace string
 {
     extern("rslib_std_take_token") 
-    public func take_token(datstr: string, expect_str: string)=> option<string>;
+    public func take_token(datstr: string, expect_str: string)=> pure option<string>;
 
     extern("rslib_std_take_string") 
-    public func take_string(datstr: string)=> option<(string, string)>;
+    public func take_string(datstr: string)=> pure option<(string, string)>;
 
     extern("rslib_std_take_int") 
-    public func take_int(datstr: string)=> option<(string, int)>;
+    public func take_int(datstr: string)=> pure option<(string, int)>;
 
     extern("rslib_std_take_real") 
-    public func take_real(datstr: string)=> option<(string, real)>;
+    public func take_real(datstr: string)=> pure option<(string, real)>;
     
     public func todict(val:string)=> option<dict<dynamic, dynamic>>
     {
         extern("rslib_std_parse_map_from_string") 
-        func _tomap(val: string)=> option<dict<dynamic, dynamic>>;
+        func _tomap(val: string)=> pure option<dict<dynamic, dynamic>>;
 
         return _tomap(val);
     }
-    public func toarray(val:string)=> option<array<dynamic>>
+    public func toarray(val:string)=> pure option<array<dynamic>>
     {
         extern("rslib_std_parse_array_from_string") 
-        func _toarray(val: string)=> option<array<dynamic>>;
+        func _toarray(val: string)=> pure option<array<dynamic>>;
 
         return _toarray(val);
     }
 
     extern("rslib_std_create_wchars_from_str")
-    public func chars(buf: string)=> array<char>;
+    public func chars(buf: string)=> pure array<char>;
 
     extern("rslib_std_create_chars_from_str")
-    public func cchars(buf: string)=> array<cchar>;
+    public func cchars(buf: string)=> pure array<cchar>;
 
     extern("rslib_std_get_ascii_val_from_str") 
-    public func getch(val:string, index: int)=> char;
+    public func getch(val:string, index: int)=> pure char;
 
     extern("rslib_std_lengthof") 
-        public func len(val:string)=> int;
+        public func len(val:string)=> pure int;
 
     extern("rslib_std_str_bytelen") 
-        public func bytelen(val:string)=> int;
+        public func bytelen(val:string)=> pure int;
 
     extern("rslib_std_sub")
-        public func sub(val:string, begin:int)=>string;
+        public func sub(val:string, begin:int)=>pure string;
 
     extern("rslib_std_sub")
-        public func subto(val:string, begin:int, length:int)=>string;
+        public func subto(val:string, begin:int, length:int)=>pure string;
     
     extern("rslib_std_string_toupper")
-        public func upper(val:string)=>string;
+        public func upper(val:string)=>pure string;
 
     extern("rslib_std_string_tolower")
-        public func lower(val:string)=>string;
+        public func lower(val:string)=>pure string;
 
     extern("rslib_std_string_isspace")
-        public func isspace(val:string)=>bool;
+        public func isspace(val:string)=>pure bool;
 
     extern("rslib_std_string_isalpha")
-        public func isalpha(val:string)=> bool;
+        public func isalpha(val:string)=> pure bool;
 
     extern("rslib_std_string_isalnum")
-        public func isalnum(val:string)=> bool;
+        public func isalnum(val:string)=> pure bool;
 
     extern("rslib_std_string_isnumber")
-        public func isnumber(val:string)=> bool;
+        public func isnumber(val:string)=> pure bool;
 
     extern("rslib_std_string_ishex")
-        public func ishex(val:string)=> bool;
+        public func ishex(val:string)=> pure bool;
 
     extern("rslib_std_string_isoct")
-        public func isoct(val:string)=> bool;
+        public func isoct(val:string)=> pure bool;
 
     extern("rslib_std_string_enstring")
-        public func enstring(val:string)=>string;
+        public func enstring(val:string)=>pure string;
 
     extern("rslib_std_string_destring")
-        public func destring(val:string)=> string;
+        public func destring(val:string)=> pure string;
 
     extern("rslib_std_string_beginwith")
-        public func beginwith(val:string, str:string)=> bool;
+        public func beginwith(val:string, str:string)=> pure bool;
 
     extern("rslib_std_string_endwith")
-        public func endwith(val:string, str:string)=> bool;
+        public func endwith(val:string, str:string)=> pure bool;
 
     extern("rslib_std_string_replace")
-        public func replace(val:string, match_aim:string, str:string)=> string;
+        public func replace(val:string, match_aim:string, str:string)=> pure string;
 
     extern("rslib_std_string_find")
-        public func find(val:string, match_aim:string)=> int;
+        public func find(val:string, match_aim:string)=> pure int;
 
     extern("rslib_std_string_find_from")
-        public func findfrom(val:string, match_aim:string, from: int)=> int;
+        public func findfrom(val:string, match_aim:string, from: int)=> pure int;
 
     extern("rslib_std_string_rfind")
-        public func rfind(val:string, match_aim:string)=> int;
+        public func rfind(val:string, match_aim:string)=> pure int;
 
     extern("rslib_std_string_rfind_from")
-        public func rfindfrom(val:string, match_aim:string, from: int)=> int;
+        public func rfindfrom(val:string, match_aim:string, from: int)=> pure int;
 
     extern("rslib_std_string_trim")
-        public func trim(val:string)=>string;
+        public func trim(val:string)=>pure string;
 
     extern("rslib_std_string_split")
-        public func split(val:string, spliter:string)=> array<string>;
+        public func split(val:string, spliter:string)=> pure array<string>;
 }
 )" R"(
 namespace array
 {
     extern("rslib_std_array_create") 
-        public func create<T>(sz: int, init_val: T)=> array<T>;
+        public func create<T>(sz: int, init_val: T)=> pure array<T>;
 
     public func append<T>(self: array<T>, elem: T)
     {
         let newarr = self->tovec;
-        newarr->add(elem);
+        do impure newarr->add(elem);
 
         return newarr->unsafe::cast:<array<T>>;
     }
@@ -1802,41 +1802,41 @@ namespace array
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
-        do newarr->remove(index);
+        do impure do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
     public func inlay<T>(self: array<T>, index: int, insert_value: T)
     {
         let newarr = self->tovec;
-        newarr->insert(index, insert_value);
+        do impure newarr->insert(index, insert_value);
 
         return newarr->unsafe::cast:<array<T>>;
     }
 
     extern("rslib_std_create_str_by_wchar") 
-        public func str(buf: array<char>)=> string;
+        public func str(buf: array<char>)=> pure string;
 
     extern("rslib_std_create_str_by_ascii") 
-        public func cstr(buf: array<cchar>)=> string;
+        public func cstr(buf: array<cchar>)=> pure string;
 
     extern("rslib_std_lengthof") 
-        public func len<T>(val: array<T>)=> int;
+        public func len<T>(val: array<T>)=> pure int;
 
     extern("rslib_std_make_dup")
-        public func dup<T>(val: array<T>)=> array<T>;
+        public func dup<T>(val: array<T>)=> pure array<T>;
 
     extern("rslib_std_make_dup")
-        public func tovec<T>(val: array<T>)=> vec<T>;
+        public func tovec<T>(val: array<T>)=> pure vec<T>;
 
     extern("rslib_std_array_empty")
-        public func empty<T>(val: array<T>)=> bool;
+        public func empty<T>(val: array<T>)=> pure bool;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: array<T>, index: int)=> option<std::immutable_t<T>>;
+        public func get<T>(a: array<T>, index: int)=> pure option<std::origin_t<T>>;
 
     extern("rslib_std_array_find")
-        public func find<T>(val:array<T>, elem:T)=>int;
+        public func find<T>(val:array<T>, elem:T)=> pure int;
 
     public func findif<T>(val:array<T>, judger:(T)=>bool)
     {
@@ -1851,7 +1851,7 @@ namespace array
         let result = []mut: vec<T>;
         for (let _, elem : val)
             if (functor(elem))
-                result->add(elem);
+                do impure result->add(elem);
         return result->unsafe::cast:<array<T>>;
     }
 
@@ -1860,24 +1860,27 @@ namespace array
         let result = []mut: vec<R>;
         for (let _, elem : val)
             for (let _, insert : functor(elem))
-                result->add(insert);
+                do impure result->add(insert);
         return result->unsafe::cast:<array<R>>;
     }
 
     public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
-        let result = []mut: vec<R>;
+        let result = []mut: vec<pure R>;
         for (let _, elem : val)
-            result->add(functor(elem));
-        return result->unsafe::cast:<array<R>>;
+        {
+            let r = functor(elem);
+            do impure result->add(r);
+        }
+        return result->unsafe::cast:<array<pure R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: map<pure K, pure V>;
         for (let _, (k, v) : val)
-            result->set(k, v);
-        return result->unsafe::cast:<dict<K, V>>;
+            do impure result->set(k, v);
+        return result->unsafe::cast:<dict<pure K, pure V>>;
     }
 
     public func reduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -1885,11 +1888,14 @@ namespace array
         if (self->empty)
             return option::none;
         
-        let mut result = self[0];
-        for (let mut i = 1; i < self->len; i+=1)
-            result = reducer(result, self[i]);
-
-        return option::value(result);
+        do impure
+        {
+            let mut result = self[0];
+            for (let mut i = 1; i < self->len; i+=1)
+                result = reducer(result, self[i]);
+            
+            return option::value(result);
+        }
     }
 
     public func rreduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -1897,103 +1903,106 @@ namespace array
         if (self->empty)
             return option::none;
         
-        let len = self->len;
-        let mut result = self[len-1];
-        for (let mut i = len-2; i >= 0; i-=1)
-            result = reducer(self[i], result);
+        do impure
+        {
+            let len = self->len;
+            let mut result = self[len-1];
+            for (let mut i = len-2; i >= 0; i-=1)
+                result = reducer(self[i], result);
 
-        return option::value(result);
+            return option::value(result);
+        }
     }
 
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>option<(int, std::immutable_t<T>)>;
+            public func next<T>(iter:iterator<T>)=>pure option<(int, std::origin_t<T>)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        public func iter<T>(val:array<T>)=>iterator<T>;
+        public func iter<T>(val:array<T>)=>pure iterator<T>;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
+    public func connect<T>(self: array<T>, another: array<T>)=> pure array<T>;
 
     extern("rslib_std_array_sub")
-    public func sub<T>(self: array<T>, begin: int)=> array<T>;
+    public func sub<T>(self: array<T>, begin: int)=> pure array<T>;
     
     extern("rslib_std_array_sub")
-    public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
+    public func subto<T>(self: array<T>, begin: int, count: int)=> pure array<T>;
 }
 
 namespace vec
 {
     extern("rslib_std_array_create") 
-        public func create<T>(sz: int, init_val: T)=> vec<T>;
+        public func create<T>(sz: int, init_val: T)=> pure vec<T>;
 
     extern("rslib_std_create_str_by_wchar") 
-        public func str(buf: vec<char>)=> string;
+        public func str(buf: vec<char>)=> impure string;
 
     extern("rslib_std_create_str_by_ascii") 
-        public func cstr(buf: vec<cchar>)=> string;
+        public func cstr(buf: vec<cchar>)=> impure string;
 
     extern("rslib_std_lengthof") 
-        public func len<T>(val: vec<T>)=> int;
+        public func len<T>(val: vec<T>)=> impure int;
 
     extern("rslib_std_make_dup")
-        public func dup<T>(val: vec<T>)=> vec<T>;
+        public func dup<T>(val: vec<T>)=> impure vec<T>;
 
     extern("rslib_std_make_dup")
-        public func toarray<T>(val: vec<T>)=> array<T>;
+        public func toarray<T>(val: vec<T>)=> impure array<T>;
 
     extern("rslib_std_array_empty")
-        public func empty<T>(val: vec<T>)=> bool;
+        public func empty<T>(val: vec<T>)=> impure bool;
 
     extern("rslib_std_array_resize") 
-        public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> void;
+        public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> impure void;
 
     extern("rslib_std_array_descrease")
-        public func decrease<T>(self: vec<T>, sz: int)=> bool;
+        public func decrease<T>(self: vec<T>, sz: int)=> impure bool;
 
     extern("rslib_std_array_shrink")
-        public func shrink<T>(val: vec<T>, newsz: int)=> bool;
+        public func shrink<T>(val: vec<T>, newsz: int)=> impure bool;
 
     extern("rslib_std_array_insert") 
-        public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> void;
+        public func insert<T>(val: vec<T>, insert_place: int, insert_val: T)=> impure void;
 
     extern("rslib_std_array_swap") 
-        public func swap<T>(val: vec<T>, another: vec<T>)=> void;
+        public func swap<T>(val: vec<T>, another: vec<T>)=> impure void;
 
     extern("rslib_std_array_copy") 
-        public func copy<T, C>(val: vec<T>, another: C<T>)=> void
+        public func copy<T, C>(val: vec<T>, another: C<T>)=> impure void
             where std::declval:<C<T>>() is vec<T> || std::declval:<C<T>>() is array<T>;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: vec<T>, index: int)=> option<std::immutable_t<T>>;
+        public func get<T>(a: vec<T>, index: int)=> impure option<std::origin_t<T>>;
 
     extern("rslib_std_array_add") 
-        public func add<T>(val: vec<T>, elem: T)=>void;
+        public func add<T>(val: vec<T>, elem: T)=> impure void;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
+    public func connect<T>(self: vec<T>, another: vec<T>)=> impure vec<T>;
 
     extern("rslib_std_array_sub")
-    public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
+    public func sub<T>(self: vec<T>, begin: int)=> impure vec<T>;
     
     extern("rslib_std_array_sub")
-    public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
+    public func subto<T>(self: vec<T>, begin: int, count: int)=> impure vec<T>;
 
     extern("rslib_std_array_pop") 
-        public func pop<T>(val: vec<T>)=> std::immutable_t<T>;  
+        public func pop<T>(val: vec<T>)=> impure std::origin_t<T>;  
 
     extern("rslib_std_array_dequeue") 
-        public func dequeue<T>(val: vec<T>)=> std::immutable_t<T>;  
+        public func dequeue<T>(val: vec<T>)=> impure std::origin_t<T>;  
 
     extern("rslib_std_array_remove")
-        public func remove<T>(val:vec<T>, index:int)=>bool;
+        public func remove<T>(val:vec<T>, index:int)=> impure bool;
 
     extern("rslib_std_array_find")
-        public func find<T>(val:vec<T>, elem:T)=>int;
+        public func find<T>(val:vec<T>, elem:T)=> impure int;
 
     public func findif<T>(val:vec<T>, judger:(T)=>bool)
     {
@@ -2004,11 +2013,11 @@ namespace vec
     }
 
     extern("rslib_std_array_clear")
-        public func clear<T>(val:vec<T>)=>void;
+        public func clear<T>(val:vec<T>)=> impure void;
 
     public func forall<T>(val: vec<T>, functor: (T)=>bool)
     {
-        let result = []mut: vec<T>;
+        let result = []mut: vec<pure T>;
         for (let _, elem : val)
             if (functor(elem))
                 result->add(elem);
@@ -2017,7 +2026,7 @@ namespace vec
 
     public func bind<T, R>(val: vec<T>, functor: (T)=>vec<R>)
     {
-        let result = []mut: vec<R>;
+        let result = []mut: vec<pure R>;
         for (let _, elem : val)
             for (let _, insert : functor(elem))
                 result->add(insert);
@@ -2026,7 +2035,7 @@ namespace vec
 
     public func map<T, R>(val: vec<T>, functor: (T)=>R)
     {
-        let result = []mut: vec<R>;
+        let result = []mut: vec<pure R>;
         for (let _, elem : val)
             result->add(functor(elem));
         return result;
@@ -2034,10 +2043,10 @@ namespace vec
 
     public func mapping<K, V>(val: vec<(K, V)>)
     {
-        let result = {}mut: map<K, V>;
+        let result = {}mut: map<pure K, pure V>;
         for (let _, (k, v) : val)
             result->set(k, v);
-        return result->unsafe::cast:<dict<K, V>>;
+        return result->unsafe::cast:<dict<pure K, pure V>>;
     }
 
     public func reduce<T>(self: vec<T>, reducer: (T, T)=>T)
@@ -2068,67 +2077,67 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>option<(int, std::immutable_t<T>)>;
+            public func next<T>(iter:iterator<T>)=> impure option<(int, std::origin_t<T>)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        public func iter<T>(val:vec<T>)=>iterator<T>;
+        public func iter<T>(val:vec<T>)=> impure iterator<T>;
 }
 
 namespace dict
 {
     public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=>dict<RK, RV>)
     {
-        let result = {}mut: map<RK, RV>;
+        let result = {}mut: map<pure RK, pure RV>;
         for (let k, v : val)
             for (let rk, rv : functor(k, v))
-                result->set(rk, rv);
-        return result->unsafe::cast:<dict<RK, RV>>;
+                do impure result->set(rk, rv);
+        return result->unsafe::cast:<dict<pure RK, pure RV>>;
     }
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
     {
         let newmap = self->tomap;
-        newmap->set(key, val);
+        do impure newmap->set(key, val);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
 )" R"(
     extern("rslib_std_lengthof") 
-        public func len<KT, VT>(self: dict<KT, VT>)=>int;
+        public func len<KT, VT>(self: dict<KT, VT>)=> pure int;
 
     extern("rslib_std_make_dup")
-        public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
+        public func dup<KT, VT>(self: dict<KT, VT>)=> pure dict<KT, VT>;
 
     extern("rslib_std_make_dup")
-        public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
+        public func tomap<KT, VT>(self: dict<KT, VT>)=> pure map<KT, VT>;
 
     public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=>bool)
     {
         for (let k, _ : self)
             if (judger(k))
-                return option::value(k);
+                do impure return option::value(k);
         return option::none;            
     }
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<std::immutable_t<VT>>;
+        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> pure option<std::origin_t<VT>>;
 
     extern("rslib_std_map_find") 
-        public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=>bool;
+        public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=>pure bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::immutable_t<VT>;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> pure std::origin_t<VT>;
 
     extern("rslib_std_map_empty")
-        public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
+        public func empty<KT, VT>(self: dict<KT, VT>)=> pure bool;
 
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
     {
         let newmap = self->tomap;
-        do newmap->remove(index);
+        do impure do newmap->remove(index);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
@@ -2136,51 +2145,51 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, std::immutable_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, std::origin_t<VT>)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        public func iter<KT, VT>(self:dict<KT, VT>)=>iterator<KT, VT>;
+        public func iter<KT, VT>(self:dict<KT, VT>)=>pure iterator<KT, VT>;
 
     public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
     {
-        let result = []mut: vec<KT>;
+        let result = []mut: vec<pure KT>;
         for (let key, _ : self)
-            result->add(key);
-        return result->unsafe::cast:<array<KT>>;
+            do impure result->add(key);
+        return result->unsafe::cast:<array<pure KT>>;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
     {
-        let result = []mut: vec<VT>;
+        let result = []mut: vec<pure VT>;
         for (let _, val : self)
-            result->add(val);
-        return result->unsafe::cast:<array<VT>>;
+            do impure result->add(val);
+        return result->unsafe::cast:<array<pure VT>>;
     }
-    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)=> dict<KT, VT>
+    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>bool)
     {
-        let result = {}mut: map<KT, VT>;
+        let result = {}mut: map<pure KT, pure VT>;
         for (let key, val : self)
             if (functor(key, val))
-                result->set(key, val);
-        return result->unsafe::cast:<dict<KT, VT>>;
+                do impure result->set(key, val);
+        return result->unsafe::cast:<dict<pure KT, pure VT>>;
     }
-    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))=> dict<AT, BT>
+    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
-        let result = {}mut: map<AT, BT>;
+        let result = {}mut: map<pure AT, pure BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            result->set(nk, nv);
+            do impure result->set(nk, nv);
         }
-        return result->unsafe::cast:<dict<AT, BT>>;
+        return result->unsafe::cast:<dict<pure AT, pure BT>>;
     }
-    public func unmapping<KT, VT>(self: dict<KT, VT>)=> array<(KT, VT)>
+    public func unmapping<KT, VT>(self: dict<KT, VT>)
     {
-        let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
+        let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
-            result->add((key, val));
+            do impure result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
@@ -2189,7 +2198,7 @@ namespace map
 {
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=>map<RK, RV>)
     {
-        let result = {}mut: map<RK, RV>;
+        let result = {}mut: map<pure RK, pure RV>;
         for (let k, v : val)
             for (let rk, rv : functor(k, v))
                 result->set(rk, rv);
@@ -2197,16 +2206,16 @@ namespace map
     }
 
     extern("rslib_std_map_set") 
-        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> void;
+        public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> impure void;
 
     extern("rslib_std_lengthof") 
-        public func len<KT, VT>(self: map<KT, VT>)=>int;
+        public func len<KT, VT>(self: map<KT, VT>)=>impure int;
 
     extern("rslib_std_make_dup")
-        public func dup<KT, VT>(self: map<KT, VT>)=> map<KT, VT>;
+        public func dup<KT, VT>(self: map<KT, VT>)=> impure map<KT, VT>;
 
     extern("rslib_std_make_dup")
-        public func todict<KT, VT>(self: map<KT, VT>)=> dict<KT, VT>;
+        public func todict<KT, VT>(self: map<KT, VT>)=> impure dict<KT, VT>;
 
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=>bool)
     {
@@ -2217,58 +2226,58 @@ namespace map
     }
 
     extern("rslib_std_map_find") 
-        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>bool;
+        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>impure bool;
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> option<std::immutable_t<VT>>;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> impure option<std::origin_t<VT>>;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> std::immutable_t<VT>;
+        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> impure std::origin_t<VT>;
 
     extern("rslib_std_map_get_or_set_default") 
-        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>std::immutable_t<VT>;
+        public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>impure std::origin_t<VT>;
 
     extern("rslib_std_map_swap") 
-        public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
+        public func swap<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> impure void;
 
     extern("rslib_std_map_copy") 
-        public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> void;
+        public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> impure void;
 
     extern("rslib_std_map_empty")
-        public func empty<KT, VT>(self: map<KT, VT>)=> bool;
+        public func empty<KT, VT>(self: map<KT, VT>)=> impure bool;
 
     extern("rslib_std_map_remove")
-        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> bool;
+        public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> impure bool;
 
     extern("rslib_std_map_clear")
-        public func clear<KT, VT>(self: map<KT, VT>)=> void;
+        public func clear<KT, VT>(self: map<KT, VT>)=> impure void;
 
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>option<(KT, std::immutable_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>impure option<(KT, std::origin_t<VT>)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        public func iter<KT, VT>(self:map<KT, VT>)=>iterator<KT, VT>;
+        public func iter<KT, VT>(self:map<KT, VT>)=>impure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
+    public func keys<KT, VT>(self: map<KT, VT>)=> impure array<KT>
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
             result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
+    public func vals<KT, VT>(self: map<KT, VT>)=> impure array<VT>
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
             result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> impure map<KT, VT>
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
@@ -2276,7 +2285,7 @@ namespace map
                 result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> impure map<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
@@ -2286,9 +2295,9 @@ namespace map
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> impure array<(KT, VT)>
     {
-        let result = []mut: vec<(std::immutable_t<KT>, std::immutable_t<VT>)>;
+        let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
             result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
@@ -2298,33 +2307,33 @@ namespace map
 namespace int
 {
     extern("rslib_std_int_to_hex")
-        public func tohex(val: int)=> string;
+        public func tohex(val: int)=> pure string;
     extern("rslib_std_int_to_oct")
-        public func tooct(val: int)=> string;
+        public func tooct(val: int)=> pure string;
 
     extern("rslib_std_hex_to_int")
-        public func parsehex(val: string)=> int;
+        public func parsehex(val: string)=> pure int;
     extern("rslib_std_oct_to_int")
-        public func parseoct(val: string)=> int;
+        public func parseoct(val: string)=> pure int;
 }
 
 namespace handle
 {
     extern("rslib_std_handle_to_hex")
-        public func tohex(val: handle)=> string;
+        public func tohex(val: handle)=> pure string;
     extern("rslib_std_handle_to_oct")
-        public func tooct(val: handle)=> string;
+        public func tooct(val: handle)=> pure string;
 
     extern("rslib_std_hex_to_handle")
-        public func parsehex(val: string)=> handle;
+        public func parsehex(val: string)=> pure handle;
     extern("rslib_std_oct_to_handle")
-        public func parseoct(val: string)=> handle;
+        public func parseoct(val: string)=> pure handle;
 }
 
 namespace gchandle
 {
     extern("rslib_std_gchandle_close")
-        public func close(handle:gchandle)=> bool;
+        public func close(handle:gchandle)=> impure bool;
 }
 
 public func assert(val: bool)
@@ -2385,12 +2394,12 @@ namespace std
     namespace debug
     {
         extern("rslib_std_debug_breakpoint")
-            public func breakpoint()=>void;
+            public func breakpoint()=>impure void;
 
         extern("rslib_std_debug_attach_default_debuggee")
-            public func attach_debuggee()=>void;
+            public func attach_debuggee()=>impure void;
         extern("rslib_std_debug_disattach_default_debuggee")
-            public func disattach_debuggee()=>void;
+            public func disattach_debuggee()=>impure void;
 
         public func breakdown()
         {
@@ -2399,7 +2408,7 @@ namespace std
         }
 
         extern("rslib_std_debug_callstack_trace")
-            public func callstack(layer:int) => string;
+            public func callstack(layer:int) => impure string;
 
         public func run<FT>(foo: FT, ...)
         {
@@ -2411,11 +2420,11 @@ namespace std
         }
 
         extern("rslib_std_debug_invoke")
-        public func invoke<FT>(foo:FT, ...)=>typeof(foo(......));
+        public func invoke<FT>(foo:FT, ...)=>impure typeof(foo(......));
 
         // Used for create a value with specify type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
-        public func __empty_function<T>()=>T;
+        public func __empty_function<T>()=> pure T;
     }
 }
 )" };
@@ -2610,6 +2619,7 @@ namespace std
         l_for,
         l_extern,
         l_let,
+        l_immut,
         l_mut,
         l_func,
         l_return,
@@ -2633,22 +2643,24 @@ namespace std
         l_union,
         l_match,
         l_struct,
+        l_unpure,
+        l_pure,
         l_macro
     }
 
     public using lexer = handle
     {
         extern("rslib_std_macro_lexer_lex")
-            public func lex(lex:lexer, src:string)=>void;
+            public func lex(lex:lexer, src:string)=>impure void;
 
         extern("rslib_std_macro_lexer_error")
-            public func error(lex:lexer, msg:string)=>void;
+            public func error(lex:lexer, msg:string)=>impure void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peektoken(lex:lexer)=> (token_type, string);
+            public func peektoken(lex:lexer)=> impure (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func nexttoken(lex:lexer)=> (token_type, string);
+            public func nexttoken(lex:lexer)=> impure (token_type, string);
 
         public func peek(lex: lexer)
         {
@@ -2676,19 +2688,19 @@ namespace std
         }
 
         extern("rslib_std_macro_lexer_nextch")
-            public func nextch(lex:lexer) => string;
+            public func nextch(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_peekch")
-            public func peekch(lex:lexer) => string;
+            public func peekch(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_current_path")
-            public func path(lex:lexer) => string;
+            public func path(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_current_rowno")
-            public func row(lex:lexer) => int;
+            public func row(lex:lexer) => impure int;
 
         extern("rslib_std_macro_lexer_current_colno")
-            public func col(lex:lexer) => int;
+            public func col(lex:lexer) => impure int;
 
         public func trytoken(self: lexer, token: token_type)=> option<string>
         {
@@ -2744,9 +2756,9 @@ u8R"(
 namespace std
 {
     extern("rslib_std_call_shell")
-        public func shell(cmd: string)=> int;
+        public func shell(cmd: string)=> impure int;
 
     extern("rslib_std_get_env")
-        public func env(name: string)=> option<string>;
+        public func env(name: string)=> impure option<string>;
 }
 )" };

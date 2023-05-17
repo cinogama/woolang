@@ -155,6 +155,20 @@ namespace wo
                     a_value_idx->value_type->set_type_with_name(WO_PSTR(dynamic));
             }
         }
+
+        if (a_value_idx->value_type->is_mutable())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        a_value_idx, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
+                }
+            }
+        }
+
         return true;
     }
     WO_PASS1(ast_value_assign)
@@ -248,6 +262,21 @@ namespace wo
                         a_value_var->value_type->set_is_mutable(false);
                 }
             }
+
+            if (sym->type == lang_symbol::symbol_type::variable 
+                && sym->decl == ast::identifier_decl::MUTABLE 
+                && sym->static_symbol)
+            {
+                if (!this->skip_side_effect_check)
+                {
+                    auto* located_function_scope = in_function();
+                    if (located_function_scope != nullptr)
+                    {
+                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                            a_value_var, WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR);
+                    }
+                }
+            }
         }
         for (auto* a_type : a_value_var->template_reification_args)
         {
@@ -283,7 +312,12 @@ namespace wo
             fully_update_type(ast_value_check->aim_type, true);
         }
 
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass1(ast_value_check->_be_check_value_node);
+
+        this->skip_side_effect_check = old_state;
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -292,6 +326,7 @@ namespace wo
     {
         auto* a_value_func = WO_AST();
         a_value_func->this_func_scope = begin_function(a_value_func);
+
         if (!a_value_func->is_template_define)
         {
             auto arg_child = a_value_func->argument_list->children;
@@ -379,6 +414,9 @@ namespace wo
                     wo_assert(a_value_func->value_type->is_complex());
                     a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(void));
                 }
+
+                if (a_value_func->has_impure_behavior)
+                    a_value_func->value_type->complex_type->set_is_unpure(true);
             }
             else
                 a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(pending));
@@ -558,7 +596,11 @@ namespace wo
                         auto* func_return_type = a_ret->located_function->value_type->get_return_type();
 
                         if (func_return_type->is_pending())
+                        {
                             a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
+                            if (located_function_scope->function_node->has_impure_behavior)
+                                located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
+                        }
                         else
                         {
                             if (!func_return_type->accept_type(a_ret->return_value->value_type, false))
@@ -568,6 +610,11 @@ namespace wo
                                     // current function might has constexpr if, set delay_return_type_judge flag
                                     func_return_type->set_type_with_name(WO_PSTR(pending));
                                     a_ret->located_function->delay_adjust_return_type = true;
+                                }
+                                else
+                                {
+                                    if (located_function_scope->function_node->has_impure_behavior)
+                                        located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
                                 }
                             }
                         }
@@ -582,6 +629,8 @@ namespace wo
                     {
                         located_function_scope->function_node->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                         located_function_scope->function_node->auto_adjust_return_type = false;
+                        if (located_function_scope->function_node->has_impure_behavior)
+                            located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
                     }
                     else
                     {
@@ -858,7 +907,14 @@ namespace wo
     WO_PASS1(ast_where_constraint)
     {
         auto* a_where_constraint = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass1(a_where_constraint->where_constraint_list);
+
+        this->skip_side_effect_check = old_state;
+
         return true;
     }
     WO_PASS1(ast_value_trib_expr)
@@ -872,6 +928,19 @@ namespace wo
         if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
             a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
 
+        return true;
+    }
+    WO_PASS1(ast_do_impure)
+    {
+        auto* a_do_impure = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
+        analyze_pass1(a_do_impure->block);
+
+        this->skip_side_effect_check = old_state;
+        
         return true;
     }
 
@@ -906,6 +975,8 @@ namespace wo
                     if (func_return_type->is_pending())
                     {
                         a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
+                        if (a_ret->located_function->has_impure_behavior)
+                            a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                     }
                     else
                     {
@@ -915,6 +986,11 @@ namespace wo
                             {
                                 func_return_type->set_type_with_name(WO_PSTR(void));
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                            }
+                            else
+                            {
+                                if (a_ret->located_function->has_impure_behavior)
+                                    a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                             }
                         }
                     }
@@ -937,6 +1013,8 @@ namespace wo
                 {
                     a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     a_ret->located_function->auto_adjust_return_type = false;
+                    if (a_ret->located_function->has_impure_behavior)
+                        a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                 }
                 else
                 {
@@ -1230,6 +1308,10 @@ namespace wo
     WO_PASS2(ast_where_constraint)
     {
         auto* a_where_constraint = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
         while (val)
         {
@@ -1259,6 +1341,8 @@ namespace wo
             val = dynamic_cast<ast_value*>(val->sibling);
         }
 
+        this->skip_side_effect_check = old_state;
+
         return true;
     }
     WO_PASS2(ast_value_function_define)
@@ -1267,6 +1351,10 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
+            auto* last_function = this->current_function_in_pass2;
+            this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
+            wo_assert(this->current_function_in_pass2 != nullptr);
+
             size_t anylizer_error_count = lang_anylizer->get_cur_error_frame().size();
 
             if (a_value_funcdef->argument_list)
@@ -1310,6 +1398,9 @@ namespace wo
                         a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     }
                 }
+
+                if (a_value_funcdef->has_impure_behavior)
+                    a_value_funcdef->value_type->complex_type->set_is_unpure(true);
             }
             else
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
@@ -1341,6 +1432,7 @@ namespace wo
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
             }
 
+            this->current_function_in_pass2 = last_function;
         }
         return true;
     }
@@ -1402,7 +1494,12 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
         analyze_pass2(a_value_type_check->_be_check_value_node);
+
+        this->skip_side_effect_check = old_state;
 
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;
@@ -1506,9 +1603,23 @@ namespace wo
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
-                    , a_value_index->from->value_type->get_type_name().c_str());
+                    , a_value_index->index->value_type->get_type_name(false).c_str());
             }
         }
+
+        if (a_value_index->value_type->is_mutable())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function_pass2();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        a_value_index, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
+                }
+            }
+        }
+
         return true;
     }
     WO_PASS2(ast_value_indexed_variadic_args)
@@ -2157,6 +2268,19 @@ namespace wo
         }
         return true;
     }
+    WO_PASS2(ast_do_impure)
+    {
+        auto* a_do_impure = WO_AST();
+
+        auto old_state = this->skip_side_effect_check;
+        this->skip_side_effect_check = true;
+
+        analyze_pass2(a_do_impure->block);
+
+        this->skip_side_effect_check = old_state;
+
+        return true;
+    }
 
     void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
@@ -2258,6 +2382,25 @@ namespace wo
                 a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
+
+        if (a_value_var->symbol != nullptr)
+        {
+            if (a_value_var->symbol->type == lang_symbol::symbol_type::variable
+                && a_value_var->symbol->decl == ast::identifier_decl::MUTABLE
+                && a_value_var->symbol->static_symbol)
+            {
+                if (!this->skip_side_effect_check)
+                {
+                    auto* located_function_scope = in_function_pass2();
+                    if (located_function_scope != nullptr)
+                    {
+                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                            a_value_var, WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR);
+                    }
+                }
+            }
+        }
+
         return true;
     }
     WO_PASS2(ast_value_unary)
@@ -2891,6 +3034,9 @@ namespace wo
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
+            if (is_unpure() != another->is_unpure())
+                return false;
+
             if (is_func())
             {
                 if (!another->is_func())
@@ -2907,7 +3053,8 @@ namespace wo
                     return false;
 
                 wo_assert(is_complex() && another->is_complex());
-                complex_type->is_same(another->complex_type, ignore_using_type, false);
+                if (!complex_type->is_same(another->complex_type, ignore_using_type, false))
+                    return false;
             }
             else if (another->is_func())
                 return false;
@@ -2996,6 +3143,9 @@ namespace wo
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
+            if (!is_unpure() && another->is_unpure())
+                return false;
+
             if (is_func())
             {
                 if (!another->is_func())
@@ -3069,6 +3219,12 @@ namespace wo
 
             if (is_mutable() && !ignore_mut)
                 result += L"mut ";
+            if (is_force_immutable())
+                result += L"immut ";
+            if (is_force_pure())
+                result += L"pure ";
+            if (is_unpure())
+                result += L"impure ";
 
             if (!ignore_using_type && using_type_name)
             {
@@ -3079,7 +3235,7 @@ namespace wo
             }
             else
             {
-                if (is_function_type)
+                if (is_func())
                 {
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
@@ -3264,6 +3420,9 @@ namespace wo
 
         if (typing->is_mutable())
             hashval *= hashval;
+
+        if (typing->is_unpure())
+            hashval = ~hashval;
 
         uint32_t hash32 = hashval & 0xFFFFFFFF;
         while (hashed_typing.find(hash32) != hashed_typing.end())
@@ -3468,12 +3627,21 @@ namespace wo
         if (type->typefrom != nullptr)
         {
             bool is_mutable_typeof = type->is_mutable();
+            bool is_unpure_typeof = type->is_unpure();
+            bool is_force_immutable_typeof = type->is_force_immutable();
+            bool is_force_pure_typeof = type->is_force_pure();
+
             auto used_type_info = type->using_type_name;
+
+            auto old_state = this->skip_side_effect_check;
+            this->skip_side_effect_check = true;
 
             if (in_pass_1)
                 analyze_pass1(type->typefrom);
             if (has_step_in_step2)
                 analyze_pass2(type->typefrom);
+
+            this->skip_side_effect_check = old_state;
 
             if (!type->typefrom->value_type->is_pending())
             {
@@ -3487,6 +3655,12 @@ namespace wo
                 type->using_type_name = used_type_info;
             if (is_mutable_typeof)
                 type->set_is_mutable(true);
+            if (is_unpure_typeof)
+                type->set_is_unpure(true);
+            if (is_force_immutable_typeof)
+                type->set_is_mutable(false);
+            if (is_force_pure_typeof)
+                type->set_is_unpure(false);
         }
 
         if (type->using_type_name)
@@ -3577,6 +3751,9 @@ namespace wo
                     {
                         auto already_has_using_type_name = type->using_type_name;
                         auto type_has_mutable_mark = type->is_mutable();
+                        auto type_has_unpure_mark = type->is_unpure();
+                        bool type_has_force_immutable_mark = type->is_force_immutable();
+                        bool type_has_force_pure_mark = type->is_force_pure();
 
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
@@ -3674,6 +3851,12 @@ namespace wo
                             if (type_has_mutable_mark)
                                 // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
                                 type->set_is_mutable(true);
+                            if (type_has_unpure_mark)
+                                type->set_is_unpure(true);
+                            if (type_has_force_immutable_mark)
+                                type->set_is_mutable(false);
+                            if (type_has_force_pure_mark)
+                                type->set_is_unpure(false);
 
                             if (!type->template_impl_naming_checking.empty())
                             {
@@ -3724,7 +3907,8 @@ namespace wo
         wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
 
         if (type->using_type_name != nullptr)
-            wo_assert(type->is_mutable() == type->using_type_name->is_mutable());
+            wo_assert(type->is_mutable() == type->using_type_name->is_mutable() &&
+                type->is_unpure() == type->using_type_name->is_unpure());
     }
 
     void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
@@ -4037,6 +4221,7 @@ namespace wo
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
         WO_TRY_PASS(ast_value_trib_expr);
+        WO_TRY_PASS(ast_do_impure);
 
         grammar::ast_base* child = ast_node->children;
         while (child)
@@ -4070,6 +4255,20 @@ namespace wo
                     {
                         a_val->can_be_assign = true;
                         a_val->value_type->set_is_mutable(false);
+                    }
+                    if (a_val->value_type->is_unpure())
+                    {
+                        a_val->value_type->set_is_unpure(false);
+                        
+                        if (!this->skip_side_effect_check)
+                        {
+                            auto* located_function_scope = in_function_pass2();
+                            if (located_function_scope != nullptr)
+                            {
+                                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                                    a_val, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
+                            }
+                        }
                     }
                 }
                 a_val->update_constant_value(lang_anylizer);
@@ -4565,7 +4764,6 @@ namespace wo
                 WO_TRY_PASS(ast_value_make_tuple_instance);
                 WO_TRY_PASS(ast_value_make_struct_instance);
                 WO_TRY_PASS(ast_value_trib_expr);
-
                 WO_TRY_END;
 
             }
@@ -4590,6 +4788,21 @@ namespace wo
                         a_value->can_be_assign = true;
                         a_value->value_type->set_is_mutable(false);
                     }
+
+                    if (a_value->value_type->is_unpure())
+                    {
+                        a_value->value_type->set_is_unpure(false);
+
+                        if (!this->skip_side_effect_check)
+                        {
+                            auto* located_function_scope = in_function_pass2();
+                            if (located_function_scope != nullptr)
+                            {
+                                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                                    a_value, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -4610,6 +4823,7 @@ namespace wo
         WO_TRY_PASS(ast_match_union_case);
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
+        WO_TRY_PASS(ast_do_impure);
 
         WO_TRY_END;
 
@@ -4663,6 +4877,8 @@ namespace wo
         }
         if (para->is_mutable() && !args->is_mutable())
             return nullptr;
+        if (para->is_unpure() && !args->is_unpure())
+            return nullptr;
 
         if (para->is_complex() && args->is_complex())
         {
@@ -4693,17 +4909,8 @@ namespace wo
                 return type_hkt;
             }
 
-            if (picked_type->is_mutable() && para->is_mutable())
-            {
-                // mut T <<== mut InstanceT
-                // Should get (immutable) InstanceT.
-
-                ast::ast_type* immutable_type = new ast::ast_type(WO_PSTR(pending));
-                immutable_type->set_type(picked_type);
-                immutable_type->set_is_mutable(false);
-
-                return immutable_type;
-            }
+            wo_assert(!para->is_mutable() && !para->is_unpure());
+            
             return picked_type;
         }
 
@@ -6565,6 +6772,11 @@ namespace wo
             compiler->jmp(tag(a_match_union_case->in_match->match_end_tag_in_final_pass));
             compiler->tag(current_case_end);
         }
+        else if (ast_do_impure* a_do_impure = dynamic_cast<ast_do_impure*>(ast_node))
+        {
+            wo_assert(a_do_impure->block != nullptr);
+            real_analyze_finalize(a_do_impure->block, compiler);
+        }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_node, L"Bad ast node.");
     }
@@ -6828,6 +7040,10 @@ namespace wo
                 return *rindex;
         }
         return nullptr;
+    }
+    lang_scope* lang::in_function_pass2() const
+    {
+        return current_function_in_pass2;
     }
 
     lang_symbol* lang::define_variable_in_this_scope(
