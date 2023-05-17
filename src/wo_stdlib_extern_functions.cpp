@@ -1360,7 +1360,7 @@ public union option<T>
 }
 namespace option
 {
-    public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)=> option<R>
+    public func bind<T, R>(self: option<T>, functor: (T)=>option<R>)
     {
         match(self)
         {
@@ -1372,7 +1372,7 @@ namespace option
     {
         return option::value(value);
     }
-    public func map<T, R>(self: option<T>, functor: (T)=>R) => option<R>
+    public func map<T, R>(self: option<T>, functor: (T)=>R)
     {
         match(self)
         {
@@ -1504,7 +1504,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<pure U, F>
     {
         match(self)
         {
@@ -1576,7 +1576,7 @@ namespace std
             else
             {
                 extern("rslib_std_input_readstring") 
-                public func _input_string()=>string;
+                public func _input_string()=>impure string;
 
                 let result = _input_string();
                 if (validator(result))
@@ -1893,9 +1893,9 @@ namespace array
             let mut result = self[0];
             for (let mut i = 1; i < self->len; i+=1)
                 result = reducer(result, self[i]);
+            
+            return option::value(result);
         }
-
-        return option::value(result);
     }
 
     public func rreduce<T>(self: array<T>, reducer: (T, T)=>T)
@@ -1909,9 +1909,9 @@ namespace array
             let mut result = self[len-1];
             for (let mut i = len-2; i >= 0; i-=1)
                 result = reducer(self[i], result);
-        }
 
-        return option::value(result);
+            return option::value(result);
+        }
     }
 
     public using iterator<T> = gchandle
@@ -2190,7 +2190,7 @@ namespace dict
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
             do impure result->add((key, val));
-        return result->unsafe::cast:<array<(std::origin_t<KT>, std::origin_t<VT>)>>;
+        return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
 
@@ -2263,21 +2263,21 @@ namespace map
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:map<KT, VT>)=>impure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)=> array<KT>
+    public func keys<KT, VT>(self: map<KT, VT>)=> impure array<KT>
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
             result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: map<KT, VT>)=> array<VT>
+    public func vals<KT, VT>(self: map<KT, VT>)=> impure array<VT>
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
             result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> map<KT, VT>
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> impure map<KT, VT>
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
@@ -2285,7 +2285,7 @@ namespace map
                 result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> map<AT, BT>
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> impure map<AT, BT>
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
@@ -2295,7 +2295,7 @@ namespace map
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> array<(KT, VT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)=> impure array<(KT, VT)>
     {
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
@@ -2333,7 +2333,7 @@ namespace handle
 namespace gchandle
 {
     extern("rslib_std_gchandle_close")
-        public func close(handle:gchandle)=> pure bool;
+        public func close(handle:gchandle)=> impure bool;
 }
 
 public func assert(val: bool)
@@ -2619,6 +2619,7 @@ namespace std
         l_for,
         l_extern,
         l_let,
+        l_immut,
         l_mut,
         l_func,
         l_return,
@@ -2642,22 +2643,24 @@ namespace std
         l_union,
         l_match,
         l_struct,
+        l_unpure,
+        l_pure,
         l_macro
     }
 
     public using lexer = handle
     {
         extern("rslib_std_macro_lexer_lex")
-            public func lex(lex:lexer, src:string)=>void;
+            public func lex(lex:lexer, src:string)=>impure void;
 
         extern("rslib_std_macro_lexer_error")
-            public func error(lex:lexer, msg:string)=>void;
+            public func error(lex:lexer, msg:string)=>impure void;
 
         extern("rslib_std_macro_lexer_peek")
-            public func peektoken(lex:lexer)=> (token_type, string);
+            public func peektoken(lex:lexer)=> impure (token_type, string);
 
         extern("rslib_std_macro_lexer_next")
-            public func nexttoken(lex:lexer)=> (token_type, string);
+            public func nexttoken(lex:lexer)=> impure (token_type, string);
 
         public func peek(lex: lexer)
         {
@@ -2685,19 +2688,19 @@ namespace std
         }
 
         extern("rslib_std_macro_lexer_nextch")
-            public func nextch(lex:lexer) => string;
+            public func nextch(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_peekch")
-            public func peekch(lex:lexer) => string;
+            public func peekch(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_current_path")
-            public func path(lex:lexer) => string;
+            public func path(lex:lexer) => impure string;
 
         extern("rslib_std_macro_lexer_current_rowno")
-            public func row(lex:lexer) => int;
+            public func row(lex:lexer) => impure int;
 
         extern("rslib_std_macro_lexer_current_colno")
-            public func col(lex:lexer) => int;
+            public func col(lex:lexer) => impure int;
 
         public func trytoken(self: lexer, token: token_type)=> option<string>
         {
@@ -2753,9 +2756,9 @@ u8R"(
 namespace std
 {
     extern("rslib_std_call_shell")
-        public func shell(cmd: string)=> int;
+        public func shell(cmd: string)=> impure int;
 
     extern("rslib_std_get_env")
-        public func env(name: string)=> option<string>;
+        public func env(name: string)=> impure option<string>;
 }
 )" };

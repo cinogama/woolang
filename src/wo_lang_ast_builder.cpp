@@ -2033,6 +2033,16 @@ namespace wo
             else
                 ast_func->in_function_sentence = template_const_list;
 
+            if (ast_func->externed_func_info)
+            {
+                wo_assert(ast_func->value_type->is_func());
+                if (!ast_func->value_type->complex_type->is_force_pure()
+                    && !ast_func->value_type->complex_type->is_unpure())
+                {
+                    lex.lang_error(lexer::errorlevel::error, ast_func, WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC);
+                }
+            }
+
             // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
             return (grammar::ast_base*)ast_func;
         }

@@ -327,16 +327,6 @@ namespace wo
         auto* a_value_func = WO_AST();
         a_value_func->this_func_scope = begin_function(a_value_func);
 
-        if (a_value_func->externed_func_info)
-        {
-            wo_assert(a_value_func->value_type->is_func());
-            if (!a_value_func->value_type->complex_type->is_force_pure() 
-                && !a_value_func->value_type->complex_type->is_unpure())
-            {
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_func, WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC);
-            }
-        }
-
         if (!a_value_func->is_template_define)
         {
             auto arg_child = a_value_func->argument_list->children;
