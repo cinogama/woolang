@@ -119,6 +119,7 @@ namespace wo
         l_union,
         l_match,
         l_struct,
+        l_unpure,
         l_macro
     );
 
@@ -277,6 +278,7 @@ namespace wo
             {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
             {L"struct", {lex_type::l_struct}},
+            {L"unpure", {lex_type::l_unpure}},
             {L"do", {lex_type::l_do}},
         };
 

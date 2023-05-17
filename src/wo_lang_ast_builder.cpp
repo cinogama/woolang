@@ -344,6 +344,13 @@ namespace wo
                 || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
                 return false;
 
+            if (this_origin_type->is_func())
+            {
+                wo_assert(another_origin_type->is_func());
+                if (this_origin_type->is_pure_function() && !another_origin_type->is_pure_function())
+                    return false;
+            }
+
             if ((using_type_name == nullptr && another->using_type_name)
                 || (using_type_name && another->using_type_name == nullptr))
             {
@@ -383,7 +390,6 @@ namespace wo
                     || type_name != another->type_name)
                     return false;
             }
-
             if (is_mutable())
             {
                 if (!another->is_mutable())

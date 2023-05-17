@@ -1506,7 +1506,7 @@ namespace wo
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
-                    , a_value_index->from->value_type->get_type_name().c_str());
+                    , a_value_index->index->value_type->get_type_name(false).c_str());
             }
         }
         return true;
@@ -2907,7 +2907,11 @@ namespace wo
                     return false;
 
                 wo_assert(is_complex() && another->is_complex());
-                complex_type->is_same(another->complex_type, ignore_using_type, false);
+                if (!complex_type->is_same(another->complex_type, ignore_using_type, false))
+                    return false;
+
+                if (is_pure_function() != another->is_pure_function())
+                    return false;
             }
             else if (another->is_func())
                 return false;
@@ -3023,6 +3027,9 @@ namespace wo
                 wo_assert(is_complex() && another->is_complex());
                 if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
                     return false;
+
+                if (is_pure_function() && ! another->is_pure_function())
+                    return false;
             }
             else if (another->is_func())
                 return false;
@@ -3079,8 +3086,11 @@ namespace wo
             }
             else
             {
-                if (is_function_type)
+                if (is_func())
                 {
+                    if (!is_pure_function())
+                        result += L"unpure";
+
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
