@@ -1275,7 +1275,6 @@ namespace wo
                     else
                     {
                         a_match_union_case->take_place_value_may_nil->value_type->set_type(a_pattern_union_value->union_expr->value_type->argument_types.front());
-                        a_match_union_case->take_place_value_may_nil->value_type->set_is_mutable(false);
                     }
 
                     analyze_pattern_in_pass2(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil);
@@ -3738,8 +3737,6 @@ namespace wo
                             if (a_t->is_custom() && !a_t->is_hkt())
                                 stop_update = true;
                         }
-                        else
-                            a_t->set_is_mutable(false);
                 }
 
             if (type->has_template())
@@ -3964,150 +3961,156 @@ namespace wo
     {
         using namespace ast;
 
-        if (initval->value_type->is_mutable())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                }
-            }
-        }
-
-        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
-        {
-            // Merge all attrib 
-            a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
-
-            if (a_pattern_identifier->template_arguments.empty())
-            {
-                analyze_pass1(initval);
-
-                if (!a_pattern_identifier->symbol)
-                {
-                    a_pattern_identifier->symbol = define_variable_in_this_scope(
-                        a_pattern_identifier,
-                        a_pattern_identifier->identifier,
-                        initval,
-                        a_pattern_identifier->attr,
-                        template_style::NORMAL,
-                        a_pattern_identifier->decl);
-                }
-            }
-            else
-            {
-                // Template variable!!! we just define symbol here.
-                if (!a_pattern_identifier->symbol)
-                {
-                    auto* symb = define_variable_in_this_scope(
-                        a_pattern_identifier,
-                        a_pattern_identifier->identifier,
-                        initval,
-                        a_pattern_identifier->attr,
-                        template_style::IS_TEMPLATE_VARIABLE_DEFINE,
-                        a_pattern_identifier->decl);
-                    symb->is_template_symbol = true;
-                    wo_assert(symb->template_types.empty());
-                    symb->template_types = a_pattern_identifier->template_arguments;
-                    a_pattern_identifier->symbol = symb;
-                }
-            }
-        }
-        else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-        {
-            analyze_pass1(initval);
-            for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
-            {
-                take_place->copy_source_info(pattern);
-            }
-            if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
-                && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
-            {
-                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                {
-                    a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                }
-            }
-            for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
-        }
-        else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
             // DO NOTHING
         }
         else
-            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        {
+            if (initval->value_type->is_mutable())
+            {
+                if (!this->skip_side_effect_check)
+                {
+                    auto* located_function_scope = in_function();
+                    if (located_function_scope != nullptr)
+                    {
+                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                            pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
+                    }
+                }
+            }
+
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                // Merge all attrib 
+                a_pattern_identifier->attr->attributes.insert(attrib->attributes.begin(), attrib->attributes.end());
+
+                if (a_pattern_identifier->template_arguments.empty())
+                {
+                    analyze_pass1(initval);
+
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        a_pattern_identifier->symbol = define_variable_in_this_scope(
+                            a_pattern_identifier,
+                            a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::NORMAL,
+                            a_pattern_identifier->decl);
+                    }
+                }
+                else
+                {
+                    // Template variable!!! we just define symbol here.
+                    if (!a_pattern_identifier->symbol)
+                    {
+                        auto* symb = define_variable_in_this_scope(
+                            a_pattern_identifier,
+                            a_pattern_identifier->identifier,
+                            initval,
+                            a_pattern_identifier->attr,
+                            template_style::IS_TEMPLATE_VARIABLE_DEFINE,
+                            a_pattern_identifier->decl);
+                        symb->is_template_symbol = true;
+                        wo_assert(symb->template_types.empty());
+                        symb->template_types = a_pattern_identifier->template_arguments;
+                        a_pattern_identifier->symbol = symb;
+                    }
+                }
+            }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                analyze_pass1(initval);
+                for (auto* take_place : a_pattern_tuple->tuple_takeplaces)
+                {
+                    take_place->copy_source_info(pattern);
+                }
+                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
+                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
+                {
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                    }
+                }
+                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    analyze_pattern_in_pass1(a_pattern_tuple->tuple_patterns[i], attrib, a_pattern_tuple->tuple_takeplaces[i]);
+            }
+            else
+                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
     }
     void lang::analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval)
     {
         using namespace ast;
 
-        if (initval->value_type->is_mutable())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function_pass2();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                }
-            }
-        }
-
-        if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
-        {
-            if (a_pattern_identifier->template_arguments.empty())
-            {
-                analyze_pass2(initval);
-                a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
-            }
-            else
-            {
-                a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
-                for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
-                {
-                    impl_symbol->has_been_defined_in_pass2 = true;
-                }
-            }
-        }
-        else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
-        {
-            analyze_pass2(initval);
-
-            if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
-                && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
-            {
-                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                {
-                    a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                }
-                for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
-                    analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
-
-            }
-            else
-            {
-                if (initval->value_type->is_pending())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED);
-                else if (!initval->value_type->is_tuple())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
-                        initval->value_type->get_type_name(false).c_str());
-                else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
-                    lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
-                        (int)a_pattern_tuple->tuple_takeplaces.size(),
-                        (int)initval->value_type->template_arguments.size());
-            }
-        }
-        else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
+        if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
             // DO NOTHING
         }
         else
-            lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        {
+            if (initval->value_type->is_mutable())
+            {
+                if (!this->skip_side_effect_check)
+                {
+                    auto* located_function_scope = in_function_pass2();
+                    if (located_function_scope != nullptr)
+                    {
+                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                            pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
+                    }
+                }
+            }
+
+            if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
+            {
+                if (a_pattern_identifier->template_arguments.empty())
+                {
+                    analyze_pass2(initval);
+                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                }
+                else
+                {
+                    a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
+                    for (auto& [_, impl_symbol] : a_pattern_identifier->symbol->template_typehashs_reification_instance_symbol_list)
+                    {
+                        impl_symbol->has_been_defined_in_pass2 = true;
+                    }
+                }
+            }
+            else if (ast_pattern_tuple* a_pattern_tuple = dynamic_cast<ast_pattern_tuple*>(pattern))
+            {
+                analyze_pass2(initval);
+
+                if (initval->value_type->is_tuple() && !initval->value_type->is_pending()
+                    && initval->value_type->template_arguments.size() == a_pattern_tuple->tuple_takeplaces.size())
+                {
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                    {
+                        a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
+                    }
+                    for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
+                        analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
+
+                }
+                else
+                {
+                    if (initval->value_type->is_pending())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED);
+                    else if (!initval->value_type->is_tuple())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_EXPECT_TUPLE,
+                            initval->value_type->get_type_name(false).c_str());
+                    else if (initval->value_type->template_arguments.size() != a_pattern_tuple->tuple_takeplaces.size())
+                        lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNMATCHED_PATTERN_TYPE_TUPLE_DNT_MATCH,
+                            (int)a_pattern_tuple->tuple_takeplaces.size(),
+                            (int)initval->value_type->template_arguments.size());
+                }
+            }
+            else
+                lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
+        }
     }
     void lang::analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, ir_compiler* compiler)
     {

@@ -249,7 +249,7 @@ namespace test_template
         }
 
         do mut_mark_bug1([true])->map(\b: bool = 0;);
-        do mut_mark_bug2([true])->map(\b: bool = 0;);
+        do mut_mark_bug2([true])->map(\b: mut bool = 0;);
     }
 
     let issame<A, B> = 

@@ -2146,7 +2146,7 @@ namespace dict
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> pure bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> pure VT;
+        public func getor<KT, VT>(self: dict<KT, immut VT>, index: KT, default_val: VT)=> pure VT;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> pure bool;
