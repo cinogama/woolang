@@ -1318,8 +1318,8 @@ namespace unsafe
 
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => pure void;
-    extern("rslib_std_panic") public func panic(msg: string)=> pure void;
+    extern("rslib_std_halt") public func halt(msg: string) => impure void;
+    extern("rslib_std_panic") public func panic(msg: string)=> impure void;
 
     extern("rslib_std_declval") public func declval<T>()=> pure T;
 
@@ -1419,7 +1419,7 @@ namespace option
         value(x)?
             return x;
         none?
-            std::panic("Expect 'value' here, but get 'none'.");
+            do impure std::panic("Expect 'value' here, but get 'none'.");
         }
     }
     public func has<T>(self: option<T>)
@@ -1453,7 +1453,7 @@ namespace result
         match(self)
         {
         ok(v)? return v;
-        err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        err(e)? do impure std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
     public func isok<T, F>(self: result<T, F>)=> bool
@@ -1493,14 +1493,14 @@ namespace result
         match(self)
         {
         ok(v)? return ok(v);
-        err(e)? std::panic(F"An error was found in 'succ': {e}");
+        err(e)? do impure std::panic(F"An error was found in 'succ': {e}");
         }
     }
     public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
     {
         match(self)
         {
-        ok(v)? std::panic(F"Current result is ok({v}), is not failed.");
+        ok(v)? do impure std::panic(F"Current result is ok({v}), is not failed.");
         err(e)? return err(e);
         }
     }
@@ -1917,7 +1917,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>pure option<(int, std::origin_t<T>)>;
+            public func next<T>(iter:iterator<T>)=>pure option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -1956,7 +1956,7 @@ namespace vec
         public func toarray<T>(val: vec<T>)=> pure array<T>;
 
     extern("rslib_std_array_empty")
-        public func empty<T>(val: vec<T>)=> impure bool;
+        public func empty<T>(val: vec<T>)=> pure bool;
 
     extern("rslib_std_array_resize") 
         public func resize<T>(val: vec<T>, newsz: int, init_val: T)=> impure void;
@@ -1984,7 +1984,7 @@ namespace vec
         public func add<T>(val: vec<T>, elem: T)=> impure void;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: vec<T>, another: vec<T>)=> impure vec<T>;
+    public func connect<T>(self: vec<T>, another: vec<T>)=> pure vec<T>;
 
     extern("rslib_std_array_sub")
     public func sub<T>(self: vec<T>, begin: int)=> pure vec<T>;
@@ -2045,7 +2045,7 @@ namespace vec
     {
         let result = {}mut: map<pure K, pure V>;
         for (let _, (k, v) : val)
-            result->set(k, v);
+            do impure result->set(k, v);
         return result->unsafe::cast:<dict<pure K, pure V>>;
     }
 
@@ -2077,7 +2077,7 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=> pure option<(int, std::origin_t<T>)>;
+            public func next<T>(iter:iterator<T>)=> pure option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2145,7 +2145,7 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, std::origin_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -2153,14 +2153,14 @@ namespace dict
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:dict<KT, VT>)=>pure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
+    public func keys<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<pure KT>;
         for (let key, _ : self)
             do impure result->add(key);
         return result->unsafe::cast:<array<pure KT>>;
     }
-    public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
+    public func vals<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<pure VT>;
         for (let _, val : self)
@@ -2201,7 +2201,7 @@ namespace map
         let result = {}mut: map<pure RK, pure RV>;
         for (let k, v : val)
             for (let rk, rv : functor(k, v))
-                result->set(rk, rv);
+                do impure result->set(rk, rv);
         return result;
     }
 
@@ -2209,13 +2209,13 @@ namespace map
         public func set<KT, VT>(self: map<KT, VT>, key: KT, val: VT)=> impure void;
 
     extern("rslib_std_lengthof") 
-        public func len<KT, VT>(self: map<KT, VT>)=>impure int;
+        public func len<KT, VT>(self: map<KT, VT>)=> pure int;
 
     extern("rslib_std_make_dup")
-        public func dup<KT, VT>(self: map<KT, VT>)=> impure map<KT, VT>;
+        public func dup<KT, VT>(self: map<KT, VT>)=> pure map<KT, VT>;
 
     extern("rslib_std_make_dup")
-        public func todict<KT, VT>(self: map<KT, VT>)=> impure dict<KT, VT>;
+        public func todict<KT, VT>(self: map<KT, VT>)=> pure dict<KT, VT>;
 
     public func findif<KT, VT>(self: map<KT, VT>, judger:(KT)=>bool)
     {
@@ -2226,13 +2226,13 @@ namespace map
     }
 
     extern("rslib_std_map_find") 
-        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>impure bool;
+        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> pure bool;
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> impure option<std::origin_t<VT>>;
+        public func get<KT, VT>(self: map<KT, VT>, index: KT)=> pure option<std::origin_t<VT>>;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> impure std::origin_t<VT>;
+        public func getor<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=> pure std::origin_t<VT>;
 
     extern("rslib_std_map_get_or_set_default") 
         public func getorset<KT, VT>(self: map<KT, VT>, index: KT, default_val: VT)=>impure std::origin_t<VT>;
@@ -2244,7 +2244,7 @@ namespace map
         public func copy<KT, VT>(val: map<KT, VT>, another: map<KT, VT>)=> impure void;
 
     extern("rslib_std_map_empty")
-        public func empty<KT, VT>(self: map<KT, VT>)=> impure bool;
+        public func empty<KT, VT>(self: map<KT, VT>)=> pure bool;
 
     extern("rslib_std_map_remove")
         public func remove<KT, VT>(self: map<KT, VT>, index: KT)=> impure bool;
@@ -2255,51 +2255,51 @@ namespace map
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>impure option<(KT, std::origin_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        public func iter<KT, VT>(self:map<KT, VT>)=>impure iterator<KT, VT>;
+        public func iter<KT, VT>(self:map<KT, VT>)=>pure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)=> impure array<KT>
+    public func keys<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
-            result->add(key);
+            do impure result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: map<KT, VT>)=> impure array<VT>
+    public func vals<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
-            result->add(val);
+            do impure result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> impure map<KT, VT>
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                result->set(key, val);
+                do impure result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> impure map<AT, BT>
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            result->set(nk, nv);
+            do impure result->set(nk, nv);
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> impure array<(KT, VT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
-            result->add((key, val));
+            do impure result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
