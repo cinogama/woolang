@@ -2990,8 +2990,7 @@ namespace wo
 
         if (failed_to_call_cur_func)
             a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
-
-        if (!a_value_funccall->value_type->is_pure() && !this->skip_side_effect_check)
+        else if (!a_value_funccall->value_type->is_pure() && !this->skip_side_effect_check)
         {
             auto* located_function_scope = in_function_pass2();
             if (located_function_scope != nullptr)
