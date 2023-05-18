@@ -29,7 +29,7 @@ namespace wo
         a_varref_defs->located_function = in_function();
         for (auto& varref : a_varref_defs->var_refs)
         {
-            if (dynamic_cast<ast_pattern_takeplace*>(varref.pattern)!=nullptr)
+            if (dynamic_cast<ast_pattern_takeplace*>(varref.pattern) != nullptr)
                 lang_anylizer->lang_error(lexer::errorlevel::error, varref.pattern, WO_ERR_USELESS_IGNORE_PATTERN);
 
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
@@ -90,7 +90,7 @@ namespace wo
         auto* a_value_mutable = WO_AST();
 
         analyze_pass1(a_value_mutable->val);
-        
+
         if (a_value_mutable->val->value_type->is_pending() == false)
         {
             a_value_mutable->value_type->set_type(a_value_mutable->val->value_type);
@@ -263,8 +263,8 @@ namespace wo
                 }
             }
 
-            if (sym->type == lang_symbol::symbol_type::variable 
-                && sym->decl == ast::identifier_decl::MUTABLE 
+            if (sym->type == lang_symbol::symbol_type::variable
+                && sym->decl == ast::identifier_decl::MUTABLE
                 && sym->static_symbol)
             {
                 if (!this->skip_side_effect_check)
@@ -943,7 +943,15 @@ namespace wo
         analyze_pass1(a_do_impure->block);
 
         this->skip_side_effect_check = old_state;
-        
+
+        return true;
+    }
+    WO_PASS1(ast_value_typeid)
+    {
+        auto* ast_value_typeid = WO_AST();
+
+        fully_update_type(ast_value_typeid->type, true);
+
         return true;
     }
 
@@ -2995,10 +3003,29 @@ namespace wo
 
         return true;
     }
+    WO_PASS2(ast_value_typeid)
+    {
+        auto* ast_value_typeid = WO_AST();
+
+        fully_update_type(ast_value_typeid->type, false);
+
+        if (ast_value_typeid->type->is_pending() && !ast_value_typeid->type->is_hkt())
+        {
+            lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_typeid->type, WO_ERR_UNKNOWN_TYPE,
+                ast_value_typeid->type->get_type_name(false, false).c_str());
+        }
+        else
+        {
+            ast_value_typeid->constant_value.set_integer(lang::get_typing_hash_after_pass1(ast_value_typeid->type));
+            ast_value_typeid->is_constant = true;
+        }
+
+        return true;
+    }
 
     namespace ast
     {
-        bool ast_type::is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const
+        bool ast_type::is_same(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -3045,11 +3072,14 @@ namespace wo
             if (is_pending() || another->is_pending())
                 return false;
 
-            if (!ignore_mutable && is_mutable() != another->is_mutable())
-                return false;
+            if (!ignore_prefix)
+            {
+                if (is_mutable() != another->is_mutable())
+                    return false;
 
-            if (is_pure() != another->is_pure())
-                return false;
+                if (is_pure() != another->is_pure())
+                    return false;
+            }
 
             if (is_func())
             {
@@ -4246,6 +4276,7 @@ namespace wo
         WO_TRY_PASS(ast_value_array);
         WO_TRY_PASS(ast_value_mapping);
         WO_TRY_PASS(ast_value_indexed_variadic_args);
+        WO_TRY_PASS(ast_value_typeid);
         WO_TRY_PASS(ast_return);
         WO_TRY_PASS(ast_sentence_block);
         WO_TRY_PASS(ast_if);
@@ -4536,7 +4567,7 @@ namespace wo
             {
                 if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
                 {
-                    for (auto* template_arg: arg_func_template_args)
+                    for (auto* template_arg : arg_func_template_args)
                         fully_update_type(template_arg, false);
 
                     auto* reificated = analyze_pass_template_reification(function_define, arg_func_template_args);
@@ -4798,6 +4829,7 @@ namespace wo
                 WO_TRY_PASS(ast_value_make_tuple_instance);
                 WO_TRY_PASS(ast_value_make_struct_instance);
                 WO_TRY_PASS(ast_value_trib_expr);
+                WO_TRY_PASS(ast_value_typeid);
                 WO_TRY_END;
 
             }
@@ -4948,7 +4980,7 @@ namespace wo
 
                 return immutable_type;
             }
-            
+
             return picked_type;
         }
 
@@ -6413,6 +6445,10 @@ namespace wo
 
                     return WO_NEW_OPNUM(reg(reg::cr));
                 }
+            }
+            else if (ast_value_typeid* a_value_typeid = dynamic_cast<ast_value_typeid*>(value))
+            {
+                wo_error("ast_value_typeid must be constant or abort in pass2.");
             }
             else
             {

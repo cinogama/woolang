@@ -2418,6 +2418,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_type_cast>] = _register_builder<pass_type_cast>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_literal>] = _register_builder<pass_literal>();
+            _registed_builder_function_id_list[meta::type_hash<pass_typeid>] = _register_builder<pass_typeid>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();
 

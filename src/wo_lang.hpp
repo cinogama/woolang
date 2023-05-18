@@ -244,7 +244,7 @@ namespace wo
         WO_PASS(ast_where_constraint);
         WO_PASS(ast_value_trib_expr);
         WO_PASS(ast_do_impure);
-
+        WO_PASS(ast_value_typeid);
 #undef WO_PASS
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);

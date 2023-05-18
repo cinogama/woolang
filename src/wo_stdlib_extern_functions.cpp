@@ -1324,7 +1324,10 @@ namespace std
     extern("rslib_std_declval") public func declval<T>()=> pure T;
 
     public alias origin_t<T> = typeof(\=std::declval:<T>();());
-    public alias impure_t<T> = impure T;
+
+    public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
+    public let is_mutable_type<A> = is_same_type:<A, mut A>;
+    public let is_pure_type<A> = is_same_type:<A, pure A>;
 
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> pure int;
     extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> pure int;

@@ -197,7 +197,7 @@ namespace wo
             bool is_gc_type() const;
             bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const;
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
-            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
+            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const;
             bool is_builtin_basic_type();
             bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix = true, bool flipped = false) const;
             bool set_mix_types(ast_type* another, bool ignore_mutable, bool flip = false, bool flip_write = false);
@@ -323,6 +323,31 @@ namespace wo
             ast_value_literal();
             ast_value_literal(const token& te);
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+        };
+
+        struct ast_value_typeid : virtual public ast_value
+        {
+            ast_type* type;
+            ast_value_typeid(): ast_value(new ast_type(WO_PSTR(int)))
+            {
+
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+                WO_REINSTANCE(dumm->type);
+
+                return dumm;
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING, IT WILL BE UPDATE IN PASS2.
+            }
         };
 
         struct ast_value_type_cast : public virtual ast_value
@@ -2449,6 +2474,20 @@ namespace wo
             {
                 wo_test(input.size() == 1);
                 return (grammar::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
+            }
+        };
+
+        struct pass_typeid : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // typeid :< TYPE >
+                wo_test(input.size() == 4);
+                auto* typeid_expr = new ast_value_typeid;
+                typeid_expr->type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                wo_assert(typeid_expr->type != nullptr);
+
+                return (grammar::ast_base*)typeid_expr;
             }
         };
 

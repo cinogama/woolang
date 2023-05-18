@@ -122,6 +122,8 @@ namespace wo
         l_pure,
         l_impure,
         l_immut,
+
+        l_typeid,
         l_macro
     );
 
@@ -283,6 +285,7 @@ namespace wo
             {L"struct", {lex_type::l_struct}},
             {L"pure", {lex_type::l_pure}},
             {L"impure", {lex_type::l_impure}},
+            {L"typeid", {lex_type::l_typeid}},
             {L"do", {lex_type::l_do}},
         };
 
