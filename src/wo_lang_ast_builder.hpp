@@ -98,13 +98,14 @@ namespace wo
 
         struct ast_type : virtual public ast_symbolable_base
         {
-            bool is_mutable_type = false;
             bool is_function_type = false;
             bool is_variadic_function_type = false;
-            bool is_unpure_type = false;
+
+            bool is_mutable_type = false;
+            bool is_pure_type = false;
 
             bool is_force_immutable_type = false;
-            bool is_force_pure_type = false;
+            bool is_force_impure_type = false;
 
             bool is_pending_type = false;
 
@@ -113,8 +114,7 @@ namespace wo
             ast_type* complex_type = nullptr;
 
             value::valuetype value_type;
-            
-
+           
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
 
@@ -172,17 +172,16 @@ namespace wo
             void append_function_argument_type(ast_type* arg_type);
             void set_as_variadic_arg_func();
 
-            void set_is_force_immutable();
-            void set_is_force_pure();
-
             void set_is_mutable(bool is_mutable);
-            void set_is_unpure(bool is_mutable);
+            void set_is_pure(bool is_mutable);
+            void set_is_force_impure();
+            void set_is_force_immutable();
+            bool is_force_impure() const;
+            bool is_force_immutable() const;
 
             bool is_mutable() const;
-            bool is_unpure() const;
+            bool is_pure() const;
             bool is_dynamic() const;
-            bool is_force_immutable() const;
-            bool is_force_pure() const;
             bool is_custom(std::unordered_set<const ast_type*>& s) const;
             bool is_custom() const;
             bool is_pure_pending() const;
@@ -198,9 +197,9 @@ namespace wo
             bool is_gc_type() const;
             bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const;
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
-            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_mutable) const;
+            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const;
             bool is_builtin_basic_type();
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable = true, bool flipped = false) const;
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix = true, bool flipped = false) const;
             bool set_mix_types(ast_type* another, bool ignore_mutable, bool flip = false, bool flip_write = false);
             bool is_func() const;
             bool is_bool() const;
@@ -324,6 +323,31 @@ namespace wo
             ast_value_literal();
             ast_value_literal(const token& te);
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
+        };
+
+        struct ast_value_typeid : virtual public ast_value
+        {
+            ast_type* type;
+            ast_value_typeid(): ast_value(new ast_type(WO_PSTR(int)))
+            {
+
+            }
+            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
+            {
+                using astnode_type = decltype(MAKE_INSTANCE(this));
+                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
+                if (!child_instance) *dumm = *this;
+                ast_value::instance(dumm);
+
+                // Write self copy functions here..
+                WO_REINSTANCE(dumm->type);
+
+                return dumm;
+            }
+            void update_constant_value(lexer* lex) override
+            {
+                // DO NOTHING, IT WILL BE UPDATE IN PASS2.
+            }
         };
 
         struct ast_value_type_cast : public virtual ast_value
@@ -754,14 +778,13 @@ namespace wo
             {
                 if (!has_impure_behavior)
                 {
+                    has_impure_behavior = true;
                     if (auto_adjust_return_type == false && value_type->is_func())
                     {
-                        if (!value_type->complex_type->is_unpure())
+                        if (value_type->complex_type->is_pure())
                             lex->lang_error(wo::lexer::errorlevel::error, errreporter, WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC,
                                 action);
                     }
-                    else
-                        has_impure_behavior = true;
                 }
             }
 
@@ -2023,10 +2046,11 @@ namespace wo
 
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_mut || WO_NEED_TOKEN(0).type == +lex_type::l_immut);
 
-                if (WO_NEED_TOKEN(0).type == +lex_type::l_immut)
-                    type->set_is_force_immutable();
-                else
+                if (WO_NEED_TOKEN(0).type == +lex_type::l_mut)
                     type->set_is_mutable(true);
+                else
+                    type->set_is_force_immutable();
+
                 return (ast_basic*)type;
             }
         };
@@ -2037,12 +2061,13 @@ namespace wo
             {
                 auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
 
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure || WO_NEED_TOKEN(0).type == +lex_type::l_unpure);
+                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure || WO_NEED_TOKEN(0).type == +lex_type::l_impure);
 
                 if (WO_NEED_TOKEN(0).type == +lex_type::l_pure)
-                    type->set_is_force_pure();
+                    type->set_is_pure(true);
                 else
-                    type->set_is_unpure(true);
+                    type->set_is_force_impure();
+
                 return (ast_basic*)type;
             }
         };
@@ -2449,6 +2474,20 @@ namespace wo
             {
                 wo_test(input.size() == 1);
                 return (grammar::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
+            }
+        };
+
+        struct pass_typeid : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                // typeid :< TYPE >
+                wo_test(input.size() == 4);
+                auto* typeid_expr = new ast_value_typeid;
+                typeid_expr->type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
+                wo_assert(typeid_expr->type != nullptr);
+
+                return (grammar::ast_base*)typeid_expr;
             }
         };
 
@@ -3193,9 +3232,10 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                wo_assert(input.size() == 3);
+                // do as pure {}
+                wo_assert(input.size() == 4);
                 ast_do_impure* result = new ast_do_impure;
-                result->block = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(2));
+                result->block = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(3));
 
                 wo_assert(result->block != nullptr);
 

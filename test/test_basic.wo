@@ -197,6 +197,18 @@ namespace test_basic
 
         test_equal(aav +: 2, 16);
         test_equal(aav, 16);
+
+        test_equal(std::is_same_type:< int, int >, true);
+        test_equal(std::is_same_type:< int, real >, false);
+        test_equal(std::is_same_type:< mut int, int >, false);
+
+        test_equal(std::is_pure_type:< mut int >, false);
+        test_equal(std::is_pure_type:< int >, false);
+        test_equal(std::is_pure_type:< pure int >, true);
+        
+        test_equal(std::is_mutable_type:< mut int >, true);
+        test_equal(std::is_mutable_type:< int >, false);
+        test_equal(std::is_mutable_type:< pure int >, false);
     }
 }
 

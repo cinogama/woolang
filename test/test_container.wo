@@ -87,8 +87,8 @@ namespace test_container
             ;
         let c = b
             ->> \es = es
-                ->reduce(\l, r = l + " " + r;)
-                ->> \s = std::println(s);
+                ->  reduce(\l, r = l + " " + r;)
+                ->> func(s){do as pure std::println(s);}
                 ;
             ;
     }
