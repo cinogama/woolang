@@ -1032,6 +1032,38 @@ func main()
             using E = struct{a : mut string};
             do E{a = mut 1: string};
             "@);
+
+        // 
+
+        assure_compile_fail(@"
+            func foo()=> impure void{}
+            func main()=> pure void
+            {
+                foo();
+            }
+            "@);
+        assure_compile_success(@"
+            func foo()=> impure void{}
+            func main()=> pure void
+            {
+                do foo;
+            }
+            "@);
+        assure_compile_success(@"
+            func foo()=> void{}
+            func main()=> pure void
+            {
+                foo();
+            }
+            "@);
+        assure_compile_fail(@"
+            let mut a = 0;
+            func foo(){do a;}
+            func main()=> pure void
+            {
+                foo();
+            }
+            "@);
     }
 
     func main()
