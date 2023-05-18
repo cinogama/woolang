@@ -1413,7 +1413,8 @@ namespace wo
                         lang_anylizer->lang_error(wo::lexer::errorlevel::error, a_value_funcdef, WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC);
                     }
                 }
-                else if (a_value_funcdef->value_type->complex_type->is_force_impure() == false)
+                else if (a_value_funcdef->value_type->complex_type->is_force_impure() == false
+                    && a_value_funcdef->externed_func_info == nullptr)
                     a_value_funcdef->value_type->complex_type->set_is_pure(true);
             }
             else

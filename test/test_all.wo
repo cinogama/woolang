@@ -1,6 +1,7 @@
 /*                                       */
 import test_tool;
 
+import test_pure;
 import test_benchmark;
 import test_helloworld;
 import test_string_u8;
