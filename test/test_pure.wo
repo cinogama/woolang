@@ -1,0 +1,89 @@
+import woo.std;
+import test_tool;
+
+namespace test_pure
+{
+    func pure_test_foo1(){}
+    func pure_test_foo2()=> impure void {}
+
+    func pure_test_foo3()
+    {
+        return [1,2,3]->>\a = a;=>>\v = [v];;
+    }
+    func pure_test_foo4()
+    {
+        return [1,2,3]mut->>\a = a;=>>\v = [v]mut;;
+    } 
+    func pure_test_foo5()
+    {
+        return [1,2,3]->>\a = std::println(a);=>>\v = [v];;
+    } 
+    func pure_test_foo6()
+    {
+        return [1,2,3]->>\a = (a, a * 2);->mapping;
+    } 
+    func pure_test_foo7()
+    {
+        return [1,2,3]mut->>\a = (a, a * 2);->mapping;
+    }
+
+    func pure_test_foo8()
+    {
+        return [mut 1, 2];
+    }
+    func pure_test_foo9()
+    {
+        return [mut 1, 2]->get(0);
+    }
+    func pure_test_foo10()
+    {
+        return [mut 1, 2]->get(0)->val;
+    }
+    func pure_test_foo11()
+    {
+        let (a, b) = (mut 1, mut 2);
+    }
+    func pure_test_foo12()
+    {
+        let (_, _) = (mut 1, mut 2);
+    }
+    func pure_test_foo13()
+    {
+        match (option::value(mut 1))
+        {
+        value(a)?;
+        none?;
+        }
+    }
+    func pure_test_foo14()
+    {
+        match (option::value(mut 1))
+        {
+        value(_)?;
+        none?;
+        }
+    }
+
+    func main()
+    {
+        test_assure(std::is_same_type:< typeof(pure_test_foo1), ()=> pure void>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo2), ()=> impure void>);
+
+        test_assure(std::is_same_type:< typeof(pure_test_foo3), ()=> pure array<int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo4), ()=> impure vec<int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo5), ()=> impure array<void>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo6), ()=> pure dict<int, int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo7), ()=> impure dict<int, int>>);
+
+        test_assure(std::is_same_type:< typeof(pure_test_foo8), ()=> pure array<mut int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo9), ()=> pure option<mut int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo10), ()=> impure int>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo11), ()=> impure void>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo12), ()=> pure void>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo13), ()=> impure void>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo14), ()=> pure void>);
+        
+    }
+}
+
+test_function("test_pure.main", test_pure::main);
