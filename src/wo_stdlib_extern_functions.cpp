@@ -1326,6 +1326,7 @@ namespace std
     public alias origin_t<T> = typeof(\=std::declval:<T>();());
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
+    public let is_same_base_type<A, B> = is_same_type:<mut pure A, mut pure B>;
     public let is_mutable_type<A> = is_same_type:<A, mut A>;
     public let is_pure_type<A> = is_same_type:<A, pure A>;
 
@@ -1364,7 +1365,8 @@ public union option<T>
 }
 namespace option
 {
-    public func bind<T, R>(self: option<T>, functor: (T)=>pure option<R>)
+    public func bind<T, R, MayPureOption>(self: option<T>, functor: (T)=> MayPureOption<R>)
+        where std::is_same_base_type:<MayPureOption<R>, option<R>>;
     {
         match(self)
         {
@@ -1376,7 +1378,7 @@ namespace option
     {
         return option::value(value);
     }
-    public func map<T, R>(self: option<T>, functor: (T)=>pure R)
+    public func map<T, R>(self: option<T>, functor: (T)=> R)
     {
         match(self)
         {
@@ -1386,7 +1388,8 @@ namespace option
             return option::none;
         }
     }
-    public func or<T>(self: option<T>, orfunctor: ()=>pure T)=> pure T
+    public func or<T, MayPureT>(self: option<T>, orfunctor: ()=> MayPureT)
+        where std::is_same_base_type:<MayPureT, T>;
     {
         match(self)
         {
@@ -1396,7 +1399,8 @@ namespace option
             return orfunctor();
         }
     }
-    public func orbind<T>(self: option<T>, orfunctor: ()=>pure option<T>)=> pure option<T>
+    public func orbind<T, MayPureOption>(self: option<T>, orfunctor: ()=> MayPureOption<T>)
+        where std::is_same_base_type:<MayPureOption<R>, option<R>>;
     {
         match(self)
         {
@@ -1452,12 +1456,12 @@ namespace result
         err(e)? return ok(e);
         }
     }
-    public func unwarp<T, F>(self: result<T, F>)=> pure T
+    public func unwarp<T, F>(self: result<T, F>)=> impure T
     {
         match(self)
         {
         ok(v)? return v;
-        err(e)? do as pure std::panic(F"An error was found when 'unwarp': {e}");
+        err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
     public func isok<T, F>(self: result<T, F>)=> pure bool
@@ -1492,23 +1496,23 @@ namespace result
         err(e)? return option::value(e);
         }
     }
-    public func succ<T, F>(self: result<T, F>)=> pure result<T, nothing>
+    public func succ<T, F>(self: result<T, F>)=> impure result<T, nothing>
     {
         match(self)
         {
         ok(v)? return ok(v);
-        err(e)? do as pure std::panic(F"An error was found in 'succ': {e}");
+        err(e)? std::panic(F"An error was found in 'succ': {e}");
         }
     }
-    public func fail<T, F>(self: result<T, F>)=> pure result<nothing, F>
+    public func fail<T, F>(self: result<T, F>)=> impure result<nothing, F>
     {
         match(self)
         {
-        ok(v)? do as pure std::panic(F"Current result is ok({v}), is not failed.");
+        ok(v)? std::panic(F"Current result is ok({v}), is not failed.");
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=>pure U)=> pure result<U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<impure U, F>
     {
         match(self)
         {
@@ -1516,7 +1520,8 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func bind<T, F, U>(self: result<T, F>, functor: (T)=>pure result<U, F>)=> pure result<U, F>
+    public func bind<T, F, U, MayPureResult>(self: result<T, F>, functor: (T)=> MayPureResult<U, F>)=> MayPureResult<U, F>
+        where std::is_same_base_type:<MayPureResult<U, F>, result<U, F>>;
     {
         match(self)
         {
@@ -1524,7 +1529,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func or<T, F>(self: result<T, F>, functor: (F)=>pure T)=> pure T
+    public func or<T, F>(self: result<T, F>, functor: (F)=> T)=> T
     {
         match(self)
         {
@@ -1532,7 +1537,8 @@ namespace result
         err(e)? return functor(e);
         }
     }
-    public func orbind<T, F>(self: result<T, F>, functor: (F)=>pure result<T, F>)=> pure result<T, F>
+    public func orbind<T, F>(self: result<T, F>, functor: (F)=> MayPureResult<T, F>)=> MayPureResult<T, F>
+        where std::is_same_base_type:<MayPureResult<T, F>, result<T, F>>;
     {
         match(self)
         {
@@ -1850,7 +1856,8 @@ namespace array
         return -1;            
     }
 
-    public func forall<T>(val: array<T>, functor: (T)=>pure bool)
+    public func forall<T, MayPureBool>(val: array<T>, functor: (T)=>MayPureBool)
+        where std::is_same_base_type:<MayPureBool, bool>;
     {
         let result = []mut: vec<T>;
         for (let _, elem : val)
@@ -1859,7 +1866,8 @@ namespace array
         return result->unsafe::cast:<array<T>>;
     }
 
-    public func bind<T, R>(val: array<T>, functor: (T)=>pure array<R>)
+    public func bind<T, R, MayPureArray>(val: array<T>, functor: (T)=>MayPureArray<R>)
+        where std::is_same_base_type:<MayPureArray<R>, array<R>>;
     {
         let result = []mut: vec<R>;
         for (let _, elem : val)
@@ -1868,7 +1876,7 @@ namespace array
         return result->unsafe::cast:<array<R>>;
     }
 
-    public func map<T, R>(val: array<T>, functor: (T)=>pure R)
+    public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
         let result = []mut: vec<R>;
         for (let _, elem : val)
@@ -1887,7 +1895,8 @@ namespace array
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T>(self: array<T>, reducer: (T, T)=> pure T)
+    public func reduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
+        where std::is_same_base_type:<MayPureT, T>;
     {
         if (self->empty)
             return option::none;
@@ -1902,7 +1911,8 @@ namespace array
         }
     }
 
-    public func rreduce<T>(self: array<T>, reducer: (T, T)=>pure T)
+    public func rreduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
+        where std::is_same_base_type:<MayPureT, T>;
     {
         if (self->empty)
             return option::none;
@@ -2092,7 +2102,8 @@ namespace vec
 
 namespace dict
 {
-    public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=>pure dict<RK, RV>)
+    public func bind<KT, VT, RK, RV, MayPureDict>(val: dict<KT, VT>, functor: (KT, VT)=>MayPureDict<RK, RV>)
+        where std::is_same_base_type:<MayPureDict<RK, RV>, dict<RK, RV>>;
     {
         let result = {}mut: map<RK, RV>;
         for (let k, v : val)
@@ -2118,7 +2129,8 @@ namespace dict
     extern("rslib_std_make_dup")
         public func tomap<KT, VT>(self: dict<KT, VT>)=> pure map<KT, VT>;
 
-    public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=>bool)
+    public func findif<KT, VT, MayPureBool>(self: dict<KT, VT>, judger:(KT)=>MayPureBool)
+        where std::is_same_base_type:<MayPureBool, bool>;
     {
         for (let k, _ : self)
             if (judger(k))
@@ -2171,7 +2183,8 @@ namespace dict
             do as pure result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=>pure bool)
+    public func forall<KT, VT, MayPureBool>(self: dict<KT, VT>, functor: (KT, VT)=>MayPureBool)
+        where std::is_same_base_type:<MayPureBool, bool>;
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
@@ -2179,15 +2192,26 @@ namespace dict
                 do as pure result->set(key, val);
         return result->unsafe::cast:<dict<KT, VT>>;
     }
-    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=>pure (AT, BT))
+    public func map<KT, VT, MayPureTupleType>(self: dict<KT, VT>, functor: (KT, VT)=> MayPureTupleType)
     {
+        alias AT = typeof(std::declval:<MayPureTupleType>()[0]);
+        alias BT = typeof(std::declval:<MayPureTupleType>()[1]);
+
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
             do as pure result->set(nk, nv);
         }
-        return result->unsafe::cast:<dict<AT, BT>>;
+
+        if (std::is_same_type:<(AT, BT), immut impure MayPureTupleType>)
+            return result->unsafe::cast:<dict<AT, BT>>;
+        else if (std::is_same_type:<(mut AT, BT), immut impure MayPureTupleType>)
+            return result->unsafe::cast:<dict<mut AT, BT>>;
+        else if (std::is_same_type:<(AT, mut BT), immut impure MayPureTupleType>)
+            return result->unsafe::cast:<dict<AT, mut BT>>;
+        else
+            return result->unsafe::cast:<dict<mut AT, mut BT>>;
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)
     {
