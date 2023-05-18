@@ -3209,7 +3209,7 @@ namespace wo
             return true;
         }
 
-        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_mut) const
+        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const
         {
             if (s.find(this) != s.end())
                 return L"..";
@@ -3217,14 +3217,17 @@ namespace wo
 
             std::wstring result;
 
-            if (is_mutable() && !ignore_mut)
-                result += L"mut ";
-            if (is_force_immutable())
-                result += L"immut ";
-            if (is_force_pure())
-                result += L"pure ";
-            if (is_unpure())
-                result += L"impure ";
+            if (!ignore_prefix)
+            {
+                if (is_mutable())
+                    result += L"mut ";
+                if (is_unpure())
+                    result += L"impure ";
+                if (is_force_immutable())
+                    result += L"immut ";
+                if (is_force_pure())
+                    result += L"pure ";
+            }
 
             if (!ignore_using_type && using_type_name)
             {
@@ -3914,6 +3917,20 @@ namespace wo
     void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
     {
         using namespace ast;
+
+        if (initval->value_type->is_mutable())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        pattern, WO_SIDE_PATTERN_MATCH_MUT_TYPE);
+                }
+            }
+        }
+
         if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
         {
             // Merge all attrib 
@@ -3966,7 +3983,6 @@ namespace wo
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
                     a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                    a_pattern_tuple->tuple_takeplaces[i]->value_type->set_is_mutable(false);
                 }
             }
             for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
@@ -3982,12 +3998,25 @@ namespace wo
     void lang::analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval)
     {
         using namespace ast;
+
+        if (initval->value_type->is_mutable())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function_pass2();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        pattern, WO_SIDE_PATTERN_MATCH_MUT_TYPE);
+                }
+            }
+        }
+
         if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
         {
             if (a_pattern_identifier->template_arguments.empty())
             {
                 analyze_pass2(initval);
-
                 a_pattern_identifier->symbol->has_been_defined_in_pass2 = true;
             }
             else
@@ -4009,7 +4038,6 @@ namespace wo
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                 {
                     a_pattern_tuple->tuple_takeplaces[i]->value_type->set_type(initval->value_type->template_arguments[i]);
-                    a_pattern_tuple->tuple_takeplaces[i]->value_type->set_is_mutable(false);
                 }
                 for (size_t i = 0; i < a_pattern_tuple->tuple_takeplaces.size(); i++)
                     analyze_pattern_in_pass2(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i]);
@@ -4262,7 +4290,7 @@ namespace wo
                         
                         if (!this->skip_side_effect_check)
                         {
-                            auto* located_function_scope = in_function_pass2();
+                            auto* located_function_scope = in_function();
                             if (located_function_scope != nullptr)
                             {
                                 located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,

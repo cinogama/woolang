@@ -1318,8 +1318,8 @@ namespace unsafe
 
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => pure void;
-    extern("rslib_std_panic") public func panic(msg: string)=> pure void;
+    extern("rslib_std_halt") public func halt(msg: string) => impure void;
+    extern("rslib_std_panic") public func panic(msg: string)=> impure void;
 
     extern("rslib_std_declval") public func declval<T>()=> pure T;
 
@@ -1419,7 +1419,7 @@ namespace option
         value(x)?
             return x;
         none?
-            std::panic("Expect 'value' here, but get 'none'.");
+            do impure std::panic("Expect 'value' here, but get 'none'.");
         }
     }
     public func has<T>(self: option<T>)
@@ -1453,7 +1453,7 @@ namespace result
         match(self)
         {
         ok(v)? return v;
-        err(e)? std::panic(F"An error was found when 'unwarp': {e}");
+        err(e)? do impure std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
     public func isok<T, F>(self: result<T, F>)=> bool
@@ -1493,14 +1493,14 @@ namespace result
         match(self)
         {
         ok(v)? return ok(v);
-        err(e)? std::panic(F"An error was found in 'succ': {e}");
+        err(e)? do impure std::panic(F"An error was found in 'succ': {e}");
         }
     }
     public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
     {
         match(self)
         {
-        ok(v)? std::panic(F"Current result is ok({v}), is not failed.");
+        ok(v)? do impure std::panic(F"Current result is ok({v}), is not failed.");
         err(e)? return err(e);
         }
     }
@@ -1917,7 +1917,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>pure option<(int, std::origin_t<T>)>;
+            public func next<T>(iter:iterator<T>)=>pure option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2045,7 +2045,7 @@ namespace vec
     {
         let result = {}mut: map<pure K, pure V>;
         for (let _, (k, v) : val)
-            result->set(k, v);
+            do impure result->set(k, v);
         return result->unsafe::cast:<dict<pure K, pure V>>;
     }
 
@@ -2077,7 +2077,7 @@ namespace vec
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=> pure option<(int, std::origin_t<T>)>;
+            public func next<T>(iter:iterator<T>)=> pure option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2145,7 +2145,7 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, std::origin_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -2201,7 +2201,7 @@ namespace map
         let result = {}mut: map<pure RK, pure RV>;
         for (let k, v : val)
             for (let rk, rv : functor(k, v))
-                result->set(rk, rv);
+                do impure result->set(rk, rv);
         return result;
     }
 
@@ -2226,7 +2226,7 @@ namespace map
     }
 
     extern("rslib_std_map_find") 
-        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=>pure bool;
+        public func contain<KT, VT>(self: map<KT, VT>, index: KT)=> pure bool;
 
     extern("rslib_std_map_only_get") 
         public func get<KT, VT>(self: map<KT, VT>, index: KT)=> pure option<std::origin_t<VT>>;
@@ -2255,7 +2255,7 @@ namespace map
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, std::origin_t<VT>)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }

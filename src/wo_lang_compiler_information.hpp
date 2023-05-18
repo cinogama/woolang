@@ -270,6 +270,8 @@
 
 #define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"获取了非纯表达式的结果"
 
+#define WO_SIDE_PATTERN_MATCH_MUT_TYPE          L"通过模式匹配获取可变的元素"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -539,11 +541,15 @@
 
 #define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"The result of an impure expression was fetched"
 
+#define WO_SIDE_PATTERN_MATCH_MUT_TYPE          L"Get mutable elements by pattern matching"
+
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
 
 #define WO_INFO_INIT_EXPR_IS_HERE L"The compiler found the initialization expression of '%ls'."
 
 #define WO_INFO_IS_THIS_ONE L"Do you means '%ls', which is defined here?"
+
 
 #endif
