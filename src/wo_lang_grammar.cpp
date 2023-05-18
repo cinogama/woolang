@@ -437,7 +437,7 @@ namespace wo
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"UNSAFE_BLOCK")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"UNSAFE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_do),gm::te(gm::ttype::l_unpure),gm::nt(L"BLOCKED_SENTENCE")}
+                gm::nt(L"UNSAFE_BLOCK") >> gm::symlist{ gm::te(gm::ttype::l_do), gm::te(gm::ttype::l_as), gm::te(gm::ttype::l_pure),gm::nt(L"BLOCKED_SENTENCE")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_do_impure),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"VAR_DEFINE_LET_SENTENCE"), gm::te(gm::ttype::l_semicolon) }
@@ -595,13 +595,13 @@ namespace wo
                 gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"ORIGIN_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_mutable_type),
 
-                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_immut), gm::nt(L"ORIGIN_TYPE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_build_mutable_type),
-
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_pure), gm::nt(L"ORIGIN_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_unpure_type),
 
-                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_unpure), gm::nt(L"ORIGIN_TYPE") }
+                gm::nt(L"TYPE") >> gm::symlist{ gm::te(gm::ttype::l_immut), gm::nt(L"ORIGIN_TYPE") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_mutable_type),
+
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_impure), gm::nt(L"ORIGIN_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_unpure_type),
 
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
@@ -741,6 +741,8 @@ namespace wo
                 >> WO_ASTBUILDER_INDEX(ast::pass_literal),
                 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_false) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_literal),
+                 gm::nt(L"UNIT") >> gm::symlist{ gm::te(gm::ttype::l_typeid), gm::te(gm::ttype::l_template_using_begin), gm::nt(L"TYPE"), gm::te(gm::ttype::l_larg) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_typeid),
 
                 gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"FORMAT_STRING") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
