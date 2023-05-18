@@ -2153,14 +2153,14 @@ namespace dict
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:dict<KT, VT>)=>pure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: dict<KT, VT>)=> array<KT>
+    public func keys<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<pure KT>;
         for (let key, _ : self)
             do impure result->add(key);
         return result->unsafe::cast:<array<pure KT>>;
     }
-    public func vals<KT, VT>(self: dict<KT, VT>)=> array<VT>
+    public func vals<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<pure VT>;
         for (let _, val : self)
@@ -2263,21 +2263,21 @@ namespace map
     extern("rslib_std_map_iter")
         public func iter<KT, VT>(self:map<KT, VT>)=>pure iterator<KT, VT>;
 
-    public func keys<KT, VT>(self: map<KT, VT>)=> pure array<KT>
+    public func keys<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
             do impure result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
-    public func vals<KT, VT>(self: map<KT, VT>)=> pure array<VT>
+    public func vals<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
             do impure result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)=> pure map<KT, VT>
+    public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
@@ -2285,7 +2285,7 @@ namespace map
                 do impure result->set(key, val);
         return result;
     }
-    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))=> pure map<AT, BT>
+    public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
     {
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
@@ -2295,7 +2295,7 @@ namespace map
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
-    public func unmapping<KT, VT>(self: map<KT, VT>)=> pure array<(KT, VT)>
+    public func unmapping<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
