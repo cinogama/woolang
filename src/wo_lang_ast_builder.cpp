@@ -195,26 +195,36 @@ namespace wo
         {
             return is_mutable_type;
         }
-        void ast_type::set_is_unpure(bool is_unpure)
+        void ast_type::set_is_pure(bool is_pure)
         {
-            if (is_unpure == true)
-                is_force_pure_type = false;
+            if (is_pure)
+                is_force_impure_type = false;
 
-            is_unpure_type = is_unpure;
-            if (using_type_name && using_type_name->is_unpure() != is_unpure)
-                using_type_name->is_unpure_type = is_unpure;
+            is_pure_type = is_pure;
+            if (using_type_name && using_type_name->is_pure() != is_pure)
+                using_type_name->is_pure_type = is_pure;
         }
-        bool ast_type::is_unpure() const
+        void ast_type::set_is_force_impure()
         {
-            return is_unpure_type;
+            set_is_pure(false);
+            is_force_impure_type = true;
+        }
+        void ast_type::set_is_force_immutable()
+        {
+            set_is_mutable(false);
+            is_force_immutable_type = true;
+        }
+        bool ast_type::is_force_impure() const
+        {
+            return is_force_impure_type;
         }
         bool ast_type::is_force_immutable() const
         {
             return is_force_immutable_type;
         }
-        bool ast_type::is_force_pure() const
+        bool ast_type::is_pure() const
         {
-            return is_force_pure_type;
+            return is_pure_type;
         }
         bool ast_type::is_dynamic() const
         {
@@ -403,18 +413,18 @@ namespace wo
             }
 
             bool prefix_modified = false;
-            if (is_unpure())
+            if (is_pure())
             {
                 prefix_modified = true;
                 if (out_para)
                 {
                     *out_para = dynamic_cast<ast_type*>(this->instance());
-                    (**out_para).set_is_unpure(false);
+                    (**out_para).set_is_pure(false);
                 }
                 if (out_args)
                 {
                     *out_args = dynamic_cast<ast_type*>(another->instance());
-                    (**out_args).set_is_unpure(false);
+                    (**out_args).set_is_pure(false);
                 }
             }
             if (is_mutable())
@@ -506,8 +516,8 @@ namespace wo
             if (is_mutable() != another->is_mutable())
                 return false;
 
-            if (is_unpure() || another->is_unpure())
-                result->set_is_unpure(true);
+            if (!is_pure() || !another->is_pure())
+                result->set_is_pure(false);
 
             // Might HKT
             if (is_hkt_typing() && another->is_hkt_typing())
@@ -705,23 +715,12 @@ namespace wo
         }
         void ast_type::set_is_mutable(bool is_mutable)
         {
-            if (is_mutable == true)
+            if (is_mutable)
                 is_force_immutable_type = false;
 
             is_mutable_type = is_mutable;
             if (using_type_name && using_type_name->is_mutable() != is_mutable)
                 using_type_name->is_mutable_type = is_mutable;
-        }
-
-        void ast_type::set_is_force_immutable()
-        {
-            set_is_mutable(false);
-            is_force_immutable_type = true;
-        }
-        void ast_type::set_is_force_pure()
-        {
-            set_is_unpure(false);
-            is_force_pure_type = true;
         }
 
         grammar::ast_base* ast_type::instance(ast_base* child_instance) const
@@ -789,7 +788,7 @@ namespace wo
             wo_assert(child_instance != nullptr);
             // ast_value is abstract class, will not make instance here.
 
-            auto* dumm = dynamic_cast<ast_value*>(child_instance) ;
+            auto* dumm = dynamic_cast<ast_value*>(child_instance);
 
             // Write self copy functions here..
             if (constant_value.type == value::valuetype::string_type)
@@ -2032,16 +2031,6 @@ namespace wo
                 ast_func->in_function_sentence->append_at_head(template_const_list);
             else
                 ast_func->in_function_sentence = template_const_list;
-
-            if (ast_func->externed_func_info)
-            {
-                wo_assert(ast_func->value_type->is_func());
-                if (!ast_func->value_type->complex_type->is_force_pure()
-                    && !ast_func->value_type->complex_type->is_unpure())
-                {
-                    lex.lang_error(lexer::errorlevel::error, ast_func, WO_ERR_UNKNOWN_PURE_OR_IMPURE_EXTERN_FUNC);
-                }
-            }
 
             // if ast_func->in_function_sentence == nullptr it means this function have no sentences...
             return (grammar::ast_base*)ast_func;

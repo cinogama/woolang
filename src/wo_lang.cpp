@@ -380,7 +380,12 @@ namespace wo
             {
                 if (a_value_func->in_function_sentence)
                 {
+                    auto old_state = this->skip_side_effect_check;
+                    this->skip_side_effect_check = false;
+
                     analyze_pass1(a_value_func->in_function_sentence);
+
+                    this->skip_side_effect_check = old_state;
                 }
 
                 if (a_value_func->externed_func_info)
@@ -416,7 +421,14 @@ namespace wo
                 }
 
                 if (a_value_func->has_impure_behavior)
-                    a_value_func->value_type->complex_type->set_is_unpure(true);
+                {
+                    if (a_value_func->value_type->complex_type->is_pure())
+                    {
+                        lang_anylizer->lang_error(wo::lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC);
+                    }
+                }
+                // `has_impure_behavior` in pass1 didn't means that this function is pure
+                // the side-effect may not be sure in pass2.
             }
             else
                 a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(pending));
@@ -598,8 +610,6 @@ namespace wo
                         if (func_return_type->is_pending())
                         {
                             a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
-                            if (located_function_scope->function_node->has_impure_behavior)
-                                located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
                         }
                         else
                         {
@@ -610,11 +620,6 @@ namespace wo
                                     // current function might has constexpr if, set delay_return_type_judge flag
                                     func_return_type->set_type_with_name(WO_PSTR(pending));
                                     a_ret->located_function->delay_adjust_return_type = true;
-                                }
-                                else
-                                {
-                                    if (located_function_scope->function_node->has_impure_behavior)
-                                        located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
                                 }
                             }
                         }
@@ -629,8 +634,6 @@ namespace wo
                     {
                         located_function_scope->function_node->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                         located_function_scope->function_node->auto_adjust_return_type = false;
-                        if (located_function_scope->function_node->has_impure_behavior)
-                            located_function_scope->function_node->value_type->complex_type->set_is_unpure(true);
                     }
                     else
                     {
@@ -975,8 +978,6 @@ namespace wo
                     if (func_return_type->is_pending())
                     {
                         a_ret->located_function->value_type->set_ret_type(a_ret->return_value->value_type);
-                        if (a_ret->located_function->has_impure_behavior)
-                            a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                     }
                     else
                     {
@@ -986,11 +987,6 @@ namespace wo
                             {
                                 func_return_type->set_type_with_name(WO_PSTR(void));
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
-                            }
-                            else
-                            {
-                                if (a_ret->located_function->has_impure_behavior)
-                                    a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                             }
                         }
                     }
@@ -1013,8 +1009,6 @@ namespace wo
                 {
                     a_ret->located_function->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     a_ret->located_function->auto_adjust_return_type = false;
-                    if (a_ret->located_function->has_impure_behavior)
-                        a_ret->located_function->value_type->complex_type->set_is_unpure(true);
                 }
                 else
                 {
@@ -1385,7 +1379,12 @@ namespace wo
             {
                 if (a_value_funcdef->in_function_sentence)
                 {
+                    auto old_state = this->skip_side_effect_check;
+                    this->skip_side_effect_check = false;
+
                     analyze_pass2(a_value_funcdef->in_function_sentence);
+
+                    this->skip_side_effect_check = old_state;
                 }
                 if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
                 {
@@ -1400,7 +1399,14 @@ namespace wo
                 }
 
                 if (a_value_funcdef->has_impure_behavior)
-                    a_value_funcdef->value_type->complex_type->set_is_unpure(true);
+                {
+                    if (a_value_funcdef->value_type->complex_type->is_pure())
+                    {
+                        lang_anylizer->lang_error(wo::lexer::errorlevel::error, a_value_funcdef, WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC);
+                    }
+                }
+                else if (a_value_funcdef->value_type->complex_type->is_force_impure() == false)
+                    a_value_funcdef->value_type->complex_type->set_is_pure(true);
             }
             else
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
@@ -2423,13 +2429,113 @@ namespace wo
     {
         auto* a_value_funccall = WO_AST();
 
-        if (a_value_funccall->value_type->is_pending())
+        if (a_value_funccall->callee_symbol_in_type_namespace)
         {
-            if (a_value_funccall->callee_symbol_in_type_namespace)
-            {
-                wo_assert(a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 == false);
+            wo_assert(a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 == false);
 
-                analyze_pass2(a_value_funccall->directed_value_from);
+            analyze_pass2(a_value_funccall->directed_value_from);
+            if (!a_value_funccall->directed_value_from->value_type->is_pending())
+            {
+                // trying finding type_function
+                auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
+
+                // Is using type?
+                if (a_value_funccall->directed_value_from->value_type->using_type_name)
+                {
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
+                        a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
+
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                    (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
+
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                        origin_namespace.begin(),
+                        origin_namespace.end()
+                    );
+
+                    auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
+
+                    if (direct_called_func_symbol != nullptr)
+                    {
+                        if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
+                            a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
+                            = old_callee_func->template_reification_args;
+
+                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                        if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
+                        {
+                            // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
+                            auto* funcdef = direct_called_func_symbol->get_funcdef();
+                            if (funcdef->is_template_define)
+                            {
+                                a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
+                                // Make sure it will not be analyze in pass2
+                                a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
+                            }
+                        }
+                        goto start_ast_op_calling;
+                    }
+                    else
+                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
+                }
+                // base type?
+                else
+                {
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
+                    (a_value_funccall->directed_value_from->value_type->type_name);
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
+                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
+                        origin_namespace.begin(),
+                        origin_namespace.end()
+                    );
+
+                    auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
+
+                    if (direct_called_func_symbol != nullptr)
+                    {
+                        if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
+                            a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
+                            = old_callee_func->template_reification_args;
+
+                        a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
+                        if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
+                        {
+                            // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
+                            auto* funcdef = direct_called_func_symbol->get_funcdef();
+                            if (funcdef->is_template_define)
+                            {
+                                a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
+                                // Make sure it will not be analyze in pass2
+                                a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
+                            }
+                        }
+                        goto start_ast_op_calling;
+                    }
+                    else
+                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
+                }
+                // End trying invoke from direct-type namespace
+            }
+        }
+    start_ast_op_calling:
+
+        analyze_pass2(a_value_funccall->called_func);
+        analyze_pass2(a_value_funccall->arguments);
+
+        if (a_value_funccall->callee_symbol_in_type_namespace != nullptr
+            && a_value_funccall->called_func->value_type->is_pure_pending())
+        {
+            if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
+                callee_variable != nullptr && callee_variable->symbol == nullptr)
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
+                    a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
+                    a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
+
+                // Here to truing to find fuzzy name function.
+                lang_symbol* fuzzy_method_function_symbol = nullptr;
                 if (!a_value_funccall->directed_value_from->value_type->is_pending())
                 {
                     // trying finding type_function
@@ -2440,40 +2546,13 @@ namespace wo
                     {
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
                             a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
-
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
                         (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
-
                         a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
                             a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
                             origin_namespace.begin(),
                             origin_namespace.end()
                         );
-
-                        auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
-
-                        if (direct_called_func_symbol != nullptr)
-                        {
-                            if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
-                                a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
-                                = old_callee_func->template_reification_args;
-
-                            a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                            if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
-                            {
-                                // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
-                                auto* funcdef = direct_called_func_symbol->get_funcdef();
-                                if (funcdef->is_template_define)
-                                {
-                                    a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
-                                    // Make sure it will not be analyze in pass2
-                                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
-                                }
-                            }
-                            goto start_ast_op_calling;
-                        }
-                        else
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
                     }
                     // base type?
                     else
@@ -2486,499 +2565,434 @@ namespace wo
                             origin_namespace.begin(),
                             origin_namespace.end()
                         );
-
-                        auto* direct_called_func_symbol = find_value_symbol_in_this_scope(a_value_funccall->callee_symbol_in_type_namespace);
-
-                        if (direct_called_func_symbol != nullptr)
-                        {
-                            if (auto* old_callee_func = dynamic_cast<ast::ast_value_variable*>(a_value_funccall->called_func))
-                                a_value_funccall->callee_symbol_in_type_namespace->template_reification_args
-                                = old_callee_func->template_reification_args;
-
-                            a_value_funccall->called_func = a_value_funccall->callee_symbol_in_type_namespace;
-                            if (direct_called_func_symbol->type == lang_symbol::symbol_type::function)
-                            {
-                                // Template function may get pure-pending type here; inorder to make sure `auto` judge, here get template type.
-                                auto* funcdef = direct_called_func_symbol->get_funcdef();
-                                if (funcdef->is_template_define)
-                                {
-                                    a_value_funccall->called_func->value_type->set_type(funcdef->value_type);
-                                    // Make sure it will not be analyze in pass2
-                                    a_value_funccall->callee_symbol_in_type_namespace->completed_in_pass2 = true;
-                                }
-                            }
-                            goto start_ast_op_calling;
-                        }
-                        else
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
                     }
-                    // End trying invoke from direct-type namespace
+
+                    fuzzy_method_function_symbol = find_symbol_in_this_scope(
+                        a_value_funccall->callee_symbol_in_type_namespace,
+                        a_value_funccall->callee_symbol_in_type_namespace->var_name,
+                        lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
+
+                    a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
+                }
+
+                if (fuzzy_method_function_symbol != nullptr)
+                {
+                    auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzzy_method_function_symbol));
+                    if (!fuzz_symbol_full_name.empty())
+                        fuzz_symbol_full_name += L"::";
+                    fuzz_symbol_full_name += *fuzzy_method_function_symbol->name;
+                    lang_anylizer->lang_error(lexer::errorlevel::infom,
+                        fuzzy_method_function_symbol->variable_value,
+                        WO_INFO_IS_THIS_ONE,
+                        fuzz_symbol_full_name.c_str());
                 }
             }
-        start_ast_op_calling:
+        }
 
-            analyze_pass2(a_value_funccall->called_func);
-            analyze_pass2(a_value_funccall->arguments);
+        auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
 
-            if (a_value_funccall->callee_symbol_in_type_namespace != nullptr
-                && a_value_funccall->called_func->value_type->is_pure_pending())
+        ast_value_function_define* calling_function_define = nullptr;
+
+        if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+        {
+            // called_funcsymb might be lambda function, and have not symbol.
+            if (called_funcsymb->symbol != nullptr
+                && called_funcsymb->symbol->type == lang_symbol::symbol_type::function)
             {
-                if (auto* callee_variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func);
-                    callee_variable != nullptr && callee_variable->symbol == nullptr)
-                {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_INVOKE_FUNC_FOR_TYPE,
-                        a_value_funccall->callee_symbol_in_type_namespace->var_name->c_str(),
-                        a_value_funccall->directed_value_from->value_type->get_type_name(false).c_str());
+                check_symbol_is_accessable(
+                    called_funcsymb->symbol->get_funcdef(),
+                    called_funcsymb->symbol,
+                    called_funcsymb->searching_begin_namespace_in_pass2,
+                    a_value_funccall,
+                    true);
 
-                    // Here to truing to find fuzzy name function.
-                    lang_symbol* fuzzy_method_function_symbol = nullptr;
-                    if (!a_value_funccall->directed_value_from->value_type->is_pending())
-                    {
-                        // trying finding type_function
-                        auto origin_namespace = a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces;
-
-                        // Is using type?
-                        if (a_value_funccall->directed_value_from->value_type->using_type_name)
-                        {
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces =
-                                a_value_funccall->directed_value_from->value_type->using_type_name->scope_namespaces;
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                            (a_value_funccall->directed_value_from->value_type->using_type_name->type_name);
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
-                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
-                                origin_namespace.begin(),
-                                origin_namespace.end()
-                            );
-                        }
-                        // base type?
-                        else
-                        {
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.clear();
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.push_back
-                            (a_value_funccall->directed_value_from->value_type->type_name);
-                            a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.insert(
-                                a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces.end(),
-                                origin_namespace.begin(),
-                                origin_namespace.end()
-                            );
-                        }
-
-                        fuzzy_method_function_symbol = find_symbol_in_this_scope(
-                            a_value_funccall->callee_symbol_in_type_namespace,
-                            a_value_funccall->callee_symbol_in_type_namespace->var_name,
-                            lang_symbol::symbol_type::variable | lang_symbol::symbol_type::function, true);
-
-                        a_value_funccall->callee_symbol_in_type_namespace->scope_namespaces = origin_namespace;
-                    }
-
-                    if (fuzzy_method_function_symbol != nullptr)
-                    {
-                        auto fuzz_symbol_full_name = str_to_wstr(get_belong_namespace_path_with_lang_scope(fuzzy_method_function_symbol));
-                        if (!fuzz_symbol_full_name.empty())
-                            fuzz_symbol_full_name += L"::";
-                        fuzz_symbol_full_name += *fuzzy_method_function_symbol->name;
-                        lang_anylizer->lang_error(lexer::errorlevel::infom,
-                            fuzzy_method_function_symbol->variable_value,
-                            WO_INFO_IS_THIS_ONE,
-                            fuzz_symbol_full_name.c_str());
-                    }
-                }
+                calling_function_define = called_funcsymb->symbol->get_funcdef();
             }
+            else
+                calling_function_define = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+        }
 
-            auto updated_args_types = judge_auto_type_in_funccall(a_value_funccall, false, nullptr, nullptr);
-
-            ast_value_function_define* calling_function_define = nullptr;
-
-            if (auto* called_funcsymb = dynamic_cast<ast_value_symbolable_base*>(a_value_funccall->called_func))
+        if (calling_function_define != nullptr
+            && calling_function_define->is_template_define)
+        {
+            // Judge template here.
+            std::vector<ast_type*> template_args(calling_function_define->template_type_name_list.size(), nullptr);
+            if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
             {
-                // called_funcsymb might be lambda function, and have not symbol.
-                if (called_funcsymb->symbol != nullptr
-                    && called_funcsymb->symbol->type == lang_symbol::symbol_type::function)
-                {
-                    check_symbol_is_accessable(
-                        called_funcsymb->symbol->get_funcdef(),
-                        called_funcsymb->symbol,
-                        called_funcsymb->searching_begin_namespace_in_pass2,
-                        a_value_funccall,
-                        true);
+                if (variable->template_reification_args.size() > template_args.size())
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
+                else
+                    for (size_t index = 0; index < variable->template_reification_args.size(); index++)
+                        template_args[index] = variable->template_reification_args[index];
 
-                    calling_function_define = called_funcsymb->symbol->get_funcdef();
+            }
+            // finish template args spcified by : xxxxx:<a,b,c> 
+            // trying auto judge type..
+
+            std::vector<ast_type*> real_argument_types;
+            ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+            while (funccall_arg)
+            {
+                if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
+                {
+                    if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                    {
+                        wo_assert(fake_unpack_value->expand_count >= 0);
+
+                        size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
+                            fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
+
+                        for (size_t i = 0; i < expand_count; ++i)
+                            real_argument_types.push_back(
+                                fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
+                    }
                 }
                 else
-                    calling_function_define = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+                    real_argument_types.push_back(funccall_arg->value_type);
+                funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
             }
 
-            if (calling_function_define != nullptr
-                && calling_function_define->is_template_define)
+            for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
             {
-                // Judge template here.
-                std::vector<ast_type*> template_args(calling_function_define->template_type_name_list.size(), nullptr);
-                if (auto* variable = dynamic_cast<ast_value_variable*>(a_value_funccall->called_func))
-                {
-                    if (variable->template_reification_args.size() > template_args.size())
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_NO_MATCHED_FUNC_TEMPLATE);
-                    else
-                        for (size_t index = 0; index < variable->template_reification_args.size(); index++)
-                            template_args[index] = variable->template_reification_args[index];
+                auto& pending_template_arg = template_args[tempindex];
 
-                }
-                // finish template args spcified by : xxxxx:<a,b,c> 
-                // trying auto judge type..
-
-                std::vector<ast_type*> real_argument_types;
-                ast_value* funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
-                while (funccall_arg)
+                if (!pending_template_arg)
                 {
-                    if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
+                    for (size_t index = 0;
+                        index < real_argument_types.size() &&
+                        index < calling_function_define->value_type->argument_types.size();
+                        index++)
                     {
-                        if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
+                        fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                            calling_function_define->template_type_name_list);
+                        //fully_update_type(real_argument_types[index], false); // USELESS
+
+                        if ((pending_template_arg = analyze_template_derivation(
+                            calling_function_define->template_type_name_list[tempindex],
+                            calling_function_define->template_type_name_list,
+                            calling_function_define->value_type->argument_types[index],
+                            updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
+                        )))
                         {
-                            wo_assert(fake_unpack_value->expand_count >= 0);
-
-                            size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
-                                fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
-
-                            for (size_t i = 0; i < expand_count; ++i)
-                                real_argument_types.push_back(
-                                    fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
+                            if (pending_template_arg->is_pure_pending() ||
+                                (pending_template_arg->search_from_global_namespace == false
+                                    && pending_template_arg->scope_namespaces.empty()
+                                    && calling_function_define->template_type_name_list[tempindex]
+                                    == pending_template_arg->type_name))
+                                pending_template_arg = nullptr;
                         }
-                    }
-                    else
-                        real_argument_types.push_back(funccall_arg->value_type);
-                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
-                }
 
-                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+                        if (pending_template_arg)
+                            break;
+                    }
+                }
+            }
+            // TODO; Some of template arguments might not able to judge if argument has `auto` type.
+            // Update auto type here and re-check template
+            judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+
+            // After judge, args might be changed, we need re-try to get them.
+            real_argument_types.clear();
+            funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
+            while (funccall_arg)
+            {
+                if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
                 {
-                    auto& pending_template_arg = template_args[tempindex];
-
-                    if (!pending_template_arg)
+                    if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
                     {
-                        for (size_t index = 0;
-                            index < real_argument_types.size() &&
-                            index < calling_function_define->value_type->argument_types.size();
-                            index++)
-                        {
-                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
-                                calling_function_define->template_type_name_list);
-                            //fully_update_type(real_argument_types[index], false); // USELESS
+                        wo_assert(fake_unpack_value->expand_count >= 0);
 
-                            if ((pending_template_arg = analyze_template_derivation(
-                                calling_function_define->template_type_name_list[tempindex],
-                                calling_function_define->template_type_name_list,
-                                calling_function_define->value_type->argument_types[index],
-                                updated_args_types[index] ? updated_args_types[index] : real_argument_types[index]
-                            )))
-                            {
-                                if (pending_template_arg->is_pure_pending() ||
-                                    (pending_template_arg->search_from_global_namespace == false
-                                        && pending_template_arg->scope_namespaces.empty()
-                                        && calling_function_define->template_type_name_list[tempindex]
-                                        == pending_template_arg->type_name))
-                                    pending_template_arg = nullptr;
-                            }
+                        size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
+                            fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
 
-                            if (pending_template_arg)
-                                break;
-                        }
+                        for (size_t i = 0; i < expand_count; ++i)
+                            real_argument_types.push_back(
+                                fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
                     }
                 }
-                // TODO; Some of template arguments might not able to judge if argument has `auto` type.
-                // Update auto type here and re-check template
-                judge_auto_type_in_funccall(a_value_funccall, true, calling_function_define, &template_args);
+                else
+                    real_argument_types.push_back(funccall_arg->value_type);
+                funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
+            }
 
-                // After judge, args might be changed, we need re-try to get them.
-                real_argument_types.clear();
-                funccall_arg = dynamic_cast<ast_value*>(a_value_funccall->arguments->children);
-                while (funccall_arg)
+            for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+            {
+                auto& pending_template_arg = template_args[tempindex];
+
+                if (!pending_template_arg)
                 {
-                    if (auto* fake_unpack_value = dynamic_cast<ast_fakevalue_unpacked_args*>(funccall_arg))
+                    for (size_t index = 0;
+                        index < real_argument_types.size() &&
+                        index < calling_function_define->value_type->argument_types.size();
+                        index++)
                     {
-                        if (fake_unpack_value->unpacked_pack->value_type->is_tuple())
-                        {
-                            wo_assert(fake_unpack_value->expand_count >= 0);
+                        fully_update_type(calling_function_define->value_type->argument_types[index], false,
+                            calling_function_define->template_type_name_list);
+                        //fully_update_type(real_argument_types[index], false); // USELESS
 
-                            size_t expand_count = std::min((size_t)fake_unpack_value->expand_count,
-                                fake_unpack_value->unpacked_pack->value_type->template_arguments.size());
+                        pending_template_arg = analyze_template_derivation(
+                            calling_function_define->template_type_name_list[tempindex],
+                            calling_function_define->template_type_name_list,
+                            calling_function_define->value_type->argument_types[index],
+                            real_argument_types[index]
+                        );
 
-                            for (size_t i = 0; i < expand_count; ++i)
-                                real_argument_types.push_back(
-                                    fake_unpack_value->unpacked_pack->value_type->template_arguments[i]);
-                        }
+                        if (pending_template_arg)
+                            break;
                     }
-                    else
-                        real_argument_types.push_back(funccall_arg->value_type);
-                    funccall_arg = dynamic_cast<ast_value*>(funccall_arg->sibling);
                 }
+            }
 
-                for (size_t tempindex = 0; tempindex < template_args.size(); tempindex++)
+            if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+            {
+                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
+
+                // Skip when invoke anonymous function.
+                if (calling_function_define->function_name != nullptr)
                 {
-                    auto& pending_template_arg = template_args[tempindex];
-
-                    if (!pending_template_arg)
-                    {
-                        for (size_t index = 0;
-                            index < real_argument_types.size() &&
-                            index < calling_function_define->value_type->argument_types.size();
-                            index++)
-                        {
-                            fully_update_type(calling_function_define->value_type->argument_types[index], false,
-                                calling_function_define->template_type_name_list);
-                            //fully_update_type(real_argument_types[index], false); // USELESS
-
-                            pending_template_arg = analyze_template_derivation(
-                                calling_function_define->template_type_name_list[tempindex],
-                                calling_function_define->template_type_name_list,
-                                calling_function_define->value_type->argument_types[index],
-                                real_argument_types[index]
-                            );
-
-                            if (pending_template_arg)
-                                break;
-                        }
-                    }
+                    lang_anylizer->lang_error(lexer::errorlevel::infom, calling_function_define, WO_INFO_ITEM_IS_DEFINED_HERE,
+                        calling_function_define->function_name->c_str());
                 }
-
-                if (std::find(template_args.begin(), template_args.end(), nullptr) != template_args.end())
+            }
+            // failed getting each of template args, abandon this one
+            else
+            {
+                for (auto* templ_arg : template_args)
                 {
-                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_FAILED_TO_DECIDE_ALL_TEMPLATE_ARGS);
-
-                    // Skip when invoke anonymous function.
-                    if (calling_function_define->function_name != nullptr)
+                    fully_update_type(templ_arg, false);
+                    if (templ_arg->is_pending() && !templ_arg->is_hkt())
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::infom, calling_function_define, WO_INFO_ITEM_IS_DEFINED_HERE,
-                            calling_function_define->function_name->c_str());
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_UNKNOWN_TYPE,
+                            templ_arg->get_type_name(false).c_str());
+                        goto failed_to_judge_template_params;
                     }
                 }
-                // failed getting each of template args, abandon this one
+
+                calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
+                a_value_funccall->called_func = calling_function_define;
+            }
+        failed_to_judge_template_params:;
+        }
+        // End of template judge
+
+        judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
+
+        analyze_pass2(a_value_funccall->called_func);
+        if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
+            check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
+
+        if (!a_value_funccall->called_func->value_type->is_pending()
+            && a_value_funccall->called_func->value_type->is_func())
+            a_value_funccall->value_type->set_type(a_value_funccall->called_func->value_type->get_return_type());
+
+        if (a_value_funccall->called_func
+            && a_value_funccall->called_func->value_type->is_func()
+            && a_value_funccall->called_func->value_type->is_pending())
+        {
+            auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
+
+            if (funcsymb && funcsymb->auto_adjust_return_type)
+            {
+                // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
+                if (funcsymb->has_return_value)
+                    lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
+
+                funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
+                funcsymb->auto_adjust_return_type = false;
+            }
+
+        }
+
+        bool failed_to_call_cur_func = false;
+
+        if (a_value_funccall->called_func
+            && a_value_funccall->called_func->value_type->is_func())
+        {
+            auto* real_args = a_value_funccall->arguments->children;
+            a_value_funccall->arguments->remove_allnode();
+
+            for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
+                a_type_index != a_value_funccall->called_func->value_type->argument_types.end();)
+            {
+                bool donot_move_forward = false;
+                if (!real_args)
+                {
+                    // default arg mgr here, now just kill
+                    failed_to_call_cur_func = true;
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                    break;
+                }
                 else
                 {
-                    for (auto* templ_arg : template_args)
+                    auto tmp_sib = real_args->sibling;
+
+                    real_args->parent = nullptr;
+                    real_args->sibling = nullptr;
+
+                    auto* arg_val = dynamic_cast<ast_value*>(real_args);
+                    real_args = tmp_sib;
+
+                    if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
                     {
-                        fully_update_type(templ_arg, false);
-                        if (templ_arg->is_pending() && !templ_arg->is_hkt())
+                        a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
+
+                        auto ecount = a_fakevalue_unpack_args->expand_count;
+                        if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
                         {
-                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_UNKNOWN_TYPE,
-                                templ_arg->get_type_name(false).c_str());
-                            goto failed_to_judge_template_params;
-                        }
-                    }
-
-                    calling_function_define = analyze_pass_template_reification(calling_function_define, template_args); //tara~ get analyze_pass_template_reification 
-                    a_value_funccall->called_func = calling_function_define;
-                }
-            failed_to_judge_template_params:;
-            }
-            // End of template judge
-
-            judge_auto_type_in_funccall(a_value_funccall, true, nullptr, nullptr);
-
-            analyze_pass2(a_value_funccall->called_func);
-            if (ast_symbolable_base* symbase = dynamic_cast<ast_symbolable_base*>(a_value_funccall->called_func))
-                check_function_where_constraint(a_value_funccall, lang_anylizer, symbase);
-
-            if (!a_value_funccall->called_func->value_type->is_pending()
-                && a_value_funccall->called_func->value_type->is_func())
-                a_value_funccall->value_type->set_type(a_value_funccall->called_func->value_type->get_return_type());
-
-            if (a_value_funccall->called_func
-                && a_value_funccall->called_func->value_type->is_func()
-                && a_value_funccall->called_func->value_type->is_pending())
-            {
-                auto* funcsymb = dynamic_cast<ast_value_function_define*>(a_value_funccall->called_func);
-
-                if (funcsymb && funcsymb->auto_adjust_return_type)
-                {
-                    // If call a pending type function. it means the function's type dudes may fail, mark void to continue..
-                    if (funcsymb->has_return_value)
-                        lang_anylizer->lang_error(lexer::errorlevel::error, funcsymb, WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE, wo::str_to_wstr(funcsymb->get_ir_func_signature_tag()).c_str());
-
-                    funcsymb->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
-                    funcsymb->auto_adjust_return_type = false;
-                }
-
-            }
-
-            bool failed_to_call_cur_func = false;
-
-            if (a_value_funccall->called_func
-                && a_value_funccall->called_func->value_type->is_func())
-            {
-                auto* real_args = a_value_funccall->arguments->children;
-                a_value_funccall->arguments->remove_allnode();
-
-                for (auto a_type_index = a_value_funccall->called_func->value_type->argument_types.begin();
-                    a_type_index != a_value_funccall->called_func->value_type->argument_types.end();)
-                {
-                    bool donot_move_forward = false;
-                    if (!real_args)
-                    {
-                        // default arg mgr here, now just kill
-                        failed_to_call_cur_func = true;
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_FEW, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-                        break;
-                    }
-                    else
-                    {
-                        auto tmp_sib = real_args->sibling;
-
-                        real_args->parent = nullptr;
-                        real_args->sibling = nullptr;
-
-                        auto* arg_val = dynamic_cast<ast_value*>(real_args);
-                        real_args = tmp_sib;
-
-                        if (auto* a_fakevalue_unpack_args = dynamic_cast<ast_fakevalue_unpacked_args*>(arg_val))
-                        {
-                            a_value_funccall->arguments->add_child(a_fakevalue_unpack_args);
-
-                            auto ecount = a_fakevalue_unpack_args->expand_count;
-                            if (ast_fakevalue_unpacked_args::UNPACK_ALL_ARGUMENT == ecount)
+                            // all in!!!
+                            // If unpacking type is tuple. cannot run here.
+                            if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
                             {
-                                // all in!!!
-                                // If unpacking type is tuple. cannot run here.
+                                auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
+                                if (unpacking_tuple_type->using_type_name)
+                                    unpacking_tuple_type = unpacking_tuple_type->using_type_name;
+                                ecount = unpacking_tuple_type->template_arguments.size();
+                                a_fakevalue_unpack_args->expand_count = ecount;
+                            }
+                            else
+                            {
+                                ecount =
+                                    (wo_integer_t)(
+                                        a_value_funccall->called_func->value_type->argument_types.end()
+                                        - a_type_index);
+                                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
+                                    a_fakevalue_unpack_args->expand_count = -ecount;
+                                else
+                                    a_fakevalue_unpack_args->expand_count = ecount;
+                            }
+                        }
+
+                        size_t unpack_tuple_index = 0;
+                        while (ecount)
+                        {
+                            if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
+                            {
                                 if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
                                 {
+                                    // Varify tuple type here.
                                     auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
                                     if (unpacking_tuple_type->using_type_name)
                                         unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-                                    ecount = unpacking_tuple_type->template_arguments.size();
-                                    a_fakevalue_unpack_args->expand_count = ecount;
-                                }
-                                else
-                                {
-                                    ecount =
-                                        (wo_integer_t)(
-                                            a_value_funccall->called_func->value_type->argument_types.end()
-                                            - a_type_index);
-                                    if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                        a_fakevalue_unpack_args->expand_count = -ecount;
-                                    else
-                                        a_fakevalue_unpack_args->expand_count = ecount;
-                                }
-                            }
 
-                            size_t unpack_tuple_index = 0;
-                            while (ecount)
-                            {
-                                if (a_type_index != a_value_funccall->called_func->value_type->argument_types.end())
-                                {
-                                    if (a_fakevalue_unpack_args->unpacked_pack->value_type->is_tuple())
+                                    if (unpacking_tuple_type->template_arguments.size() <= unpack_tuple_index)
                                     {
-                                        // Varify tuple type here.
-                                        auto* unpacking_tuple_type = a_fakevalue_unpack_args->unpacked_pack->value_type;
-                                        if (unpacking_tuple_type->using_type_name)
-                                            unpacking_tuple_type = unpacking_tuple_type->using_type_name;
-
-                                        if (unpacking_tuple_type->template_arguments.size() <= unpack_tuple_index)
-                                        {
-                                            // There is no enough value for tuple to expand. match failed!
-                                            failed_to_call_cur_func = true;
-                                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-                                            break;
-                                        }
-                                        else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
-                                        {
-                                            failed_to_call_cur_func = true;
-                                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-                                            break;
-                                        }
-                                        else
-                                            // ok, do nothing.
-                                            ++unpack_tuple_index;
+                                        // There is no enough value for tuple to expand. match failed!
+                                        failed_to_call_cur_func = true;
+                                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        break;
                                     }
-                                    a_type_index++;
+                                    else if (!(*a_type_index)->accept_type(unpacking_tuple_type->template_arguments[unpack_tuple_index], false))
+                                    {
+                                        failed_to_call_cur_func = true;
+                                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                        break;
+                                    }
+                                    else
+                                        // ok, do nothing.
+                                        ++unpack_tuple_index;
                                 }
-                                else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                                {
-                                    // is variadic
-                                    break;
-                                }
-                                else
-                                {
-                                    failed_to_call_cur_func = true;
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-                                    break;
-                                }
-                                ecount--;
+                                a_type_index++;
                             }
-
-                            if (failed_to_call_cur_func)
-                                break;
-
-                            donot_move_forward = true;
-                        }
-                        else if (dynamic_cast<ast_value_takeplace*>(arg_val))
-                        {
-                            // Do nothing
-                        }
-                        else
-                        {
-                            if (!(*a_type_index)->accept_type(arg_val->value_type, false))
+                            else if (a_value_funccall->called_func->value_type->is_variadic_function_type)
                             {
-                                failed_to_call_cur_func = true;
-                                lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
-                                    (*a_type_index)->get_type_name(false, false).c_str(),
-                                    arg_val->value_type->get_type_name(false, true).c_str());
+                                // is variadic
                                 break;
                             }
                             else
                             {
-                                a_value_funccall->arguments->add_child(arg_val);
-                            }
-                        }
-                    }
-                    if (!donot_move_forward)
-                        a_type_index++;
-                }
-                if (a_value_funccall->called_func->value_type->is_variadic_function_type)
-                {
-                    while (real_args)
-                    {
-                        auto tmp_sib = real_args->sibling;
-
-                        real_args->parent = nullptr;
-                        real_args->sibling = nullptr;
-
-                        a_value_funccall->arguments->add_child(real_args);
-                        real_args = tmp_sib;
-                    }
-                }
-                if (real_args)
-                {
-                    if (ast_fakevalue_unpacked_args* unpackval = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
-                    {
-                        // TODO MARK NOT NEED EXPAND HERE
-                        if (unpackval->unpacked_pack->value_type->is_tuple())
-                        {
-                            size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->using_type_name
-                                ? unpackval->unpacked_pack->value_type->using_type_name->template_arguments.size()
-                                : unpackval->unpacked_pack->value_type->template_arguments.size();
-
-                            if (tuple_arg_sz != 0)
-                            {
                                 failed_to_call_cur_func = true;
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                                break;
                             }
+                            ecount--;
                         }
+
+                        if (failed_to_call_cur_func)
+                            break;
+
+                        donot_move_forward = true;
+                    }
+                    else if (dynamic_cast<ast_value_takeplace*>(arg_val))
+                    {
+                        // Do nothing
                     }
                     else
                     {
-                        failed_to_call_cur_func = true;
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                        if (!(*a_type_index)->accept_type(arg_val->value_type, false))
+                        {
+                            failed_to_call_cur_func = true;
+                            lang_anylizer->lang_error(lexer::errorlevel::error, arg_val, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE,
+                                (*a_type_index)->get_type_name(false, false).c_str(),
+                                arg_val->value_type->get_type_name(false, true).c_str());
+                            break;
+                        }
+                        else
+                        {
+                            a_value_funccall->arguments->add_child(arg_val);
+                        }
                     }
                 }
+                if (!donot_move_forward)
+                    a_type_index++;
             }
-            else
+            if (a_value_funccall->called_func->value_type->is_variadic_function_type)
             {
-                failed_to_call_cur_func = true;
-                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
-                    a_value_funccall->called_func->value_type->get_type_name(false).c_str());
-            }
+                while (real_args)
+                {
+                    auto tmp_sib = real_args->sibling;
 
-            if (failed_to_call_cur_func)
-                a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
+                    real_args->parent = nullptr;
+                    real_args->sibling = nullptr;
+
+                    a_value_funccall->arguments->add_child(real_args);
+                    real_args = tmp_sib;
+                }
+            }
+            if (real_args)
+            {
+                if (ast_fakevalue_unpacked_args* unpackval = dynamic_cast<ast_fakevalue_unpacked_args*>(real_args))
+                {
+                    // TODO MARK NOT NEED EXPAND HERE
+                    if (unpackval->unpacked_pack->value_type->is_tuple())
+                    {
+                        size_t tuple_arg_sz = unpackval->unpacked_pack->value_type->using_type_name
+                            ? unpackval->unpacked_pack->value_type->using_type_name->template_arguments.size()
+                            : unpackval->unpacked_pack->value_type->template_arguments.size();
+
+                        if (tuple_arg_sz != 0)
+                        {
+                            failed_to_call_cur_func = true;
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                        }
+                    }
+                }
+                else
+                {
+                    failed_to_call_cur_func = true;
+                    lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_ARGUMENT_TOO_MANY, a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+                }
+            }
         }
+        else
+        {
+            failed_to_call_cur_func = true;
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_funccall, WO_ERR_TYPE_CANNOT_BE_CALL,
+                a_value_funccall->called_func->value_type->get_type_name(false).c_str());
+        }
+
+        if (failed_to_call_cur_func)
+            a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
+
+        if (!a_value_funccall->value_type->is_pure() && !this->skip_side_effect_check)
+        {
+            auto* located_function_scope = in_function_pass2();
+            if (located_function_scope != nullptr)
+            {
+                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                    a_value_funccall, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
+            }
+        }
+
         return true;
     }
 
@@ -3034,7 +3048,7 @@ namespace wo
             if (!ignore_mutable && is_mutable() != another->is_mutable())
                 return false;
 
-            if (is_unpure() != another->is_unpure())
+            if (is_pure() != another->is_pure())
                 return false;
 
             if (is_func())
@@ -3090,7 +3104,7 @@ namespace wo
             return true;
         }
 
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_mutable, bool flipped) const
+        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix, bool flipped) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -3140,11 +3154,14 @@ namespace wo
             if (another->is_nothing())
                 return true; // Buttom type, OK
 
-            if (!ignore_mutable && is_mutable() != another->is_mutable())
-                return false;
+            if (!ignore_prefix)
+            {
+                if (is_mutable() != another->is_mutable())
+                    return false;
 
-            if (!is_unpure() && another->is_unpure())
-                return false;
+                if (is_pure() && !another->is_pure())
+                    return false;
+            }
 
             if (is_func())
             {
@@ -3221,11 +3238,7 @@ namespace wo
             {
                 if (is_mutable())
                     result += L"mut ";
-                if (is_unpure())
-                    result += L"impure ";
-                if (is_force_immutable())
-                    result += L"immut ";
-                if (is_force_pure())
+                if (is_pure())
                     result += L"pure ";
             }
 
@@ -3424,7 +3437,7 @@ namespace wo
         if (typing->is_mutable())
             hashval *= hashval;
 
-        if (typing->is_unpure())
+        if (typing->is_pure())
             hashval = ~hashval;
 
         uint32_t hash32 = hashval & 0xFFFFFFFF;
@@ -3630,9 +3643,10 @@ namespace wo
         if (type->typefrom != nullptr)
         {
             bool is_mutable_typeof = type->is_mutable();
-            bool is_unpure_typeof = type->is_unpure();
-            bool is_force_immutable_typeof = type->is_force_immutable();
-            bool is_force_pure_typeof = type->is_force_pure();
+            bool is_pure_typeof = type->is_pure();
+
+            bool is_force_immut_typeof = type->is_force_immutable();
+            bool is_force_impure_typeof = type->is_force_impure();
 
             auto used_type_info = type->using_type_name;
 
@@ -3658,12 +3672,12 @@ namespace wo
                 type->using_type_name = used_type_info;
             if (is_mutable_typeof)
                 type->set_is_mutable(true);
-            if (is_unpure_typeof)
-                type->set_is_unpure(true);
-            if (is_force_immutable_typeof)
-                type->set_is_mutable(false);
-            if (is_force_pure_typeof)
-                type->set_is_unpure(false);
+            if (is_pure_typeof)
+                type->set_is_pure(true);
+            if (is_force_immut_typeof)
+                type->set_is_force_immutable();
+            if (is_force_impure_typeof)
+                type->set_is_force_impure();
         }
 
         if (type->using_type_name)
@@ -3754,9 +3768,10 @@ namespace wo
                     {
                         auto already_has_using_type_name = type->using_type_name;
                         auto type_has_mutable_mark = type->is_mutable();
-                        auto type_has_unpure_mark = type->is_unpure();
-                        bool type_has_force_immutable_mark = type->is_force_immutable();
-                        bool type_has_force_pure_mark = type->is_force_pure();
+                        auto type_has_pure_mark = type->is_pure();
+
+                        bool is_force_immut_typeof = type->is_force_immutable();
+                        bool is_force_impure_typeof = type->is_force_impure();
 
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
@@ -3854,12 +3869,13 @@ namespace wo
                             if (type_has_mutable_mark)
                                 // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
                                 type->set_is_mutable(true);
-                            if (type_has_unpure_mark)
-                                type->set_is_unpure(true);
-                            if (type_has_force_immutable_mark)
-                                type->set_is_mutable(false);
-                            if (type_has_force_pure_mark)
-                                type->set_is_unpure(false);
+                            if (type_has_pure_mark)
+                                type->set_is_pure(true);
+
+                            if (is_force_immut_typeof)
+                                type->set_is_force_immutable();
+                            if (is_force_impure_typeof)
+                                type->set_is_force_impure();
 
                             if (!type->template_impl_naming_checking.empty())
                             {
@@ -3911,7 +3927,7 @@ namespace wo
 
         if (type->using_type_name != nullptr)
             wo_assert(type->is_mutable() == type->using_type_name->is_mutable() &&
-                type->is_unpure() == type->using_type_name->is_unpure());
+                type->is_pure() == type->using_type_name->is_pure());
     }
 
     void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
@@ -3926,7 +3942,7 @@ namespace wo
                 if (located_function_scope != nullptr)
                 {
                     located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        pattern, WO_SIDE_PATTERN_MATCH_MUT_TYPE);
+                        pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
                 }
             }
         }
@@ -4007,7 +4023,7 @@ namespace wo
                 if (located_function_scope != nullptr)
                 {
                     located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        pattern, WO_SIDE_PATTERN_MATCH_MUT_TYPE);
+                        pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
                 }
             }
         }
@@ -4284,19 +4300,9 @@ namespace wo
                         a_val->can_be_assign = true;
                         a_val->value_type->set_is_mutable(false);
                     }
-                    if (a_val->value_type->is_unpure())
+                    if (a_val->value_type->is_pure())
                     {
-                        a_val->value_type->set_is_unpure(false);
-                        
-                        if (!this->skip_side_effect_check)
-                        {
-                            auto* located_function_scope = in_function();
-                            if (located_function_scope != nullptr)
-                            {
-                                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                                    a_val, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
-                            }
-                        }
+                        a_val->value_type->set_is_pure(false);
                     }
                 }
                 a_val->update_constant_value(lang_anylizer);
@@ -4816,20 +4822,9 @@ namespace wo
                         a_value->can_be_assign = true;
                         a_value->value_type->set_is_mutable(false);
                     }
-
-                    if (a_value->value_type->is_unpure())
+                    if (a_value->value_type->is_pure())
                     {
-                        a_value->value_type->set_is_unpure(false);
-
-                        if (!this->skip_side_effect_check)
-                        {
-                            auto* located_function_scope = in_function_pass2();
-                            if (located_function_scope != nullptr)
-                            {
-                                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                                    a_value, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
-                            }
-                        }
+                        a_value->value_type->set_is_pure(false);
                     }
                 }
             }
@@ -4905,7 +4900,7 @@ namespace wo
         }
         if (para->is_mutable() && !args->is_mutable())
             return nullptr;
-        if (para->is_unpure() && !args->is_unpure())
+        if (para->is_pure() && !args->is_pure())
             return nullptr;
 
         if (para->is_complex() && args->is_complex())
@@ -4937,7 +4932,22 @@ namespace wo
                 return type_hkt;
             }
 
-            wo_assert(!para->is_mutable() && !para->is_unpure());
+            if ((picked_type->is_mutable() && para->is_mutable()) ||
+                (picked_type->is_pure() && para->is_pure()))
+            {
+                // mut T <<== mut InstanceT
+                // Should get (immutable) InstanceT.
+
+                ast::ast_type* immutable_type = new ast::ast_type(WO_PSTR(pending));
+                immutable_type->set_type(picked_type);
+
+                if (picked_type->is_mutable() && para->is_mutable())
+                    immutable_type->set_is_mutable(false);
+                if ((picked_type->is_pure() && para->is_pure()))
+                    immutable_type->set_is_pure(false);
+
+                return immutable_type;
+            }
             
             return picked_type;
         }
