@@ -1327,6 +1327,7 @@ namespace std
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
     public let is_same_base_type<A, B> = is_same_type:<mut pure A, mut pure B>;
+    public let is_accpetable_base_type<A, B> = std::declval:<mut pure A>() is mut pure B;
     public let is_mutable_type<A> = is_same_type:<A, mut A>;
     public let is_pure_type<A> = is_same_type:<A, pure A>;
 
@@ -1389,7 +1390,7 @@ namespace option
         }
     }
     public func or<T, MayPureT>(self: option<T>, orfunctor: ()=> MayPureT)
-        where std::is_same_base_type:<MayPureT, T>;
+        where std::is_accpetable_base_type:<MayPureT, T>;
     {
         match(self)
         {
@@ -1857,7 +1858,7 @@ namespace array
     }
 
     public func forall<T, MayPureBool>(val: array<T>, functor: (T)=>MayPureBool)
-        where std::is_same_base_type:<MayPureBool, bool>;
+        where std::is_accpetable_base_type:<MayPureBool, bool>;
     {
         let result = []mut: vec<T>;
         for (let _, elem : val)
@@ -1878,13 +1879,13 @@ namespace array
 
     public func map<T, R>(val: array<T>, functor: (T)=>R)
     {
-        let result = []mut: vec<R>;
+        let result = []mut: vec<impure R>;
         for (let _, elem : val)
         {
             let r = functor(elem);
             do as pure result->add(r);
         }
-        return result->unsafe::cast:<array<R>>;
+        return result->unsafe::cast:<array<impure R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
@@ -1896,7 +1897,7 @@ namespace array
     }
 
     public func reduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
-        where std::is_same_base_type:<MayPureT, T>;
+        where std::is_accpetable_base_type:<MayPureT, T>;
     {
         if (self->empty)
             return option::none;
@@ -1912,7 +1913,7 @@ namespace array
     }
 
     public func rreduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
-        where std::is_same_base_type:<MayPureT, T>;
+        where std::is_accpetable_base_type:<MayPureT, T>;
     {
         if (self->empty)
             return option::none;
@@ -2130,7 +2131,7 @@ namespace dict
         public func tomap<KT, VT>(self: dict<KT, VT>)=> pure map<KT, VT>;
 
     public func findif<KT, VT, MayPureBool>(self: dict<KT, VT>, judger:(KT)=>MayPureBool)
-        where std::is_same_base_type:<MayPureBool, bool>;
+        where std::is_accpetable_base_type:<MayPureBool, bool>;
     {
         for (let k, _ : self)
             if (judger(k))
@@ -2184,7 +2185,7 @@ namespace dict
         return result->unsafe::cast:<array<VT>>;
     }
     public func forall<KT, VT, MayPureBool>(self: dict<KT, VT>, functor: (KT, VT)=>MayPureBool)
-        where std::is_same_base_type:<MayPureBool, bool>;
+        where std::is_accpetable_base_type:<MayPureBool, bool>;
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
