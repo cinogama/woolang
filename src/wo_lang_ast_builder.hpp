@@ -256,7 +256,7 @@ namespace wo
         struct ast_value_mutable_or_pure : virtual public ast_value
         {
             ast_value* val = nullptr;
-            bool is_mutable = true;
+            lex_type mark_type = +lex_type::l_error;
 
             ast_value_mutable_or_pure()
                 : ast_value(new ast_type(WO_PSTR(pending)))
@@ -2174,9 +2174,11 @@ namespace wo
                 result->val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure ||
-                    WO_NEED_TOKEN(0).type == +lex_type::l_mut);
+                    WO_NEED_TOKEN(0).type == +lex_type::l_mut ||
+                    WO_NEED_TOKEN(0).type == +lex_type::l_immut ||
+                    WO_NEED_TOKEN(0).type == +lex_type::l_impure);
 
-                result->is_mutable = WO_NEED_TOKEN(0).type == +lex_type::l_mut;
+                result->mark_type = WO_NEED_TOKEN(0).type;
                 return (ast_basic*)result;
             }
         };

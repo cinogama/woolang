@@ -95,10 +95,17 @@ namespace wo
         {
             a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
 
-            if (a_value_mutable_or_pure->is_mutable)
+            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
-            else
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
                 a_value_mutable_or_pure->value_type->set_is_pure(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
+            else
+            {
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
+                a_value_mutable_or_pure->value_type->set_is_force_impure();
+            }
         }
 
         return true;
@@ -417,7 +424,7 @@ namespace wo
                             a_value_func->is_constant = true;
                     }
                 }
-                else if (!a_value_func->has_return_value 
+                else if (!a_value_func->has_return_value
                     && a_value_func->auto_adjust_return_type
                     && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
                 {
@@ -1075,10 +1082,18 @@ namespace wo
         if (a_value_mutable_or_pure->val->value_type->is_pending() == false)
         {
             a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
-            if (a_value_mutable_or_pure->is_mutable)
+
+            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
-            else
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
                 a_value_mutable_or_pure->value_type->set_is_pure(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
+            else
+            {
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
+                a_value_mutable_or_pure->value_type->set_is_force_impure();
+            }
         }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_mutable_or_pure->val, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
