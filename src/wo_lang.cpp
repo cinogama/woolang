@@ -85,16 +85,27 @@ namespace wo
             a_value_bin->value_type->set_type(a_value_binary_target_type);
         return true;
     }
-    WO_PASS1(ast_value_mutable)
+    WO_PASS1(ast_value_mutable_or_pure)
     {
-        auto* a_value_mutable = WO_AST();
+        auto* a_value_mutable_or_pure = WO_AST();
 
-        analyze_pass1(a_value_mutable->val);
+        analyze_pass1(a_value_mutable_or_pure->val);
 
-        if (a_value_mutable->val->value_type->is_pending() == false)
+        if (a_value_mutable_or_pure->val->value_type->is_pending() == false)
         {
-            a_value_mutable->value_type->set_type(a_value_mutable->val->value_type);
-            a_value_mutable->value_type->set_is_mutable(true);
+            a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
+
+            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
+                a_value_mutable_or_pure->value_type->set_is_mutable(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
+                a_value_mutable_or_pure->value_type->set_is_pure(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
+            else
+            {
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
+                a_value_mutable_or_pure->value_type->set_is_force_impure();
+            }
         }
 
         return true;
@@ -413,7 +424,9 @@ namespace wo
                             a_value_func->is_constant = true;
                     }
                 }
-                else if (!a_value_func->has_return_value && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
+                else if (!a_value_func->has_return_value
+                    && a_value_func->auto_adjust_return_type
+                    && a_value_func->value_type->get_return_type()->type_name == WO_PSTR(pending))
                 {
                     // This function has no return, set it as void
                     wo_assert(a_value_func->value_type->is_complex());
@@ -924,8 +937,8 @@ namespace wo
     {
         auto* a_value_trib_expr = WO_AST();
         analyze_pass1(a_value_trib_expr->judge_expr);
-        analyze_pass1(a_value_trib_expr->val_if_true);
-        analyze_pass1(a_value_trib_expr->val_or);
+        analyze_pass1(a_value_trib_expr->val_if_true, false);
+        analyze_pass1(a_value_trib_expr->val_or, false);
 
         a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
         if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
@@ -1060,19 +1073,30 @@ namespace wo
 
         return true;
     }
-    WO_PASS2(ast_value_mutable)
+    WO_PASS2(ast_value_mutable_or_pure)
     {
-        auto* a_value_mutable = WO_AST();
+        auto* a_value_mutable_or_pure = WO_AST();
 
-        analyze_pass2(a_value_mutable->val);
+        analyze_pass2(a_value_mutable_or_pure->val);
 
-        if (a_value_mutable->val->value_type->is_pending() == false)
+        if (a_value_mutable_or_pure->val->value_type->is_pending() == false)
         {
-            a_value_mutable->value_type->set_type(a_value_mutable->val->value_type);
-            a_value_mutable->value_type->set_is_mutable(true);
+            a_value_mutable_or_pure->value_type->set_type(a_value_mutable_or_pure->val->value_type);
+
+            if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
+                a_value_mutable_or_pure->value_type->set_is_mutable(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
+                a_value_mutable_or_pure->value_type->set_is_pure(true);
+            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
+            else
+            {
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
+                a_value_mutable_or_pure->value_type->set_is_force_impure();
+            }
         }
         else
-            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_mutable->val, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_mutable_or_pure->val, WO_ERR_UNABLE_DECIDE_EXPR_TYPE);
 
         return true;
     }
@@ -2255,19 +2279,19 @@ namespace wo
         {
             if (a_value_trib_expr->judge_expr->get_constant_value().integer)
             {
-                analyze_pass2(a_value_trib_expr->val_if_true);
+                analyze_pass2(a_value_trib_expr->val_if_true, false);
                 a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
             }
             else
             {
-                analyze_pass2(a_value_trib_expr->val_or);
+                analyze_pass2(a_value_trib_expr->val_or, false);
                 a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
             }
         }
         else
         {
-            analyze_pass2(a_value_trib_expr->val_if_true);
-            analyze_pass2(a_value_trib_expr->val_or);
+            analyze_pass2(a_value_trib_expr->val_if_true, false);
+            analyze_pass2(a_value_trib_expr->val_or, false);
 
             if (a_value_trib_expr->value_type->is_pending())
             {
@@ -3636,7 +3660,7 @@ namespace wo
                     auto step_in_pass2 = has_step_in_step2;
                     has_step_in_step2 = false;
 
-                    analyze_pass1(newtype->typefrom);
+                    analyze_pass1(newtype->typefrom, false);
 
                     // origin_template_func_define->parent->add_child(dumpped_template_func_define);
                     end_template_scope();
@@ -3683,9 +3707,9 @@ namespace wo
             this->skip_side_effect_check = true;
 
             if (in_pass_1)
-                analyze_pass1(type->typefrom);
+                analyze_pass1(type->typefrom, false);
             if (has_step_in_step2)
-                analyze_pass2(type->typefrom);
+                analyze_pass2(type->typefrom, false);
 
             this->skip_side_effect_check = old_state;
 
@@ -4217,7 +4241,7 @@ namespace wo
         }
     }
 
-    void lang::analyze_pass1(grammar::ast_base* ast_node)
+    void lang::analyze_pass1(grammar::ast_base* ast_node, bool type_degradation)
     {
 #define WO_TRY_BEGIN do{
 #define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
@@ -4265,7 +4289,7 @@ namespace wo
         WO_TRY_PASS(ast_namespace);
         WO_TRY_PASS(ast_varref_defines);
         WO_TRY_PASS(ast_value_binary);
-        WO_TRY_PASS(ast_value_mutable);
+        WO_TRY_PASS(ast_value_mutable_or_pure);
         WO_TRY_PASS(ast_value_index);
         WO_TRY_PASS(ast_value_assign);
         WO_TRY_PASS(ast_value_logical_binary);
@@ -4329,14 +4353,17 @@ namespace wo
                 }
                 if (!a_val->value_type->is_pending())
                 {
-                    if (a_val->value_type->is_mutable() && dynamic_cast<ast_value_mutable*>(a_val) == nullptr)
+                    if (type_degradation && dynamic_cast<ast_value_mutable_or_pure*>(a_val) == nullptr)
                     {
-                        a_val->can_be_assign = true;
-                        a_val->value_type->set_is_mutable(false);
-                    }
-                    if (a_val->value_type->is_pure())
-                    {
-                        a_val->value_type->set_is_pure(false);
+                        if (a_val->value_type->is_mutable())
+                        {
+                            a_val->can_be_assign = true;
+                            a_val->value_type->set_is_mutable(false);
+                        }
+                        if (a_val->value_type->is_pure())
+                        {
+                            a_val->value_type->set_is_pure(false);
+                        }
                     }
                 }
                 a_val->update_constant_value(lang_anylizer);
@@ -4701,7 +4728,7 @@ namespace wo
     {
         write_flag_complete_in_pass2 = true;
     }
-    void lang::analyze_pass2(grammar::ast_base* ast_node)
+    void lang::analyze_pass2(grammar::ast_base* ast_node, bool type_degradation)
     {
         has_step_in_step2 = true;
 
@@ -4817,7 +4844,7 @@ namespace wo
                 WO_TRY_PASS(ast_value_funccall);
                 WO_TRY_PASS(ast_value_function_define);
                 WO_TRY_PASS(ast_value_unary);
-                WO_TRY_PASS(ast_value_mutable);
+                WO_TRY_PASS(ast_value_mutable_or_pure);
                 WO_TRY_PASS(ast_value_assign);
                 WO_TRY_PASS(ast_value_type_cast);
                 WO_TRY_PASS(ast_value_type_judge);
@@ -4852,14 +4879,17 @@ namespace wo
 
                 if (!a_value->value_type->is_pending())
                 {
-                    if (a_value->value_type->is_mutable() && dynamic_cast<ast_value_mutable*>(a_value) == nullptr)
+                    if (type_degradation && dynamic_cast<ast_value_mutable_or_pure*>(a_value) == nullptr)
                     {
-                        a_value->can_be_assign = true;
-                        a_value->value_type->set_is_mutable(false);
-                    }
-                    if (a_value->value_type->is_pure())
-                    {
-                        a_value->value_type->set_is_pure(false);
+                        if (a_value->value_type->is_mutable())
+                        {
+                            a_value->can_be_assign = true;
+                            a_value->value_type->set_is_mutable(false);
+                        }
+                        if (a_value->value_type->is_pure())
+                        {
+                            a_value->value_type->set_is_pure(false);
+                        }
                     }
                 }
             }
@@ -5715,9 +5745,9 @@ namespace wo
                 else
                     return *_store_value;
             }
-            else if (auto* a_value_mutable = dynamic_cast<ast_value_mutable*>(value))
+            else if (auto* a_value_mutable_or_pure = dynamic_cast<ast_value_mutable_or_pure*>(value))
             {
-                return analyze_value(a_value_mutable->val, compiler, get_pure_value);
+                return analyze_value(a_value_mutable_or_pure->val, compiler, get_pure_value);
             }
             else if (auto* a_value_type_cast = dynamic_cast<ast_value_type_cast*>(value))
             {

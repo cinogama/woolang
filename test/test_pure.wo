@@ -63,6 +63,23 @@ namespace test_pure
         none?;
         }
     }
+    
+    func pure_test_foo15()
+    {
+        do {[1] = 2};
+    }
+    func pure_test_foo16()
+    {
+        do {[1] = 2}->getor(0, 25);
+    }
+    func pure_test_foo17()
+    {
+        do {[1] = mut 2};
+    }
+    func pure_test_foo18()
+    {
+        do {[1] = mut 2}->getor(0, 25);
+    }
 
     func main()
     {
@@ -82,7 +99,16 @@ namespace test_pure
         test_assure(std::is_same_type:< typeof(pure_test_foo12), ()=> pure void>);
         test_assure(std::is_same_type:< typeof(pure_test_foo13), ()=> impure void>);
         test_assure(std::is_same_type:< typeof(pure_test_foo14), ()=> pure void>);
-        
+
+        test_assure(std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, pure option<mut int>>);
+        test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, option<mut int>>);  
+        test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, option<int>>);   
+        test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, pure option<int>>);  
+
+        test_assure(std::is_pure_function_type:< typeof(pure_test_foo15) >);  
+        test_assure(std::is_pure_function_type:< typeof(pure_test_foo16) >);  
+        test_assure(std::is_pure_function_type:< typeof(pure_test_foo17) >);  
+        test_assure(!std::is_pure_function_type:< typeof(pure_test_foo18) >);  
     }
 }
 

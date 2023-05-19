@@ -1321,16 +1321,19 @@ namespace std
     extern("rslib_std_halt") public func halt(msg: string) => void;
     extern("rslib_std_panic") public func panic(msg: string)=> void;
 
-    extern("rslib_std_declval") public func declval<T>()=> pure T;
+    extern("rslib_std_declval") public func declval<T>()=> T;
 
-    public alias origin_t<T> = typeof(\=std::declval:<T>();());
+    public alias origin_t<T> = immut impure T;
+    public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));
+    public alias pure_if_immutable_t<T> = typeof(std::is_mutable_type:<T> ? std::declval:<impure T>() | pure std::declval:<impure T>());
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
     public let is_same_base_type<A, B> = is_same_type:<mut pure A, mut pure B>;
     public let is_accpetable_base_type<A, B> = std::declval:<mut pure A>() is mut pure B;
     public let is_mutable_type<A> = is_same_type:<A, mut A>;
     public let is_pure_type<A> = is_same_type:<A, pure A>;
-
+    public let is_pure_function_type<FT> = std::is_pure_type:<std::function_result_t<FT>>;
+    
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> pure int;
     extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> pure int;
     extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> pure int;
@@ -2146,7 +2149,7 @@ namespace dict
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> pure bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, immut VT>, index: KT, default_val: VT)=> pure VT;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::pure_if_immutable_t<VT>;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> pure bool;
@@ -2204,15 +2207,7 @@ namespace dict
             let (nk, nv) = functor(key, val);
             do as pure result->set(nk, nv);
         }
-
-        if (std::is_same_type:<(AT, BT), immut impure MayPureTupleType>)
-            return result->unsafe::cast:<dict<AT, BT>>;
-        else if (std::is_same_type:<(mut AT, BT), immut impure MayPureTupleType>)
-            return result->unsafe::cast:<dict<mut AT, BT>>;
-        else if (std::is_same_type:<(AT, mut BT), immut impure MayPureTupleType>)
-            return result->unsafe::cast:<dict<AT, mut BT>>;
-        else
-            return result->unsafe::cast:<dict<mut AT, mut BT>>;
+        return result->unsafe::cast:<dict<AT, BT>>;
     }
     public func unmapping<KT, VT>(self: dict<KT, VT>)
     {
@@ -2674,6 +2669,8 @@ namespace std
         l_pure,
         l_impure,
         l_immut,
+
+        l_typeid,
         l_macro
     }
 

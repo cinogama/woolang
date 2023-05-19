@@ -253,11 +253,12 @@ namespace wo
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
-        struct ast_value_mutable : virtual public ast_value
+        struct ast_value_mutable_or_pure : virtual public ast_value
         {
             ast_value* val = nullptr;
+            lex_type mark_type = +lex_type::l_error;
 
-            ast_value_mutable()
+            ast_value_mutable_or_pure()
                 : ast_value(new ast_type(WO_PSTR(pending)))
             {
             }
@@ -2162,16 +2163,22 @@ namespace wo
             }
         };
 
-        struct pass_mark_value_as_mut : public astnode_builder
+        struct pass_mark_value_as_mut_or_pure : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
                 wo_assert(input.size() == 2);
 
-                ast_value_mutable* result = new ast_value_mutable;
+                ast_value_mutable_or_pure* result = new ast_value_mutable_or_pure;
                 result->val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
+                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure ||
+                    WO_NEED_TOKEN(0).type == +lex_type::l_mut ||
+                    WO_NEED_TOKEN(0).type == +lex_type::l_immut ||
+                    WO_NEED_TOKEN(0).type == +lex_type::l_impure);
+
+                result->mark_type = WO_NEED_TOKEN(0).type;
                 return (ast_basic*)result;
             }
         };
