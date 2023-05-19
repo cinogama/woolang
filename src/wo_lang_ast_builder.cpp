@@ -751,7 +751,6 @@ namespace wo
             //    WO_REINSTANCE(memberinfo.second.init_value_may_nil);
             //}
             WO_REINSTANCE(dumm->using_type_name);
-
             return dumm;
         }
         //////////////////////////////////////////
@@ -2315,7 +2314,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>] = _register_builder<pass_type_judgement>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut_or_pure>] = _register_builder<pass_mark_value_as_mut_or_pure>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
 
@@ -2418,6 +2417,7 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_type_cast>] = _register_builder<pass_type_cast>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_literal>] = _register_builder<pass_literal>();
+
             _registed_builder_function_id_list[meta::type_hash<pass_typeid>] = _register_builder<pass_typeid>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_format_string>] = _register_builder<pass_format_string>();

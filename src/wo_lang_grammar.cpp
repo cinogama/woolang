@@ -467,7 +467,7 @@ namespace wo
 
                 gm::nt(L"RETNVALUE") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
+                gm::nt(L"RETNVALUE") >> gm::symlist{ gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"EXPRESSION"), gm::te(gm::ttype::l_semicolon) }
@@ -510,10 +510,22 @@ namespace wo
                 gm::nt(L"RIGHT") >> gm::symlist{ gm::nt(L"TRI_EXPR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+                gm::nt(L"MAY_MUT_PURE_TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
+                gm::nt(L"MAY_MUT_PURE_TRI_EXPR") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"TRI_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut_or_pure),
+
+                gm::nt(L"MAY_MUT_PURE_TRI_EXPR") >> gm::symlist{ gm::te(gm::ttype::l_pure), gm::nt(L"TRI_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut_or_pure),
+
+                gm::nt(L"MAY_MUT_PURE_TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_EXPR") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
                 gm::nt(L"TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_ITEM"),gm::te(gm::ttype::l_question),gm::nt(L"TRI_EXPR"),gm::te(gm::ttype::l_or),gm::nt(L"TRI_EXPR") }
+                gm::nt(L"TRI_EXPR") >> gm::symlist{ gm::nt(L"TRI_ITEM"),gm::te(gm::ttype::l_question),gm::nt(L"MAY_MUT_PURE_TRI_EXPR"),gm::te(gm::ttype::l_or),gm::nt(L"MAY_MUT_PURE_TRI_EXPR") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_trib_expr),
 
                 gm::nt(L"FACTOR") >> gm::symlist{ gm::nt(L"FUNC_DEFINE") }
@@ -547,7 +559,7 @@ namespace wo
 
                 gm::nt(L"RETURN_EXPR_BLOCK_IN_LAMBDA") >> gm::symlist{ gm::nt(L"RETURN_EXPR_IN_LAMBDA") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_sentence_block<0>),
-                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
+                gm::nt(L"RETURN_EXPR_IN_LAMBDA") >> gm::symlist{ gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_return),
 
                 gm::nt(L"RETURN_TYPE_DECLEAR_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
@@ -607,7 +619,7 @@ namespace wo
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"RIGHT"),gm::te(gm::ttype::l_right_brackets) }
+                gm::nt(L"TYPEOF") >> gm::symlist{ gm::te(gm::ttype::l_typeof),gm::te(gm::ttype::l_left_brackets),gm::nt(L"MAY_MUT_PURE_VALUE"),gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_typeof),
 
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
@@ -788,7 +800,7 @@ namespace wo
 
                 gm::nt(L"CONSTANT_TUPLE") >> gm::symlist{
                                         gm::te(gm::ttype::l_left_brackets),
-                                        gm::nt(L"MAY_MUT_VALUE"),
+                                        gm::nt(L"MAY_MUT_PURE_VALUE"),
                                         gm::te(gm::ttype::l_comma),
                                         gm::nt(L"COMMA_EXPR"),
                                         gm::te(gm::ttype::l_right_brackets) }
@@ -821,7 +833,7 @@ namespace wo
                 gm::nt(L"CONSTANT_MAP_PAIR") >> gm::symlist{
                                                 gm::nt(L"CONSTANT_ARRAY"),
                                                 gm::te(gm::ttype::l_assign), 
-                                                gm::nt(L"MAY_MUT_VALUE") }
+                                                gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_mapping_pair),
 
                 gm::nt(L"UNARIED_FACTOR") >> gm::symlist{ gm::te(gm::ttype::l_sub),gm::nt(L"UNARIED_FACTOR") }
@@ -912,17 +924,20 @@ namespace wo
                 gm::nt(L"COMMA_EXPR") >> gm::symlist{gm::nt(L"COMMA_MAY_EMPTY") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"MAY_MUT_VALUE") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
 
-                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"MAY_MUT_VALUE") }
+                gm::nt(L"COMMA_EXPR_ITEMS") >> gm::symlist{ gm::nt(L"COMMA_EXPR_ITEMS"),gm::te(gm::ttype::l_comma), gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"MAY_MUT_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
+                gm::nt(L"MAY_MUT_PURE_VALUE") >> gm::symlist{ gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
-                gm::nt(L"MAY_MUT_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"RIGHT") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut),
+                gm::nt(L"MAY_MUT_PURE_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_mut), gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut_or_pure),
+
+                gm::nt(L"MAY_MUT_PURE_VALUE") >> gm::symlist{ gm::te(gm::ttype::l_pure), gm::nt(L"RIGHT") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_mark_value_as_mut_or_pure),
 
                 gm::nt(L"COMMA_MAY_EMPTY") >> gm::symlist{gm::te(gm::ttype::l_comma)}
                 >> WO_ASTBUILDER_INDEX(ast::pass_empty),
@@ -1087,7 +1102,7 @@ namespace wo
                 gm::nt(L"STRUCT_MEMBERS_INIT_LIST") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_INIT_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"STRUCT_MEMBER_INIT_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
 
-                gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_assign), gm::nt(L"MAY_MUT_VALUE") }
+                gm::nt(L"STRUCT_MEMBER_INIT_ITEM") >> gm::symlist{ gm::nt(L"IDENTIFIER"), gm::te(gm::ttype::l_assign), gm::nt(L"MAY_MUT_PURE_VALUE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_struct_member_init_pair),
 
                 ////////////////////////////////////////////////////

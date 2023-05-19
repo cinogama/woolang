@@ -166,7 +166,7 @@ let issame<A, B> =
     valof:<A> is B && valof:<B> is A;
 
 alias bool_if_void<T> = 
-    typeof(issame:<T, void> ? valof:<bool> | valof:<T>);
+    impure typeof(issame:<T, void> ? valof:<bool> | valof:<T>);
 
 alias boom_t = typeof(func(){return 0;});
 

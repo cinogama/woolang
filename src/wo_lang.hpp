@@ -210,7 +210,7 @@ namespace wo
         WO_PASS(ast_namespace);
         WO_PASS(ast_varref_defines);
         WO_PASS(ast_value_binary);
-        WO_PASS(ast_value_mutable);
+        WO_PASS(ast_value_mutable_or_pure);
         WO_PASS(ast_value_index);
         WO_PASS(ast_value_assign);
         WO_PASS(ast_value_logical_binary);
@@ -250,7 +250,7 @@ namespace wo
         void analyze_pattern_in_pass2(ast::ast_pattern_base* pattern, ast::ast_value* initval);
         void analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, ir_compiler* compiler);
         void collect_ast_nodes_for_pass1(grammar::ast_base* ast_node);
-        void analyze_pass1(grammar::ast_base* ast_node);
+        void analyze_pass1(grammar::ast_base* ast_node, bool type_degradation = true);
         lang_symbol* analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types);
         ast::ast_value_function_define* analyze_pass_template_reification(ast::ast_value_function_define* origin_template_func_define, std::vector<ast::ast_type*> template_args_types);
 
@@ -270,7 +270,7 @@ namespace wo
 
         void start_trying_pass2();
         void end_trying_pass2();
-        void analyze_pass2(grammar::ast_base* ast_node);
+        void analyze_pass2(grammar::ast_base* ast_node, bool type_degradation=true);
         void clean_and_close_lang();
 
         ast::ast_type* analyze_template_derivation(
