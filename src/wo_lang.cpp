@@ -167,6 +167,19 @@ namespace wo
             }
         }
 
+        if (a_value_idx->from->value_type->is_vec() || a_value_idx->from->value_type->is_map())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        a_value_idx, WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC);
+                }
+            }
+        }
+
         if (a_value_idx->value_type->is_mutable())
         {
             if (!this->skip_side_effect_check)
@@ -1645,6 +1658,18 @@ namespace wo
             }
         }
 
+        if (a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_map())
+        {
+            if (!this->skip_side_effect_check)
+            {
+                auto* located_function_scope = in_function_pass2();
+                if (located_function_scope != nullptr)
+                {
+                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
+                        a_value_index, WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC);
+                }
+            }
+        }
         if (a_value_index->value_type->is_mutable())
         {
             if (!this->skip_side_effect_check)
