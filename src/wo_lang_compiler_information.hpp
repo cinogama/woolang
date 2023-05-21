@@ -270,6 +270,8 @@
 
 #define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"获取了非纯表达式的结果"
 
+#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"这个类型的容器中的元素可被外部改变"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -539,6 +541,7 @@
 
 #define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"The result of an impure expression was fetched"
 
+#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"This container's data may changed out side"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

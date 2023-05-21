@@ -10,8 +10,8 @@
 #   define WO_DEBUG_SFX "-debug"
 #endif
 
-constexpr wo_integer_t version = WO_VERSION(1, 11, 5, 1);
-constexpr char         version_str[] = WO_VERSION_STR(1, 11, 5, 1) WO_DEBUG_SFX;
+constexpr wo_integer_t version = WO_VERSION(1, 11, 5, 2);
+constexpr char         version_str[] = WO_VERSION_STR(1, 11, 5, 2) WO_DEBUG_SFX;
 
 #undef WO_DEBUG_SFX
 #undef WO_VERSION_STR
