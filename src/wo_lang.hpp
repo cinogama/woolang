@@ -185,7 +185,7 @@ namespace wo
         ~lang();
         ast::ast_type* generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates);
         bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming);
-        bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*> s);
+        bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s);
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {});
 
         std::vector<bool> in_pass2 = { false };

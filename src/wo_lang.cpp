@@ -950,13 +950,34 @@ namespace wo
     {
         auto* a_value_trib_expr = WO_AST();
         analyze_pass1(a_value_trib_expr->judge_expr);
-        analyze_pass1(a_value_trib_expr->val_if_true, false);
-        analyze_pass1(a_value_trib_expr->val_or, false);
 
-        a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
-        if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
-            a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
+        if (a_value_trib_expr->judge_expr->is_constant
+            && a_value_trib_expr->judge_expr->value_type->is_bool())
+        {
+            if (a_value_trib_expr->judge_expr->get_constant_value().integer)
+            {
+                analyze_pass1(a_value_trib_expr->val_if_true, false);
+                if (!a_value_trib_expr->val_if_true->value_type->is_pending())
+                    a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
+            }
+            else
+            {
+                analyze_pass1(a_value_trib_expr->val_or, false);
+                if (!a_value_trib_expr->val_or->value_type->is_pending())
+                    a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
+            }
 
+            a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
+        }
+        else
+        {
+            analyze_pass1(a_value_trib_expr->val_if_true, false);
+            analyze_pass1(a_value_trib_expr->val_or, false);
+
+            a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_if_true->value_type);
+            if (!a_value_trib_expr->value_type->set_mix_types(a_value_trib_expr->val_or->value_type, false))
+                a_value_trib_expr->value_type->set_type_with_name(WO_PSTR(pending));
+        }
         return true;
     }
     WO_PASS1(ast_do_impure)
@@ -2298,8 +2319,6 @@ namespace wo
                 a_value_trib_expr->judge_expr->value_type->get_type_name(false).c_str());
         }
 
-        a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
-
         if (a_value_trib_expr->judge_expr->is_constant)
         {
             if (a_value_trib_expr->judge_expr->get_constant_value().integer)
@@ -2312,6 +2331,8 @@ namespace wo
                 analyze_pass2(a_value_trib_expr->val_or, false);
                 a_value_trib_expr->value_type->set_type(a_value_trib_expr->val_or->value_type);
             }
+
+            a_value_trib_expr->judge_expr->update_constant_value(lang_anylizer);
         }
         else
         {
@@ -3705,7 +3726,7 @@ namespace wo
 
         return result;
     }
-    bool lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*> s)
+    bool lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s)
     {
         if (s.find(type) != s.end())
             return true;
