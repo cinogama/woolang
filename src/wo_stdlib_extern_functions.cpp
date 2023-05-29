@@ -471,6 +471,16 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_val(vm, arr);
 }
 
+WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args, size_t argc)
+{
+    std::wstring buf({(wchar_t)(wo_handle_t)wo_int(args + 1)});
+    return wo_ret_string(vm, (wo_string(args + 0) + wo::wstr_to_str(buf)).c_str());
+}
+WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_string(vm, (std::string(wo_string(args + 0)) + (char)(wo_handle_t)wo_int(args + 1)).c_str());
+}
+
 WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
 {
     static std::chrono::system_clock _sys_clock;
@@ -1798,6 +1808,21 @@ namespace string
 
     extern("rslib_std_string_split")
         public func split(val:string, spliter:string)=> pure array<string>;
+
+    public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> pure string
+        where ch is char || ch is cchar;
+    {
+        if (ch is char)
+        {
+            extern("rslib_std_string_append_char")func _append_char(val: string, ch: char)=> pure string;
+            return _append_char(val, ch);
+        }
+        else
+        {
+            extern("rslib_std_string_append_cchar")func _append_cchar(val: string, ch: cchar)=> pure string;
+            return _append_cchar(val, ch);
+        }
+    }
 }
 )" R"(
 namespace array

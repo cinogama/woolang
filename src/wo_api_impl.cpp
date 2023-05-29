@@ -401,6 +401,12 @@ wo_string_t wo_string(wo_value value)
     }
     return _rsvalue->string->c_str();
 }
+
+const void* wo_buffer(const wo_value value)
+{
+    return (const void*)wo_string(value);
+}
+
 wo_bool_t wo_bool(const wo_value value)
 {
     auto _rsvalue = WO_VAL(value);
