@@ -122,6 +122,7 @@ WO_API wo_string_t  wo_string(const wo_value value);
 WO_API wo_bool_t    wo_bool(const wo_value value);
 //WO_API wo_value     wo_value_of_gchandle(wo_value value);
 WO_API float        wo_float(const wo_value value);
+WO_API const void*  wo_buffer(const wo_value value);
 
 WO_API void wo_set_char(wo_value value, wo_char_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
