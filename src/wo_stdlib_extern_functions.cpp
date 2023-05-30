@@ -314,6 +314,12 @@ WO_API wo_api rslib_std_string_beginwith(wo_vm vm, wo_value args, size_t argc)
     wo_string_t aim = wo_string(args + 0);
     wo_string_t begin = wo_string(args + 1);
 
+    size_t aimlen = strlen(aim);
+    size_t beginlen = strlen(begin);
+
+    if (beginlen > aimlen)
+        return wo_ret_bool(vm, false);
+
     while ((*aim) && (*begin))
     {
         if (*aim != *begin)
