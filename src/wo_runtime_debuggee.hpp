@@ -842,11 +842,11 @@ profiler                        [time = 1.]   Collect runtime cost in following
                         
                         for (auto* funcinfo : results)
                         {
-                            printf(ANSI_HIG "%s" ANSI_RST "\n%-30s\t%f\t%f\n", 
+                            printf(ANSI_HIG "%s" ANSI_RST "\n%-30s\t%f%%\t%f%%\n", 
                                 funcinfo->first.c_str(),
                                 "",
-                                (double)funcinfo->second.m_inclusive /(double)profiler_total_count,
-                                (double)funcinfo->second.m_exclusive / (double)profiler_total_count
+                                100.0 * (double)funcinfo->second.m_inclusive /(double)profiler_total_count,
+                                100.0 * (double)funcinfo->second.m_exclusive / (double)profiler_total_count
                             );
                         }
                         wo_stdout << wo_endl;
