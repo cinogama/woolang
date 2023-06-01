@@ -348,11 +348,11 @@ WO_API void         wo_gc_stop();
 WO_API void         wo_gc_pause();
 WO_API void         wo_gc_resume();
 
-WO_API void         wo_attach_default_debuggee(wo_vm vm);
-WO_API wo_bool_t    wo_has_attached_debuggee(wo_vm vm);
-WO_API void         wo_disattach_debuggee(wo_vm vm);
-WO_API void         wo_disattach_and_free_debuggee(wo_vm vm);
-WO_API void         wo_break_immediately(wo_vm vm);
+WO_API void         wo_attach_default_debuggee();
+WO_API wo_bool_t    wo_has_attached_debuggee();
+WO_API void         wo_disattach_debuggee();
+WO_API void         wo_break_immediately();
+WO_API void         wo_break_specify_immediately(wo_vm vmm);
 WO_API void         wo_handle_ctrl_c(void(*handler)(int));
 
 WO_API wo_string_t  wo_debug_trace_callstack(wo_vm vm, size_t layer);

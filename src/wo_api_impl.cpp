@@ -99,9 +99,9 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
             case 4:
                 if (wo::vmbase::_this_thread_vm)
                 {
-                    if (!wo_has_attached_debuggee((wo_vm)wo::vmbase::_this_thread_vm))
-                        wo_attach_default_debuggee((wo_vm)wo::vmbase::_this_thread_vm);
-                    wo_break_immediately((wo_vm)wo::vmbase::_this_thread_vm);
+                    if (!wo_has_attached_debuggee())
+                        wo_attach_default_debuggee();
+                    wo_break_immediately();
                     return;
                 }
                 else
@@ -133,17 +133,12 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
 void _wo_ctrl_c_signal_handler(int sig)
 {
     // CTRL + C
-    std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
-
     wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
 
-    for (auto vm : wo::vmbase::_alive_vm_list)
-    {
-        if (!wo_has_attached_debuggee((wo_vm)vm))
-            wo_attach_default_debuggee((wo_vm)vm);
+    if (!wo_has_attached_debuggee())
+        wo_attach_default_debuggee();
 
-        wo_break_immediately((wo_vm)vm);
-    }
+    wo_break_immediately();
 
     wo_handle_ctrl_c(_wo_ctrl_c_signal_handler);
 }
@@ -2667,38 +2662,40 @@ wo_bool_t wo_gchandle_close(wo_value gchandle)
 }
 
 // DEBUGGEE TOOLS
-void wo_attach_default_debuggee(wo_vm vm)
+void wo_attach_default_debuggee()
 {
     wo::default_debuggee* dgb = new wo::default_debuggee;
-    if (auto* old_debuggee = WO_VM(vm)->attach_debuggee(dgb))
+    if (auto* old_debuggee = wo::vmbase::attach_debuggee(dgb))
         delete old_debuggee;
 }
 
-wo_bool_t wo_has_attached_debuggee(wo_vm vm)
+wo_bool_t wo_has_attached_debuggee()
 {
-    if (WO_VM(vm)->current_debuggee())
+    if (wo::vmbase::current_debuggee() != nullptr)
         return true;
     return false;
 }
 
-void wo_disattach_debuggee(wo_vm vm)
+void wo_disattach_debuggee()
 {
-    WO_VM(vm)->attach_debuggee(nullptr);
+    if (auto* old_debuggee = wo::vmbase::attach_debuggee(nullptr))
+        delete old_debuggee;
 }
 
-void wo_disattach_and_free_debuggee(wo_vm vm)
+void wo_break_immediately()
 {
-    if (auto* dbg = WO_VM(vm)->attach_debuggee(nullptr))
-        delete dbg;
-}
-
-void wo_break_immediately(wo_vm vm)
-{
-    if (auto* debuggee = dynamic_cast<wo::default_debuggee*>(WO_VM(vm)->current_debuggee()))
+    if (auto* debuggee = dynamic_cast<wo::default_debuggee*>(wo::vmbase::current_debuggee()))
         debuggee->breakdown_immediately();
     else
         wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_immediately' can only break the vm attached default debuggee.");
+}
 
+void wo_break_specify_immediately(wo_vm vmm)
+{
+    if (auto* debuggee = dynamic_cast<wo::default_debuggee*>(wo::vmbase::current_debuggee()))
+        debuggee->breakdown_at_vm_immediately(WO_VM(vmm));
+    else
+        wo_fail(WO_FAIL_DEBUGGEE_FAIL, "'wo_break_immediately' can only break the vm attached default debuggee.");
 }
 
 wo_integer_t wo_extern_symb(wo_vm vm, wo_string_t fullname)

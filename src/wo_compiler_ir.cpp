@@ -90,17 +90,17 @@ namespace wo
         size_t result = FAIL_INDEX;
         for (auto& locinfo : fnd->second)
         {
-            if (strict)
+            if (ignore_unbreakable || locinfo.unbreakable == false)
             {
-                if (locinfo.begin_row_no == rowno)
+                if (strict)
                 {
-                    if (locinfo.ip < result)
-                        result = locinfo.ip;
+                    if (locinfo.begin_row_no == rowno)
+                    {
+                        if (locinfo.ip < result)
+                            result = locinfo.ip;
+                    }
                 }
-            }
-            else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
-            {
-                if (ignore_unbreakable || locinfo.unbreakable == false)
+                else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
                 {
                     if (locinfo.ip < result)
                         result = locinfo.ip;
