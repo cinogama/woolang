@@ -856,12 +856,13 @@ profiler                        [time = 1.]   Collect runtime cost in following
                     }
                     if (current_time > profiler_last_sampling_times[vmm] + sampling_interval)
                     {
-                        ++profiler_total_count;
                         profiler_last_sampling_times[vmm] = current_time + sampling_interval;
                         auto&& calls = vmm->dump_call_stack_func_name();
 
                         if (calls.empty() == false)
                         {
+                            profiler_total_count += calls.size();
+
                             for (auto& info : calls)
                                 profiler_records[info].m_inclusive++;
 
