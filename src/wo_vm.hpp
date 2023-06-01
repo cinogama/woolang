@@ -133,7 +133,7 @@ namespace wo
         bool _vm_br_yield_flag = false;
 
     protected:
-        debuggee_base* attaching_debuggee = nullptr;
+        inline static debuggee_base* attaching_debuggee = nullptr;
 
     public:
         void inc_destructable_instance_count() noexcept
@@ -174,17 +174,27 @@ namespace wo
             _vm_br_yield_flag = true;
         }
 
-        inline debuggee_base* attach_debuggee(debuggee_base* dbg)
+        inline static debuggee_base* attach_debuggee(debuggee_base* dbg)
         {
-            if (dbg)
-                interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
-            else if (attaching_debuggee)
-                clear_interrupt(vmbase::vm_interrupt_type::DEBUG_INTERRUPT);
+            std::shared_lock g1(_alive_vm_list_mx);
+
             auto* old_debuggee = attaching_debuggee;
             attaching_debuggee = dbg;
+            
+            if (dbg == nullptr && old_debuggee != nullptr)
+            {
+                for (auto* vm_instance : _alive_vm_list)
+                    wo_asure(vm_instance->clear_interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
+            }
+            if (dbg != nullptr && old_debuggee == nullptr)
+            {
+                for (auto* vm_instance : _alive_vm_list)
+                    wo_asure(vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
+            }
+            
             return old_debuggee;
         }
-        inline debuggee_base* current_debuggee()
+        inline static debuggee_base* current_debuggee()
         {
             return attaching_debuggee;
         }
@@ -274,6 +284,9 @@ namespace wo
 
             wo_assert(_alive_vm_list.find(this) == _alive_vm_list.end(),
                 "This vm is already exists in _alive_vm_list, that is illegal.");
+
+            if (current_debuggee() != nullptr)
+                wo_asure(this->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
 
             _alive_vm_list.insert(this);
         }
@@ -428,8 +441,6 @@ namespace wo
 
             new_vm->env = env;  // env setted, gc will scan this vm..
             ++env->_running_on_vm_count;
-
-            new_vm->attach_debuggee(this->attaching_debuggee);
 
             wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(new_vm)));
             return new_vm;
@@ -875,6 +886,50 @@ namespace wo
                     return;
                 }
             }
+        }
+
+        inline std::vector<std::string> dump_call_stack_func_name(bool need_offset = true)const
+        {
+            // TODO; Dump call stack without pdb
+            const program_debug_data_info::location* src_location_info = nullptr;
+            if (env->program_debug_info != nullptr)
+                src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
+            // NOTE: When vm running, rt_ip may point to:
+            // [ -- COMMAND 6bit --] [ - DR 2bit -] [ ----- OPNUM1 ------] [ ----- OPNUM2 ------]
+            //                                     ^1                     ^2                     ^3
+            // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
+            // So we do a move of 1BYTE here, for getting correct debuginfo.
+
+            std::vector<std::string> result;
+
+            size_t call_trace_count = 0;
+
+            if (src_location_info)
+                result.push_back(env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)));
+            else
+                result.push_back("Extern function");
+
+            value* base_callstackinfo_ptr = (bp + 1);
+            while (base_callstackinfo_ptr <= this->stack_mem_begin)
+            {
+                ++call_trace_count;
+                if (base_callstackinfo_ptr->type == value::valuetype::callstack)
+                {
+                    if (src_location_info)
+                        result.push_back(env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)));
+                    else
+                        result.push_back("Extern function");
+
+                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
+                    base_callstackinfo_ptr++;
+                }
+                else
+                {
+                    result.push_back("Extern function");
+                    break;
+                }
+            }
+            return result;
         }
         inline size_t callstack_layer() const
         {

@@ -3,53 +3,70 @@
 #include "wo_lang.hpp"
 
 #include <mutex>
+#include <chrono>
+#include <algorithm>
+
+wo_real_t _wo_inside_time_sec();
 
 namespace wo
 {
     class default_debuggee : public wo::debuggee_base
     {
         std::recursive_mutex _mx;
-        runtime_env* _env = nullptr;
 
-        std::set<size_t> break_point_traps;
-        std::map<std::wstring, std::map<size_t, bool>> template_breakpoint;
+        struct _env_context
+        {
+            std::map<size_t, std::pair<std::wstring, size_t>> break_point_traps;
+        };
+        std::map<runtime_env*, _env_context> env_context;
 
         inline static std::atomic_bool stop_attach_debuggee_for_exit_flag = false;
         inline static std::atomic_bool first_time_to_breakdown = true;
+
+        struct cpu_profiler_record_infornmation
+        {
+            size_t m_inclusive;
+            size_t m_exclusive;
+        };
+        std::unordered_map<std::string, cpu_profiler_record_infornmation> profiler_records = {};
+        bool                                    profiler_enabled = false;
+        double                                  profiler_until = 0.;
+        size_t                                  profiler_total_count = 0;
+        std::unordered_map<wo::vmbase*, double> profiler_last_sampling_times = {};
+
     public:
         default_debuggee()
         {
 
         }
-        bool set_breakpoint(const std::wstring& src_file, size_t rowno)
+        bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
-            if (_env)
+
+            auto& context = env_context[vmm->env];
+            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false);
+
+            if (breakip < vmm->env->rt_code_len)
             {
-                auto breakip = _env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false);
-
-                if (breakip < _env->rt_code_len)
-                {
-                    break_point_traps.insert(breakip);
-                    return true;
-                }
-                return false;
+                context.break_point_traps[breakip] = std::make_pair(src_file, rowno);
+                return true;
             }
-            else
-                template_breakpoint[src_file][rowno] = true;
-
-            return true;
+            return false;
         }
-        void clear_breakpoint(const std::wstring& src_file, size_t rowno)
+        void clear_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
-            if (_env)
-                break_point_traps.erase(_env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false));
-            else
-                template_breakpoint[src_file][rowno] = false;
+
+            auto& context = env_context[vmm->env];
+            context.break_point_traps.erase(vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false));
         }
         void breakdown_immediately()
         {
+            breakdown_temp_immediately = true;
+        }
+        void breakdown_at_vm_immediately(wo::vmbase* vmm)
+        {
+            focus_on_vm = vmm;
             breakdown_temp_for_stepir = true;
         }
     private:
@@ -85,6 +102,10 @@ step            s                             Execute next line of src, will ste
 stepir          si                            Execute next command.
 global          g               <offset>      Display global data.
 clear           cls                           Clean the screen.
+thread          vm              <id>          Continue and break at specify vm.
+profiler                        [time = 1.]   Collect runtime cost in following 
+                                            'time' sec(s), only collect current 
+                                            env's profiler data.
 )"
 << wo_endl;
         }
@@ -149,25 +170,22 @@ clear           cls                           Clean the screen.
             size_t rt_ip_end;
 
         };
-        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(const std::string& funcname)
+        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(wo::vmbase* vmm, const std::string& funcname)
         {
-            if (_env)
+            std::vector<function_code_info> result;
+            for (auto& [funcsign_name, pos] : vmm->env->program_debug_info->_function_ip_data_buf)
             {
-                std::vector<function_code_info> result;
-                for (auto& [funcsign_name, pos] : _env->program_debug_info->_function_ip_data_buf)
+                if (funcsign_name.rfind(funcname) != std::string::npos)
                 {
-                    if (funcsign_name.rfind(funcname) != std::string::npos)
-                    {
-                        auto begin_rt_ip = _env->program_debug_info->get_runtime_ip_by_ip(pos.ir_begin);
-                        auto end_rt_ip = _env->program_debug_info->get_runtime_ip_by_ip(pos.ir_end);
-                        result.push_back({ funcsign_name,pos.ir_begin,pos.ir_end, begin_rt_ip , end_rt_ip });
-                    }
+                    auto begin_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_begin);
+                    auto end_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_end);
+                    result.push_back({ funcsign_name,pos.ir_begin,pos.ir_end, begin_rt_ip , end_rt_ip });
                 }
-                return result;
             }
-            return {};
+            return result;
         }
 
+        bool breakdown_temp_immediately = false;
         bool breakdown_temp_for_stepir = false;
         bool breakdown_temp_for_return = false;
         size_t breakdown_temp_for_return_callstackdepth = 0;
@@ -183,6 +201,8 @@ clear           cls                           Clean the screen.
         const wo::byte_t* current_runtime_ip;
         wo::value* current_frame_sp;
         wo::value* current_frame_bp;
+
+        wo::vmbase* focus_on_vm = nullptr;
 
         void display_variable(wo::vmbase* vmm, wo::program_debug_data_info::function_symbol_infor::variable_symbol_infor& varinfo)
         {
@@ -220,6 +240,8 @@ clear           cls                           Clean the screen.
             auto&& inputbuf = get_and_split_line();
             if (need_possiable_input(inputbuf, main_command))
             {
+                auto& context = env_context[vmm->env];
+
                 printf(ANSI_RST);
                 if (main_command == "?" || main_command == "help")
                     command_help();
@@ -227,6 +249,40 @@ clear           cls                           Clean the screen.
                 {
                     printf(ANSI_HIG "Continue running...\n" ANSI_RST);
                     return false;
+                }
+                else if (main_command == "vm" || main_command == "thread")
+                {
+                    size_t vmid = 0;
+                    bool continue_run = false;
+                    if (need_possiable_input(inputbuf, vmid))
+                    {
+                        if (wo::vmbase::_alive_vm_list_mx.try_lock_shared())
+                        {
+                            if (vmid < wo::vmbase::_alive_vm_list.size())
+                            {
+                                auto vmidx = wo::vmbase::_alive_vm_list.begin();
+                                for (size_t i = 0; i < vmid; ++i)
+                                    ++vmidx;
+
+                                focus_on_vm = *vmidx;
+                                breakdown_temp_for_stepir = true;
+
+                                printf(ANSI_HIG "Continue running and break at vm (%zu:%p)...\n" ANSI_RST, vmid, focus_on_vm);
+                                continue_run = true;
+                            }
+                            else
+                                printf(ANSI_HIR "You must input valid vm id.\n" ANSI_RST);
+
+                            wo::vmbase::_alive_vm_list_mx.unlock_shared();
+                        }
+                    }
+                    else
+                        printf(ANSI_HIR "You must input vm id to break.\n" ANSI_RST);
+
+                    if (continue_run)
+                        return false;
+                    goto continue_run_command;
+                    
                 }
                 else if (main_command == "r" || main_command == "return")
                 {
@@ -252,7 +308,7 @@ clear           cls                           Clean the screen.
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
                                 current_frame_bp = vmm->stack_mem_begin - tmp_sp->bp;
-                                current_runtime_ip = _env->rt_codes + tmp_sp->ret_ip;
+                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->ret_ip;
                             }
                             else
                                 break;
@@ -278,7 +334,7 @@ clear           cls                           Clean the screen.
                                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                             else
                             {
-                                auto&& fndresult = search_function_begin_rtip_scope_with_name(function_name);
+                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name);
                                 wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
                                 for (auto& funcinfo : fndresult)
                                 {
@@ -294,14 +350,14 @@ clear           cls                           Clean the screen.
                             printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                         else
                         {
-                            auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                            auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                            if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                            auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                            auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
+                            if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
                             {
                                 wo_stdout << "In function: " << funcname << wo_endl;
                                 vmm->dump_program_bin(
-                                    _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
-                                    , _env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
+                                    vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_begin)
+                                    , vmm->env->program_debug_info->get_runtime_ip_by_ip(fnd->second.ir_end));
                             }
                             else
                                 printf(ANSI_HIR "Invalid function.\n" ANSI_RST);
@@ -314,6 +370,19 @@ clear           cls                           Clean the screen.
                     if (!need_possiable_input(inputbuf, max_layer))
                         max_layer = 8;
                     vmm->dump_call_stack(max_layer, false);
+                }
+                else if (main_command == "profiler")
+                {
+                    double record_time;
+                    if (!need_possiable_input(inputbuf, record_time))
+                        record_time = 1.0;
+                    
+                    profiler_records.clear();
+                    profiler_enabled = true;
+                    profiler_last_sampling_times.clear();
+                    profiler_until = _wo_inside_time_sec() + record_time;
+                    profiler_total_count = 0;
+                    return false;
                 }
                 else if (main_command == "break")
                 {
@@ -329,7 +398,7 @@ clear           cls                           Clean the screen.
                             bool result = false;
 
                             if (need_possiable_input(inputbuf, lineno))
-                                result = set_breakpoint(str_to_wstr(filename_or_funcname), lineno);
+                                result = set_breakpoint(vmm, str_to_wstr(filename_or_funcname), lineno);
                             else
                             {
                                 for (auto ch : filename_or_funcname)
@@ -338,21 +407,24 @@ clear           cls                           Clean the screen.
                                     {
                                         std::lock_guard g1(_mx);
 
-                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(filename_or_funcname);
+                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname);
                                         wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
                                         for (auto& funcinfo : fndresult)
                                         {
                                             wo_stdout << "In function: " << funcinfo.func_sig << wo_endl;
-                                            break_point_traps.insert(
-                                                _env->program_debug_info->get_ip_by_runtime_ip(
-                                                    _env->rt_codes + _env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin)));
+
+                                            auto frtip = vmm->env->rt_codes + vmm->env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
+                                            auto fip = vmm->env->program_debug_info->get_ip_by_runtime_ip(frtip);
+                                            auto& srcinfo = vmm->env->program_debug_info->get_src_location_by_runtime_ip(frtip);
+                                            context.break_point_traps[fip] = std::make_pair(srcinfo.source_file, srcinfo.begin_row_no);
+
                                             //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
                                         }
                                         goto need_next_command;
                                     }
                                 }
                                 ;
-                                result = set_breakpoint(
+                                result = set_breakpoint(vmm,
                                     vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
                                     , std::stoull(filename_or_funcname));
 
@@ -383,13 +455,13 @@ clear           cls                           Clean the screen.
                     size_t breakno;
                     if (need_possiable_input(inputbuf, breakno))
                     {
-                        if (breakno < break_point_traps.size())
+                        if (breakno < context.break_point_traps.size())
                         {
-                            auto fnd = break_point_traps.begin();
+                            auto fnd = context.break_point_traps.begin();
 
                             for (size_t i = 0; i < breakno; i++)
                                 fnd++;
-                            break_point_traps.erase(fnd);
+                            context.break_point_traps.erase(fnd);
                             wo_stdout << "OK!" << wo_endl;
                         }
                         else
@@ -465,11 +537,11 @@ clear           cls                           Clean the screen.
                         std::string varname;
                         if (need_possiable_input(inputbuf, varname))
                         {
-                            if (_env)
+                            if (vmm->env)
                             {
-                                auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                                auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                                if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                                auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                                auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
+                                if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
                                 {
                                     if (auto vfnd = fnd->second.variables.find(varname);
                                         vfnd != fnd->second.variables.end())
@@ -507,14 +579,14 @@ clear           cls                           Clean the screen.
                             {
                                 if (!lexer::lex_isdigit(ch))
                                 {
-                                    print_src_file(filename, (str_to_wstr(filename) == loc.source_file ? loc.begin_row_no : 0));
+                                    print_src_file(vmm, filename, (str_to_wstr(filename) == loc.source_file ? loc.begin_row_no : 0));
                                     goto need_next_command;
                                 }
                             }
                             display_range = std::stoull(filename);
                         }
 
-                        print_src_file(wstr_to_str(loc.source_file), display_rowno,
+                        print_src_file(vmm, wstr_to_str(loc.source_file), display_rowno,
                             (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
 
                     }
@@ -541,11 +613,11 @@ clear           cls                           Clean the screen.
                             else
                             {
                                 size_t id = 0;
-                                for (auto break_stip : break_point_traps)
+                                for (auto& [break_stip, _] : context.break_point_traps)
                                 {
                                     auto& file_loc =
-                                        _env->program_debug_info->get_src_location_by_runtime_ip(_env->rt_codes +
-                                            _env->program_debug_info->get_runtime_ip_by_ip(break_stip));
+                                        vmm->env->program_debug_info->get_src_location_by_runtime_ip(vmm->env->rt_codes +
+                                            vmm->env->program_debug_info->get_runtime_ip_by_ip(break_stip));
                                     wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.begin_row_no << "," << file_loc.begin_col_no << ")" << wo_endl;;
                                 }
                             }
@@ -556,9 +628,9 @@ clear           cls                           Clean the screen.
                                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                             else
                             {
-                                auto&& funcname = _env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
-                                auto fnd = _env->program_debug_info->_function_ip_data_buf.find(funcname);
-                                if (fnd != _env->program_debug_info->_function_ip_data_buf.end())
+                                auto&& funcname = vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(current_runtime_ip);
+                                auto fnd = vmm->env->program_debug_info->_function_ip_data_buf.find(funcname);
+                                if (fnd != vmm->env->program_debug_info->_function_ip_data_buf.end())
                                 {
                                     for (auto& [varname, varinfos] : fnd->second.variables)
                                     {
@@ -635,32 +707,33 @@ clear           cls                           Clean the screen.
 
             return false;
         }
-        size_t print_src_file_print_lineno(const std::string& filepath, size_t current_row_no)
+        size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no)
         {
-            auto ip = _env->program_debug_info->get_ip_by_src_location(str_to_wstr(filepath), current_row_no, true, true);
             std::lock_guard g1(_mx);
 
-            if (auto fnd = break_point_traps.find(ip); fnd == break_point_traps.end())
-            {
-                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no);
-                return SIZE_MAX;
-            }
-            else
-            {
-                printf(ANSI_BHIR ANSI_WHI "%-5zu: " ANSI_RST, current_row_no);
+            auto& context = env_context[vmm->env];
 
-                size_t bid = 0;
-
-                while (true)
+            size_t breakpoint_found_id = SIZE_MAX;
+            size_t finding_id = 0;
+            auto wfile_path = str_to_wstr(filepath);
+            for (auto &[ip, srcinfo] : context.break_point_traps)
+            {
+                if (srcinfo.second == current_row_no && srcinfo.first == wfile_path)
                 {
-                    if (fnd == break_point_traps.begin())
-                        return bid;
-                    fnd--;
-                    bid++;
+                    breakpoint_found_id = finding_id;
+                    break;
                 }
+                ++finding_id;
             }
+
+            if (breakpoint_found_id == SIZE_MAX)
+                printf(ANSI_HIM "%-5zu " ANSI_RST "| ", current_row_no);
+            else
+                printf(ANSI_BHIR ANSI_WHI "%-5zu " ANSI_RST "| ", current_row_no);
+
+            return breakpoint_found_id;
         }
-        void print_src_file(const std::string& filepath, size_t highlight = 0, size_t from = 0, size_t to = SIZE_MAX)
+        void print_src_file(wo::vmbase* vmm, const std::string& filepath, size_t highlight = 0, size_t from = 0, size_t to = SIZE_MAX)
         {
             std::wstring srcfile, src_full_path;
             if (!wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), nullptr))
@@ -686,7 +759,7 @@ clear           cls                           Clean the screen.
                 size_t last_line_is_breakline = SIZE_MAX;
 
                 if (from <= current_row_no && current_row_no <= to)
-                    last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
+                    last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
                     if (srcfile[index] == L'\n')
@@ -697,7 +770,7 @@ clear           cls                           Clean the screen.
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
+                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
                         }
                         continue;
                     }
@@ -709,7 +782,7 @@ clear           cls                           Clean the screen.
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(filepath, current_row_no);
+                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                             index++;
@@ -739,27 +812,68 @@ clear           cls                           Clean the screen.
                     if (stop_attach_debuggee_for_exit_flag)
                         return;
 
-                    if (!_env)
-                    {
-                        _env = vmm->env.get();
-
-                        for (auto& [src_name, rowbuf] : template_breakpoint)
-                            for (auto [row, breakdown] : rowbuf)
-                                if (breakdown)
-                                    set_breakpoint(src_name, row);
-
-                        template_breakpoint.clear();
-                    }
-
                 } while (0);
+
+                if (profiler_enabled)
+                {
+                    std::lock_guard g1(_mx);
+
+                    const auto sampling_interval = 0.00001;
+                    auto current_time = _wo_inside_time_sec();
+                    if (current_time > profiler_until)
+                    {
+                        wo_stdout << ANSI_HIG "CPU Profiler Report" ANSI_RST << wo_endl;
+                        wo_stdout << "======================================================" << wo_endl;
+                        wo_stdout << "Total " ANSI_HIC << profiler_total_count << ANSI_RST " samples" << wo_endl;
+                        wo_stdout << "------------------------------------------------------" << wo_endl;
+                        wo_stdout << "Function Name\t\t\tInclusive Prop.\tExclusive Prop.\n" << wo_endl;
+                        std::vector<std::pair<const std::string, cpu_profiler_record_infornmation>*> results;
+                        for (auto & record : profiler_records)
+                        {
+                            results.push_back(&record);
+                        }
+                        std::sort(results.begin(), results.end(), 
+                            [](
+                                std::pair<const std::string, cpu_profiler_record_infornmation>* a, 
+                                std::pair<const std::string, cpu_profiler_record_infornmation>* b) 
+                            {
+                                return a->second.m_exclusive > b->second.m_exclusive;
+                            });
+                        
+                        for (auto* funcinfo : results)
+                        {
+                            printf(ANSI_HIG "%s" ANSI_RST "\n%-30s\t%f\t%f\n", 
+                                funcinfo->first.c_str(),
+                                "",
+                                (double)funcinfo->second.m_inclusive /(double)profiler_total_count,
+                                (double)funcinfo->second.m_exclusive / (double)profiler_total_count
+                            );
+                        }
+                        wo_stdout << wo_endl;
+
+                        breakdown_temp_for_stepir = true;
+                        profiler_enabled = false;
+                    }
+                    if (current_time > profiler_last_sampling_times[vmm] + sampling_interval)
+                    {
+                        ++profiler_total_count;
+                        profiler_last_sampling_times[vmm] = current_time + sampling_interval;
+                        auto&& calls = vmm->dump_call_stack_func_name();
+
+                        if (calls.empty() == false)
+                        {
+                            for (auto& info : calls)
+                                profiler_records[info].m_inclusive++;
+
+                            profiler_records[calls.front()].m_exclusive++;
+                        }
+                    }
+                    
+                    break;
+                }
 
                 const byte_t* next_execute_ip = vmm->ip;
                 auto next_execute_ip_diff = vmm->ip - vmm->env->rt_codes;
-
-                current_frame_bp = vmm->bp;
-                current_frame_sp = vmm->sp;
-                current_runtime_ip = vmm->ip;
-
 
                 size_t command_ip = 0;
                 const program_debug_data_info::location* loc = nullptr;
@@ -774,20 +888,26 @@ clear           cls                           Clean the screen.
                 // check breakpoint..
                 std::lock_guard g1(_mx);
 
+                auto& context = env_context[vmm->env];
+
                 if (stop_attach_debuggee_for_exit_flag)
                     return;
 
-                if (breakdown_temp_for_stepir
-                    || (breakdown_temp_for_step
-                        && (loc->begin_row_no != breakdown_temp_for_step_lineno
-                            || loc->source_file != breakdown_temp_for_step_srcfile))
-                    || (breakdown_temp_for_next
-                        && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                        && (loc->begin_row_no != breakdown_temp_for_step_lineno
-                            || loc->source_file != breakdown_temp_for_step_srcfile))
-                    || (breakdown_temp_for_return
-                        && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
-                    || break_point_traps.find(command_ip) != break_point_traps.end())
+                if ((
+                    (breakdown_temp_for_stepir
+                        || (breakdown_temp_for_step
+                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                                || loc->source_file != breakdown_temp_for_step_srcfile))
+                        || (breakdown_temp_for_next
+                            && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
+                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                                || loc->source_file != breakdown_temp_for_step_srcfile))
+                        || (breakdown_temp_for_return
+                            && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
+                        ) && focus_on_vm == vmm
+                    )
+                    || context.break_point_traps.find(command_ip) != context.break_point_traps.end()
+                    || breakdown_temp_immediately)
                 {
                     block_other_vm_in_this_debuggee();
 
@@ -795,19 +915,30 @@ clear           cls                           Clean the screen.
                     breakdown_temp_for_step = false;
                     breakdown_temp_for_next = false;
                     breakdown_temp_for_return = false;
+                    breakdown_temp_immediately = false;
+                    focus_on_vm = vmm;
 
-                    printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\nin function: " ANSI_HIG " %s\n" ANSI_RST, (int)next_execute_ip_diff,
+                    current_frame_bp = vmm->bp;
+                    current_frame_sp = vmm->sp;
+                    current_runtime_ip = vmm->ip;
+
+                    printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\n"
+                            "in function: " ANSI_HIG " %s\n" ANSI_RST
+                            "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
+                        
+                        (int)next_execute_ip_diff,
                         wstr_to_str(loc->source_file).c_str(), loc->begin_row_no, loc->begin_col_no,
                         vmm->env->program_debug_info == nullptr ?
                         "__unknown_func_without_pdb_" :
-                        vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str()
+                        vmm->env->program_debug_info->get_current_func_signature_by_runtime_ip(next_execute_ip).c_str(),
+                        vmm
                     );
                     if (vmm->env->program_debug_info != nullptr)
                     {
                         printf("-------------------------------------------\n");
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
                         size_t display_rowno = loc.begin_row_no;
-                        print_src_file(wstr_to_str(loc.source_file), display_rowno, (display_rowno < 2 ? 0 : display_rowno - 2), display_rowno + 2);
+                        print_src_file(vmm, wstr_to_str(loc.source_file), display_rowno, (display_rowno < 2 ? 0 : display_rowno - 2), display_rowno + 2);
                     }
                     printf("===========================================\n");
 

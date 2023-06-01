@@ -487,14 +487,18 @@ WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc
     return wo_ret_string(vm, (std::string(wo_string(args + 0)) + (char)(wo_handle_t)wo_int(args + 1)).c_str());
 }
 
-WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
+wo_real_t _wo_inside_time_sec()
 {
     static std::chrono::system_clock _sys_clock;
     static auto _first_invoke_time = _sys_clock.now();
 
-    auto _time_ms = wo_real_t((_sys_clock.now() - _first_invoke_time).count() * std::chrono::system_clock::period::num)
+    return wo_real_t((_sys_clock.now() - _first_invoke_time).count() * std::chrono::system_clock::period::num)
         / std::chrono::system_clock::period::den;
-    return wo_ret_real(vm, _time_ms);
+}
+
+WO_API wo_api rslib_std_time_sec(wo_vm vm, wo_value args, size_t argc)
+{
+    return wo_ret_real(vm, _wo_inside_time_sec());
 }
 
 WO_API wo_api rslib_std_input_readint(wo_vm vm, wo_value args, size_t argc)
@@ -2406,13 +2410,13 @@ public func assertmsg(val: bool, msg: string)
 
 WO_API wo_api rslib_std_debug_attach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_attach_default_debuggee(vm);
+    wo_attach_default_debuggee();
     return wo_ret_void(vm);
 }
 
 WO_API wo_api rslib_std_debug_disattach_default_debuggee(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_disattach_and_free_debuggee(vm);
+    wo_disattach_debuggee();
     return wo_ret_void(vm);
 }
 
@@ -2423,7 +2427,7 @@ WO_API wo_api rslib_std_debug_callstack_trace(wo_vm vm, wo_value args, size_t ar
 
 WO_API wo_api rslib_std_debug_breakpoint(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_break_immediately(vm);
+    wo_break_specify_immediately(vm);
     return wo_ret_void(vm);
 }
 
