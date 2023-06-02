@@ -861,12 +861,13 @@ profiler                        [time = 1.]   Collect runtime cost in following
 
                         if (calls.empty() == false)
                         {
-                            profiler_total_count += calls.size();
+                            auto samp_count = calls.size();
+                            profiler_total_count += samp_count;
 
                             for (auto& info : calls)
                                 profiler_records[info].m_inclusive++;
 
-                            profiler_records[calls.front()].m_exclusive++;
+                            profiler_records[calls.front()].m_exclusive += samp_count;
                         }
                     }
                     
