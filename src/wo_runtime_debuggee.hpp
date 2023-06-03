@@ -27,6 +27,7 @@ namespace wo
         {
             size_t m_inclusive;
             size_t m_exclusive;
+            std::map<size_t, size_t> m_exclusive_record;
         };
         std::unordered_map<std::string, cpu_profiler_record_infornmation> profiler_records = {};
         bool                                    profiler_enabled = false;
@@ -83,6 +84,7 @@ callstack       cs              [max = 8]     Get current VM's callstacks.
 continue        c                             Continue to run.
 deletebreak     delbreak        <breakid>     Delete a breakpoint.
 disassemble     dis             [funcname]    Get current VM's running ir-codes.
+                                'or' 
                                 --all
 frame           f               <frameid>     Switch to a call frame.
 return          r                             Execute to the return of this fun
@@ -95,7 +97,7 @@ print           p               <varname>     Print the value.
 quit                                          Stop all vm to exit.
 exit                                          Invoke _Exit(0) to shutdown.
 source          src             [file name]   Get current source
-                                [range = 5]   
+                                 [range = 5]   
 stackframe      sf                            Get current function's stack frame.
 step            s                             Execute next line of src, will step
                                             in functions.
@@ -103,9 +105,12 @@ stepir          si                            Execute next command.
 global          g               <offset>      Display global data.
 clear           cls                           Clean the screen.
 thread          vm              <id>          Continue and break at specify vm.
-profiler                        [time = 1.]   Collect runtime cost in following 
+profiler                        start
+                                 [time = 1.]  Collect runtime cost in following 
                                             'time' sec(s), only collect current 
                                             env's profiler data.
+                                'or'
+                                review [fn]   Get exclusive detail after profiler
 )"
 << wo_endl;
         }
@@ -168,14 +173,13 @@ profiler                        [time = 1.]   Collect runtime cost in following
             size_t command_ip_end;
             size_t rt_ip_begin;
             size_t rt_ip_end;
-
         };
-        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(wo::vmbase* vmm, const std::string& funcname)
+        std::vector<function_code_info> search_function_begin_rtip_scope_with_name(wo::vmbase* vmm, const std::string& funcname, bool fullmatch)
         {
             std::vector<function_code_info> result;
             for (auto& [funcsign_name, pos] : vmm->env->program_debug_info->_function_ip_data_buf)
             {
-                if (funcsign_name.rfind(funcname) != std::string::npos)
+                if (fullmatch ? (funcsign_name == funcname) : (funcsign_name.rfind(funcname) != std::string::npos))
                 {
                     auto begin_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_begin);
                     auto end_rt_ip = vmm->env->program_debug_info->get_runtime_ip_by_ip(pos.ir_end);
@@ -282,7 +286,7 @@ profiler                        [time = 1.]   Collect runtime cost in following
                     if (continue_run)
                         return false;
                     goto continue_run_command;
-                    
+
                 }
                 else if (main_command == "r" || main_command == "return")
                 {
@@ -334,7 +338,7 @@ profiler                        [time = 1.]   Collect runtime cost in following
                                 printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
                             else
                             {
-                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name);
+                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, function_name, false);
                                 wo_stdout << "Find " << fndresult.size() << " symbol(s):" << wo_endl;
                                 for (auto& funcinfo : fndresult)
                                 {
@@ -373,16 +377,65 @@ profiler                        [time = 1.]   Collect runtime cost in following
                 }
                 else if (main_command == "profiler")
                 {
-                    double record_time;
-                    if (!need_possiable_input(inputbuf, record_time))
-                        record_time = 1.0;
-                    
-                    profiler_records.clear();
-                    profiler_enabled = true;
-                    profiler_last_sampling_times.clear();
-                    profiler_until = _wo_inside_time_sec() + record_time;
-                    profiler_total_count = 0;
-                    return false;
+                    if (vmm->env->program_debug_info == nullptr)
+                        printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
+                    else
+                    {
+                        std::string command;
+                        if (need_possiable_input(inputbuf, command))
+                        {
+                            if (command == "start")
+                            {
+                                double record_time;
+                                if (!need_possiable_input(inputbuf, record_time))
+                                    record_time = 1.0;
+
+                                profiler_records.clear();
+                                profiler_enabled = true;
+                                profiler_last_sampling_times.clear();
+                                profiler_until = _wo_inside_time_sec() + record_time;
+                                profiler_total_count = 0;
+
+                                return false;
+                            }
+                            else if (command == "review")
+                            {
+                                std::string specify_funcname;
+                                if (!need_possiable_input(inputbuf, specify_funcname))
+                                {
+                                    printf(ANSI_HIR "You should input the function's name to review.\n" ANSI_RST);
+                                }
+                                else
+                                {
+                                    if (!profiler_records.empty())
+                                    {
+                                        for (auto& [funcname, record] : profiler_records)
+                                        {
+                                            if (funcname.find(specify_funcname) < funcname.size())
+                                            {
+                                                auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, funcname, true);
+                                                wo_assert(fndresult.size() == 1);
+                                                auto& func_info = fndresult[0];
+
+                                                auto& src = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
+                                                    vmm->env->rt_codes + func_info.rt_ip_begin);
+
+                                                print_src_file(vmm, wstr_to_str(src.source_file), 0,
+                                                    src.begin_row_no, src.end_row_no, &record);
+                                            }
+                                        }
+                                    }
+                                    else
+                                        printf(ANSI_HIR "No record, you should start profiler first.\n" ANSI_RST);
+                                }
+                            }
+                            else
+                                printf(ANSI_HIR "Unknown command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
+                        }
+                        else
+                            printf(ANSI_HIR "You should input sub command for profiler, should be 'start' or 'review'.\n" ANSI_RST);
+                    }
+
                 }
                 else if (main_command == "break")
                 {
@@ -407,7 +460,7 @@ profiler                        [time = 1.]   Collect runtime cost in following
                                     {
                                         std::lock_guard g1(_mx);
 
-                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname);
+                                        auto&& fndresult = search_function_begin_rtip_scope_with_name(vmm, filename_or_funcname, false);
                                         wo_stdout << "Set breakpoint at " << fndresult.size() << " symbol(s):" << wo_endl;
                                         for (auto& funcinfo : fndresult)
                                         {
@@ -707,7 +760,7 @@ profiler                        [time = 1.]   Collect runtime cost in following
 
             return false;
         }
-        size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no)
+        size_t print_src_file_print_lineno(wo::vmbase* vmm, const std::string& filepath, size_t current_row_no, cpu_profiler_record_infornmation* info)
         {
             std::lock_guard g1(_mx);
 
@@ -716,7 +769,7 @@ profiler                        [time = 1.]   Collect runtime cost in following
             size_t breakpoint_found_id = SIZE_MAX;
             size_t finding_id = 0;
             auto wfile_path = str_to_wstr(filepath);
-            for (auto &[ip, srcinfo] : context.break_point_traps)
+            for (auto& [ip, srcinfo] : context.break_point_traps)
             {
                 if (srcinfo.second == current_row_no && srcinfo.first == wfile_path)
                 {
@@ -731,9 +784,23 @@ profiler                        [time = 1.]   Collect runtime cost in following
             else
                 printf(ANSI_BHIR ANSI_WHI "%-5zu " ANSI_RST "| ", current_row_no);
 
+            if (info != nullptr)
+            {
+                auto fnd = info->m_exclusive_record.find(current_row_no);
+                if (fnd != info->m_exclusive_record.end())
+                {
+                    auto deg = (double)fnd->second / (double)info->m_exclusive * 100.0;
+                    printf(ANSI_HIM "%f%%" ANSI_RST, deg);
+                }
+            }
+
             return breakpoint_found_id;
         }
-        void print_src_file(wo::vmbase* vmm, const std::string& filepath, size_t highlight = 0, size_t from = 0, size_t to = SIZE_MAX)
+        void print_src_file(wo::vmbase* vmm, const std::string& filepath, 
+            size_t highlight = 0, 
+            size_t from = 0, 
+            size_t to = SIZE_MAX,
+            cpu_profiler_record_infornmation* info = nullptr)
         {
             std::wstring srcfile, src_full_path;
             if (!wo::read_virtual_source(&srcfile, &src_full_path, wo::str_to_wstr(filepath), nullptr))
@@ -759,7 +826,9 @@ profiler                        [time = 1.]   Collect runtime cost in following
                 size_t last_line_is_breakline = SIZE_MAX;
 
                 if (from <= current_row_no && current_row_no <= to)
-                    last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
+                {
+                    last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
+                }
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
                     if (srcfile[index] == L'\n')
@@ -770,7 +839,8 @@ profiler                        [time = 1.]   Collect runtime cost in following
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
+                            wo_stdout << wo_endl;
+                            last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         continue;
                     }
@@ -782,7 +852,8 @@ profiler                        [time = 1.]   Collect runtime cost in following
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl; last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no);
+                            wo_stdout << wo_endl;
+                            last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
                             index++;
@@ -828,24 +899,24 @@ profiler                        [time = 1.]   Collect runtime cost in following
                         wo_stdout << "------------------------------------------------------" << wo_endl;
                         wo_stdout << "Function Name\t\t\tInclusive Prop.\tExclusive Prop.\n" << wo_endl;
                         std::vector<std::pair<const std::string, cpu_profiler_record_infornmation>*> results;
-                        for (auto & record : profiler_records)
+                        for (auto& record : profiler_records)
                         {
                             results.push_back(&record);
                         }
-                        std::sort(results.begin(), results.end(), 
+                        std::sort(results.begin(), results.end(),
                             [](
-                                std::pair<const std::string, cpu_profiler_record_infornmation>* a, 
-                                std::pair<const std::string, cpu_profiler_record_infornmation>* b) 
+                                std::pair<const std::string, cpu_profiler_record_infornmation>* a,
+                                std::pair<const std::string, cpu_profiler_record_infornmation>* b)
                             {
                                 return a->second.m_exclusive > b->second.m_exclusive;
                             });
-                        
+
                         for (auto* funcinfo : results)
                         {
-                            printf(ANSI_HIG "%s" ANSI_RST "\n%-30s\t%f%%\t%f%%\n", 
+                            printf(ANSI_HIG "%s" ANSI_RST "\n%-30s\t%f%%\t%f%%\n",
                                 funcinfo->first.c_str(),
                                 "",
-                                100.0 * (double)funcinfo->second.m_inclusive /(double)profiler_total_count,
+                                100.0 * (double)funcinfo->second.m_inclusive / (double)profiler_total_count,
                                 100.0 * (double)funcinfo->second.m_exclusive / (double)profiler_total_count
                             );
                         }
@@ -857,19 +928,24 @@ profiler                        [time = 1.]   Collect runtime cost in following
                     if (current_time > profiler_last_sampling_times[vmm] + sampling_interval)
                     {
                         profiler_last_sampling_times[vmm] = current_time + sampling_interval;
-                        auto&& calls = vmm->dump_call_stack_func_name();
+                        auto&& calls = vmm->dump_call_stack_func_info();
 
                         if (calls.empty() == false)
                         {
                             profiler_total_count += 1;
 
+                            std::unordered_set<std::string> m_unique_callstack;
                             for (auto& info : calls)
-                                profiler_records[info].m_inclusive++;
+                                m_unique_callstack.insert(info.m_func_name);
 
-                            profiler_records[calls.front()].m_exclusive++;
+                            for (auto& funcname : m_unique_callstack)
+                                profiler_records[funcname].m_inclusive++;
+
+                            profiler_records[calls.front().m_func_name].m_exclusive++;
+                            profiler_records[calls.front().m_func_name].m_exclusive_record[calls.front().m_row]++;
                         }
                     }
-                    
+
                     break;
                 }
 
@@ -924,9 +1000,9 @@ profiler                        [time = 1.]   Collect runtime cost in following
                     current_runtime_ip = vmm->ip;
 
                     printf(ANSI_HIY "Breakdown: " ANSI_RST "+%04d: at " ANSI_HIG "%s" ANSI_RST "(" ANSI_HIY "%zu" ANSI_RST ", " ANSI_HIY "%zu" ANSI_RST ")\n"
-                            "in function: " ANSI_HIG " %s\n" ANSI_RST
-                            "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
-                        
+                        "in function: " ANSI_HIG " %s\n" ANSI_RST
+                        "in virtual-machine: " ANSI_HIG " %p\n" ANSI_RST,
+
                         (int)next_execute_ip_diff,
                         wstr_to_str(loc->source_file).c_str(), loc->begin_row_no, loc->begin_col_no,
                         vmm->env->program_debug_info == nullptr ?

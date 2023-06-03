@@ -888,7 +888,12 @@ namespace wo
             }
         }
 
-        inline std::vector<std::string> dump_call_stack_func_name(bool need_offset = true)const
+        struct callstack_info
+        {
+            std::string m_func_name;
+            size_t      m_row;
+        };
+        inline std::vector<callstack_info> dump_call_stack_func_info(bool need_offset = true)const
         {
             // TODO; Dump call stack without pdb
             const program_debug_data_info::location* src_location_info = nullptr;
@@ -900,14 +905,22 @@ namespace wo
             // If rt_ip point to place 3, 'get_current_func_signature_by_runtime_ip' will get next command's debuginfo.
             // So we do a move of 1BYTE here, for getting correct debuginfo.
 
-            std::vector<std::string> result;
+            std::vector<callstack_info> result;
 
             size_t call_trace_count = 0;
 
             if (src_location_info)
-                result.push_back(env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)));
+                result.push_back(
+                    callstack_info{
+                        env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)),
+                        src_location_info->begin_row_no,
+                    });
             else
-                result.push_back("Extern function");
+                result.push_back(
+                    callstack_info{
+                        "Extern function",
+                        0,
+                    });
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -916,16 +929,28 @@ namespace wo
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
                     if (src_location_info)
-                        result.push_back(env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)));
+                        result.push_back(
+                            callstack_info{
+                                env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)),
+                                src_location_info->begin_row_no
+                            });
                     else
-                        result.push_back("Extern function");
+                        result.push_back(
+                            callstack_info{
+                                "Extern function",
+                                0,
+                            });
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
                     base_callstackinfo_ptr++;
                 }
                 else
                 {
-                    result.push_back("Extern function");
+                    result.push_back(
+                        callstack_info{
+                            "Extern function",
+                            0,
+                        });
                     break;
                 }
             }
