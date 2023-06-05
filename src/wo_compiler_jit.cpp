@@ -464,7 +464,6 @@ namespace wo
         static void _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
-            wo_assert(opnum2->type == value::valuetype::integer_type);
 
             gcbase::gc_read_guard gwg1(opnum1->gcunit);
 
@@ -498,8 +497,7 @@ namespace wo
         static void _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
-            wo_assert(opnum2->type == value::valuetype::integer_type);
-
+            
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
             auto fnd = opnum1->dict->find(*opnum2);
@@ -516,7 +514,6 @@ namespace wo
         static void _vmjitcall_sidmap(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
         {
             wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
-            wo_assert(opnum2->type == value::valuetype::integer_type);
 
             gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
