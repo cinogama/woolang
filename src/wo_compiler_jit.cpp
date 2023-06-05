@@ -1041,12 +1041,12 @@ namespace wo
                 {
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
+                    if (jmp_place < current_ip_byteoffset)
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
-                    {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.jmp(fnd->second));
-                    }
                     else
                     {
                         x86_label_table[jmp_place] = x86compiler.newLabel();
@@ -1057,16 +1057,16 @@ namespace wo
                 }
                 case instruct::jf:
                 {
-                    wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
-
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
+
+                    if (jmp_place < current_ip_byteoffset)
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+
+                    wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
 
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
-                    {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.je(fnd->second));
-                    }
                     else
                     {
                         x86_label_table[jmp_place] = x86compiler.newLabel();
@@ -1077,16 +1077,16 @@ namespace wo
                 }
                 case instruct::jt:
                 {
-                    wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
-
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
+
+                    if (jmp_place < current_ip_byteoffset)
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+
+                    wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
 
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
-                    {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.jne(fnd->second));
-                    }
                     else
                     {
                         x86_label_table[jmp_place] = x86compiler.newLabel();
@@ -1560,7 +1560,10 @@ namespace wo
                 case instruct::jnequb:
                 {
                     WO_JIT_ADDRESSING_N1;
-                    uint32_t offset = WO_IPVAL_MOVE_4;
+                    uint32_t jmp_place = WO_IPVAL_MOVE_4;
+
+                    if (jmp_place < current_ip_byteoffset)
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
 
                     if (opnum1.is_constant())
                         wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
@@ -1571,17 +1574,15 @@ namespace wo
                         wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, integer)), bvalue));
                     }
 
-                    if (auto fnd = x86_label_table.find(offset);
+                    if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
-                    {
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
                         wo_asure(!x86compiler.jne(fnd->second));
-                    }
                     else
                     {
-                        x86_label_table[offset] = x86compiler.newLabel();
-                        wo_asure(!x86compiler.jne(x86_label_table[offset]));
+                        x86_label_table[jmp_place] = x86compiler.newLabel();
+                        wo_asure(!x86compiler.jne(x86_label_table[jmp_place]));
                     }
+
                     break;
                 }
                 case instruct::idstruct:
