@@ -1432,14 +1432,14 @@ namespace wo
             m_codes = codebuf;
 
             // 1. for all function, trying to jit compile them:
-            for (size_t func_offset : env->_functions_offsets)
+            for (size_t func_offset : env->_functions_offsets_for_jit)
                 if (auto& stat = analyze_function(codebuf + func_offset, env); stat.m_state == function_jit_state::FINISHED)
                 {
                     wo_assert(nullptr != stat.m_func);
                     env->_jit_functions[(void*)stat.m_func] = func_offset;
                 }
 
-            for (size_t calln_offset : env->_calln_opcode_offsets)
+            for (size_t calln_offset : env->_calln_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* calln = (wo::instruct::opcode*)(codebuf + calln_offset);
                 wo_assert(((*calln) & 0b11111100) == wo::instruct::opcode::calln);
@@ -1466,7 +1466,7 @@ namespace wo
                 else
                     wo_assert(func_state.m_state == function_jit_state::state::FAILED);
             }
-            for (size_t mkclos_offset : env->_mkclos_opcode_offsets)
+            for (size_t mkclos_offset : env->_mkclos_opcode_offsets_for_jit)
             {
                 wo::instruct::opcode* mkclos = (wo::instruct::opcode*)(codebuf + mkclos_offset);
                 wo_assert(((*mkclos) & 0b11111100) == wo::instruct::opcode::mkclos);

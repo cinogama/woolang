@@ -377,10 +377,9 @@ namespace wo
         std::atomic_size_t _running_on_vm_count = 0;
         std::atomic_size_t _created_destructable_instance_count = 0;
 
-        std::vector<size_t> _functions_offsets;
-        std::vector<size_t> _calln_opcode_offsets;
-        std::vector<size_t> _mkclos_opcode_offsets;
-
+        std::vector<size_t> _functions_offsets_for_jit;
+        std::vector<size_t> _calln_opcode_offsets_for_jit;
+        std::vector<size_t> _mkclos_opcode_offsets_for_jit;
         std::unordered_map<void*, size_t> _jit_functions;
 
         shared_pointer<program_debug_data_info> program_debug_info;
