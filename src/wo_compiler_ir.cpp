@@ -339,7 +339,26 @@ namespace wo
             write_binary_to_buffer((uint64_t)offset, 8);
         }
 
-        // 5.1 Constant string buffer
+        // 5.1 JIT Informations
+        write_binary_to_buffer((uint64_t)_functions_offsets_for_jit.size(), 8);
+        for (size_t function_offset : _functions_offsets_for_jit)
+        {
+            write_binary_to_buffer((uint64_t)function_offset, 8);
+        }
+
+        write_binary_to_buffer((uint64_t)_calln_opcode_offsets_for_jit.size(), 8);
+        for (size_t calln_offset : _calln_opcode_offsets_for_jit)
+        {
+            write_binary_to_buffer((uint64_t)calln_offset, 8);
+        }
+
+        write_binary_to_buffer((uint64_t)_mkclos_opcode_offsets_for_jit.size(), 8);
+        for (size_t mkclos_offset : _mkclos_opcode_offsets_for_jit)
+        {
+            write_binary_to_buffer((uint64_t)mkclos_offset, 8);
+        }
+
+        // 6.1 Constant string buffer
         size_t padding_length_for_constant_string_buf = (8ull - (string_buffer_size % 8ull)) % 8ull;
 
         write_binary_to_buffer(
@@ -350,13 +369,13 @@ namespace wo
 
         write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
-        // 6.1 Debug information
+        // 7.1 Debug information
         if (this->program_debug_info == nullptr)
             write_buffer_to_buffer("nopdisup", 8, 1);
         else
         {
             write_buffer_to_buffer("pdisuped", 8, 1);
-            // 6.1.1 Saving pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
+            // 7.1.1 Saving pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
             // And used for getting ip(not runtime ip) by src location informs.
             write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_a.size(), 4);
             for (auto& [src_file_path, locations] : this->program_debug_info->_general_src_data_buf_a)
@@ -379,7 +398,7 @@ namespace wo
                 }
             }
 
-            // 6.1.2 Saving pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
+            // 7.1.2 Saving pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
             // It used for getting src location informs by ip(not runtime ip).
             write_binary_to_buffer((uint32_t)this->program_debug_info->_general_src_data_buf_b.size(), 4);
             for (auto& [ip, loc] : this->program_debug_info->_general_src_data_buf_b)
@@ -399,7 +418,7 @@ namespace wo
                 write_binary_to_buffer((uint32_t)(loc.unbreakable ? 1 : 0), 4);
             }
 
-            // 6.1.3 Saving pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
+            // 7.1.3 Saving pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
             write_binary_to_buffer((uint32_t)this->program_debug_info->_function_ip_data_buf.size(), 4);
             for (auto& [function_name, func_symb_info] : this->program_debug_info->_function_ip_data_buf)
             {
@@ -428,7 +447,7 @@ namespace wo
                 }
             }
 
-            // 6.1.4 Saving pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
+            // 7.1.4 Saving pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
             // ip and runtime ip.
             write_binary_to_buffer((uint32_t)this->program_debug_info->pdd_rt_code_byte_offset_to_ir.size(), 4);
             for (auto& [rtir, ir] : this->program_debug_info->pdd_rt_code_byte_offset_to_ir)
@@ -646,7 +665,41 @@ namespace wo
             extern_script_functions.emplace_back(std::move(loading_function));
         }
 
-        // 5.1 Constant string buffer
+        // 5.1 JIT Informations
+        uint64_t _functions_offsets_count = 0;
+        if (!stream->read_elem(&_functions_offsets_count))
+            WO_LOAD_BIN_FAILED("Failed to restore functions offset count.");
+        for (uint64_t i = 0; i < _functions_offsets_count; ++i)
+        {
+            uint64_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore functions offset.");
+            result->_functions_offsets_for_jit.push_back((size_t)offset);
+        }
+
+        uint64_t _calln_opcode_offsets_count = 0;
+        if (!stream->read_elem(&_calln_opcode_offsets_count))
+            WO_LOAD_BIN_FAILED("Failed to restore calln offset count.");
+        for (uint64_t i = 0; i < _calln_opcode_offsets_count; ++i)
+        {
+            uint64_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore calln offset.");
+            result->_calln_opcode_offsets_for_jit.push_back((size_t)offset);
+        }
+
+        uint64_t _mkclos_opcode_offsets_count = 0;
+        if (!stream->read_elem(&_mkclos_opcode_offsets_count))
+            WO_LOAD_BIN_FAILED("Failed to restore mkclos offset count.");
+        for (uint64_t i = 0; i < _mkclos_opcode_offsets_count; ++i)
+        {
+            uint64_t offset = 0;
+            if (!stream->read_elem(&offset))
+                WO_LOAD_BIN_FAILED("Failed to restore mkclos offset.");
+            result->_mkclos_opcode_offsets_for_jit.push_back((size_t)offset);
+        }
+
+        // 6.1 Constant string buffer
         uint64_t string_buffer_size_with_padding;
         if (!stream->read_elem(&string_buffer_size_with_padding))
             WO_LOAD_BIN_FAILED("Failed to restore string buffer size.");
@@ -732,15 +785,15 @@ namespace wo
         auto _padding_size = ((stream->readed_size + (8 - 1)) / 8) * 8 - stream->readed_size;
         stream->read_buffer(magic_head_of_pdi, _padding_size);
 
-        // 6.1 Debug information
-        // 6.1.0 Magic head, "nopdisup" or "pdisuped"
+        // 7.1 Debug information
+        // 7.1.0 Magic head, "nopdisup" or "pdisuped"
         stream->read_buffer(magic_head_of_pdi, 8);
 
         if (memcmp(magic_head_of_pdi, "pdisuped", 8) == 0)
         {
             shared_pointer<program_debug_data_info> pdb = new program_debug_data_info;
 
-            // 6.1.1 Restoring pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
+            // 7.1.1 Restoring pdi's A data(_general_src_data_buf_a), it stores srcs' location informations.
             // And used for getting ip(not runtime ip) by src location informs.
             char _useless_pad[4];
 
@@ -805,7 +858,7 @@ namespace wo
                 }
             }
 
-            // 6.1.2 Restoring pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
+            // 7.1.2 Restoring pdi's B data(_general_src_data_buf_b), it stores srcs' location informations.
             // It used for getting src location informs by ip(not runtime ip).
             uint32_t _general_src_data_buf_b_size;
             if (!stream->read_elem(&_general_src_data_buf_b_size))
@@ -862,7 +915,7 @@ namespace wo
                 pdb->_general_src_data_buf_b[ip] = loc;
             }
 
-            // 6.1.3 Restoring pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
+            // 7.1.3 Restoring pdi's C data(_function_ip_data_buf), it stores functions' location and variables informs.
             uint32_t _function_ip_data_buf_size;
             if (!stream->read_elem(&_function_ip_data_buf_size))
                 WO_LOAD_BIN_FAILED("Failed to restore program debug informations record B count.");
@@ -939,7 +992,7 @@ namespace wo
                 }
             }
 
-            // 6.1.4 Restoring pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
+            // 7.1.4 Restoring pdi's D data(pdd_rt_code_byte_offset_to_ir), it stores the relationship between
             // ip and runtime ip.
             uint32_t _pdd_rt_code_byte_offset_to_ir_size;
             if (!stream->read_elem(&_pdd_rt_code_byte_offset_to_ir_size))
@@ -1470,8 +1523,7 @@ namespace wo
             case instruct::opcode::calln:
                 if (WO_IR.op2)
                 {
-                    if (config::ENABLE_JUST_IN_TIME)
-                        env->_calln_opcode_offsets.push_back(generated_runtime_code_buf.size());
+                    env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                     wo_assert(dynamic_cast<opnum::tag*>(WO_IR.op2) != nullptr, "Operator num should be a tag.");
 
@@ -1514,8 +1566,7 @@ namespace wo
                 }
                 else
                 {
-                    if (config::ENABLE_JUST_IN_TIME)
-                        env->_calln_opcode_offsets.push_back(generated_runtime_code_buf.size());
+                    env->_calln_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                     temp_this_command_code_buf.push_back(WO_OPCODE(calln, 00));
 
@@ -1579,8 +1630,7 @@ namespace wo
             }
             case instruct::mkclos:
             {
-                if (config::ENABLE_JUST_IN_TIME)
-                    env->_mkclos_opcode_offsets.push_back(generated_runtime_code_buf.size());
+                env->_mkclos_opcode_offsets_for_jit.push_back(generated_runtime_code_buf.size());
 
                 temp_this_command_code_buf.push_back(WO_OPCODE(mkclos, 00));
 
@@ -1671,7 +1721,7 @@ namespace wo
                     {
                     case instruct::extern_opcode_page_3::funcbegin:
                         temp_this_command_code_buf.push_back(WO_OPCODE_EXT3(funcbegin));
-                        env->_functions_offsets.push_back(
+                        env->_functions_offsets_for_jit.push_back(
                             temp_this_command_code_buf.size()
                             + generated_runtime_code_buf.size());
                         break;

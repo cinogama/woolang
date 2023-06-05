@@ -1806,21 +1806,13 @@ wo_bool_t _wo_load_source(wo_vm vm, wo_string_t virtual_src_path, const void* sr
     if (auto* env_p = std::get_if<wo::shared_pointer<wo::runtime_env>>(&env_or_lex))
     {
         auto& env = *env_p;
-
-        // LAST STEP: TRYING GENRATE JIT FUNCTION FOR ALL FUNCTION AND UPDATE ALL 'CALLN' OPCODE.
-        if (wo::config::ENABLE_JUST_IN_TIME)
-            analyze_jit(const_cast<wo::byte_t*>(env->rt_codes), env);
-
         ((wo::vm*)vm)->set_runtime(env);
-
         return true;
     }
     else
     {
         auto* lex_p = std::get_if<wo::lexer*>(&env_or_lex);
-
         wo_assert(nullptr != lex_p);
-
         WO_VM(vm)->compile_info = *lex_p;
         return false;
     }
@@ -2242,6 +2234,12 @@ wo_value wo_run(wo_vm vm)
     wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
+        // NOTE: other operation for vm must happend after init(wo_run).
+        wo_assert(WO_VM(vm)->env->_jit_functions.empty());
+
+        if (wo::config::ENABLE_JUST_IN_TIME)
+            analyze_jit(const_cast<wo::byte_t*>(WO_VM(vm)->env->rt_codes), WO_VM(vm)->env);
+
         WO_VM(vm)->ip = WO_VM(vm)->env->rt_codes;
         WO_VM(vm)->run();
 
