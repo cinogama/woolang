@@ -138,9 +138,17 @@ namespace test_container
         }
         return elems->unsafe::cast:<array<elem_t>>;
     }
+    func test_index()
+    {
+        let a = [mut 1,2,3,4,5];
+        test_assure(a[-2] == 4);
+        a[-2] = 6;
 
+        test_assure(a[-2] == 6);
+    }
     func main()
     {
+        test_index();
         output_9x9();
         test_array_swap_copy();
         test_map_swap_copy();

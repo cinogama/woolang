@@ -53,33 +53,6 @@ namespace wo
 
 #define WO_SIGNED_SHIFT(VAL) (((signed char)((unsigned char)(((unsigned char)(VAL))<<1)))>>1)
 
-#define WO_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
-                        (\
-                            (WO_IPVAL & (1 << 7)) ?\
-                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                            :\
-                            (WO_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
-                        ))
-
-#define WO_ADDRESSING_N2 value * opnum2 = ((dr & 0b01) ?\
-                        (\
-                            (WO_IPVAL & (1 << 7)) ?\
-                            (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                            :\
-                            (WO_IPVAL_MOVE_1 + reg_begin)\
-                            )\
-                        :\
-                        (\
-                            WO_IPVAL_MOVE_4 + const_global_begin\
-                        ))
-
-#define WO_ADDRESSING_N1_REF WO_ADDRESSING_N1 -> get()
-#define WO_ADDRESSING_N2_REF WO_ADDRESSING_N2 -> get()
-
 #define WO_VM_FAIL(ERRNO,ERRINFO) {ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(ERRNO,ERRINFO);continue;}
 
     struct asmjit_compiler_x64
@@ -164,19 +137,6 @@ namespace wo
             asmjit::X86Gp reg,
             runtime_env* env)
         {
-            /*
-            #define WO_ADDRESSING_N1 value * opnum1 = ((dr >> 1) ?\
-                            (\
-                                (WO_IPVAL & (1 << 7)) ?\
-                                (rt_bp + WO_SIGNED_SHIFT(WO_IPVAL_MOVE_1))\
-                                :\
-                                (WO_IPVAL_MOVE_1 + reg_begin)\
-                                )\
-                            :\
-                            (\
-                                WO_IPVAL_MOVE_4 + const_global_begin\
-                            ))
-            */
             if (dr)
             {
                 // opnum from bp-offset or regist
@@ -464,14 +424,145 @@ namespace wo
         {
             wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
         }
-        static void _vmjitcall_addstring(wo::value* opnum1, wo::value* opnum2)
+        static void _vmjitcall_adds(wo::value* opnum1, wo::value* opnum2)
         {
             wo_assert(opnum1->type == opnum2->type
                 && opnum1->type == value::valuetype::string_type);
 
             string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
         }
+        static void _vmjitcall_modr(wo::value* opnum1, wo::value* opnum2)
+        {
+            wo_assert(opnum1->type == opnum2->type
+                && opnum1->type == value::valuetype::real_type);
 
+            opnum1->real = fmod(opnum1->real, opnum2->real);
+        }
+        static void _vmjitcall_idarr(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
+        {
+            wo_assert(opnum1->type == value::valuetype::array_type && opnum1->array != nullptr);
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+
+            gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+            size_t index = opnum2->integer;
+            if (opnum2->integer < 0)
+                index = opnum1->array->size() + opnum2->integer;
+            if (index >= opnum1->array->size())
+            {
+                wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                cr->set_nil();
+            }
+            else
+            {
+                auto* result = &opnum1->array->at(index);
+                if (wo::gc::gc_is_marking())
+                    opnum1->array->add_memo(result);
+                cr->set_val(result);
+            }
+        }
+        static void _vmjitcall_iddict(wo::value* cr, wo::value* opnum1, wo::value* opnum2)
+        {
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+
+            gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+            auto fnd = opnum1->dict->find(*opnum2);
+            if (fnd != opnum1->dict->end())
+            {
+                auto* result = &fnd->second;
+                if (wo::gc::gc_is_marking())
+                    opnum1->dict->add_memo(result);
+                cr->set_val(result);
+            }
+            else
+                wo_fail(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
+        }
+        static void _vmjitcall_idstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
+        {
+            wo_assert(opnum2->type == value::valuetype::struct_type,
+                "Cannot index non-struct value in 'idstruct'.");
+            wo_assert(opnum2->structs != nullptr,
+                "Unable to index null in 'idstruct'.");
+            wo_assert(offset < opnum2->structs->m_count,
+                "Index out of range in 'idstruct'.");
+
+            gcbase::gc_read_guard gwg1(opnum2->structs);
+
+            auto* result = &opnum2->structs->m_values[offset];
+            if (wo::gc::gc_is_marking())
+                opnum2->structs->add_memo(result);
+            opnum1->set_val(result);
+        }
+        static void _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        {
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+
+            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+            auto fnd = opnum1->dict->find(*opnum2);
+            if (fnd != opnum1->dict->end())
+            {
+                auto* result = &fnd->second;
+                if (wo::gc::gc_is_marking())
+                    opnum1->dict->add_memo(result);
+                result->set_val(opnum3);
+            }
+            else
+                wo_fail(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
+        }
+        static void _vmjitcall_sidmap(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        {
+            wo_assert(opnum1->type == value::valuetype::dict_type && opnum1->dict != nullptr);
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+
+            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+            auto* result = &(*opnum1->dict)[*opnum2];
+            if (wo::gc::gc_is_marking())
+                opnum1->dict->add_memo(result);
+            result->set_val(opnum3);
+        }
+        static void _vmjitcall_sidarr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
+        {
+            wo_assert(opnum1->type == value::valuetype::array_type && opnum1->array != nullptr);
+            wo_assert(opnum2->type == value::valuetype::integer_type);
+
+            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+            size_t index = opnum2->integer;
+            if (opnum2->integer < 0)
+                index = opnum1->array->size() + opnum2->integer;
+            if (index >= opnum1->array->size())
+            {
+                wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+            }
+            else
+            {
+                auto* result = &opnum1->array->at(index);
+                if (wo::gc::gc_is_marking())
+                    opnum1->array->add_memo(result);
+                result->set_val(opnum3);
+            }
+        }
+        static void _vmjitcall_sidstruct(wo::value* opnum1, wo::value* opnum2, uint16_t offset)
+        {
+            wo_assert(nullptr != opnum1->structs,
+                "Unable to index null in 'sidstruct'.");
+            wo_assert(opnum1->type == value::valuetype::struct_type,
+                "Unable to index non-struct value in 'sidstruct'.");
+            wo_assert(offset < opnum1->structs->m_count,
+                "Index out of range in 'sidstruct'.");
+
+            gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+            auto* result = &opnum1->structs->m_values[offset];
+            if (wo::gc::gc_is_marking())
+                opnum1->structs->add_memo(result);
+            result->set_val(opnum2);
+        }
         struct WooJitErrorHandler :public asmjit::ErrorHandler
         {
             bool handleError(asmjit::Error err, const char* message, asmjit::CodeEmitter* origin) override
@@ -545,6 +636,7 @@ namespace wo
 
 #define WO_JIT_ADDRESSING_N1 auto opnum1 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b10), _vmsbp, _vmreg, env)
 #define WO_JIT_ADDRESSING_N2 auto opnum2 = get_opnum_ptr(x86compiler, rt_ip, (dr & 0b01), _vmsbp, _vmreg, env)
+#define WO_JIT_ADDRESSING_N3_REG_BPOFF auto opnum3 = get_opnum_ptr(x86compiler, rt_ip, true, _vmsbp, _vmreg, env)
 
 #define WO_JIT_NOT_SUPPORT do{state.m_state = function_jit_state::state::FAILED; return state; }while(0)
 
@@ -1087,7 +1179,20 @@ namespace wo
                     break;
                 }
                 case instruct::modr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_modr,
+                            asmjit::FuncSignatureT<void, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                }
                 case instruct::addh:
                 {
                     WO_JIT_ADDRESSING_N1;
@@ -1127,7 +1232,7 @@ namespace wo
                     auto op2 = opnum2.gp_value();
 
                     auto invoke_node =
-                        x86compiler.call((size_t)&_vmjitcall_addstring,
+                        x86compiler.call((size_t)&_vmjitcall_adds,
                             asmjit::FuncSignatureT<void, wo::value*, wo::value*>());
 
                     invoke_node->setArg(0, op1);
@@ -1273,11 +1378,10 @@ namespace wo
                     invoke_node->setArg(0, op1);
                     invoke_node->setArg(1, op2);
                     invoke_node->setArg(2, asmjit::Imm(id));
+                    invoke_node->setRet(0, _vmssp);
                     break;
                 }
                 case instruct::mkclos:
-                    WO_JIT_NOT_SUPPORT;
-                case instruct::typeas:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::mkstruct:
                 {
@@ -1299,9 +1403,41 @@ namespace wo
                 case instruct::abrt:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::idarr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_idarr,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, _vmcr);
+                    invoke_node->setArg(1, op1);
+                    invoke_node->setArg(2, op2);
+
+                    break;
+                }
                 case instruct::iddict:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_iddict,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, _vmcr);
+                    invoke_node->setArg(1, op1);
+                    invoke_node->setArg(2, op2);
+
+                    break;
+                }
                 case instruct::mkarr:
                 {
                     WO_JIT_ADDRESSING_N1;
@@ -1347,17 +1483,128 @@ namespace wo
                 case instruct::nequs:
                     WO_JIT_NOT_SUPPORT;
                 case instruct::siddict:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    WO_JIT_ADDRESSING_N3_REG_BPOFF;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+                    auto op3 = opnum3.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_siddict,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, op3);
+
+                    break;
+                }
                 case instruct::sidmap:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    WO_JIT_ADDRESSING_N3_REG_BPOFF;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+                    auto op3 = opnum3.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_sidmap,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, op3);
+
+                    break;
+                }
                 case instruct::sidarr:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    WO_JIT_ADDRESSING_N3_REG_BPOFF;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+                    auto op3 = opnum3.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_sidarr,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, wo::value*>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, op3);
+
+                    break;
+                }
                 case instruct::sidstruct:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    uint16_t offset = WO_IPVAL_MOVE_2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_sidstruct,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, Imm(offset));
+                    break;
+                }
                 case instruct::jnequb:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    uint32_t offset = WO_IPVAL_MOVE_4;
+
+                    if (opnum1.is_constant())
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
+                    else
+                    {
+                        auto bvalue = x86compiler.newInt64();
+                        wo_asure(!x86compiler.mov(bvalue, x86::qword_ptr(opnum1.gp_value(), offsetof(value, integer))));
+                        wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, integer)), bvalue));
+                    }
+
+                    if (auto fnd = x86_label_table.find(offset);
+                        fnd != x86_label_table.end())
+                    {
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        wo_asure(!x86compiler.jne(fnd->second));
+                    }
+                    else
+                    {
+                        x86_label_table[offset] = x86compiler.newLabel();
+                        wo_asure(!x86compiler.jne(x86_label_table[offset]));
+                    }
+                    break;
+                }
                 case instruct::idstruct:
-                    WO_JIT_NOT_SUPPORT;
+                {
+                    WO_JIT_ADDRESSING_N1;
+                    WO_JIT_ADDRESSING_N2;
+                    uint16_t offset = WO_IPVAL_MOVE_2;
+
+                    auto op1 = opnum1.gp_value();
+                    auto op2 = opnum2.gp_value();
+
+                    auto invoke_node =
+                        x86compiler.call((size_t)&_vmjitcall_idstruct,
+                            asmjit::FuncSignatureT< void, wo::value*, wo::value*, uint16_t>());
+
+                    invoke_node->setArg(0, op1);
+                    invoke_node->setArg(1, op2);
+                    invoke_node->setArg(2, Imm(offset));
+                    break;
+                }
                 case instruct::ext:
                 {
                     // extern code page:

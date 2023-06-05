@@ -2101,7 +2101,6 @@ namespace wo
                     WO_VM_ASSERT(offset < opnum2->structs->m_count,
                         "Index out of range in 'idstruct'.");
 
-                    // STRUCT IT'SELF WILL NOT BE MODIFY, SKIP TO LOCK!
                     gcbase::gc_read_guard gwg1(opnum2->structs);
 
                     auto* result = &opnum2->structs->m_values[offset];
@@ -2152,6 +2151,7 @@ namespace wo
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Cannot index array by non-integer value in 'idarr'.");
 
+                    // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
                     size_t index = opnum2->integer;
                     if (opnum2->integer < 0)
                         index = opnum1->array->size() + opnum2->integer;
@@ -2178,22 +2178,20 @@ namespace wo
                         "Unable to index null in 'iddict'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
                         "Unable to index non-dict value in 'iddict'.");
-                    do
-                    {
-                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                        auto fnd = opnum1->dict->find(*opnum2);
-                        if (fnd != opnum1->dict->end())
-                        {
-                            auto* result = &fnd->second;
-                            if (wo::gc::gc_is_marking())
-                                opnum1->dict->add_memo(result);
-                            rt_cr->set_val(result);
-                            break;
-                        }
-                        else
-                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
-                    } while (0);
+                    gcbase::gc_read_guard gwg1(opnum1->gcunit);
+
+                    auto fnd = opnum1->dict->find(*opnum2);
+                    if (fnd != opnum1->dict->end())
+                    {
+                        auto* result = &fnd->second;
+                        if (wo::gc::gc_is_marking())
+                            opnum1->dict->add_memo(result);
+                        rt_cr->set_val(result);
+                        break;
+                    }
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
                     break;
                 }
@@ -2208,14 +2206,13 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
                         "Unable to index non-map value in 'sidmap'.");
 
-                    do
-                    {
-                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                        auto* result = &(*opnum1->dict)[*opnum2];
-                        if (wo::gc::gc_is_marking())
-                            opnum1->dict->add_memo(result);
-                        result->set_val(opnum3);
-                    } while (0);
+                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+                    auto* result = &(*opnum1->dict)[*opnum2];
+                    if (wo::gc::gc_is_marking())
+                        opnum1->dict->add_memo(result);
+                    result->set_val(opnum3);
+
                     break;
                 }
                 case instruct::opcode::siddict:
@@ -2227,28 +2224,21 @@ namespace wo
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'siddict'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-map value in 'siddict'.");
+                        "Unable to index non-dict value in 'siddict'.");
 
-                    WO_VM_ASSERT(nullptr != opnum1->gcunit,
-                        "Unable to index null in 'iddict'.");
-                    WO_VM_ASSERT(opnum1->type == value::valuetype::dict_type,
-                        "Unable to index non-dict value in 'iddict'.");
-                    do
+                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+                    auto fnd = opnum1->dict->find(*opnum2);
+                    if (fnd != opnum1->dict->end())
                     {
-                        gcbase::gc_read_guard gwg1(opnum1->gcunit);
-                        auto fnd = opnum1->dict->find(*opnum2);
-                        if (fnd != opnum1->dict->end())
-                        {
-                            auto* result = &fnd->second;
-                            if (wo::gc::gc_is_marking())
-                                opnum1->dict->add_memo(result);
-                            result->set_val(opnum3);
-                            break;
-                        }
-                        else
-                            WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
-
-                    } while (0);
+                        auto* result = &fnd->second;
+                        if (wo::gc::gc_is_marking())
+                            opnum1->dict->add_memo(result);
+                        result->set_val(opnum3);
+                        break;
+                    }
+                    else
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "No such key in current dict.");
 
                     break;
                 }
@@ -2261,17 +2251,26 @@ namespace wo
                     WO_VM_ASSERT(nullptr != opnum1->gcunit,
                         "Unable to index null in 'sidarr'.");
                     WO_VM_ASSERT(opnum1->type == value::valuetype::array_type,
-                        "Unable to index non-vec value in 'sidarr'.");
+                        "Unable to index non-array value in 'sidarr'.");
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
-                        "Unable to index vec by non-integer value in 'sidarr'.");
-                    do
+                        "Unable to index array by non-integer value in 'sidarr'.");
+  
+                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+                    size_t index = opnum2->integer;
+                    if (opnum2->integer < 0)
+                        index = opnum1->array->size() + opnum2->integer;
+                    if (index >= opnum1->array->size())
                     {
-                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                        auto* result = &(*opnum1->array)[opnum2->integer];
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
+                    }
+                    else
+                    {
+                        auto* result = &opnum1->array->at(index);
                         if (wo::gc::gc_is_marking())
                             opnum1->array->add_memo(result);
                         result->set_val(opnum3);
-                    } while (0);
+                    }
                     break;
                 }
                 case instruct::opcode::sidstruct:
@@ -2286,14 +2285,14 @@ namespace wo
                         "Unable to index non-struct value in 'sidstruct'.");
                     WO_VM_ASSERT(offset < opnum1->structs->m_count,
                         "Index out of range in 'sidstruct'.");
-                    do
-                    {
-                        gcbase::gc_write_guard gwg1(opnum1->gcunit);
-                        auto* result = &opnum1->structs->m_values[offset];
-                        if (wo::gc::gc_is_marking())
-                            opnum1->structs->add_memo(result);
-                        result->set_val(opnum2);
-                    } while (0);
+
+                    gcbase::gc_write_guard gwg1(opnum1->gcunit);
+
+                    auto* result = &opnum1->structs->m_values[offset];
+                    if (wo::gc::gc_is_marking())
+                        opnum1->structs->add_memo(result);
+                    result->set_val(opnum2);
+      
                     break;
                 }
                 case instruct::opcode::idstr:
