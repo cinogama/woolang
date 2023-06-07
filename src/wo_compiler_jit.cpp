@@ -243,6 +243,8 @@ namespace wo
             auto stackbp = x86compiler.newUIntPtr();
             wo_asure(!x86compiler.mov(stackbp, stack_bp));
 
+            auto interrupt = x86compiler.newInt32();
+
             auto invoke_node =
                 x86compiler.call((size_t)&_invoke_vm_checkpoint,
                     asmjit::FuncSignatureT<void, vmbase*, value*, value*, const byte_t*>());
@@ -251,8 +253,7 @@ namespace wo
             wo_asure(invoke_node->setArg(2, stackbp));
             wo_asure(invoke_node->setArg(3, asmjit::Imm((intptr_t)ip)));
 
-            auto interrupt = x86compiler.newInt32();
-            // invoke_node->setRet(0, interrupt);
+            invoke_node->setRet(0, interrupt);
 
             // x86compiler.cmp(interrupt, wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
             wo_asure(!x86compiler.cmp(interrupt, 0));
@@ -1039,10 +1040,11 @@ namespace wo
                 }
                 case instruct::jmp:
                 {
+                    auto check_point_ipaddr = rt_ip - 1;
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
                     if (jmp_place < current_ip_byteoffset)
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                     if (auto fnd = x86_label_table.find(jmp_place);
                         fnd != x86_label_table.end())
@@ -1057,10 +1059,11 @@ namespace wo
                 }
                 case instruct::jf:
                 {
+                    auto check_point_ipaddr = rt_ip - 1;
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
                     if (jmp_place < current_ip_byteoffset)
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                     wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
 
@@ -1077,10 +1080,11 @@ namespace wo
                 }
                 case instruct::jt:
                 {
+                    auto check_point_ipaddr = rt_ip - 1;
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
                     if (jmp_place < current_ip_byteoffset)
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                     wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, handle)), 0));
 
@@ -1559,11 +1563,13 @@ namespace wo
                 }
                 case instruct::jnequb:
                 {
+                    auto check_point_ipaddr = rt_ip - 1;
+
                     WO_JIT_ADDRESSING_N1;
                     uint32_t jmp_place = WO_IPVAL_MOVE_4;
 
                     if (jmp_place < current_ip_byteoffset)
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, rt_ip);
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                     if (opnum1.is_constant())
                         wo_asure(!x86compiler.cmp(x86::qword_ptr(_vmcr, offsetof(value, integer)), opnum1.const_value()->integer));
