@@ -1140,10 +1140,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    auto real_of_op2 = x86compiler.newXmm();
-                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.addsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    auto real_of_op1 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op1, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.addsd(real_of_op1, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
                     break;
                 }
                 case instruct::subr:
@@ -1151,10 +1151,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    auto real_of_op2 = x86compiler.newXmm();
-                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.subsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    auto real_of_op1 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op1, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.subsd(real_of_op1, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
                     break;
                 }
                 case instruct::mulr:
@@ -1162,10 +1162,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    auto real_of_op2 = x86compiler.newXmm();
-                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.mulsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    auto real_of_op1 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op1, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.mulsd(real_of_op1, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
                     break;
                 }
                 case instruct::divr:
@@ -1173,10 +1173,10 @@ namespace wo
                     WO_JIT_ADDRESSING_N1;
                     WO_JIT_ADDRESSING_N2;
 
-                    auto real_of_op2 = x86compiler.newXmm();
-                    wo_asure(!x86compiler.movsd(real_of_op2, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.divsd(real_of_op2, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
-                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op2));
+                    auto real_of_op1 = x86compiler.newXmm();
+                    wo_asure(!x86compiler.movsd(real_of_op1, x86::ptr(opnum1.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.divsd(real_of_op1, x86::ptr(opnum2.gp_value(), offsetof(value, real))));
+                    wo_asure(!x86compiler.movsd(x86::ptr(opnum1.gp_value(), offsetof(value, real)), real_of_op1));
                     break;
                 }
                 case instruct::modr:
