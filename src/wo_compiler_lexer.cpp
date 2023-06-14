@@ -189,10 +189,11 @@ namespace wo
 
                     if (workinpeek)
                     {
-                        peeked_flag = true;
+                        wo_assert(peeked_flag == false);
                         peek_result_type = next(&peek_result_str);
                         if (out_literal)
                             *out_literal = peek_result_str;
+                        peeked_flag = true;
                         return peek_result_type;
                     }
 
