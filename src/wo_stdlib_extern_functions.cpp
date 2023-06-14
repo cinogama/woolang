@@ -2176,7 +2176,7 @@ namespace dict
     }
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> pure option<std::pure_if_immutable_t<VT>>;
+        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> pure option<VT>;
 
     extern("rslib_std_map_find") 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> pure bool;
