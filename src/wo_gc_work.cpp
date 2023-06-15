@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "wo_vm.hpp"
 #include "wo_memory.hpp"
 

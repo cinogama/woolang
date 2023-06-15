@@ -1,4 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
 #include "wo_lang_extern_symbol_loader.hpp"
 #include "wo_utf8.hpp"
 #include "wo_vm.hpp"
@@ -1122,10 +1121,10 @@ WO_API wo_api rslib_std_sub(wo_vm vm, wo_value args, size_t argc)
         size_t sub_str_len = 0;
         if (argc == 2)
         {
-            auto* substring = wo::u8substr(wo_string(args + 0), wo_int(args + 1), wo::u8str_npos, &sub_str_len);
+            auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), wo::u8str_npos, &sub_str_len);
             return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
         }
-        auto* substring = wo::u8substr(wo_string(args + 0), wo_int(args + 1), wo_int(args + 2), &sub_str_len);
+        auto* substring = wo::u8substr(wo_string(args + 0), (size_t)wo_int(args + 1), (size_t)wo_int(args + 2), &sub_str_len);
         return wo_ret_string(vm, std::string(substring, sub_str_len).c_str());
     }
 

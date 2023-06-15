@@ -737,7 +737,7 @@ namespace wo
     }
     bool grammar::check(lexer& tkr)
     {
-        // READ FROM token_reader£¬CHECK IT
+        // READ FROM token_readerï¼ŒCHECK IT
 
         std::stack<size_t> state_stack;
         std::stack<sym> sym_stack;

@@ -1,7 +1,4 @@
 #pragma once
-
-#define _CRT_SECURE_NO_WARNINGS
-
 #define __wo_macro_concat(A,B) A##B
 #define _wo_macro_concat(A,B) __wo_macro_concat(A,B)
 #define wo_macro_concat(A,B) _wo_macro_concat(A,B)

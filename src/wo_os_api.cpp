@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "wo_os_api.hpp"
 #include "wo_assert.hpp"
 #include "wo_env_locale.hpp"

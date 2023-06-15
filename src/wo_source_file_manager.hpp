@@ -167,7 +167,7 @@ namespace wo
         if (stream)
         {
             stream->seekg(0, std::ios::end);
-            auto len = stream->tellg();
+            size_t len = (size_t)stream->tellg();
             stream->seekg(0, std::ios::beg);
             out_result->resize(len, 0);
             stream->read(out_result->data(), len);

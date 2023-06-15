@@ -479,7 +479,7 @@ profiler                        start
                                 ;
                                 result = set_breakpoint(vmm,
                                     vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip).source_file
-                                    , std::stoull(filename_or_funcname));
+                                    , (size_t)std::stoull(filename_or_funcname));
 
                             }
 
@@ -636,7 +636,7 @@ profiler                        start
                                     goto need_next_command;
                                 }
                             }
-                            display_range = std::stoull(filename);
+                            display_range = (size_t)std::stoull(filename);
                         }
 
                         print_src_file(vmm, wstr_to_str(loc.source_file), display_rowno,

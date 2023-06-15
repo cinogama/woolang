@@ -1,6 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
-
 #include "wo_compiler_jit.hpp"
 #include "wo_instruct.hpp"
 #include "wo_vm.hpp"
