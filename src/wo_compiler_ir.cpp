@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #include "wo_compiler_ir.hpp"
 #include "wo_lang_ast_builder.hpp"
 
@@ -502,15 +500,15 @@ namespace wo
 
         shared_pointer<runtime_env> result = new runtime_env;
 
-        result->real_register_count = register_count;
-        result->constant_and_global_value_takeplace_count = constant_value_count + global_value_count;
-        result->constant_value_count = constant_value_count;
+        result->real_register_count = (size_t)register_count;
+        result->constant_and_global_value_takeplace_count = (size_t)(constant_value_count + global_value_count);
+        result->constant_value_count = (size_t)constant_value_count;
 
         result->runtime_stack_count = stackcount;
 
         size_t preserve_memory_size =
             result->constant_and_global_value_takeplace_count
-            + register_count
+            + (size_t)register_count
             + result->runtime_stack_count;
 
         value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
@@ -560,13 +558,13 @@ namespace wo
         if (!stream->read_elem(&rt_code_with_padding_length))
             WO_LOAD_BIN_FAILED("Failed to restore code length.");
 
-        byte_t* code_buf = (byte_t*)alloc64(rt_code_with_padding_length * sizeof(byte_t));
+        byte_t* code_buf = (byte_t*)alloc64((size_t)rt_code_with_padding_length * sizeof(byte_t));
         result->rt_codes = code_buf;
-        result->rt_code_len = rt_code_with_padding_length * sizeof(byte_t);
+        result->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
 
         wo_assert(code_buf != nullptr);
 
-        if (!stream->read_buffer(code_buf, rt_code_with_padding_length * sizeof(byte_t)))
+        if (!stream->read_buffer(code_buf, (size_t)rt_code_with_padding_length * sizeof(byte_t)))
             WO_LOAD_BIN_FAILED("Failed to restore code.");
 
         struct extern_native_function
@@ -616,7 +614,7 @@ namespace wo
                 if (!stream->read_elem(&constant_index))
                     WO_LOAD_BIN_FAILED("Failed to restore extern native function constant index.");
 
-                loading_function.constant_offsets.push_back(constant_index);
+                loading_function.constant_offsets.push_back((size_t)constant_index);
             }
 
             // 4.1.1.5 used function in ir binary code
@@ -630,7 +628,7 @@ namespace wo
                 if (!stream->read_elem(&ir_code_offset))
                     WO_LOAD_BIN_FAILED("Failed to restore extern native function ir-offset.");
 
-                loading_function.ir_command_offsets.push_back(ir_code_offset);
+                loading_function.ir_command_offsets.push_back((size_t)ir_code_offset);
             }
             extern_native_functions.emplace_back(std::move(loading_function));
         }
@@ -660,7 +658,7 @@ namespace wo
             if (!stream->read_elem(&iroffset))
                 WO_LOAD_BIN_FAILED("Failed to restore extern script function ir-offset.");
 
-            loading_function.ir_offset = iroffset;
+            loading_function.ir_offset = (size_t)iroffset;
 
             extern_script_functions.emplace_back(std::move(loading_function));
         }

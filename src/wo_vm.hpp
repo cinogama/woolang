@@ -1096,8 +1096,7 @@ namespace wo
                 reinterpret_cast<wo_native_func>(wo_func_addr)(
                     reinterpret_cast<wo_vm>(this),
                     reinterpret_cast<wo_value>(sp + 2),
-                    argc
-                    );
+                    (size_t)argc);
 
                 ip = return_ip;
                 sp = return_sp;
@@ -1138,7 +1137,7 @@ namespace wo
                         wo_func_closure->m_native_func(
                             reinterpret_cast<wo_vm>(this),
                             reinterpret_cast<wo_value>(sp + 2),
-                            argc);
+                            (size_t)argc);
                     }
                     else
                     {
@@ -1974,7 +1973,7 @@ namespace wo
                         rt_cr->set_nil();
 
                         wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
                         wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
@@ -1996,7 +1995,7 @@ namespace wo
 
                         if (closure->m_native_call)
                         {
-                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
@@ -2031,11 +2030,11 @@ namespace wo
                         ip = reinterpret_cast<byte_t*>(call_aim_native_func);
 
                         if (dr & 0b10)
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
                         else
                         {
                             wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), tc->integer);
+                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
                             wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
                         }
 
@@ -2152,17 +2151,17 @@ namespace wo
                         "Cannot index array by non-integer value in 'idarr'.");
 
                     // ATTENTION: `_vmjitcall_idarr` HAS SAME LOGIC, NEED UPDATE SAME TIME.
-                    size_t index = opnum2->integer;
+                    wo_integer_t index = opnum2->integer;
                     if (opnum2->integer < 0)
-                        index = opnum1->array->size() + opnum2->integer;
-                    if (index >= opnum1->array->size())
+                        index = (wo_integer_t)opnum1->array->size() + opnum2->integer;
+                    if ((size_t)index >= opnum1->array->size())
                     {
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                         rt_cr->set_nil();
                     }
                     else
                     {
-                        auto* result = &opnum1->array->at(index);
+                        auto* result = &opnum1->array->at((size_t)index);
                         if (wo::gc::gc_is_marking())
                             opnum1->array->add_memo(result);
                         rt_cr->set_val(result);
@@ -2257,16 +2256,16 @@ namespace wo
   
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
-                    size_t index = opnum2->integer;
+                    wo_integer_t index = opnum2->integer;
                     if (opnum2->integer < 0)
-                        index = opnum1->array->size() + opnum2->integer;
-                    if (index >= opnum1->array->size())
+                        index = (wo_integer_t)opnum1->array->size() + opnum2->integer;
+                    if ((size_t)index >= opnum1->array->size())
                     {
                         WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     }
                     else
                     {
-                        auto* result = &opnum1->array->at(index);
+                        auto* result = &opnum1->array->at((size_t)index);
                         if (wo::gc::gc_is_marking())
                             opnum1->array->add_memo(result);
                         result->set_val(opnum3);
@@ -2374,10 +2373,10 @@ namespace wo
                             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
                             auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
                             wo::gcbase::gc_write_guard g1(packed_array);
-                            packed_array->resize(tc->integer - opnum2->integer);
+                            packed_array->resize((size_t)(tc->integer - opnum2->integer));
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {
-                                (*packed_array)[argindex - opnum2->integer].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
+                                (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                             }
 
                             break;
@@ -2433,7 +2432,7 @@ namespace wo
                                     }
                                     else
                                     {
-                                        for (auto arg_idx = arg_array->rbegin() + (arg_array->size() - opnum2->integer);
+                                        for (auto arg_idx = arg_array->rbegin() + (size_t)((wo_integer_t)arg_array->size() - opnum2->integer);
                                             arg_idx != arg_array->rend();
                                             arg_idx++)
                                             (rt_sp--)->set_val(&*arg_idx);

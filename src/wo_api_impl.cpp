@@ -1,5 +1,4 @@
 // wo_api_impl.cpp
-#define _CRT_SECURE_NO_WARNINGS
 #include "wo_vm.hpp"
 #include "wo_source_file_manager.hpp"
 #include "wo_compiler_parser.hpp"
@@ -509,7 +508,7 @@ void wo_set_arr(wo_value value, wo_int_t count)
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, (size_t)count);
 }
 
 void wo_set_map(wo_value value)
@@ -1613,19 +1612,19 @@ wo_integer_t wo_lengthof(wo_value value)
     if (_rsvalue->type == wo::value::valuetype::array_type)
     {
         wo::gcbase::gc_read_guard rg1(_rsvalue->array);
-        return _rsvalue->array->size();
+        return (wo_integer_t)_rsvalue->array->size();
     }
     else if (_rsvalue->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_read_guard rg1(_rsvalue->dict);
-        return _rsvalue->dict->size();
+        return (wo_integer_t)_rsvalue->dict->size();
     }
     else if (_rsvalue->type == wo::value::valuetype::string_type)
-        return wo::u8strlen(_rsvalue->string->c_str());
+        return (wo_integer_t)wo::u8strlen(_rsvalue->string->c_str());
     else if (_rsvalue->type == wo::value::valuetype::struct_type)
     {
         // no need lock for struct's count
-        return _rsvalue->structs->m_count;
+        return (wo_integer_t)_rsvalue->structs->m_count;
     }
     else
     {
@@ -1646,7 +1645,7 @@ wo_int_t wo_str_bytelen(wo_value value)
 
 wchar_t wo_str_get_char(wo_string_t str, wo_int_t index)
 {
-    wchar_t ch = wo::u8stridx(str, index);
+    wchar_t ch = wo::u8stridx(str, (size_t)index);
     if (ch == 0 && wo::u8strlen(str) <= (size_t)index)
         wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     return ch;
@@ -2092,7 +2091,7 @@ wo_value wo_push_arr(wo_vm vm, wo_int_t count)
     auto* _rsvalue = WO_VM(vm)->sp--;
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, (size_t)count);
     return CS_VAL(_rsvalue);
 
 }
@@ -2290,7 +2289,7 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
         size_t arrsz = _arr->array->size();
         if ((size_t)newsz < arrsz && wo::gc::gc_is_marking())
         {
-            for (size_t i = newsz; i < arrsz; ++i)
+            for (size_t i = (size_t)newsz; i < arrsz; ++i)
                 _arr->array->add_memo(&(*_arr->array)[i]);
         }
 
@@ -2315,7 +2314,7 @@ wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 
         if ((size_t)place <= _arr->array->size())
         {
-            auto index = _arr->array->insert(_arr->array->begin() + place, wo::value());
+            auto index = _arr->array->insert(_arr->array->begin() + (size_t)place, wo::value());
             if (val)
                 index->set_val(WO_VAL(val));
             else
@@ -2365,7 +2364,7 @@ wo_value wo_arr_get(wo_value arr, wo_int_t index)
         wo::gcbase::gc_read_guard g1(_arr->array);
 
         if ((size_t)index < _arr->array->size())
-            return CS_VAL(&(*_arr->array)[index]);
+            return CS_VAL(&(*_arr->array)[(size_t)index]);
         else
             wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
 
@@ -2415,13 +2414,13 @@ void wo_arr_remove(wo_value arr, wo_int_t index)
     {
         wo::gcbase::gc_write_guard g1(_arr->array);
 
-        if (index != -1)
+        if (index >= 0)
         {
             if ((size_t)index < _arr->array->size())
             {
                 if (wo::gc::gc_is_marking())
-                    _arr->array->add_memo(&(*_arr->array)[index]);
-                _arr->array->erase(_arr->array->begin() + index);
+                    _arr->array->add_memo(&(*_arr->array)[(size_t)index]);
+                _arr->array->erase(_arr->array->begin() + (size_t)index);
             }
             else
                 wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");

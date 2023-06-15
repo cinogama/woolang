@@ -1,5 +1,3 @@
-#define _CRT_SECURE_NO_WARNINGS
-
 #define WO_LANG_GRAMMAR_LR1_IMPL
 
 #include "wo_lang_grammar_lr1_autogen.hpp"

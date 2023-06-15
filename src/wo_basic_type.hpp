@@ -112,7 +112,7 @@ namespace wo
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t*>*>(&handle)) = nullptr;
+            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
 
             return this;
@@ -120,7 +120,7 @@ namespace wo
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t*>*>(&handle)) = nullptr;
+            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
 

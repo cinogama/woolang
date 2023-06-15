@@ -145,7 +145,7 @@ namespace wo
                     auto index = a_value_idx->index->get_constant_value().integer;
                     if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
                     {
-                        a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[index]);
+                        a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[(size_t)index]);
                         a_value_idx->struct_offset = (uint16_t)index;
                     }
                     else
@@ -1620,7 +1620,7 @@ namespace wo
                         auto index = a_value_index->index->get_constant_value().integer;
                         if ((size_t)index < a_value_index->from->value_type->template_arguments.size() && index >= 0)
                         {
-                            a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[index]);
+                            a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[(size_t)index]);
                             a_value_index->struct_offset = (uint16_t)index;
                         }
                         else
