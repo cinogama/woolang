@@ -252,7 +252,7 @@ WO_API wo_bool_t    wo_load_binary_with_stacksz(wo_vm vm, wo_string_t virtual_sr
 WO_API wo_bool_t    wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buffer, size_t length);
 
 // NOTE: wo_dump_binary must invoke before wo_run.
-WO_API void*        wo_dump_binary(wo_vm vm, size_t * out_length);
+WO_API void*        wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t * out_length);
 WO_API void         wo_free_binary(void* buffer);
 
 // wo_run is used for init a vm.

@@ -1832,9 +1832,9 @@ wo_bool_t wo_load_binary(wo_vm vm, wo_string_t virtual_src_path, const void* buf
     return wo_load_binary_with_stacksz(vm, virtual_src_path, buffer, length, 0);
 }
 
-void* wo_dump_binary(wo_vm vm, size_t* out_length)
+void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length)
 {
-    auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary();
+    auto [bufptr, bufsz] = WO_VM(vm)->env->create_env_binary(saving_pdi);
     *out_length = bufsz;
     return bufptr;
 }

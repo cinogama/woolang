@@ -39,7 +39,7 @@ int main(int argc, char** argv)
                 if (FILE* out_binary_file = fopen(out_binary_path, "wb"))
                 {
                     size_t binary_len = 0;
-                    void* binary_buf = wo_dump_binary(vmm, &binary_len);
+                    void* binary_buf = wo_dump_binary(vmm, true, &binary_len);
 
                     if (fwrite(binary_buf, sizeof(char), binary_len, out_binary_file) == binary_len)
                         out_binary_file_ok = true;
