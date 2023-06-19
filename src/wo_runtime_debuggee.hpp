@@ -199,7 +199,10 @@ profiler                        start
         bool breakdown_temp_for_next = false;
         size_t breakdown_temp_for_next_callstackdepth = 0;
 
-        size_t breakdown_temp_for_step_lineno = 0;
+        size_t breakdown_temp_for_step_row_begin = 0;
+        size_t breakdown_temp_for_step_row_end = 0;
+        size_t breakdown_temp_for_step_col_begin = 0;
+        size_t breakdown_temp_for_step_col_end = 0;
         std::wstring breakdown_temp_for_step_srcfile = L"";
 
         const wo::byte_t* current_runtime_ip;
@@ -548,7 +551,10 @@ profiler                        start
                             ->get_src_location_by_runtime_ip(vmm->ip);
 
                         breakdown_temp_for_step = true;
-                        breakdown_temp_for_step_lineno = loc.begin_row_no;
+                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
+                        breakdown_temp_for_step_row_end = loc.end_row_no;
+                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
+                        breakdown_temp_for_step_col_end = loc.end_col_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -566,7 +572,10 @@ profiler                        start
 
                         breakdown_temp_for_next = true;
                         breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
-                        breakdown_temp_for_step_lineno = loc.begin_row_no;
+                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
+                        breakdown_temp_for_step_row_end = loc.end_row_no;
+                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
+                        breakdown_temp_for_step_col_end = loc.end_col_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -999,11 +1008,17 @@ profiler                        start
                 if ((
                     (breakdown_temp_for_stepir
                         || (breakdown_temp_for_step
-                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
+                                || loc->end_row_no != breakdown_temp_for_step_row_end
+                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
+                                || loc->end_col_no != breakdown_temp_for_step_col_end
                                 || loc->source_file != breakdown_temp_for_step_srcfile))
                         || (breakdown_temp_for_next
                             && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
+                                || loc->end_row_no != breakdown_temp_for_step_row_end
+                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
+                                || loc->end_col_no != breakdown_temp_for_step_col_end
                                 || loc->source_file != breakdown_temp_for_step_srcfile))
                         || (breakdown_temp_for_return
                             && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
