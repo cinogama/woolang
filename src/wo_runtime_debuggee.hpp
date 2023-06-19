@@ -204,6 +204,7 @@ profiler                        start
         size_t breakdown_temp_for_step_col_begin = 0;
         size_t breakdown_temp_for_step_col_end = 0;
         std::wstring breakdown_temp_for_step_srcfile = L"";
+        std::string last_command = "";
 
         const wo::byte_t* current_runtime_ip;
         wo::value* current_frame_sp;
@@ -242,10 +243,16 @@ profiler                        start
         bool debug_command(vmbase* vmm)
         {
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
-            std::string main_command;
             char _useless_for_clear = 0;
             auto&& inputbuf = get_and_split_line();
+            
+            std::string main_command;
             if (need_possiable_input(inputbuf, main_command))
+                last_command = main_command;
+            else
+                main_command = last_command;
+
+            if (!main_command.empty())
             {
                 auto& context = env_context[vmm->env];
 
@@ -753,7 +760,6 @@ profiler                        start
                 else
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
             }
-
 
         need_next_command:
 
