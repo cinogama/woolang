@@ -846,7 +846,7 @@ profiler                        start
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl;
+                            wo_stdout << ANSI_RST << wo_endl;
                             last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         continue;
@@ -860,7 +860,7 @@ profiler                        start
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl;
+                            wo_stdout << ANSI_RST << wo_endl;
                             last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
@@ -896,7 +896,7 @@ profiler                        start
                     }
                 }
             }
-            wo_stdout << wo_endl;
+            wo_stdout << ANSI_RST << wo_endl;
         }
 
         virtual void debug_interrupt(vmbase* vmm) override
