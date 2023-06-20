@@ -64,4 +64,19 @@ namespace wo
         *out_sub_len = end_place - substr;
         return substr;
     }
+    size_t u8blen2clen(wo_string_t u8str, size_t len)
+    {
+        size_t clen = 0;
+        for (;;)
+        {
+            size_t chlen = u8chsize(u8str);
+            if (chlen > len)
+                break;
+
+            ++clen;
+            len -= chlen;
+            u8str += chlen;
+        }
+        return clen;
+    }
 }

@@ -382,7 +382,7 @@ WO_API wo_api rslib_std_string_find(wo_vm vm, wo_value args, size_t argc)
 
     size_t fnd_place = aim.find(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+        return wo_ret_int(vm, (wo_integer_t)wo::u8blen2clen(aim.c_str(), fnd_place));
 
     return wo_ret_int(vm, -1);
 }
@@ -395,7 +395,7 @@ WO_API wo_api rslib_std_string_find_from(wo_vm vm, wo_value args, size_t argc)
 
     size_t fnd_place = aim.find(match, from);
     if (fnd_place >= from && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+        return wo_ret_int(vm, (wo_integer_t)wo::u8blen2clen(aim.c_str(), fnd_place));
 
     return wo_ret_int(vm, -1);
 }
@@ -407,7 +407,7 @@ WO_API wo_api rslib_std_string_rfind(wo_vm vm, wo_value args, size_t argc)
 
     size_t fnd_place = aim.rfind(match);
     if (fnd_place >= 0 && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+        return wo_ret_int(vm, (wo_integer_t)wo::u8blen2clen(aim.c_str(), fnd_place));
 
     return wo_ret_int(vm, -1);
 }
@@ -420,7 +420,7 @@ WO_API wo_api rslib_std_string_rfind_from(wo_vm vm, wo_value args, size_t argc)
 
     size_t fnd_place = aim.rfind(match, from);
     if (fnd_place >= from && fnd_place < aim.size())
-        return wo_ret_int(vm, (wo_integer_t)fnd_place);
+        return wo_ret_int(vm, (wo_integer_t)wo::u8blen2clen(aim.c_str(), fnd_place));
 
     return wo_ret_int(vm, -1);
 }
