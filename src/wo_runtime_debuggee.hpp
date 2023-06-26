@@ -199,8 +199,12 @@ profiler                        start
         bool breakdown_temp_for_next = false;
         size_t breakdown_temp_for_next_callstackdepth = 0;
 
-        size_t breakdown_temp_for_step_lineno = 0;
+        size_t breakdown_temp_for_step_row_begin = 0;
+        size_t breakdown_temp_for_step_row_end = 0;
+        size_t breakdown_temp_for_step_col_begin = 0;
+        size_t breakdown_temp_for_step_col_end = 0;
         std::wstring breakdown_temp_for_step_srcfile = L"";
+        std::string last_command = "";
 
         const wo::byte_t* current_runtime_ip;
         wo::value* current_frame_sp;
@@ -239,10 +243,16 @@ profiler                        start
         bool debug_command(vmbase* vmm)
         {
             printf(ANSI_HIG "> " ANSI_HIY); fflush(stdout);
-            std::string main_command;
             char _useless_for_clear = 0;
             auto&& inputbuf = get_and_split_line();
+            
+            std::string main_command;
             if (need_possiable_input(inputbuf, main_command))
+                last_command = main_command;
+            else
+                main_command = last_command;
+
+            if (!main_command.empty())
             {
                 auto& context = env_context[vmm->env];
 
@@ -420,7 +430,7 @@ profiler                        start
                                                 auto& src = vmm->env->program_debug_info->get_src_location_by_runtime_ip(
                                                     vmm->env->rt_codes + func_info.rt_ip_begin);
 
-                                                print_src_file(vmm, wstr_to_str(src.source_file), 0,
+                                                print_src_file(vmm, wstr_to_str(src.source_file), 0,0,0,0,
                                                     src.begin_row_no, src.end_row_no, &record);
                                             }
                                         }
@@ -548,7 +558,10 @@ profiler                        start
                             ->get_src_location_by_runtime_ip(vmm->ip);
 
                         breakdown_temp_for_step = true;
-                        breakdown_temp_for_step_lineno = loc.begin_row_no;
+                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
+                        breakdown_temp_for_step_row_end = loc.end_row_no;
+                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
+                        breakdown_temp_for_step_col_end = loc.end_col_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -566,7 +579,10 @@ profiler                        start
 
                         breakdown_temp_for_next = true;
                         breakdown_temp_for_next_callstackdepth = vmm->callstack_layer();
-                        breakdown_temp_for_step_lineno = loc.begin_row_no;
+                        breakdown_temp_for_step_row_begin = loc.begin_row_no;
+                        breakdown_temp_for_step_row_end = loc.end_row_no;
+                        breakdown_temp_for_step_col_begin = loc.begin_col_no;
+                        breakdown_temp_for_step_col_end = loc.end_col_no;
                         breakdown_temp_for_step_srcfile = loc.source_file;
 
                         goto continue_run_command;
@@ -625,22 +641,24 @@ profiler                        start
                         std::string filename;
                         size_t display_range = 5;
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                        size_t display_rowno = loc.begin_row_no;
                         if (need_possiable_input(inputbuf, filename))
                         {
                             for (auto ch : filename)
                             {
                                 if (!lexer::lex_isdigit(ch))
                                 {
-                                    print_src_file(vmm, filename, (str_to_wstr(filename) == loc.source_file ? loc.begin_row_no : 0));
+                                    if (str_to_wstr(filename) == loc.source_file)
+                                        print_src_file(vmm, filename, loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no);
+                                    else
+                                        print_src_file(vmm, filename, 0, 0, 0, 0);
                                     goto need_next_command;
                                 }
                             }
                             display_range = (size_t)std::stoull(filename);
                         }
 
-                        print_src_file(vmm, wstr_to_str(loc.source_file), display_rowno,
-                            (display_rowno < display_range / 2 ? 0 : display_rowno - display_range / 2), display_rowno + display_range / 2);
+                        print_src_file(vmm, wstr_to_str(loc.source_file), loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no,
+                            (loc.begin_row_no < display_range / 2 ? 0 : loc.begin_row_no - display_range / 2), loc.end_row_no + display_range / 2);
 
                     }
                 }
@@ -743,7 +761,6 @@ profiler                        start
                     printf(ANSI_HIR "Unknown debug command, please input 'help' for more information.\n" ANSI_RST);
             }
 
-
         need_next_command:
 
             printf(ANSI_RST);
@@ -797,7 +814,10 @@ profiler                        start
             return breakpoint_found_id;
         }
         void print_src_file(wo::vmbase* vmm, const std::string& filepath, 
-            size_t highlight = 0, 
+            size_t hightlight_range_begin_row, 
+            size_t hightlight_range_end_row,
+            size_t hightlight_range_begin_col,
+            size_t hightlight_range_end_col,
             size_t from = 0, 
             size_t to = SIZE_MAX,
             cpu_profiler_record_infornmation* info = nullptr)
@@ -822,7 +842,7 @@ profiler                        start
                 // print source;
                 // here is a easy lexer..
                 size_t current_row_no = 1;
-
+                size_t current_col_no = 0;
                 size_t last_line_is_breakline = SIZE_MAX;
 
                 if (from <= current_row_no && current_row_no <= to)
@@ -831,28 +851,31 @@ profiler                        start
                 }
                 for (size_t index = 0; index < srcfile.size(); index++)
                 {
+                    current_col_no++;
                     if (srcfile[index] == L'\n')
                     {
+                        current_col_no = 0;
                         current_row_no++;
                         if (from <= current_row_no && current_row_no <= to)
                         {
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("    " ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl;
+                            wo_stdout << ANSI_RST << wo_endl;
                             last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         continue;
                     }
                     else if (srcfile[index] == L'\r')
                     {
+                        current_col_no = 0;
                         current_row_no++;
                         if (from <= current_row_no && current_row_no <= to)
                         {
                             if (last_line_is_breakline != SIZE_MAX)
                                 printf("\t" ANSI_HIR "# Breakpoint %zu" ANSI_RST, last_line_is_breakline);
 
-                            wo_stdout << wo_endl;
+                            wo_stdout << ANSI_RST << wo_endl;
                             last_line_is_breakline = print_src_file_print_lineno(vmm, filepath, current_row_no, info);
                         }
                         if (index + 1 < srcfile.size() && srcfile[index + 1] == L'\n')
@@ -860,17 +883,31 @@ profiler                        start
                         continue;
                     }
 
-                    if (current_row_no == highlight)
-                        printf(ANSI_INV);
-
                     if (from <= current_row_no && current_row_no <= to)
-                        wo_wstdout << srcfile[index];
+                    {
+                        bool print_inv = false;
 
-                    if (current_row_no == highlight)
-                        printf(ANSI_RST);
+                        if (current_row_no >= hightlight_range_begin_row && current_row_no <= hightlight_range_end_row)
+                        {
+                            print_inv = true;
+
+                            if ((current_row_no == hightlight_range_begin_row
+                                && current_col_no < hightlight_range_begin_col)
+                                || (current_row_no == hightlight_range_end_row
+                                    && current_col_no > hightlight_range_end_col))
+                                print_inv = false;
+                        }
+
+                        if (print_inv)
+                            printf(ANSI_INV);
+                        else
+                            printf(ANSI_RST);
+
+                        wo_wstdout << srcfile[index];
+                    }
                 }
             }
-            wo_stdout << wo_endl;
+            wo_stdout << ANSI_RST << wo_endl;
         }
 
         virtual void debug_interrupt(vmbase* vmm) override
@@ -973,11 +1010,17 @@ profiler                        start
                 if ((
                     (breakdown_temp_for_stepir
                         || (breakdown_temp_for_step
-                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
+                                || loc->end_row_no != breakdown_temp_for_step_row_end
+                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
+                                || loc->end_col_no != breakdown_temp_for_step_col_end
                                 || loc->source_file != breakdown_temp_for_step_srcfile))
                         || (breakdown_temp_for_next
                             && vmm->callstack_layer() <= breakdown_temp_for_next_callstackdepth
-                            && (loc->begin_row_no != breakdown_temp_for_step_lineno
+                            && (loc->begin_row_no != breakdown_temp_for_step_row_begin
+                                || loc->end_row_no != breakdown_temp_for_step_row_end
+                                || loc->begin_col_no != breakdown_temp_for_step_col_begin
+                                || loc->end_col_no != breakdown_temp_for_step_col_end
                                 || loc->source_file != breakdown_temp_for_step_srcfile))
                         || (breakdown_temp_for_return
                             && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
@@ -1014,8 +1057,7 @@ profiler                        start
                     {
                         printf("-------------------------------------------\n");
                         auto& loc = vmm->env->program_debug_info->get_src_location_by_runtime_ip(current_runtime_ip);
-                        size_t display_rowno = loc.begin_row_no;
-                        print_src_file(vmm, wstr_to_str(loc.source_file), display_rowno, (display_rowno < 2 ? 0 : display_rowno - 2), display_rowno + 2);
+                        print_src_file(vmm, wstr_to_str(loc.source_file), loc.begin_row_no, loc.end_row_no, loc.begin_col_no, loc.end_col_no, (loc.begin_row_no < 2 ? 0 : loc.begin_row_no - 2), loc.end_row_no + 2);
                     }
                     printf("===========================================\n");
 

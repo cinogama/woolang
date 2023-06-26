@@ -198,7 +198,7 @@ namespace wo
             free64((byte_t*)rt_codes);
     }
 
-    std::tuple<void*, size_t> runtime_env::create_env_binary() noexcept
+    std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
     {
         std::vector<wo::byte_t> binary_buffer;
         auto write_buffer_to_buffer = [&binary_buffer](const void* written_data, size_t written_length, size_t allign) {
@@ -368,7 +368,7 @@ namespace wo
         write_buffer_to_buffer("_padding", padding_length_for_constant_string_buf, 1);
 
         // 7.1 Debug information
-        if (this->program_debug_info == nullptr)
+        if (!savepdi || this->program_debug_info == nullptr)
             write_buffer_to_buffer("nopdisup", 8, 1);
         else
         {
