@@ -885,10 +885,6 @@ profiler                        start
 
                     if (from <= current_row_no && current_row_no <= to)
                     {
-                        // size_t hightlight_range_begin_row, 
-                        // size_t hightlight_range_end_row,
-                        // size_t hightlight_range_begin_col,
-                        // size_t hightlight_range_end_col,
                         bool print_inv = false;
 
                         if (current_row_no >= hightlight_range_begin_row && current_row_no <= hightlight_range_end_row)
