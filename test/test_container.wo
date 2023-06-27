@@ -164,7 +164,7 @@ namespace test_container
         test_map_construct();
 
         test_assure(dict::deserialize("{}")->val->len == 0);
-        test_assure(!@"{"\invalid"}"@->todict->has);
+        test_assure(!dict::deserialize(@"{"\invalid"}"@)->has);
 
         // BUG: 221223-JIT-ret pop not work when jit.
         let x = []mut: vec<string>;
