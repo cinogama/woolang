@@ -163,7 +163,7 @@ namespace test_container
         test_array_construct();
         test_map_construct();
 
-        test_assure("{}"->todict->val->len == 0);
+        test_assure(dict::deserialize("{}")->val->len == 0);
         test_assure(!@"{"\invalid"}"@->todict->has);
 
         // BUG: 221223-JIT-ret pop not work when jit.
