@@ -145,8 +145,10 @@ WO_API wo_handle_t  wo_cast_handle(const wo_value value);
 WO_API wo_ptr_t     wo_cast_pointer(const wo_value value);
 WO_API wo_bool_t    wo_cast_bool(const wo_value value);
 WO_API wo_string_t  wo_cast_string(const wo_value value);
-WO_API wo_bool_t    wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type);
 WO_API float        wo_cast_float(const wo_value value);
+
+WO_API wo_bool_t    wo_serialize(wo_value value, wo_string_t* out_str);
+WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type);
 
 WO_API wo_string_t  wo_type_name(wo_type value);
 
