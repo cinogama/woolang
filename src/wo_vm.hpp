@@ -1008,7 +1008,6 @@ namespace wo
             }
             return nullptr;
         }
-
         value* co_pre_invoke(closure_t* wo_func_addr, wo_int_t argc)
         {
             wo_assert((vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
@@ -1123,7 +1122,9 @@ namespace wo
                 else
                 {
                     auto* return_ip = ip;
-                    auto* return_sp = sp + argc + wo_func_closure->m_closure_args_count;
+
+                    // NOTE: No need to reduce expand arg count.
+                    auto* return_sp = sp + argc;
                     auto* return_bp = bp;
 
                     for (auto idx = wo_func_closure->m_closure_args_count; idx > 0; --idx)
@@ -1158,7 +1159,6 @@ namespace wo
             }
             return nullptr;
         }
-
 
 #define WO_SAFE_READ_OFFSET_GET_QWORD (*(uint64_t*)(rt_ip-8))
 #define WO_SAFE_READ_OFFSET_GET_DWORD (*(uint32_t*)(rt_ip-4))
