@@ -274,9 +274,8 @@ void wo_init(int argc, char** argv)
     wo_asure(wo::get_wo_grammar()); // Create grammar when init.
 }
 
-#define WO_ORIGIN_VAL(v) (reinterpret_cast<wo::value*>(v))
-#define WO_VAL(v) (WO_ORIGIN_VAL(v))
-#define WO_VM(v) (reinterpret_cast<wo::vmbase*>(v))
+#define WO_VAL(v) (std::launder(reinterpret_cast<wo::value*>(v)))
+#define WO_VM(v) (std::launder(reinterpret_cast<wo::vmbase*>(v)))
 #define CS_VAL(v) (reinterpret_cast<wo_value>(v))
 #define CS_VM(v) (reinterpret_cast<wo_vm>(v))
 
@@ -864,134 +863,216 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
     return true;
 
 }
-wo_bool_t wo_cast_value_from_str(wo_value value, wo_string_t str, wo_type except_type)
+wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type)
 {
-    wo::lexer lex(wo::str_to_wstr(str), "json");
+    bool entered = wo_enter_gcguard(vm);
 
-    return _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+    wo::lexer lex(wo::str_to_wstr(str), "json");
+    auto result =  _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+    
+    if (entered)
+        wo_asure(wo_leave_gcguard(vm));
+
+    return result;
 }
 
-void _wo_cast_string(wo::value* value, std::map<wo::gcbase*, int>* traveled_gcunit, std::string* out_str)
+enum cast_string_mode
+{
+    FORMAT,
+    FIT,
+    SERIALIZE,
+};
+
+bool _wo_cast_string(
+    wo::value* value,
+    std::string* out_str,
+    cast_string_mode mode,
+    std::map<wo::gcbase*, int>* traveled_gcunit, 
+    int depth)
 {
     switch (value->type)
     {
     case wo::value::valuetype::bool_type:
         *out_str += value->integer ? "true" : "false";
-        return;
+        return true;
     case wo::value::valuetype::integer_type:
         *out_str += std::to_string(value->integer);
-        return;
+        return true;
     case wo::value::valuetype::handle_type:
         *out_str += std::to_string(value->handle);
-        return;
+        return true;
     case wo::value::valuetype::real_type:
         *out_str += std::to_string(value->real);
-        return;
+        return true;
     case wo::value::valuetype::gchandle_type:
         *out_str += std::to_string((wo_handle_t)wo_safety_pointer(value->gchandle));
-        return;
+        return true;
     case wo::value::valuetype::string_type:
         *out_str += _enstring(*value->string, true);
-        return;
+        return true;
     case wo::value::valuetype::dict_type:
     {
         wo::dict_t* map = value->dict;
         wo::gcbase::gc_read_guard rg1(map);
 
-        if ((*traveled_gcunit)[map] >= 2)
+        if ((*traveled_gcunit)[map] >= 1)
         {
-            *out_str += "{...}";
-            return;
-        }
+            if (mode == cast_string_mode::SERIALIZE)
+                return false;
 
+            mode = cast_string_mode::FIT;
+            if ((*traveled_gcunit)[map] >= 2)
+            {
+                *out_str += "{...}";
+                return true;
+            }
+        }
         (*traveled_gcunit)[map]++;
 
-        *out_str += "{";
+        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+
+        *out_str += _fit_layout ? "{" : "{\n";
         bool first_kv_pair = true;
         for (auto& [v_key, v_val] : *map)
         {
             if (!first_kv_pair)
-                *out_str += ",";
+                *out_str += _fit_layout ? "," : ",\n";
             first_kv_pair = false;
 
-
-            _wo_cast_string(const_cast<wo::value*>(&v_key), traveled_gcunit, out_str);
-            *out_str += ":";
-            _wo_cast_string(&v_val, traveled_gcunit, out_str);
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+            if (!_wo_cast_string(const_cast<wo::value*>(&v_key), out_str, mode, traveled_gcunit, depth + 1))
+                return false;
+            *out_str += _fit_layout ? ":" : " : ";
+            if (!_wo_cast_string(&v_val, out_str, mode, traveled_gcunit, depth + 1))
+                return false;
 
         }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
         *out_str += "}";
 
         (*traveled_gcunit)[map]--;
 
-        return;
+        return true;
     }
     case wo::value::valuetype::array_type:
     {
         wo::array_t* arr = value->array;
         wo::gcbase::gc_read_guard rg1(value->array);
-
-        if ((*traveled_gcunit)[arr] >= 2)
+        if ((*traveled_gcunit)[arr] >= 1)
         {
-            *out_str += "[...]";
-            return;
+            if (mode == cast_string_mode::SERIALIZE)
+                return false;
+
+            mode = cast_string_mode::FIT;
+            if ((*traveled_gcunit)[arr] >= 2)
+            {
+                *out_str += "[...]";
+                return true;
+            }
         }
         (*traveled_gcunit)[arr]++;
 
-        *out_str += "[";
+        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+
+        *out_str += _fit_layout ? "[" : "[\n";
         bool first_value = true;
         for (auto& v_val : *arr)
         {
             if (!first_value)
-                *out_str += ",";
+                *out_str += _fit_layout ? "," : ",\n";
             first_value = false;
 
-            _wo_cast_string(&v_val, traveled_gcunit, out_str);
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+            if (!_wo_cast_string(&v_val, out_str, mode, traveled_gcunit, depth + 1))
+                return false;
         }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
         *out_str += "]";
 
         (*traveled_gcunit)[arr]--;
-        return;
+        return true;
     }
-    case wo::value::valuetype::closure_type:
-        *out_str += "<closure function>";
-        return;
     case wo::value::valuetype::struct_type:
     {
+        if (mode == cast_string_mode::SERIALIZE)
+            return false;
+
         wo::struct_t* struc = value->structs;
         wo::gcbase::gc_read_guard rg1(struc);
 
-        if ((*traveled_gcunit)[struc] >= 2)
+        if ((*traveled_gcunit)[struc] >= 1)
         {
-            *out_str += "struct{...}";
-            return;
+            mode = cast_string_mode::FIT;
+            if ((*traveled_gcunit)[struc] >= 2)
+            {
+                *out_str += "struct{...}";
+                return true;
+            }
         }
         (*traveled_gcunit)[struc]++;
 
-        *out_str += "struct{";
+        bool _fit_layout = (mode != cast_string_mode::FORMAT);
+
+        *out_str += _fit_layout ? "struct{" : "struct {\n";
         bool first_value = true;
         for (uint16_t i = 0; i < value->structs->m_count; ++i)
         {
             if (!first_value)
-                *out_str += ",";
+                *out_str += _fit_layout ? "," : ",\n";
             first_value = false;
 
-            *out_str += "+" + std::to_string(i) + "=";
-            _wo_cast_string(&value->structs->m_values[i], traveled_gcunit, out_str);
+            for (int i = 0; !_fit_layout && i <= depth; i++)
+                *out_str += "    ";
+
+            *out_str += "+" + std::to_string(i) + (_fit_layout ? "=" : " = ");
+            if (!_wo_cast_string(&value->structs->m_values[i], out_str, mode, traveled_gcunit, depth + 1))
+                return false;
         }
+        if (!_fit_layout)
+            *out_str += "\n";
+        for (int i = 0; !_fit_layout && i < depth; i++)
+            *out_str += "    ";
         *out_str += "}";
 
         (*traveled_gcunit)[struc]--;
-        return;
+        return true;
     }
+    case wo::value::valuetype::closure_type:
+        if (mode == cast_string_mode::SERIALIZE)
+            return false;
+        *out_str += "<closure function>";
+        return true;
     case wo::value::valuetype::invalid:
         *out_str += "nil";
-        return;
+        return true;
     default:
         wo_fail(WO_FAIL_TYPE_FAIL, "This value can not cast to string.");
-        *out_str += "";
-        break;
+        *out_str += "nil";
+        return true;
     }
+
+}
+
+wo_bool_t wo_serialize(wo_value value, wo_string_t* out_str)
+{
+    thread_local std::string _buf;
+    _buf = "";
+
+    std::map<wo::gcbase*, int> _tved_gcunit;
+    if (_wo_cast_string(WO_VAL(value), &_buf, cast_string_mode::SERIALIZE, &_tved_gcunit, 0))
+    {
+        *out_str = _buf.c_str();
+        return true;
+    }
+    return false;
 }
 
 wo_bool_t wo_cast_bool(const wo_value value)
@@ -1048,7 +1129,7 @@ wo_string_t wo_cast_string(const wo_value value)
     }
 
     std::map<wo::gcbase*, int> _tved_gcunit;
-    _wo_cast_string(reinterpret_cast<wo::value*>(value), &_tved_gcunit, &_buf);
+    _wo_cast_string(WO_VAL(value), &_buf, cast_string_mode::FORMAT, &_tved_gcunit, 0);
 
     return _buf.c_str();
 }

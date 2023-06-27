@@ -1031,18 +1031,16 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_parse_map_from_string(wo_vm vm, wo_value args, size_t argc)
 {
-    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
     wo_value result_dict = wo_push_empty(vm);
-    if (wo_cast_value_from_str(result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
+    if (wo_deserialize(vm, result_dict, wo_string(args + 0), WO_MAPPING_TYPE))
         return wo_ret_option_val(vm, result_dict);
     return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_parse_array_from_string(wo_vm vm, wo_value args, size_t argc)
 {
-    // TODO: wo_cast_value_from_str will create dict/array, to make sure gc-safe, wo should let gc pending when call this function.
     wo_value result_arr = wo_push_empty(vm);
-    if (wo_cast_value_from_str(result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
+    if (wo_deserialize(vm, result_arr, wo_string(args + 0), WO_ARRAY_TYPE))
         return wo_ret_option_val(vm, result_arr);
     return wo_ret_option_none(vm);
 }
@@ -1067,6 +1065,17 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
         wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)(wo_handle_t)(unsigned char)buf[i]);
 
     return wo_ret_val(vm, result_array);
+}
+
+WO_API wo_api rslib_std_serialize(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_string_t result = nullptr;
+    if (wo_serialize(args + 0, &result))
+    {
+        wo_assert(result != nullptr);
+        return wo_ret_option_string(vm, result);
+    }
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
@@ -1485,6 +1494,14 @@ namespace result
         err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
+    public func unwarpor<T, F>(self: result<T, F>, default_val: T)=> impure T
+    {
+        match(self)
+        {
+        ok(v)? return v;
+        err(_)? return default_val;
+        }
+    }
     public func isok<T, F>(self: result<T, F>)=> pure bool
     {
         match(self)
@@ -1723,21 +1740,6 @@ namespace string
     extern("rslib_std_take_real") 
     public func take_real(datstr: string)=> pure option<(string, real)>;
     
-    public func todict(val:string)=> pure option<dict<dynamic, dynamic>>
-    {
-        extern("rslib_std_parse_map_from_string") 
-        func _tomap(val: string)=> pure option<dict<dynamic, dynamic>>;
-
-        return _tomap(val);
-    }
-    public func toarray(val:string)=> pure option<array<dynamic>>
-    {
-        extern("rslib_std_parse_array_from_string") 
-        func _toarray(val: string)=> pure option<array<dynamic>>;
-
-        return _toarray(val);
-    }
-
     extern("rslib_std_create_wchars_from_str")
     public func chars(buf: string)=> pure array<char>;
 
@@ -1836,6 +1838,12 @@ namespace array
 {
     extern("rslib_std_array_create") 
         public func create<T>(sz: int, init_val: T)=> pure array<T>;
+
+    extern("rslib_std_serialize") 
+        public func serialize<T>(self: array<T>)=> pure option<string>;
+
+    extern("rslib_std_parse_array_from_string")
+        public func deserialize(val: string)=> pure option<array<dynamic>>;
 
     public func append<T>(self: array<T>, elem: T)
     {
@@ -1990,6 +1998,12 @@ namespace vec
     extern("rslib_std_array_create") 
         public func create<T>(sz: int, init_val: T)=> pure vec<T>;
 
+    extern("rslib_std_serialize") 
+        public func serialize<T>(self: vec<T>)=> option<string>;
+
+    extern("rslib_std_parse_array_from_string") 
+        public func deserialize(val: string)=> pure option<vec<dynamic>>;
+
     extern("rslib_std_create_str_by_wchar") 
         public func str(buf: vec<char>)=> string;
 
@@ -2138,6 +2152,12 @@ namespace vec
 
 namespace dict
 {
+    extern("rslib_std_serialize") 
+        public func serialize<KT, VT>(self: dict<KT, VT>)=> pure option<string>;
+
+    extern("rslib_std_parse_map_from_string") 
+        public func deserialize(val: string)=> pure option<dict<dynamic, dynamic>>;
+
     public func bind<KT, VT, RK, RV, MayPureDict>(val: dict<KT, VT>, functor: (KT, VT)=>MayPureDict<RK, RV>)
         where std::is_same_base_type:<MayPureDict<RK, RV>, dict<RK, RV>>;
     {
@@ -2252,6 +2272,12 @@ namespace dict
 
 namespace map
 {
+    extern("rslib_std_serialize") 
+        public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
+                    
+    extern("rslib_std_parse_map_from_string") 
+        public func deserialize(val: string)=> pure option<map<dynamic, dynamic>>;
+
     public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=>map<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
