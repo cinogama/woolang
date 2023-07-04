@@ -1457,7 +1457,7 @@ namespace option
         value(x)?
             return x;
         none?
-            do as pure std::panic("Expect 'value' here, but get 'none'.");
+            std::panic("Expect 'value' here, but get 'none'.");
         }
     }
     public func has<T>(self: option<T>)
@@ -2190,7 +2190,7 @@ namespace dict
     {
         for (let k, _ : self)
             if (judger(k))
-                do as pure return option::value(k);
+                return option::value(k);
         return option::none;            
     }
 
