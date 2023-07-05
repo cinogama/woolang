@@ -76,12 +76,12 @@ test_coverage_debug:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - sudo ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
     - cd build/src/CMakeFiles/woolang.dir
     - sudo gcov -b -l -p -c *.gcno
     - cd ../../../../
     - pwd
-    - sudo sudo gcovr . -r ./src -g -k
+    - sudo gcovr . -r ./src -g -k
     - sudo gcovr . -r ./src -g -k --html --html-details -o report.html
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -157,7 +157,7 @@ test_memory_debug:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   artifacts:
     name: ubuntu-wo-coverage-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     paths:
@@ -187,8 +187,8 @@ test_memory_release:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
-    - sudo valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
+    - valgrind --tool=memcheck --leak-check=yes --show-reachable=yes ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
   tags:
     - ubuntu20
   artifacts:
