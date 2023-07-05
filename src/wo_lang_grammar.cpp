@@ -626,6 +626,9 @@ namespace wo
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"LEFTVARIABLE"),gm::nt(L"MAY_EMPTY_TEMPLATE_ITEM") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
 
+                gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_nil) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_build_type_may_template),
+
                 gm::nt(L"ORIGIN_TYPE") >> gm::symlist{ gm::nt(L"TUPLE_TYPE_LIST") , gm::te(gm::ttype::l_function_result) , gm::nt(L"TYPE"), }
                 >> WO_ASTBUILDER_INDEX(ast::pass_build_function_type),
 

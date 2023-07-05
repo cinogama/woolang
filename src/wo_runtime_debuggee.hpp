@@ -223,7 +223,7 @@ profiler                        start
                 wo_stdout << "[bp+" << -varinfo.bp_offset << "]: ";
 
             if (value_in_stack <= current_frame_sp)
-                wo_stdout << value_in_stack << " nil (not in stack)" << wo_endl;
+                wo_stdout << value_in_stack << " (not in stack)" << wo_endl;
             else
                 wo_stdout << value_in_stack << " " << wo_cast_string((wo_value)value_in_stack) << wo_endl;
         }

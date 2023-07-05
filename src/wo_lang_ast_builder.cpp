@@ -2391,17 +2391,11 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_binary_op>] = _register_builder<pass_binary_op>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_create_list<0>>] = _register_builder<pass_create_list<0>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 0>>] = _register_builder<pass_append_list<1, 0>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 1>>] = _register_builder<pass_append_list<0, 1>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<0, 2>>] = _register_builder<pass_append_list<0, 2>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<2, 0>>] = _register_builder<pass_append_list<2, 0>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 2>>] = _register_builder<pass_append_list<1, 2>>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_append_list<1, 3>>] = _register_builder<pass_append_list<1, 3>>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_import_files>] = _register_builder<pass_import_files>();
@@ -2409,8 +2403,8 @@ namespace wo
             _registed_builder_function_id_list[meta::type_hash<pass_variable>] = _register_builder<pass_variable>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_build_function_type>] = _register_builder<pass_build_function_type>();
-
             _registed_builder_function_id_list[meta::type_hash<pass_build_type_may_template>] = _register_builder<pass_build_type_may_template>();
+            _registed_builder_function_id_list[meta::type_hash<pass_build_nil_type>] = _register_builder<pass_build_nil_type>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_cast>] = _register_builder<pass_type_cast>();
 

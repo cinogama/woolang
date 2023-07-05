@@ -440,7 +440,7 @@ namespace wo
                     {
                         // Note: No need for storing varname of varinfo, it has been stored.
                         write_binary_to_buffer((uint32_t)varinfo.define_place, 4);
-                        write_binary_to_buffer((uint32_t)varinfo.bp_offset, 4);
+                        write_binary_to_buffer((int32_t)varinfo.bp_offset, 4);
                     }
                 }
             }
@@ -936,6 +936,7 @@ namespace wo
                 auto& function_inform = pdb->_function_ip_data_buf[_funcname_string.data()];
 
                 uint32_t data;
+                int32_t sdata;
 
                 if (!stream->read_elem(&data))
                     WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's function ir_begin.");
@@ -980,9 +981,9 @@ namespace wo
                             WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's define_place ir_begin.");
                         varsym.define_place = data;
 
-                        if (!stream->read_elem(&data))
+                        if (!stream->read_elem(&sdata))
                             WO_LOAD_BIN_FAILED("Failed to restore program debug informations record C's define_place bp_offset.");
-                        varsym.bp_offset = data;
+                        varsym.bp_offset = sdata;
 
                         variable_info.push_back(varsym);
                     }

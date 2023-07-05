@@ -3128,6 +3128,15 @@ namespace wo
             }
         };
 
+        struct pass_build_nil_type : public astnode_builder
+        {
+            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
+            {
+                ast_type* result = new ast_type(WO_PSTR(nil));
+                return (ast_basic*)result;
+            }
+        };
+
         struct pass_using_type_as : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input);
