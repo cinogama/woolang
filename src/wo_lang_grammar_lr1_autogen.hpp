@@ -4,7 +4,7 @@
 #include "wo_compiler_parser.hpp"
 
 #define WO_LANG_GRAMMAR_LR1_AUTO_GENED
-#define WO_LANG_GRAMMAR_CRC64 0xd7db512bfbf3119cull
+#define WO_LANG_GRAMMAR_CRC64 0x2654ce1860ee111aull
 
 
 namespace wo
@@ -12463,7 +12463,7 @@ const int woolang_origin_p[][12 + 3] = {
    { 56, 88, 1, -61,},
    { 61, 7, 4, 72,25,-100,26,},
    { 56, 63, 2, -89,-103,},
-   { 56, 63, 1, 73,},
+   { 56, 64, 1, 73,},
    { 56, 62, 3, -57,70,-60,},
    { 62, 53, 1, 1,},
    { 62, 53, 1, -63,},
