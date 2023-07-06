@@ -1040,7 +1040,6 @@ namespace wo
                         {
                             if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                             {
-                                func_return_type->set_type_with_name(WO_PSTR(void));
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
                                     func_return_type->get_type_name().c_str(),
                                     a_ret->return_value->value_type->get_type_name().c_str());
