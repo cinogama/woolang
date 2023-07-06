@@ -1041,7 +1041,9 @@ namespace wo
                             if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                             {
                                 func_return_type->set_type_with_name(WO_PSTR(void));
-                                lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                                    func_return_type->get_type_name().c_str(),
+                                    a_ret->return_value->value_type->get_type_name().c_str());
                             }
                         }
                     }
@@ -1051,7 +1053,9 @@ namespace wo
                     if (!func_return_type->is_pending()
                         && !func_return_type->accept_type(a_ret->return_value->value_type, false))
                     {
-                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES);
+                        lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
+                            func_return_type->get_type_name().c_str(),
+                            a_ret->return_value->value_type->get_type_name().c_str());
                     }
                 }
             }
@@ -3066,7 +3070,7 @@ namespace wo
             if (located_function_scope != nullptr)
             {
                 located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                    a_value_funccall, WO_SIDE_EFFECT_ACTION_IMPURE_TYPE);
+                    a_value_funccall, WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL);
             }
         }
 

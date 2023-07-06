@@ -139,7 +139,7 @@
 
 #define WO_ERR_INVALID_OPERATE L"无效的'%ls'"
 
-#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"函数出现了不同类型的返回值，这是不被允许的"
+#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"函数出现了不同类型的返回值（之前推断或指明的是 '%ls', 但此处是 '%ls'），这是不被允许的"
 
 #define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"嵌套格式化字符串是不被允许的"
 
@@ -268,9 +268,9 @@
 
 #define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"尝试获取可变元素的值"
 
-#define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"获取了非纯表达式的结果"
+#define WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL       L"调用了非纯函数"
 
-#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"这个类型的容器中的元素可被外部改变"
+#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"这个类型的容器中的元素可能被外部改变"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
@@ -410,7 +410,7 @@
 
 #define WO_ERR_INVALID_OPERATE L"Invalid '%ls'."
 
-#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"Different types of return values in function."
+#define WO_ERR_FUNC_RETURN_DIFFERENT_TYPES L"Different types of return values in function, '%ls' was inferred or specified earlier, but '%ls' here."
 
 #define WO_ERR_RECURSIVE_FORMAT_STRING_IS_INVALID L"Recursive format string is invalid."
 
@@ -539,7 +539,7 @@
 
 #define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"Trying get value of mutable elements"
 
-#define WO_SIDE_EFFECT_ACTION_IMPURE_TYPE       L"The result of an impure expression was fetched"
+#define WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL       L"Impure function called"
 
 #define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"This container's data may changed out side"
 
