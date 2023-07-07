@@ -2775,14 +2775,6 @@ void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fa
     if (path)
     {
         std::lock_guard g1(loaded_named_libs_mx);
-
-        auto fnd = loaded_named_libs.find(libname);
-        if (fnd != loaded_named_libs.end())
-        {
-            if (panic_when_fail)
-                wo_fail(WO_FAIL_DEADLY, "Library with same name has been loaded.");
-            return nullptr;
-        }
         if (void* handle = wo::osapi::loadlib(path))
         {
             loaded_named_libs[libname] = handle;
@@ -2811,7 +2803,7 @@ void wo_unload_lib(void* lib)
 {
     wo_assert(lib);
 
-    std::shared_lock sg1(loaded_named_libs_mx);
+    std::lock_guard sg1(loaded_named_libs_mx);
     auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
         [lib](const auto& idx)
         {
@@ -2820,9 +2812,9 @@ void wo_unload_lib(void* lib)
             return false;
         });
 
-    wo_assert(fnd != loaded_named_libs.end());
+    if (fnd != loaded_named_libs.end());
+        loaded_named_libs.erase(fnd);
 
-    loaded_named_libs.erase(fnd);
     wo::osapi::freelib(lib);
 }
 
