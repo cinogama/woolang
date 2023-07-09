@@ -2812,7 +2812,7 @@ void wo_unload_lib(void* lib)
             return false;
         });
 
-    if (fnd != loaded_named_libs.end());
+    if (fnd != loaded_named_libs.end())
         loaded_named_libs.erase(fnd);
 
     wo::osapi::freelib(lib);
