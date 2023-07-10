@@ -151,6 +151,14 @@ void wo_handle_ctrl_c(void(*handler)(int))
 
 wo::vmpool* global_vm_pool = nullptr;
 
+struct loaded_lib_info
+{
+    void* m_lib_instance;
+    size_t      m_use_count;
+};
+std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
+std::mutex loaded_named_libs_mx;
+
 void wo_finish()
 {
     bool scheduler_need_shutdown = true;
@@ -187,6 +195,10 @@ void wo_finish()
     } while (true);
 
     wo_gc_stop();
+
+    std::lock_guard sg1(loaded_named_libs_mx);
+    if (loaded_named_libs.empty() == false)
+        wo_warning("Some of library(s) loaded by 'wo_load_lib' is not been unload after shutdown!");
 }
 
 void wo_init(int argc, char** argv)
@@ -2768,16 +2780,16 @@ wo_string_t wo_debug_trace_callstack(wo_vm vm, size_t layer)
     return WO_VM(vm)->er->string->c_str();
 }
 
-std::unordered_map<std::string, void*> loaded_named_libs;
-std::shared_mutex loaded_named_libs_mx;
 void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail)
 {
+    std::lock_guard g1(loaded_named_libs_mx);
     if (path)
     {
-        std::lock_guard g1(loaded_named_libs_mx);
         if (void* handle = wo::osapi::loadlib(path))
         {
-            loaded_named_libs[libname] = handle;
+            loaded_named_libs[libname].push_back(
+                loaded_lib_info{ handle, 1 }
+            );
             return handle;
         }
         if (panic_when_fail)
@@ -2786,10 +2798,15 @@ void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fa
     }
     else
     {
-        std::shared_lock sg1(loaded_named_libs_mx);
         auto fnd = loaded_named_libs.find(libname);
         if (fnd != loaded_named_libs.end())
-            return fnd->second;
+        {
+            wo_assert(fnd->second.empty() == false);
+            auto& libinfo = fnd->second.back();
+            wo_assert(libinfo.m_use_count > 0);
+            ++libinfo.m_use_count;
+            return libinfo.m_lib_instance;
+        }
 
         return nullptr;
     }
@@ -2804,20 +2821,32 @@ void wo_unload_lib(void* lib)
     wo_assert(lib);
 
     std::lock_guard sg1(loaded_named_libs_mx);
+
     auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
         [lib](const auto& idx)
         {
-            if (idx.second == lib)
-                return true;
-            return false;
+            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info) 
+                {
+                    return info.m_lib_instance == lib;
+                }) != idx.second.end();
         });
 
-    if (fnd != loaded_named_libs.end())
-        loaded_named_libs.erase(fnd);
+    wo_assert(fnd != loaded_named_libs.end());
+    auto infofnd = std::find_if(fnd->second.begin(), fnd->second.end(), [lib](const auto& info)
+        {
+            return info.m_lib_instance == lib;
+        });
+    wo_assert(infofnd != fnd->second.end());
+    wo_assert(infofnd->m_lib_instance == lib);
+    if (0 == --infofnd->m_use_count)
+    {
+        wo::osapi::freelib(infofnd->m_lib_instance);
+        fnd->second.erase(infofnd);
 
-    wo::osapi::freelib(lib);
+        if (fnd->second.empty())
+            loaded_named_libs.erase(fnd);
+    }
 }
-
 
 wo_integer_t wo_crc64_u8(uint8_t byte, wo_integer_t crc)
 {
