@@ -56,7 +56,9 @@ namespace wo
     public:
         struct extern_lib_guard
         {
+            bool load_by_os_api = true;
             void* extern_lib = nullptr;
+
             extern_lib_guard(const std::string& libpath, const std::string& script_path)
             {
 #if !defined(NDEBUG) && defined(PLATFORM_M32)
@@ -75,6 +77,7 @@ namespace wo
                 if ((extern_lib = osapi::loadlib(libpath.c_str(), script_path.c_str())))
                     return;
 
+                load_by_os_api = false;
                 extern_lib = wo_load_lib(libpath.c_str(), nullptr, true);
             }
             wo_native_func load_func(const char* funcname)
@@ -89,7 +92,11 @@ namespace wo
                 {
                     if (auto* leave = (void(*)(void))load_func("wolib_exit"))
                         leave();
-                    osapi::freelib(extern_lib);
+
+                    if (load_by_os_api)
+                        osapi::freelib(extern_lib);
+                    else
+                        wo_unload_lib(extern_lib);
                 }
             }
         };

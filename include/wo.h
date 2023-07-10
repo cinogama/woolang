@@ -103,7 +103,7 @@ WO_API wo_integer_t wo_version_int(void);
 
 WO_API void         wo_init(int argc, char** argv);
 #define wo_init(argc, argv) do{wo_init(argc, argv); setlocale(LC_CTYPE, wo_locale_name());}while(0)
-WO_API void         wo_finish();
+WO_API void         wo_finish(void(* do_after_shutdown)(void*), void* custom_data);
 
 WO_API void         wo_gc_immediately();
 
