@@ -71,6 +71,6 @@ int main(int argc, char** argv)
         std::cout << "Date: " << wo_compile_date() << std::endl;
     }
 
-    wo_finish();
+    wo_finish(nullptr, nullptr);
     return ret;
 }

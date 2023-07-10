@@ -159,7 +159,7 @@ struct loaded_lib_info
 std::unordered_map<std::string, std::vector<loaded_lib_info>> loaded_named_libs;
 std::mutex loaded_named_libs_mx;
 
-void wo_finish()
+void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 {
     bool scheduler_need_shutdown = true;
 
@@ -196,9 +196,17 @@ void wo_finish()
 
     wo_gc_stop();
 
+    if (do_after_shutdown != nullptr)
+        do_after_shutdown(custom_data);
+
     std::lock_guard sg1(loaded_named_libs_mx);
     if (loaded_named_libs.empty() == false)
-        wo_warning("Some of library(s) loaded by 'wo_load_lib' is not been unload after shutdown!");
+    {
+        std::string not_unload_lib_warn = "Some of library(s) loaded by 'wo_load_lib' is not been unload after shutdown:";
+        for (auto& [path, _] : loaded_named_libs)
+            not_unload_lib_warn += "\n\t\t" + path;
+        wo_warning(not_unload_lib_warn.c_str());
+    }
 }
 
 void wo_init(int argc, char** argv)
