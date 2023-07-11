@@ -1,7 +1,7 @@
-import woo.std;
+import woo::std;
 import test_tool;
 
-import pkg.thread;
+import pkg::thread;
 
 namespace test_thread
 {

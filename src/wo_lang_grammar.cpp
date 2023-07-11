@@ -138,6 +138,9 @@ namespace wo
                 gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_index_point), gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1,2>),
 
+                gm::nt(L"INDEX_IMPORT_NAME") >> gm::symlist{gm::te(gm::ttype::l_scopeing), gm::nt(L"IMPORT_IDENTIFIER"), gm::nt(L"INDEX_IMPORT_NAME")}
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<1,2>),
+
                 gm::nt(L"SENTENCE") >> gm::symlist{gm::nt(L"DECL_ENUM")}
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

@@ -1,5 +1,5 @@
-import woo.std;
-import pkg.math;
+import woo::std;
+import pkg::math;
 
 namespace test_benchmark
 {

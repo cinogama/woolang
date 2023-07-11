@@ -1,6 +1,6 @@
-import woo.std;
+import woo::std;
 
-import pkg.thread;
+import pkg::thread;
 
 import test_tool;
 
