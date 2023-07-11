@@ -5769,10 +5769,10 @@ namespace wo
                         if (!is_reg(*_store_value) || is_temp_reg(*_store_value))
                         {
                             // Use pm reg here because here has no other command to generate.
-                            _final_store_value = &WO_NEW_OPNUM(reg(reg::pm));
+                            _final_store_value = &WO_NEW_OPNUM(reg(reg::tp));
                             compiler->mov(*_final_store_value, *_store_value);
                         }
-                        // Do not generate any other command to make sure reg::pm usable!
+                        // Do not generate any other command to make sure reg::tp usable!
 
                         if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
                             compiler->sidarr(from_value, index_value, *dynamic_cast<const opnum::reg*>(_final_store_value));

@@ -499,6 +499,10 @@ namespace wo
                             tmpos << "er";
                         else if (data_1b == 35)
                             tmpos << "nil";
+                        else if (data_1b == 36)
+                            tmpos << "pm";
+                        else if (data_1b == 37)
+                            tmpos << "tp";
                         else
                             tmpos << "reg(" << (uint32_t)data_1b << ")";
 
