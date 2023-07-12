@@ -1,5 +1,5 @@
-import woo.std;
-import pkg.vm;
+import woo::std;
+import pkg::vm;
 
 import test_tool;
 
@@ -15,7 +15,7 @@ namespace test_vm
     {
        let vmm = load_and_create_vmm(
             @"
-            import woo.std;
+            import woo::std;
             func main()
             {
                 std::println("Hey! This inform come from another vm!~");
@@ -34,7 +34,7 @@ namespace test_vm
             i += 1;
             let vmm = load_and_create_vmm(
                 @"
-                import woo.std;
+                import woo::std;
                 func test_template< T >(n:T)
                 {
                     return n;

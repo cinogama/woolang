@@ -1311,7 +1311,7 @@ namespace wo
             std::wstring srcfile, src_full_path;
             if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
             {
-                // import a.b; cannot open a/b.wo, trying a/b/b.wo
+                // import a::b; cannot open a/b.wo, trying a/b/b.wo
                 if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
                     return lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
             }

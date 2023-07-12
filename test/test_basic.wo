@@ -1,4 +1,4 @@
-import woo.std;
+import woo::std;
 import test_tool;
 
 namespace test_basic
@@ -209,6 +209,62 @@ namespace test_basic
         test_equal(std::is_mutable_type:< mut int >, true);
         test_equal(std::is_mutable_type:< int >, false);
         test_equal(std::is_mutable_type:< pure int >, false);
+
+        let mut test_break_label = true;
+
+        outside_label@
+        for (let _, _ : [1])
+        {
+            for (let _, _ : [1])
+                break outside_label;
+
+            test_break_label = false;
+        }
+        test_equal(test_break_label, true);
+
+        outside_label2@
+        for (let _, _ : [1])
+        {
+            for (let _, _ : [1])
+                continue outside_label2;
+
+            test_break_label = false;
+        }
+        test_equal(test_break_label, true);
+   
+        for (let _, _ : [1])
+        {
+            inside_label@
+            for (let _, _ : [1])
+                continue inside_label;
+
+            test_break_label = false;
+        }
+        test_equal(test_break_label, false);
+
+        for (let _, _ : [1])
+        {
+            inside_label@
+            for (let _, v : [1, 2])
+            {
+                if (v == 1)
+                    continue inside_label;
+                test_break_label = true;
+            }
+        }
+        test_equal(test_break_label, true);
+
+        for (let _, _ : [1])
+        {
+            inside_label@
+            for (let _, v : [1, 2])
+            {
+                if (v == 1)
+                    break inside_label;
+                test_break_label = false;
+            }
+        }
+        test_equal(test_break_label, true);
     }
 }
 

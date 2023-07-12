@@ -1,7 +1,7 @@
-import woo.std;
+import woo::std;
 import test_tool;
 
-import pkg.worst;
+import pkg::worst;
 
 namespace test_container
 {

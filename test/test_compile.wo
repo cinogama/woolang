@@ -1,7 +1,7 @@
-import woo.std;
-import pkg.vm;
+import woo::std;
+import pkg::vm;
 
-import pkg.thread;
+import pkg::thread;
 
 import test_tool;
 
@@ -200,10 +200,10 @@ func main()
         // Invalid match
         assure_compile_fail(@"let m = 1;match(m){ option::value(i)?; }"@);
         assure_compile_fail(@"let m = nil;match(m){ option::none(i)?; }"@);
-        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; }"@);
-        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
-        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
-        assure_compile_fail(@"import woo.std; let m = option::value(1); match(m){ option::none?; option::value?; }"@);
+        assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::none(i)?; }"@);
+        assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::value(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::none(i)?; option::value(x)?; }"@);
+        assure_compile_fail(@"import woo::std; let m = option::value(1); match(m){ option::none?; option::value?; }"@);
 
         // Construct struct must complete.
         assure_compile_fail(@"
@@ -265,7 +265,7 @@ func main()
         assure_compile_fail(@"let t = int{a = ""};"@);
         assure_compile_fail(@"let t = y{a = ""};"@);
         assure_compile_fail(@"alias List<T> = (T, List<T>); do 0: List<int>;"@); // Not crash!
-        assure_compile_fail(@"import woo.std; alias List<T> = option<(T, List<T>)>; 
+        assure_compile_fail(@"import woo::std; alias List<T> = option<(T, List<T>)>; 
                               let m = option::none: List<string>;"@); // Not crash!
 
         assure_compile_success(@"let mut a = \x: int = 0;; a = \n = n;;"@);
@@ -362,13 +362,13 @@ func main()
             p[0] = 1;
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             let a = [1,2,3]->>\n=mut n;;
             a[0] = 6;
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
 
             let a = [1,2,3]->>\n=n;;
             a[0] = 6;
@@ -395,7 +395,7 @@ func main()
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             using List<T> = struct{
                 e: T,
                 next: option<List<T>>,
@@ -404,7 +404,7 @@ func main()
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             using List<T> = struct{
                 e: T,
                 next: option<List<T>>,
@@ -490,7 +490,7 @@ func main()
             foo(func(){return nil;}, ());
         "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = (std::declval:<A>()) is B;
 
@@ -503,7 +503,7 @@ func main()
             foo(func(x: int){}, 2333);
         "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
@@ -516,7 +516,7 @@ func main()
             foo(func(x: string){}, 2333);
         "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
@@ -541,17 +541,17 @@ func main()
             foo("Helloworld");
         "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             let a = option::value(2);
             do a as option<int>;
         "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             let a = option::value(option::value(option::value(2)));
             do a=>>\elem = elem;=>>\elem = elem; as option<int>;
         "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             let a = option::value(option::value(option::value(2)));
             do a=>>\elem = elem;=>>\elem = elem; as option<option<int>>;
         "@);
@@ -588,8 +588,8 @@ func main()
 
         // using namespace
         do vm::create_virtual_script("test/usingnamespace.wo", @"using std;"@, false);
-        assure_compile_fail(@"import woo.std; import test.usingnamespace; println("This should not been displayed!");"@);
-        assure_compile_success(@"import woo.std; import test.usingnamespace; using std; println("Helloworld!");"@);
+        assure_compile_fail(@"import woo::std; import test::usingnamespace; println("This should not been displayed!");"@);
+        assure_compile_success(@"import woo::std; import test::usingnamespace; using std; println("Helloworld!");"@);
 
         // redefine
         assure_compile_fail(@"let a = 0; let a = 1;"@);
@@ -611,9 +611,9 @@ func main()
         assure_compile_fail(@"let (a, ref b) = (1, 2);"@);
         assure_compile_fail(@"let (ref a, ref b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, 2, 3);"@);
-        assure_compile_fail(@"import woo.std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
+        assure_compile_fail(@"import woo::std; match(option::value((1, 2))){option::value((a,))?;option::none?;}"@);
         assure_compile_success(@"
-            import woo.std; 
+            import woo::std; 
             let m = option::value(1);
             match(m)
             { 
@@ -747,12 +747,12 @@ func main()
         // Issue N221109: ref has been removed.
         assure_compile_success(@"let (a, b) = (1, mut 2);"@);
         assure_compile_fail(@"let (a, b) = (1, mut 2); a = 2;"@);
-        assure_compile_success(@"import woo.std; match(option::value(1)){option::value(a)?;option::none?;}"@);
-        assure_compile_success(@"import woo.std; match(option::value(1)){value(a)?;none?;}"@);
+        assure_compile_success(@"import woo::std; match(option::value(1)){option::value(a)?;option::none?;}"@);
+        assure_compile_success(@"import woo::std; match(option::value(1)){value(a)?;none?;}"@);
         assure_compile_fail(@"match(option::value(1)){option::value((a,))?;option::none?;}"@);
         assure_compile_fail(@"match(1){value((a,))?;none?;}"@);
     
-        assure_compile_fail(@"import woo.std; let a = []: array<int>; a->add(0);"@);
+        assure_compile_fail(@"import woo::std; let a = []: array<int>; a->add(0);"@);
         assure_compile_fail(@"let i = 0; i += 5;"@);
         assure_compile_fail(@"func foo(x:vec<int>){} let v = []:array<int>; foo(v);"@);
 
@@ -775,7 +775,7 @@ func main()
             func foo(){}
             let mut a = 0; let b = a == 1 ? foo() | func(){return func(){};}: void; do b as void;"@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo(){}
             using sp_t = string;
             let v = 
@@ -784,7 +784,7 @@ func main()
                     ->or(\="":sp_t;);
             "@);
             assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             func foo(){}
 
             let v = 
@@ -793,42 +793,42 @@ func main()
                     ->or(\=do "";);
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<(nothing)=>int>());
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((int)=>nothing)=>int>());
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((void)=>string)=>int>());
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             func foo(f: ((int)=>string)=>int) {}
             foo(std::declval:<((int)=>string)=>int>());
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
             foo2(std::declval:<((int)=>string)=>(real, string)=>void>());
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
             foo2(std::declval:<((int)=>string)=>(real, string)=>(void,)>());
             "@);
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
             foo2(std::declval:<((int)=>string)=>void>());
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             func foo(f: ((int)=>string)=>int) {}
             func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
 
@@ -839,7 +839,7 @@ func main()
             foo2(std::declval:<((int)=>string)=>nothing>());
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             func assert_type<A, B>()
                 where (std::declval:<A>() is B) && (std::declval:<B>() is A);
@@ -905,25 +905,25 @@ func main()
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             for (let _, b : [mut "Hello"])
                 std::println(F"{b}");
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             let t = (mut 1, mut "Hello");
             let (a, b) = t;
             std::println(F"{b}");
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             do [mut "Hello"]->>\s=F"{s}";;
         "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
             let o = option::value(mut "Hello");
             match (o)
             {
@@ -944,7 +944,7 @@ func main()
 
         // 
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
 
             func main()
             {
@@ -953,7 +953,7 @@ func main()
             }
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             func main()
             {
@@ -964,7 +964,7 @@ func main()
             }
             "@);
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             func main()
             {
@@ -974,7 +974,7 @@ func main()
 
         // 
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
 
             func main(_: int)
             {
@@ -983,7 +983,7 @@ func main()
             "@);
 
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             func main(_: int)
             {
@@ -992,7 +992,7 @@ func main()
             "@);
         
         assure_compile_success(@"
-            import woo.std;
+            import woo::std;
 
             func main(_: int, _: real)
             {
@@ -1001,7 +1001,7 @@ func main()
             "@);
 
         assure_compile_fail(@"
-            import woo.std;
+            import woo::std;
 
             let _ = 5;
             "@);
@@ -1102,7 +1102,7 @@ func main()
         for (let mut i=0; i<1000; i += 1)
         {
             assure_compile_success(@"
-                import woo.std;
+                import woo::std;
                 func demo<T>(val: T)
                 {
                     return "Hello" + val: string;
