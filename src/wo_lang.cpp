@@ -788,6 +788,8 @@ namespace wo
         auto* a_foreach = WO_AST();
         begin_scope(a_foreach);
 
+        a_foreach->loop_sentences->marking_label = a_foreach->marking_label;
+
         analyze_pass1(a_foreach->used_iter_define);
         analyze_pass1(a_foreach->loop_sentences);
         a_foreach->loop_sentences->copy_source_info(a_foreach);
@@ -1164,6 +1166,9 @@ namespace wo
     WO_PASS2(ast_foreach)
     {
         auto* a_foreach = WO_AST();
+
+        wo_assert((a_foreach->marking_label == a_foreach->loop_sentences->marking_label));
+
         analyze_pass2(a_foreach->used_iter_define);
         analyze_pass2(a_foreach->loop_sentences);
 
