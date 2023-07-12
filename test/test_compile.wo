@@ -588,8 +588,8 @@ func main()
 
         // using namespace
         do vm::create_virtual_script("test/usingnamespace.wo", @"using std;"@, false);
-        assure_compile_fail(@"import woo::std; import test.usingnamespace; println("This should not been displayed!");"@);
-        assure_compile_success(@"import woo::std; import test.usingnamespace; using std; println("Helloworld!");"@);
+        assure_compile_fail(@"import woo::std; import test::usingnamespace; println("This should not been displayed!");"@);
+        assure_compile_success(@"import woo::std; import test::usingnamespace; using std; println("Helloworld!");"@);
 
         // redefine
         assure_compile_fail(@"let a = 0; let a = 1;"@);
