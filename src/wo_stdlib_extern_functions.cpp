@@ -2625,7 +2625,7 @@ WO_API wo_api rslib_std_macro_lexer_current_colno(wo_vm vm, wo_value args, size_
 const char* wo_stdlib_macro_src_path = u8"woo/macro.wo";
 const char* wo_stdlib_macro_src_data = {
 u8R"(
-import woo.std;
+import woo::std;
 
 namespace std
 {
