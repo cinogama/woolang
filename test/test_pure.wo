@@ -93,15 +93,15 @@ namespace test_pure
         test_assure(std::is_same_type:< typeof(pure_test_foo7), ()=> impure dict<int, int>>);
 
         test_assure(std::is_same_type:< typeof(pure_test_foo8), ()=> pure array<mut int>>);
-        test_assure(std::is_same_type:< typeof(pure_test_foo9), ()=> pure option<mut int>>);
+        test_assure(std::is_same_type:< typeof(pure_test_foo9), ()=> impure option<mut int>>);
         test_assure(std::is_same_type:< typeof(pure_test_foo10), ()=> impure int>);
         test_assure(std::is_same_type:< typeof(pure_test_foo11), ()=> impure void>);
         test_assure(std::is_same_type:< typeof(pure_test_foo12), ()=> pure void>);
         test_assure(std::is_same_type:< typeof(pure_test_foo13), ()=> impure void>);
         test_assure(std::is_same_type:< typeof(pure_test_foo14), ()=> pure void>);
 
-        test_assure(std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, pure option<mut int>>);
-        test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, option<mut int>>);  
+        test_assure(std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, option<mut int>>);
+        test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, pure option<mut int>>);  
         test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, option<int>>);   
         test_assure(!std::is_same_type:< std::function_result_t<typeof(pure_test_foo9)>, pure option<int>>);  
 

@@ -679,6 +679,16 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value arr = args + 0;
+    wo_integer_t idx = wo_int(args + 1);
+    if (idx >= 0 && idx < wo_lengthof(arr))
+        return wo_ret_val(vm, wo_arr_get(arr, idx));
+
+    return wo_ret_val(vm, args + 2);
+}
+
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_add(args + 0, args + 1);
@@ -1339,25 +1349,25 @@ namespace unsafe
         public func cast<T, FromT>(val: FromT)=> pure T;
     
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname:string)=> pure option<T>;
+        public func extsymbol<T>(fullname:string)=> impure option<T>;
 }
-
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => void;
-    extern("rslib_std_panic") public func panic(msg: string)=> pure void;
+    extern("rslib_std_halt") public func halt(msg: string) => pure nothing;
+    extern("rslib_std_panic") public func panic(msg: string)=> pure nothing;
 
     extern("rslib_std_declval") public func declval<T>()=> T;
 
-    public alias origin_t<T> = immut impure T;
+    public alias origin_t<T> = impure immut T;
     public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));
-    public alias pure_if_immutable_t<T> = typeof(std::is_mutable_type:<T> ? std::declval:<impure T>() | pure std::declval:<impure T>());
+    public alias pure_if_immutable_t<CheckT, T> = 
+        typeof(std::is_mutable_type:<CheckT> ? std::declval:<impure T>() | pure std::declval:<impure T>());
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
-    public let is_same_base_type<A, B> = is_same_type:<mut pure A, mut pure B>;
-    public let is_accpetable_base_type<A, B> = std::declval:<mut pure A>() is mut pure B;
-    public let is_mutable_type<A> = is_same_type:<A, mut A>;
-    public let is_pure_type<A> = is_same_type:<A, pure A>;
+    public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
+    public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
+    public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
+    public let is_pure_type<A> = std::is_same_type:<A, pure A>;
     public let is_pure_function_type<FT> = std::is_pure_type:<std::function_result_t<FT>>;
     
     extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> pure int;
@@ -1380,7 +1390,7 @@ public using mutable<T> = struct {
     }
     public func set<T>(self: mutable<T>, val: T)
     {
-        return self.val = val;
+        self.val = val;
     }
     public func get<T>(self: mutable<T>)
     {
@@ -1550,7 +1560,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<impure U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=> U)=> result<U, F>
     {
         match(self)
         {
@@ -1887,7 +1897,10 @@ namespace array
         public func empty<T>(val: array<T>)=> pure bool;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: array<T>, index: int)=> pure option<T>;
+        public func get<T>(a: array<T>, index: int)=> std::pure_if_immutable_t<T, option<T>>;
+
+    extern("rslib_std_array_get_or_default")
+        public func getor<T>(a: array<T>, index: int, val: T)=> std::pure_if_immutable_t<T, T>;
 
     extern("rslib_std_array_find")
         public func find<T>(val:array<T>, elem:T)=> pure int;
@@ -1920,15 +1933,15 @@ namespace array
         return result->unsafe::cast:<array<R>>;
     }
 
-    public func map<T, R>(val: array<T>, functor: (T)=>R)
+    public func map<T, R>(val: array<T>, functor: (T)=> R)
     {
-        let result = []mut: vec<impure R>;
+        let result = []mut: vec<R>;
         for (let _, elem : val)
         {
             let r = functor(elem);
             do as pure result->add(r);
         }
-        return result->unsafe::cast:<array<impure R>>;
+        return result->unsafe::cast:<array<R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
@@ -1975,7 +1988,7 @@ namespace array
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>pure option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=> std::pure_if_immutable_t<T, option<(int, T)>>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
@@ -2097,9 +2110,9 @@ namespace vec
         return result;
     }
 
-    public func map<T, R>(val: vec<T>, functor: (T)=>R)
+    public func map<T, R>(val: vec<T>, functor: (T)=> R)
     {
-        let result = []mut: vec<impure R>;
+        let result = []mut: vec<R>;
         for (let _, elem : val)
             result->add(functor(elem));
         return result;
@@ -2195,13 +2208,13 @@ namespace dict
     }
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> pure option<VT>;
+        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> std::pure_if_immutable_t<VT, option<VT>>;
 
     extern("rslib_std_map_find") 
         public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> pure bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::pure_if_immutable_t<VT>;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::pure_if_immutable_t<VT, VT>;
 
     extern("rslib_std_map_empty")
         public func empty<KT, VT>(self: dict<KT, VT>)=> pure bool;
@@ -2217,7 +2230,7 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=> std::pure_if_immutable_t<VT, option<(KT, VT)>>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
@@ -2278,7 +2291,7 @@ namespace map
     extern("rslib_std_parse_map_from_string") 
         public func deserialize(val: string)=> pure option<map<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=>map<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
         for (let k, v : val)

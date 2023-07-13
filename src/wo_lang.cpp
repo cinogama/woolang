@@ -6751,7 +6751,7 @@ namespace wo
                 a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
-                if (!a_value->value_type->is_void())
+                if (!a_value->value_type->is_void() && !a_value->value_type->is_nothing())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
                         a_value->value_type->get_type_name(false).c_str());
             }
