@@ -60,7 +60,7 @@ namespace test_container
         test_assure(b->len == 2);
     }
     
-    func get_val<T>(val: option<T>)=> pure T
+    func get_val<T>(val: option<T>)=> T
     {
         return val->val();
     }
@@ -95,7 +95,7 @@ namespace test_container
         let c = b
             ->> \es = es
                 ->  reduce(\l, r = l + " " + r;)
-                ->> func(s){do as pure std::println(s);}
+                ->> \s = std::println(s);
                 ;
             ;
     }

@@ -102,10 +102,7 @@ namespace wo
             bool is_variadic_function_type = false;
 
             bool is_mutable_type = false;
-            bool is_pure_type = false;
-
             bool is_force_immutable_type = false;
-            bool is_force_impure_type = false;
 
             bool is_pending_type = false;
 
@@ -173,14 +170,11 @@ namespace wo
             void set_as_variadic_arg_func();
 
             void set_is_mutable(bool is_mutable);
-            void set_is_pure(bool is_mutable);
-            void set_is_force_impure();
             void set_is_force_immutable();
-            bool is_force_impure() const;
-            bool is_force_immutable() const;
 
             bool is_mutable() const;
-            bool is_pure() const;
+            bool is_force_immutable() const;
+
             bool is_dynamic() const;
             bool is_custom(std::unordered_set<const ast_type*>& s) const;
             bool is_custom() const;
@@ -253,12 +247,12 @@ namespace wo
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
-        struct ast_value_mutable_or_pure : virtual public ast_value
+        struct ast_value_mutable : virtual public ast_value
         {
             ast_value* val = nullptr;
             lex_type mark_type = +lex_type::l_error;
 
-            ast_value_mutable_or_pure()
+            ast_value_mutable()
                 : ast_value(new ast_type(WO_PSTR(pending)))
             {
             }
@@ -782,9 +776,12 @@ namespace wo
                     has_impure_behavior = true;
                     if (auto_adjust_return_type == false && value_type->is_func())
                     {
+#if 0
+                        // Used for re-add pure function
                         if (value_type->complex_type->is_pure())
                             lex->lang_error(wo::lexer::errorlevel::error, errreporter, WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC,
                                 action);
+#endif
                     }
                 }
             }
@@ -2056,23 +2053,6 @@ namespace wo
             }
         };
 
-        struct pass_build_unpure_type : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
-
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure || WO_NEED_TOKEN(0).type == +lex_type::l_impure);
-
-                if (WO_NEED_TOKEN(0).type == +lex_type::l_pure)
-                    type->set_is_pure(true);
-                else
-                    type->set_is_force_impure();
-
-                return (ast_basic*)type;
-            }
-        };
-
         struct pass_template_reification : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
@@ -2163,20 +2143,19 @@ namespace wo
             }
         };
 
-        struct pass_mark_value_as_mut_or_pure : public astnode_builder
+        struct pass_mark_value_as_mut : public astnode_builder
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
                 wo_assert(input.size() == 2);
 
-                ast_value_mutable_or_pure* result = new ast_value_mutable_or_pure;
+                ast_value_mutable* result = new ast_value_mutable;
                 result->val = dynamic_cast<ast_value*>(WO_NEED_AST(1));
 
-                wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_pure ||
+                wo_assert(
                     WO_NEED_TOKEN(0).type == +lex_type::l_mut ||
-                    WO_NEED_TOKEN(0).type == +lex_type::l_immut ||
-                    WO_NEED_TOKEN(0).type == +lex_type::l_impure);
+                    WO_NEED_TOKEN(0).type == +lex_type::l_immut);
 
                 result->mark_type = WO_NEED_TOKEN(0).type;
                 return (ast_basic*)result;
@@ -3242,21 +3221,6 @@ namespace wo
                 return (ast_basic*)result;
             }
 
-        };
-
-        struct pass_do_impure : public astnode_builder
-        {
-            static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
-            {
-                // do as pure {}
-                wo_assert(input.size() == 4);
-                ast_do_impure* result = new ast_do_impure;
-                result->block = dynamic_cast<ast_sentence_block*>(WO_NEED_AST(3));
-
-                wo_assert(result->block != nullptr);
-
-                return (ast_basic*)result;
-            }
         };
 
         struct pass_mark_label : public astnode_builder

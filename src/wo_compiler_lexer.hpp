@@ -50,14 +50,12 @@ namespace wo
         l_mul_assign,           // *=
         l_div_assign,           // /= 
         l_mod_assign,           // %= 
-
         l_value_assign,               // :=
         l_value_add_assign,           // +:=
         l_value_sub_assign,           // -:= 
         l_value_mul_assign,           // *:=
         l_value_div_assign,           // /:= 
         l_value_mod_assign,           // %:= 
-
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
@@ -119,10 +117,7 @@ namespace wo
         l_union,
         l_match,
         l_struct,
-        l_pure,
-        l_impure,
         l_immut,
-
         l_typeid,
         l_macro
     );
@@ -283,13 +278,9 @@ namespace wo
             {L"union", {lex_type::l_union}},
             {L"match", {lex_type::l_match}},
             {L"struct", {lex_type::l_struct}},
-            {L"pure", {lex_type::l_pure}},
-            {L"impure", {lex_type::l_impure}},
             {L"typeid", {lex_type::l_typeid}},
             {L"do", {lex_type::l_do}},
         };
-
-
     public:
         static const wchar_t* lex_is_operate_type(lex_type tt)
         {

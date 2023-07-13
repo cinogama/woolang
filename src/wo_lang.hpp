@@ -210,7 +210,7 @@ namespace wo
         WO_PASS(ast_namespace);
         WO_PASS(ast_varref_defines);
         WO_PASS(ast_value_binary);
-        WO_PASS(ast_value_mutable_or_pure);
+        WO_PASS(ast_value_mutable);
         WO_PASS(ast_value_index);
         WO_PASS(ast_value_assign);
         WO_PASS(ast_value_logical_binary);
