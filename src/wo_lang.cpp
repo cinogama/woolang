@@ -3738,6 +3738,7 @@ namespace wo
     {
         if (s.find(type) != s.end())
             return true;
+
         s.insert(type);
 
         if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
@@ -3750,10 +3751,7 @@ namespace wo
         if (type->typefrom != nullptr)
         {
             bool is_mutable_typeof = type->is_mutable();
-            bool is_pure_typeof = type->is_pure();
-
             bool is_force_immut_typeof = type->is_force_immutable();
-            bool is_force_impure_typeof = type->is_force_impure();
 
             auto used_type_info = type->using_type_name;
 
@@ -3779,12 +3777,8 @@ namespace wo
                 type->using_type_name = used_type_info;
             if (is_mutable_typeof)
                 type->set_is_mutable(true);
-            if (is_pure_typeof)
-                type->set_is_pure(true);
             if (is_force_immut_typeof)
                 type->set_is_force_immutable();
-            if (is_force_impure_typeof)
-                type->set_is_force_impure();
         }
 
         if (type->using_type_name)
@@ -3800,11 +3794,24 @@ namespace wo
             if (type->is_complex())
             {
                 if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
+                {
+                    bool is_mutable_ret_type = type->complex_type->is_mutable();
+                    bool is_force_immut_ret_type = type->complex_type->is_force_immutable();
+
                     if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
                     {
                         if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                             stop_update = true;
                     }
+                    else
+                    {
+                        if (is_mutable_ret_type)
+                            type->complex_type->set_is_pure(true);
+                        if (is_force_immut_ret_type)
+                            type->complex_type->set_is_force_immutable();
+
+                    }
+                }
             }
             if (type->is_func())
                 for (auto& a_t : type->argument_types)
@@ -3872,11 +3879,9 @@ namespace wo
                     if (type_sym)
                     {
                         auto already_has_using_type_name = type->using_type_name;
-                        auto type_has_mutable_mark = type->is_mutable();
-                        auto type_has_pure_mark = type->is_pure();
 
+                        auto type_has_mutable_mark = type->is_mutable();
                         bool is_force_immut_typeof = type->is_force_immutable();
-                        bool is_force_impure_typeof = type->is_force_impure();
 
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
@@ -3974,13 +3979,8 @@ namespace wo
                             if (type_has_mutable_mark)
                                 // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
                                 type->set_is_mutable(true);
-                            if (type_has_pure_mark)
-                                type->set_is_pure(true);
-
                             if (is_force_immut_typeof)
                                 type->set_is_force_immutable();
-                            if (is_force_impure_typeof)
-                                type->set_is_force_impure();
 
                             if (!type->template_impl_naming_checking.empty())
                             {
@@ -4021,6 +4021,8 @@ namespace wo
 
         wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
 
+        type->set_is_pure(false);
+        type->is_force_impure_type = false;
         return false;
     }
     void lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types)
