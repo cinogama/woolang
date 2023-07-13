@@ -1488,7 +1488,7 @@ public union result<T, F>
 }
 namespace result
 {
-    public func flip<T, F>(self: result<T, F>)=> pure result<F, T>
+    public func flip<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1496,7 +1496,7 @@ namespace result
         err(e)? return ok(e);
         }
     }
-    public func unwarp<T, F>(self: result<T, F>)=> pure T
+    public func unwarp<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1504,7 +1504,7 @@ namespace result
         err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
-    public func unwarpor<T, F>(self: result<T, F>, default_val: T)=> pure T
+    public func unwarpor<T, F>(self: result<T, F>, default_val: T)
     {
         match(self)
         {
@@ -1512,7 +1512,7 @@ namespace result
         err(_)? return default_val;
         }
     }
-    public func isok<T, F>(self: result<T, F>)=> pure bool
+    public func isok<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1520,7 +1520,7 @@ namespace result
         err(_)? return false;
         }
     }
-    public func iserr<T, F>(self: result<T, F>)=> pure bool
+    public func iserr<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1528,7 +1528,7 @@ namespace result
         err(_)? return true;
         }
     }
-    public func okay<T, F>(self: result<T, F>)=> pure option<T>
+    public func okay<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1536,7 +1536,7 @@ namespace result
         err(_)? return option::none;
         }
     }
-    public func error<T, F>(self: result<T, F>)=> pure option<F>
+    public func error<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1544,7 +1544,7 @@ namespace result
         err(e)? return option::value(e);
         }
     }
-    public func succ<T, F>(self: result<T, F>)=> pure result<T, nothing>
+    public func succ<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1560,7 +1560,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=> U)=> result<U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=> U)
     {
         match(self)
         {
@@ -1568,7 +1568,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func bind<T, F, U, MayPureResult>(self: result<T, F>, functor: (T)=> MayPureResult<U, F>)=> MayPureResult<U, F>
+    public func bind<T, F, U, MayPureResult>(self: result<T, F>, functor: (T)=> MayPureResult<U, F>)
         where std::is_same_base_type:<MayPureResult<U, F>, result<U, F>>;
     {
         match(self)
@@ -1577,7 +1577,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func or<T, F>(self: result<T, F>, functor: (F)=> T)=> T
+    public func or<T, F>(self: result<T, F>, functor: (F)=> T)
     {
         match(self)
         {
@@ -1585,7 +1585,7 @@ namespace result
         err(e)? return functor(e);
         }
     }
-    public func orbind<T, F>(self: result<T, F>, functor: (F)=> MayPureResult<T, F>)=> MayPureResult<T, F>
+    public func orbind<T, F>(self: result<T, F>, functor: (F)=> MayPureResult<T, F>)
         where std::is_same_base_type:<MayPureResult<T, F>, result<T, F>>;
     {
         match(self)
