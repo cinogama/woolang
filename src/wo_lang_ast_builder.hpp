@@ -752,7 +752,7 @@ namespace wo
             bool delay_adjust_return_type = false;
             bool has_return_value = false;
             bool ir_func_has_been_generated = false;
-            bool has_impure_behavior = false;
+
             std::string ir_func_signature_tag = "";
             lang_scope* this_func_scope = nullptr;
             ast_extern_info* externed_func_info = nullptr;
@@ -767,23 +767,6 @@ namespace wo
                 type->set_as_function_type();
                 type->complex_type = new ast_type(WO_PSTR(pending));
                 type->set_ret_type(type->complex_type);
-            }
-
-            void mark_as_unpure_behavior_happend(lexer* lex, grammar::ast_base* errreporter, const wchar_t* action)noexcept
-            {
-                if (!has_impure_behavior)
-                {
-                    has_impure_behavior = true;
-                    if (auto_adjust_return_type == false && value_type->is_func())
-                    {
-#if 0
-                        // Used for re-add pure function
-                        if (value_type->complex_type->is_pure())
-                            lex->lang_error(wo::lexer::errorlevel::error, errreporter, WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC,
-                                action);
-#endif
-                    }
-                }
             }
 
             bool is_closure_function()const noexcept
