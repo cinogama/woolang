@@ -1486,7 +1486,7 @@ namespace result
         err(e)? return ok(e);
         }
     }
-    public func unwarp<T, F>(self: result<T, F>)=> impure T
+    public func unwarp<T, F>(self: result<T, F>)=> pure T
     {
         match(self)
         {
@@ -1494,7 +1494,7 @@ namespace result
         err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
-    public func unwarpor<T, F>(self: result<T, F>, default_val: T)=> impure T
+    public func unwarpor<T, F>(self: result<T, F>, default_val: T)=> pure T
     {
         match(self)
         {
@@ -1534,7 +1534,7 @@ namespace result
         err(e)? return option::value(e);
         }
     }
-    public func succ<T, F>(self: result<T, F>)=> impure result<T, nothing>
+    public func succ<T, F>(self: result<T, F>)=> pure result<T, nothing>
     {
         match(self)
         {
@@ -1542,7 +1542,7 @@ namespace result
         err(e)? std::panic(F"An error was found in 'succ': {e}");
         }
     }
-    public func fail<T, F>(self: result<T, F>)=> impure result<nothing, F>
+    public func fail<T, F>(self: result<T, F>)=> pure result<nothing, F>
     {
         match(self)
         {
