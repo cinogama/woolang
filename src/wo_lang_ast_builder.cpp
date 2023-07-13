@@ -193,36 +193,14 @@ namespace wo
         {
             return is_mutable_type;
         }
-        void ast_type::set_is_pure(bool is_pure)
-        {
-            if (is_pure)
-                is_force_impure_type = false;
-
-            is_pure_type = is_pure;
-            if (using_type_name && using_type_name->is_pure() != is_pure)
-                using_type_name->is_pure_type = is_pure;
-        }
-        void ast_type::set_is_force_impure()
-        {
-            set_is_pure(false);
-            is_force_impure_type = true;
-        }
         void ast_type::set_is_force_immutable()
         {
             set_is_mutable(false);
             is_force_immutable_type = true;
         }
-        bool ast_type::is_force_impure() const
-        {
-            return is_force_impure_type;
-        }
         bool ast_type::is_force_immutable() const
         {
             return is_force_immutable_type;
-        }
-        bool ast_type::is_pure() const
-        {
-            return is_pure_type;
         }
         bool ast_type::is_dynamic() const
         {
@@ -411,20 +389,6 @@ namespace wo
             }
 
             bool prefix_modified = false;
-            if (is_pure())
-            {
-                prefix_modified = true;
-                if (out_para)
-                {
-                    *out_para = dynamic_cast<ast_type*>(this->instance());
-                    (**out_para).set_is_pure(false);
-                }
-                if (out_args)
-                {
-                    *out_args = dynamic_cast<ast_type*>(another->instance());
-                    (**out_args).set_is_pure(false);
-                }
-            }
             if (is_mutable())
             {
                 prefix_modified = true;
@@ -513,9 +477,6 @@ namespace wo
 
             if (is_mutable() != another->is_mutable())
                 return false;
-
-            if (!is_pure() || !another->is_pure())
-                result->set_is_pure(false);
 
             // Might HKT
             if (is_hkt_typing() && another->is_hkt_typing())
@@ -2303,7 +2264,6 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_typeof>] = _register_builder<pass_typeof>();
             _registed_builder_function_id_list[meta::type_hash<pass_build_mutable_type>] = _register_builder<pass_build_mutable_type>();
-            _registed_builder_function_id_list[meta::type_hash<pass_build_unpure_type>] = _register_builder<pass_build_unpure_type>();
             _registed_builder_function_id_list[meta::type_hash<pass_template_reification>] = _register_builder<pass_template_reification>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_check>] = _register_builder<pass_type_check>();
@@ -2312,7 +2272,7 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_type_judgement>] = _register_builder<pass_type_judgement>();
 
-            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut_or_pure>] = _register_builder<pass_mark_value_as_mut_or_pure>();
+            _registed_builder_function_id_list[meta::type_hash<pass_mark_value_as_mut>] = _register_builder<pass_mark_value_as_mut>();
 
             _registed_builder_function_id_list[meta::type_hash<pass_using_type_as>] = _register_builder<pass_using_type_as>();
 
@@ -2451,8 +2411,6 @@ namespace wo
 
             _registed_builder_function_id_list[meta::type_hash<pass_macro_failed>] = _register_builder<pass_macro_failed>();
             _registed_builder_function_id_list[meta::type_hash<pass_do_expr_as_sentence>] = _register_builder<pass_do_expr_as_sentence>();
-
-            _registed_builder_function_id_list[meta::type_hash<pass_do_impure>] = _register_builder<pass_do_impure>();
         }
 
     }

@@ -679,6 +679,16 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value arr = args + 0;
+    wo_integer_t idx = wo_int(args + 1);
+    if (idx >= 0 && idx < wo_lengthof(arr))
+        return wo_ret_val(vm, wo_arr_get(arr, idx));
+
+    return wo_ret_val(vm, args + 2);
+}
+
 WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_add(args + 0, args + 1);
@@ -1336,38 +1346,34 @@ u8R"(
 namespace unsafe
 {
     extern("rslib_std_return_itself") 
-        public func cast<T, FromT>(val: FromT)=> pure T;
+        public func cast<T, FromT>(val: FromT)=> T;
     
     extern("rslib_std_get_extern_symb")
-        public func extsymbol<T>(fullname:string)=> pure option<T>;
+        public func extsymbol<T>(fullname:string)=> option<T>;
 }
-
 namespace std
 {
-    extern("rslib_std_halt") public func halt(msg: string) => void;
-    extern("rslib_std_panic") public func panic(msg: string)=> pure void;
+    extern("rslib_std_halt") public func halt(msg: string) => nothing;
+    extern("rslib_std_panic") public func panic(msg: string)=> nothing;
 
     extern("rslib_std_declval") public func declval<T>()=> T;
 
-    public alias origin_t<T> = immut impure T;
+    public alias origin_t<T> = immut T;
     public alias function_result_t<FT> = typeof(std::declval:<FT>()([]...));
-    public alias pure_if_immutable_t<T> = typeof(std::is_mutable_type:<T> ? std::declval:<impure T>() | pure std::declval:<impure T>());
 
     public let is_same_type<A, B> = typeid:<A> == typeid:<B>;
-    public let is_same_base_type<A, B> = is_same_type:<mut pure A, mut pure B>;
-    public let is_accpetable_base_type<A, B> = std::declval:<mut pure A>() is mut pure B;
-    public let is_mutable_type<A> = is_same_type:<A, mut A>;
-    public let is_pure_type<A> = is_same_type:<A, pure A>;
-    public let is_pure_function_type<FT> = std::is_pure_type:<std::function_result_t<FT>>;
+    public let is_same_base_type<A, B> = std::is_same_type:<std::origin_t<A>, std::origin_t<B>>;
+    public let is_accpetable_base_type<A, B> = std::declval:<std::origin_t<A>>() is std::origin_t<B>;
+    public let is_mutable_type<A> = std::is_same_type:<A, mut A>;
     
-    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> pure int;
-    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> pure int;
-    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> pure int;
-    extern("rslib_std_bit_not") public func bitnot(a: int)=> pure int;
+    extern("rslib_std_bit_or") public func bitor(a: int, b: int)=> int;
+    extern("rslib_std_bit_and") public func bitand(a: int, b: int)=> int;
+    extern("rslib_std_bit_xor") public func bitxor(a: int, b: int)=> int;
+    extern("rslib_std_bit_not") public func bitnot(a: int)=> int;
 
-    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> pure int;
-    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> pure int;
-    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> pure int;
+    extern("rslib_std_bit_shl") public func bitshl(a: int, b: int)=> int;
+    extern("rslib_std_bit_shr") public func bitshr(a: int, b: int)=> int;
+    extern("rslib_std_bit_ashr") public func bitashr(a: int, b: int)=> int;
 }
 
 public using mutable<T> = struct {
@@ -1380,7 +1386,7 @@ public using mutable<T> = struct {
     }
     public func set<T>(self: mutable<T>, val: T)
     {
-        return self.val = val;
+        self.val = val;
     }
     public func get<T>(self: mutable<T>)
     {
@@ -1395,8 +1401,7 @@ public union option<T>
 }
 namespace option
 {
-    public func bind<T, R, MayPureOption>(self: option<T>, functor: (T)=> MayPureOption<R>)
-        where std::is_same_base_type:<MayPureOption<R>, option<R>>;
+    public func bind<T, R>(self: option<T>, functor: (T)=> option<R>)
     {
         match(self)
         {
@@ -1418,8 +1423,7 @@ namespace option
             return option::none;
         }
     }
-    public func or<T, MayPureT>(self: option<T>, orfunctor: ()=> MayPureT)
-        where std::is_accpetable_base_type:<MayPureT, T>;
+    public func or<T>(self: option<T>, orfunctor: ()=> T)
     {
         match(self)
         {
@@ -1429,8 +1433,7 @@ namespace option
             return orfunctor();
         }
     }
-    public func orbind<T, MayPureOption>(self: option<T>, orfunctor: ()=> MayPureOption<T>)
-        where std::is_same_base_type:<MayPureOption<R>, option<R>>;
+    public func orbind<T>(self: option<T>, orfunctor: ()=> option<T>)
     {
         match(self)
         {
@@ -1478,7 +1481,7 @@ public union result<T, F>
 }
 namespace result
 {
-    public func flip<T, F>(self: result<T, F>)=> pure result<F, T>
+    public func flip<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1486,7 +1489,7 @@ namespace result
         err(e)? return ok(e);
         }
     }
-    public func unwarp<T, F>(self: result<T, F>)=> pure T
+    public func unwarp<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1494,7 +1497,7 @@ namespace result
         err(e)? std::panic(F"An error was found when 'unwarp': {e}");
         }
     }
-    public func unwarpor<T, F>(self: result<T, F>, default_val: T)=> pure T
+    public func unwarpor<T, F>(self: result<T, F>, default_val: T)
     {
         match(self)
         {
@@ -1502,7 +1505,7 @@ namespace result
         err(_)? return default_val;
         }
     }
-    public func isok<T, F>(self: result<T, F>)=> pure bool
+    public func isok<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1510,7 +1513,7 @@ namespace result
         err(_)? return false;
         }
     }
-    public func iserr<T, F>(self: result<T, F>)=> pure bool
+    public func iserr<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1518,7 +1521,7 @@ namespace result
         err(_)? return true;
         }
     }
-    public func okay<T, F>(self: result<T, F>)=> pure option<T>
+    public func okay<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1526,7 +1529,7 @@ namespace result
         err(_)? return option::none;
         }
     }
-    public func error<T, F>(self: result<T, F>)=> pure option<F>
+    public func error<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1534,7 +1537,7 @@ namespace result
         err(e)? return option::value(e);
         }
     }
-    public func succ<T, F>(self: result<T, F>)=> pure result<T, nothing>
+    public func succ<T, F>(self: result<T, F>)
     {
         match(self)
         {
@@ -1542,7 +1545,7 @@ namespace result
         err(e)? std::panic(F"An error was found in 'succ': {e}");
         }
     }
-    public func fail<T, F>(self: result<T, F>)=> pure result<nothing, F>
+    public func fail<T, F>(self: result<T, F>)=> result<nothing, F>
     {
         match(self)
         {
@@ -1550,7 +1553,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func map<T, F, U>(self: result<T, F>, functor: (T)=>U)=> result<impure U, F>
+    public func map<T, F, U>(self: result<T, F>, functor: (T)=> U)
     {
         match(self)
         {
@@ -1558,8 +1561,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func bind<T, F, U, MayPureResult>(self: result<T, F>, functor: (T)=> MayPureResult<U, F>)=> MayPureResult<U, F>
-        where std::is_same_base_type:<MayPureResult<U, F>, result<U, F>>;
+    public func bind<T, F, U>(self: result<T, F>, functor: (T)=> result<U, F>)
     {
         match(self)
         {
@@ -1567,7 +1569,7 @@ namespace result
         err(e)? return err(e);
         }
     }
-    public func or<T, F>(self: result<T, F>, functor: (F)=> T)=> T
+    public func or<T, F>(self: result<T, F>, functor: (F)=> T)
     {
         match(self)
         {
@@ -1575,8 +1577,7 @@ namespace result
         err(e)? return functor(e);
         }
     }
-    public func orbind<T, F>(self: result<T, F>, functor: (F)=> MayPureResult<T, F>)=> MayPureResult<T, F>
-        where std::is_same_base_type:<MayPureResult<T, F>, result<T, F>>;
+    public func orbind<T, F>(self: result<T, F>, functor: (F)=> result<T, F>)
     {
         match(self)
         {
@@ -1657,19 +1658,19 @@ namespace std
         public func randreal(from:real, to:real)=> real;
 
     extern("rslib_std_break_yield") 
-        public func yield()=>pure void;
+        public func yield()=> void;
 
     extern("rslib_std_thread_sleep")
-        public func sleep(tm:real)=>pure void;
+        public func sleep(tm:real)=> void;
    
     extern("rslib_std_get_args")
-        public func args()=>pure array<string>;
+        public func args()=> array<string>;
 
     extern("rslib_std_get_exe_path")
-        public func exepath()=>pure string;
+        public func exepath()=> string;
 
     extern("rslib_std_equal_byte")
-        public func issame<LT, RT>(a:LT, b:RT)=> pure bool;
+        public func issame<LT, RT>(a:LT, b:RT)=> bool;
 
     public func max<T>(a:T, b:T)
         where (a<b) is bool;
@@ -1688,7 +1689,7 @@ namespace std
     }
 
     extern("rslib_std_make_dup")
-    public func dup<T>(dupval: T)=> pure T;
+    public func dup<T>(dupval: T)=> T;
 }
 
 public using cchar = char;
@@ -1696,139 +1697,139 @@ public using cchar = char;
 namespace char
 {
     extern("rslib_std_char_tostring")
-        public func tostring(val:char)=> pure string;
+        public func tostring(val:char)=> string;
 
     extern("rslib_std_char_toupper")
-        public func upper(val:char)=>pure char;
+        public func upper(val:char)=> char;
 
     extern("rslib_std_char_tolower")
-        public func lower(val:char)=>pure char;
+        public func lower(val:char)=> char;
 
     extern("rslib_std_char_isspace")
-        public func isspace(val:char)=>pure bool;
+        public func isspace(val:char)=> bool;
 
     extern("rslib_std_char_isalpha")
-        public func isalpha(val:char)=> pure bool;
+        public func isalpha(val:char)=> bool;
 
     extern("rslib_std_char_isalnum")
-        public func isalnum(val:char)=> pure bool;
+        public func isalnum(val:char)=> bool;
 
     extern("rslib_std_char_isnumber")
-        public func isnumber(val:char)=> pure bool;
+        public func isnumber(val:char)=> bool;
 
     extern("rslib_std_char_ishex")
-        public func ishex(val:char)=> pure bool;
+        public func ishex(val:char)=> bool;
 
     extern("rslib_std_char_isoct")
-        public func isoct(val:char)=> pure bool;
+        public func isoct(val:char)=> bool;
 
     extern("rslib_std_char_hexnum")
-        public func hexnum(val:char)=> pure int;
+        public func hexnum(val:char)=> int;
 }
 
 namespace string
 {
     extern("rslib_std_take_token") 
-    public func take_token(datstr: string, expect_str: string)=> pure option<string>;
+    public func take_token(datstr: string, expect_str: string)=> option<string>;
 
     extern("rslib_std_take_string") 
-    public func take_string(datstr: string)=> pure option<(string, string)>;
+    public func take_string(datstr: string)=> option<(string, string)>;
 
     extern("rslib_std_take_int") 
-    public func take_int(datstr: string)=> pure option<(string, int)>;
+    public func take_int(datstr: string)=> option<(string, int)>;
 
     extern("rslib_std_take_real") 
-    public func take_real(datstr: string)=> pure option<(string, real)>;
+    public func take_real(datstr: string)=> option<(string, real)>;
     
     extern("rslib_std_create_wchars_from_str")
-    public func chars(buf: string)=> pure array<char>;
+    public func chars(buf: string)=> array<char>;
 
     extern("rslib_std_create_chars_from_str")
-    public func cchars(buf: string)=> pure array<cchar>;
+    public func cchars(buf: string)=> array<cchar>;
 
     extern("rslib_std_get_ascii_val_from_str") 
-    public func getch(val:string, index: int)=> pure char;
+    public func getch(val:string, index: int)=> char;
 
     extern("rslib_std_lengthof") 
-        public func len(val:string)=> pure int;
+        public func len(val:string)=> int;
 
     extern("rslib_std_str_bytelen") 
-        public func bytelen(val:string)=> pure int;
+        public func bytelen(val:string)=> int;
 
     extern("rslib_std_sub")
-        public func sub(val:string, begin:int)=>pure string;
+        public func sub(val:string, begin:int)=> string;
 
     extern("rslib_std_sub")
-        public func subto(val:string, begin:int, length:int)=>pure string;
+        public func subto(val:string, begin:int, length:int)=> string;
     
     extern("rslib_std_string_toupper")
-        public func upper(val:string)=>pure string;
+        public func upper(val:string)=> string;
 
     extern("rslib_std_string_tolower")
-        public func lower(val:string)=>pure string;
+        public func lower(val:string)=> string;
 
     extern("rslib_std_string_isspace")
-        public func isspace(val:string)=>pure bool;
+        public func isspace(val:string)=> bool;
 
     extern("rslib_std_string_isalpha")
-        public func isalpha(val:string)=> pure bool;
+        public func isalpha(val:string)=>  bool;
 
     extern("rslib_std_string_isalnum")
-        public func isalnum(val:string)=> pure bool;
+        public func isalnum(val:string)=>  bool;
 
     extern("rslib_std_string_isnumber")
-        public func isnumber(val:string)=> pure bool;
+        public func isnumber(val:string)=>  bool;
 
     extern("rslib_std_string_ishex")
-        public func ishex(val:string)=> pure bool;
+        public func ishex(val:string)=>  bool;
 
     extern("rslib_std_string_isoct")
-        public func isoct(val:string)=> pure bool;
+        public func isoct(val:string)=>  bool;
 
     extern("rslib_std_string_enstring")
-        public func enstring(val:string)=>pure string;
+        public func enstring(val:string)=> string;
 
     extern("rslib_std_string_destring")
-        public func destring(val:string)=> pure string;
+        public func destring(val:string)=>  string;
 
     extern("rslib_std_string_beginwith")
-        public func beginwith(val:string, str:string)=> pure bool;
+        public func beginwith(val:string, str:string)=> bool;
 
     extern("rslib_std_string_endwith")
-        public func endwith(val:string, str:string)=> pure bool;
+        public func endwith(val:string, str:string)=> bool;
 
     extern("rslib_std_string_replace")
-        public func replace(val:string, match_aim:string, str:string)=> pure string;
+        public func replace(val:string, match_aim:string, str:string)=> string;
 
     extern("rslib_std_string_find")
-        public func find(val:string, match_aim:string)=> pure int;
+        public func find(val:string, match_aim:string)=> int;
 
     extern("rslib_std_string_find_from")
-        public func findfrom(val:string, match_aim:string, from: int)=> pure int;
+        public func findfrom(val:string, match_aim:string, from: int)=> int;
 
     extern("rslib_std_string_rfind")
-        public func rfind(val:string, match_aim:string)=> pure int;
+        public func rfind(val:string, match_aim:string)=> int;
 
     extern("rslib_std_string_rfind_from")
-        public func rfindfrom(val:string, match_aim:string, from: int)=> pure int;
+        public func rfindfrom(val:string, match_aim:string, from: int)=> int;
 
     extern("rslib_std_string_trim")
-        public func trim(val:string)=>pure string;
+        public func trim(val:string)=> string;
 
     extern("rslib_std_string_split")
-        public func split(val:string, spliter:string)=> pure array<string>;
+        public func split(val:string, spliter:string)=> array<string>;
 
-    public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> pure string
+    public func append<CharOrCCharT>(val: string, ch: CharOrCCharT)=> string
         where ch is char || ch is cchar;
     {
         if (ch is char)
         {
-            extern("rslib_std_string_append_char")func _append_char(val: string, ch: char)=> pure string;
+            extern("rslib_std_string_append_char")func _append_char(val: string, ch: char)=> string;
             return _append_char(val, ch);
         }
         else
         {
-            extern("rslib_std_string_append_cchar")func _append_cchar(val: string, ch: cchar)=> pure string;
+            extern("rslib_std_string_append_cchar")func _append_cchar(val: string, ch: cchar)=> string;
             return _append_cchar(val, ch);
         }
     }
@@ -1837,18 +1838,18 @@ namespace string
 namespace array
 {
     extern("rslib_std_array_create") 
-        public func create<T>(sz: int, init_val: T)=> pure array<T>;
+        public func create<T>(sz: int, init_val: T)=> array<T>;
 
     extern("rslib_std_serialize") 
-        public func serialize<T>(self: array<T>)=> pure option<string>;
+        public func serialize<T>(self: array<T>)=> option<string>;
 
     extern("rslib_std_parse_array_from_string")
-        public func deserialize(val: string)=> pure option<array<dynamic>>;
+        public func deserialize(val: string)=> option<array<dynamic>>;
 
     public func append<T>(self: array<T>, elem: T)
     {
         let newarr = self->tovec;
-        do as pure newarr->add(elem);
+        newarr->add(elem);
 
         return newarr->unsafe::cast:<array<T>>;
     }
@@ -1856,43 +1857,46 @@ namespace array
     public func erase<T>(self: array<T>, index: int)
     {
         let newarr = self->tovec;
-        do as pure do newarr->remove(index);
+        do newarr->remove(index);
 
         return newarr->unsafe::cast:<array<T>>;
     }
     public func inlay<T>(self: array<T>, index: int, insert_value: T)
     {
         let newarr = self->tovec;
-        do as pure newarr->insert(index, insert_value);
+        newarr->insert(index, insert_value);
 
         return newarr->unsafe::cast:<array<T>>;
     }
 
     extern("rslib_std_create_str_by_wchar") 
-        public func str(buf: array<char>)=> pure string;
+        public func str(buf: array<char>)=> string;
 
     extern("rslib_std_create_str_by_ascii") 
-        public func cstr(buf: array<cchar>)=> pure string;
+        public func cstr(buf: array<cchar>)=> string;
 
     extern("rslib_std_lengthof") 
-        public func len<T>(val: array<T>)=> pure int;
+        public func len<T>(val: array<T>)=> int;
 
     extern("rslib_std_make_dup")
-        public func dup<T>(val: array<T>)=> pure array<T>;
+        public func dup<T>(val: array<T>)=> array<T>;
 
     extern("rslib_std_make_dup")
-        public func tovec<T>(val: array<T>)=> pure vec<T>;
+        public func tovec<T>(val: array<T>)=> vec<T>;
 
     extern("rslib_std_array_empty")
-        public func empty<T>(val: array<T>)=> pure bool;
+        public func empty<T>(val: array<T>)=> bool;
 
     extern("rslib_std_array_get")
-        public func get<T>(a: array<T>, index: int)=> pure option<T>;
+        public func get<T>(a: array<T>, index: int)=> option<T>;
+
+    extern("rslib_std_array_get_or_default")
+        public func getor<T>(a: array<T>, index: int, val: T)=> T;
 
     extern("rslib_std_array_find")
-        public func find<T>(val:array<T>, elem:T)=> pure int;
+        public func find<T>(val:array<T>, elem:T)=> int;
 
-    public func findif<T>(val:array<T>, judger:(T)=>pure bool)
+    public func findif<T>(val:array<T>, judger:(T)=> bool)
     {
         for (let i, v : val)
             if (judger(v))
@@ -1900,109 +1904,99 @@ namespace array
         return -1;            
     }
 
-    public func forall<T, MayPureBool>(val: array<T>, functor: (T)=>MayPureBool)
-        where std::is_accpetable_base_type:<MayPureBool, bool>;
+    public func forall<T>(val: array<T>, functor: (T)=> bool)
     {
         let result = []mut: vec<T>;
         for (let _, elem : val)
             if (functor(elem))
-                do as pure result->add(elem);
+                result->add(elem);
         return result->unsafe::cast:<array<T>>;
     }
 
-    public func bind<T, R, MayPureArray>(val: array<T>, functor: (T)=>MayPureArray<R>)
-        where std::is_same_base_type:<MayPureArray<R>, array<R>>;
+    public func bind<T, R>(val: array<T>, functor: (T)=> array<R>)
     {
         let result = []mut: vec<R>;
         for (let _, elem : val)
             for (let _, insert : functor(elem))
-                do as pure result->add(insert);
+                result->add(insert);
         return result->unsafe::cast:<array<R>>;
     }
 
-    public func map<T, R>(val: array<T>, functor: (T)=>R)
+    public func map<T, R>(val: array<T>, functor: (T)=> R)
     {
-        let result = []mut: vec<impure R>;
+        let result = []mut: vec<R>;
         for (let _, elem : val)
         {
             let r = functor(elem);
-            do as pure result->add(r);
+            result->add(r);
         }
-        return result->unsafe::cast:<array<impure R>>;
+        return result->unsafe::cast:<array<R>>;
     }
 
     public func mapping<K, V>(val: array<(K, V)>)
     {
         let result = {}mut: map<K, V>;
         for (let _, (k, v) : val)
-            do as pure result->set(k, v);
+            result->set(k, v);
         return result->unsafe::cast:<dict<K, V>>;
     }
 
-    public func reduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
-        where std::is_accpetable_base_type:<MayPureT, T>;
+    public func reduce<T>(self: array<T>, reducer: (T, T)=> T)
     {
         if (self->empty)
             return option::none;
-        
-        do as pure
-        {
-            let mut result = self[0];
-            for (let mut i = 1; i < self->len; i+=1)
-                result = reducer(result, self[i]);
+
+        let mut result = self[0];
+        for (let mut i = 1; i < self->len; i+=1)
+            result = reducer(result, self[i]);
             
-            return option::value(result);
-        }
+        return option::value(result);
     }
 
-    public func rreduce<T, MayPureT>(self: array<T>, reducer: (T, T)=> MayPureT)
-        where std::is_accpetable_base_type:<MayPureT, T>;
+    public func rreduce<T>(self: array<T>, reducer: (T, T)=> T)
     {
         if (self->empty)
             return option::none;
-        
-        do as pure
-        {
-            let len = self->len;
-            let mut result = self[len-1];
-            for (let mut i = len-2; i >= 0; i-=1)
-                result = reducer(self[i], result);
 
-            return option::value(result);
-        }
+        let len = self->len;
+        let mut result = self[len-1];
+        for (let mut i = len-2; i >= 0; i-=1)
+            result = reducer(self[i], result);
+
+        return option::value(result);
     }
 
     public using iterator<T> = gchandle
     {
         extern("rslib_std_array_iter_next")
-            public func next<T>(iter:iterator<T>)=>pure option<(int, T)>;
+            public func next<T>(iter:iterator<T>)=> option<(int, T)>;
     
         public func iter<T>(iter:iterator<T>) { return iter; }
     }
 
     extern("rslib_std_array_iter")
-        public func iter<T>(val:array<T>)=>pure iterator<T>;
+        public func iter<T>(val:array<T>)=> iterator<T>;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: array<T>, another: array<T>)=> pure array<T>;
+    public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
 
     extern("rslib_std_array_sub")
-    public func sub<T>(self: array<T>, begin: int)=> pure array<T>;
+    public func sub<T>(self: array<T>, begin: int)=> array<T>;
     
     extern("rslib_std_array_sub")
-    public func subto<T>(self: array<T>, begin: int, count: int)=> pure array<T>;
+    public func subto<T>(self: array<T>, begin: int, count: int)=> array<T>;
 }
 
 namespace vec
 {
     extern("rslib_std_array_create") 
-        public func create<T>(sz: int, init_val: T)=> pure vec<T>;
+        public func create<T>(sz: int, init_val: T)=> vec<T>;
 
     extern("rslib_std_serialize") 
         public func serialize<T>(self: vec<T>)=> option<string>;
 
     extern("rslib_std_parse_array_from_string") 
-        public func deserialize(val: string)=> pure option<vec<dynamic>>;
+        public func deserialize(val: string)=> option<vec<dynamic>>;
 
     extern("rslib_std_create_str_by_wchar") 
         public func str(buf: vec<char>)=> string;
@@ -2097,9 +2091,9 @@ namespace vec
         return result;
     }
 
-    public func map<T, R>(val: vec<T>, functor: (T)=>R)
+    public func map<T, R>(val: vec<T>, functor: (T)=> R)
     {
-        let result = []mut: vec<impure R>;
+        let result = []mut: vec<R>;
         for (let _, elem : val)
             result->add(functor(elem));
         return result;
@@ -2153,40 +2147,38 @@ namespace vec
 namespace dict
 {
     extern("rslib_std_serialize") 
-        public func serialize<KT, VT>(self: dict<KT, VT>)=> pure option<string>;
+        public func serialize<KT, VT>(self: dict<KT, VT>)=> option<string>;
 
     extern("rslib_std_parse_map_from_string") 
-        public func deserialize(val: string)=> pure option<dict<dynamic, dynamic>>;
+        public func deserialize(val: string)=> option<dict<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV, MayPureDict>(val: dict<KT, VT>, functor: (KT, VT)=>MayPureDict<RK, RV>)
-        where std::is_same_base_type:<MayPureDict<RK, RV>, dict<RK, RV>>;
+    public func bind<KT, VT, RK, RV>(val: dict<KT, VT>, functor: (KT, VT)=> dict<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
         for (let k, v : val)
             for (let rk, rv : functor(k, v))
-                do as pure result->set(rk, rv);
+                result->set(rk, rv);
         return result->unsafe::cast:<dict<RK, RV>>;
     }
 
     public func apply<KT, VT>(self: dict<KT, VT>, key: KT, val: VT)
     {
         let newmap = self->tomap;
-        do as pure newmap->set(key, val);
+        newmap->set(key, val);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
 )" R"(
     extern("rslib_std_lengthof") 
-        public func len<KT, VT>(self: dict<KT, VT>)=> pure int;
+        public func len<KT, VT>(self: dict<KT, VT>)=> int;
 
     extern("rslib_std_make_dup")
-        public func dup<KT, VT>(self: dict<KT, VT>)=> pure dict<KT, VT>;
+        public func dup<KT, VT>(self: dict<KT, VT>)=> dict<KT, VT>;
 
     extern("rslib_std_make_dup")
-        public func tomap<KT, VT>(self: dict<KT, VT>)=> pure map<KT, VT>;
+        public func tomap<KT, VT>(self: dict<KT, VT>)=> map<KT, VT>;
 
-    public func findif<KT, VT, MayPureBool>(self: dict<KT, VT>, judger:(KT)=>MayPureBool)
-        where std::is_accpetable_base_type:<MayPureBool, bool>;
+    public func findif<KT, VT>(self: dict<KT, VT>, judger:(KT)=> bool)
     {
         for (let k, _ : self)
             if (judger(k))
@@ -2195,21 +2187,21 @@ namespace dict
     }
 
     extern("rslib_std_map_only_get") 
-        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> pure option<VT>;
+        public func get<KT, VT>(self: dict<KT, VT>, index: KT)=> option<VT>;
 
     extern("rslib_std_map_find") 
-        public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> pure bool;
+        public func contain<KT, VT>(self: dict<KT, VT>, index: KT)=> bool;
 
     extern("rslib_std_map_get_or_default") 
-        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> std::pure_if_immutable_t<VT>;
+        public func getor<KT, VT>(self: dict<KT, VT>, index: KT, default_val: VT)=> VT;
 
     extern("rslib_std_map_empty")
-        public func empty<KT, VT>(self: dict<KT, VT>)=> pure bool;
+        public func empty<KT, VT>(self: dict<KT, VT>)=> bool;
 
     public func erase<KT, VT>(self: dict<KT, VT>, index: KT)
     {
         let newmap = self->tomap;
-        do as pure do newmap->remove(index);
+        do newmap->remove(index);
 
         return newmap->unsafe::cast:<dict<KT, VT>>;
     }
@@ -2217,47 +2209,43 @@ namespace dict
     public using iterator<KT, VT> = gchandle
     {
         extern("rslib_std_map_iter_next")
-            public func next<KT, VT>(iter:iterator<KT, VT>)=>pure option<(KT, VT)>;
+            public func next<KT, VT>(iter:iterator<KT, VT>)=> option<(KT, VT)>;
 
         public func iter<KT, VT>(iter:iterator<KT, VT>) { return iter; }
     }
 
     extern("rslib_std_map_iter")
-        public func iter<KT, VT>(self:dict<KT, VT>)=>pure iterator<KT, VT>;
+        public func iter<KT, VT>(self:dict<KT, VT>)=> iterator<KT, VT>;
 
     public func keys<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
-            do as pure result->add(key);
+            result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
     public func vals<KT, VT>(self: dict<KT, VT>)
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
-            do as pure result->add(val);
+            result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
-    public func forall<KT, VT, MayPureBool>(self: dict<KT, VT>, functor: (KT, VT)=>MayPureBool)
-        where std::is_accpetable_base_type:<MayPureBool, bool>;
+    public func forall<KT, VT>(self: dict<KT, VT>, functor: (KT, VT)=> bool)
     {
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                do as pure result->set(key, val);
+                result->set(key, val);
         return result->unsafe::cast:<dict<KT, VT>>;
     }
-    public func map<KT, VT, MayPureTupleType>(self: dict<KT, VT>, functor: (KT, VT)=> MayPureTupleType)
+    public func map<KT, VT, AT, BT>(self: dict<KT, VT>, functor: (KT, VT)=> (AT, BT))
     {
-        alias AT = typeof(std::declval:<MayPureTupleType>()[0]);
-        alias BT = typeof(std::declval:<MayPureTupleType>()[1]);
-
         let result = {}mut: map<AT, BT>;
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            do as pure result->set(nk, nv);
+            result->set(nk, nv);
         }
         return result->unsafe::cast:<dict<AT, BT>>;
     }
@@ -2265,7 +2253,7 @@ namespace dict
     {
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
-            do as pure result->add((key, val));
+            result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
@@ -2276,9 +2264,9 @@ namespace map
         public func serialize<KT, VT>(self: map<KT, VT>)=> option<string>;
                     
     extern("rslib_std_parse_map_from_string") 
-        public func deserialize(val: string)=> pure option<map<dynamic, dynamic>>;
+        public func deserialize(val: string)=> option<map<dynamic, dynamic>>;
 
-    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=>map<RK, RV>)
+    public func bind<KT, VT, RK, RV>(val: map<KT, VT>, functor: (KT, VT)=> map<RK, RV>)
     {
         let result = {}mut: map<RK, RV>;
         for (let k, v : val)
@@ -2349,14 +2337,14 @@ namespace map
     {
         let result = []mut: vec<KT>;
         for (let key, _ : self)
-            do as pure result->add(key);
+            result->add(key);
         return result->unsafe::cast:<array<KT>>;
     }
     public func vals<KT, VT>(self: map<KT, VT>)
     {
         let result = []mut: vec<VT>;
         for (let _, val : self)
-            do as pure result->add(val);
+            result->add(val);
         return result->unsafe::cast:<array<VT>>;
     }
     public func forall<KT, VT>(self: map<KT, VT>, functor: (KT, VT)=>bool)
@@ -2364,7 +2352,7 @@ namespace map
         let result = {}mut: map<KT, VT>;
         for (let key, val : self)
             if (functor(key, val))
-                do as pure result->set(key, val);
+                result->set(key, val);
         return result;
     }
     public func map<KT, VT, AT, BT>(self: map<KT, VT>, functor: (KT, VT)=>(AT, BT))
@@ -2373,7 +2361,7 @@ namespace map
         for (let key, val : self)
         {
             let (nk, nv) = functor(key, val);
-            do as pure result->set(nk, nv);
+            result->set(nk, nv);
         }
         return result->unsafe::cast:<map<AT, BT>>;
     }
@@ -2381,7 +2369,7 @@ namespace map
     {
         let result = []mut: vec<(std::origin_t<KT>, std::origin_t<VT>)>;
         for (let key, val : self)
-            do as pure result->add((key, val));
+            result->add((key, val));
         return result->unsafe::cast:<array<(KT, VT)>>;
     }
 }
@@ -2389,27 +2377,27 @@ namespace map
 namespace int
 {
     extern("rslib_std_int_to_hex")
-        public func tohex(val: int)=> pure string;
+        public func tohex(val: int)=> string;
     extern("rslib_std_int_to_oct")
-        public func tooct(val: int)=> pure string;
+        public func tooct(val: int)=> string;
 
     extern("rslib_std_hex_to_int")
-        public func parsehex(val: string)=> pure int;
+        public func parsehex(val: string)=> int;
     extern("rslib_std_oct_to_int")
-        public func parseoct(val: string)=> pure int;
+        public func parseoct(val: string)=> int;
 }
 
 namespace handle
 {
     extern("rslib_std_handle_to_hex")
-        public func tohex(val: handle)=> pure string;
+        public func tohex(val: handle)=> string;
     extern("rslib_std_handle_to_oct")
-        public func tooct(val: handle)=> pure string;
+        public func tooct(val: handle)=> string;
 
     extern("rslib_std_hex_to_handle")
-        public func parsehex(val: string)=> pure handle;
+        public func parsehex(val: string)=> handle;
     extern("rslib_std_oct_to_handle")
-        public func parseoct(val: string)=> pure handle;
+        public func parseoct(val: string)=> handle;
 }
 
 namespace gchandle
@@ -2506,7 +2494,7 @@ namespace std
 
         // Used for create a value with specify type, it's a dangergous function.
         extern("rslib_std_debug_empty_func")
-        public func __empty_function<T>()=> pure T;
+        public func __empty_function<T>()=> T;
     }
 }
 )" };
@@ -2655,14 +2643,12 @@ namespace std
         l_mul_assign,           // *=
         l_div_assign,           // /= 
         l_mod_assign,           // %= 
-
         l_value_assign,               // :=
         l_value_add_assign,           // +:=
         l_value_sub_assign,           // -:= 
         l_value_mul_assign,           // *:=
         l_value_div_assign,           // /:= 
         l_value_mod_assign,           // %:= 
-
         l_equal,                // ==
         l_not_equal,            // !=
         l_larg_or_equal,        // >=
@@ -2724,10 +2710,7 @@ namespace std
         l_union,
         l_match,
         l_struct,
-        l_pure,
-        l_impure,
         l_immut,
-
         l_typeid,
         l_macro
     }

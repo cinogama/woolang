@@ -166,7 +166,7 @@ namespace test_template
     {
         do std::debug::__empty_function:<gchandle>() as T; // T must same as gchandle for this test..
 
-        if (func()=>impure T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
+        if (func()=> T{constexpr_if_test_flag = true; return std::debug::__empty_function:<T>();}() is T)
         {
             return 233;
         }
@@ -198,7 +198,7 @@ namespace test_template
     }
 
     using mtest<T> = struct {
-        c : mut impure typeof(for_m_test_foo:<T>(0)),
+        c : mut typeof(for_m_test_foo:<T>(0)),
     };
     namespace mtest
     {

@@ -85,7 +85,7 @@ namespace wo
             a_value_bin->value_type->set_type(a_value_binary_target_type);
         return true;
     }
-    WO_PASS1(ast_value_mutable_or_pure)
+    WO_PASS1(ast_value_mutable)
     {
         auto* a_value_mutable_or_pure = WO_AST();
 
@@ -97,14 +97,10 @@ namespace wo
 
             if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
-            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
-                a_value_mutable_or_pure->value_type->set_is_pure(true);
-            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
-                a_value_mutable_or_pure->value_type->set_is_force_immutable();
             else
             {
-                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
-                a_value_mutable_or_pure->value_type->set_is_force_impure();
+                wo_assert (a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
 
@@ -164,32 +160,6 @@ namespace wo
                     a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[1]);
                 else
                     a_value_idx->value_type->set_type_with_name(WO_PSTR(dynamic));
-            }
-        }
-
-        if (a_value_idx->from->value_type->is_vec() || a_value_idx->from->value_type->is_map())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        a_value_idx, WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC);
-                }
-            }
-        }
-
-        if (a_value_idx->value_type->is_mutable())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        a_value_idx, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                }
             }
         }
 
@@ -284,21 +254,6 @@ namespace wo
                         a_value_var->value_type->set_is_mutable(true);
                     else
                         a_value_var->value_type->set_is_mutable(false);
-                }
-            }
-
-            if (sym->type == lang_symbol::symbol_type::variable
-                && sym->decl == ast::identifier_decl::MUTABLE
-                && sym->static_symbol)
-            {
-                if (!this->skip_side_effect_check)
-                {
-                    auto* located_function_scope = in_function();
-                    if (located_function_scope != nullptr)
-                    {
-                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                            a_value_var, WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR);
-                    }
                 }
             }
         }
@@ -445,16 +400,6 @@ namespace wo
                     wo_assert(a_value_func->value_type->is_complex());
                     a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(void));
                 }
-
-                if (a_value_func->has_impure_behavior)
-                {
-                    if (a_value_func->value_type->complex_type->is_pure())
-                    {
-                        lang_anylizer->lang_error(wo::lexer::errorlevel::error, a_value_func, WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC);
-                    }
-                }
-                // `has_impure_behavior` in pass1 didn't means that this function is pure
-                // the side-effect may not be sure in pass2.
             }
             else
                 a_value_func->value_type->complex_type->set_type_with_name(WO_PSTR(pending));
@@ -1043,8 +988,8 @@ namespace wo
                             if (!func_return_type->set_mix_types(a_ret->return_value->value_type, false))
                             {
                                 lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
-                                    func_return_type->get_type_name().c_str(),
-                                    a_ret->return_value->value_type->get_type_name().c_str());
+                                    func_return_type->get_type_name(false).c_str(),
+                                    a_ret->return_value->value_type->get_type_name(false).c_str());
                             }
                         }
                     }
@@ -1055,8 +1000,8 @@ namespace wo
                         && !func_return_type->accept_type(a_ret->return_value->value_type, false))
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_ret, WO_ERR_FUNC_RETURN_DIFFERENT_TYPES,
-                            func_return_type->get_type_name().c_str(),
-                            a_ret->return_value->value_type->get_type_name().c_str());
+                            func_return_type->get_type_name(false).c_str(),
+                            a_ret->return_value->value_type->get_type_name(false).c_str());
                     }
                 }
             }
@@ -1112,7 +1057,7 @@ namespace wo
 
         return true;
     }
-    WO_PASS2(ast_value_mutable_or_pure)
+    WO_PASS2(ast_value_mutable)
     {
         auto* a_value_mutable_or_pure = WO_AST();
 
@@ -1124,14 +1069,10 @@ namespace wo
 
             if (a_value_mutable_or_pure->mark_type == +lex_type::l_mut)
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
-            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_pure)
-                a_value_mutable_or_pure->value_type->set_is_pure(true);
-            else if (a_value_mutable_or_pure->mark_type == +lex_type::l_immut)
-                a_value_mutable_or_pure->value_type->set_is_force_immutable();
             else
             {
-                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_impure);
-                a_value_mutable_or_pure->value_type->set_is_force_impure();
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
+                a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
         else
@@ -1470,17 +1411,6 @@ namespace wo
                         a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(void));
                     }
                 }
-
-                if (a_value_funcdef->has_impure_behavior)
-                {
-                    if (a_value_funcdef->value_type->complex_type->is_pure())
-                    {
-                        lang_anylizer->lang_error(wo::lexer::errorlevel::error, a_value_funcdef, WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC);
-                    }
-                }
-                else if (a_value_funcdef->value_type->complex_type->is_force_impure() == false
-                    && a_value_funcdef->externed_func_info == nullptr)
-                    a_value_funcdef->value_type->complex_type->set_is_pure(true);
             }
             else
                 a_value_funcdef->value_type->get_return_type()->set_type_with_name(WO_PSTR(pending));
@@ -1684,31 +1614,6 @@ namespace wo
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
                     , a_value_index->index->value_type->get_type_name(false).c_str());
-            }
-        }
-
-        if (a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_map())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function_pass2();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        a_value_index, WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC);
-                }
-            }
-        }
-        if (a_value_index->value_type->is_mutable())
-        {
-            if (!this->skip_side_effect_check)
-            {
-                auto* located_function_scope = in_function_pass2();
-                if (located_function_scope != nullptr)
-                {
-                    located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                        a_value_index, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                }
             }
         }
 
@@ -2474,25 +2379,6 @@ namespace wo
                 a_value_var->value_type->set_type_with_name(WO_PSTR(pending));
             }
         }
-
-        if (a_value_var->symbol != nullptr)
-        {
-            if (a_value_var->symbol->type == lang_symbol::symbol_type::variable
-                && a_value_var->symbol->decl == ast::identifier_decl::MUTABLE
-                && a_value_var->symbol->static_symbol)
-            {
-                if (!this->skip_side_effect_check)
-                {
-                    auto* located_function_scope = in_function_pass2();
-                    if (located_function_scope != nullptr)
-                    {
-                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                            a_value_var, WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR);
-                    }
-                }
-            }
-        }
-
         return true;
     }
     WO_PASS2(ast_value_unary)
@@ -3068,15 +2954,6 @@ namespace wo
 
         if (failed_to_call_cur_func)
             a_value_funccall->value_type->set_type_with_name(WO_PSTR(pending));
-        else if (!a_value_funccall->value_type->is_pure() && !this->skip_side_effect_check)
-        {
-            auto* located_function_scope = in_function_pass2();
-            if (located_function_scope != nullptr)
-            {
-                located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                    a_value_funccall, WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL);
-            }
-        }
 
         return true;
     }
@@ -3152,9 +3029,6 @@ namespace wo
             if (!ignore_prefix)
             {
                 if (is_mutable() != another->is_mutable())
-                    return false;
-
-                if (is_pure() != another->is_pure())
                     return false;
             }
 
@@ -3265,9 +3139,6 @@ namespace wo
             {
                 if (is_mutable() != another->is_mutable())
                     return false;
-
-                if (is_pure() && !another->is_pure())
-                    return false;
             }
 
             if (is_func())
@@ -3345,8 +3216,6 @@ namespace wo
             {
                 if (is_mutable())
                     result += L"mut ";
-                if (is_pure())
-                    result += L"pure ";
             }
 
             if (!ignore_using_type && using_type_name)
@@ -3544,9 +3413,6 @@ namespace wo
         if (typing->is_mutable())
             hashval *= hashval;
 
-        if (typing->is_pure())
-            hashval = ~hashval;
-
         uint32_t hash32 = hashval & 0xFFFFFFFF;
         while (hashed_typing.find(hash32) != hashed_typing.end())
         {
@@ -3738,6 +3604,7 @@ namespace wo
     {
         if (s.find(type) != s.end())
             return true;
+
         s.insert(type);
 
         if (in_pass_1 && type->searching_begin_namespace_in_pass2 == nullptr)
@@ -3750,10 +3617,7 @@ namespace wo
         if (type->typefrom != nullptr)
         {
             bool is_mutable_typeof = type->is_mutable();
-            bool is_pure_typeof = type->is_pure();
-
             bool is_force_immut_typeof = type->is_force_immutable();
-            bool is_force_impure_typeof = type->is_force_impure();
 
             auto used_type_info = type->using_type_name;
 
@@ -3779,12 +3643,8 @@ namespace wo
                 type->using_type_name = used_type_info;
             if (is_mutable_typeof)
                 type->set_is_mutable(true);
-            if (is_pure_typeof)
-                type->set_is_pure(true);
             if (is_force_immut_typeof)
                 type->set_is_force_immutable();
-            if (is_force_impure_typeof)
-                type->set_is_force_impure();
         }
 
         if (type->using_type_name)
@@ -3800,11 +3660,13 @@ namespace wo
             if (type->is_complex())
             {
                 if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
+                {
                     if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
                     {
                         if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
                             stop_update = true;
                     }
+                }
             }
             if (type->is_func())
                 for (auto& a_t : type->argument_types)
@@ -3872,11 +3734,9 @@ namespace wo
                     if (type_sym)
                     {
                         auto already_has_using_type_name = type->using_type_name;
-                        auto type_has_mutable_mark = type->is_mutable();
-                        auto type_has_pure_mark = type->is_pure();
 
+                        auto type_has_mutable_mark = type->is_mutable();
                         bool is_force_immut_typeof = type->is_force_immutable();
-                        bool is_force_impure_typeof = type->is_force_impure();
 
                         bool using_template = false;
                         auto using_template_args = type->template_arguments;
@@ -3974,13 +3834,8 @@ namespace wo
                             if (type_has_mutable_mark)
                                 // TODO; REPEATED MUT SIGN NEED REPORT ERROR?
                                 type->set_is_mutable(true);
-                            if (type_has_pure_mark)
-                                type->set_is_pure(true);
-
                             if (is_force_immut_typeof)
                                 type->set_is_force_immutable();
-                            if (is_force_impure_typeof)
-                                type->set_is_force_impure();
 
                             if (!type->template_impl_naming_checking.empty())
                             {
@@ -4020,19 +3875,14 @@ namespace wo
         }
 
         wo_test(!type->using_type_name || !type->using_type_name->using_type_name);
-
         return false;
     }
     void lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types)
     {
         std::unordered_set<ast::ast_type*> us;
         wo_assert(type != nullptr);
-
         wo_asure(!fully_update_type(type, in_pass_1, template_types, us));
-
-        if (type->using_type_name != nullptr)
-            wo_assert(type->is_mutable() == type->using_type_name->is_mutable() &&
-                type->is_pure() == type->using_type_name->is_pure());
+        wo_assert(type->using_type_name == nullptr || (type->is_mutable() == type->using_type_name->is_mutable()));
     }
 
     void lang::analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval)
@@ -4045,19 +3895,6 @@ namespace wo
         }
         else
         {
-            if (initval->value_type->is_mutable())
-            {
-                if (!this->skip_side_effect_check)
-                {
-                    auto* located_function_scope = in_function();
-                    if (located_function_scope != nullptr)
-                    {
-                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                            pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                    }
-                }
-            }
-
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
                 // Merge all attrib 
@@ -4129,19 +3966,6 @@ namespace wo
         }
         else
         {
-            if (initval->value_type->is_mutable())
-            {
-                if (!this->skip_side_effect_check)
-                {
-                    auto* located_function_scope = in_function_pass2();
-                    if (located_function_scope != nullptr)
-                    {
-                        located_function_scope->function_node->mark_as_unpure_behavior_happend(lang_anylizer,
-                            pattern, WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE);
-                    }
-                }
-            }
-
             if (ast_pattern_identifier* a_pattern_identifier = dynamic_cast<ast_pattern_identifier*>(pattern))
             {
                 if (a_pattern_identifier->template_arguments.empty())
@@ -4343,7 +4167,7 @@ namespace wo
         WO_TRY_PASS(ast_namespace);
         WO_TRY_PASS(ast_varref_defines);
         WO_TRY_PASS(ast_value_binary);
-        WO_TRY_PASS(ast_value_mutable_or_pure);
+        WO_TRY_PASS(ast_value_mutable);
         WO_TRY_PASS(ast_value_index);
         WO_TRY_PASS(ast_value_assign);
         WO_TRY_PASS(ast_value_logical_binary);
@@ -4407,16 +4231,12 @@ namespace wo
                 }
                 if (!a_val->value_type->is_pending())
                 {
-                    if (type_degradation && dynamic_cast<ast_value_mutable_or_pure*>(a_val) == nullptr)
+                    if (type_degradation && dynamic_cast<ast_value_mutable*>(a_val) == nullptr)
                     {
                         if (a_val->value_type->is_mutable())
                         {
                             a_val->can_be_assign = true;
                             a_val->value_type->set_is_mutable(false);
-                        }
-                        if (a_val->value_type->is_pure())
-                        {
-                            a_val->value_type->set_is_pure(false);
                         }
                     }
                 }
@@ -4898,7 +4718,7 @@ namespace wo
                 WO_TRY_PASS(ast_value_funccall);
                 WO_TRY_PASS(ast_value_function_define);
                 WO_TRY_PASS(ast_value_unary);
-                WO_TRY_PASS(ast_value_mutable_or_pure);
+                WO_TRY_PASS(ast_value_mutable);
                 WO_TRY_PASS(ast_value_assign);
                 WO_TRY_PASS(ast_value_type_cast);
                 WO_TRY_PASS(ast_value_type_judge);
@@ -4933,16 +4753,12 @@ namespace wo
 
                 if (!a_value->value_type->is_pending())
                 {
-                    if (type_degradation && dynamic_cast<ast_value_mutable_or_pure*>(a_value) == nullptr)
+                    if (type_degradation && dynamic_cast<ast_value_mutable*>(a_value) == nullptr)
                     {
                         if (a_value->value_type->is_mutable())
                         {
                             a_value->can_be_assign = true;
                             a_value->value_type->set_is_mutable(false);
-                        }
-                        if (a_value->value_type->is_pure())
-                        {
-                            a_value->value_type->set_is_pure(false);
                         }
                     }
                 }
@@ -5019,8 +4835,6 @@ namespace wo
         }
         if (para->is_mutable() && !args->is_mutable())
             return nullptr;
-        if (para->is_pure() && !args->is_pure())
-            return nullptr;
 
         if (para->is_complex() && args->is_complex())
         {
@@ -5051,8 +4865,7 @@ namespace wo
                 return type_hkt;
             }
 
-            if ((picked_type->is_mutable() && para->is_mutable()) ||
-                (picked_type->is_pure() && para->is_pure()))
+            if ((picked_type->is_mutable() && para->is_mutable()))
             {
                 // mut T <<== mut InstanceT
                 // Should get (immutable) InstanceT.
@@ -5062,8 +4875,6 @@ namespace wo
 
                 if (picked_type->is_mutable() && para->is_mutable())
                     immutable_type->set_is_mutable(false);
-                if ((picked_type->is_pure() && para->is_pure()))
-                    immutable_type->set_is_pure(false);
 
                 return immutable_type;
             }
@@ -5799,7 +5610,7 @@ namespace wo
                 else
                     return *_store_value;
             }
-            else if (auto* a_value_mutable_or_pure = dynamic_cast<ast_value_mutable_or_pure*>(value))
+            else if (auto* a_value_mutable_or_pure = dynamic_cast<ast_value_mutable*>(value))
             {
                 return analyze_value(a_value_mutable_or_pure->val, compiler, get_pure_value);
             }
@@ -6751,7 +6562,7 @@ namespace wo
                 a_val_funcdef == nullptr || a_val_funcdef->function_name == nullptr)
             {
                 // Woolang 1.10.2: The value is not void type, cannot be a sentence.
-                if (!a_value->value_type->is_void())
+                if (!a_value->value_type->is_void() && !a_value->value_type->is_nothing())
                     lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_NOT_ALLOW_IGNORE_VALUE,
                         a_value->value_type->get_type_name(false).c_str());
             }

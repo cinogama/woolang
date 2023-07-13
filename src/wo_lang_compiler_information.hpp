@@ -259,19 +259,6 @@
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"无意义的模式，此处使用 '_' 没有意义"
 
-#define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"纯函数中发现了存在副作用的行为：'%ls'"
-
-#define WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC L"在指明为纯函数的函数中发现了非纯行为，请检查"
-
-
-#define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"访问了静态生命周期的可变变量"
-
-#define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"尝试获取可变元素的值"
-
-#define WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL       L"调用了非纯函数"
-
-#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"这个类型的容器中的元素可能被外部改变"
-
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -529,19 +516,6 @@
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"Expressions of type non-void are not allowed as statements(here is '%ls'), which causes important values to be accidentally ignored."
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
-
-#define WO_ERR_UNPURE_BEHAVIOR_HAPPEND_IN_PURE_FUNC L"Behavior with side effects found in pure function: '%ls'"
-
-#define WO_ERR_CANNOT_DO_UNPURE_BEHAVIOR_IN_PURE_FUNC L"Impure behavior happend in function specified as pure, please check."
-
-
-#define WO_SIDE_EFFECT_ACTION_REACH_MUTABLE_STATIC_VAR  L"A variable with a mutable static lifetime is accessed"
-
-#define WO_SIDE_EFFECT_ACTION_INDEX_MUTABLE     L"Trying get value of mutable elements"
-
-#define WO_SIDE_EFFECT_ACTION_IMPURE_FUNCTION_CALL       L"Impure function called"
-
-#define WO_SIDE_EFFECT_ACTION_INDEX_MAP_OR_VEC  L"This container's data may changed out side"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."
