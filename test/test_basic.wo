@@ -22,6 +22,15 @@ namespace test_basic
 
     using SidBugSt = struct{x: map<int, mut int>};
 
+    func div(a, b)
+    {
+        return a / b;
+    }
+    func mod(a, b)
+    {
+        return a % b;
+    }
+
     func test_bug_sidx()
     {
         let b = SidBugSt{x={}mut};
@@ -260,6 +269,11 @@ namespace test_basic
             }
         }
         test_equal(test_break_label, true);
+
+        test_equal(div(9, 6), 1);
+        test_equal(mod(9, 6), 3);
+        test_equal(div(9.0, 6.0), 9.0 / 6.0);
+        test_equal(mod(9.0, 6.0), 3.0);
     }
 }
 
