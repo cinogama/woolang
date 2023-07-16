@@ -1467,7 +1467,7 @@ namespace option
     {
         match(self)
         {
-        value(x)?
+        value(_)?
             return true;
         none?
             return false;

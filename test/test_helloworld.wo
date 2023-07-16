@@ -100,7 +100,7 @@ namespace test_helloworld
             return 0;
         }
         let m = 0, msg = "Helloworld";
-        let rmsg = m->foo->\n: int = m;->\n:int = m;->\n:int = m;->\n:int = msg;;
+        let rmsg = m->foo->\_ = m;->\_ = m;->\_ = m;->\_ = msg;;
         test_assure(rmsg == msg);
         test_assure(rmsg == "Helloworld");
 

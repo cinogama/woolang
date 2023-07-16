@@ -99,7 +99,7 @@ namespace wo
                 a_value_mutable_or_pure->value_type->set_is_mutable(true);
             else
             {
-                wo_assert (a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
+                wo_assert(a_value_mutable_or_pure->mark_type == +lex_type::l_immut);
                 a_value_mutable_or_pure->value_type->set_is_force_immutable();
             }
         }
@@ -169,7 +169,18 @@ namespace wo
     {
         auto* a_value_assi = WO_AST();
 
+        bool left_value_is_variable_and_has_been_used = true;
+        auto* variable = dynamic_cast<ast_value_variable*>(a_value_assi->left);
+        if (variable != nullptr)
+        {
+            auto* symbol = find_value_in_this_scope(variable);
+            if (symbol == nullptr || (!symbol->is_captured_variable && symbol->define_in_function && symbol->is_marked_as_used_variable == false))
+                left_value_is_variable_and_has_been_used = false;
+        }
         analyze_pass1(a_value_assi->left);
+        if (!left_value_is_variable_and_has_been_used && variable->symbol != nullptr)
+            variable->symbol->is_marked_as_used_variable = false;
+
         analyze_pass1(a_value_assi->right);
 
         if (a_value_assi->is_value_assgin)
@@ -245,6 +256,7 @@ namespace wo
         auto* sym = find_value_in_this_scope(a_value_var);
         if (sym)
         {
+            sym->is_marked_as_used_variable = true;
             if (sym->type == lang_symbol::symbol_type::variable)
             {
                 if (!sym->is_template_symbol)
@@ -430,8 +442,8 @@ namespace wo
             symb_callee->is_auto_judge_function_overload = true; // Current may used for auto judge for function invoke, here to skip!
             if (a_value_funccall->directed_value_from)
             {
-                if (!symb_callee->search_from_global_namespace/*
-                    && symb_callee->scope_namespaces.empty()*/)
+                if (!symb_callee->search_from_global_namespace
+                    /*&& symb_callee->scope_namespaces.empty()*/)
                 {
                     analyze_pass1(a_value_funccall->directed_value_from);
 
@@ -1449,7 +1461,19 @@ namespace wo
     WO_PASS2(ast_value_assign)
     {
         auto* a_value_assi = WO_AST();
+
+        bool left_value_is_variable_and_has_been_used = true;
+        auto* variable = dynamic_cast<ast_value_variable*>(a_value_assi->left);
+        if (variable != nullptr)
+        {
+            auto* symbol = find_value_in_this_scope(variable);
+            if (symbol == nullptr || (!symbol->is_captured_variable && symbol->define_in_function && symbol->is_marked_as_used_variable == false))
+                left_value_is_variable_and_has_been_used = false;
+        }
         analyze_pass2(a_value_assi->left);
+        if (!left_value_is_variable_and_has_been_used && variable->symbol != nullptr)
+            variable->symbol->is_marked_as_used_variable = false;
+
         analyze_pass2(a_value_assi->right);
 
         if (a_value_assi->left->value_type->is_func())
@@ -2310,7 +2334,8 @@ namespace wo
         if (a_value_var->value_type->is_pending())
         {
             auto* sym = find_value_in_this_scope(a_value_var);
-
+            if (sym != nullptr)
+                sym->is_marked_as_used_variable = true;
             if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
             {
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
@@ -4023,6 +4048,18 @@ namespace wo
         {
             if (a_pattern_identifier->template_arguments.empty())
             {
+                if (a_pattern_identifier->symbol->is_marked_as_used_variable == false
+                    && a_pattern_identifier->symbol->define_in_function == true)
+                {
+                    auto* scope = a_pattern_identifier->symbol->defined_in_scope;
+                    while (scope->type != wo::lang_scope::scope_type::function_scope)
+                        scope = scope->parent_scope;
+
+                    lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNUSED_VARIABLE_DEFINE,
+                        a_pattern_identifier->identifier->c_str(),
+                        str_to_wstr(scope->function_node->get_ir_func_signature_tag()).c_str()
+                    );
+                }
                 if (!a_pattern_identifier->symbol->is_constexpr)
                 {
                     auto ref_ob = get_opnum_by_symbol(pattern, a_pattern_identifier->symbol, compiler);
@@ -6835,6 +6872,14 @@ namespace wo
                         // All arguments will 'psh' to stack & no 'pshr' command in future.
                         if (a_value_arg_define->symbol != nullptr)
                         {
+                            if (a_value_arg_define->symbol->is_marked_as_used_variable == false
+                                && a_value_arg_define->symbol->define_in_function == true)
+                            {
+                                lang_anylizer->lang_error(lexer::errorlevel::error, a_value_arg_define, WO_ERR_UNUSED_VARIABLE_DEFINE,
+                                    a_value_arg_define->arg_name->c_str(),
+                                    str_to_wstr(funcdef->get_ir_func_signature_tag()).c_str());
+                            }
+
                             funcdef->this_func_scope->
                                 reduce_function_used_stack_size_at(a_value_arg_define->symbol->stackvalue_index_in_funcs);
 
@@ -6849,6 +6894,7 @@ namespace wo
                     arg_count++;
                     arg_index = arg_index->sibling;
                 }
+
                 real_analyze_finalize(funcdef->in_function_sentence, compiler);
 
                 auto temp_reg_to_stack_count = compiler->update_all_temp_regist_to_stack(funcbegin_ip);
@@ -7654,6 +7700,7 @@ namespace wo
 
                     if (std::find(capture_list.begin(), capture_list.end(), result) == capture_list.end())
                     {
+                        result->is_marked_as_used_variable = true;
                         capture_list.push_back(result);
                         // Define a closure symbol instead of current one.
                         temporary_entry_scope_in_pass1(cur_capture_func_scope);

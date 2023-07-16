@@ -35,6 +35,7 @@ namespace wo
         bool is_captured_variable = false;
         bool is_argument = false;
         bool is_hkt_typing_symb = false;
+        bool is_marked_as_used_variable = false;
 
         union
         {

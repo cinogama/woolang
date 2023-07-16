@@ -45,6 +45,7 @@ namespace test_vm
                     
                     do test_template(233);
                     do test_template("My world!");
+                    do a;
                 }
                 main();
                 "@

@@ -32,7 +32,7 @@ namespace test_compile
         let result = compile_program(src);
         match (result)
         {
-        err(msg)?;
+        err(_)?;
         ok(vmm)?
             do vmm->close();
         }
@@ -174,6 +174,7 @@ func main()
 {
     let mut px = 233: bool_if_void<boom_t>;
     px = 23;
+    do px;
 }
         "@);
         assure_compile_fail(@"
@@ -191,6 +192,7 @@ func main()
 {
     let mut px = 233: bool_if_void<boom_t>;
     px = 23;
+    do px;
 }
         "@);
         assure_compile_success(@"
@@ -208,6 +210,7 @@ func main()
 {
     let mut px = 233: bool_if_void<boom_t>;
     px = false;
+    do px;
 }
         "@);
 
@@ -255,18 +258,18 @@ func main()
         "@);
 
         assure_compile_success(@"
-            func foo(a){}
+            func foo(a){do a;}
 
-            func foo2(f: (int)=>void){}
+            func foo2(f: (int)=>void){do f;}
             
             foo2(foo);
             foo2(foo);
         "@);
         assure_compile_success(@"
-            func foo(a){}
+            func foo(a){do a;}
             using St = struct{m: (int)=>void};
 
-            func foo2(f: (int)=>void){}
+            func foo2(f: (int)=>void){do f;}
             
             do St{m = foo};
             do St{m = foo};
@@ -280,19 +283,19 @@ func main()
             do St{m = foo};
         "@);
         assure_compile_success(@"
-            func foo(a) where a is int; {}
-            func foo2(f: (int)=>void){}    
+            func foo(a) where a is int; {do a;}
+            func foo2(f: (int)=>void){do f;}    
             foo2(foo);
         "@);
 
         assure_compile_fail(@"
-            func foo(a) where a is real; {}
+            func foo(a) where a is real; {do a;}
             using St = struct{m: (int)=>void};
             do St{m = foo};
         "@);
         assure_compile_fail(@"
-            func foo(a) where a is real; {}
-            func foo2(f: (int)=>void){}    
+            func foo(a) where a is real; {do a;}
+            func foo2(f: (int)=>void){do f;}    
             foo2(foo);
         "@);
 
@@ -302,7 +305,7 @@ func main()
         assure_compile_fail(@"import woo::std; alias List<T> = option<(T, List<T>)>; 
                               let m = option::none: List<string>;"@); // Not crash!
 
-        assure_compile_success(@"let mut a = \x: int = 0;; a = \n = n;;"@);
+        assure_compile_success(@"let mut a = \_: int = 0;; a = \n = n;;"@);
         assure_compile_success(@"let mut a = []: array<mut (int)=>int>; a[0] = \n = n;;"@);
         assure_compile_success(@"let mut a = []: array<mut (int)=>int>; func foo<T>(x: T){return x;} a[0] = foo;"@);
 
@@ -311,13 +314,13 @@ func main()
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \i = i: real;};"@);
         assure_compile_fail(@"using autojudge = struct{f:(int)=>string}; do autojudge{f = \ = "";};"@);
 
-        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \n: int = "";};"@);
-        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \n = "";, n = 1};"@);
-        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \n: int = "";, n = 1};"@);
-        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \n: int = "";, n = 1.25};"@);
-        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \n = "";};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \_: int = "";};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_ = "";, n = 1};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_: int = "";, n = 1};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R, n: T}; do autojudget{f = \_: int = "";, n = 1.25};"@);
+        assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget{f = \_ = "";};"@);
 
-        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget:<int, string>{f = \n = "";};"@);
+        assure_compile_success(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget:<int, string>{f = \_ = "";};"@);
         assure_compile_fail(@"using autojudget<T, R> = struct{f:(T)=>R}; do autojudget:<int>{f = \n = "";};"@);
 
         assure_compile_success(@"using autojudget<T> = struct{m: T}; do autojudget{m = 2};"@);
@@ -341,10 +344,11 @@ func main()
         assure_compile_fail(@"func p<T>(){} do p;"@);
         assure_compile_success(@"func p<T>(){} do p:<int>;"@);
 
-        assure_compile_fail(@"func foo(){let fv = \=kv;; let kv = 0;};"@);
-        assure_compile_success(@"func foo(){let kv = 0; let fv = \=kv;;};"@);
-        assure_compile_fail(@"func foo(){let fv = \=kv;; let mut kv = 0;};"@);
-        assure_compile_success(@"func foo(){let mut kv = 0; let fv = \=kv;;};"@);
+        assure_compile_fail(@"func foo(){let fv = \=kv;; let kv = 0; do fv; do kv;};"@);
+        assure_compile_fail(@"func foo(){let kv = 0; let fv = \=kv;;};"@);
+        assure_compile_success(@"func foo(){let kv = 0; let fv = \=kv;;do fv;};"@);
+        assure_compile_fail(@"func foo(){let fv = \=kv;; let mut kv = 0;do fv; do kv;};"@);
+        assure_compile_success(@"func foo(){let mut kv = 0; let fv = \=kv;;do fv;};"@);
 
         // extern symbol must be found 
         assure_compile_fail(@"extern("not_exist_func")func foo() => void;"@);
@@ -471,12 +475,12 @@ func main()
             ok(T), err(F)
         }
 
-        let mut opt = \x: void = 
+        let mut opt = \_: void = 
             dd == 1
             ? result::ok(233.5)
             | result::err("fuck");;
 
-        opt = \x: void = result::ok(3.14); as (void)=>result<real, string>;
+        opt = \_: void = result::ok(3.14); as (void)=>result<real, string>;
         "@);
 
         // Cannot index unindexable type or invalid index
@@ -528,39 +532,39 @@ func main()
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = (std::declval:<A>()) is B;
 
-            func foo<FT, AT>(x: FT, y: AT)
+            func foo<FT, AT>(_: FT, _: AT)
                 where Invokable:<FT, AT>,  
                            Same:<AT, int>;
             {
             }
 
-            foo(func(x: int){}, 2333);
+            foo(func(x: int){do x;}, 2333);
         "@);
         assure_compile_fail(@"
             import woo::std;
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
-            func foo<FT, AT>(x: FT, y: AT)
+            func foo<FT, AT>(_: FT, _: AT)
                 where Invokable:<FT, AT>,  
                            Same:<AT, int>;
             {
             }
 
-            foo(func(x: string){}, 2333);
+            foo(func(x: string){do x;}, 2333);
         "@);
         assure_compile_fail(@"
             import woo::std;
             let Invokable<FT, AT> = std::declval:<FT>()(std::declval:<AT>()) is void;
             let Same<A, B> = std::declval:<A>() is B;
 
-            func foo<FT, AT>(x: FT, y: AT)
+            func foo<FT, AT>(_: FT, _: AT)
                 where Invokable:<FT, AT>,  
                            Same:<AT, int>;
             {
             }
 
-            foo(func(x: string){}, "Helloworld");
+            foo(func(x: string){do x;}, "Helloworld");
         "@);
         assure_compile_fail(@"
             let x = std::declval:<nothing>() is pending;
@@ -814,7 +818,7 @@ func main()
             using sp_t = string;
             let v = 
                 option::value(0)
-                    ->map(\n:int=foo();)
+                    ->map(\_:int=foo();)
                     ->or(\="":sp_t;);
             "@);
             assure_compile_success(@"
@@ -823,48 +827,48 @@ func main()
 
             let v = 
                 option::value(0)
-                    ->map(\n:int=foo();)
+                    ->map(\_:int=foo();)
                     ->or(\=do "";);
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo(f: ((int)=>string)=>int) {}
+            func foo(f: ((int)=>string)=>int) {do f;}
             foo(std::declval:<(nothing)=>int>());
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo(f: ((int)=>string)=>int) {}
+            func foo(f: ((int)=>string)=>int) {do f;}
             foo(std::declval:<((int)=>nothing)=>int>());
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo(f: ((int)=>string)=>int) {}
+            func foo(f: ((int)=>string)=>int) {do f;}
             foo(std::declval:<((void)=>string)=>int>());
             "@);
         assure_compile_success(@"
             import woo::std;
-            func foo(f: ((int)=>string)=>int) {}
+            func foo(f: ((int)=>string)=>int) {do f;}
             foo(std::declval:<((int)=>string)=>int>());
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {do f;}
             foo2(std::declval:<((int)=>string)=>(real, string)=>void>());
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {do f;}
             foo2(std::declval:<((int)=>string)=>(real, string)=>(void,)>());
             "@);
         assure_compile_fail(@"
             import woo::std;
-            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {do f;}
             foo2(std::declval:<((int)=>string)=>void>());
             "@);
         assure_compile_success(@"
             import woo::std;
-            func foo(f: ((int)=>string)=>int) {}
-            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {}
+            func foo(f: ((int)=>string)=>int) {do f;}
+            func foo2(f: ((int)=>string)=>(real, string)=>(real,)) {do f;}
 
             foo(std::declval:<nothing>());
             foo2(std::declval:<nothing>());
@@ -1072,18 +1076,21 @@ func main()
             func main(a : mut int)
             {
                 a = 5;
+                do a;
             }
             "@);
         assure_compile_success(@"
             func main(mut a : int)
             {
                 a = 5;
+                do a;
             }
             "@);
         assure_compile_success(@"
             func main(mut a : mut int)
             {
                 a = 5;
+                do a;
             }
             "@);
     }

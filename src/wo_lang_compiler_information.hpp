@@ -259,6 +259,8 @@
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"无意义的模式，此处使用 '_' 没有意义"
 
+#define WO_ERR_UNUSED_VARIABLE_DEFINE L"声明了未使用的 '%ls'，于函数 '%ls' 之中"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -516,6 +518,8 @@
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"Expressions of type non-void are not allowed as statements(here is '%ls'), which causes important values to be accidentally ignored."
 
 #define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
+
+#define WO_ERR_UNUSED_VARIABLE_DEFINE L"'%ls' has been declared but never used in function: '%ls'."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

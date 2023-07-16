@@ -50,7 +50,7 @@ namespace test_thread
         let th = thread::create(
             func(mut i: int)
             {
-                do __pack[0] = true;
+                __pack[0] = true;
                 while (i <= 1_0000_0000)
                 {
                     i += 1;
@@ -60,7 +60,7 @@ namespace test_thread
         do th->abort();
         do th->wait();
 
-        test_assure(this_should_be_false == false && summ == 0);
+        test_assure(this_should_be_false == false && summ == 0 && __pack[0] == true);
 
         test_assure(thread::create(\=std::halt("Halt thread for testing.");, ())->wait == false);
         test_assure(thread::create(\=do nil;, ())->wait == true);

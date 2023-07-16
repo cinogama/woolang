@@ -72,15 +72,15 @@ namespace test_container
         test_assure(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)->val == 6);
         test_assure(get_val(a->reduce(\lv:int, rv:int = lv%2==0?lv|rv;)) == 6);
         test_assure(a->rreduce(\lv:int, rv:int = rv%2==0?rv|lv;)->val == 12);
-        test_assure(![]->reduce(\_1:void,_2:void=option::none->val;)->has);
-        test_assure(![]->rreduce(\_1:void,_2:void=option::none->val;)->has);
+        test_assure(![]->reduce(\_,_=option::none->val;)->has);
+        test_assure(![]->rreduce(\_,_=option::none->val;)->has);
 
         test_assure([4,5]->connect([2,3])->len == 4);
         test_assure([4,5]->connect([2,3])[3] == 3);
 
-        do [mut true]->map(\f: mut bool = 1;);
-        do {["k"] = mut false}->map(\k:string, v: mut bool = (0, 0););
-        do {["k"] = mut false}->map(\k:string, v: mut bool = (0, mut 0);) as dict<int, mut int>;
+        do [mut true]->map(\_: mut bool = 1;);
+        do {["k"] = mut false}->map(\_: string, _: mut bool = (0, 0););
+        do {["k"] = mut false}->map(\_: string, _: mut bool = (0, mut 0);) as dict<int, mut int>;
     }
     func output_9x9()
     {
@@ -92,8 +92,7 @@ namespace test_container
                     | [];
                 ];
             ;
-        let c = b
-            ->> \es = es
+        do b->> \es = es
                 ->  reduce(\l, r = l + " " + r;)
                 ->> \s = std::println(s);
                 ;
@@ -118,7 +117,7 @@ namespace test_container
         let f = func(n: int){v->add(n); return n;};
 
         let a = [1, 2, 3, 4];
-        let m = {[1] = f(1), [2] = f(2), [3] = f(3), [4] = f(4),};
+        do {[1] = f(1), [2] = f(2), [3] = f(3), [4] = f(4),};
 
         test_assure(a->len == v->len);
         for (let idx, val : v)

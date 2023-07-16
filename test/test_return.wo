@@ -14,7 +14,7 @@ namespace test_return
     {
         let mut b = ret_nonref_a();
         do b = 256;
-
+        do b;
         test_equal(a, 233);
     }
 }
