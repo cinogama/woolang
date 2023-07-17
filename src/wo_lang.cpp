@@ -174,7 +174,13 @@ namespace wo
         if (variable != nullptr)
         {
             auto* symbol = find_value_in_this_scope(variable);
-            if (symbol == nullptr || (!symbol->is_captured_variable && symbol->define_in_function && symbol->is_marked_as_used_variable == false))
+            if (symbol == nullptr || (
+                !symbol->is_captured_variable
+                && symbol->define_in_function
+                && symbol->is_marked_as_used_variable == false
+                && (a_value_assi->is_value_assgin == false
+                    || a_value_assi->operate == +lex_type::l_value_assign
+                    || symbol->static_symbol == false)))
                 left_value_is_variable_and_has_been_used = false;
         }
         analyze_pass1(a_value_assi->left);
@@ -1464,10 +1470,16 @@ namespace wo
 
         bool left_value_is_variable_and_has_been_used = true;
         auto* variable = dynamic_cast<ast_value_variable*>(a_value_assi->left);
-        if (variable != nullptr)
+        if (variable != nullptr && a_value_assi->is_value_assgin == false)
         {
             auto* symbol = find_value_in_this_scope(variable);
-            if (symbol == nullptr || (!symbol->is_captured_variable && symbol->define_in_function && symbol->is_marked_as_used_variable == false))
+            if (symbol == nullptr || (
+                !symbol->is_captured_variable
+                && symbol->define_in_function
+                && symbol->is_marked_as_used_variable == false
+                && (a_value_assi->is_value_assgin == false
+                    || a_value_assi->operate == +lex_type::l_value_assign
+                    || symbol->static_symbol == false)))
                 left_value_is_variable_and_has_been_used = false;
         }
         analyze_pass2(a_value_assi->left);
