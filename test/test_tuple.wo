@@ -38,10 +38,10 @@ namespace test_tuple
         test_assure(x[0] == 1);
         test_assure(x[2] == "Helloworld");
 
-        let (a, b, c, d) = all;
+        let (_, _, c, _) = all;
         test_assure(c[0].a == x[2]);
 
-        let (w0, w1, (m0, m1, m2), w3) = all;
+        let (_, _, (m0, _, _), _) = all;
         test_assure(m0.a == c[0].a);
     }
 }

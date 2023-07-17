@@ -1467,7 +1467,7 @@ namespace option
     {
         match(self)
         {
-        value(x)?
+        value(_)?
             return true;
         none?
             return false;
@@ -2771,7 +2771,7 @@ namespace std
 
         public func trytoken(self: lexer, token: token_type)=> option<string>
         {
-            let (tok, res) = self->peektoken();
+            let (tok, _) = self->peektoken();
             if (token == tok)
                 return option::value(self->nexttoken()[1]);
             return option::none;

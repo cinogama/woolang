@@ -76,6 +76,16 @@ namespace test_basic
         test_equal(a46, 40);
         test_equal(a56, 50);
         test_equal(a66, 60);
+
+        do a00;do a10;do a20; do a30;do a40;do a50;do a60;do a70; do a80; do a90;
+        do a01;do a11;do a21; do a31;do a41;do a51;do a61;do a71; do a81; do a91;
+        do a02;do a12;do a22; do a32;do a42;do a52;do a62;do a72; do a82; do a92;
+        do a03;do a13;do a23; do a33;do a43;do a53;do a63;do a73; do a83; do a93;
+        do a04;do a14;do a24; do a34;do a44;do a54;do a64;do a74; do a84; do a94;
+        do a05;do a15;do a25; do a35;do a45;do a55;do a65;do a75; do a85; do a95;
+        do a06;do a16;do a26; do a36;do a46;do a56;do a66;do a76; do a86; do a96;
+        do a07;do a17;do a27; do a37;do a47;do a57;do a67;do a77; do a87; do a97;
+
     }
     func main()
     {

@@ -22,7 +22,7 @@ namespace test_optional
         }
         match(m->get(2)=>>\elem = elem;)
         {
-            value(v)? test_assure(false);
+            value(_)? test_assure(false);
             none? ;
         }
     }
@@ -147,11 +147,11 @@ namespace test_optional
                 std::panic("Here should not be 'none'.");
         }
         let c = option::none as option<string>;
-        let d = c->map(func(x: string){std::panic("That's should not been exec.");
+        let d = c->map(func(_: string){std::panic("That's should not been exec.");
                                        return "That's should not been exec.";});
         match(d)
         {
-            option::value(x)?
+            option::value(_)?
                 std::panic("Here should not be 'value'.");
             option::none?
                 ;/* ok do nothing */

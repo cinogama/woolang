@@ -18,12 +18,12 @@ namespace test_gc
         while (std::time() - test_begin_time <= TEST_TIME)
         {
             let arr = [1];
-            for (let _, elem: arr)
+            for (let _, _: arr)
             {
-                let dict = {["Hello"] = "world"};
-                let x = "Hello" + dict["Hello"];
+                let d = {["Hello"] = "world"};
+                do "Hello" + d["Hello"];
 
-                for (let _, elem: arr)
+                for (let _, _: arr)
                 {
                     // do nothing..
                 }

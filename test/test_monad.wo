@@ -12,13 +12,13 @@ namespace test_monad
         func bind<S, A, B>(self: State<S, A>, f: (A)=> State<S, B>)
         {
             return \s: S = f(a)(s)
-                where (a, ns) = self(s);: State<S, B>;
+                where (a, _) = self(s);: State<S, B>;
         }
 
         let get<S> = \s: S = (s, s);: State<S, S>;
         func put<S>(s1: S)
         {
-            return \s2: S = ((), s1);: State<S, ()>;
+            return \_: S = ((), s1);: State<S, ()>;
         }
     }
 
