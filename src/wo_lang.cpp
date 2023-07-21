@@ -738,6 +738,12 @@ namespace wo
     {
         auto* a_using_type_as = WO_AST();
 
+        if (a_using_type_as->new_type_identifier == WO_PSTR(char)
+            || ast_type::name_type_pair.find(a_using_type_as->new_type_identifier) != ast_type::name_type_pair.end())
+        {
+            return lang_anylizer->lang_error(lexer::errorlevel::error, a_using_type_as, WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED);
+        }
+
         if (a_using_type_as->old_type->typefrom == nullptr
             || a_using_type_as->template_type_name_list.empty())
             fully_update_type(a_using_type_as->old_type, true, a_using_type_as->template_type_name_list);
@@ -3266,6 +3272,8 @@ namespace wo
             {
                 if (is_func())
                 {
+                    wo_assert(is_complex());
+
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
@@ -3278,31 +3286,32 @@ namespace wo
                     {
                         result += L"...";
                     }
-                    result += L")=>";
-                }
-                if (is_hkt_typing() && symbol)
-                {
-                    auto* base_symbol = base_typedef_symbol(symbol);
-                    wo_assert(base_symbol && base_symbol->name != nullptr);
-                    result += *base_symbol->name;
+                    result += L")=>" + complex_type->get_type_name(s, ignore_using_type, false);                   
                 }
                 else
                 {
-                    result += (is_complex() ? complex_type->get_type_name(s, ignore_using_type, false) : *type_name) /*+ (is_pending() ? L" !pending" : L"")*/;
-                }
-
-                if (has_template())
-                {
-                    result += L"<";
-                    for (size_t index = 0; index < template_arguments.size(); index++)
+                    if (is_hkt_typing() && symbol)
                     {
-                        result += template_arguments[index]->get_type_name(s, ignore_using_type, false);
-                        if (is_hkt_typing())
-                            result += L"?";
-                        if (index + 1 != template_arguments.size())
-                            result += L", ";
+                        auto* base_symbol = base_typedef_symbol(symbol);
+                        wo_assert(base_symbol && base_symbol->name != nullptr);
+                        result += *base_symbol->name;
                     }
-                    result += L">";
+                    else if (type_name != WO_PSTR(tuple))
+                    {
+                        result += *type_name;
+                    }
+
+                    if (has_template())
+                    {
+                        result += (type_name != WO_PSTR(tuple)) ? L"<" : L"(";
+                        for (size_t index = 0; index < template_arguments.size(); index++)
+                        {
+                            result += template_arguments[index]->get_type_name(s, ignore_using_type, false);
+                            if (index + 1 != template_arguments.size())
+                                result += L", ";
+                        }
+                        result += (type_name != WO_PSTR(tuple)) ? L">" : L")";
+                    }
                 }
             }
             s.erase(this);
@@ -3563,14 +3572,7 @@ namespace wo
             global->row_end_no = 1;
         begin_namespace(global);   // global namespace
 
-        // Define 'bool' as built-in type
-        ast::ast_using_type_as* using_type_def_bool = new ast::ast_using_type_as();
-        using_type_def_bool->new_type_identifier = WO_PSTR(bool);
-        using_type_def_bool->old_type = new ast::ast_type(WO_PSTR(int));
-        using_type_def_bool->declear_attribute = new ast::ast_decl_attribute();
-        using_type_def_bool->declear_attribute->add_attribute(lang_anylizer, +lex_type::l_public);
-        define_type_in_this_scope(using_type_def_bool, using_type_def_bool->old_type, using_type_def_bool->declear_attribute);
-
+        // Define 'char' as built-in type
         ast::ast_using_type_as* using_type_def_char = new ast::ast_using_type_as();
         using_type_def_char->new_type_identifier = WO_PSTR(char);
         using_type_def_char->old_type = new ast::ast_type(WO_PSTR(int));

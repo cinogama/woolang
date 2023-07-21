@@ -9,7 +9,12 @@ set(CMAKE_CXX_STANDARD 17)
 if(MSVC) 
     add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/source-charset:utf-8>")
     add_compile_options("$<$<C_COMPILER_ID:MSVC>:/source-charset:utf-8>")
+    # TODO: Disable exception
+    # add_compile_options(/EHs-)
+    # add_definitions(-D_HAS_EXCEPTIONS=0)
     add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+else()
+    # add_compile_options(-fno-exceptions)
 endif()
 
 option(WO_MAKE_OUTPUT_IN_SAME_PATH "Build woo lib and driver and output in same path" OFF)
