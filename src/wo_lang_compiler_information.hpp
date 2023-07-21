@@ -261,6 +261,8 @@
 
 #define WO_ERR_UNUSED_VARIABLE_DEFINE L"声明了未使用的 '%ls'，于函数 '%ls' 之中"
 
+#define WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED L"不允许创建与内置类型同名的新类型或类型别名"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -520,6 +522,8 @@
 #define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
 
 #define WO_ERR_UNUSED_VARIABLE_DEFINE L"'%ls' has been declared but never used in function: '%ls'."
+
+#define WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED L"Creation of a new type or type alias with the same name as a built-in type is not allowed."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

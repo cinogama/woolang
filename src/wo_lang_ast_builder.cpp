@@ -320,9 +320,7 @@ namespace wo
         bool ast_type::is_pending_function() const
         {
             if (is_func())
-            {
                 return is_pending();
-            }
             return false;
         }
         bool ast_type::is_void() const
