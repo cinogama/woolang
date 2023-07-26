@@ -845,10 +845,10 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
         bool positive = true;
         if (lex_type == +wo::lex_type::l_sub || lex_type == +wo::lex_type::l_add)
         {
-            lex_type = lex->next(&wstr);
             if (lex_type == +wo::lex_type::l_sub)
                 positive = false;
 
+            lex_type = lex->next(&wstr);
             if (lex_type != +wo::lex_type::l_literal_integer
                 && lex_type != +wo::lex_type::l_literal_real)
                 // wo_fail(WO_FAIL_TYPE_FAIL, "Unknown token while parsing.");
