@@ -1067,6 +1067,10 @@ profiler                        start
                         printf(ANSI_HIY "Note" ANSI_RST ": You can input '" ANSI_HIR "?" ANSI_RST "' for more information.\n");
                     }
 
+                    char _useless_for_clear = 0;
+                    std::cin.clear();
+                    while (std::cin.readsome(&_useless_for_clear, 1));
+
                     while (debug_command(vmm))
                     {
                         // ...?
