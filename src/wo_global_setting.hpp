@@ -58,14 +58,6 @@ namespace wo
             ArchType::UNKNOWN | (sizeof(size_t) == 64 ? ArchType::BIT64 : ArchType::UNKNOWN);
 #endif
             
-        constexpr size_t CPU_CACHELINE_SIZE =
-#ifdef __cpp_lib_hardware_interference_size
-            std::hardware_constructive_interference_size
-#else
-            64
-#endif
-            ;
-
     }
     namespace config
     {
