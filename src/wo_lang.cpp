@@ -3676,12 +3676,6 @@ namespace wo
             newtype->set_type(symb->type_informatiom);
             symb->type_informatiom->instance(newtype);
 
-            for (auto& [_, info] : newtype->struct_member_index)
-            {
-                if (info.member_type)
-                    info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
-            }
-
             if (newtype->typefrom != nullptr)
             {
                 temporary_entry_scope_in_pass1(symb->defined_in_scope);
