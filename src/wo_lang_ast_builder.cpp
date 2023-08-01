@@ -267,7 +267,8 @@ namespace wo
                         return true;
                 }
             }
-            if (is_struct())
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
             {
                 for (auto& [_, memberinfo] : struct_member_index)
                 {
@@ -311,7 +312,8 @@ namespace wo
                         return true;
                 }
             }
-            if (is_struct())
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
             {
                 for (auto& [_, memberinfo] : struct_member_index)
                 {
