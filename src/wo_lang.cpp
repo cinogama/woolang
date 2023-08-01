@@ -3262,7 +3262,7 @@ namespace wo
                 }
             }
             // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
+            if (is_struct())
             {
                 wo_assert(another->is_struct());
                 if (struct_member_index.size() != another->struct_member_index.size())
