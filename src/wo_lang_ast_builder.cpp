@@ -558,7 +558,6 @@ namespace wo
             else
                 return false;
 
-
             if (using_type_name || another->using_type_name)
             {
                 if (!using_type_name || !another->using_type_name)
@@ -737,11 +736,8 @@ namespace wo
             {
                 WO_REINSTANCE(argtype);
             }
-            // Do not reinstance, or using st = struct {x: array<st>} will stack overflow
-            //for (auto& memberinfo : dumm->struct_member_index)
-            //{
-            //    WO_REINSTANCE(memberinfo.second.init_value_may_nil);
-            //}
+            // Do not reinstance struct_member_index, or using st = struct {x: array<st>} will stack overflow
+
             WO_REINSTANCE(dumm->using_type_name);
             return dumm;
         }

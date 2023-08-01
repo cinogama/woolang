@@ -3517,6 +3517,16 @@ namespace wo
             }
         }
 
+        if (typing->is_struct() && typing->using_type_name == nullptr)
+        {
+            for (auto& [member_name, member_info] : typing->struct_member_index)
+            {
+                hashval ^= std::hash<std::wstring>()(*member_name);
+                hashval *= member_info.offset;
+                hashval += get_typing_hash_after_pass1(member_info.member_type);
+            }
+        }
+
         if (typing->is_mutable())
             hashval *= hashval;
 

@@ -20,7 +20,7 @@
 
 namespace wo
 {
-#define WO_REINSTANCE(ITEM) if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}
+#define WO_REINSTANCE(ITEM) do {if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}}while(0)
     namespace opnum
     {
         struct opnumbase;
