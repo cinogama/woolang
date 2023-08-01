@@ -1076,6 +1076,9 @@ namespace wo
                 gm::nt(L"STRUCT_TYPE") >> gm::symlist{ gm::nt(L"TYPEOF") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 
+                gm::nt(L"STRUCT_TYPE") >> gm::symlist{ gm::te(gm::ttype::l_struct) }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
+
                 gm::nt(L"STRUCT_MEMBER_INITS") >> gm::symlist{ gm::nt(L"STRUCT_MEMBERS_INIT_LIST"),  gm::nt(L"COMMA_MAY_EMPTY")  }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
 

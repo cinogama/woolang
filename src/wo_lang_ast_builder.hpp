@@ -20,7 +20,7 @@
 
 namespace wo
 {
-#define WO_REINSTANCE(ITEM) if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}
+#define WO_REINSTANCE(ITEM) do {if(ITEM){(ITEM) = dynamic_cast<meta::origin_type<decltype(ITEM)>>((ITEM)->instance());}}while(0)
     namespace opnum
     {
         struct opnumbase;
@@ -115,8 +115,6 @@ namespace wo
             std::vector<ast_type*> argument_types;
             std::vector<ast_type*> template_arguments;
 
-            std::vector<ast_type*> template_impl_naming_checking;
-
             struct struct_offset
             {
                 ast_type* member_type = nullptr;
@@ -189,12 +187,13 @@ namespace wo
             bool is_void() const;
             bool is_nil() const;
             bool is_gc_type() const;
-            bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const;
             static lang_symbol* base_typedef_symbol(lang_symbol* symb);
-            bool is_same(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const;
+            bool is_like(const ast_type* another, const std::vector<wo_pstring_t>& termplate_set, ast_type** out_para = nullptr, ast_type** out_args = nullptr)const;
+            bool is_same(const ast_type* another, bool ignore_prefix) const;
+            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix = true) const;
+            bool set_mix_types(ast_type* another, bool ignore_mutable);
+
             bool is_builtin_basic_type();
-            bool accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix = true, bool flipped = false) const;
-            bool set_mix_types(ast_type* another, bool ignore_mutable, bool flip = false, bool flip_write = false);
             bool is_func() const;
             bool is_bool() const;
             bool is_char() const;
@@ -216,8 +215,9 @@ namespace wo
             bool is_real() const;
             bool is_handle() const;
             bool is_gchandle() const;
-            std::wstring get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const;
+            std::wstring get_type_name_impl(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
+            grammar::ast_base* instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 
@@ -1841,6 +1841,7 @@ namespace wo
         {
             ast_list* struct_member_vals;
             ast_type* target_built_types;
+            bool build_pure_struct;
 
             ast_value_make_struct_instance() : ast_value(new ast_type(WO_PSTR(pending))) {}
 
@@ -2602,7 +2603,7 @@ namespace wo
                 {
                     return new ast_value_type_judge(value_node, type_node);
                 }
-                else if (!value_node->value_type->is_same(type_node, false, false))
+                else if (!value_node->value_type->is_same(type_node, false))
                 {
                     lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_AS_TYPE, value_node->value_type->get_type_name().c_str(), type_node->get_type_name().c_str());
                     return value_node;
@@ -3498,11 +3499,33 @@ namespace wo
                 wo_assert(input.size() == 4);
                 ast_value_make_struct_instance* value = new ast_value_make_struct_instance();
 
-                value->target_built_types = dynamic_cast<ast_type*>(WO_NEED_AST(0));
+                value->struct_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(2));
+
+                if (WO_IS_TOKEN(0))
+                {
+                    value->target_built_types = new ast_type(WO_PSTR(struct));
+                    uint16_t member_idx = 0;
+                    auto* member_iter = dynamic_cast<ast_struct_member_define*>(value->struct_member_vals->children);
+                    while (member_iter)
+                    {
+                        auto& member = value->target_built_types->struct_member_index[member_iter->member_name];
+                        
+                        member.member_type = new ast_type(WO_PSTR(pending));
+                        member.offset = member_idx++;
+
+                        member_iter = dynamic_cast<ast_struct_member_define*>(member_iter->sibling);
+                    }
+                    value->build_pure_struct = true;
+                }
+                else
+                {
+                    value->target_built_types = dynamic_cast<ast_type*>(WO_NEED_AST(0));
+                    value->build_pure_struct = false;
+                }
+
                 wo_assert(value->value_type);
                 wo_assert(value->target_built_types);
 
-                value->struct_member_vals = dynamic_cast<ast_list*>(WO_NEED_AST(2));
                 wo_assert(value->struct_member_vals);
 
                 return (ast_basic*)value;
