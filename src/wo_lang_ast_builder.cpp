@@ -148,7 +148,7 @@ namespace wo
                 return;
 
             *this = *_type;
-            _type->instance(this);
+            _type->instance_impl(this, false);
         }
         void ast_type::set_type_with_constant_value(const value& _val)
         {
@@ -220,6 +220,14 @@ namespace wo
                         return true;
                 }
             }
+            if (is_struct())
+            {
+                for (auto &[_, memberinfo] : struct_member_index)
+                {
+                    if (memberinfo.member_type->is_custom(s))
+                        return true;
+                }
+            }
             if (is_func())
             {
                 for (auto arg_type : argument_types)
@@ -259,6 +267,15 @@ namespace wo
                         return true;
                 }
             }
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
+            {
+                for (auto& [_, memberinfo] : struct_member_index)
+                {
+                    if (memberinfo.member_type->is_pending(s))
+                        return true;
+                }
+            }
             if (is_func())
             {
                 for (auto arg_type : argument_types)
@@ -292,6 +309,15 @@ namespace wo
                 for (auto arg_type : template_arguments)
                 {
                     if (arg_type->may_need_update(s))
+                        return true;
+                }
+            }
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
+            {
+                for (auto& [_, memberinfo] : struct_member_index)
+                {
+                    if (memberinfo.member_type->may_need_update(s))
                         return true;
                 }
             }
@@ -363,9 +389,6 @@ namespace wo
                     if (out_args)*out_args = dynamic_cast<ast_type*>(another->using_type_name->instance());
                     return true;
                 }
-
-                // TODO: If using A = ...;
-                //       The type: A or (A)=>... will have same using-type. need think about how to deal with it.
                 return false;
             }
 
@@ -384,6 +407,25 @@ namespace wo
                 else if (value_type != another->value_type
                     || type_name != another->type_name)
                     return false;
+                else if (is_struct())
+                {
+                    wo_assert(another->is_struct());
+                    if (struct_member_index.size() != another->struct_member_index.size())
+                        return false;
+
+                    for (auto& [memname, memberinfo] : struct_member_index)
+                    {
+                        auto fnd = another->struct_member_index.find(memname);
+                        if (fnd == another->struct_member_index.end())
+                            return false;
+
+                        if (memberinfo.offset != fnd->second.offset)
+                            return false;
+
+                        if (!memberinfo.member_type->is_like(fnd->second.member_type, termplate_set))
+                            return false;
+                    }
+                }
             }
 
             bool prefix_modified = false;
@@ -419,32 +461,24 @@ namespace wo
             return true;
         }
 
-        bool ast_type::set_mix_types(ast_type* another, bool ignore_mutable, bool flip, bool flip_write)
+        bool ast_type::set_mix_types(ast_type* another, bool ignore_mutable)
         {
             if (is_pending() || another->is_pending())
                 return false;
 
-            ast_type* result = flip_write ? another : this;
-
-            if (is_same(another, false, ignore_mutable))
+            if (is_same(another, ignore_mutable))
                 return true;
 
             if (accept_type(another, false, ignore_mutable))
             {
                 wo_assert(!another->accept_type(this, false, ignore_mutable));
-                if (flip)
-                    result->set_type(another);
-                else
-                    result->set_type(this);
+                this->set_type(this);
                 return true;
             }
             if (another->accept_type(this, false, ignore_mutable))
             {
                 wo_assert(!accept_type(another, false, ignore_mutable));
-                if (flip)
-                    result->set_type(this);
-                else
-                    result->set_type(another);
+                this->set_type(another);
                 return true;
             }
 
@@ -458,18 +492,12 @@ namespace wo
 
             if (another->is_nothing())
             {
-                if (flip)
-                    result->set_type(another);
-                else
-                    result->set_type(this);
+                this->set_type(this);
                 return true;
             }
             if (is_nothing())
             {
-                if (flip)
-                    result->set_type(this);
-                else
-                    result->set_type(another);
+                this->set_type(another);
                 return true;
             }
 
@@ -481,7 +509,7 @@ namespace wo
             {
                 if (base_typedef_symbol(symbol) == base_typedef_symbol(another->symbol))
                 {
-                    result->set_type(this);
+                    this->set_type(this);
                     return true;
                 }
                 return false;
@@ -489,7 +517,7 @@ namespace wo
 
             if (is_func())
             {
-                result->set_as_function_type();
+                this->set_as_function_type();
 
                 if (!another->is_func())
                     return false;
@@ -498,33 +526,22 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    // NOTE: Argument accept will inverse,
-                    // void accept anyother type,
-                    // but (void)=>nothing cannot accept (int)=> nothing
-                    // and (option<int>)=>nothing cannot accept (option<nothing>)=>nothing, too.
-                    if (flip)
-                    {
-                        if (!argument_types[index]->set_mix_types(another->argument_types[index], true, true, flip_write))
-                            return false;
-                    }
-                    else
-                    {
-                        if (!another->argument_types[index]->set_mix_types(argument_types[index], true, true, true))
-                            return false;
-                    }
-
+                    // Woolang 1.12.6: Argument types of functions are no longer covariant but
+                    //                  invariant during associating and receiving
+                    if (!argument_types[index]->is_same(another->argument_types[index], true))
+                        return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
-                result->is_variadic_function_type = is_variadic_function_type;
+                this->is_variadic_function_type = is_variadic_function_type;
             }
             else if (another->is_func())
                 return false;
 
             if (is_complex() && another->is_complex())
             {
-                if (!complex_type->set_mix_types(another->complex_type, false, flip, flip_write))
+                if (!complex_type->set_mix_types(another->complex_type, false))
                     return false;
             }
             else if (!is_complex() && !another->is_complex())
@@ -533,14 +550,13 @@ namespace wo
                     return false;
 
                 wo_assert(!is_pending_type);
-                result->type_name = type_name;
-                result->value_type = value_type;
-                result->struct_member_index = struct_member_index;
-                result->typefrom = typefrom;
+                this->type_name = type_name;
+                this->value_type = value_type;
+                this->struct_member_index = struct_member_index;
+                this->typefrom = typefrom;
             }
             else
                 return false;
-
 
             if (using_type_name || another->using_type_name)
             {
@@ -554,8 +570,26 @@ namespace wo
                     return false;
 
                 for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->set_mix_types(another->using_type_name->template_arguments[i], false, flip, flip_write))
+                    if (!using_type_name->template_arguments[i]->set_mix_types(another->using_type_name->template_arguments[i], false))
                         return false;
+            }
+            else if (is_struct() && another->is_struct())
+            {
+                if (struct_member_index.size() != another->struct_member_index.size())
+                    return false;
+
+                for (auto& [memname, memberinfo] : struct_member_index)
+                {
+                    auto fnd = another->struct_member_index.find(memname);
+                    if (fnd == another->struct_member_index.end())
+                        return false;
+
+                    if (memberinfo.offset != fnd->second.offset)
+                        return false;
+
+                    if (!memberinfo.member_type->set_mix_types(fnd->second.member_type, false))
+                        return false;
+                }
             }
             if (has_template())
             {
@@ -563,11 +597,11 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < template_arguments.size(); index++)
                 {
-                    if (!template_arguments[index]->set_mix_types(another->template_arguments[index], false, flip, flip_write))
+                    if (!template_arguments[index]->set_mix_types(another->template_arguments[index], false))
                         return false;
                 }
             }
-            result->is_pending_type = false;
+            this->is_pending_type = false;
             return true;
         }
         bool ast_type::is_func() const
@@ -679,8 +713,7 @@ namespace wo
             if (using_type_name && using_type_name->is_mutable() != is_mutable)
                 using_type_name->is_mutable_type = is_mutable;
         }
-
-        grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        grammar::ast_base* ast_type::instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, WO_PSTR(pending));
@@ -702,13 +735,20 @@ namespace wo
             {
                 WO_REINSTANCE(argtype);
             }
-            // Do not reinstance, or using st = struct {x: array<st>} will stack overflow
-            //for (auto& memberinfo : dumm->struct_member_index)
-            //{
-            //    WO_REINSTANCE(memberinfo.second.init_value_may_nil);
-            //}
+            if (clone_raw_struct_member && (is_union() || is_struct()) && using_type_name == nullptr)
+            {
+                for (auto& [_, member_info] : dumm->struct_member_index)
+                {
+                    WO_REINSTANCE(member_info.member_type);
+                }
+            }
+
             WO_REINSTANCE(dumm->using_type_name);
             return dumm;
+        }
+        grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        {
+            return instance_impl(child_instance, true);
         }
         //////////////////////////////////////////
 
@@ -1135,7 +1175,7 @@ namespace wo
             auto left_t = left_v->value_type;
             auto right_t = right_v->value_type;
 
-            if (left_v->is_same(right_v, false, true))
+            if (left_v->is_same(right_v, true))
                 return left_v;
 
             return nullptr;
@@ -1488,13 +1528,13 @@ namespace wo
             union_scope->in_scope_sentence = new ast_list;
 
             // Get templates here(If have?)
-            ast_template_define_with_naming* defined_template_args = nullptr;
+            ast_template_define* defined_template_args = nullptr;
             ast_list* defined_template_arg_lists = nullptr;
 
             if (!ast_empty::is_empty(input[3]))
             {
                 defined_template_arg_lists = dynamic_cast<ast_list*>(WO_NEED_AST(3));
-                defined_template_args = dynamic_cast<ast_template_define_with_naming*>(
+                defined_template_args = dynamic_cast<ast_template_define*>(
                     defined_template_arg_lists->children);
             }
 
@@ -1513,25 +1553,13 @@ namespace wo
 
                 using_type->is_template_define = true;
 
-                ast_template_define_with_naming* template_type = defined_template_args;
+                ast_template_define* template_type = defined_template_args;
                 wo_test(template_type);
                 while (template_type)
                 {
                     using_type->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
-                using_type->naming_check_list = template_const_list;
             }
             bind_using_type_namespace_result->append_at_head(using_type);
 
@@ -1933,9 +1961,8 @@ namespace wo
                         // Create a template for this fucking arguments...
                         std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
 
-                        ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                        ast_template_define* atn = new ast_template_define;
                         atn->template_ident = wstring_pool::get_pstr(auto_template_name);
-                        atn->naming_const = nullptr;
 
                         // If no template arguments defined, create a new list~
                         if (template_types == nullptr)
@@ -1961,25 +1988,13 @@ namespace wo
             if (template_types)
             {
                 ast_func->is_template_define = true;
-                ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_types->children);
+                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_types->children);
                 wo_assert(template_type);
 
                 while (template_type)
                 {
                     ast_func->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
             }
 
@@ -2011,27 +2026,14 @@ namespace wo
                 wo_test(template_defines);
                 using_type->is_template_define = true;
 
-                ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
+                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_defines->children);
                 wo_test(template_type);
                 while (template_type)
                 {
                     using_type->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
             }
-
-            using_type->naming_check_list = template_const_list;
 
             if (!using_type->is_alias && WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
             {
@@ -2079,7 +2081,7 @@ namespace wo
             left->update_constant_value(lex);
             right->update_constant_value(lex);
 
-            if (!left->value_type->is_same(right->value_type, false, true))
+            if (!left->value_type->is_same(right->value_type, true))
                 return;
 
             // if left/right is custom, donot calculate them 

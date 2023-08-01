@@ -28,7 +28,6 @@ int main(int argc, char** argv)
         {
             for (int i = 0; i < argc - 1; ++i)
             {
-                // TODO: Binary donot support jit.
                 if (strcmp(argv[i], "-o") == 0)
                     out_binary_path = argv[i + 1];
             }

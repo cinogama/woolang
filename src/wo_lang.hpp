@@ -49,7 +49,7 @@ namespace wo
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
-        std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
+
         bool is_template_symbol = false;
         std::vector<wo_pstring_t> template_types;
 
@@ -185,7 +185,6 @@ namespace wo
         lang(lexer& lex);
         ~lang();
         ast::ast_type* generate_type_instance_by_templates(lang_symbol* symb, const std::vector<ast::ast_type*>& templates);
-        bool check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming);
         bool fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s);
         void fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types = {});
 
@@ -235,7 +234,6 @@ namespace wo
         WO_PASS(ast_using_namespace);
         WO_PASS(ast_using_type_as);
         WO_PASS(ast_foreach);
-        WO_PASS(ast_check_type_with_naming_in_pass2);
         WO_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_PASS(ast_match);
         WO_PASS(ast_match_union_case);

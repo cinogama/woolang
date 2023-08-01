@@ -221,7 +221,7 @@ namespace wo
                 || a_value_logic_bin->left->value_type->is_real()
                 || a_value_logic_bin->left->value_type->is_string()
                 || a_value_logic_bin->left->value_type->is_bool())
-                && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
+                && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, true))
                 has_default_op = true;
         }
         if (!has_default_op)
@@ -766,23 +766,6 @@ namespace wo
         end_scope();
         return true;
     }
-    WO_PASS1(ast_check_type_with_naming_in_pass2)
-    {
-        auto* a_check_naming = WO_AST();
-        fully_update_type(a_check_naming->template_type, true);
-        fully_update_type(a_check_naming->naming_const, true);
-
-        for (auto& namings : a_check_naming->template_type->template_impl_naming_checking)
-        {
-            if (a_check_naming->naming_const->is_pending() || namings->is_pending())
-                break; // Continue..
-            if (namings->is_same(a_check_naming->naming_const, false, false))
-                goto checking_naming_end;
-        }
-    checking_naming_end:;
-
-        return true;
-    }
     WO_PASS1(ast_union_make_option_ob_to_cr_and_ret)
     {
         auto* a_union_make_option_ob_to_cr_and_ret = WO_AST();
@@ -864,9 +847,25 @@ namespace wo
     WO_PASS1(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
-        fully_update_type(a_value_make_struct_instance->target_built_types, true);
         analyze_pass1(a_value_make_struct_instance->struct_member_vals);
-
+        if (a_value_make_struct_instance->build_pure_struct)
+        {
+            auto* member_iter = dynamic_cast<ast_struct_member_define*>(a_value_make_struct_instance->struct_member_vals->children);
+            while (member_iter)
+            {
+                wo_assert(member_iter->is_value_pair);
+                if (!member_iter->member_value_pair->value_type->is_pending())
+                {
+                    auto fnd = a_value_make_struct_instance->target_built_types->struct_member_index.find(member_iter->member_name);
+                    if (fnd != a_value_make_struct_instance->target_built_types->struct_member_index.end())
+                    {
+                        fnd->second.member_type->set_type(member_iter->member_value_pair->value_type);
+                    }
+                }
+                member_iter = dynamic_cast<ast_struct_member_define*>(member_iter->sibling);
+            }
+        }
+        fully_update_type(a_value_make_struct_instance->target_built_types, true);
         if (a_value_make_struct_instance->target_built_types->is_pending() == false)
             a_value_make_struct_instance->value_type->set_type(a_value_make_struct_instance->target_built_types);
         return true;
@@ -1146,16 +1145,6 @@ namespace wo
         {
             analyze_pattern_in_pass2(varref.pattern, varref.init_val);
         }
-        return true;
-    }
-    WO_PASS2(ast_check_type_with_naming_in_pass2)
-    {
-        auto* a_check_naming = WO_AST();
-        fully_update_type(a_check_naming->template_type, false);
-        fully_update_type(a_check_naming->naming_const, false);
-
-        // TODO: Support or remove type class?
-
         return true;
     }
     WO_PASS2(ast_union_make_option_ob_to_cr_and_ret)
@@ -1651,7 +1640,7 @@ namespace wo
         }
         if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
         {
-            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], false, true))
+            if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], true))
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , a_value_index->from->value_type->template_arguments[0]->get_type_name(false).c_str()
@@ -1770,7 +1759,7 @@ namespace wo
                     || a_value_logic_bin->left->value_type->is_real()
                     || a_value_logic_bin->left->value_type->is_string()
                     || a_value_logic_bin->left->value_type->is_bool())
-                    && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, false, true))
+                    && a_value_logic_bin->left->value_type->is_same(a_value_logic_bin->right->value_type, true))
                     type_ok = true;
             }
 
@@ -2004,9 +1993,25 @@ namespace wo
     WO_PASS2(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
-        fully_update_type(a_value_make_struct_instance->target_built_types, false);
-
         analyze_pass2(a_value_make_struct_instance->struct_member_vals);
+        if (a_value_make_struct_instance->build_pure_struct)
+        {
+            auto* member_iter = dynamic_cast<ast_struct_member_define*>(a_value_make_struct_instance->struct_member_vals->children);
+            while (member_iter)
+            {
+                wo_assert(member_iter->is_value_pair);
+                if (!member_iter->member_value_pair->value_type->is_pending())
+                {
+                    auto fnd = a_value_make_struct_instance->target_built_types->struct_member_index.find(member_iter->member_name);
+                    if (fnd != a_value_make_struct_instance->target_built_types->struct_member_index.end())
+                    {
+                        fnd->second.member_type->set_type(member_iter->member_value_pair->value_type);
+                    }
+                }
+                member_iter = dynamic_cast<ast_struct_member_define*>(member_iter->sibling);
+            }
+        }
+        fully_update_type(a_value_make_struct_instance->target_built_types, false);
 
         // Woolang 1.10: Struct's template param might be judge here, we just need do like ast_value_funccall.
         bool need_judge_template_args = a_value_make_struct_instance->target_built_types->is_pending()
@@ -3022,7 +3027,7 @@ namespace wo
 
     namespace ast
     {
-        bool ast_type::is_same(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const
+        bool ast_type::is_same(const ast_type* another, bool ignore_prefix) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -3084,14 +3089,14 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    if (!argument_types[index]->is_same(another->argument_types[index], ignore_using_type, true))
+                    if (!argument_types[index]->is_same(another->argument_types[index], true))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
                 wo_assert(is_complex() && another->is_complex());
-                if (!complex_type->is_same(another->complex_type, ignore_using_type, false))
+                if (!complex_type->is_same(another->complex_type, false))
                     return false;
             }
             else if (another->is_func())
@@ -3100,7 +3105,7 @@ namespace wo
             if (type_name != another->type_name)
                 return false;
 
-            if (!ignore_using_type && (using_type_name || another->using_type_name))
+            if (using_type_name || another->using_type_name)
             {
                 if (!using_type_name || !another->using_type_name)
                     return false;
@@ -3112,7 +3117,7 @@ namespace wo
                     return false;
 
                 for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], ignore_using_type, false))
+                    if (!using_type_name->template_arguments[i]->is_same(another->using_type_name->template_arguments[i], false))
                         return false;
             }
             if (has_template())
@@ -3121,14 +3126,34 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < template_arguments.size(); index++)
                 {
-                    if (!template_arguments[index]->is_same(another->template_arguments[index], ignore_using_type, false))
+                    if (!template_arguments[index]->is_same(another->template_arguments[index], false))
+                        return false;
+                }
+            }
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
+            {
+                wo_assert(another->is_struct());
+                if (struct_member_index.size() != another->struct_member_index.size())
+                    return false;
+
+                for (auto& [memname, memberinfo] : struct_member_index)
+                {
+                    auto fnd = another->struct_member_index.find(memname);
+                    if (fnd == another->struct_member_index.end())
+                        return false;
+
+                    if (memberinfo.offset != fnd->second.offset)
+                        return false;
+
+                    if (!memberinfo.member_type->is_same(fnd->second.member_type, false))
                         return false;
                 }
             }
             return true;
         }
 
-        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix, bool flipped) const
+        bool ast_type::accept_type(const ast_type* another, bool ignore_using_type, bool ignore_prefix) const
         {
             if (is_pending_function() || another->is_pending_function())
                 return false;
@@ -3193,23 +3218,16 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < argument_types.size(); index++)
                 {
-                    // NOTE: Argument accept will inverse,
-                    // void accept anyother type,
-                    // but (void)=>x cannot accept (int)=> x
-                    // and (option<int>)=>x cannot accept (option<nothing>)=>x, too.
-                    if (flipped)
-                    {
-                        if (!argument_types[index]->accept_type(another->argument_types[index], ignore_using_type, false, true))
-                            return false;
-                    }
-                    else if (!another->argument_types[index]->accept_type(argument_types[index], ignore_using_type, false, true))
+                    // Woolang 1.12.6: Argument types of functions are no longer covariant but
+                    //                  invariant during associating and receiving
+                    if (!argument_types[index]->is_same(another->argument_types[index], false))
                         return false;
                 }
                 if (is_variadic_function_type != another->is_variadic_function_type)
                     return false;
 
                 wo_assert(is_complex() && another->is_complex());
-                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false, flipped))
+                if (!complex_type->accept_type(another->complex_type, ignore_using_type, false))
                     return false;
             }
             else if (another->is_func())
@@ -3230,7 +3248,7 @@ namespace wo
                     return false;
 
                 for (size_t i = 0; i < using_type_name->template_arguments.size(); ++i)
-                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false, flipped))
+                    if (!using_type_name->template_arguments[i]->accept_type(another->using_type_name->template_arguments[i], ignore_using_type, false))
                         return false;
             }
             if (has_template())
@@ -3239,15 +3257,33 @@ namespace wo
                     return false;
                 for (size_t index = 0; index < template_arguments.size(); index++)
                 {
-                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false, flipped))
+                    if (!template_arguments[index]->accept_type(another->template_arguments[index], ignore_using_type, false))
                         return false;
                 }
             }
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
+            {
+                wo_assert(another->is_struct());
+                if (struct_member_index.size() != another->struct_member_index.size())
+                    return false;
 
+                for (auto& [memname, memberinfo] : struct_member_index)
+                {
+                    auto fnd = another->struct_member_index.find(memname);
+                    if (fnd == another->struct_member_index.end())
+                        return false;
+
+                    if (memberinfo.offset != fnd->second.offset)
+                        return false;
+
+                    if (!memberinfo.member_type->is_same(fnd->second.member_type, false))
+                        return false;
+                }
+            }
             return true;
         }
-
-        std::wstring ast_type::get_type_name(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const
+        std::wstring ast_type::get_type_name_impl(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const
         {
             if (s.find(this) != s.end())
                 return L"..";
@@ -3266,7 +3302,7 @@ namespace wo
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
                 result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name(s, ignore_using_type, true);
+                    + using_type_name->get_type_name_impl(s, ignore_using_type, true);
             }
             else
             {
@@ -3277,7 +3313,7 @@ namespace wo
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
-                        result += argument_types[index]->get_type_name(s, ignore_using_type, false);
+                        result += argument_types[index]->get_type_name_impl(s, ignore_using_type, false);
                         if (index + 1 != argument_types.size() || is_variadic_function_type)
                             result += L", ";
                     }
@@ -3286,7 +3322,7 @@ namespace wo
                     {
                         result += L"...";
                     }
-                    result += L")=>" + complex_type->get_type_name(s, ignore_using_type, false);                   
+                    result += L")=>" + complex_type->get_type_name_impl(s, ignore_using_type, false);
                 }
                 else
                 {
@@ -3306,24 +3342,50 @@ namespace wo
                         result += (type_name != WO_PSTR(tuple)) ? L"<" : L"(";
                         for (size_t index = 0; index < template_arguments.size(); index++)
                         {
-                            result += template_arguments[index]->get_type_name(s, ignore_using_type, false);
+                            result += template_arguments[index]->get_type_name_impl(s, ignore_using_type, false);
                             if (index + 1 != template_arguments.size())
                                 result += L", ";
                         }
                         result += (type_name != WO_PSTR(tuple)) ? L">" : L")";
+                    }
+
+                    if (is_struct())
+                    {
+                        result += L"{";
+                        std::vector<const ast_type::struct_member_infos_t::value_type*> memberinfors;
+                        memberinfors.reserve(struct_member_index.size());
+                        for (auto& memberinfo : this->struct_member_index)
+                        {
+                            memberinfors.push_back(&memberinfo);
+                        }
+                        std::sort(memberinfors.begin(), memberinfors.end(), 
+                            [](const ast_type::struct_member_infos_t::value_type* a, 
+                                const ast_type::struct_member_infos_t::value_type* b)
+                            {
+                                return a->second.offset < b->second.offset;
+                            });
+                        bool first_member = true;
+                        for (auto* memberinfo : memberinfors)
+                        {
+                            if (first_member)
+                                first_member = false;
+                            else
+                                result += L",";
+                            
+                            result += *memberinfo->first + L":" + memberinfo->second.member_type->get_type_name(false, false);
+                        }
+                        result += L"}";
                     }
                 }
             }
             s.erase(this);
             return result;
         }
-
         std::wstring ast_type::get_type_name(bool ignore_using_type, bool ignore_mut) const
         {
             std::unordered_set<const ast_type*> us;
-            return get_type_name(us, ignore_using_type, ignore_mut);
+            return get_type_name_impl(us, ignore_using_type, ignore_mut);
         }
-
         bool ast_type::is_hkt() const
         {
             if (is_func())
@@ -3346,7 +3408,6 @@ namespace wo
         {
             if (symbol)
                 return symbol->is_hkt_typing_symb;
-
             return false;
         }
 
@@ -3456,13 +3517,23 @@ namespace wo
             }
         }
 
+        if (typing->is_struct() && typing->using_type_name == nullptr)
+        {
+            for (auto& [member_name, member_info] : typing->struct_member_index)
+            {
+                hashval ^= std::hash<std::wstring>()(*member_name);
+                hashval *= member_info.offset;
+                hashval += get_typing_hash_after_pass1(member_info.member_type);
+            }
+        }
+
         if (typing->is_mutable())
             hashval *= hashval;
 
         uint32_t hash32 = hashval & 0xFFFFFFFF;
         while (hashed_typing.find(hash32) != hashed_typing.end())
         {
-            if (hashed_typing[hash32]->is_same(typing, false, false))
+            if (hashed_typing[hash32]->is_same(typing, false))
                 return hash32;
             hash32++;
         }
@@ -3605,12 +3676,6 @@ namespace wo
             newtype->set_type(symb->type_informatiom);
             symb->type_informatiom->instance(newtype);
 
-            for (auto& [_, info] : newtype->struct_member_index)
-            {
-                if (info.member_type)
-                    info.member_type = dynamic_cast<ast::ast_type*>(info.member_type->instance());
-            }
-
             if (newtype->typefrom != nullptr)
             {
                 temporary_entry_scope_in_pass1(symb->defined_in_scope);
@@ -3630,14 +3695,6 @@ namespace wo
             }
         }
         return symb->template_type_instances[hashs];
-    }
-    bool lang::check_matching_naming(ast::ast_type* clstype, ast::ast_type* naming)
-    {
-        bool result = true;
-
-        // TODO: Do some check here for typeclass?
-
-        return result;
     }
     bool lang::fully_update_type(ast::ast_type* type, bool in_pass_1, const std::vector<wo_pstring_t>& template_types, std::unordered_set<ast::ast_type*>& s)
     {
@@ -3875,25 +3932,6 @@ namespace wo
                                 type->set_is_mutable(true);
                             if (is_force_immut_typeof)
                                 type->set_is_force_immutable();
-
-                            if (!type->template_impl_naming_checking.empty())
-                            {
-                                for (ast::ast_type* naming_type : type->template_impl_naming_checking)
-                                {
-                                    fully_update_type(naming_type, in_pass_1, template_types, s);
-                                    check_matching_naming(type, naming_type);
-                                }
-                            }
-
-                            for (auto& naming : type_sym->naming_list)
-                            {
-                                if (in_pass_1)
-                                    analyze_pass1(type->typefrom);
-                                auto inpass2 = has_step_in_step2;
-                                analyze_pass2(naming);  // FORCE PASS2
-                                has_step_in_step2 = inpass2;
-                            }
-
                             if (using_template)
                                 end_template_scope();
                         }// end template argu check & update
@@ -4243,7 +4281,6 @@ namespace wo
         WO_TRY_PASS(ast_using_namespace);
         WO_TRY_PASS(ast_using_type_as);
         WO_TRY_PASS(ast_foreach);
-        WO_TRY_PASS(ast_check_type_with_naming_in_pass2);
         WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_TRY_PASS(ast_match);
         WO_TRY_PASS(ast_match_union_case);
@@ -4826,7 +4863,6 @@ namespace wo
         WO_TRY_PASS(ast_forloop);
         WO_TRY_PASS(ast_foreach);
         WO_TRY_PASS(ast_varref_defines);
-        WO_TRY_PASS(ast_check_type_with_naming_in_pass2);
         WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_TRY_PASS(ast_match);
         WO_TRY_PASS(ast_match_union_case);
@@ -4897,6 +4933,30 @@ namespace wo
                 return derivation_result;
         }
 
+        if (para->is_struct() && para->using_type_name == nullptr
+            && args->is_struct() && args->using_type_name == nullptr)
+        {
+            if (para->struct_member_index.size() == args->struct_member_index.size())
+            {
+                for (auto& [memname, memberinfo] : para->struct_member_index)
+                {
+                    auto fnd = args->struct_member_index.find(memname);
+                    if (fnd == args->struct_member_index.end())
+                        continue;
+
+                    if (memberinfo.offset != fnd->second.offset)
+                        continue;
+
+                    if (auto* derivation_result = analyze_template_derivation(
+                        temp_form,
+                        termplate_set,
+                        memberinfo.member_type,
+                        fnd->second.member_type))
+                        return derivation_result;
+                }
+            }
+        }
+
         if (para->type_name == temp_form
             && para->scope_namespaces.empty()
             && !para->search_from_global_namespace)
@@ -4944,7 +5004,6 @@ namespace wo
                 args->template_arguments[index]))
                 return derivation_result;
         }
-
 
         if (para->using_type_name && args->using_type_name)
         {
@@ -5318,7 +5377,7 @@ namespace wo
 
                 // if mixed type, do opx
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, false, true))
+                if (a_value_binary->left->value_type->is_same(a_value_binary->right->value_type, true))
                     optype = a_value_binary->left->value_type->value_type;
 
                 auto& beoped_left_opnum = analyze_value(a_value_binary->left, compiler, true);
@@ -5908,10 +5967,10 @@ namespace wo
                     return analyze_value(a_value_logical_binary->overrided_operation_call, compiler, get_pure_value);
 
                 value::valuetype optype = value::valuetype::invalid;
-                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
+                if (a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, true))
                     optype = a_value_logical_binary->left->value_type->value_type;
 
-                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, false, true))
+                if (!a_value_logical_binary->left->value_type->is_same(a_value_logical_binary->right->value_type, true))
                 {
                     if (!((a_value_logical_binary->left->value_type->is_integer() ||
                         a_value_logical_binary->left->value_type->is_real()) &&
@@ -6714,10 +6773,6 @@ namespace wo
                 ;
             }
         }
-        else if (dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
-        {
-            // do nothing..
-        }
         else if (ast_union_make_option_ob_to_cr_and_ret* a_union_make_option_ob_to_cr_and_ret
             = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
         {
@@ -7211,17 +7266,6 @@ namespace wo
             sym->type_informatiom = as_type;
             sym->defined_in_scope = lang_scopes.back();
             sym->define_node = def;
-
-            if (def->naming_check_list)
-            {
-                ast::ast_check_type_with_naming_in_pass2* naming =
-                    dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(def->naming_check_list->children);
-                while (naming)
-                {
-                    sym->naming_list.push_back(naming);
-                    naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
-                }
-            }
 
             lang_symbols.push_back(sym);
             return sym;
