@@ -49,7 +49,7 @@ namespace wo
             ast::ast_value* variable_value;
             ast::ast_type* type_informatiom;
         };
-        std::vector<ast::ast_check_type_with_naming_in_pass2*> naming_list;
+
         bool is_template_symbol = false;
         std::vector<wo_pstring_t> template_types;
 
@@ -235,7 +235,6 @@ namespace wo
         WO_PASS(ast_using_namespace);
         WO_PASS(ast_using_type_as);
         WO_PASS(ast_foreach);
-        WO_PASS(ast_check_type_with_naming_in_pass2);
         WO_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_PASS(ast_match);
         WO_PASS(ast_match_union_case);

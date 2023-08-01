@@ -766,23 +766,6 @@ namespace wo
         end_scope();
         return true;
     }
-    WO_PASS1(ast_check_type_with_naming_in_pass2)
-    {
-        auto* a_check_naming = WO_AST();
-        fully_update_type(a_check_naming->template_type, true);
-        fully_update_type(a_check_naming->naming_const, true);
-
-        for (auto& namings : a_check_naming->template_type->template_impl_naming_checking)
-        {
-            if (a_check_naming->naming_const->is_pending() || namings->is_pending())
-                break; // Continue..
-            if (namings->is_same(a_check_naming->naming_const, false, false))
-                goto checking_naming_end;
-        }
-    checking_naming_end:;
-
-        return true;
-    }
     WO_PASS1(ast_union_make_option_ob_to_cr_and_ret)
     {
         auto* a_union_make_option_ob_to_cr_and_ret = WO_AST();
@@ -1146,16 +1129,6 @@ namespace wo
         {
             analyze_pattern_in_pass2(varref.pattern, varref.init_val);
         }
-        return true;
-    }
-    WO_PASS2(ast_check_type_with_naming_in_pass2)
-    {
-        auto* a_check_naming = WO_AST();
-        fully_update_type(a_check_naming->template_type, false);
-        fully_update_type(a_check_naming->naming_const, false);
-
-        // TODO: Support or remove type class?
-
         return true;
     }
     WO_PASS2(ast_union_make_option_ob_to_cr_and_ret)
@@ -3885,15 +3858,6 @@ namespace wo
                                 }
                             }
 
-                            for (auto& naming : type_sym->naming_list)
-                            {
-                                if (in_pass_1)
-                                    analyze_pass1(type->typefrom);
-                                auto inpass2 = has_step_in_step2;
-                                analyze_pass2(naming);  // FORCE PASS2
-                                has_step_in_step2 = inpass2;
-                            }
-
                             if (using_template)
                                 end_template_scope();
                         }// end template argu check & update
@@ -4243,7 +4207,6 @@ namespace wo
         WO_TRY_PASS(ast_using_namespace);
         WO_TRY_PASS(ast_using_type_as);
         WO_TRY_PASS(ast_foreach);
-        WO_TRY_PASS(ast_check_type_with_naming_in_pass2);
         WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_TRY_PASS(ast_match);
         WO_TRY_PASS(ast_match_union_case);
@@ -4826,7 +4789,6 @@ namespace wo
         WO_TRY_PASS(ast_forloop);
         WO_TRY_PASS(ast_foreach);
         WO_TRY_PASS(ast_varref_defines);
-        WO_TRY_PASS(ast_check_type_with_naming_in_pass2);
         WO_TRY_PASS(ast_union_make_option_ob_to_cr_and_ret);
         WO_TRY_PASS(ast_match);
         WO_TRY_PASS(ast_match_union_case);
@@ -6714,10 +6676,6 @@ namespace wo
                 ;
             }
         }
-        else if (dynamic_cast<ast_check_type_with_naming_in_pass2*>(ast_node))
-        {
-            // do nothing..
-        }
         else if (ast_union_make_option_ob_to_cr_and_ret* a_union_make_option_ob_to_cr_and_ret
             = dynamic_cast<ast_union_make_option_ob_to_cr_and_ret*>(ast_node))
         {
@@ -7211,17 +7169,6 @@ namespace wo
             sym->type_informatiom = as_type;
             sym->defined_in_scope = lang_scopes.back();
             sym->define_node = def;
-
-            if (def->naming_check_list)
-            {
-                ast::ast_check_type_with_naming_in_pass2* naming =
-                    dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(def->naming_check_list->children);
-                while (naming)
-                {
-                    sym->naming_list.push_back(naming);
-                    naming = dynamic_cast<ast::ast_check_type_with_naming_in_pass2*>(naming->sibling);
-                }
-            }
 
             lang_symbols.push_back(sym);
             return sym;

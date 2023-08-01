@@ -1455,26 +1455,6 @@ namespace wo
             }
         };
 
-        struct ast_check_type_with_naming_in_pass2 : virtual public grammar::ast_base
-        {
-            ast_type* template_type;
-            ast_type* naming_const;
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
-                // Write self copy functions here..
-
-                WO_REINSTANCE(dumm->template_type);
-                WO_REINSTANCE(dumm->naming_const);
-
-                return dumm;
-            }
-        };
-
         struct ast_using_type_as : virtual public ast_defines
         {
             wo_pstring_t new_type_identifier = nullptr;
@@ -1482,8 +1462,6 @@ namespace wo
 
             std::map<std::wstring, ast::ast_value*> class_const_index_typing;
             std::map<std::wstring, std::vector<ast::ast_value_function_define*>> class_methods_list;
-
-            ast_list* naming_check_list = nullptr;
 
             bool is_alias = false;
 
@@ -1626,11 +1604,9 @@ namespace wo
             }
         };
 
-        struct ast_template_define_with_naming : virtual public grammar::ast_base
+        struct ast_template_define : virtual public grammar::ast_base
         {
             wo_pstring_t template_ident = nullptr;
-            ast_type* naming_const;
-
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
             {
                 using astnode_type = decltype(MAKE_INSTANCE(this));
@@ -1638,8 +1614,6 @@ namespace wo
                 if (!child_instance) *dumm = *this;
                 // ast_defines::instance(dumm);
                 // Write self copy functions here..
-
-                WO_REINSTANCE(dumm->naming_const);
 
                 return dumm;
             }
@@ -2482,7 +2456,7 @@ namespace wo
                     auto* template_def_item = WO_NEED_AST(1)->children;
                     while (template_def_item)
                     {
-                        auto* template_def = dynamic_cast<ast_template_define_with_naming*>(template_def_item);
+                        auto* template_def = dynamic_cast<ast_template_define*>(template_def_item);
                         wo_assert(template_def);
 
                         pattern_identifier->template_arguments.push_back(template_def->template_ident);
@@ -2514,7 +2488,7 @@ namespace wo
                     auto* template_def_item = WO_NEED_AST(3)->children;
                     while (template_def_item)
                     {
-                        auto* template_def = dynamic_cast<ast_template_define_with_naming*>(template_def_item);
+                        auto* template_def = dynamic_cast<ast_template_define*>(template_def_item);
                         wo_assert(template_def);
 
                         pattern_identifier->template_arguments.push_back(template_def->template_ident);
@@ -3243,12 +3217,8 @@ namespace wo
         {
             static std::any build(lexer& lex, const std::wstring& name, inputs_t& input)
             {
-                ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                ast_template_define* atn = new ast_template_define;
                 atn->template_ident = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
-                if (ast_empty::is_empty(input[1]))
-                    atn->naming_const = nullptr;
-                else
-                    atn->naming_const = dynamic_cast<ast_type*>(WO_NEED_AST(1));
                 return (ast_basic*)atn;
             }
         };

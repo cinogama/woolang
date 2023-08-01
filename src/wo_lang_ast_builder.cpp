@@ -1488,13 +1488,13 @@ namespace wo
             union_scope->in_scope_sentence = new ast_list;
 
             // Get templates here(If have?)
-            ast_template_define_with_naming* defined_template_args = nullptr;
+            ast_template_define* defined_template_args = nullptr;
             ast_list* defined_template_arg_lists = nullptr;
 
             if (!ast_empty::is_empty(input[3]))
             {
                 defined_template_arg_lists = dynamic_cast<ast_list*>(WO_NEED_AST(3));
-                defined_template_args = dynamic_cast<ast_template_define_with_naming*>(
+                defined_template_args = dynamic_cast<ast_template_define*>(
                     defined_template_arg_lists->children);
             }
 
@@ -1513,25 +1513,13 @@ namespace wo
 
                 using_type->is_template_define = true;
 
-                ast_template_define_with_naming* template_type = defined_template_args;
+                ast_template_define* template_type = defined_template_args;
                 wo_test(template_type);
                 while (template_type)
                 {
                     using_type->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
-                using_type->naming_check_list = template_const_list;
             }
             bind_using_type_namespace_result->append_at_head(using_type);
 
@@ -1933,9 +1921,8 @@ namespace wo
                         // Create a template for this fucking arguments...
                         std::wstring auto_template_name = L"auto_" + std::to_wstring(auto_template_id++) + L"_t";
 
-                        ast_template_define_with_naming* atn = new ast_template_define_with_naming;
+                        ast_template_define* atn = new ast_template_define;
                         atn->template_ident = wstring_pool::get_pstr(auto_template_name);
-                        atn->naming_const = nullptr;
 
                         // If no template arguments defined, create a new list~
                         if (template_types == nullptr)
@@ -1961,25 +1948,13 @@ namespace wo
             if (template_types)
             {
                 ast_func->is_template_define = true;
-                ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_types->children);
+                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_types->children);
                 wo_assert(template_type);
 
                 while (template_type)
                 {
                     ast_func->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
             }
 
@@ -2011,27 +1986,14 @@ namespace wo
                 wo_test(template_defines);
                 using_type->is_template_define = true;
 
-                ast_template_define_with_naming* template_type = dynamic_cast<ast_template_define_with_naming*>(template_defines->children);
+                ast_template_define* template_type = dynamic_cast<ast_template_define*>(template_defines->children);
                 wo_test(template_type);
                 while (template_type)
                 {
                     using_type->template_type_name_list.push_back(template_type->template_ident);
-
-                    if (template_type->naming_const)
-                    {
-                        ast_check_type_with_naming_in_pass2* acheck = new ast_check_type_with_naming_in_pass2;
-                        acheck->template_type = new ast_type(template_type->template_ident);
-                        acheck->naming_const = new ast_type(WO_PSTR(pending));
-                        acheck->naming_const->set_type(template_type->naming_const);
-                        acheck->copy_source_info(template_type);
-                        template_const_list->append_at_end(acheck);
-                    }
-
-                    template_type = dynamic_cast<ast_template_define_with_naming*>(template_type->sibling);
+                    template_type = dynamic_cast<ast_template_define*>(template_type->sibling);
                 }
             }
-
-            using_type->naming_check_list = template_const_list;
 
             if (!using_type->is_alias && WO_IS_AST(6) && !ast_empty::is_empty(input[6]))
             {

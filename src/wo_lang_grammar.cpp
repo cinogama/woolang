@@ -981,14 +981,8 @@ namespace wo
                 gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST") >> gm::symlist{ gm::nt(L"DEFINE_TEMPLATE_TYPE_LIST"), gm::te(gm::ttype::l_comma), gm::nt(L"DEFINE_TEMPLATE_TYPE") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2,0>),
 
-                gm::nt(L"DEFINE_TEMPLATE_TYPE") >> gm::symlist{ gm::nt(L"IDENTIFIER"), gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") }
+                gm::nt(L"DEFINE_TEMPLATE_TYPE") >> gm::symlist{ gm::nt(L"IDENTIFIER") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_template_decl),
-
-                gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_empty) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
-
-                gm::nt(L"TEMPLATE_TYPE_NAMING_CONSTRAINTS_MAY_EMPTY") >> gm::symlist{ gm::te(gm::ttype::l_typecast),  gm::nt(L"TYPE") }
-                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
 
                 gm::nt(L"SENTENCE") >> gm::symlist{ gm::nt(L"DECL_UNION") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
