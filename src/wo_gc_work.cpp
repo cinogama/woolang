@@ -107,15 +107,12 @@ namespace wo
             if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::no_mark)
             {
                 unit->gc_mark(_gc_round_count, gcbase::gcmarkcolor::self_mark);
-
-                // TODO: Optmize here, donot use new.
                 _gc_gray_unit_lists[workerid].push_back(unit);
             }
         }
 
         void gc_mark_unit_as_black(size_t workerid, gcbase* unit)
         {
-            // TODO: Make 'gc_mark' atomicable
             if (unit->gc_marked(_gc_round_count) == gcbase::gcmarkcolor::full_mark)
                 return;
 

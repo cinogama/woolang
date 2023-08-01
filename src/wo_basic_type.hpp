@@ -215,27 +215,6 @@ namespace wo
             } while (true);
         }
 
-        inline value* get_val_atomically(value* out_put_val) const
-        {
-            do
-            {
-                wo_handle_t data = *std::launder(reinterpret_cast<const std::atomic<wo_handle_t>*>(&handle));
-                valuetype type = *std::launder(reinterpret_cast<const std::atomic<valuetype>*>(&type));
-                if (data == *std::launder(reinterpret_cast<const std::atomic<wo_handle_t>*>(&handle)))
-                {
-                    out_put_val->handle = data;
-                    out_put_val->type = type;
-                    return out_put_val;
-                }
-
-            } while (true);
-        }
-        inline value get_val_atomically() const
-        {
-            value tmp;
-            return *get_val_atomically(&tmp);
-        }
-
         inline bool is_gcunit() const
         {
             return (uint8_t)type & (uint8_t)valuetype::need_gc;
@@ -360,7 +339,6 @@ namespace wo
             wo_integer_t m_vm_func;
             wo_native_func m_native_func;
         };
-        // TODO: Optimize, donot use vector to store args
         value* m_closure_args;
 
         closure_function(uint16_t sz) noexcept
@@ -399,7 +377,6 @@ namespace wo
 
     inline value* value::set_dup(value* from)
     {
-        // TODO: IF A VAL HAS IT REF; IN CONST VAL, WILL STILL HAS POSSIBLE TO MODIFY THE VAL;
         if (from->type == valuetype::array_type)
         {
             auto* dup_arrray = from->array;
