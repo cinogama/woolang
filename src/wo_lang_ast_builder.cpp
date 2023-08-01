@@ -574,17 +574,7 @@ namespace wo
                     if (!using_type_name->template_arguments[i]->set_mix_types(another->using_type_name->template_arguments[i], false))
                         return false;
             }
-            if (has_template())
-            {
-                if (template_arguments.size() != another->template_arguments.size())
-                    return false;
-                for (size_t index = 0; index < template_arguments.size(); index++)
-                {
-                    if (!template_arguments[index]->set_mix_types(another->template_arguments[index], false))
-                        return false;
-                }
-            }
-            if (is_struct())
+            else if (is_struct() && another->is_struct())
             {
                 if (struct_member_index.size() != another->struct_member_index.size())
                     return false;
@@ -599,6 +589,16 @@ namespace wo
                         return false;
 
                     if (!memberinfo.member_type->set_mix_types(fnd->second.member_type, false))
+                        return false;
+                }
+            }
+            if (has_template())
+            {
+                if (template_arguments.size() != another->template_arguments.size())
+                    return false;
+                for (size_t index = 0; index < template_arguments.size(); index++)
+                {
+                    if (!template_arguments[index]->set_mix_types(another->template_arguments[index], false))
                         return false;
                 }
             }

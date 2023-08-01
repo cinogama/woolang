@@ -3130,7 +3130,8 @@ namespace wo
                         return false;
                 }
             }
-            if (is_struct())
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
             {
                 wo_assert(another->is_struct());
                 if (struct_member_index.size() != another->struct_member_index.size())
@@ -3260,7 +3261,8 @@ namespace wo
                         return false;
                 }
             }
-            if (is_struct())
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
             {
                 wo_assert(another->is_struct());
                 if (struct_member_index.size() != another->struct_member_index.size())
@@ -4927,7 +4929,8 @@ namespace wo
                 return derivation_result;
         }
 
-        if (para->is_struct() && args->is_struct())
+        if (para->is_struct() && para->using_type_name == nullptr
+            && args->is_struct() && args->using_type_name == nullptr)
         {
             if (para->struct_member_index.size() == args->struct_member_index.size())
             {
