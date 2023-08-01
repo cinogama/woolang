@@ -1109,11 +1109,12 @@ namespace wo
 
             _macro_action_vm = wo_create_vm();
             if (!wo_load_source(_macro_action_vm,
-                ("macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
+                (wstr_to_str(lex.source_file->c_str()) + " : macro_" + wstr_to_str(macro_name) + ".wo").c_str(),
                 wstr_to_str(macro_anylzing_src + lex.reading_buffer.substr(index, end_index - index)).c_str()))
             {
-                lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR,
-                    str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)).c_str());
+                lex.lex_error(lexer::errorlevel::error, WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR);
+                lex.get_cur_error_frame().back().describe += 
+                    str_to_wstr(wo_get_compile_error(_macro_action_vm, WO_NOTHING)) + WO_MACRO_CODE_END_HERE;
 
                 wo_close_vm(_macro_action_vm);
                 _macro_action_vm = nullptr;

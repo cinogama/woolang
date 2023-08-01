@@ -20,6 +20,8 @@
 
 #define WO_TERM_EXCEPTED L"应当是"
 
+#define WO_MACRO_CODE_END_HERE L"此宏定义在此处结束："
+
 #define WO_TOO_MANY_ERROR(count) L"报告的错误数量太多，仅显示 99/" + std::to_wstring(count) +  L" 条，终止"
 
 
@@ -147,7 +149,7 @@
 
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"未知的预处理指令 '%ls'"
 
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n%ls"
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"宏控制器编译失败：\n"
 
 #define WO_ERR_HERE_SHOULD_HAVE L"缺少 '%ls'"
 
@@ -282,6 +284,8 @@
 
 #define WO_TERM_AND L"and"
 
+#define WO_MACRO_CODE_END_HERE L"The macro definition ends here:"
+
 #define WO_TOO_MANY_ERROR(count) L"Too many errors, only display 99/" + std::to_wstring(count) +  L" errors, abort."
 
 
@@ -409,7 +413,7 @@
 
 #define WO_ERR_UNKNOWN_PRAGMA_COMMAND L"Unknown pre-compile command '%ls'."
 
-#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"Failed macro compiling result: \n%ls."
+#define WO_ERR_FAILED_TO_COMPILE_MACRO_CONTROLOR L"Failed macro compiling result: \n"
 
 #define WO_ERR_HERE_SHOULD_HAVE L"Here should have '%ls'."
 
