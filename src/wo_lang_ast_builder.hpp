@@ -217,6 +217,7 @@ namespace wo
             bool is_gchandle() const;
             std::wstring get_type_name_impl(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
+            grammar::ast_base* instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
         };
 

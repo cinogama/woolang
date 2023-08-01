@@ -148,7 +148,7 @@ namespace wo
                 return;
 
             *this = *_type;
-            _type->instance(this);
+            _type->instance_impl(this, false);
         }
         void ast_type::set_type_with_constant_value(const value& _val)
         {
@@ -713,8 +713,7 @@ namespace wo
             if (using_type_name && using_type_name->is_mutable() != is_mutable)
                 using_type_name->is_mutable_type = is_mutable;
         }
-
-        grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        grammar::ast_base* ast_type::instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const
         {
             using astnode_type = decltype(MAKE_INSTANCE(this));
             auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this, WO_PSTR(pending));
@@ -736,10 +735,20 @@ namespace wo
             {
                 WO_REINSTANCE(argtype);
             }
-            // Do not reinstance struct_member_index, or using st = struct {x: array<st>} will stack overflow
+            if (clone_raw_struct_member && (is_union() || is_struct()) && using_type_name == nullptr)
+            {
+                for (auto& [_, member_info] : dumm->struct_member_index)
+                {
+                    WO_REINSTANCE(member_info.member_type);
+                }
+            }
 
             WO_REINSTANCE(dumm->using_type_name);
             return dumm;
+        }
+        grammar::ast_base* ast_type::instance(ast_base* child_instance) const
+        {
+            return instance_impl(child_instance, true);
         }
         //////////////////////////////////////////
 
