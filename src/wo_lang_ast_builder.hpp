@@ -347,6 +347,7 @@ namespace wo
 
         struct ast_value_type_cast : public virtual ast_value
         {
+            lang_scope* located_scope;
             ast_value* _be_cast_value_node;
 
             ast_value_type_cast(ast_value* value, ast_type* target_type);
@@ -1839,6 +1840,8 @@ namespace wo
 
         struct ast_value_make_struct_instance : virtual public ast_value
         {
+            lang_scope* located_scope;
+
             ast_list* struct_member_vals;
             ast_type* target_built_types;
             bool build_pure_struct;
