@@ -31,6 +31,139 @@ namespace test_monad
         ;
     }
 
+    func fxx(_)=> option<(nothing, parsermonad::State)>
+    {
+        return option::none;
+    }
+
+    namespace parsermonad
+    {
+        using State = struct{
+            source_text: string,
+            source_text_length: int,
+            next_ch_index: int,
+        }
+        {
+            public func create(src: string)
+            {
+                return State{
+                    source_text = src,
+                    source_text_length = src->len,
+                    next_ch_index = 0,
+                };
+            }
+            public func next(self: State)
+            {
+                if (self.next_ch_index >= self.source_text_length)
+                    return option::none;
+                return option::value((self.source_text[self.next_ch_index], 
+                    State{
+                        source_text = self.source_text,
+                        source_text_length = self.source_text_length,
+                        next_ch_index = self.next_ch_index + 1,
+                    }));
+            }
+        }
+
+        using Parser<R> = (State)=>option<(R, State)>
+        {
+            public func create<R>(_parser: (State)=>option<(R, State)>)
+            {
+                return _parser: Parser<R>;
+            }
+            public func pure<R>(v: R)
+            {
+                return Parser::create(\s = option::value((v, s)););
+            }
+            public func fail()
+            {
+                return Parser::create(fxx);
+                //return Parser::create(\_/*s*/ = option::none: option<(nothing, State)>;);
+            }
+
+            public func parse<R>(self: Parser<R>, s: State)
+            {
+                return self(s)
+                    ->> \r_and_state = r_and_state[0] as R;
+                    ;
+            }
+
+            public func bind<R, B>(self: Parser<R>, f: (R)=>Parser<B>)
+            {
+                return Parser::create(
+                    \s = self(s)
+                        =>> \r_and_state = f(r_and_state[0])(r_and_state[1]);
+                    ;
+                );
+            }
+            public func map<R, B>(self: Parser<R>, f: (R)=>B)
+            {
+                return self
+                        =>> \x = pure(f(x));
+                        ;
+            }
+            public func combine<R, B, C>(self: Parser<R>, p: Parser<B>, f: (R, B)=> C)
+            {
+                return self
+                        =>> \a = p
+                            =>> \b = pure(f(a, b));
+                            ;
+                    ;
+            }
+
+            public func skip<R, B>(self: Parser<R>, p: Parser<B>)
+            {
+                return self->combine(p, \a, _ = a;);
+            }
+            public func use<R, B>(self: Parser<R>, p: Parser<B>)
+            {
+                return self->combine(p, \_, b = b;);
+            }
+            public func or<R>(self: Parser<R>, p: Parser<R>)
+            {
+                return Parser::create(
+                    \s = self(s)
+                        ->  orbind(\=p(s);) 
+                    ;
+                );
+            }
+            public func many<R>(self: Parser<R>)=> Parser<array<R>>
+            {
+                return Parser::create(
+                    \s = self(s)
+                        =>> func(r_and_state)
+                            {
+                                match (self->many()(r_and_state[1]))
+                                {
+                                value((rr, ss))?
+                                    return value((rr->inlay(0, r_and_state[0]), ss));
+                                none?
+                                    return none;
+                                }
+                            } 
+                        ->  orbind(\= option::value(([], s));)
+                    ;
+                );
+            }
+            public func some<R>(self: Parser<R>)
+            {
+                return self->combine(self->many(), \x, xs = xs->inlay(0, x););
+            }
+        }
+
+        let id = Parser::create(\s = s->next(););
+        let pred = 
+            \p: (char)=> bool = id
+                =>> \c = p(c) ? Parser::pure(c) | Parser::fail();
+            ;
+        ;
+        let character = \tc: char = pred(\c = c == tc;);;
+        let digit = pred(\c = c->isnumber;)->>\c = (c - '0'): int;;
+        let nat = digit->some()->> func(xs){let mut result = 0; for(let _, n: xs)result = result * 10 + n; return result;};
+        let integer = character('-')->use(nat)->>\x = -x;->or(nat);
+    }
+
+    
     func main()
     {
         let m = addone()
@@ -48,6 +181,11 @@ namespace test_monad
             =>> \r = option::value(r: int);
             ;
         test_assure(m3->val == 12);
+
+        
+        let state = parsermonad::State::create("-25 + 6");
+        let r = parsermonad::integer->parse(state);
+        test_assure(r->val == -25);
     }
 }
 test_function("test_monad.main", test_monad::main);

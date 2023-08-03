@@ -288,7 +288,6 @@ namespace wo
     WO_PASS1(ast_value_type_cast)
     {
         auto* a_value_cast = WO_AST();
-        a_value_cast->located_scope = now_scope();
         analyze_pass1(a_value_cast->_be_cast_value_node);
         fully_update_type(a_value_cast->value_type, true);
         return true;
@@ -848,7 +847,6 @@ namespace wo
     WO_PASS1(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
-        a_value_make_struct_instance->located_scope = now_scope();
         analyze_pass1(a_value_make_struct_instance->struct_member_vals);
         if (a_value_make_struct_instance->build_pure_struct)
         {
@@ -1374,6 +1372,13 @@ namespace wo
 
         if (!a_value_funcdef->is_template_define)
         {
+            if (a_value_funcdef->is_template_reification)
+            {
+                wo_asure(begin_template_scope(a_value_funcdef, 
+                    a_value_funcdef->template_type_name_list, 
+                    a_value_funcdef->this_reification_template_args));
+            }
+
             auto* last_function = this->current_function_in_pass2;
             this->current_function_in_pass2 = a_value_funcdef->this_func_scope;
             wo_assert(this->current_function_in_pass2 != nullptr);
@@ -1458,6 +1463,9 @@ namespace wo
             }
 
             this->current_function_in_pass2 = last_function;
+
+            if (a_value_funcdef->is_template_reification)
+                end_template_scope();
         }
         return true;
     }
@@ -1488,6 +1496,7 @@ namespace wo
         if (a_value_assi->left->value_type->is_func())
         {
             if (auto right_func_instance = judge_auto_type_of_funcdef_with_type(a_value_assi->right,
+                a_value_assi->located_scope,
                 a_value_assi->left->value_type, a_value_assi->right, true, nullptr, nullptr))
                 a_value_assi->right = std::get<ast::ast_value_function_define*>(right_func_instance.value());
         }
@@ -2092,7 +2101,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
                         fnd->second.member_type, membpair->member_value_pair, false, nullptr, nullptr))
                     {
                         updated_member_types[membpair->member_name] = std::get<ast::ast_type*>(result.value());
@@ -2172,7 +2181,7 @@ namespace wo
                     fully_update_type(fnd->second.member_type, false,
                         a_value_make_struct_instance->target_built_types->symbol->template_types);
 
-                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
+                    if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
                         fnd->second.member_type, membpair->member_value_pair, true,
                         a_value_make_struct_instance->target_built_types->symbol->define_node, &template_args))
                     {
@@ -2277,7 +2286,7 @@ namespace wo
 
                         membpair->member_offset = fnd->second.offset;
                         fully_update_type(fnd->second.member_type, false);
-                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair,
+                        if (auto result = judge_auto_type_of_funcdef_with_type(membpair, a_value_make_struct_instance->located_scope,
                             fnd->second.member_type, membpair->member_value_pair, true, nullptr, nullptr))
                             membpair->member_value_pair = std::get<ast::ast_value_function_define*>(result.value());
 
@@ -4278,6 +4287,7 @@ namespace wo
         using namespace ast;
 
         if (!ast_node)return;
+        ast_node->located_scope = now_scope();
 
         if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
         {
@@ -4501,9 +4511,7 @@ namespace wo
         dumpped_template_func_define->searching_begin_namespace_in_pass2 = nullptr;
         dumpped_template_func_define->completed_in_pass2 = false;
         dumpped_template_func_define->is_template_define = false;
-        dumpped_template_func_define->template_type_name_list.clear();
         dumpped_template_func_define->is_template_reification = true;
-
         dumpped_template_func_define->this_reification_template_args = template_args_types;
 
         origin_template_func_define->template_typehashs_reification_instance_list[template_args_hashtypes] =
@@ -4544,12 +4552,14 @@ namespace wo
 
     std::optional<lang::judge_result_t> lang::judge_auto_type_of_funcdef_with_type(
         grammar::ast_base* errreport,
+        lang_scope* located_scope,
         ast::ast_type* param,
         ast::ast_value* callaim,
         bool update,
         ast::ast_defines* template_defines,
         const std::vector<ast::ast_type*>* template_args)
     {
+        wo_assert(located_scope != nullptr);
         if (!param->is_func())
             return std::nullopt;
 
@@ -4598,6 +4608,7 @@ namespace wo
             {
                 if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
                 {
+                    temporary_entry_scope_in_pass1(located_scope);
                     for (auto* template_arg : arg_func_template_args)
                         fully_update_type(template_arg, false);
 
@@ -4606,6 +4617,7 @@ namespace wo
                     if (template_defines && template_args)
                         end_template_scope();
 
+                    temporary_leave_scope_in_pass1();
                     if (reificated != nullptr)
                     {
                         analyze_pass2(reificated);
@@ -4616,11 +4628,13 @@ namespace wo
             }
             else
             {
+                temporary_entry_scope_in_pass1(located_scope);
                 if (begin_template_scope(errreport, function_define, arg_func_template_args))
                 {
                     fully_update_type(new_type, false);
                     end_template_scope();
                 }
+                temporary_leave_scope_in_pass1();
                 return new_type;
             }
         }
@@ -4674,6 +4688,7 @@ namespace wo
 
             std::optional<judge_result_t> judge_result = judge_auto_type_of_funcdef_with_type(
                 funccall, // Used for report error.
+                funccall->located_scope,
                 funccall->called_func->value_type->argument_types[i],
                 args_might_be_nullptr_if_unpack[i], update, template_defines, template_args);
 

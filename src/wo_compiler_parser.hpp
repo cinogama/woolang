@@ -27,6 +27,8 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 
 namespace wo
 {
+    struct lang_scope;
+
     struct token
     {
         lex_type type;
@@ -155,6 +157,8 @@ namespace wo
 
             bool completed_in_pass2 = false;
 
+            lang_scope* located_scope;
+
             ast_base* parent;
             ast_base* children;
             ast_base* sibling;
@@ -177,6 +181,7 @@ namespace wo
                 , children(nullptr)
                 , sibling(nullptr)
                 , last(nullptr)
+                , located_scope(nullptr)
                 , row_begin_no(0)
                 , row_end_no(0)
                 , col_begin_no(0)

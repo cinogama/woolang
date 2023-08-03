@@ -262,6 +262,7 @@ namespace wo
 
         std::optional<judge_result_t> judge_auto_type_of_funcdef_with_type(
             grammar::ast_base* errreport,
+            lang_scope* located_scope,
             ast::ast_type* param,
             ast::ast_value* callaim,
             bool update,
