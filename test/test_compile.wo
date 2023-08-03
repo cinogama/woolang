@@ -1093,6 +1093,84 @@ func main()
                 do a;
             }
             "@);
+        assure_compile_success(@"
+            namespace aaa
+            {
+                protected using example_t = int;
+                public func foo()
+                {
+                    return 0: example_t;
+                }
+            }
+            let a = aaa::foo() as aaa::example_t;
+            "@);
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected using example_t = int;
+                public func foo()
+                {
+                    return 0: example_t;
+                }
+            }
+            let a = aaa::foo(): aaa::example_t;
+            "@);
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected using example_t = int;
+                public func foo()
+                {
+                    return 0: example_t;
+                }
+            }
+            let a = 0: aaa::example_t;
+            "@);
+
+        assure_compile_success(@"
+            namespace aaa
+            {
+                protected using example_t = struct{_: void};
+                public func foo()
+                {
+                    return example_t{_ = do nil};
+                }
+            }
+            let a = aaa::foo() as aaa::example_t;
+            "@);
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected using example_t = struct{_: void};
+                public func foo()
+                {
+                    return example_t{_ = do nil};
+                }
+            }
+            let a = aaa::example_t{_ = do nil};
+            "@);
+        assure_compile_fail(@"
+            namespace aaa
+            {
+                protected using example_t = struct{_: void};
+                public func foo()
+                {
+                    return example_t{_ = do nil};
+                }
+            }
+            let a = struct{_ = do nil}: aaa::example_t;
+            "@);
+        assure_compile_success(@"
+            namespace aaa
+            {
+                using example_t = struct{_: void};
+                public func foo()
+                {
+                    return example_t{_ = do nil};
+                }
+            }
+            let a = struct{_ = do nil}: aaa::example_t;
+            "@);
     }
 
     func main()

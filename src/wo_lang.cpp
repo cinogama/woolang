@@ -288,6 +288,7 @@ namespace wo
     WO_PASS1(ast_value_type_cast)
     {
         auto* a_value_cast = WO_AST();
+        a_value_cast->located_scope = now_scope();
         analyze_pass1(a_value_cast->_be_cast_value_node);
         fully_update_type(a_value_cast->value_type, true);
         return true;
@@ -847,6 +848,7 @@ namespace wo
     WO_PASS1(ast_value_make_struct_instance)
     {
         auto* a_value_make_struct_instance = WO_AST();
+        a_value_make_struct_instance->located_scope = now_scope();
         analyze_pass1(a_value_make_struct_instance->struct_member_vals);
         if (a_value_make_struct_instance->build_pure_struct)
         {
@@ -1512,6 +1514,25 @@ namespace wo
         fully_update_type(a_value_typecast->value_type, false);
         analyze_pass2(origin_value);
 
+        if (a_value_typecast->value_type->using_type_name != nullptr)
+        {
+            auto* cast_type_symbol = a_value_typecast->value_type->using_type_name->symbol;
+            if (cast_type_symbol != nullptr && cast_type_symbol->attribute != nullptr)
+            {
+                if (!check_symbol_is_accessable(
+                    cast_type_symbol,
+                    a_value_typecast->located_scope,
+                    a_value_typecast,
+                    true))
+                {
+                    lang_anylizer->lang_error(
+                        lexer::errorlevel::infom,
+                        cast_type_symbol->get_typedef(),
+                        WO_INFO_CANNOT_USE_UNREACHABLE_TYPE);
+                }
+            }
+        }
+
         if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
@@ -2012,6 +2033,25 @@ namespace wo
             }
         }
         fully_update_type(a_value_make_struct_instance->target_built_types, false);
+
+        if (a_value_make_struct_instance->target_built_types->using_type_name != nullptr)
+        {
+            auto* struct_type_symbol = a_value_make_struct_instance->target_built_types->using_type_name->symbol;
+            if (struct_type_symbol != nullptr && struct_type_symbol->attribute != nullptr)
+            {
+                if (!check_symbol_is_accessable(
+                    struct_type_symbol,
+                    a_value_make_struct_instance->located_scope,
+                    a_value_make_struct_instance,
+                    true))
+                {
+                    lang_anylizer->lang_error(
+                        lexer::errorlevel::infom, 
+                        struct_type_symbol->get_typedef(),
+                        WO_INFO_CANNOT_USE_UNREACHABLE_TYPE);
+                }
+            }
+        }
 
         // Woolang 1.10: Struct's template param might be judge here, we just need do like ast_value_funccall.
         bool need_judge_template_args = a_value_make_struct_instance->target_built_types->is_pending()
@@ -2620,7 +2660,6 @@ namespace wo
                 && called_funcsymb->symbol->type == lang_symbol::symbol_type::function)
             {
                 check_symbol_is_accessable(
-                    called_funcsymb->symbol->get_funcdef(),
                     called_funcsymb->symbol,
                     called_funcsymb->searching_begin_namespace_in_pass2,
                     a_value_funccall,
@@ -3358,8 +3397,8 @@ namespace wo
                         {
                             memberinfors.push_back(&memberinfo);
                         }
-                        std::sort(memberinfors.begin(), memberinfors.end(), 
-                            [](const ast_type::struct_member_infos_t::value_type* a, 
+                        std::sort(memberinfors.begin(), memberinfors.end(),
+                            [](const ast_type::struct_member_infos_t::value_type* a,
                                 const ast_type::struct_member_infos_t::value_type* b)
                             {
                                 return a->second.offset < b->second.offset;
@@ -3371,7 +3410,7 @@ namespace wo
                                 first_member = false;
                             else
                                 result += L",";
-                            
+
                             result += *memberinfo->first + L":" + memberinfo->second.member_type->get_type_name(false, false);
                         }
                         result += L"}";
@@ -7272,35 +7311,6 @@ namespace wo
         }
     }
 
-    bool lang::check_symbol_is_accessable(ast::ast_defines* astdefine, lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error)
-    {
-        if (astdefine->declear_attribute)
-        {
-            if (astdefine->declear_attribute->is_protected_attr())
-            {
-                auto* symbol_defined_space = symbol->defined_in_scope;
-                while (current_scope)
-                {
-                    if (current_scope == symbol_defined_space)
-                        return true;
-                    current_scope = current_scope->parent_scope;
-                }
-                if (give_error)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PROTECTED_IN_OTHER_FUNC, symbol->name->c_str());
-                return false;
-            }
-            if (astdefine->declear_attribute->is_private_attr())
-            {
-                if (ast->source_file == astdefine->source_file)
-                    return true;
-                if (give_error)
-                    lang_anylizer->lang_error(lexer::errorlevel::error, ast, WO_ERR_CANNOT_REACH_PRIVATE_IN_OTHER_FUNC, symbol->name->c_str(),
-                        astdefine->source_file->c_str());
-                return false;
-            }
-        }
-        return true;
-    }
     bool lang::check_symbol_is_accessable(lang_symbol* symbol, lang_scope* current_scope, grammar::ast_base* ast, bool give_error)
     {
         if (symbol->attribute)
@@ -7503,7 +7513,9 @@ namespace wo
                 fnd != indet_finding_namespace->symbols.end())
             {
                 if ((fnd->second->type & target_type_mask) != 0
-                    && check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false))
+                    && (fnd->second->type == lang_symbol::symbol_type::typing 
+                        || fnd->second->type == lang_symbol::symbol_type::type_alias
+                        || check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false)))
                     return var_ident->symbol = fnd->second;
             }
 
@@ -7634,7 +7646,9 @@ namespace wo
             std::set<lang_symbol*> selecting_results;
             selecting_results.swap(searching_result);
             for (auto fnd_result : selecting_results)
-                if (check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
+                if (fnd_result->type == lang_symbol::symbol_type::typing
+                    || fnd_result->type == lang_symbol::symbol_type::type_alias
+                    || check_symbol_is_accessable(fnd_result, searching_from_scope, var_ident, false))
                     searching_result.insert(fnd_result);
 
             if (searching_result.empty())
@@ -7662,7 +7676,9 @@ namespace wo
         }
         // Check symbol is accessable?
         auto* result = *searching_result.begin();
-        if (check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
+        if (result->type == lang_symbol::symbol_type::typing
+            || result->type == lang_symbol::symbol_type::type_alias
+            || check_symbol_is_accessable(result, searching_from_scope, var_ident, has_step_in_step2))
             return var_ident->symbol = result;
         return var_ident->symbol = nullptr;
     }
@@ -7693,17 +7709,6 @@ namespace wo
                 symb_defined_in_func = symb_defined_in_func->parent_scope;
 
             auto* current_function = in_function();
-
-            /*
-            if (!current_function)
-            {
-                current_function = var_ident->searching_begin_namespace_in_pass2;
-                while (current_function && current_function->parent_scope && current_function->type != lang_scope::scope_type::function_scope)
-                    current_function = current_function->parent_scope;
-                if (current_function->type != lang_scope::scope_type::function_scope)
-                    current_function = nullptr;
-            }
-            */
 
             if (current_function &&
                 result->define_in_function
