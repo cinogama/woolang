@@ -272,6 +272,8 @@
 
 #define WO_INFO_IS_THIS_ONE L"是否指的是这里定义的 '%ls'？"
 
+#define WO_INFO_CANNOT_USE_UNREACHABLE_TYPE L"不可以在创建实例或转换类型时，使用无法访问的私有或保护类型"
+
 #else
 
 #define WO_TERM_GLOBAL_NAMESPACE L"global namespace"
@@ -536,5 +538,6 @@
 
 #define WO_INFO_IS_THIS_ONE L"Do you means '%ls', which is defined here?"
 
+#define WO_INFO_CANNOT_USE_UNREACHABLE_TYPE L"Cannot use an inaccessible private or protected type when creating an instance or converting a type."
 
 #endif
