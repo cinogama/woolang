@@ -4623,7 +4623,6 @@ namespace wo
                     if (template_defines && template_args)
                         end_template_scope();
 
-                    
                     if (reificated != nullptr)
                     {
                         analyze_pass2(reificated);
