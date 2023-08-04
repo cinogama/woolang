@@ -4609,6 +4609,12 @@ namespace wo
                 if (!(template_defines && template_args) || begin_template_scope(errreport, template_defines, *template_args))
                 {
                     temporary_entry_scope_in_pass1(located_scope);
+                    {
+                        for (auto* template_arg : arg_func_template_args)
+                            fully_update_type(template_arg, true);
+                    }
+                    temporary_leave_scope_in_pass1();
+
                     for (auto* template_arg : arg_func_template_args)
                         fully_update_type(template_arg, false);
 
@@ -4617,7 +4623,7 @@ namespace wo
                     if (template_defines && template_args)
                         end_template_scope();
 
-                    temporary_leave_scope_in_pass1();
+                    
                     if (reificated != nullptr)
                     {
                         analyze_pass2(reificated);
@@ -4628,13 +4634,20 @@ namespace wo
             }
             else
             {
-                temporary_entry_scope_in_pass1(located_scope);
+
                 if (begin_template_scope(errreport, function_define, arg_func_template_args))
                 {
+                    temporary_entry_scope_in_pass1(located_scope);
+                    {
+                        fully_update_type(new_type, true);
+                    }
+                    temporary_leave_scope_in_pass1();
+
                     fully_update_type(new_type, false);
+
                     end_template_scope();
                 }
-                temporary_leave_scope_in_pass1();
+                
                 return new_type;
             }
         }
