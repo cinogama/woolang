@@ -1,7 +1,3 @@
-[submodule "wooc"]
-	path = wooc
-	url = https://git.cinogama.net/cinogamaproject/woolangpackages/wooc.git
-	branch = master
 [submodule "3rd/asmjit"]
 	path = 3rd/asmjit
 	url = https://git.cinogama.net/mr_cino/asmjit.git
