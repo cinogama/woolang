@@ -1038,10 +1038,20 @@ func main()
             main(25, 6.25);
             "@);
 
-        assure_compile_fail(@"
+        assure_compile_success(@"
             import woo::std;
 
             let _ = 5;
+            "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            let _<T> = 5;
+            "@);
+        assure_compile_fail(@"
+            import woo::std;
+
+            let (a, b)<T> = (5, 6);
             "@);
         
         //  

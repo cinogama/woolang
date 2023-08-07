@@ -259,11 +259,11 @@
 
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"非void类型（此处为 '%ls'）的表达式不允许作为语句，这会导致重要的值被意外忽略"
 
-#define WO_ERR_USELESS_IGNORE_PATTERN L"无意义的模式，此处使用 '_' 没有意义"
-
 #define WO_ERR_UNUSED_VARIABLE_DEFINE L"声明了未使用的 '%ls'，于函数 '%ls' 之中"
 
 #define WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED L"不允许创建与内置类型同名的新类型或类型别名"
+
+#define WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED L"只允许声明泛型变量，但此处是其他模式"
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
@@ -391,9 +391,9 @@
 
 #define WO_ERR_TEMPLATE_ARG_NOT_MATCH L"Not matched template arguments."
 
-#define WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"Type 'array' requires a type as generic parameters."
+#define WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"Type 'array' requires a type as template parameters."
 
-#define WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as generic parameters."
+#define WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as template parameters."
 
 #define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"Unable to deduce the return type of function '%ls', it needs to be marked manually."
 
@@ -525,11 +525,11 @@
 
 #define WO_ERR_NOT_ALLOW_IGNORE_VALUE L"Expressions of type non-void are not allowed as statements(here is '%ls'), which causes important values to be accidentally ignored."
 
-#define WO_ERR_USELESS_IGNORE_PATTERN L"Meanless pattern, '_' is useless here."
-
 #define WO_ERR_UNUSED_VARIABLE_DEFINE L"'%ls' has been declared but never used in function: '%ls'."
 
 #define WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED L"Creation of a new type or type alias with the same name as a built-in type is not allowed."
+
+#define WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED L"Only template variables are allowed, but here are other patterns."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

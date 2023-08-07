@@ -2465,7 +2465,10 @@ namespace wo
                         template_def_item = template_def_item->sibling;
                     }
                 }
-
+                else if (!ast_empty::is_empty(input[1]))
+                {
+                    lex.lang_error(wo::lexer::errorlevel::error, WO_NEED_AST(1), WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED);
+                }
 
                 result->var_refs.push_back({ define_varref, init_val });
 
@@ -2496,6 +2499,10 @@ namespace wo
 
                         template_def_item = template_def_item->sibling;
                     }
+                }
+                else if (!ast_empty::is_empty(input[3]))
+                {
+                    lex.lang_error(wo::lexer::errorlevel::error, WO_NEED_AST(3), WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED);
                 }
                 result->var_refs.push_back({ define_varref, init_val });
 

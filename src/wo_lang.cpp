@@ -29,9 +29,6 @@ namespace wo
         a_varref_defs->located_function = in_function();
         for (auto& varref : a_varref_defs->var_refs)
         {
-            if (dynamic_cast<ast_pattern_takeplace*>(varref.pattern) != nullptr)
-                lang_anylizer->lang_error(lexer::errorlevel::error, varref.pattern, WO_ERR_USELESS_IGNORE_PATTERN);
-
             analyze_pattern_in_pass1(varref.pattern, a_varref_defs->declear_attribute, varref.init_val);
         }
         return true;
@@ -4016,7 +4013,7 @@ namespace wo
 
         if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
-            // DO NOTHING
+            analyze_pass1(initval);
         }
         else
         {
@@ -4087,7 +4084,7 @@ namespace wo
 
         if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
-            // DO NOTHING
+            analyze_pass2(initval);
         }
         else
         {
@@ -4139,7 +4136,7 @@ namespace wo
                 lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
         }
     }
-    void lang::analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, ir_compiler* compiler)
+    void lang::analyze_pattern_in_finalize(ast::ast_pattern_base* pattern, ast::ast_value* initval, bool in_pattern_expr, ir_compiler* compiler)
     {
         using namespace ast;
         using namespace opnum;
@@ -4220,7 +4217,7 @@ namespace wo
                     compiler->idstruct(current_values, struct_val, (uint16_t)i);
                     a_pattern_tuple->tuple_takeplaces[i]->used_reg = &current_values;
 
-                    analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], compiler);
+                    analyze_pattern_in_finalize(a_pattern_tuple->tuple_patterns[i], a_pattern_tuple->tuple_takeplaces[i], true, compiler);
                 }
             }
             complete_using_register(current_values);
@@ -4228,6 +4225,8 @@ namespace wo
         else if (ast_pattern_takeplace* a_pattern_takeplace = dynamic_cast<ast_pattern_takeplace*>(pattern))
         {
             // DO NOTHING
+            if (!in_pattern_expr)
+                analyze_value(initval, compiler);
         }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, pattern, WO_ERR_UNEXPECT_PATTERN_MODE);
@@ -6593,7 +6592,7 @@ namespace wo
                     compiler->mov(static_inited_flag, imm(1));
                 }
 
-                analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, compiler);
+                analyze_pattern_in_finalize(varref_define.pattern, varref_define.init_val, false, compiler);
 
                 if (need_init_check)
                     compiler->tag(init_static_flag_check_tag);
@@ -6899,7 +6898,7 @@ namespace wo
                     wo_assert(a_match_union_case->take_place_value_may_nil);
                     a_match_union_case->take_place_value_may_nil->used_reg = &valreg;
 
-                    analyze_pattern_in_finalize(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil, compiler);
+                    analyze_pattern_in_finalize(a_pattern_union_value->pattern_arg_in_union_may_nil, a_match_union_case->take_place_value_may_nil, true, compiler);
                 }
                 else
                 {
