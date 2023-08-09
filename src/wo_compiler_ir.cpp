@@ -77,15 +77,13 @@ namespace wo
 
         return _general_src_data_buf_b.at(result);
     }
-    size_t program_debug_data_info::get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const
+    std::vector<size_t> program_debug_data_info::get_ip_by_src_location(const std::wstring& src_name, size_t rowno, bool strict, bool ignore_unbreakable)const
     {
-        const size_t FAIL_INDEX = SIZE_MAX;
-
         auto fnd = _general_src_data_buf_a.find(src_name);
         if (fnd == _general_src_data_buf_a.end())
-            return FAIL_INDEX;
+            return {};
 
-        size_t result = FAIL_INDEX;
+        std::vector<size_t> result = {};
         for (auto& locinfo : fnd->second)
         {
             if (ignore_unbreakable || locinfo.unbreakable == false)
@@ -94,14 +92,12 @@ namespace wo
                 {
                     if (locinfo.begin_row_no == rowno)
                     {
-                        if (locinfo.ip < result)
-                            result = locinfo.ip;
+                        result.push_back(locinfo.ip);
                     }
                 }
                 else if (locinfo.begin_row_no <= rowno && locinfo.end_row_no >= rowno)
                 {
-                    if (locinfo.ip < result)
-                        result = locinfo.ip;
+                    result.push_back(locinfo.ip);
                 }
             }
         }
