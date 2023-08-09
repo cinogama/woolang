@@ -5,6 +5,7 @@
 #include <mutex>
 #include <chrono>
 #include <algorithm>
+#include <unordered_set>
 
 wo_real_t _wo_inside_time_sec();
 
@@ -16,7 +17,14 @@ namespace wo
 
         struct _env_context
         {
-            std::map<size_t, std::pair<std::wstring, size_t>> break_point_traps;
+            struct breakpoint_info
+            {
+                std::wstring    m_filepath;
+                size_t          m_row_no;
+                std::vector<size_t> m_break_ips;
+            };
+            std::vector<breakpoint_info> break_point_traps;
+            std::unordered_multiset<size_t> break_ips;
         };
         std::map<runtime_env*, _env_context> env_context;
 
@@ -34,32 +42,52 @@ namespace wo
         double                                  profiler_until = 0.;
         size_t                                  profiler_total_count = 0;
         std::unordered_map<wo::vmbase*, double> profiler_last_sampling_times = {};
-
+        
     public:
         default_debuggee()
         {
 
+        }
+        void set_breakpoint_with_ips(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno, std::vector<size_t> ips)
+        {
+            std::lock_guard g1(_mx);
+
+            auto& context = env_context[vmm->env];
+            for (size_t bip : ips)
+                context.break_ips.insert(bip);
+            context.break_point_traps.emplace_back(std::move(_env_context::breakpoint_info{ src_file, rowno, ips }));
         }
         bool set_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
         {
             std::lock_guard g1(_mx);
 
             auto& context = env_context[vmm->env];
-            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false);
+            auto breakip = vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, true, false);
 
-            if (breakip < vmm->env->rt_code_len)
+            if (!breakip.empty())
             {
-                context.break_point_traps[breakip] = std::make_pair(src_file, rowno);
+                std::vector<size_t> breakips;
+                for (auto bip : breakip)
+                    breakips.push_back(bip);
+                set_breakpoint_with_ips(vmm, src_file, rowno, breakips);
                 return true;
             }
             return false;
         }
-        void clear_breakpoint(wo::vmbase* vmm, const std::wstring& src_file, size_t rowno)
+        bool clear_breakpoint(wo::vmbase* vmm, size_t breakid)
         {
             std::lock_guard g1(_mx);
 
             auto& context = env_context[vmm->env];
-            context.break_point_traps.erase(vmm->env->program_debug_info->get_ip_by_src_location(src_file, rowno, false, false));
+            if (context.break_point_traps.size() > breakid)
+            {
+                for (auto& bip : context.break_point_traps[breakid].m_break_ips)
+                    context.break_ips.erase(bip);
+
+                context.break_point_traps.erase(context.break_point_traps.begin() + breakid);
+                return true;
+            }
+            return false;
         }
         void breakdown_immediately()
         {
@@ -78,7 +106,7 @@ namespace wo
 
 COMMAND_NAME    SHORT_COMMAND   ARGUMENT    DESCRIBE
 ------------------------------------------------------------------------------
-break                           <file line>   Set a breakpoint at the specified
+break           b               <file line>   Set a breakpoint at the specified
                                 <funcname>  location.
 callstack       cs              [max = 8]     Get current VM's callstacks.
 continue        c                             Continue to run.
@@ -447,7 +475,7 @@ profiler                        start
                     }
 
                 }
-                else if (main_command == "break")
+                else if (main_command == "break" || main_command == "b")
                 {
                     if (vmm->env->program_debug_info == nullptr)
                         printf(ANSI_HIR "No pdb found, command failed.\n" ANSI_RST);
@@ -479,8 +507,7 @@ profiler                        start
                                             auto frtip = vmm->env->rt_codes + vmm->env->program_debug_info->get_runtime_ip_by_ip(funcinfo.command_ip_begin);
                                             auto fip = vmm->env->program_debug_info->get_ip_by_runtime_ip(frtip);
                                             auto& srcinfo = vmm->env->program_debug_info->get_src_location_by_runtime_ip(frtip);
-                                            context.break_point_traps[fip] = std::make_pair(srcinfo.source_file, srcinfo.begin_row_no);
-
+                                            set_breakpoint_with_ips(vmm, srcinfo.source_file, srcinfo.begin_row_no, {fip});
                                             //NOTE: some function's reserved stack op may be removed, so get real ir is needed..
                                         }
                                         goto need_next_command;
@@ -518,15 +545,8 @@ profiler                        start
                     size_t breakno;
                     if (need_possiable_input(inputbuf, breakno))
                     {
-                        if (breakno < context.break_point_traps.size())
-                        {
-                            auto fnd = context.break_point_traps.begin();
-
-                            for (size_t i = 0; i < breakno; i++)
-                                fnd++;
-                            context.break_point_traps.erase(fnd);
+                        if (clear_breakpoint(vmm, breakno))
                             wo_stdout << "OK!" << wo_endl;
-                        }
                         else
                             printf(ANSI_HIR "Unknown breakpoint id.\n" ANSI_RST);
                     }
@@ -684,12 +704,9 @@ profiler                        start
                             else
                             {
                                 size_t id = 0;
-                                for (auto& [break_stip, _] : context.break_point_traps)
+                                for (auto& break_info : context.break_point_traps)
                                 {
-                                    auto& file_loc =
-                                        vmm->env->program_debug_info->get_src_location_by_runtime_ip(vmm->env->rt_codes +
-                                            vmm->env->program_debug_info->get_runtime_ip_by_ip(break_stip));
-                                    wo_stdout << (id++) << " :\t" << wstr_to_str(file_loc.source_file) << " (" << file_loc.begin_row_no << "," << file_loc.begin_col_no << ")" << wo_endl;;
+                                    wo_stdout << (id++) << " :\t" << wstr_to_str(break_info.m_filepath) << " (" << break_info.m_row_no  << ")" << wo_endl;;
                                 }
                             }
                         }
@@ -786,9 +803,9 @@ profiler                        start
             size_t breakpoint_found_id = SIZE_MAX;
             size_t finding_id = 0;
             auto wfile_path = str_to_wstr(filepath);
-            for (auto& [ip, srcinfo] : context.break_point_traps)
+            for (auto& breakinfo : context.break_point_traps)
             {
-                if (srcinfo.second == current_row_no && srcinfo.first == wfile_path)
+                if (breakinfo.m_row_no == current_row_no && breakinfo.m_filepath == wfile_path)
                 {
                     breakpoint_found_id = finding_id;
                     break;
@@ -1026,7 +1043,7 @@ profiler                        start
                             && vmm->callstack_layer() < breakdown_temp_for_return_callstackdepth)
                         ) && focus_on_vm == vmm
                     )
-                    || context.break_point_traps.find(command_ip) != context.break_point_traps.end()
+                    || context.break_ips.find(command_ip) != context.break_ips.end()
                     || breakdown_temp_immediately)
                 {
                     block_other_vm_in_this_debuggee();
