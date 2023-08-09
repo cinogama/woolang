@@ -1219,7 +1219,6 @@ namespace wo
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            const size_t xx = sizeof(dict_t);
             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
             auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, (size_t)size);
             gcbase::gc_write_guard gwg1(created_array);

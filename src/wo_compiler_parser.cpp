@@ -760,7 +760,7 @@ namespace wo
                     }
                     else
                     {
-                        auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, te_or_nt_bnodes);
+                        auto astnode = red_rule.ast_create_func(tkr, te_or_nt_bnodes);
 
                         if (astnode.is_ast())
                         {

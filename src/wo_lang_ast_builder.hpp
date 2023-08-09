@@ -33,10 +33,10 @@ namespace wo
         {
             using ast_basic = wo::grammar::ast_base;
             using inputs_t = std::vector<grammar::produce>;
-            using builder_func_t = std::function<grammar::produce(lexer&, const std::wstring&, inputs_t&)>;
+            using builder_func_t = std::function<grammar::produce(lexer&, inputs_t&)>;
 
             virtual ~astnode_builder() = default;
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(false, "");
                 return nullptr;
@@ -1132,7 +1132,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // do nothing
             }
@@ -1233,7 +1233,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // DO NOTHING
             }
@@ -1264,7 +1264,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // DO NOTHING
             }
@@ -1298,7 +1298,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // DO NOTHING
             }
@@ -1858,7 +1858,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // DO NOTHING
             }
@@ -1883,7 +1883,7 @@ namespace wo
                 return dumm;
             }
 
-            void update_constant_value(lexer* lex) override
+            void update_constant_value(lexer*) override
             {
                 // DO NOTHING
             }
@@ -1965,7 +1965,7 @@ namespace wo
         template <size_t pass_idx>
         struct pass_direct : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() > pass_idx);
                 return input[pass_idx];
@@ -1974,7 +1974,7 @@ namespace wo
 
         struct pass_typeof : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* att = new ast_type(WO_PSTR(pending));
                 att->typefrom = dynamic_cast<ast_value*>(WO_NEED_AST(2));
@@ -1988,7 +1988,7 @@ namespace wo
 
         struct pass_build_mutable_type : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* type = dynamic_cast<ast_type*>(WO_NEED_AST(1));
 
@@ -2005,7 +2005,7 @@ namespace wo
 
         struct pass_template_reification : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto att = dynamic_cast<ast_value_variable*>(WO_NEED_AST(0));
                 if (!ast_empty::is_empty(input[1]))
@@ -2024,7 +2024,7 @@ namespace wo
 
         struct pass_decl_attrib_begin : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto att = new ast_decl_attribute;
                 att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(0))->tokens.type);
@@ -2034,7 +2034,7 @@ namespace wo
 
         struct pass_enum_item_create : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_enum_item* item = new ast_enum_item;
                 item->enum_ident = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
@@ -2061,7 +2061,7 @@ namespace wo
 
         struct pass_enum_declear_begin : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_enum_items_list* items = new ast_enum_items_list;
                 auto* enum_item = dynamic_cast<ast_enum_item*>(WO_NEED_AST(0));
@@ -2078,7 +2078,7 @@ namespace wo
 
         struct pass_enum_declear_append : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_enum_items_list* items = dynamic_cast<ast_enum_items_list*>(WO_NEED_AST(0));
                 auto* enum_item = dynamic_cast<ast_enum_item*>(WO_NEED_AST(2));
@@ -2095,7 +2095,7 @@ namespace wo
 
         struct pass_mark_value_as_mut : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // MAY_REF_FACTOR_TYPE_CASTING -> 4
                 wo_assert(input.size() == 2);
@@ -2114,7 +2114,7 @@ namespace wo
 
         struct pass_enum_finalize : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(input.size() == 6);
                 ast_decl_attribute* union_arttribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
@@ -2171,7 +2171,7 @@ namespace wo
 
         struct pass_append_attrib : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto att = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
                 att->add_attribute(&lex, dynamic_cast<ast_token*>(WO_NEED_AST(1))->tokens.type);
@@ -2181,7 +2181,7 @@ namespace wo
 
         struct pass_unary_op : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2203,12 +2203,12 @@ namespace wo
 
         struct pass_import_files : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_mapping_pair : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
                 // [x] = x
@@ -2231,7 +2231,7 @@ namespace wo
 
         struct pass_unpack_args : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2 || input.size() == 3);
 
@@ -2257,14 +2257,14 @@ namespace wo
 
         struct pass_pack_variadic_args : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 return (ast_basic*)new ast_value_packed_variadic_args;
             }
         };
         struct pass_extern : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_extern_info* extern_symb = new ast_extern_info;
                 if (input.size() == 4)
@@ -2296,7 +2296,7 @@ namespace wo
         };
         struct pass_while : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 5);
                 return (grammar::ast_base*)new ast_while(dynamic_cast<ast_value*>(WO_NEED_AST(2)), WO_NEED_AST(4));
@@ -2305,7 +2305,7 @@ namespace wo
 
         struct pass_if : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 6);
                 if (ast_empty::is_empty(input[5]))
@@ -2318,7 +2318,7 @@ namespace wo
         template <size_t pass_idx>
         struct pass_sentence_block : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() > pass_idx);
                 return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(WO_NEED_AST(pass_idx));
@@ -2327,7 +2327,7 @@ namespace wo
 
         struct pass_empty_sentence_block : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 return (grammar::ast_base*)ast_sentence_block::fast_parse_sentenceblock(new ast_empty);
             }
@@ -2335,7 +2335,7 @@ namespace wo
 
         struct pass_map_builder : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 if (input.size() == 3)
                     return (ast_basic*)new ast_value_mapping(dynamic_cast<ast_list*>(WO_NEED_AST(1)), false);
@@ -2349,7 +2349,7 @@ namespace wo
 
         struct pass_array_builder : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 if (input.size() == 3)
                     return (ast_basic*)new ast_value_array(dynamic_cast<ast_list*>(WO_NEED_AST(1)), false);
@@ -2363,12 +2363,12 @@ namespace wo
 
         struct pass_function_define : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_function_call : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2390,7 +2390,7 @@ namespace wo
 
         struct pass_directed_value_for_call : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
 
@@ -2406,7 +2406,7 @@ namespace wo
 
         struct pass_literal : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 1);
                 return (grammar::ast_base*)new ast_value_literal(WO_NEED_TOKEN(0));
@@ -2415,7 +2415,7 @@ namespace wo
 
         struct pass_typeid : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // typeid :< TYPE >
                 wo_test(input.size() == 4);
@@ -2429,12 +2429,12 @@ namespace wo
 
         struct pass_namespace : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_begin_varref_define : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 4);
                 ast_varref_defines* result = new ast_varref_defines;
@@ -2469,7 +2469,7 @@ namespace wo
         };
         struct pass_add_varref_define : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 6);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(0));
@@ -2503,7 +2503,7 @@ namespace wo
         };
         struct pass_mark_as_var_define : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(2));
@@ -2517,7 +2517,7 @@ namespace wo
         };
         struct pass_trans_where_decl_in_lambda : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
                 ast_varref_defines* result = dynamic_cast<ast_varref_defines*>(WO_NEED_AST(1));
@@ -2531,7 +2531,7 @@ namespace wo
 
         /*struct pass_type_decl :public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2549,7 +2549,7 @@ namespace wo
 
         struct pass_type_cast : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2610,7 +2610,7 @@ namespace wo
                 return value_node;
             }
 
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2630,7 +2630,7 @@ namespace wo
 
         struct pass_type_check : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2654,7 +2654,7 @@ namespace wo
 
         struct pass_variable : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 1);
 
@@ -2667,7 +2667,7 @@ namespace wo
 
         struct pass_append_serching_namespace : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
 
@@ -2684,7 +2684,7 @@ namespace wo
 
         struct pass_using_namespace : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_using_namespace* aunames = new ast_using_namespace();
                 auto vs = dynamic_cast<ast_value_variable*>(WO_NEED_AST(2));
@@ -2709,7 +2709,7 @@ namespace wo
 
         struct pass_finalize_serching_namespace : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2743,7 +2743,7 @@ namespace wo
 
         struct pass_variable_in_namespace : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 2);
 
@@ -2758,7 +2758,7 @@ namespace wo
         template <size_t first_node>
         struct pass_create_list : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(first_node < input.size());
 
@@ -2776,7 +2776,7 @@ namespace wo
         template <size_t from, size_t to_list>
         struct pass_append_list : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() > std::max(from, to_list));
 
@@ -2807,7 +2807,7 @@ namespace wo
 
         struct pass_make_tuple : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(input.size() == 1);
                 ast_value_make_tuple_instance* tuple = new ast_value_make_tuple_instance;
@@ -2832,7 +2832,7 @@ namespace wo
 
         struct pass_empty : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 return (grammar::ast_base*)new ast_empty();
             }
@@ -2840,7 +2840,7 @@ namespace wo
 
         struct pass_binary_op : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() >= 3);
 
@@ -2869,7 +2869,7 @@ namespace wo
 
         struct pass_assign_op : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
 
@@ -2907,7 +2907,7 @@ namespace wo
 
         struct pass_binary_logical_op : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // TODO Do optmize, like pass_binary_op
 
@@ -2931,7 +2931,7 @@ namespace wo
 
         struct pass_index_op : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() >= 3);
 
@@ -2982,7 +2982,7 @@ namespace wo
 
         struct pass_build_function_type : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_test(input.size() == 3);
 
@@ -3022,7 +3022,7 @@ namespace wo
         };
         struct pass_build_type_may_template : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_type* result = nullptr;
 
@@ -3066,7 +3066,7 @@ namespace wo
 
         struct pass_build_nil_type : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_type* result = new ast_type(WO_PSTR(nil));
                 return (ast_basic*)result;
@@ -3075,12 +3075,12 @@ namespace wo
 
         struct pass_using_type_as : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_token : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 return (grammar::ast_base*)new ast_token(WO_NEED_TOKEN(0));
             }
@@ -3088,7 +3088,7 @@ namespace wo
 
         struct pass_return : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_return* result = new ast_return();
                 if (input.size() == 3)
@@ -3109,7 +3109,7 @@ namespace wo
 
         struct pass_func_argument : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_value_arg_define* arg_def = new ast_value_arg_define;
                 arg_def->declear_attribute = dynamic_cast<ast_decl_attribute*>(WO_NEED_AST(0));
@@ -3143,12 +3143,12 @@ namespace wo
 
         struct pass_foreach : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_forloop : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // ast_forloop
                 // 1. for ( VARREF_DEFINE EXECUTE ; EXECUTE ) SENTENCES
@@ -3182,7 +3182,7 @@ namespace wo
 
         struct pass_mark_label : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = WO_NEED_AST(2);
                 result->marking_label = wo::wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
@@ -3193,7 +3193,7 @@ namespace wo
 
         struct pass_break : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 if (input.size() == 2)
                     return (ast_basic*)new ast_break;
@@ -3204,7 +3204,7 @@ namespace wo
         };
         struct pass_continue : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 if (input.size() == 2)
                     return (ast_basic*)new ast_continue;
@@ -3215,7 +3215,7 @@ namespace wo
         };
         struct pass_template_decl : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_template_define* atn = new ast_template_define;
                 atn->template_ident = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
@@ -3225,12 +3225,12 @@ namespace wo
 
         struct pass_format_string : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_finish_format_string : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(input.size() == 2);
 
@@ -3251,7 +3251,7 @@ namespace wo
 
         struct pass_union_item : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_union_item* result = new ast_union_item;
                 if (input.size() == 2)
@@ -3276,7 +3276,7 @@ namespace wo
         };
         struct pass_trib_expr : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_value_trib_expr* expr = new ast_value_trib_expr;
 
@@ -3295,12 +3295,12 @@ namespace wo
                 ast_type* type_decl,
                 const std::vector<wo_pstring_t>& template_defines,
                 std::set<wo_pstring_t>& out_used_type);
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input);
+            static grammar::produce build(lexer& lex, inputs_t& input);
         };
 
         struct pass_identifier_pattern : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_pattern_base* result = nullptr;
                 if (input.size() == 3)
@@ -3341,7 +3341,7 @@ namespace wo
         template<size_t pattern_location>
         struct pass_tuple_pattern : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = new ast_pattern_tuple;
                 if (!ast_empty::is_empty(input[pattern_location]))
@@ -3367,7 +3367,7 @@ namespace wo
 
         struct pass_union_pattern : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // 1. CALLABLE_LEFT
                 // 2. CALLABLE_LEFT ( PATTERN )
@@ -3396,7 +3396,7 @@ namespace wo
 
         struct pass_match_case_for_union : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // pattern_case? {sentence in list}
                 wo_assert(input.size() == 3);
@@ -3415,7 +3415,7 @@ namespace wo
 
         struct pass_match : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // match ( value ){ case... }
                 wo_assert(input.size() == 7);
@@ -3429,7 +3429,7 @@ namespace wo
 
         struct pass_struct_member_def : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
                 result->is_value_pair = false;
@@ -3445,7 +3445,7 @@ namespace wo
 
         struct pass_struct_member_init_pair : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 auto* result = new ast_struct_member_define;
                 result->member_name = wstring_pool::get_pstr(WO_NEED_TOKEN(0).identifier);
@@ -3462,7 +3462,7 @@ namespace wo
 
         struct pass_struct_type_define : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(input.size() == 4);
                 // struct{ members }
@@ -3491,7 +3491,7 @@ namespace wo
 
         struct pass_make_struct_instance : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // STRUCT_TYPE { ITEMS }
 
@@ -3533,7 +3533,7 @@ namespace wo
 
         struct pass_build_tuple_type : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // ( LIST )
 
@@ -3565,7 +3565,7 @@ namespace wo
 
         struct pass_tuple_types_list : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 //( LIST , ...)
 
@@ -3584,7 +3584,7 @@ namespace wo
 
         struct pass_build_where_constraint : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // where xxxx.... ,
                 wo_assert(input.size() == 3);
@@ -3599,7 +3599,7 @@ namespace wo
 
         struct pass_build_bind_map_monad : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 // a >> \n = [x * 2];
                 // b ]] \n = x * 2;
@@ -3629,7 +3629,7 @@ namespace wo
 
         struct pass_macro_failed : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_macro);
                 return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNKNOWN_MACRO_NAMED, WO_NEED_TOKEN(0).identifier.c_str()) };
@@ -3638,7 +3638,7 @@ namespace wo
 
         struct pass_do_expr_as_sentence : public astnode_builder
         {
-            static grammar::produce build(lexer& lex, const std::wstring& name, inputs_t& input)
+            static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 wo_assert(WO_NEED_TOKEN(0).type == +lex_type::l_do);
 

@@ -105,13 +105,13 @@ namespace wo
             inline thread_local static std::forward_list<ast_base*>* list = nullptr;
         public:
 
-            ast_base& operator = (const ast_base& another)
+            ast_base& operator = (const ast_base&)
             {
                 // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
                 //            IN 'MAKE_INSTANCE'
                 return *this;
             }
-            ast_base& operator = (ast_base&& another) = delete;
+            ast_base& operator = (ast_base&&) = delete;
 
             static void clean_this_thread_ast()
             {
@@ -335,7 +335,6 @@ namespace wo
         {
             bool stores_terminal = false;
 
-            std::wstring nonterminal_name;
             token        terminal_token = { lex_type::l_error };
 
             ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -388,11 +387,10 @@ namespace wo
             std::wstring nt_name;
 
             size_t builder_index = 0;
-            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func =
-                [](lexer& lex, const std::wstring& name, std::vector<produce>& chs)-> produce
+            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func =
+                [](lexer& lex, std::vector<produce>& chs)-> produce
             {
                 auto defaultAST = new ast_default;// <grammar::ASTDefault>();
-                defaultAST->nonterminal_name = name;
 
                 for (auto& p : chs)
                 {
@@ -625,7 +623,7 @@ namespace wo
             te_nt_index_t production_aim;
             size_t rule_right_count;
             std::wstring rule_left_name;
-            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func;
+            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
         };
 
         lr1table_t LR1_TABLE;

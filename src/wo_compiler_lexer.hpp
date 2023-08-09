@@ -321,18 +321,18 @@ namespace wo
             const static std::set<wchar_t> operator_char_set = []() {
                 std::set<wchar_t> _result;
                 for (auto& [_operator, operator_info] : lex_operator_list)
-                    for (wchar_t ch : _operator)
-                        _result.insert(ch);
+                    for (wchar_t wch : _operator)
+                        _result.insert(wch);
                 return _result;
             }();
-            return operator_char_set.find(ch) != operator_char_set.end();
+            return operator_char_set.find((wchar_t)ch) != operator_char_set.end();
         }
         static bool lex_isspace(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return ch == 0 || iswspace(ch);
+            return ch == 0 || iswspace((wchar_t)ch);
         }
         static bool lex_isalpha(int ch)
         {
@@ -342,7 +342,7 @@ namespace wo
 
             // according to ISO-30112, Chinese character is belonging alpha-set,
             // so we can use 'iswalpha' directly.
-            return iswalpha(ch);
+            return iswalpha((wchar_t)ch);
         }
         static bool lex_isidentbeg(int ch)
         {
@@ -352,7 +352,7 @@ namespace wo
 
             // according to ISO-30112, Chinese character is belonging alpha-set,
             // so we can use 'iswalpha' directly.
-            return iswalpha(ch) || ch == L'_';
+            return iswalpha((wchar_t)ch) || (wchar_t)ch == L'_';
         }
         static bool lex_isident(int ch)
         {
@@ -362,7 +362,7 @@ namespace wo
 
             // according to ISO-30112, Chinese character is belonging alpha-set,
             // so we can use 'iswalpha' directly.
-            return iswalnum(ch) || ch == L'_';
+            return iswalnum((wchar_t)ch) || (wchar_t)ch == L'_';
         }
         static bool lex_isalnum(int ch)
         {
@@ -372,52 +372,52 @@ namespace wo
 
             // according to ISO-30112, Chinese character is belonging alpha-set,
             // so we can use 'iswalpha' directly.
-            return iswalnum(ch);
+            return iswalnum((wchar_t)ch);
         }
         static bool lex_isdigit(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return iswdigit(ch);
+            return iswdigit((wchar_t)ch);
         }
         static bool lex_isxdigit(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return iswxdigit(ch);
+            return iswxdigit((wchar_t)ch);
         }
         static bool lex_isodigit(int ch)
         {
             if (ch == EOF)
                 return false;
 
-            return ch >= L'0' && ch <= L'7';
+            return (wchar_t)ch >= L'0' && (wchar_t)ch <= L'7';
         }
         static int lex_toupper(int ch)
         {
             if (ch == EOF)
                 return EOF;
 
-            return towupper(ch);
+            return towupper((wchar_t)ch);
         }
         static int lex_tolower(int ch)
         {
             if (ch == EOF)
                 return EOF;
 
-            return towlower(ch);
+            return towlower((wchar_t)ch);
         }
         static int lex_hextonum(int ch)
         {
             wo_assert(lex_isxdigit(ch));
 
-            if (iswdigit(ch))
+            if (iswdigit((wchar_t)ch))
             {
-                return ch - L'0';
+                return (wchar_t)ch - L'0';
             }
-            return towupper(ch) - L'A' + 10;
+            return towupper((wchar_t)ch) - L'A' + 10;
         }
 
     public:

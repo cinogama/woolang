@@ -268,7 +268,7 @@ namespace wo
 
                 do
                 {
-                    int readed_ch = next_one();
+                    readed_ch = next_one();
                     if (readed_ch == L'*')
                     {
                         if (next_one() == L'/')
@@ -985,9 +985,9 @@ namespace wo
 
             if (lex_isidentbeg(peek_one()))
             {
-                pragma_name += next_one();
+                pragma_name += (wchar_t)next_one();
                 while (lex_isident(peek_one()))
-                    pragma_name += next_one();
+                    pragma_name += (wchar_t)next_one();
             }
 
             if (pragma_name == L"macro")
