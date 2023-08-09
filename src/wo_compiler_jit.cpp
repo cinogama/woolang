@@ -304,8 +304,8 @@ namespace wo
         static void native_do_calln_nativefunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             rt_sp->type = value::valuetype::callstack;
-            rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
-            rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+            rt_sp->vmcallstack.bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
             rt_bp = --rt_sp;
             vm->bp = vm->sp = rt_sp;
 
@@ -327,8 +327,8 @@ namespace wo
         static void native_do_calln_vmfunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             rt_sp->type = value::valuetype::callstack;
-            rt_sp->ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
-            rt_sp->bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+            rt_sp->vmcallstack.bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
             rt_bp = --rt_sp;
             vm->bp = vm->sp = rt_sp;
 
@@ -395,14 +395,14 @@ namespace wo
 
                 wo::value callstack;
                 callstack.type = wo::value::valuetype::callstack;
-                callstack.bp = 0;
-                callstack.ret_ip = (uint32_t)(rt_ip - codes);
+                callstack.vmcallstack.bp = 0;
+                callstack.vmcallstack.ret_ip = (uint32_t)(rt_ip - codes);
 
                 x86_set_imm(x86compiler, rt_sp, callstack);
                 auto bpoffset = x86compiler.newUInt64();
-                wo_asure(!x86compiler.mov(bpoffset, intptr_ptr(vm, offsetof(wo::vmbase, bp))));
+                wo_asure(!x86compiler.mov(bpoffset, intptr_ptr(vm, offsetof(value, vmcallstack) + offsetof(value::callstack, bp))));
                 wo_asure(!x86compiler.sub(bpoffset, rt_bp));
-                wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, bp)), bpoffset));
+                wo_asure(!x86compiler.mov(asmjit::x86::dword_ptr(rt_sp, offsetof(value, vmcallstack) + offsetof(value::callstack, bp)), bpoffset));
 
                 auto callargptr = x86compiler.newUIntPtr();
                 auto targc = x86compiler.newInt64();

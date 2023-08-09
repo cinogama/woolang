@@ -652,210 +652,6 @@ namespace wo
 
         // OK!
     }
-    void grammar::display(std::wostream& ostrm)
-    {
-        auto ABSTRACT = [](const std::wstring& str) {
-            if (str.size() > 4)
-                return (str.substr(2, 4)) + L"..";
-            return (str);
-        };
-
-        ostrm << L"ID" << L"\t";
-        ostrm << L"|\t";
-        for (auto& NT_I : P_TERMINAL_SET)
-        {
-            ostrm << NT_I << L"\t";
-        }
-        ostrm << L"|\t";
-        for (auto& NT_I : P_NOTERMINAL_SET)
-        {
-            ostrm << ABSTRACT(NT_I.nt_name) << L"\t";
-        }
-        ostrm << std::endl;
-        for (auto& LR1_INFO : LR1_TABLE)
-        {
-            size_t state_max_count = 0;
-            for (auto& act_set : LR1_INFO.second)
-            {
-                if (act_set.second.size() > state_max_count)
-                    state_max_count = act_set.second.size();
-            }
-            ostrm << LR1_INFO.first;
-
-
-            for (size_t item_index = 0; item_index < state_max_count; item_index++)
-            {
-                ostrm << L"\t|\t";
-
-                for (auto& TOK : P_TERMINAL_SET)
-                {
-                    if (item_index < LR1_INFO.second[TOK].size())
-                    {
-                        auto index = LR1_INFO.second[TOK].begin();
-                        for (size_t i = 0; i < item_index; i++)
-                        {
-                            index++;
-                        }
-                        ostrm << (*index) << L"\t";
-                    }
-                    else
-                        ostrm << L"-\t";
-                }
-                ostrm << L"|\t";
-                for (auto& TOK : P_NOTERMINAL_SET)
-                {
-                    if (item_index < LR1_INFO.second[TOK].size())
-                    {
-                        auto index = LR1_INFO.second[TOK].begin();
-                        for (size_t i = 0; i < item_index; i++)
-                        {
-                            index++;
-                        }
-                        ostrm << (*index) << L"\t";
-                    }
-                    else
-                        ostrm << L"-\t";
-                }
-                ostrm << std::endl;
-            }
-        }
-
-        /*ostrm << "===================" << std::endl;
-        size_t CI_COUNT = 0;
-
-        for (auto& CI : C_SET)
-        {
-            ostrm << "Item: " << CI_COUNT << std::endl;
-            CI_COUNT++;
-            for (auto item : CI)
-            {
-                ostrm << item << std::endl;
-            }
-            ostrm << "===================" << std::endl;
-        }*/
-
-    }
-    bool grammar::check(lexer& tkr)
-    {
-        // READ FROM token_reader，CHECK IT
-
-        std::stack<size_t> state_stack;
-        std::stack<sym> sym_stack;
-
-        state_stack.push(0);
-        sym_stack.push(grammar::te{ lex_type::l_eof });
-
-        auto NOW_STACK_STATE = [&]()->size_t& {return state_stack.top(); };
-        auto NOW_STACK_SYMBO = [&]()->sym& {return sym_stack.top(); };
-
-        bool success_flag = true;
-
-        do
-        {
-            std::wstring out_indentifier;
-            lex_type type = tkr.peek(&out_indentifier);
-
-            if (type == +lex_type::l_error)
-            {
-                // have a lex error, skip this error.
-                std::wcout << "fail: lex_error, skip it." << std::endl;
-                type = tkr.next(&out_indentifier);
-                success_flag = false;
-                continue;
-            }
-
-            auto top_symbo =
-                (state_stack.size() == sym_stack.size() ?
-                    grammar::te{ type, out_indentifier }
-                    :
-                    NOW_STACK_SYMBO());
-
-            auto& actions = LR1_TABLE[NOW_STACK_STATE()][top_symbo];
-            auto& e_actions = LR1_TABLE[NOW_STACK_STATE()][grammar::te{ grammar::ttype::l_empty }];
-
-            if (actions.size() || e_actions.size())
-            {
-                bool e_rule = false;
-                if (!actions.size())
-                {
-                    e_rule = true;
-                }
-                auto& take_action = actions.size() ? *actions.begin() : *e_actions.begin();
-
-                if (take_action.act == grammar::action::act_type::push_stack)
-                {
-
-                    state_stack.push(take_action.state);
-                    if (e_rule)
-                    {
-                        sym_stack.push(grammar::te{ grammar::ttype::l_empty });
-                    }
-                    else
-                    {
-                        sym_stack.push(grammar::te{ type,out_indentifier });
-                        tkr.next(nullptr);
-                    }
-
-                    if (std::holds_alternative<grammar::te>(sym_stack.top()))
-                    {
-                        std::wcout << "stack_in: " << std::get<grammar::te>(sym_stack.top()) << std::endl;
-                    }
-                    else
-                    {
-                        std::wcout << "stack_in: " << std::get<grammar::nt>(sym_stack.top()) << std::endl;
-                    }
-                }
-                else if (take_action.act == grammar::action::act_type::reduction)
-                {
-                    auto& red_rule = ORGIN_P[take_action.state];
-                    for (size_t i = red_rule.second.size(); i > 0; i--)
-                    {
-                        //NEED VERIFY?
-                        /*
-                        size_t index = i - 1;
-                        if (sym_stack.top() != red_rule.second[index])
-                        {
-                            return false;
-                        }*/
-
-                        state_stack.pop();
-                        sym_stack.pop();
-                    }
-
-                    sym_stack.push(red_rule.first);
-
-                    std::wcout << "reduce: " << grammar::lr_item{ red_rule,size_t(-1) ,{grammar::ttype::l_eof} } << std::endl;
-                }
-                else if (take_action.act == grammar::action::act_type::accept)
-                {
-                    if (success_flag)
-                        std::wcout << "acc!" << std::endl;
-                    else
-                        std::wcout << "acc, but there are something fail." << std::endl;
-                    return success_flag;
-                }
-                else if (take_action.act == grammar::action::act_type::state_goto)
-                {
-                    std::wcout << "goto: " << take_action.state << std::endl;
-                    state_stack.push(take_action.state);
-                }
-                else
-                {
-                    std::wcout << "fail: err action." << std::endl;
-                    return false;
-                }
-            }
-            else
-            {
-                std::wcout << "fail: no action can be take." << std::endl;
-                return false;//NOT FOUND
-            }
-
-        } while (true);
-
-        std::wcout << "fail: unknown" << std::endl;
-        return false;
-    }
     grammar::ast_base* grammar::gen(lexer& tkr) const
     {
         size_t last_error_rowno = 0;
@@ -1258,8 +1054,7 @@ namespace wo
 
         return nullptr;
     }
-
-    inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
+    std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri)
     {
         ost << (lri.item_rule.first.nt_name) << "->";
         size_t index = 0;
@@ -1295,7 +1090,7 @@ namespace wo
         ost << "," << lri.prospect;
         return ost;
     }
-    inline std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter)
+    std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter)
     {
         if (ter.t_name == L"")
         {
@@ -1312,35 +1107,9 @@ namespace wo
             ost << (ter.t_name);
         return ost;
     }
-    inline std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter)
+    std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter)
     {
         ost << (noter.nt_name);
-        return ost;
-    }
-    inline std::wostream& operator<<(std::wostream& ost, const  grammar::action& act)
-    {
-        switch (act.act)
-        {
-            /*case grammar::action::act_type::error:
-                ost << "err";
-                break;*/
-        case grammar::action::act_type::accept:
-            ost << "acc";
-            break;
-        case grammar::action::act_type::push_stack:
-            ost << "s" << act.state;
-            break;
-        case grammar::action::act_type::reduction:
-            ost << "r" << act.state /*<< "," << act.prospect*/;
-            break;
-        case grammar::action::act_type::state_goto:
-            ost << "g" << act.state;
-            break;
-        default:
-            ost << "-";
-            break;
-        }
-
         return ost;
     }
 }

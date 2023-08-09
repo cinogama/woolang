@@ -51,8 +51,6 @@ namespace wo
             lex_type t_type;
             std::wstring t_name;
 
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
-
             terminal(lex_type type, const std::wstring& name = L"") :
                 t_type(type),
                 t_name(name)
@@ -434,8 +432,6 @@ namespace wo
                 return nt_name == n.nt_name;
             }
 
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
-
             template<typename T>
             rule operator >>(const std::vector<T>& plist)
             {
@@ -517,8 +513,6 @@ namespace wo
             {
                 return !(*this == another);
             }
-
-            friend inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
         };
 
         struct lr0_item
@@ -619,8 +613,6 @@ namespace wo
                 }
                 return act < another.act;
             }
-
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
         struct no_prospect_action
         {
@@ -666,13 +658,9 @@ namespace wo
 
         bool check_lr1(std::wostream& ostrm = std::wcout);
         void finish_rt();
-        void display(std::wostream& ostrm = std::wcout);
-        bool check(lexer& tkr);
         ast_base* gen(lexer& tkr) const;
     };
-
     std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
     std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
     std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
-    std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
 }
