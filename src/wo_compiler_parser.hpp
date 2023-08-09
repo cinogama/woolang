@@ -17,7 +17,6 @@ RS will using 'hand-work' parser, there is not yacc/bison..
 #include <queue>
 #include <stack>
 #include <sstream>
-#include <any>
 #include <forward_list>
 #include <unordered_map>
 #include <unordered_set>
@@ -42,20 +41,6 @@ namespace wo
             os << "(error)";
         os << " }";
         return os;
-    }
-
-    template<typename T>
-    inline bool cast_any_to(std::any& any_val, T& out_value)
-    {
-        if (any_val.type() == typeid(T))
-        {
-            out_value = std::any_cast<T>(any_val);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
     }
 
     // Store this ORGIN_P, LR1_TABLE and FOLLOW_SET after compile.
@@ -312,6 +297,42 @@ namespace wo
             virtual ast_base* instance(ast_base* child_instance = nullptr) const = 0;
         };
 
+        struct produce
+        {
+            std::variant<grammar::ast_base*, token> m_token_or_ast;
+            produce(grammar::ast_base* ast)
+            {
+                m_token_or_ast = ast;
+            }
+            produce(const token& token)
+            {
+                m_token_or_ast = token;
+            }
+
+            produce() = default;
+            produce(const produce&) = default;
+            produce(produce&&) = default;
+            produce& operator = (const produce&) = default;
+            produce& operator = (produce &&) = default;
+
+            bool is_ast() const
+            {
+                return std::holds_alternative<grammar::ast_base*>(m_token_or_ast);
+            }
+            bool is_token() const
+            {
+                return std::holds_alternative<token>(m_token_or_ast);
+            }
+            const token& read_token() const
+            {
+                return std::get<token>(m_token_or_ast);
+            }
+            grammar::ast_base* read_ast() const
+            {
+                return std::get<grammar::ast_base*>(m_token_or_ast);
+            }
+        };
+
         struct ast_default :virtual public ast_base
         {
             bool stores_terminal = false;
@@ -337,21 +358,17 @@ namespace wo
             // used for stand fro l_empty
             // some passer will ignore this xx
 
-            static bool is_empty(std::any& any)
+            static bool is_empty(const produce& p)
             {
-                if (grammar::ast_base* _node; cast_any_to<grammar::ast_base*>(any, _node))
+                if (p.is_ast())
                 {
-                    if (dynamic_cast<ast_empty*>(_node))
-                    {
+                    if (dynamic_cast<ast_empty*>(p.read_ast()))
                         return true;
-                    }
                 }
-                if (token _node = { lex_type::l_error }; cast_any_to<token>(any, _node))
+                if (p.is_token())
                 {
-                    if (_node.type == +lex_type::l_empty)
-                    {
+                    if (p.read_token().type == +lex_type::l_empty)
                         return true;
-                    }
                 }
 
                 return false;
@@ -373,29 +390,29 @@ namespace wo
             std::wstring nt_name;
 
             size_t builder_index = 0;
-            std::function<std::any(lexer&, const std::wstring&, std::vector<std::any>&)> ast_create_func =
-                [](lexer& lex, const std::wstring& name, std::vector<std::any>& chs)->std::any
+            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func =
+                [](lexer& lex, const std::wstring& name, std::vector<produce>& chs)-> produce
             {
                 auto defaultAST = new ast_default;// <grammar::ASTDefault>();
                 defaultAST->nonterminal_name = name;
 
-                for (auto& any_value : chs)
+                for (auto& p : chs)
                 {
-                    if (ast_base* child_ast; cast_any_to<ast_base*>(any_value, child_ast))
+                    if (p.is_ast())
                     {
-                        defaultAST->add_child(child_ast);
+                        defaultAST->add_child(p.read_ast());
                     }
-                    else if (token child_token = { lex_type::l_error }; cast_any_to<token>(any_value, child_token))
+                    else if (p.is_token())
                     {
                         auto teAST = new ast_default;// <grammar::ASTDefault>();
-                        teAST->terminal_token = child_token;
+                        teAST->terminal_token = p.read_token();
                         teAST->stores_terminal = true;
 
                         defaultAST->add_child(teAST);
                     }
                     else
                     {
-                        return lex.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_AST_NODE_TYPE);
+                        return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_UNEXCEPT_AST_NODE_TYPE) };
                     }
                 }
                 return (ast_base*)defaultAST;
@@ -616,7 +633,7 @@ namespace wo
             te_nt_index_t production_aim;
             size_t rule_right_count;
             std::wstring rule_left_name;
-            std::function<std::any(lexer&, const std::wstring&, std::vector<std::any>&)> ast_create_func;
+            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func;
         };
 
         lr1table_t LR1_TABLE;
