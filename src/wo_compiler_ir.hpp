@@ -22,7 +22,7 @@ namespace wo
         struct opnumbase
         {
             virtual ~opnumbase() = default;
-            virtual size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>& buffer) const
+            virtual size_t generate_opnum_to_buffer(cxx_vec_t<byte_t>&) const
             {
                 wo_error("This type can not generate opnum.");
 
@@ -634,7 +634,7 @@ namespace wo
                     case instruct::opcode::siddict:
                         if (ircmbuf.opinteger >= opnum::reg::t0
                             && ircmbuf.opinteger <= opnum::reg::r15
-                            && tr_regist_mapping.find(ircmbuf.opinteger) == tr_regist_mapping.end())
+                            && tr_regist_mapping.find((uint8_t)ircmbuf.opinteger) == tr_regist_mapping.end())
                         {
                             // is temp reg 
                             size_t stack_idx = tr_regist_mapping.size();
@@ -1349,7 +1349,7 @@ namespace wo
 
         void mkclos(uint16_t capture_count, const opnum::tag& wrapped_func)
         {
-            auto& codeb = WO_PUT_IR_TO_BUFFER(instruct::opcode::mkclos, WO_OPNUM(wrapped_func), nullptr, (int32_t)capture_count);
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::mkclos, WO_OPNUM(wrapped_func), nullptr, (int32_t)capture_count);
         }
 
         template<typename OP1T>

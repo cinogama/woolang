@@ -1290,7 +1290,7 @@ namespace wo
 
         //////////////////////////////////////////
 
-        grammar::produce pass_import_files::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_import_files::build(lexer& lex, inputs_t& input)
         {
             wo_test(input.size() == 3);
             std::wstring path;
@@ -1345,7 +1345,7 @@ namespace wo
             return (ast_basic*)new ast_empty();
         }
 
-        grammar::produce pass_foreach::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_foreach::build(lexer& lex, inputs_t& input)
         {
             ast_foreach* afor = new ast_foreach;
 
@@ -1439,7 +1439,7 @@ namespace wo
             return (ast_basic*)afor;
         }
 
-        grammar::produce pass_format_string::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_format_string::build(lexer& lex, inputs_t& input)
         {
             //if(input.size() == )
             wo_assert(input.size() == 2 || input.size() == 3);
@@ -1511,7 +1511,7 @@ namespace wo
                 for (auto* argtype : type_decl->template_arguments)
                     find_used_template(argtype, template_defines, out_used_type);
         }
-        grammar::produce pass_union_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_union_define::build(lexer& lex, inputs_t& input)
         {
             wo_assert(input.size() == 7);
             // ATTRIBUTE union IDENTIFIER <TEMPLATE_DEF> { ITEMS }
@@ -1740,7 +1740,7 @@ namespace wo
             return (ast_basic*)bind_using_type_namespace_result;
         }
 
-        grammar::produce pass_namespace::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_namespace::build(lexer& lex, inputs_t& input)
         {
             wo_test(input.size() == 3);
             if (ast_empty::is_empty(input[2]))
@@ -1777,7 +1777,7 @@ namespace wo
             return (ast_basic*)output_namespace;
         }
 
-        grammar::produce pass_function_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_function_define::build(lexer& lex, inputs_t& input)
         {
             auto* ast_func = new ast_value_function_define;
             ast_type* return_type = nullptr;
@@ -2008,7 +2008,7 @@ namespace wo
         }
 
 
-        grammar::produce pass_using_type_as::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_using_type_as::build(lexer& lex, inputs_t& input)
         {
             // attrib using/alias xxx <>  = xxx ;/{...}
             ast_using_type_as* using_type = new ast_using_type_as;

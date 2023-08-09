@@ -872,16 +872,16 @@ namespace wo
                 {
                     if (src_location_info)
                     {
-                        src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0));
+                        src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0));
 
                         os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(
-                            env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)) << std::endl;
+                            env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0)) << std::endl;
                         os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
                     }
                     else
-                        os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->ret_ip) << std::endl;
+                        os << call_trace_count << ": " << (void*)(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip) << std::endl;
 
-                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
+                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
                 }
                 else
@@ -935,7 +935,7 @@ namespace wo
                     if (src_location_info)
                         result.push_back(
                             callstack_info{
-                                env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->ret_ip - (need_offset ? 1 : 0)),
+                                env->program_debug_info->get_current_func_signature_by_runtime_ip(env->rt_codes + base_callstackinfo_ptr->vmcallstack.ret_ip - (need_offset ? 1 : 0)),
                                 src_location_info->begin_row_no
                             });
                     else
@@ -945,7 +945,7 @@ namespace wo
                                 0,
                             });
 
-                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
+                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
                 }
                 else
@@ -978,7 +978,7 @@ namespace wo
                 if (base_callstackinfo_ptr->type == value::valuetype::callstack)
                 {
 
-                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->bp;
+                    base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
                 }
                 else
@@ -1219,7 +1219,6 @@ namespace wo
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            const size_t xx = sizeof(dict_t);
             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
             auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, (size_t)size);
             gcbase::gc_write_guard gwg1(created_array);
@@ -1364,7 +1363,7 @@ namespace wo
 #define WO_VM_ASSERT(EXPR, REASON) if(!(EXPR)){ip = rt_ip;sp = rt_sp;bp = rt_bp;wo_fail(WO_FAIL_DEADLY,REASON);continue;}
 #endif
 
-            byte_t opcode_dr = (byte_t)(instruct::abrt << 2);
+            byte_t opcode_dr = (byte_t)(instruct::abrt << (uint8_t)2);
             instruct::opcode opcode = (instruct::opcode)(opcode_dr & 0b11111100u);
             unsigned dr = opcode_dr & 0b00000011u;
 
@@ -1835,8 +1834,8 @@ namespace wo
                     case value::valuetype::string_type:
                         rt_cr->set_bool(*opnum1->string < *opnum2->string); break;
                     default:
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         rt_cr->set_bool(false);
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         break;
                     }
 
@@ -1860,8 +1859,8 @@ namespace wo
                     case value::valuetype::string_type:
                         rt_cr->set_bool(*opnum1->string > *opnum2->string); break;
                     default:
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         rt_cr->set_bool(false);
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         break;
                     }
 
@@ -1887,8 +1886,8 @@ namespace wo
                     case value::valuetype::string_type:
                         rt_cr->set_bool(*opnum1->string <= *opnum2->string); break;
                     default:
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         rt_cr->set_bool(false);
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         break;
                     }
 
@@ -1913,8 +1912,8 @@ namespace wo
                     case value::valuetype::string_type:
                         rt_cr->set_bool(*opnum1->string >= *opnum2->string); break;
                     default:
-                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         rt_cr->set_bool(false);
+                        WO_VM_FAIL(WO_FAIL_TYPE_FAIL, "Values of this type cannot be compared.");
                         break;
                     }
 
@@ -1935,8 +1934,8 @@ namespace wo
                         return; // last stack is native_func, just do return; stack balance should be keeped by invoker
                     }
 
-                    value* stored_bp = stack_mem_begin - rt_bp->bp;
-                    rt_ip = rt_env->rt_codes + rt_bp->ret_ip;
+                    value* stored_bp = stack_mem_begin - rt_bp->vmcallstack.bp;
+                    rt_ip = rt_env->rt_codes + rt_bp->vmcallstack.ret_ip;
                     rt_sp = rt_bp;
                     rt_bp = stored_bp;
 
@@ -1964,8 +1963,8 @@ namespace wo
                     }
 
                     rt_sp->type = value::valuetype::callstack;
-                    rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                    rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
+                    rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                    rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
                     rt_bp = --rt_sp;
 
                     if (opnum1->type == value::valuetype::handle_type)
@@ -1982,7 +1981,7 @@ namespace wo
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
-                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                        value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
                     }
@@ -2002,7 +2001,7 @@ namespace wo
                             closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
-                            value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                            value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
                             // Here to invoke jit closure, jit function cannot pop captured arguments,
                             // So we pop them here.
                             rt_sp = rt_bp + closure->m_closure_args_count;
@@ -2025,8 +2024,8 @@ namespace wo
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(WO_IPVAL_MOVE_8);
 
                         rt_sp->type = value::valuetype::callstack;
-                        rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
+                        rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
                         rt_bp = --rt_sp;
                         bp = sp = rt_sp;
                         rt_cr->set_nil();
@@ -2044,7 +2043,7 @@ namespace wo
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'calln'.");
-                        value* stored_bp = stack_mem_begin - (++rt_bp)->bp;
+                        value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
                         rt_sp = rt_bp;
                         rt_bp = stored_bp;
                     }
@@ -2054,8 +2053,8 @@ namespace wo
                         rt_ip += 4; // skip reserved place.
 
                         rt_sp->type = value::valuetype::callstack;
-                        rt_sp->ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
-                        rt_sp->bp = (uint32_t)(stack_mem_begin - rt_bp);
+                        rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - rt_env->rt_codes);
+                        rt_sp->vmcallstack.bp = (uint32_t)(stack_mem_begin - rt_bp);
                         rt_bp = --rt_sp;
 
                         rt_ip = aimplace;
@@ -2160,8 +2159,8 @@ namespace wo
                         index = (wo_integer_t)opnum1->array->size() + opnum2->integer;
                     if ((size_t)index >= opnum1->array->size())
                     {
-                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                         rt_cr->set_nil();
+                        WO_VM_FAIL(WO_FAIL_INDEX_FAIL, "Index out of range.");
                     }
                     else
                     {

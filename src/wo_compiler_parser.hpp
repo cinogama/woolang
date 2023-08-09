@@ -51,8 +51,6 @@ namespace wo
             lex_type t_type;
             std::wstring t_name;
 
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
-
             terminal(lex_type type, const std::wstring& name = L"") :
                 t_type(type),
                 t_name(name)
@@ -107,13 +105,13 @@ namespace wo
             inline thread_local static std::forward_list<ast_base*>* list = nullptr;
         public:
 
-            ast_base& operator = (const ast_base& another)
+            ast_base& operator = (const ast_base&)
             {
                 // ATTENTION: DO NOTHING HERE, DATA COPY WILL BE FINISHED
                 //            IN 'MAKE_INSTANCE'
                 return *this;
             }
-            ast_base& operator = (ast_base&& another) = delete;
+            ast_base& operator = (ast_base&&) = delete;
 
             static void clean_this_thread_ast()
             {
@@ -337,7 +335,6 @@ namespace wo
         {
             bool stores_terminal = false;
 
-            std::wstring nonterminal_name;
             token        terminal_token = { lex_type::l_error };
 
             ast_base* instance(ast_base* child_instance = nullptr) const override
@@ -390,11 +387,10 @@ namespace wo
             std::wstring nt_name;
 
             size_t builder_index = 0;
-            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func =
-                [](lexer& lex, const std::wstring& name, std::vector<produce>& chs)-> produce
+            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func =
+                [](lexer& lex, std::vector<produce>& chs)-> produce
             {
                 auto defaultAST = new ast_default;// <grammar::ASTDefault>();
-                defaultAST->nonterminal_name = name;
 
                 for (auto& p : chs)
                 {
@@ -433,8 +429,6 @@ namespace wo
             {
                 return nt_name == n.nt_name;
             }
-
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
 
             template<typename T>
             rule operator >>(const std::vector<T>& plist)
@@ -517,8 +511,6 @@ namespace wo
             {
                 return !(*this == another);
             }
-
-            friend inline std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
         };
 
         struct lr0_item
@@ -619,8 +611,6 @@ namespace wo
                 }
                 return act < another.act;
             }
-
-            friend std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
         };
         struct no_prospect_action
         {
@@ -633,7 +623,7 @@ namespace wo
             te_nt_index_t production_aim;
             size_t rule_right_count;
             std::wstring rule_left_name;
-            std::function<produce(lexer&, const std::wstring&, std::vector<produce>&)> ast_create_func;
+            std::function<produce(lexer&, std::vector<produce>&)> ast_create_func;
         };
 
         lr1table_t LR1_TABLE;
@@ -666,13 +656,9 @@ namespace wo
 
         bool check_lr1(std::wostream& ostrm = std::wcout);
         void finish_rt();
-        void display(std::wostream& ostrm = std::wcout);
-        bool check(lexer& tkr);
         ast_base* gen(lexer& tkr) const;
     };
-
     std::wostream& operator<<(std::wostream& ost, const  grammar::lr_item& lri);
     std::wostream& operator<<(std::wostream& ost, const  grammar::terminal& ter);
     std::wostream& operator<<(std::wostream& ost, const  grammar::nonterminal& noter);
-    std::wostream& operator<<(std::wostream& ost, const  grammar::action& act);
 }

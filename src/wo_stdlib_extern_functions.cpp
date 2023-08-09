@@ -1009,13 +1009,13 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
 {
     wo_string_t input = wo_string(args + 0);
     size_t token_length;
-    wo_integer_t integer;
+    long long integer;
 
     if (sscanf(input, "%lld%zn", &integer, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
         wo_set_string(wo_struct_get(result, 0), input + token_length);
-        wo_set_int(wo_struct_get(result, 1), integer);
+        wo_set_int(wo_struct_get(result, 1), (wo_integer_t)integer);
         return wo_ret_option_val(vm, result);
     }
 

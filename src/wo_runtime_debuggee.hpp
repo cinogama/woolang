@@ -349,8 +349,8 @@ profiler                        start
                             {
                                 current_frame++;
                                 current_frame_sp = tmp_sp;
-                                current_frame_bp = vmm->stack_mem_begin - tmp_sp->bp;
-                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->ret_ip;
+                                current_frame_bp = vmm->stack_mem_begin - tmp_sp->vmcallstack.bp;
+                                current_runtime_ip = vmm->env->rt_codes + tmp_sp->vmcallstack.ret_ip;
                             }
                             else
                                 break;
@@ -561,9 +561,9 @@ profiler                        start
                 else if (main_command == "cls" || main_command == "clear")
                 {
 #ifdef _WIN32
-                    system("cls");
+                    (void)system("cls");
 #else
-                    system("clear");
+                    (void)system("clear");
 #endif
                 }
                 else if (main_command == "s" || main_command == "step")

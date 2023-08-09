@@ -74,6 +74,12 @@ namespace wo
             struct_type,
         };
 
+        struct callstack
+        {
+            uint32_t bp;
+            uint32_t ret_ip;
+        };
+
         union
         {
             wo_real_t      real;
@@ -87,13 +93,8 @@ namespace wo
             gchandle_t* gchandle;
             closure_t* closure;
             struct_t* structs;
-
-            struct
-            {
-                uint32_t bp;
-                uint32_t ret_ip;
-            };
-
+                     
+            callstack vmcallstack;
             const byte_t* native_function_addr;
 
             // std::atomic<gcbase*> atomic_gcunit_ptr;

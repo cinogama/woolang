@@ -129,7 +129,7 @@ void wo_cause_fail(wo_string_t src_file, uint32_t lineno, wo_string_t functionna
     _wo_fail_handler_function.load()(src_file, lineno, functionname, rterrcode, reason);
 }
 
-void _wo_ctrl_c_signal_handler(int sig)
+void _wo_ctrl_c_signal_handler(int)
 {
     // CTRL + C
     wo::wo_stderr << ANSI_HIR "CTRL+C" ANSI_RST ": Trying to breakdown all virtual-machine by default debuggee immediately." << wo::wo_endl;
