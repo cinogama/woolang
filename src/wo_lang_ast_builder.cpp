@@ -1290,7 +1290,7 @@ namespace wo
 
         //////////////////////////////////////////
 
-        std::any pass_import_files::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_import_files::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             wo_test(input.size() == 3);
             std::wstring path;
@@ -1312,7 +1312,7 @@ namespace wo
             {
                 // import a::b; cannot open a/b.wo, trying a/b/b.wo
                 if (!wo::read_virtual_source(&srcfile, &src_full_path, path + L"/" + filename + L".wo", wo::wstr_to_str(*lex.source_file).c_str()))
-                    return lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str());
+                    return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_OPEN_FILE, path.c_str()) };
             }
 
             if (!lex.has_been_imported(wstring_pool::get_pstr(src_full_path))
@@ -1340,12 +1340,12 @@ namespace wo
                     return (ast_basic*)imported_ast;
                 }
 
-                return +lex_type::l_error;
+                return token{ +lex_type::l_error };
             }
             return (ast_basic*)new ast_empty();
         }
 
-        std::any pass_foreach::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_foreach::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             ast_foreach* afor = new ast_foreach;
 
@@ -1439,7 +1439,7 @@ namespace wo
             return (ast_basic*)afor;
         }
 
-        std::any pass_format_string::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_format_string::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             //if(input.size() == )
             wo_assert(input.size() == 2 || input.size() == 3);
@@ -1511,7 +1511,7 @@ namespace wo
                 for (auto* argtype : type_decl->template_arguments)
                     find_used_template(argtype, template_defines, out_used_type);
         }
-        std::any pass_union_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_union_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             wo_assert(input.size() == 7);
             // ATTRIBUTE union IDENTIFIER <TEMPLATE_DEF> { ITEMS }
@@ -1740,7 +1740,7 @@ namespace wo
             return (ast_basic*)bind_using_type_namespace_result;
         }
 
-        std::any pass_namespace::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_namespace::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             wo_test(input.size() == 3);
             if (ast_empty::is_empty(input[2]))
@@ -1777,7 +1777,7 @@ namespace wo
             return (ast_basic*)output_namespace;
         }
 
-        std::any pass_function_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_function_define::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             auto* ast_func = new ast_value_function_define;
             ast_type* return_type = nullptr;
@@ -1974,7 +1974,7 @@ namespace wo
                     }
 
                     if (ast_func->value_type->is_variadic_function_type)
-                        return lex.parser_error(lexer::errorlevel::error, WO_ERR_ARG_DEFINE_AFTER_VARIADIC);
+                        return token{ lex.parser_error(lexer::errorlevel::error, WO_ERR_ARG_DEFINE_AFTER_VARIADIC) };
 
                     ast_func->value_type->append_function_argument_type(arg_node->value_type);
                 }
@@ -2008,7 +2008,7 @@ namespace wo
         }
 
 
-        std::any pass_using_type_as::build(lexer& lex, const std::wstring& name, inputs_t& input)
+        grammar::produce pass_using_type_as::build(lexer& lex, const std::wstring& name, inputs_t& input)
         {
             // attrib using/alias xxx <>  = xxx ;/{...}
             ast_using_type_as* using_type = new ast_using_type_as;

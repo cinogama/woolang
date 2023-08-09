@@ -870,7 +870,7 @@ namespace wo
 
         std::stack<size_t> state_stack;
         std::stack<te_nt_index_t> sym_stack;
-        std::stack<std::pair<source_info, std::any>> node_stack;
+        std::stack<std::pair<source_info, produce>> node_stack;
 
         const te_nt_index_t te_leof_index = TERM_MAP.at(+lex_type::l_eof);
         const te_nt_index_t te_lempty_index = TERM_MAP.at(+lex_type::l_empty);
@@ -934,7 +934,7 @@ namespace wo
                     auto& red_rule = RT_PRODUCTION[take_action.state];
 
                     std::vector<source_info> srcinfo_bnodes(red_rule.rule_right_count);
-                    std::vector<std::any> te_or_nt_bnodes(red_rule.rule_right_count);
+                    std::vector<produce> te_or_nt_bnodes(red_rule.rule_right_count);
 
                     for (size_t i = red_rule.rule_right_count; i > 0; i--)
                     {
@@ -946,18 +946,11 @@ namespace wo
                     }
                     sym_stack.push(red_rule.production_aim);
 
-                    if (std::find_if(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](std::any& astn) {
+                    if (std::find_if(te_or_nt_bnodes.begin(), te_or_nt_bnodes.end(), [](produce& astn) {
 
-                        if (astn.type() == typeid(token))
+                        if (astn.is_token())
                         {
-                            if (std::any_cast<token>(astn).type == +lex_type::l_error)
-                            {
-                                return true;
-                            }
-                        }
-                        else if (astn.type() == typeid(lex_type))
-                        {
-                            if (std::any_cast<lex_type>(astn) == +lex_type::l_error)
+                            if (astn.read_token().type == +lex_type::l_error)
                             {
                                 return true;
                             }
@@ -973,8 +966,9 @@ namespace wo
                     {
                         auto astnode = red_rule.ast_create_func(tkr, red_rule.rule_left_name, te_or_nt_bnodes);
 
-                        if (ast_base* ast_node_; cast_any_to<ast_base*>(astnode, ast_node_))
+                        if (astnode.is_ast())
                         {
+                            auto* ast_node_ = astnode.read_ast();
                             wo_assert(!te_or_nt_bnodes.empty());
 
                             if (!srcinfo_bnodes.empty())
@@ -1005,10 +999,10 @@ namespace wo
                     if (!tkr.lex_error_list.empty())
                         return nullptr;
 
-                    ast_base* result;
-                    if (cast_any_to<ast_base*>(node_stack.top().second, result))
+                    auto& node = node_stack.top().second;
+                    if (node.is_ast())
                     {
-                        return result;
+                        return node.read_ast();
                     }
                     else
                     {
