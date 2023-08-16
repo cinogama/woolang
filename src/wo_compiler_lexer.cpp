@@ -182,6 +182,11 @@ namespace wo
                             temp_token_buff_stack.pop();
 
                         peeked_flag = false;
+
+                        now_file_rowno = after_pick_now_file_rowno;
+                        now_file_colno = after_pick_now_file_colno;
+                        next_file_rowno = after_pick_next_file_rowno;
+                        next_file_colno = after_pick_next_file_colno;
                     }
 
                     wo_push_pointer(fnd->second->_macro_action_vm, this);
@@ -189,6 +194,11 @@ namespace wo
 
                     if (workinpeek)
                     {
+                        after_pick_now_file_rowno = now_file_rowno;
+                        after_pick_now_file_colno = now_file_colno;
+                        after_pick_next_file_rowno = next_file_rowno;
+                        after_pick_next_file_colno = next_file_colno;
+
                         wo_assert(peeked_flag == false);
                         peek_result_type = next(&peek_result_str);
                         if (out_literal)
