@@ -1790,7 +1790,6 @@ std::variant<
     wo::lexer*
 > _wo_compile_to_nojit_env(wo_string_t virtual_src_path, const void* src, size_t len, size_t stacksz)
 {
-    printf(ANSI_HIG "Compile %s begin! %d\n" ANSI_RST, virtual_src_path, clock());
     if (stacksz == 0)
         stacksz = 1024;
 
@@ -1831,8 +1830,6 @@ std::variant<
     bool need_exchange_back = wo::grammar::ast_base::exchange_this_thread_ast(m_last_context);
     if (!lex->has_error())
     {
-        printf(ANSI_HIG "Lexer %s begin! %d\n" ANSI_RST, virtual_src_path, clock());
-
         // 2. Lexer will create ast_tree;
         auto result = wo::get_wo_grammar()->gen(*lex);
         if (result)
@@ -1840,11 +1837,9 @@ std::variant<
             // 3. Create lang, most anything store here..
             wo::lang lang(*lex);
 
-            printf(ANSI_HIG "Pass1 %s begin! %d\n" ANSI_RST, virtual_src_path, clock());
             lang.analyze_pass1(result);
             if (!lang.has_compile_error())
             {
-                printf(ANSI_HIG "Pass2 %s begin! %d\n" ANSI_RST, virtual_src_path, clock());
                 lang.analyze_pass2(result);
             }
 
@@ -1852,7 +1847,6 @@ std::variant<
             if (!lang.has_compile_error())
             {
                 wo::ir_compiler compiler;
-                printf(ANSI_HIG "Pass3 %s begin! %d\n" ANSI_RST, virtual_src_path, clock());
                 lang.analyze_finalize(result, &compiler);
 
                 if (!lang.has_compile_error())
