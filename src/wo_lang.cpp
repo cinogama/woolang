@@ -330,7 +330,7 @@ namespace wo
                 {
                     if (!argdef->symbol)
                     {
-                        if (argdef->value_type->is_custom())
+                        if (argdef->value_type->may_need_update())
                         {
                             // ready for update..
                             fully_update_type(argdef->value_type, true);
@@ -473,7 +473,7 @@ namespace wo
         auto* a_value_arr = WO_AST();
         analyze_pass1(a_value_arr->array_items);
 
-        if (a_value_arr->value_type->is_pending() && !a_value_arr->value_type->is_custom())
+        if (a_value_arr->value_type->is_pure_pending())
         {
             auto* arr_elem_type = a_value_arr->value_type->template_arguments[0];
             arr_elem_type->set_type_with_name(WO_PSTR(nothing));
@@ -510,7 +510,7 @@ namespace wo
         auto* a_value_map = WO_AST();
         analyze_pass1(a_value_map->mapping_pairs);
 
-        if (a_value_map->value_type->is_pending() && !a_value_map->value_type->is_custom())
+        if (a_value_map->value_type->is_pure_pending())
         {
             ast_type* decide_map_key_type = a_value_map->value_type->template_arguments[0];
             ast_type* decide_map_val_type = a_value_map->value_type->template_arguments[1];
@@ -3328,12 +3328,8 @@ namespace wo
             }
             return true;
         }
-        std::wstring ast_type::get_type_name_impl(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const
+        std::wstring ast_type::get_type_name(bool ignore_using_type, bool ignore_prefix) const
         {
-            if (s.find(this) != s.end())
-                return L"..";
-            s.insert(this);
-
             std::wstring result;
 
             if (!ignore_prefix)
@@ -3347,7 +3343,7 @@ namespace wo
                 auto namespacechain = (search_from_global_namespace ? L"::" : L"") +
                     wo::str_to_wstr(get_belong_namespace_path_with_lang_scope(using_type_name->symbol));
                 result += (namespacechain.empty() ? L"" : namespacechain + L"::")
-                    + using_type_name->get_type_name_impl(s, ignore_using_type, true);
+                    + using_type_name->get_type_name(ignore_using_type, true);
             }
             else
             {
@@ -3358,7 +3354,7 @@ namespace wo
                     result += L"(";
                     for (size_t index = 0; index < argument_types.size(); index++)
                     {
-                        result += argument_types[index]->get_type_name_impl(s, ignore_using_type, false);
+                        result += argument_types[index]->get_type_name(ignore_using_type, false);
                         if (index + 1 != argument_types.size() || is_variadic_function_type)
                             result += L", ";
                     }
@@ -3367,7 +3363,7 @@ namespace wo
                     {
                         result += L"...";
                     }
-                    result += L")=>" + complex_type->get_type_name_impl(s, ignore_using_type, false);
+                    result += L")=>" + complex_type->get_type_name(ignore_using_type, false);
                 }
                 else
                 {
@@ -3387,7 +3383,7 @@ namespace wo
                         result += (type_name != WO_PSTR(tuple)) ? L"<" : L"(";
                         for (size_t index = 0; index < template_arguments.size(); index++)
                         {
-                            result += template_arguments[index]->get_type_name_impl(s, ignore_using_type, false);
+                            result += template_arguments[index]->get_type_name(ignore_using_type, false);
                             if (index + 1 != template_arguments.size())
                                 result += L", ";
                         }
@@ -3423,13 +3419,7 @@ namespace wo
                     }
                 }
             }
-            s.erase(this);
             return result;
-        }
-        std::wstring ast_type::get_type_name(bool ignore_using_type, bool ignore_mut) const
-        {
-            std::unordered_set<const ast_type*> us;
-            return get_type_name_impl(us, ignore_using_type, ignore_mut);
         }
         bool ast_type::is_hkt() const
         {
@@ -3795,16 +3785,16 @@ namespace wo
         }
 
         // todo: begin_template_scope here~
-        if (type->is_custom())
+        if (type->has_custom())
         {
             bool stop_update = false;
             if (type->is_complex())
             {
-                if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
+                if (type->complex_type->has_custom() && !type->complex_type->is_hkt())
                 {
                     if (fully_update_type(type->complex_type, in_pass_1, template_types, s))
                     {
-                        if (type->complex_type->is_custom() && !type->complex_type->is_hkt())
+                        if (type->complex_type->has_custom() && !type->complex_type->is_hkt())
                             stop_update = true;
                     }
                 }
@@ -3812,10 +3802,10 @@ namespace wo
             if (type->is_func())
                 for (auto& a_t : type->argument_types)
                 {
-                    if (a_t->is_custom() && !a_t->is_hkt())
+                    if (a_t->has_custom() && !a_t->is_hkt())
                         if (fully_update_type(a_t, in_pass_1, template_types, s))
                         {
-                            if (a_t->is_custom() && !a_t->is_hkt())
+                            if (a_t->has_custom() && !a_t->is_hkt())
                                 stop_update = true;
                         }
                 }
@@ -3824,9 +3814,9 @@ namespace wo
             {
                 for (auto* template_type : type->template_arguments)
                 {
-                    if (template_type->is_custom() && !template_type->is_hkt())
+                    if (template_type->has_custom() && !template_type->is_hkt())
                         if (fully_update_type(template_type, in_pass_1, template_types, s))
-                            if (template_type->is_custom() && !template_type->is_hkt())
+                            if (template_type->has_custom() && !template_type->is_hkt())
                                 stop_update = true;
                 }
             }
@@ -4819,7 +4809,7 @@ namespace wo
                     if (dynamic_cast<ast_value_function_define*>(a_value) == nullptr
                         // ast_value_make_struct_instance might need to auto judge types.
                         && dynamic_cast<ast_value_make_struct_instance*>(a_value) == nullptr
-                        && a_value->value_type->is_custom())
+                        && a_value->value_type->has_custom())
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, a_value, WO_ERR_UNKNOWN_TYPE
                             , a_value->value_type->get_type_name().c_str());
@@ -4843,7 +4833,7 @@ namespace wo
                     // ready for update..
                     fully_update_type(ast_value_check->aim_type, false);
 
-                    if (ast_value_check->aim_type->is_custom())
+                    if (ast_value_check->aim_type->is_pending())
                     {
                         lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_check, WO_ERR_UNKNOWN_TYPE
                             , ast_value_check->aim_type->get_type_name().c_str());

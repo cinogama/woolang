@@ -14,7 +14,6 @@
 #include <type_traits>
 #include <cmath>
 #include <unordered_map>
-#include <unordered_set>
 #include <algorithm>
 
 namespace wo
@@ -173,14 +172,12 @@ namespace wo
             bool is_force_immutable() const;
 
             bool is_dynamic() const;
-            bool is_custom(std::unordered_set<const ast_type*>& s) const;
+            bool has_custom() const;
             bool is_custom() const;
             bool is_pure_pending() const;
             bool is_hkt() const;
             bool is_hkt_typing() const;
-            bool is_pending(std::unordered_set<const ast_type*>& s) const;
             bool is_pending() const;
-            bool may_need_update(std::unordered_set<const ast_type*>& s) const;
             bool may_need_update() const;
             bool is_pending_function() const;
             bool is_void() const;
@@ -214,7 +211,6 @@ namespace wo
             bool is_real() const;
             bool is_handle() const;
             bool is_gchandle() const;
-            std::wstring get_type_name_impl(std::unordered_set<const ast_type*>& s, bool ignore_using_type, bool ignore_prefix) const;
             std::wstring get_type_name(bool ignore_using_type = true, bool ignore_mut = false) const;
             grammar::ast_base* instance_impl(ast_base* child_instance, bool clone_raw_struct_member) const;
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override;
@@ -1186,10 +1182,8 @@ namespace wo
                 index->update_constant_value(lex);
 
                 // if left/right is custom, donot calculate them 
-                if (from->value_type->is_custom()
-                    || from->value_type->using_type_name
-                    || index->value_type->is_custom()
-                    || index->value_type->using_type_name)
+                if (!from->value_type->is_builtin_basic_type()
+                    || !index->value_type->is_builtin_basic_type())
                     return;
 
                 if (from->is_constant && index->is_constant)
