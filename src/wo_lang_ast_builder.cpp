@@ -206,25 +206,28 @@ namespace wo
         {
             return !is_func() && type_name == WO_PSTR(dynamic);
         }
-        bool ast_type::is_custom(std::unordered_set<const ast_type*>& s) const
-        {
-            if (s.find(this) != s.end())
-                return false;
-            s.insert(this);
 
+        bool ast_type::is_custom() const
+        {
+            return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
+        }
+
+        bool ast_type::has_custom() const
+        {
             if (has_template())
             {
                 for (auto arg_type : template_arguments)
                 {
-                    if (arg_type->is_custom(s))
+                    if (arg_type->has_custom())
                         return true;
                 }
             }
-            if (is_struct())
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
             {
-                for (auto &[_, memberinfo] : struct_member_index)
+                for (auto& [_, memberinfo] : struct_member_index)
                 {
-                    if (memberinfo.member_type->is_custom(s))
+                    if (memberinfo.member_type->has_custom())
                         return true;
                 }
             }
@@ -232,30 +235,22 @@ namespace wo
             {
                 for (auto arg_type : argument_types)
                 {
-                    if (arg_type->is_custom(s))
+                    if (arg_type->has_custom())
                         return true;
                 }
             }
             if (is_complex())
-                return complex_type->is_custom(s);
+                return complex_type->has_custom();
             else
                 return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
         }
-        bool ast_type::is_custom() const
-        {
-            std::unordered_set<const ast_type*> us;
-            return is_custom(us);
-        }
+
         bool ast_type::is_pure_pending() const
         {
             return type_name == WO_PSTR(pending) && typefrom == nullptr;
         }
-        bool ast_type::is_pending(std::unordered_set<const ast_type*>& s) const
+        bool ast_type::is_pending() const
         {
-            if (s.find(this) != s.end())
-                return false;
-            s.insert(this);
-
             if (is_hkt_typing())
                 return false;
 
@@ -263,7 +258,7 @@ namespace wo
             {
                 for (auto arg_type : template_arguments)
                 {
-                    if (arg_type->is_pending(s))
+                    if (arg_type->is_pending())
                         return true;
                 }
             }
@@ -272,7 +267,7 @@ namespace wo
             {
                 for (auto& [_, memberinfo] : struct_member_index)
                 {
-                    if (memberinfo.member_type->is_pending(s))
+                    if (memberinfo.member_type->is_pending())
                         return true;
                 }
             }
@@ -280,59 +275,14 @@ namespace wo
             {
                 for (auto arg_type : argument_types)
                 {
-                    if (arg_type->is_pending(s))
+                    if (arg_type->is_pending())
                         return true;
                 }
             }
 
             bool base_type_pending;
             if (is_complex())
-                base_type_pending = complex_type->is_pending(s);
-            else
-                base_type_pending = type_name == WO_PSTR(pending);
-
-            return is_pending_type || base_type_pending;
-        }
-        bool ast_type::is_pending() const
-        {
-            std::unordered_set<const ast_type*> us;
-            return is_pending(us);
-        }
-        bool ast_type::may_need_update(std::unordered_set<const ast_type*>& s) const
-        {
-            if (s.find(this) != s.end())
-                return false;
-            s.insert(this);
-
-            if (has_template())
-            {
-                for (auto arg_type : template_arguments)
-                {
-                    if (arg_type->may_need_update(s))
-                        return true;
-                }
-            }
-            // NOTE: Only anonymous structs need this check
-            if (is_struct() && using_type_name == nullptr)
-            {
-                for (auto& [_, memberinfo] : struct_member_index)
-                {
-                    if (memberinfo.member_type->may_need_update(s))
-                        return true;
-                }
-            }
-            if (is_func())
-            {
-                for (auto arg_type : argument_types)
-                {
-                    if (arg_type->may_need_update(s))
-                        return true;
-                }
-            }
-
-            bool base_type_pending;
-            if (is_complex())
-                base_type_pending = complex_type->may_need_update(s);
+                base_type_pending = complex_type->is_pending();
             else
                 base_type_pending = type_name == WO_PSTR(pending);
 
@@ -340,8 +290,39 @@ namespace wo
         }
         bool ast_type::may_need_update() const
         {
-            std::unordered_set<const ast_type*> us;
-            return may_need_update(us);
+            if (has_template())
+            {
+                for (auto arg_type : template_arguments)
+                {
+                    if (arg_type->may_need_update())
+                        return true;
+                }
+            }
+            // NOTE: Only anonymous structs need this check
+            if (is_struct() && using_type_name == nullptr)
+            {
+                for (auto& [_, memberinfo] : struct_member_index)
+                {
+                    if (memberinfo.member_type->may_need_update())
+                        return true;
+                }
+            }
+            if (is_func())
+            {
+                for (auto arg_type : argument_types)
+                {
+                    if (arg_type->may_need_update())
+                        return true;
+                }
+            }
+
+            bool base_type_pending;
+            if (is_complex())
+                base_type_pending = complex_type->may_need_update();
+            else
+                base_type_pending = type_name == WO_PSTR(pending);
+
+            return is_pending_type || base_type_pending;
         }
         bool ast_type::is_pending_function() const
         {
@@ -1214,10 +1195,8 @@ namespace wo
             right->update_constant_value(lex);
 
             // if left/right is custom, donot calculate them 
-            if (left->value_type->is_custom()
-                || left->value_type->using_type_name
-                || right->value_type->is_custom()
-                || right->value_type->using_type_name)
+            if (!left->value_type->is_builtin_basic_type()
+                || !right->value_type->is_builtin_basic_type())
                 return;
 
             if (overrided_operation_call)
@@ -2091,8 +2070,8 @@ namespace wo
                 if (!left->value_type->is_bool() || !right->value_type->is_bool())
                     return;
             }
-            else if (left->value_type->is_custom() || left->value_type->using_type_name
-                || right->value_type->is_custom() || right->value_type->using_type_name)
+            else if (!left->value_type->is_builtin_basic_type()
+                || !right->value_type->is_builtin_basic_type())
                 return;
 
             if (overrided_operation_call)
