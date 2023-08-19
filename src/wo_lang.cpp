@@ -473,7 +473,9 @@ namespace wo
         auto* a_value_arr = WO_AST();
         analyze_pass1(a_value_arr->array_items);
 
-        if (a_value_arr->value_type->is_pure_pending())
+        wo_assert((a_value_arr->value_type->is_array() || a_value_arr->value_type->is_vec()) 
+            && a_value_arr->value_type->template_arguments.size() == 1);
+        if (a_value_arr->value_type->template_arguments[0]->is_pure_pending())
         {
             auto* arr_elem_type = a_value_arr->value_type->template_arguments[0];
             arr_elem_type->set_type_with_name(WO_PSTR(nothing));
@@ -510,7 +512,11 @@ namespace wo
         auto* a_value_map = WO_AST();
         analyze_pass1(a_value_map->mapping_pairs);
 
-        if (a_value_map->value_type->is_pure_pending())
+        wo_assert((a_value_map->value_type->is_map() || a_value_map->value_type->is_dict())
+            && a_value_map->value_type->template_arguments.size() == 2);
+
+        if (a_value_map->value_type->template_arguments[0]->is_pure_pending()
+            || a_value_map->value_type->template_arguments[1]->is_pure_pending())
         {
             ast_type* decide_map_key_type = a_value_map->value_type->template_arguments[0];
             ast_type* decide_map_val_type = a_value_map->value_type->template_arguments[1];
