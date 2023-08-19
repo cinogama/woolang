@@ -1181,6 +1181,22 @@ func main()
             }
             let a = struct{_ = do nil}: aaa::example_t;
             "@);
+
+        assure_compile_fail(@"
+            import woo::std;
+            using RecursiveT = (RecursiveT, void);
+            do option::none: option<RecursiveT>;
+            "@);
+        assure_compile_fail(@"
+            import woo::std;
+            using RecursiveT = (void, RecursiveT);
+            do option::none: option<RecursiveT>;
+            "@);
+        assure_compile_fail(@"
+            import woo::std;
+            using RecursiveT = (RecursiveT, RecursiveT);
+            do option::none: option<RecursiveT>;
+            "@);
     }
 
     func main()
