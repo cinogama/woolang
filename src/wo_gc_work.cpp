@@ -37,7 +37,7 @@ namespace wo
 
         std::atomic_flag            _gc_immediately = {};
 
-        uint32_t                    _gc_immediately_edge = 100000;
+        uint32_t                    _gc_immediately_edge = 250000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
 
         std::atomic_size_t _gc_scan_vm_index;
@@ -373,35 +373,58 @@ namespace wo
                 _gc_is_marking = true;
 
                 // 0. Prepare vm gray unit list
-                _gc_vm_gray_unit_lists.clear();
-                for (auto* vmimpl : vmbase::_alive_vm_list)
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        _gc_vm_gray_unit_lists[vmimpl] = {};
-
-                // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
-                for (auto* vmimpl : vmbase::_alive_vm_list)
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                        wo_asure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
-
-                for (auto* vmimpl : vmbase::_alive_vm_list)
+                if (!_gc_stopping_world_gc)
                 {
-                    if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                    _gc_vm_gray_unit_lists.clear();
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
                     {
-                        switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT))
-                        {
-                        case vmbase::interrupt_wait_result::TIMEOUT:
-                            // HANGUP_INTERRUPT may failed, ignore and handle it later.
-                        case vmbase::interrupt_wait_result::ACCEPT:
-                            // Current vm is self marking...
-                            self_marking_vmlist.push_back(vmimpl);
-                            continue;
-                        case vmbase::interrupt_wait_result::LEAVED:
-                            break;
-                        }
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            _gc_vm_gray_unit_lists[vmimpl] = {};
                     }
 
-                    // Current vm will be mark by gc-work-thread.
-                    gc_marking_vmlist.push_back(vmimpl);
+                    // 1. Interrupt all vm as GC_INTERRUPT, let all vm hang-up
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            wo_asure(vmimpl->interrupt(vmbase::GC_INTERRUPT));
+
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    {
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        {
+                            switch (vmimpl->wait_interrupt(vmbase::GC_INTERRUPT))
+                            {
+                            case vmbase::interrupt_wait_result::TIMEOUT:
+                                // HANGUP_INTERRUPT may failed, ignore and handle it later.
+                            case vmbase::interrupt_wait_result::ACCEPT:
+                                // Current vm is self marking...
+                                self_marking_vmlist.push_back(vmimpl);
+                                continue;
+                            case vmbase::interrupt_wait_result::LEAVED:
+                                break;
+                            }
+                        }
+
+                        // Current vm will be mark by gc-work-thread.
+                        gc_marking_vmlist.push_back(vmimpl);
+                    }
+                }
+                else
+                {
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    {
+                        // NOTE: Let vm hang up for stop the world GC
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::HANGUP_INTERRUPT));
+                    }
+
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
+                    {
+                        if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                            vmimpl->wait_interrupt(vmbase::HANGUP_INTERRUPT);
+
+                        // Current vm will be mark by gc-work-thread.
+                        gc_marking_vmlist.push_back(vmimpl);
+                    }
                 }
 
                 // 2. Mark all unit in vm's stack, register, global(only once)
@@ -415,39 +438,40 @@ namespace wo
 
                 // 4. Wake up all hanged vm.
                 if (!_gc_stopping_world_gc)
+                {
                     for (auto* vmimpl : gc_marking_vmlist)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                             if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
                                 vmimpl->wakeup();
 
-                // 5. Wait until all self-marking vm work finished
-                for (auto* vmimpl : self_marking_vmlist)
-                {
-                    auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
-                    wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
-                    wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::LEAVED);
-                    if (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT)
+                    // 5. Wait until all self-marking vm work finished
+                    for (auto* vmimpl : self_marking_vmlist)
                     {
-                        // Current vm is still structed, let it hangup and mark it here.
-                        if (vmimpl->interrupt(vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
+                        auto self_mark_gc_state = vmimpl->wait_interrupt(vmbase::GC_INTERRUPT);
+                        wo_assert(vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL);
+                        wo_assert(self_mark_gc_state != vmbase::interrupt_wait_result::LEAVED);
+                        if (self_mark_gc_state == vmbase::interrupt_wait_result::TIMEOUT)
                         {
-                            mark_vm(vmimpl, SIZE_MAX);
+                            // Current vm is still structed, let it hangup and mark it here.
+                            if (vmimpl->interrupt(vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
+                            {
+                                mark_vm(vmimpl, SIZE_MAX);
 
-                            if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
-                                vmimpl->wakeup();
+                                if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
+                                    vmimpl->wakeup();
+                            }
                         }
+                        wo_asure(vmimpl->wait_interrupt(vmbase::HANGUP_INTERRUPT) == vmbase::interrupt_wait_result::ACCEPT);
                     }
-                    wo_asure(vmimpl->wait_interrupt(vmbase::HANGUP_INTERRUPT) == vmbase::interrupt_wait_result::ACCEPT);
-                }
-                
-                // 6. Merge gray lists.
-                size_t worker_id_counter = 0;
-                for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
-                {
-                    auto &worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
-                    worker_gray_list.insert(worker_gray_list.end(), gray_list.begin(), gray_list.end());
-                }
 
+                    // 6. Merge gray lists.
+                    size_t worker_id_counter = 0;
+                    for (auto& [_vm, gray_list] : _gc_vm_gray_unit_lists)
+                    {
+                        auto& worker_gray_list = _gc_gray_unit_lists[worker_id_counter++ % _gc_work_thread_count];
+                        worker_gray_list.insert(worker_gray_list.end(), gray_list.begin(), gray_list.end());
+                    }
+                }
 
             } while (0);
             // just full gc:
@@ -538,9 +562,9 @@ namespace wo
                 }
 
                 if (_gc_stopping_world_gc)
-                    for (auto* vmimpl : gc_marking_vmlist)
+                    for (auto* vmimpl : vmbase::_alive_vm_list)
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
-                            if (!vmimpl->clear_interrupt(vmbase::GC_INTERRUPT))
+                            if (!vmimpl->clear_interrupt(vmbase::HANGUP_INTERRUPT))
                                 vmimpl->wakeup();
 
             } while (0);
