@@ -2911,7 +2911,7 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
-    if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0)
+    if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
@@ -2922,6 +2922,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
                     WO_VM(vm)->hangup();
             }
         }
+        return true;
     }
-    return WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
+    return false;
 }
