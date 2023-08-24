@@ -1041,11 +1041,9 @@ namespace wo
                 }
                 case instruct::ret:
                 {
-                    auto check_point_ipaddr = rt_ip - 1;
                     if (dr != 0)
                         (void)WO_IPVAL_MOVE_2;
 
-                    make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
                     wo_asure(x86compiler.ret());
                     break;
                 }
@@ -1128,8 +1126,12 @@ namespace wo
                     }
                     else
                     {
+                        auto check_point_ipaddr = rt_ip - 1;
+
                         uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip empty space;
+
+                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                         // Try compile this func
                         auto& compiled_funcstat = analyze_function(m_codes + call_aim_vm_func, env);
@@ -1138,7 +1140,6 @@ namespace wo
                             state.m_state = function_jit_state::state::FAILED;
                             return state;
                         }
-
                         x86_do_calln_vm_func(x86compiler, _vmbase, compiled_funcstat, m_codes, rt_ip, _vmssp, _vmsbp, _vmtc);
                     }
 
