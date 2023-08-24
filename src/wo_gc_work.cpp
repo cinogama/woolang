@@ -461,7 +461,15 @@ namespace wo
                                     vmimpl->wakeup();
                             }
                         }
-                        wo_asure(vmimpl->wait_interrupt(vmbase::HANGUP_INTERRUPT) == vmbase::interrupt_wait_result::ACCEPT);
+                        // Wait until specify vm self-marking end.
+
+                        vmbase::interrupt_wait_result wait_result;
+                        do
+                        {
+                            wait_result = vmimpl->wait_interrupt(vmbase::HANGUP_INTERRUPT);
+                            wo_assert(wait_result != vmbase::interrupt_wait_result::LEAVED);
+                        }
+                        while (wait_result == vmbase::interrupt_wait_result::TIMEOUT);
                     }
 
                     // 6. Merge gray lists.
