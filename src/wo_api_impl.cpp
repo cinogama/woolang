@@ -2915,7 +2915,13 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
-            WO_VM(vm)->gc_self_marking_job();
+        {
+            if (!WO_VM(vm)->gc_self_marking_job())
+            {
+                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
+                    WO_VM(vm)->hangup();
+            }
+        }
     }
     return WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
 }
