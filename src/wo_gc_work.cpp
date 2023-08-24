@@ -398,7 +398,6 @@ namespace wo
                                     break;
                                 else
                                 {
-                                    [[fallthrough]]
                             case vmbase::interrupt_wait_result::TIMEOUT:
                             case vmbase::interrupt_wait_result::ACCEPT:
                                 // Current vm is self marking...
@@ -447,11 +446,9 @@ namespace wo
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
+                            wo_asure(vmimpl->clear_interrupt(vmbase::GC_INTERRUPT));
                             if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
-                            {
-                                wo_asure(vmimpl->clear_interrupt(vmbase::GC_INTERRUPT));
                                 vmimpl->wakeup();
-                            }
                         }
                     }
 
