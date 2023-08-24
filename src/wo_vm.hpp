@@ -2555,7 +2555,8 @@ namespace wo
                     {
                         gc_checkpoint(rt_sp);
                     }
-                    else if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
+
+                    if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                     {
                         if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
                             hangup();

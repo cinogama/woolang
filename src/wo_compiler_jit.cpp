@@ -1126,12 +1126,8 @@ namespace wo
                     }
                     else
                     {
-                        auto check_point_ipaddr = rt_ip - 1;
-
                         uint32_t call_aim_vm_func = WO_IPVAL_MOVE_4;
                         rt_ip += 4; // skip empty space;
-
-                        make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
 
                         // Try compile this func
                         auto& compiled_funcstat = analyze_function(m_codes + call_aim_vm_func, env);
