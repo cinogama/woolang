@@ -685,11 +685,11 @@ namespace wo
 
     void gcbase::add_memo(const value* val)
     {
+        if (gcbase::gcmarkcolor::full_mark == gc_marked(gc::_gc_round_count))
+            return;
+
         if (auto* mem = val->get_gcunit_with_barrier())
         {
-            if (gcbase::gcmarkcolor::no_mark != mem->gc_marked(gc::_gc_round_count))
-                return;
-
             memo_unit* new_memo = new memo_unit{ mem, m_memo.load() };
             while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
         }
