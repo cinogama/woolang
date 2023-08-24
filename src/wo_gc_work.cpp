@@ -23,37 +23,7 @@ GC will do following work to instead of old-gc:
 
 namespace wo
 {
-    void gcbase::add_memo(const value* val)
-    {
-        // TODO: IF HAS BEEN FULL-MAKRED, SKIP MEMORY OPERATION
-        if (auto* mem = val->get_gcunit_with_barrier())
-        {
-            memo_unit* new_memo = new memo_unit{ mem, m_memo.load() };
-            while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
-        }
-    }
-
-    bool gc_handle_base_t::close()
-    {
-        if (!has_been_closed_af.test_and_set())
-        {
-            wo_assert(has_been_closed == false);
-            has_been_closed = true;
-            if (destructor != nullptr)
-            {
-                wo_assert(gc_vm != nullptr);
-
-                destructor(holding_handle);
-                reinterpret_cast<wo::vmbase*>(gc_vm)->dec_destructable_instance_count();
-            }
-            return true;
-        }
-        return false;
-    }
-
-
     // A very simply GC system, just stop the vm, then collect inform
-// #define WO_GC_DEBUG
     namespace gc
     {
         uint16_t                    _gc_round_count = 0;
@@ -610,6 +580,37 @@ namespace wo
         }
 
     } // END NAME SPACE gc
+    
+    void gcbase::add_memo(const value* val)
+    {
+        if (auto* mem = val->get_gcunit_with_barrier())
+        {
+            if (gcbase::gcmarkcolor::no_mark != mem->gc_marked(gc::_gc_round_count))
+                return;
+
+            memo_unit* new_memo = new memo_unit{ mem, m_memo.load() };
+            while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
+        }
+    }
+
+    bool gc_handle_base_t::close()
+    {
+        if (!has_been_closed_af.test_and_set())
+        {
+            wo_assert(has_been_closed == false);
+            has_been_closed = true;
+            if (destructor != nullptr)
+            {
+                wo_assert(gc_vm != nullptr);
+
+                destructor(holding_handle);
+                reinterpret_cast<wo::vmbase*>(gc_vm)->dec_destructable_instance_count();
+            }
+            return true;
+        }
+        return false;
+    }
+
 
 }
 
