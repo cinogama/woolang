@@ -176,8 +176,14 @@ namespace wo
 
         static int _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
-            if (vmm->vm_interrupt & wo::vmbase::GC_INTERRUPT)
+            if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
                 vmm->gc_checkpoint(rt_sp);
+
+            if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
+            {
+                if (vmm->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
+                    vmm->gc_checkpoint(rt_sp);
+            }
             else if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT)
             {
                 // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
