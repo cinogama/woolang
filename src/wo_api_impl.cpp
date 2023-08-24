@@ -1839,7 +1839,9 @@ std::variant<
 
             lang.analyze_pass1(result);
             if (!lang.has_compile_error())
+            {
                 lang.analyze_pass2(result);
+            }
 
             //result->display();
             if (!lang.has_compile_error())
