@@ -2918,7 +2918,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
         {
             if (!WO_VM(vm)->gc_self_marking_job())
             {
-                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::HANGUP_INTERRUPT))
+                if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                     WO_VM(vm)->hangup();
             }
         }

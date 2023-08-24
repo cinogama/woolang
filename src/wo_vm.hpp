@@ -110,7 +110,7 @@ namespace wo
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
 
-            HANGUP_INTERRUPT = 1 << 15,
+            GC_HANGUP_INTERRUPT = 1 << 15,
             // 
         };
 
@@ -1007,13 +1007,13 @@ namespace wo
 
         bool gc_self_marking_job()
         {
-            if (interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+            if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
             {
                 if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
                 {
                     gc::mark_vm(this, SIZE_MAX);
                 }
-                wo_asure(clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT));
+                wo_asure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
                 return true;
             }
             return false;
@@ -2555,9 +2555,9 @@ namespace wo
                     {
                         gc_checkpoint(rt_sp);
                     }
-                    else if (interrupt_state & vm_interrupt_type::HANGUP_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                     {
-                        if (clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+                        if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
                             hangup();
                     }
                     else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
