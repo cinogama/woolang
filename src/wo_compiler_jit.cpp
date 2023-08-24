@@ -1041,9 +1041,11 @@ namespace wo
                 }
                 case instruct::ret:
                 {
+                    auto check_point_ipaddr = rt_ip - 1;
                     if (dr != 0)
                         (void)WO_IPVAL_MOVE_2;
 
+                    make_checkpoint(x86compiler, _vmbase, _vmssp, _vmsbp, check_point_ipaddr);
                     wo_asure(x86compiler.ret());
                     break;
                 }
