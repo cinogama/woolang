@@ -109,6 +109,9 @@ namespace wo
 
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
+
+            HANGUP_INTERRUPT = 1 << 15,
+            // 
         };
 
         vmbase(const vmbase&) = delete;
@@ -180,7 +183,7 @@ namespace wo
 
             auto* old_debuggee = attaching_debuggee;
             attaching_debuggee = dbg;
-            
+
             if (dbg == nullptr && old_debuggee != nullptr)
             {
                 for (auto* vm_instance : _alive_vm_list)
@@ -191,7 +194,7 @@ namespace wo
                 for (auto* vm_instance : _alive_vm_list)
                     wo_asure(vm_instance->interrupt(vm_interrupt_type::DEBUG_INTERRUPT));
             }
-            
+
             return old_debuggee;
         }
         inline static debuggee_base* current_debuggee()
@@ -210,40 +213,50 @@ namespace wo
         {
             return type & vm_interrupt.fetch_and(~type);
         }
-        inline bool wait_interrupt(vm_interrupt_type type)
+
+        enum class interrupt_wait_result: uint8_t
+        {
+            ACCEPT,
+            TIMEOUT,
+            LEAVED,
+        };
+
+        inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
             auto waitbegin_tm = clock();
 
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
-            uint32_t vm_interrupt_mask = 0xFFFFFFFF;
             do
             {
-                vm_interrupt_mask = vm_interrupt.load();
+                uint32_t vm_interrupt_mask = vm_interrupt.load();
+              
+                if (0 == (vm_interrupt_mask & type))
+                    break;
+                    
                 if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
                 {
                     if (++i > MAX_TRY_COUNT)
-                        return false;
+                        return interrupt_wait_result::LEAVED;
                 }
                 else
                     i = 0;
 
                 std::this_thread::yield();
-
                 if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
                 {
                     // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 1s) for GC notifying, maybe native function cost too much time?\n";
+                    std::string warning_info = "Wait for too much time(out of 1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
                     wo_warning(warning_info.c_str());
-                    return false;
+                    return interrupt_wait_result::TIMEOUT;
                 }
 
-            } while (vm_interrupt_mask & type);
-
-            return true;
+            } while (true);
+            
+            return interrupt_wait_result::ACCEPT;
         }
         inline void block_interrupt(vm_interrupt_type type)
         {
@@ -383,7 +396,7 @@ namespace wo
         shared_pointer<runtime_env> env;
         void set_runtime(shared_pointer<runtime_env>& runtime_environment)
         {
-            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
             env = runtime_environment;
@@ -400,7 +413,7 @@ namespace wo
             er = register_mem_begin + opnum::reg::spreg::er;
             sp = bp = stack_mem_begin;
 
-            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             // Create a new VM using for GC destruct
             auto* created_subvm_for_gc = make_machine(1024);
@@ -417,7 +430,7 @@ namespace wo
 
             new_vm->gc_vm = get_or_alloc_gcvm();
 
-            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(new_vm)));
+            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
 
             if (!stack_sz)
                 stack_sz = env->runtime_stack_count;
@@ -442,7 +455,7 @@ namespace wo
             new_vm->env = env;  // env setted, gc will scan this vm..
             ++env->_running_on_vm_count;
 
-            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(new_vm)));
+            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(new_vm))));
             return new_vm;
         }
         inline void dump_program_bin(size_t begin = 0, size_t end = SIZE_MAX, std::ostream& os = std::cout) const
@@ -991,7 +1004,26 @@ namespace wo
         }
 
         virtual void run() = 0;
-        virtual void gc_checkpoint(value* rtsp) = 0;
+
+        bool gc_self_marking_job()
+        {
+            if (interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+            {
+                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                {
+                    gc::mark_vm(this, SIZE_MAX);
+                }
+                wo_asure(clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT));
+                return true;
+            }
+            return false;
+        }
+        void gc_checkpoint(value* rtsp)
+        {
+            // write regist(sp) data, then clear interrupt mark.
+            sp = rtsp;
+            gc_self_marking_job();
+        }
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
@@ -1096,9 +1128,9 @@ namespace wo
                 tc->set_integer(argc);
                 bp = sp;
 
-                reinterpret_cast<wo_native_func>(wo_func_addr)(
-                    reinterpret_cast<wo_vm>(this),
-                    reinterpret_cast<wo_value>(sp + 2),
+                ((wo_native_func)wo_func_addr)(
+                    std::launder(reinterpret_cast<wo_vm>(this)),
+                    std::launder(reinterpret_cast<wo_value>(sp + 2)),
                     (size_t)argc);
 
                 ip = return_ip;
@@ -1140,8 +1172,8 @@ namespace wo
                     if (wo_func_closure->m_native_call)
                     {
                         wo_func_closure->m_native_func(
-                            reinterpret_cast<wo_vm>(this),
-                            reinterpret_cast<wo_value>(sp + 2),
+                            std::launder(reinterpret_cast<wo_vm>(this)),
+                            std::launder(reinterpret_cast<wo_value>(sp + 2)),
                             (size_t)argc);
                     }
                     else
@@ -1578,15 +1610,15 @@ namespace wo
                         switch (aim_type)
                         {
                         case value::valuetype::integer_type:
-                            opnum1->set_integer(wo_cast_int(reinterpret_cast<wo_value>(opnum2))); break;
+                            opnum1->set_integer(wo_cast_int(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                         case value::valuetype::real_type:
-                            opnum1->set_real(wo_cast_real(reinterpret_cast<wo_value>(opnum2))); break;
+                            opnum1->set_real(wo_cast_real(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                         case value::valuetype::handle_type:
-                            opnum1->set_handle(wo_cast_handle(reinterpret_cast<wo_value>(opnum2))); break;
+                            opnum1->set_handle(wo_cast_handle(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                         case value::valuetype::string_type:
-                            opnum1->set_string(wo_cast_string(reinterpret_cast<wo_value>(opnum2))); break;
+                            opnum1->set_string(wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                         case value::valuetype::bool_type:
-                            opnum1->set_bool(wo_cast_bool(reinterpret_cast<wo_value>(opnum2))); break;
+                            opnum1->set_bool(wo_cast_bool(std::launder(reinterpret_cast<wo_value>(opnum2)))); break;
                         case value::valuetype::array_type:
                             WO_VM_FAIL(WO_FAIL_TYPE_FAIL, ("Cannot cast '" + opnum2->get_type_name() + "' to 'array'.").c_str());
                             break;
@@ -1972,12 +2004,15 @@ namespace wo
                         // Call native
                         bp = sp = rt_sp;
                         wo_extern_native_func_t call_aim_native_func = (wo_extern_native_func_t)(opnum1->handle);
-                        ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
                         rt_cr->set_nil();
 
-                        wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                        call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
-                        wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+                        wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                        call_aim_native_func(
+                            std::launder(reinterpret_cast<wo_vm>(this)), 
+                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                            (size_t)tc->integer);
+                        wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                             "Found broken stack in 'call'.");
@@ -1998,7 +2033,10 @@ namespace wo
 
                         if (closure->m_native_call)
                         {
-                            closure->m_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
+                            closure->m_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder((reinterpret_cast<wo_value>(rt_sp + 2))),
+                                (size_t)tc->integer);
                             WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
                                 "Found broken stack in 'call'.");
                             value* stored_bp = stack_mem_begin - (++rt_bp)->vmcallstack.bp;
@@ -2030,15 +2068,21 @@ namespace wo
                         bp = sp = rt_sp;
                         rt_cr->set_nil();
 
-                        ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+                        ip = std::launder(reinterpret_cast<byte_t*>(call_aim_native_func));
 
                         if (dr & 0b10)
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
+                            call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)), 
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                                (size_t)tc->integer);
                         else
                         {
-                            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
-                            call_aim_native_func(reinterpret_cast<wo_vm>(this), reinterpret_cast<wo_value>(rt_sp + 2), (size_t)tc->integer);
-                            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+                            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
+                            call_aim_native_func(
+                                std::launder(reinterpret_cast<wo_vm>(this)), 
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
+                                (size_t)tc->integer);
+                            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
 
                         WO_VM_ASSERT((rt_bp + 1)->type == value::valuetype::callstack,
@@ -2256,7 +2300,7 @@ namespace wo
                         "Unable to index non-array value in 'sidarr'.");
                     WO_VM_ASSERT(opnum2->type == value::valuetype::integer_type,
                         "Unable to index array by non-integer value in 'sidarr'.");
-  
+
                     gcbase::gc_write_guard gwg1(opnum1->gcunit);
 
                     wo_integer_t index = opnum2->integer;
@@ -2294,7 +2338,7 @@ namespace wo
                     if (wo::gc::gc_is_marking())
                         opnum1->structs->add_memo(result);
                     result->set_val(opnum2);
-      
+
                     break;
                 }
                 case instruct::opcode::idstr:
@@ -2466,7 +2510,7 @@ namespace wo
                         {
                             WO_ADDRESSING_N1; // data
 
-                            wo_fail(WO_FAIL_DEADLY, wo_cast_string(reinterpret_cast<wo_value>(opnum1)));
+                            wo_fail(WO_FAIL_DEADLY, wo_cast_string(std::launder(reinterpret_cast<wo_value>(opnum1))));
                             break;
                         }
                         default:
@@ -2504,17 +2548,25 @@ namespace wo
                 default:
                 {
                     --rt_ip;    // Move back one command.
-                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+
+                    auto interrupt_state = vm_interrupt.load();
+
+                    if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                     {
                         gc_checkpoint(rt_sp);
                     }
-                    else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::HANGUP_INTERRUPT)
+                    {
+                        if (clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+                            hangup();
+                    }
+                    else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
                     {
                         // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                         // CLEAR ABORT_INTERRUPT
                         return;
                     }
-                    else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
                     {
                         wo_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
                         if (get_br_yieldable())
@@ -2525,18 +2577,18 @@ namespace wo
                         else
                             wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
                     }
-                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
                     {
                         // That should not be happend...
                         wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
                     }
-                    else if (vm_interrupt & vm_interrupt_type::PENDING_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
                     {
                         // That should not be happend...
                         wo_error("Virtual machine handled a PENDING_INTERRUPT.");
                     }
                     // it should be last interrupt..
-                    else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
                     {
                         rtopcode = opcode;
 
@@ -2546,9 +2598,9 @@ namespace wo
                         if (attaching_debuggee)
                         {
                             // check debuggee here
-                            wo_asure(wo_leave_gcguard(reinterpret_cast<wo_vm>(this)));
+                            wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             attaching_debuggee->_vm_invoke_debuggee(this);
-                            wo_asure(wo_enter_gcguard(reinterpret_cast<wo_vm>(this)));
+                            wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         }
                         ++rt_ip;
                         goto re_entry_for_interrupt;
@@ -2574,21 +2626,11 @@ namespace wo
 #undef WO_IPVAL
         }
 
-        void gc_checkpoint(value* rtsp) override
-        {
-            // write regist(sp) data, then clear interrupt mark.
-            sp = rtsp;
-            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                hangup();   // SLEEP UNTIL WAKE UP
-        }
-
         void run()override
         {
             run_impl();
         }
     };
-
-
 }
 
 #undef WO_READY_EXCEPTION_HANDLE
