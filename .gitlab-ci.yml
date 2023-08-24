@@ -57,6 +57,7 @@ build_release:
 
 test_coverage_debug:
   stage: test
+  coverage: '/^TOTAL.*\s+(\d+\%)$/'
   except: 
     - tags
   script:
