@@ -396,14 +396,11 @@ namespace wo
                             case vmbase::interrupt_wait_result::LEAVED:
                                 if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                                     break;
-                                else
-                                {
                             case vmbase::interrupt_wait_result::TIMEOUT:
                             case vmbase::interrupt_wait_result::ACCEPT:
                                 // Current vm is self marking...
                                 self_marking_vmlist.push_back(vmimpl);
                                 continue;
-                                }
                             }
                         }
 
@@ -417,7 +414,10 @@ namespace wo
                     {
                         // NOTE: Let vm hang up for stop the world GC
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        {
                             wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
+                            wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT));
+                        }
                     }
 
                     for (auto* vmimpl : vmbase::_alive_vm_list)
@@ -578,9 +578,14 @@ namespace wo
 
                 if (_gc_stopping_world_gc)
                     for (auto* vmimpl : vmbase::_alive_vm_list)
+                    {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
+                        {
+                            wo_asure(vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT));
                             if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
                                 vmimpl->wakeup();
+                        }
+                    }
 
             } while (0);
 
