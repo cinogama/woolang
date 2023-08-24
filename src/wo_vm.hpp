@@ -109,6 +109,9 @@ namespace wo
 
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
+
+            HANGUP_INTERRUPT = 1 << 15,
+            // 
         };
 
         vmbase(const vmbase&) = delete;
@@ -210,40 +213,50 @@ namespace wo
         {
             return type & vm_interrupt.fetch_and(~type);
         }
-        inline bool wait_interrupt(vm_interrupt_type type)
+
+        enum class interrupt_wait_result: uint8_t
+        {
+            ACCEPT,
+            TIMEOUT,
+            LEAVED,
+        };
+
+        inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
             auto waitbegin_tm = clock();
 
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
-            uint32_t vm_interrupt_mask = 0xFFFFFFFF;
             do
             {
-                vm_interrupt_mask = vm_interrupt.load();
+                uint32_t vm_interrupt_mask = vm_interrupt.load();
+              
+                if (0 == (vm_interrupt_mask & type))
+                    break;
+                    
                 if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
                 {
                     if (++i > MAX_TRY_COUNT)
-                        return false;
+                        return interrupt_wait_result::LEAVED;
                 }
                 else
                     i = 0;
 
                 std::this_thread::yield();
-
                 if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
                 {
                     // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 1s) for GC notifying, maybe native function cost too much time?\n";
+                    std::string warning_info = "Wait for too much time(out of 1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
                     wo_warning(warning_info.c_str());
-                    return false;
+                    return interrupt_wait_result::TIMEOUT;
                 }
 
-            } while (vm_interrupt_mask & type);
-
-            return true;
+            } while (true);
+            
+            return interrupt_wait_result::ACCEPT;
         }
         inline void block_interrupt(vm_interrupt_type type)
         {
@@ -991,7 +1004,26 @@ namespace wo
         }
 
         virtual void run() = 0;
-        virtual void gc_checkpoint(value* rtsp) = 0;
+
+        bool gc_self_marking_job()
+        {
+            if (interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+            {
+                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                {
+                    gc::mark_vm(this, SIZE_MAX);
+                }
+                wo_asure(clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT));
+                return true;
+            }
+            return false;
+        }
+        void gc_checkpoint(value* rtsp)
+        {
+            // write regist(sp) data, then clear interrupt mark.
+            sp = rtsp;
+            gc_self_marking_job();
+        }
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
@@ -2516,17 +2548,25 @@ namespace wo
                 default:
                 {
                     --rt_ip;    // Move back one command.
-                    if (vm_interrupt & vm_interrupt_type::GC_INTERRUPT)
+
+                    auto interrupt_state = vm_interrupt.load();
+
+                    if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                     {
                         gc_checkpoint(rt_sp);
                     }
-                    else if (vm_interrupt & vm_interrupt_type::ABORT_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::HANGUP_INTERRUPT)
+                    {
+                        if (clear_interrupt(vm_interrupt_type::HANGUP_INTERRUPT))
+                            hangup();
+                    }
+                    else if (interrupt_state & vm_interrupt_type::ABORT_INTERRUPT)
                     {
                         // ABORTED VM WILL NOT ABLE TO RUN AGAIN, SO DO NOT
                         // CLEAR ABORT_INTERRUPT
                         return;
                     }
-                    else if (vm_interrupt & vm_interrupt_type::BR_YIELD_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::BR_YIELD_INTERRUPT)
                     {
                         wo_asure(clear_interrupt(vm_interrupt_type::BR_YIELD_INTERRUPT));
                         if (get_br_yieldable())
@@ -2537,18 +2577,18 @@ namespace wo
                         else
                             wo_fail(WO_FAIL_NOT_SUPPORT, "BR_YIELD_INTERRUPT only work at br_yieldable vm.");
                     }
-                    else if (vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::LEAVE_INTERRUPT)
                     {
                         // That should not be happend...
                         wo_error("Virtual machine handled a LEAVE_INTERRUPT.");
                     }
-                    else if (vm_interrupt & vm_interrupt_type::PENDING_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::PENDING_INTERRUPT)
                     {
                         // That should not be happend...
                         wo_error("Virtual machine handled a PENDING_INTERRUPT.");
                     }
                     // it should be last interrupt..
-                    else if (vm_interrupt & vm_interrupt_type::DEBUG_INTERRUPT)
+                    else if (interrupt_state & vm_interrupt_type::DEBUG_INTERRUPT)
                     {
                         rtopcode = opcode;
 
@@ -2586,21 +2626,11 @@ namespace wo
 #undef WO_IPVAL
         }
 
-        void gc_checkpoint(value* rtsp) override
-        {
-            // write regist(sp) data, then clear interrupt mark.
-            sp = rtsp;
-            if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                hangup();   // SLEEP UNTIL WAKE UP
-        }
-
         void run()override
         {
             run_impl();
         }
     };
-
-
 }
 
 #undef WO_READY_EXCEPTION_HANDLE

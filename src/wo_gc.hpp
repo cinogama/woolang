@@ -7,11 +7,13 @@
 
 namespace wo
 {
+    struct vmbase;
     namespace gc
     {
         void gc_start();
         bool gc_is_marking();
         bool gc_is_recycling();
+        void mark_vm(vmbase* marking_vm, size_t worker_id);
     }
 
     template<typename NodeT>
@@ -270,6 +272,4 @@ namespace wo
             return static_cast<T*>(this);
         }
     };
-
-
 }

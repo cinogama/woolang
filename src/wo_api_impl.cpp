@@ -2911,15 +2911,11 @@ wo_bool_t wo_leave_gcguard(wo_vm vm)
 }
 wo_bool_t wo_enter_gcguard(wo_vm vm)
 {
-    if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT))
+    if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT) != 0)
     {
+        // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT) != 0)
-        {
-            // If in GC, hang up here to make sure safe.
-            if (WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::GC_INTERRUPT))
-                WO_VM(vm)->hangup();
-        }
-        return true;
+            WO_VM(vm)->gc_self_marking_job();
     }
-    return false;
+    return WO_VM(vm)->clear_interrupt(wo::vmbase::vm_interrupt_type::LEAVE_INTERRUPT);
 }
