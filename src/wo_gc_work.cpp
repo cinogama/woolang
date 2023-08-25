@@ -5,18 +5,7 @@
 #include <chrono>
 #include <list>
 
-// PARALLEL-GC SUPPORT:
-/*
-GC will do following work to instead of old-gc:
-0. Get all vm(s) for GC.
-1. Stop the world;
-2. for all vm, mark their root object, for global-space, only mark once.
-3. Mark a sign to let all gc-unit know that now is continuing marking, any new and read gc-unit will make gc-unit gray,
-4. Resume the world;
-5. Do Tri-colors GC.
-6. All markable unit is marked now, Clear sign (which marked in stage 3).
-7. Recycle all white unit.
-*/
+// PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false
 #define WO_GC_DEBUG false
@@ -38,7 +27,7 @@ namespace wo
         std::atomic_flag            _gc_immediately = {};
 
         uint32_t                    _gc_immediately_edge = 250000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 5;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 10;
 
         std::atomic_size_t _gc_scan_vm_index;
         size_t _gc_scan_vm_count;
@@ -462,8 +451,8 @@ namespace wo
                             // Current vm is still structed, let it hangup and mark it here.
                             if (vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                             {
+                                wo_asure(vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT));
                                 mark_vm(vmimpl, SIZE_MAX);
-
                                 if (!vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT))
                                     vmimpl->wakeup();
                             }
