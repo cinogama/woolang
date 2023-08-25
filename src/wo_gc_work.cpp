@@ -416,7 +416,6 @@ namespace wo
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
                             wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
-                            wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT));
                         }
                     }
 
@@ -581,7 +580,6 @@ namespace wo
                     {
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
-                            wo_asure(vmimpl->clear_interrupt(vmbase::vm_interrupt_type::GC_INTERRUPT));
                             if (!vmimpl->clear_interrupt(vmbase::GC_HANGUP_INTERRUPT))
                                 vmimpl->wakeup();
                         }
