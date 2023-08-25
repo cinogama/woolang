@@ -1005,7 +1005,7 @@ namespace wo
 
         virtual void run() = 0;
 
-        bool gc_self_marking_job()
+        bool gc_checkpoint()
         {
             if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
             {
@@ -1017,12 +1017,6 @@ namespace wo
                 return true;
             }
             return false;
-        }
-        void gc_checkpoint(value* rtsp)
-        {
-            // write regist(sp) data, then clear interrupt mark.
-            sp = rtsp;
-            gc_self_marking_job();
         }
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
@@ -2553,11 +2547,13 @@ namespace wo
 
                     if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                     {
-                        gc_checkpoint(rt_sp);
+                        sp = rt_sp;
+                        gc_checkpoint();
                     }
 
                     if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                     {
+                        sp = rt_sp;
                         if (clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
                             hangup();
                     }
