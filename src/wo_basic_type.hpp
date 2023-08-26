@@ -358,15 +358,13 @@ namespace wo
 
     struct gc_handle_base_t
     {
-        value holding_value = {};
-        void* holding_handle = nullptr;
-        void(*destructor)(void*) = nullptr;
+        using destructor_func_t = void(*)(void*);
 
+        value               m_holding_value = {};
+        std::atomic<void*>  m_holding_handle = nullptr;
+        destructor_func_t   m_destructor = nullptr;
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        wo_vm gc_vm = nullptr;
-
-        std::atomic_flag has_been_closed_af = {};
-        bool has_been_closed = false;
+        wo_vm               m_gc_vm = nullptr;
 
         bool close();
 
