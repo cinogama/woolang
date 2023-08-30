@@ -328,12 +328,12 @@ wo_bool_t wo_equal_byte(wo_value a, wo_value b)
 wo_ptr_t wo_safety_pointer(wo::gchandle_t* gchandle)
 {
     wo::gcbase::gc_read_guard g1(gchandle);
-    if (gchandle->has_been_closed)
+    auto* pointer = gchandle->m_holding_handle.load();
+    if (pointer == nullptr)
     {
         wo_fail(WO_FAIL_ACCESS_NIL, "Reading a closed gchandle.");
-        return nullptr;
     }
-    return gchandle->holding_handle;
+    return pointer;
 }
 
 wo_type wo_valuetype(wo_value value)
@@ -492,21 +492,22 @@ void wo_set_bool(wo_value value, wo_bool_t val)
 void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     WO_VAL(value)->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
+
+    wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
+
     auto* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
     wo::gcbase::gc_write_guard g1(handle_ptr);
-    handle_ptr->holding_handle = resource_ptr;
+    handle_ptr->m_holding_handle = resource_ptr;
+    handle_ptr->m_destructor = destruct_func;
+
+    // NOTE: This function may defined in other libraries,
+    //      so we need store gc vm for decrease.
+    WO_VM(vm)->inc_destructable_instance_count();
+
     if (holding_val)
-    {
-        handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
-        //    unit->gc_type = wo::gcbase::gctype::no_gc;
-    }
-    if (nullptr != (handle_ptr->destructor = destruct_func))
-    {
-        // This function may defined in other libraries, so we need store gc vm for decrease.
-        WO_VM(vm)->inc_destructable_instance_count();
-        handle_ptr->gc_vm = wo_gc_vm(vm);
-    }
+        handle_ptr->m_holding_value.set_val(WO_VAL(holding_val));
+
+    handle_ptr->m_gc_vm = wo_gc_vm(vm);
 }
 void wo_set_val(wo_value value, wo_value val)
 {
@@ -518,7 +519,6 @@ void wo_set_struct(wo_value value, uint16_t structsz)
 {
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-
     wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, structsz);
 }
 
@@ -1229,23 +1229,7 @@ wo_result_t wo_ret_buffer(wo_vm vm, const void* result, size_t len)
 }
 wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
-    WO_VM(vm)->cr->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
-    auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VM(vm)->cr->gcunit);
-    wo::gcbase::gc_write_guard g1(handle_ptr);
-    handle_ptr->holding_handle = resource_ptr;
-    if (holding_val)
-    {
-        handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
-        //    unit->gc_type = wo::gcbase::gctype::no_gc;
-    }
-    if (nullptr != (handle_ptr->destructor = destruct_func))
-    {
-        // This function may defined in other libraries, so we need store gc vm for decrease.
-        WO_VM(vm)->inc_destructable_instance_count();
-        handle_ptr->gc_vm = wo_gc_vm(vm);
-    }
-
+    wo_set_gchandle(CS_VAL(WO_VM(vm)->cr), vm, resource_ptr, holding_val, destruct_func);
     return reinterpret_cast<wo_result_t>(WO_VM(vm)->cr);
 }
 wo_result_t wo_ret_val(wo_vm vm, wo_value result)
@@ -1447,24 +1431,7 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
-
-    auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(structptr->m_values[1].gcunit);
-    wo::gcbase::gc_write_guard g1(handle_ptr);
-    handle_ptr->holding_handle = resource_ptr;
-    if (holding_val)
-    {
-        handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
-        //    unit->gc_type = wo::gcbase::gctype::no_gc;
-    }
-    if (nullptr != (handle_ptr->destructor = destruct_func))
-    {
-        // This function may defined in other libraries, so we need store gc vm for decrease.
-        WO_VM(vm)->inc_destructable_instance_count();
-        handle_ptr->gc_vm = wo_gc_vm(vm);
-    }
-
+    wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
     return 0;
 }
 
@@ -1628,24 +1595,7 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
-    structptr->m_values[1].set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
-
-    auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(structptr->m_values[1].gcunit);
-    wo::gcbase::gc_write_guard g1(handle_ptr);
-    handle_ptr->holding_handle = resource_ptr;
-    if (holding_val)
-    {
-        handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
-        //    unit->gc_type = wo::gcbase::gctype::no_gc;
-    }
-    if (nullptr != (handle_ptr->destructor = destruct_func))
-    {
-        // This function may defined in other libraries, so we need store gc vm for decrease.
-        WO_VM(vm)->inc_destructable_instance_count();
-        handle_ptr->gc_vm = wo_gc_vm(vm);
-    }
-
+    wo_set_gchandle(CS_VAL(&structptr->m_values[1]), vm, resource_ptr, holding_val, destruct_func);
     return 0;
 }
 
@@ -2122,24 +2072,7 @@ wo_value wo_push_pointer(wo_vm vm, wo_ptr_t val)
 wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t))
 {
     auto* csp = WO_VM(vm)->sp--;
-
-    csp->set_gcunit_with_barrier(wo::value::valuetype::gchandle_type);
-    auto handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(csp->gcunit);
-    wo::gcbase::gc_write_guard g1(handle_ptr);
-    handle_ptr->holding_handle = resource_ptr;
-    if (holding_val)
-    {
-        handle_ptr->holding_value.set_val(WO_VAL(holding_val));
-        //if (auto* unit = handle_ptr->holding_value.get_gcunit_with_barrier())
-        //    unit->gc_type = wo::gcbase::gctype::no_gc;
-    }
-    if (nullptr != (handle_ptr->destructor = destruct_func))
-    {
-        // This function may defined in other libraries, so we need store gc vm for decrease.
-        WO_VM(vm)->inc_destructable_instance_count();
-        handle_ptr->gc_vm = wo_gc_vm(vm);
-    }
-
+    wo_set_gchandle(CS_VAL(csp), vm, resource_ptr, holding_val, destruct_func);
     return CS_VAL(csp);
 }
 wo_value wo_push_string(wo_vm vm, wo_string_t val)

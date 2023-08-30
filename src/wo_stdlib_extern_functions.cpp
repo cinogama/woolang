@@ -1581,7 +1581,7 @@ namespace result
     {
         match(self)
         {
-        ok(v)? return self;
+        ok(_)? return self;
         err(e)? return functor(e);
         }
     }
