@@ -1,9 +1,13 @@
 #include "wo_vm.hpp"
 #include "wo_memory.hpp"
 
-#include <thread>
 #include <chrono>
 #include <list>
+
+#if WO_ENABLE_PARALLEL_GC
+#   include <thread>
+#   include <condition_variable>
+#endif
 
 // PARALLEL-GC SUPPORTED
 
@@ -15,6 +19,7 @@ namespace wo
     // A very simply GC system, just stop the vm, then collect inform
     namespace gc
     {
+#if WO_ENABLE_PARALLEL_GC
         uint16_t                    _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
         constexpr uint16_t          _gc_max_count_to_move_young_to_old = 15;
@@ -29,23 +34,14 @@ namespace wo
         uint32_t                    _gc_immediately_edge = 250000;
         uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 10;
 
-        std::atomic_size_t _gc_scan_vm_index;
-        size_t _gc_scan_vm_count;
-        std::atomic<vmbase**> _gc_vm_list;
+        std::atomic_size_t      _gc_scan_vm_index;
+        size_t                  _gc_scan_vm_count;
+        std::atomic<vmbase**>   _gc_vm_list;
 
         std::atomic_bool _gc_is_marking = false;
         std::atomic_bool _gc_is_recycling = false;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
-
-        bool gc_is_marking()
-        {
-            return _gc_is_marking.load();
-        }
-        bool gc_is_recycling()
-        {
-            return _gc_is_recycling.load();
-        }
 
         vmbase* _get_next_mark_vm(vmbase::vm_type* out_vm_type)
         {
@@ -626,6 +622,15 @@ namespace wo
             } while (!_gc_stop_flag);
         }
 
+        bool gc_is_marking()
+        {
+            return _gc_is_marking.load();
+        }
+        bool gc_is_recycling()
+        {
+            return _gc_is_recycling.load();
+        }
+
         void gc_start()
         {
             _gc_stop_flag = false;
@@ -673,15 +678,18 @@ namespace wo
             }
         }
 
+#endif
     } // END NAME SPACE gc
 
     void gcbase::add_memo(const value* val)
     {
+#if WO_ENABLE_PARALLEL_GC
         if (auto* mem = val->get_gcunit_with_barrier())
         {
             memo_unit* new_memo = new memo_unit{ mem, m_memo.load() };
             while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
         }
+#endif
     }
 
     bool gc_handle_base_t::close()
@@ -703,13 +711,18 @@ namespace wo
 
 void wo_gc_immediately()
 {
+#if WO_ENABLE_PARALLEL_GC
     std::lock_guard g1(wo::gc::_gc_work_mx);
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
+#else
+    TODO;
+#endif
 }
 
 void wo_gc_stop()
 {
+#if WO_ENABLE_PARALLEL_GC
     do
     {
         std::lock_guard g1(wo::gc::_gc_work_mx);
@@ -718,4 +731,5 @@ void wo_gc_stop()
     } while (false);
 
     wo::gc::_gc_scheduler_thread.join();
+#endif
 }

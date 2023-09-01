@@ -2,7 +2,6 @@
 #include "wo_memory.hpp"
 #include "wo_assert.hpp"
 
-#include <shared_mutex>
 #include <atomic>
 
 namespace wo
@@ -10,10 +9,20 @@ namespace wo
     struct vmbase;
     namespace gc
     {
+#if WO_ENABLE_PARALLEL_GC
         void gc_start();
         bool gc_is_marking();
         bool gc_is_recycling();
         void mark_vm(vmbase* marking_vm, size_t worker_id);
+#else
+        inline constexpr bool gc_is_marking = false;
+        inline constexpr bool gc_is_recycling = false;
+        inline void gc_start() {}
+
+#   define gc_is_marking() gc_is_marking
+#   define gc_is_recycling() gc_is_recycling
+#endif
+
     }
 
     template<typename NodeT>

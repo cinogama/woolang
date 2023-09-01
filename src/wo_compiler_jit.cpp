@@ -176,11 +176,18 @@ namespace wo
 
         static int _invoke_vm_checkpoint(wo::vmbase* vmm, wo::value* rt_sp, wo::value* rt_bp, const byte_t* rt_ip)
         {
+#if WO_ENABLE_PARALLEL_GC
             if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_INTERRUPT)
             {
                 vmm->sp = rt_sp;
                 vmm->gc_checkpoint();
             }
+#else
+            if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_WAKEUP_INTERRUPT)
+            {
+                wo_error("Virtual machine handled a GC_WAKEUP_INTERRUPT.");
+            }
+#endif
 
             if (vmm->vm_interrupt & wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)
             {

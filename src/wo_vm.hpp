@@ -7,10 +7,13 @@
 #include "wo_memory.hpp"
 #include "wo_compiler_jit.hpp"
 
-#include <shared_mutex>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+#if WO_ENABLE_PARALLEL_GC
+#   include <shared_mutex>
+#   include <thread>
+#   include <mutex>
+#   include <condition_variable>
+#endif
+
 #include <string>
 #include <cmath>
 #include <sstream>
@@ -42,7 +45,11 @@ namespace wo
 
     struct vmbase
     {
+#if WO_ENABLE_PARALLEL_GC
         inline static std::shared_mutex _alive_vm_list_mx;
+#else
+        inline static gcbase::rw_lock _alive_vm_list_mx;
+#endif
         inline static cxx_set_t<vmbase*> _alive_vm_list;
         inline thread_local static vmbase* _this_thread_vm = nullptr;
         inline static std::atomic_uint32_t _alive_vm_count_for_gc_vm_destruct;
@@ -69,6 +76,7 @@ namespace wo
             NOTHING = 0,
             // There is no interrupt
 
+#if WO_ENABLE_PARALLEL_GC
             GC_INTERRUPT = 1 << 8,
             // GC work will cause this interrupt, if vm received this interrupt,
             // should clean this interrupt flag, if clean-operate is successful,
@@ -76,7 +84,9 @@ namespace wo
             // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
             // failed, it means vm already hangned(or trying hangs now), GC work
             // will call 'wakeup' to resume vm.
-
+#else
+            GC_WAKEUP_INTERRUPT = 1 << 8,
+#endif
             LEAVE_INTERRUPT = 1 << 9,
             // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
             // GC_INTERRUPT flag(and hangs), and the wait will be endless, besides:
@@ -128,9 +138,11 @@ namespace wo
         static_assert(std::atomic<uint32_t>::is_always_lock_free);
 
     private:
+#if WO_ENABLE_PARALLEL_GC
         std::mutex _vm_hang_mx;
         std::condition_variable _vm_hang_cv;
         std::atomic_int8_t _vm_hang_flag = 0;
+#endif
 
         bool _vm_br_yieldable = false;
         bool _vm_br_yield_flag = false;
@@ -266,6 +278,7 @@ namespace wo
 
         inline void hangup()
         {
+#if WO_ENABLE_PARALLEL_GC
             do
             {
                 std::lock_guard g1(_vm_hang_mx);
@@ -274,9 +287,16 @@ namespace wo
 
             std::unique_lock ug1(_vm_hang_mx);
             _vm_hang_cv.wait(ug1, [this]() {return _vm_hang_flag >= 0; });
+#else
+            while (!clear_interrupt(GC_WAKEUP_INTERRUPT))
+            {
+                std::this_thread::yield();
+            }
+#endif
         }
         inline void wakeup()
         {
+#if WO_ENABLE_PARALLEL_GC
             do
             {
                 std::lock_guard g1(_vm_hang_mx);
@@ -284,6 +304,9 @@ namespace wo
             } while (0);
 
             _vm_hang_cv.notify_one();
+#else
+            wo_asure(interrupt(GC_WAKEUP_INTERRUPT));
+#endif
         }
 
         vmbase()
@@ -1004,7 +1027,7 @@ namespace wo
         }
 
         virtual void run() = 0;
-
+#if WO_ENABLE_PARALLEL_GC
         bool gc_checkpoint()
         {
             if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
@@ -1018,6 +1041,7 @@ namespace wo
             }
             return false;
         }
+#endif
 
         value* co_pre_invoke(wo_int_t wo_func_addr, wo_int_t argc)
         {
@@ -2544,13 +2568,18 @@ namespace wo
                     --rt_ip;    // Move back one command.
 
                     auto interrupt_state = vm_interrupt.load();
-
+#if WO_ENABLE_PARALLEL_GC
                     if (interrupt_state & vm_interrupt_type::GC_INTERRUPT)
                     {
                         sp = rt_sp;
                         gc_checkpoint();
                     }
-
+#else
+                    if (interrupt_state & vm_interrupt_type::GC_WAKEUP_INTERRUPT)
+                    {
+                        wo_error("Virtual machine handled a GC_WAKEUP_INTERRUPT.");
+                    }
+#endif
                     if (interrupt_state & vm_interrupt_type::GC_HANGUP_INTERRUPT)
                     {
                         sp = rt_sp;
