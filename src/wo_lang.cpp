@@ -1599,6 +1599,11 @@ namespace wo
                             a_value_index->value_type->set_type(fnd->second.member_type);
                             a_value_index->struct_offset = fnd->second.offset;
                         }
+                        else
+                        {
+                            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNKNOWN_TYPE,
+                                fnd->second.member_type->get_type_name(false).c_str());
+                        }
                     }
                     else
                     {
