@@ -119,6 +119,8 @@ namespace wo
                         wstring_pool::get_pstr(str_to_wstr(*a_value_idx->index->get_constant_value().string)));
                     fnd != a_value_idx->from->value_type->struct_member_index.end())
                 {
+                    fully_update_type(fnd->second.member_type, true);
+
                     if (!fnd->second.member_type->is_pending())
                     {
                         a_value_idx->value_type->set_type(fnd->second.member_type);
@@ -1594,6 +1596,8 @@ namespace wo
                         a_value_index->from->value_type->struct_member_index.find(
                             wstring_pool::get_pstr(str_to_wstr(*a_value_index->index->get_constant_value().string))); fnd != a_value_index->from->value_type->struct_member_index.end())
                     {
+                        fully_update_type(fnd->second.member_type, false);
+
                         if (!fnd->second.member_type->is_pending())
                         {
                             a_value_index->value_type->set_type(fnd->second.member_type);
