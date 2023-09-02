@@ -13,7 +13,7 @@ Woolang（原名 RestorableScene）是第四代 scene 系列语言，拥有静�
 Woolang (origin name is RestorableScene) is fourth generation of my 'scene' programing language. It has a static type system and good performance (compared to other scripting languages).
 
 ```rust
-import woo.std;
+import woo::std;
 func main()
 {
     std::println("Helloworld, woo~");
