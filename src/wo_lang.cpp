@@ -6413,8 +6413,8 @@ namespace wo
                     else if (a_value_unary->val->value_type->is_real())
                     {
                         auto& result = analyze_value(a_value_unary->val, compiler, true);
-                        compiler->mov(reg(reg::cr), imm(0));
-                        compiler->subi(reg(reg::cr), result);
+                        compiler->mov(reg(reg::cr), imm(0.));
+                        compiler->subr(reg(reg::cr), result);
                         complete_using_register(result);
                     }
                     else

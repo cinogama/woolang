@@ -284,6 +284,12 @@ namespace test_basic
         test_equal(mod(9, 6), 3);
         test_equal(div(9.0, 6.0), 9.0 / 6.0);
         test_equal(mod(9.0, 6.0), 3.0);
+
+        let nega = 1.0;
+        let negb = 1;
+        test_equal(-nega, -negb: real);
+        test_equal(-nega, (-negb): real);
+        test_equal(-nega, -(negb: real));
     }
 }
 
