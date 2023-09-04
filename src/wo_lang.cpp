@@ -2415,11 +2415,12 @@ namespace wo
     {
         auto* a_value_var = WO_AST();
 
+        auto* sym = find_value_in_this_scope(a_value_var);
+        if (sym != nullptr)
+            sym->is_marked_as_used_variable = true;
+
         if (a_value_var->value_type->is_pending())
-        {
-            auto* sym = find_value_in_this_scope(a_value_var);
-            if (sym != nullptr)
-                sym->is_marked_as_used_variable = true;
+        {    
             if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
             {
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
