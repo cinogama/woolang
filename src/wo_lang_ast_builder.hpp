@@ -2552,31 +2552,6 @@ namespace wo
                 ast_type* type_node;
                 if ((value_node = dynamic_cast<ast_value*>(WO_NEED_AST(0))) && (type_node = dynamic_cast<ast_type*>(WO_NEED_AST(1))))
                 {
-                    if (type_node->is_array())
-                        if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
-                        {
-                            array_builder->value_type = type_node;
-                            return (ast_basic*)array_builder;
-                        }
-                    if (type_node->is_dict())
-                        if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
-                        {
-                            map_builder->value_type = type_node;
-                            return (ast_basic*)map_builder;
-                        }
-                    if (type_node->is_vec())
-                        if (auto* array_builder = dynamic_cast<ast_value_array*>(value_node))
-                        {
-                            array_builder->value_type = type_node;
-                            return (ast_basic*)array_builder;
-                        }
-                    if (type_node->is_map())
-                        if (auto* map_builder = dynamic_cast<ast_value_mapping*>(value_node))
-                        {
-                            map_builder->value_type = type_node;
-                            return (ast_basic*)map_builder;
-                        }
-
                     ast_value_type_cast* typecast = new ast_value_type_cast(value_node, type_node);
                     typecast->update_constant_value(&lex);
                     return (ast_basic*)typecast;
