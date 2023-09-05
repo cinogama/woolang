@@ -167,9 +167,6 @@ namespace wo
         lang_scope* now_namespace = nullptr;
         lang_scope* current_function_in_pass2 = nullptr;
 
-        // Used for ignore impure type when get type of expr.
-        bool skip_side_effect_check = false;
-
         std::map<uint32_t, ast::ast_type*> hashed_typing;
 
         std::map<wo_extern_native_func_t, std::vector<ast::ast_value_function_define*>> extern_symb_func_definee;
@@ -247,7 +244,6 @@ namespace wo
         WO_PASS(ast_struct_member_define);
         WO_PASS(ast_where_constraint);
         WO_PASS(ast_value_trib_expr);
-        WO_PASS(ast_do_impure);
         WO_PASS(ast_value_typeid);
 #undef WO_PASS
         void analyze_pattern_in_pass1(ast::ast_pattern_base* pattern, ast::ast_decl_attribute* attrib, ast::ast_value* initval);

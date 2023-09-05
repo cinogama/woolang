@@ -132,33 +132,31 @@ namespace wo
         }
         else
         {
-            if (a_value_idx->from->value_type->is_tuple())
-            {
-                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
-                {
-                    // Index tuple must with constant integer.
-                    auto index = a_value_idx->index->get_constant_value().integer;
-                    if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
-                    {
-                        a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[(size_t)index]);
-                        a_value_idx->struct_offset = (uint16_t)index;
-                    }
-                    else
-                        wo_assert(a_value_idx->value_type->is_pure_pending());
-                }
-            }
-            else if (a_value_idx->from->value_type->is_string())
-            {
-                a_value_idx->value_type->set_type_with_name(WO_PSTR(char));
-            }
-            else if (!a_value_idx->from->value_type->is_pending())
+            if (!a_value_idx->from->value_type->is_pending() && !a_value_idx->from->value_type->is_hkt())
             {
                 if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
                     a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[0]);
                 else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
                     a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[1]);
-                else
-                    a_value_idx->value_type->set_type_with_name(WO_PSTR(dynamic));
+                else if (a_value_idx->from->value_type->is_tuple())
+                {
+                    if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+                    {
+                        // Index tuple must with constant integer.
+                        auto index = a_value_idx->index->get_constant_value().integer;
+                        if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                        {
+                            a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[(size_t)index]);
+                            a_value_idx->struct_offset = (uint16_t)index;
+                        }
+                        else
+                            wo_assert(a_value_idx->value_type->is_pure_pending());
+                    }
+                }
+                else if (a_value_idx->from->value_type->is_string())
+                {
+                    a_value_idx->value_type->set_type_with_name(WO_PSTR(char));
+                }
             }
         }
 
@@ -308,12 +306,7 @@ namespace wo
             fully_update_type(ast_value_check->aim_type, true);
         }
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
         analyze_pass1(ast_value_check->_be_check_value_node);
-
-        this->skip_side_effect_check = old_state;
 
         ast_value_check->update_constant_value(lang_anylizer);
         return true;
@@ -376,12 +369,7 @@ namespace wo
             {
                 if (a_value_func->in_function_sentence)
                 {
-                    auto old_state = this->skip_side_effect_check;
-                    this->skip_side_effect_check = false;
-
                     analyze_pass1(a_value_func->in_function_sentence);
-
-                    this->skip_side_effect_check = old_state;
                 }
 
                 if (a_value_func->externed_func_info)
@@ -912,12 +900,7 @@ namespace wo
     {
         auto* a_where_constraint = WO_AST();
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
         analyze_pass1(a_where_constraint->where_constraint_list);
-
-        this->skip_side_effect_check = old_state;
 
         return true;
     }
@@ -955,19 +938,7 @@ namespace wo
         }
         return true;
     }
-    WO_PASS1(ast_do_impure)
-    {
-        auto* a_do_impure = WO_AST();
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
-        analyze_pass1(a_do_impure->block);
-
-        this->skip_side_effect_check = old_state;
-
-        return true;
-    }
     WO_PASS1(ast_value_typeid)
     {
         auto* ast_value_typeid = WO_AST();
@@ -1335,9 +1306,6 @@ namespace wo
     {
         auto* a_where_constraint = WO_AST();
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
         ast_value* val = dynamic_cast<ast_value*>(a_where_constraint->where_constraint_list->children);
         while (val)
         {
@@ -1366,8 +1334,6 @@ namespace wo
 
             val = dynamic_cast<ast_value*>(val->sibling);
         }
-
-        this->skip_side_effect_check = old_state;
 
         return true;
     }
@@ -1418,12 +1384,7 @@ namespace wo
             {
                 if (a_value_funcdef->in_function_sentence)
                 {
-                    auto old_state = this->skip_side_effect_check;
-                    this->skip_side_effect_check = false;
-
                     analyze_pass2(a_value_funcdef->in_function_sentence);
-
-                    this->skip_side_effect_check = old_state;
                 }
                 if (a_value_funcdef->value_type->type_name == WO_PSTR(pending))
                 {
@@ -1547,6 +1508,11 @@ namespace wo
             }
         }
 
+        if (a_value_typecast->value_type->is_pending())
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_UNKNOWN_TYPE,
+                a_value_typecast->value_type->get_type_name(false).c_str()
+            );
+
         if (!ast_type::check_castable(a_value_typecast->value_type, origin_value->value_type))
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_typecast, WO_ERR_CANNOT_CAST_TYPE_TO_TYPE,
@@ -1561,6 +1527,12 @@ namespace wo
     {
         auto* ast_value_judge = WO_AST();
         analyze_pass2(ast_value_judge->_be_cast_value_node);
+
+        if (ast_value_judge->value_type->is_pending())
+            lang_anylizer->lang_error(lexer::errorlevel::error, ast_value_judge, WO_ERR_UNKNOWN_TYPE,
+                ast_value_judge->value_type->get_type_name(false).c_str()
+            );
+
         return true;
     }
     WO_PASS2(ast_value_type_check)
@@ -1570,12 +1542,12 @@ namespace wo
         if (a_value_type_check->is_constant)
             return true;
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
         analyze_pass2(a_value_type_check->_be_check_value_node);
 
-        this->skip_side_effect_check = old_state;
+        if (a_value_type_check->aim_type->is_pending())
+            lang_anylizer->lang_error(lexer::errorlevel::error, a_value_type_check, WO_ERR_UNKNOWN_TYPE,
+                a_value_type_check->aim_type->get_type_name(false).c_str()
+            );
 
         a_value_type_check->update_constant_value(lang_anylizer);
         return true;
@@ -1598,15 +1570,15 @@ namespace wo
                     {
                         fully_update_type(fnd->second.member_type, false);
 
-                        if (!fnd->second.member_type->is_pending())
-                        {
-                            a_value_index->value_type->set_type(fnd->second.member_type);
-                            a_value_index->struct_offset = fnd->second.offset;
-                        }
-                        else
+                        if (fnd->second.member_type->is_pending())
                         {
                             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index, WO_ERR_UNKNOWN_TYPE,
                                 fnd->second.member_type->get_type_name(false).c_str());
+                        }
+                        else
+                        {
+                            a_value_index->value_type->set_type(fnd->second.member_type);
+                            a_value_index->struct_offset = fnd->second.offset;
                         }
                     }
                     else
@@ -1621,9 +1593,13 @@ namespace wo
                 }
 
             }
-            else
+            else if (!a_value_index->from->value_type->is_pending() && !a_value_index->from->value_type->is_hkt())
             {
-                if (a_value_index->from->value_type->is_tuple())
+                if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
+                    a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[0]);
+                else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
+                    a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[1]);
+                else if (a_value_index->from->value_type->is_tuple())
                 {
                     if (a_value_index->index->is_constant && a_value_index->index->value_type->is_integer())
                     {
@@ -1647,40 +1623,32 @@ namespace wo
                 {
                     a_value_index->value_type->set_type_with_name(WO_PSTR(char));
                 }
-                else if (!a_value_index->from->value_type->is_pending())
-                {
-                    if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[0]);
-                    else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
-                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[1]);
-                    else
-                        a_value_index->value_type->set_type_with_name(WO_PSTR(dynamic));
-                }
             }
         }
 
-        if (!a_value_index->from->value_type->is_array()
+        if ((!a_value_index->from->value_type->is_array()
             && !a_value_index->from->value_type->is_dict()
             && !a_value_index->from->value_type->is_vec()
             && !a_value_index->from->value_type->is_map()
             && !a_value_index->from->value_type->is_string()
             && !a_value_index->from->value_type->is_struct()
             && !a_value_index->from->value_type->is_tuple())
+            || a_value_index->from->value_type->is_hkt())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
-                , a_value_index->from->value_type->get_type_name().c_str());
+                , a_value_index->from->value_type->get_type_name(false).c_str());
         }
-
-        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
+        // Checking for indexer type
+        else if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
         {
             if (!a_value_index->index->value_type->is_integer())
             {
                 lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->index, WO_ERR_SHOULD_BE_TYPE_BUT_GET_UNEXCEPTED_TYPE
                     , L"int"
-                    , a_value_index->index->value_type->get_type_name().c_str());
+                    , a_value_index->index->value_type->get_type_name(false).c_str());
             }
         }
-        if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
+        else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
         {
             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], true))
             {
@@ -2373,19 +2341,7 @@ namespace wo
         }
         return true;
     }
-    WO_PASS2(ast_do_impure)
-    {
-        auto* a_do_impure = WO_AST();
 
-        auto old_state = this->skip_side_effect_check;
-        this->skip_side_effect_check = true;
-
-        analyze_pass2(a_do_impure->block);
-
-        this->skip_side_effect_check = old_state;
-
-        return true;
-    }
 
     void check_function_where_constraint(grammar::ast_base* ast, lexer* lang_anylizer, ast::ast_symbolable_base* func)
     {
@@ -3768,15 +3724,10 @@ namespace wo
 
             auto used_type_info = type->using_type_name;
 
-            auto old_state = this->skip_side_effect_check;
-            this->skip_side_effect_check = true;
-
             if (in_pass_1)
                 analyze_pass1(type->typefrom, false);
             if (has_step_in_step2)
                 analyze_pass2(type->typefrom, false);
-
-            this->skip_side_effect_check = old_state;
 
             if (!type->typefrom->value_type->is_pending())
             {
@@ -3894,14 +3845,25 @@ namespace wo
                             // Template count is not match.
                             if (type->has_template())
                             {
-                                // Error! if template_arguments.size() is 0, it will be 
-                                // high-ranked-templated type.
-                                if (type->template_arguments.size() > type_sym->template_types.size())
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_MANY_TEMPLATE_ARGS);
-                                else
+                                if (in_pass_1 == false)
                                 {
-                                    wo_assert(type->template_arguments.size() < type_sym->template_types.size());
-                                    lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_FEW_TEMPLATE_ARGS);
+                                    // Error! if template_arguments.size() is 0, it will be 
+                                    // high-ranked-templated type.
+                                    if (type->template_arguments.size() > type_sym->template_types.size())
+                                    {
+                                        lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_MANY_TEMPLATE_ARGS,
+                                            type_sym->name->c_str());
+                                    }
+                                    else
+                                    {
+                                        wo_assert(type->template_arguments.size() < type_sym->template_types.size());
+                                        lang_anylizer->lang_error(lexer::errorlevel::error, type, WO_ERR_TOO_FEW_TEMPLATE_ARGS,
+                                            type_sym->name->c_str());
+                                    }
+
+                                    lang_anylizer->lang_error(lexer::errorlevel::infom, type, WO_INFO_THE_TYPE_IS_ALIAS_OF,
+                                        type_sym->name->c_str(),
+                                        type_sym->type_informatiom->get_type_name(false).c_str());
                                 }
 
                             }
@@ -4343,7 +4305,6 @@ namespace wo
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
         WO_TRY_PASS(ast_value_trib_expr);
-        WO_TRY_PASS(ast_do_impure);
 
         grammar::ast_base* child = ast_node->children;
         while (child)
@@ -4939,7 +4900,6 @@ namespace wo
         WO_TRY_PASS(ast_match_union_case);
         WO_TRY_PASS(ast_struct_member_define);
         WO_TRY_PASS(ast_where_constraint);
-        WO_TRY_PASS(ast_do_impure);
 
         WO_TRY_END;
 
@@ -6920,11 +6880,6 @@ namespace wo
 
             compiler->jmp(tag(a_match_union_case->in_match->match_end_tag_in_final_pass));
             compiler->tag(current_case_end);
-        }
-        else if (ast_do_impure* a_do_impure = dynamic_cast<ast_do_impure*>(ast_node))
-        {
-            wo_assert(a_do_impure->block != nullptr);
-            real_analyze_finalize(a_do_impure->block, compiler);
         }
         else
             lang_anylizer->lang_error(lexer::errorlevel::error, ast_node, L"Bad ast node.");
