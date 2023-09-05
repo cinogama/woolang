@@ -132,33 +132,31 @@ namespace wo
         }
         else
         {
-            if (a_value_idx->from->value_type->is_tuple())
-            {
-                if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
-                {
-                    // Index tuple must with constant integer.
-                    auto index = a_value_idx->index->get_constant_value().integer;
-                    if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
-                    {
-                        a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[(size_t)index]);
-                        a_value_idx->struct_offset = (uint16_t)index;
-                    }
-                    else
-                        wo_assert(a_value_idx->value_type->is_pure_pending());
-                }
-            }
-            else if (a_value_idx->from->value_type->is_string())
-            {
-                a_value_idx->value_type->set_type_with_name(WO_PSTR(char));
-            }
-            else if (!a_value_idx->from->value_type->is_pending())
+            if (!a_value_idx->from->value_type->is_pending() && !a_value_idx->from->value_type->is_hkt())
             {
                 if (a_value_idx->from->value_type->is_array() || a_value_idx->from->value_type->is_vec())
                     a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[0]);
                 else if (a_value_idx->from->value_type->is_dict() || a_value_idx->from->value_type->is_map())
                     a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[1]);
-                else
-                    a_value_idx->value_type->set_type_with_name(WO_PSTR(dynamic));
+                else if (a_value_idx->from->value_type->is_tuple())
+                {
+                    if (a_value_idx->index->is_constant && a_value_idx->index->value_type->is_integer())
+                    {
+                        // Index tuple must with constant integer.
+                        auto index = a_value_idx->index->get_constant_value().integer;
+                        if ((size_t)index < a_value_idx->from->value_type->template_arguments.size() && index >= 0)
+                        {
+                            a_value_idx->value_type->set_type(a_value_idx->from->value_type->template_arguments[(size_t)index]);
+                            a_value_idx->struct_offset = (uint16_t)index;
+                        }
+                        else
+                            wo_assert(a_value_idx->value_type->is_pure_pending());
+                    }
+                }
+                else if (a_value_idx->from->value_type->is_string())
+                {
+                    a_value_idx->value_type->set_type_with_name(WO_PSTR(char));
+                }
             }
         }
 
@@ -1621,9 +1619,13 @@ namespace wo
                 }
 
             }
-            else
+            else if (!a_value_index->from->value_type->is_pending() && !a_value_index->from->value_type->is_hkt())
             {
-                if (a_value_index->from->value_type->is_tuple())
+                if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
+                    a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[0]);
+                else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
+                    a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[1]);
+                else if (a_value_index->from->value_type->is_tuple())
                 {
                     if (a_value_index->index->is_constant && a_value_index->index->value_type->is_integer())
                     {
@@ -1647,31 +1649,23 @@ namespace wo
                 {
                     a_value_index->value_type->set_type_with_name(WO_PSTR(char));
                 }
-                else if (!a_value_index->from->value_type->is_pending())
-                {
-                    if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec())
-                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[0]);
-                    else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
-                        a_value_index->value_type->set_type(a_value_index->from->value_type->template_arguments[1]);
-                    else
-                        a_value_index->value_type->set_type_with_name(WO_PSTR(dynamic));
-                }
             }
         }
 
-        if (!a_value_index->from->value_type->is_array()
+        if ((!a_value_index->from->value_type->is_array()
             && !a_value_index->from->value_type->is_dict()
             && !a_value_index->from->value_type->is_vec()
             && !a_value_index->from->value_type->is_map()
             && !a_value_index->from->value_type->is_string()
             && !a_value_index->from->value_type->is_struct()
             && !a_value_index->from->value_type->is_tuple())
+            || a_value_index->from->value_type->is_hkt())
         {
             lang_anylizer->lang_error(lexer::errorlevel::error, a_value_index->from, WO_ERR_UNINDEXABLE_TYPE
                 , a_value_index->from->value_type->get_type_name().c_str());
         }
-
-        if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
+        // Checking for indexer type
+        else if (a_value_index->from->value_type->is_array() || a_value_index->from->value_type->is_vec() || a_value_index->from->value_type->is_string())
         {
             if (!a_value_index->index->value_type->is_integer())
             {
@@ -1680,7 +1674,7 @@ namespace wo
                     , a_value_index->index->value_type->get_type_name().c_str());
             }
         }
-        if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
+        else if (a_value_index->from->value_type->is_dict() || a_value_index->from->value_type->is_map())
         {
             if (!a_value_index->index->value_type->is_same(a_value_index->from->value_type->template_arguments[0], true))
             {
