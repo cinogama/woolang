@@ -932,8 +932,8 @@ namespace wo
                 , is_mutable_vector(is_mutable)
                 , ast_value(is_mutable ? new ast_type(WO_PSTR(vec)) : new ast_type(WO_PSTR(array)))
             {
-                wo_test(array_items);
-                value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
+                wo_assert(array_items != nullptr && value_type->template_arguments.empty());
+                value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
             }
 
             ast_value_array() :ast_value(new ast_type(WO_PSTR(pending))) {}
@@ -965,9 +965,9 @@ namespace wo
                 , is_mutable_map(is_mutable)
                 , ast_value(is_mutable ? new ast_type(WO_PSTR(map)) : new ast_type(WO_PSTR(dict)))
             {
-                wo_test(mapping_pairs);
-                value_type->template_arguments[0]->set_type_with_name(WO_PSTR(pending));
-                value_type->template_arguments[1]->set_type_with_name(WO_PSTR(pending));
+                wo_assert(mapping_pairs != nullptr && value_type->template_arguments.empty());
+                value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
+                value_type->template_arguments.push_back(new ast_type(WO_PSTR(pending)));
             }
 
             ast_value_mapping() : ast_value(new ast_type(WO_PSTR(pending))) {}
@@ -1215,6 +1215,7 @@ namespace wo
         {
             ast_value_packed_variadic_args() :ast_value(new ast_type(WO_PSTR(array)))
             {
+                value_type->template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
             }
 
             grammar::ast_base* instance(ast_base* child_instance = nullptr) const override

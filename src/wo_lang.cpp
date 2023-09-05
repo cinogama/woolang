@@ -3712,7 +3712,7 @@ namespace wo
         std::vector<uint32_t> hashs;
         for (auto& template_type : templates)
         {
-            if (template_type->is_pending())
+            if (template_type->is_pending() && !template_type->is_hkt())
                 return nullptr;
 
             hashs.push_back(get_typing_hash_after_pass1(template_type));
