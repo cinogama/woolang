@@ -252,6 +252,10 @@ namespace wo
                         return true;
                 }
             }
+            else if (value_type == value::valuetype::array_type
+                || value_type == value::valuetype::dict_type)
+                return true;
+
             // NOTE: Only anonymous structs need this check
             if (is_struct() && using_type_name == nullptr)
             {

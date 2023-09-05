@@ -1549,23 +1549,6 @@ namespace wo
             }
         };
 
-        struct ast_do_impure : virtual public grammar::ast_base
-        {
-            ast_sentence_block* block = nullptr;
-
-            grammar::ast_base* instance(ast_base* child_instance = nullptr) const override
-            {
-                using astnode_type = decltype(MAKE_INSTANCE(this));
-                auto* dumm = child_instance ? dynamic_cast<astnode_type>(child_instance) : MAKE_INSTANCE(this);
-                if (!child_instance) *dumm = *this;
-                // ast_defines::instance(dumm);
-                // Write self copy functions here..
-
-                WO_REINSTANCE(dumm->block);
-                return dumm;
-            }
-        };
-
         struct ast_break : virtual public grammar::ast_base
         {
             wo_pstring_t label = nullptr;
@@ -3024,10 +3007,12 @@ namespace wo
                     result->template_arguments = template_args;
                     if (result->is_array() || result->is_vec())
                         if (result->template_arguments.size() != 1)
-                            lex.parser_error(lexer::errorlevel::error, WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG);
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_TYPE_NEED_N_TEMPLATE_ARG, 
+                                result->type_name->c_str(), 1);
                     if (result->is_dict() || result->is_map())
                         if (result->template_arguments.size() != 2)
-                            lex.parser_error(lexer::errorlevel::error, WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG);
+                            lex.parser_error(lexer::errorlevel::error, WO_ERR_TYPE_NEED_N_TEMPLATE_ARG,
+                                result->type_name->c_str(), 2);
 
                     return (ast_basic*)result;
                 }

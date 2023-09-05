@@ -125,9 +125,7 @@
 
 #define WO_ERR_TEMPLATE_ARG_NOT_MATCH L"泛型参数不匹配"
 
-#define WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"'array' 类型需要提供一个类型参数"
-
-#define WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"'map' 类型需要提供两个类型参数"
+#define WO_ERR_TYPE_NEED_N_TEMPLATE_ARG L"'%ls' 类型需要提供 '%d' 个类型参数"
 
 #define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"无法推导函数 '%ls' 的返回类型，需要手动标注"
 
@@ -189,9 +187,9 @@
 
 #define WO_ERR_REPEAT_ATTRIBUTE L"重复出现的属性"
 
-#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"给定的泛型参数过多"
+#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"为类型 '%ls' 给定的泛型参数过多"
 
-#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"给定的泛型参数过少"
+#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"为类型 '%ls' 给定的泛型参数过少"
 
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"不匹配的模式：值类型未决"
 
@@ -273,6 +271,8 @@
 #define WO_INFO_IS_THIS_ONE L"是否指的是这里定义的 '%ls'？"
 
 #define WO_INFO_CANNOT_USE_UNREACHABLE_TYPE L"不可以在创建实例或转换类型时，使用无法访问的私有或保护类型"
+
+#define WO_INFO_THE_TYPE_IS_ALIAS_OF L"类型 '%ls' 是 '%ls' 的类型别名"
 
 #else
 
@@ -391,9 +391,7 @@
 
 #define WO_ERR_TEMPLATE_ARG_NOT_MATCH L"Not matched template arguments."
 
-#define WO_ERR_ARRAY_NEED_ONE_TEMPLATE_ARG L"Type 'array' requires a type as template parameters."
-
-#define WO_ERR_MAP_NEED_TWO_TEMPLATE_ARG L"Type 'map' requires two type as template parameters."
+#define WO_ERR_TYPE_NEED_N_TEMPLATE_ARG L"Type '%ls' requires '%d' type(s) as template parameters."
 
 #define WO_ERR_CANNOT_DERIV_FUNCS_RET_TYPE L"Unable to deduce the return type of function '%ls', it needs to be marked manually."
 
@@ -455,9 +453,9 @@
 
 #define WO_ERR_REPEAT_ATTRIBUTE L"Duplicate attribute description."
 
-#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"Too many template arguments."
+#define WO_ERR_TOO_MANY_TEMPLATE_ARGS L"Too many template arguments for type '%ls'."
 
-#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"Too few template arguments"
+#define WO_ERR_TOO_FEW_TEMPLATE_ARGS L"Too few template arguments for type '%ls'."
 
 #define WO_ERR_UNMATCHED_PATTERN_TYPE_NOT_DECIDED L"Unmatched pattern: Value type is pending."
 
@@ -539,5 +537,7 @@
 #define WO_INFO_IS_THIS_ONE L"Do you means '%ls', which is defined here?"
 
 #define WO_INFO_CANNOT_USE_UNREACHABLE_TYPE L"Cannot use an inaccessible private or protected type when creating an instance or converting a type."
+
+#define WO_INFO_THE_TYPE_IS_ALIAS_OF L"Type '%ls' is an alias of '%ls'."
 
 #endif

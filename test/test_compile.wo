@@ -1197,6 +1197,43 @@ func main()
             using RecursiveT = (RecursiveT, RecursiveT);
             do option::none: option<RecursiveT>;
             "@);
+
+        assure_compile_success(@"
+            let v = [];
+            "@);
+        assure_compile_success(@"
+            let v = []: array<int>;
+            "@);
+        assure_compile_fail(@"
+            let v = []: array<>;
+            "@);
+        assure_compile_fail(@"
+            let v = []: array;
+            "@);
+        assure_compile_success(@"
+            let v = {};
+            "@);
+        assure_compile_success(@"
+            let v = {}: dict<int, int>;
+            "@);
+        assure_compile_fail(@"
+            let v = []: dict<>;
+            "@);
+        assure_compile_fail(@"
+            let v = []: dict<int>;
+            "@);
+        assure_compile_fail(@"
+            let v = []: dict;
+            "@);
+
+        assure_compile_success(@"
+            alias A<T> = struct{a: T<int>};
+            let a = []: array<A<array>>;
+            "@);
+        assure_compile_fail(@"
+            alias A<T> = struct{a: T<int>};
+            let a = []: array<A<int>>;
+            "@);
     }
 
     func main()
