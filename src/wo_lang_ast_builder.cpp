@@ -128,16 +128,6 @@ namespace wo
 
             template_arguments.clear();
 
-            if (value_type == value::valuetype::array_type)
-            {
-                template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
-            }
-            else if (value_type == value::valuetype::dict_type)
-            {
-                template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
-                template_arguments.push_back(new ast_type(WO_PSTR(dynamic)));
-            }
-
             if (is_custom_type(_type_name))
                 is_pending_type = true;
         }
