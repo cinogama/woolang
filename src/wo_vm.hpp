@@ -70,12 +70,21 @@ namespace wo
             // There is no interrupt
 
             GC_INTERRUPT = 1 << 8,
-            // GC work will cause this interrupt, if vm received this interrupt,
-            // should clean this interrupt flag, if clean-operate is successful,
-            // vm should call 'hangup' to wait for GC work. 
-            // GC work will cancel GC_INTERRUPT after collect_stage_1. if cancel
-            // failed, it means vm already hangned(or trying hangs now), GC work
-            // will call 'wakeup' to resume vm.
+            // GC work will cause this interrupt
+            // GC main thread will notify GC_INTERRUPT to all vm, if a vm receive it,
+            // it will be able to mark it self.
+            // Before self marking begin, vm will set GC_HANGUP_INTERRUPT for itself
+            // GC_HANGUP_INTERRUPT is a flag here to signing that the vm still in 
+            // self marking.
+            // after self marking, GC_HANGUP_INTERRUPT will be clear.
+            // * If vm leaved and do not received GC_INTERRUPT, gc-work will mark it by 
+            // gc-worker-threads, and the GC_HANGUP_INTERRUPT will be setted by gc-work
+            // * If vm stucked in vm or jit and donot reach checkpoint to receive GC_INTERRUPT
+            // gc-work will wait until timeout(1s), and treat it as self-mark vm. if
+            // vm still stuck while gc-work next checking, GC_HANGUP_INTERRUPT will be set
+            // and GC_INTERRUPT will clear by gc-work, gc-work will mark the vm. after this
+            // mark, GC_HANGUP_INTERRUPT will be clear.
+            
 
             LEAVE_INTERRUPT = 1 << 9,
             // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
@@ -101,7 +110,12 @@ namespace wo
             ABORT_INTERRUPT = 1 << 11,
             // If virtual machine interrupt with ABORT_INTERRUPT, vm will stop immediately.
 
-            // ------------ = 1 << 12,
+            GC_HANGUP_INTERRUPT = 1 << 12,
+            // GC_HANGUP_INTERRUPT will be mark in 2 cases:
+            // 1. VM received GC_INTERRUPT and start to do self-mark. after self-mark. 
+            //      GC_HANGUP_INTERRUPT will be clear after self-mark.
+            // 2. VM is leaved or STW-GC, in this case, vm will receive GC_HANGUP_INTERRUPT
+            //      to hangup. vm will be mark by gc-worker, and be wake up after mark.
 
             PENDING_INTERRUPT = 1 << 13,
             // VM will be pending finish using and returned to pooled-vm, PENDING_INTERRUPT
@@ -109,9 +123,6 @@ namespace wo
 
             BR_YIELD_INTERRUPT = 1 << 14,
             // VM will yield & return from running-state while received BR_YIELD_INTERRUPT
-
-            GC_HANGUP_INTERRUPT = 1 << 15,
-            // 
         };
 
         vmbase(const vmbase&) = delete;
@@ -1009,10 +1020,8 @@ namespace wo
         {
             if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
             {
-                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
-                {
-                    gc::mark_vm(this, SIZE_MAX);
-                }
+                wo_asure(clear_interrupt(vm_interrupt_type::GC_INTERRUPT));
+                gc::mark_vm(this, SIZE_MAX);
                 wo_asure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
                 return true;
             }

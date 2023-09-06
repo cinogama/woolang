@@ -262,7 +262,6 @@ namespace wo
 
             invoke_node->setRet(0, interrupt);
 
-            // x86compiler.cmp(interrupt, wo::vmbase::vm_interrupt_type::GC_INTERRUPT);
             wo_asure(!x86compiler.cmp(interrupt, 0));
             wo_asure(!x86compiler.je(no_interrupt_label));
 
