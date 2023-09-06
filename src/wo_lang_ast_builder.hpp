@@ -96,7 +96,6 @@ namespace wo
 
         struct ast_type : virtual public ast_symbolable_base
         {
-            bool is_function_type = false;
             bool is_variadic_function_type = false;
 
             bool is_mutable_type = false;
@@ -160,7 +159,6 @@ namespace wo
             void set_type_with_constant_value(const value& _val);
             void set_ret_type(const ast_type* _type);
             ast_type(wo_pstring_t _type_name);
-            void set_as_function_type();
             ast_type* get_return_type() const;
             void append_function_argument_type(ast_type* arg_type);
             void set_as_variadic_arg_func();
@@ -190,7 +188,6 @@ namespace wo
             bool set_mix_types(ast_type* another, bool ignore_mutable);
 
             bool is_builtin_basic_type();
-            bool is_func() const;
             bool is_bool() const;
             bool is_char() const;
             bool is_builtin_using_type() const;
@@ -202,7 +199,7 @@ namespace wo
             bool is_complex() const;
             bool is_string() const;
             bool is_waiting_create_template_for_auto() const;
-            bool is_complex_type() const;
+            bool is_pure_base_type() const;
             bool is_array() const;
             bool is_dict() const;
             bool is_vec() const;
@@ -759,9 +756,7 @@ namespace wo
                 : ast_value_symbolable_base(type)
                 , ast_value(type)
             {
-                type->set_as_function_type();
-                type->complex_type = new ast_type(WO_PSTR(pending));
-                type->set_ret_type(type->complex_type);
+                type->set_ret_type(new ast_type(WO_PSTR(pending)));
             }
 
             bool is_closure_function()const noexcept
@@ -2942,12 +2937,10 @@ namespace wo
                 ast_type* result = nullptr;
                 auto* complex_type = dynamic_cast<ast_type*>(WO_NEED_AST(2));
 
-                wo_test(complex_type);
+                wo_assert(complex_type != nullptr);
 
                 result = new ast_type(WO_PSTR(pending));
-                result->set_as_function_type();
                 result->set_ret_type(complex_type);
-                result->get_return_type()->copy_source_info(complex_type);
 
                 auto* arg_list = dynamic_cast<ast_list*>(WO_NEED_AST(0));
                 auto* child = arg_list->children;

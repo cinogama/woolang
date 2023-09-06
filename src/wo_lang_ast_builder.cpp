@@ -81,7 +81,7 @@ namespace wo
             {
                 // Not allowed cast template type from dynamic
                 // In fact, cast func from dynamic is dangerous too...
-                if (to->is_complex_type()
+                if (to->is_pure_base_type()
                     || to->is_nothing())
                     return false;
                 return true;
@@ -148,8 +148,6 @@ namespace wo
         }
         void ast_type::set_ret_type(const ast_type* _type)
         {
-            wo_assert(is_func());
-
             type_name = WO_PSTR(complex);
 
             if (complex_type == nullptr)
@@ -162,10 +160,6 @@ namespace wo
             template_arguments.clear();
         }
 
-        void ast_type::set_as_function_type()
-        {
-            is_function_type = true;
-        }
         ast_type* ast_type::get_return_type() const
         {
             wo_assert(is_complex());
@@ -194,7 +188,7 @@ namespace wo
         }
         bool ast_type::is_dynamic() const
         {
-            return !is_func() && type_name == WO_PSTR(dynamic);
+            return !is_complex() && type_name == WO_PSTR(dynamic);
         }
 
         bool ast_type::is_custom() const
@@ -221,18 +215,16 @@ namespace wo
                         return true;
                 }
             }
-            if (is_func())
+            if (is_complex())
             {
                 for (auto arg_type : argument_types)
                 {
                     if (arg_type->has_custom())
                         return true;
                 }
-            }
-            if (is_complex())
                 return complex_type->has_custom();
-            else
-                return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
+            }
+            return is_custom_type(type_name) || (is_pending() && typefrom != nullptr);
         }
 
         bool ast_type::is_pure_pending() const
@@ -265,18 +257,17 @@ namespace wo
                         return true;
                 }
             }
-            if (is_func())
+
+            bool base_type_pending;
+            if (is_complex())
             {
                 for (auto arg_type : argument_types)
                 {
                     if (arg_type->is_pending())
                         return true;
                 }
-            }
-
-            bool base_type_pending;
-            if (is_complex())
                 base_type_pending = complex_type->is_pending();
+            }
             else
                 base_type_pending = type_name == WO_PSTR(pending);
 
@@ -301,18 +292,17 @@ namespace wo
                         return true;
                 }
             }
-            if (is_func())
+
+            bool base_type_pending;
+            if (is_complex())
             {
                 for (auto arg_type : argument_types)
                 {
                     if (arg_type->may_need_update())
                         return true;
                 }
-            }
-
-            bool base_type_pending;
-            if (is_complex())
                 base_type_pending = complex_type->may_need_update();
+            }
             else
                 base_type_pending = type_name == WO_PSTR(pending);
 
@@ -320,7 +310,7 @@ namespace wo
         }
         bool ast_type::is_pending_function() const
         {
-            if (is_func())
+            if (is_complex())
                 return is_pending();
             return false;
         }
@@ -341,7 +331,7 @@ namespace wo
             // Only used after pass1
             auto* this_origin_type = this->using_type_name ? this->using_type_name : this;
             auto* another_origin_type = another->using_type_name ? another->using_type_name : another;
-            if (this_origin_type->is_func() != another_origin_type->is_func()
+            if (this_origin_type->is_complex() != another_origin_type->is_complex()
                 || this_origin_type->is_variadic_function_type != another_origin_type->is_variadic_function_type
                 || this_origin_type->template_arguments.size() != another_origin_type->template_arguments.size()
                 || this_origin_type->argument_types.size() != another_origin_type->argument_types.size())
@@ -350,14 +340,14 @@ namespace wo
             if ((using_type_name == nullptr && another->using_type_name)
                 || (using_type_name && another->using_type_name == nullptr))
             {
-                const ast_type* chtype = another->is_func() ? another->get_return_type() : another;
+                const ast_type* chtype = another->is_complex() ? another->get_return_type() : another;
                 if (using_type_name && using_type_name->is_like(chtype, termplate_set))
                 {
                     if (out_para)*out_para = dynamic_cast<ast_type*>(using_type_name->instance());
                     if (out_args)*out_args = const_cast<ast_type*>(chtype);
                     return true;
                 }
-                chtype = is_func() ? get_return_type() : this;
+                chtype = is_complex() ? get_return_type() : this;
                 if (another->using_type_name && chtype->is_like(another->using_type_name, termplate_set))
                 {
                     if (out_para)*out_para = const_cast<ast_type*>(chtype);
@@ -490,11 +480,9 @@ namespace wo
                 return false;
             }
 
-            if (is_func())
+            if (is_complex())
             {
-                this->set_as_function_type();
-
-                if (!another->is_func())
+                if (!another->is_complex())
                     return false;
 
                 if (argument_types.size() != another->argument_types.size())
@@ -510,16 +498,13 @@ namespace wo
                     return false;
 
                 this->is_variadic_function_type = is_variadic_function_type;
-            }
-            else if (another->is_func())
-                return false;
 
-            if (is_complex() && another->is_complex())
-            {
                 if (!complex_type->set_mix_types(another->complex_type, false))
                     return false;
             }
-            else if (!is_complex() && !another->is_complex())
+            else if (another->is_complex())
+                return false;
+            else// if (!is_complex() && !another->is_complex())
             {
                 if (type_name != another->type_name)
                     return false;
@@ -530,8 +515,6 @@ namespace wo
                 this->struct_member_index = struct_member_index;
                 this->typefrom = typefrom;
             }
-            else
-                return false;
 
             if (using_type_name || another->using_type_name)
             {
@@ -579,10 +562,7 @@ namespace wo
             this->is_pending_type = false;
             return true;
         }
-        bool ast_type::is_func() const
-        {
-            return is_function_type;
-        }
+
         bool ast_type::is_bool() const
         {
             return value_type == value::valuetype::bool_type;
@@ -627,9 +607,9 @@ namespace wo
         {
             return type_name == WO_PSTR(auto);
         }
-        bool ast_type::is_complex_type() const
+        bool ast_type::is_pure_base_type() const
         {
-            if (is_func() || using_type_name || is_union() || is_struct() || is_tuple() || is_vec() || is_map())
+            if (is_complex() || using_type_name || is_union() || is_struct() || is_tuple() || is_vec() || is_map())
                 return true;
             if (is_array() || is_dict())
             {
@@ -1142,7 +1122,7 @@ namespace wo
             {
                 return nullptr;
             }
-            if (left_v->is_func() || right_v->is_func())
+            if (left_v->is_complex() || right_v->is_complex())
             {
                 return nullptr;
             }
@@ -1159,7 +1139,7 @@ namespace wo
         {
             if (left_v->is_custom() || right_v->is_custom())
                 return nullptr;
-            if (left_v->is_func() || right_v->is_func())
+            if (left_v->is_complex() || right_v->is_complex())
                 return nullptr;
             if ((left_v->is_string() || right_v->is_string()) && op != +lex_type::l_add && op != +lex_type::l_add_assign)
                 return nullptr;
@@ -1476,10 +1456,11 @@ namespace wo
                 != template_defines.end())
                 out_used_type.insert(type_decl->type_name);
             if (type_decl->is_complex())
+            {
                 find_used_template(type_decl->complex_type, template_defines, out_used_type);
-            if (type_decl->is_func())
                 for (auto* argtype : type_decl->argument_types)
                     find_used_template(argtype, template_defines, out_used_type);
+            }
             if (type_decl->has_template())
                 for (auto* argtype : type_decl->template_arguments)
                     find_used_template(argtype, template_defines, out_used_type);
