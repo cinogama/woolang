@@ -3180,20 +3180,32 @@ namespace wo
         {
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
-                wo_assert(input.size() == 2);
+                wo_assert(input.size() == 3);
 
-                auto* left = dynamic_cast<ast_value*>(WO_NEED_AST(0));
-                auto* right = new ast_value_literal(WO_NEED_TOKEN(1));
+                auto* begin = new ast_value_literal(WO_NEED_TOKEN(0));
+                auto* middle = dynamic_cast<ast_value*>(WO_NEED_AST(1));
+                auto* end = new ast_value_literal(WO_NEED_TOKEN(2));
 
-                right->copy_source_info(left);
+                begin->copy_source_info(middle);
+                end->copy_source_info(middle);
 
-                ast_value_binary* vbin = new ast_value_binary();
-                vbin->left = left;
-                vbin->operate = lex_type::l_add;
-                vbin->right = right;
+                ast_value_binary* lmbin = new ast_value_binary();
+                lmbin->left = begin;
+                lmbin->operate = lex_type::l_add;
+                lmbin->right = middle;
 
-                vbin->update_constant_value(&lex);
-                return (ast_basic*)vbin;
+                lmbin->update_constant_value(&lex);
+                lmbin->copy_source_info(middle);
+
+                ast_value_binary* lmebin = new ast_value_binary();
+                lmebin->left = lmbin;
+                lmebin->operate = lex_type::l_add;
+                lmebin->right = end;
+
+                lmebin->update_constant_value(&lex);
+                lmebin->copy_source_info(middle);
+
+                return (ast_basic*)lmebin;
             }
         };
 

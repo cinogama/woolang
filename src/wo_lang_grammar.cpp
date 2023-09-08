@@ -747,9 +747,9 @@ namespace wo
 
                 gm::nt(L"UNIT") >> gm::symlist{ gm::nt(L"FORMAT_STRING") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_direct<0>),
-                gm::nt(L"FORMAT_STRING") >> gm::symlist{ gm::nt(L"FORMAT_STRING_LIST"), gm::te(gm::ttype::l_format_string_end) }
+                gm::nt(L"FORMAT_STRING") >> gm::symlist{ gm::te(gm::ttype::l_format_string_begin), gm::nt(L"FORMAT_STRING_LIST"), gm::te(gm::ttype::l_format_string_end) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_finish_format_string),
-                gm::nt(L"FORMAT_STRING_LIST") >> gm::symlist{gm::te(gm::ttype::l_format_string), gm::nt(L"RIGHT") }
+                gm::nt(L"FORMAT_STRING_LIST") >> gm::symlist{gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_format_string),
                 gm::nt(L"FORMAT_STRING_LIST") >> gm::symlist{ gm::nt(L"FORMAT_STRING_LIST"),gm::te(gm::ttype::l_format_string), gm::nt(L"RIGHT") }
                 >> WO_ASTBUILDER_INDEX(ast::pass_format_string),

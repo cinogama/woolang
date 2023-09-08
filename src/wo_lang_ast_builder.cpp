@@ -876,6 +876,7 @@ namespace wo
                 constant_value.set_real(wstr_to_real(te.identifier));
                 break;
             case lex_type::l_literal_string:
+            case lex_type::l_format_string_begin:
             case lex_type::l_format_string:
             case lex_type::l_format_string_end:
             case lex_type::l_identifier: // Special for xxx.index
@@ -1394,24 +1395,11 @@ namespace wo
 
         grammar::produce pass_format_string::build(lexer& lex, inputs_t& input)
         {
-            //if(input.size() == )
-            wo_assert(input.size() == 2 || input.size() == 3);
-            if (input.size() == 2)
+            wo_assert(input.size() == 1 || input.size() == 3);
+            if (input.size() == 1)
             {
-                auto* left = new ast_value_literal(WO_NEED_TOKEN(0));
-                auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(1));
-
-                auto cast_right = new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
-
-                left->copy_source_info(right);
-                cast_right->copy_source_info(left);
-
-                ast_value_binary* vbin = new ast_value_binary();
-                vbin->left = left;
-                vbin->operate = lex_type::l_add;
-                vbin->right = cast_right;
-                vbin->update_constant_value(&lex);
-                return (ast_basic*)vbin;
+                auto* right = dynamic_cast<ast_value*>(WO_NEED_AST(0));
+                return (ast_basic*)new ast_value_type_cast(right, new ast_type(WO_PSTR(string)));
             }
             else
             {

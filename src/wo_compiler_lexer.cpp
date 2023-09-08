@@ -321,7 +321,7 @@ namespace wo
                     {
                         curly_count = 0;
                         format_string_count++;
-                        return lex_type::l_format_string;
+                        return lex_type::l_format_string_begin;
                     }
                     if (following_ch != EOF && following_ch != '\n')
                     {

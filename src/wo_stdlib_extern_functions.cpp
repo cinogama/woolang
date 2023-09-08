@@ -2628,7 +2628,8 @@ namespace std
         l_literal_real,         // 0.2  0.  .235
         l_literal_string,       // "" "helloworld" @"println("hello");"@
         l_literal_char,         // 'x'
-        l_format_string,        // f"..{  /  }..{ 
+        l_format_string_begin,  // F"..{
+        l_format_string,        // }..{ 
         l_format_string_end,    // }.."
         l_semicolon,            // ;
         l_comma,                // ,
@@ -2728,12 +2729,26 @@ namespace std
 
         extern("rslib_std_macro_lexer_next")
             public func nexttoken(lex:lexer)=> (token_type, string);
-
-        public func peek(lex: lexer)
+        
+        private func wrap_token(type: token_type, str: string)
         {
-            let (type, str) = lex->peektoken;
             if (type == token_type::l_literal_string)
                 return str->enstring;
+            else if (type == token_type::l_format_string_begin)
+            {
+                let enstr = str->enstring;
+                return "F" + enstr->subto(0, enstr->len-1) + "{";
+            }
+            else if (type == token_type::l_format_string)
+            {
+                let enstr = str->enstring;
+                return "}" + enstr->subto(1, enstr->len-2) + "{";
+            }
+            else if (type == token_type::l_format_string_end)
+            {
+                let enstr = str->enstring;
+                return "}" + enstr->subto(1, enstr->len-1);
+            }
             else if (type == token_type::l_literal_char)
             {
                 let enstr = str->enstring;
@@ -2741,17 +2756,14 @@ namespace std
             }
             return str;
         }
+
+        public func peek(lex: lexer)
+        {
+            return wrap_token(lex->peektoken...);
+        }
         public func next(lex: lexer)
         {
-            let (type, str) = lex->nexttoken;
-            if (type == token_type::l_literal_string)
-                return str->enstring;
-            else if (type == token_type::l_literal_char)
-            {
-                let enstr = str->enstring;
-                return F"'{enstr->subto(1, enstr->len-2)}'";
-            }
-            return str;
+            return wrap_token(lex->nexttoken...);
         }
 
         extern("rslib_std_macro_lexer_nextch")
