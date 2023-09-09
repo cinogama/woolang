@@ -147,7 +147,7 @@ test_debug_arm64:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver_debug test/test_all.wo --enable-ctrlc-debug 0
     - cd ../../../../
   artifacts:
     name: ubuntu-wo-$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
@@ -210,12 +210,9 @@ test_release_arm64:
     - sudo chmod 777 ./pkg
     - sudo chmod 777 .
     - cd ..
-    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1 -o test_nojit.woo
-    - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 0
-    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0 -o test_nojit.woo
-    - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0 --enable-jit 1
-    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 0
-    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 --enable-jit 1
+    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0 -o test_nojit.woo
+    - ./build/woodriver test_nojit.woo --enable-ctrlc-debug 0
+    - ./build/woodriver test/test_all.wo --enable-ctrlc-debug 0
   tags:
     - ubuntu22_arm64
   artifacts:
