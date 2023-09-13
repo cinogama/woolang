@@ -4226,31 +4226,16 @@ namespace wo
 #define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
 #define WO_TRY_END }while(0)
         entry_pass ep1(in_pass2, false);
-
-        if (traving_node.find(ast_node) != traving_node.end())
+        
+        if (!ast_node)return;
+            
+        if (ast_node->completed_in_pass1)
             return;
 
-        struct traving_guard
-        {
-            lang* _lang;
-            grammar::ast_base* _tving_node;
-            traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                : _lang(_lg)
-                , _tving_node(ast_ndoe)
-            {
-                _lang->traving_node.insert(_tving_node);
-            }
-            ~traving_guard()
-            {
-                _lang->traving_node.erase(_tving_node);
-            }
-        };
-
-        traving_guard g1(this, ast_node);
+        ast_node->completed_in_pass1 = true;
 
         using namespace ast;
 
-        if (!ast_node)return;
         ast_node->located_scope = now_scope();
 
         if (ast_symbolable_base* a_symbol_ob = dynamic_cast<ast_symbolable_base*>(ast_node))
@@ -4347,6 +4332,8 @@ namespace wo
 #undef WO_TRY_BEGIN
 #undef WO_TRY_PASS
 #undef WO_TRY_END
+
+        wo_assert(ast_node->completed_in_pass1);
     }
 
     lang_symbol* lang::analyze_pass_template_reification(ast::ast_value_variable* origin_variable, std::vector<ast::ast_type*> template_args_types)
@@ -4710,15 +4697,6 @@ namespace wo
         return new_arguments_types_result;
     }
 
-
-    void lang::start_trying_pass2()
-    {
-        write_flag_complete_in_pass2 = false;
-    }
-    void lang::end_trying_pass2()
-    {
-        write_flag_complete_in_pass2 = true;
-    }
     void lang::analyze_pass2(grammar::ast_base* ast_node, bool type_degradation)
     {
         has_step_in_step2 = true;
@@ -4730,28 +4708,7 @@ namespace wo
         if (ast_node->completed_in_pass2)
             return;
 
-        if (traving_node.find(ast_node) != traving_node.end())
-            return;
-
-        ast_node->completed_in_pass2 = write_flag_complete_in_pass2;
-
-        struct traving_guard
-        {
-            lang* _lang;
-            grammar::ast_base* _tving_node;
-            traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                : _lang(_lg)
-                , _tving_node(ast_ndoe)
-            {
-                _lang->traving_node.insert(_tving_node);
-            }
-            ~traving_guard()
-            {
-                _lang->traving_node.erase(_tving_node);
-            }
-        };
-
-        traving_guard g1(this, ast_node);
+        ast_node->completed_in_pass2 = true;
 
         using namespace ast;
 
@@ -4907,8 +4864,7 @@ namespace wo
             child = child->sibling;
         }
 
-        ast_node->completed_in_pass2 = write_flag_complete_in_pass2;
-
+        wo_assert(ast_node->completed_in_pass2);
     }
     void lang::clean_and_close_lang()
     {
@@ -6509,30 +6465,6 @@ namespace wo
         wo_assert(ast_node->completed_in_pass2);
 
         compiler->pdb_info->generate_debug_info_at_astnode(ast_node, compiler);
-
-        if (traving_node.find(ast_node) != traving_node.end())
-        {
-            lang_anylizer->lang_error(lexer::errorlevel::error, ast_node, L"Bad ast node.");
-            return;
-        }
-
-        struct traving_guard
-        {
-            lang* _lang;
-            grammar::ast_base* _tving_node;
-            traving_guard(lang* _lg, grammar::ast_base* ast_ndoe)
-                : _lang(_lg)
-                , _tving_node(ast_ndoe)
-            {
-                _lang->traving_node.insert(_tving_node);
-            }
-            ~traving_guard()
-            {
-                _lang->traving_node.erase(_tving_node);
-            }
-        };
-
-        traving_guard g1(this, ast_node);
 
         using namespace ast;
         using namespace opnum;

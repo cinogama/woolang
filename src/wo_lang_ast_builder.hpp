@@ -1745,6 +1745,7 @@ namespace wo
                 // Write self copy functions here..
 
                 WO_REINSTANCE(dumm->union_pattern);
+                WO_REINSTANCE(dumm->take_place_value_may_nil);
 
                 return dumm;
             }
@@ -3362,6 +3363,7 @@ namespace wo
                 wo_assert(input.size() == 3);
 
                 auto* result = new ast_match_union_case;
+                result->take_place_value_may_nil = nullptr;
                 result->union_pattern = dynamic_cast<ast_pattern_union_value*>(WO_NEED_AST(0));
                 wo_assert(result->union_pattern);
 

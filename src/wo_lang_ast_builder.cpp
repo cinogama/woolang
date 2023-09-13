@@ -1357,6 +1357,7 @@ namespace wo
 
             auto* pattern_none_case = new ast_match_union_case;
             {
+                pattern_none_case->take_place_value_may_nil = nullptr;
                 pattern_none_case->union_pattern = new ast_pattern_union_value;
                 pattern_none_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(none));
                 pattern_none_case->union_pattern->union_expr->copy_source_info(for_decl_vars);
@@ -1371,6 +1372,7 @@ namespace wo
 
             auto* pattern_value_case = new ast_match_union_case;
             {
+                pattern_value_case->take_place_value_may_nil = nullptr;
                 pattern_value_case->union_pattern = new ast_pattern_union_value;
                 pattern_value_case->union_pattern->union_expr = new ast_value_variable(WO_PSTR(value));
                 pattern_value_case->union_pattern->pattern_arg_in_union_may_nil = for_decl_vars;
