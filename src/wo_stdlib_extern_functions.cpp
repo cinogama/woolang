@@ -478,7 +478,7 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_string_append_char(wo_vm vm, wo_value args, size_t argc)
 {
-    std::wstring buf({(wchar_t)(wo_handle_t)wo_int(args + 1)});
+    std::wstring buf({ (wchar_t)(wo_handle_t)wo_int(args + 1) });
     return wo_ret_string(vm, (wo_string(args + 0) + wo::wstr_to_str(buf)).c_str());
 }
 WO_API wo_api rslib_std_string_append_cchar(wo_vm vm, wo_value args, size_t argc)
@@ -1339,10 +1339,65 @@ WO_API wo_api rslib_std_bit_shr(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_int(vm, (wo_integer_t)result);
 }
 
+#if defined(__APPLE__) && defined(__MACH__)
+#include <TargetConditionals.h>
+#endif
 
 const char* wo_stdlib_src_path = u8"woo/std.wo";
 const char* wo_stdlib_src_data = {
 u8R"(
+namespace std
+{
+    public enum os
+    {
+        WIN32,
+        ANDROID,
+        LINUX,
+        IOS,
+        MACOS,
+        UNKNOWN,
+    }
+    public enum arch
+    {
+        X86,
+        AMD64,
+        ARM32,
+        ARM64,
+        UNKNOWN,
+    }
+)"
+"   public let platform_os = "
+#ifdef _WIN32
+    "os::WIN32;\n"
+#elif defined(__ANDROID__)
+    "os::ANDROID;\n"
+#elif defined(__linux__)
+    "os::LINUX;\n"
+#elif defined(__APPLE__) && defined(__MACH__)
+#if TARGET_IPHONE_SIMULATOR || TARGET_OS_IPHONE
+    "os::IOS;\n"
+#elif TARGET_OS_MAC
+    "os::MACOS;\n"
+#else
+    "os::UNKNOWN;\n"
+#endif
+#else
+    "os::UNKNOWN;\n"
+#endif
+"   public let platform_arch = "
+#if defined(_X86_)||defined(__i386)||(defined(_WIN32)&&!defined(_WIN64))
+    "arch::X86;\n"
+#elif defined(__x86_64)||defined(_M_X64)
+    "arch::AMD64;\n"
+#elif defined(__arm)
+    "arch::ARM32;\n"
+#elif defined(__aarch64__)
+    "arch::ARM64;\n"
+#else
+    "arch::UNKNOWN;\n"
+#endif
+u8R"(
+}
 namespace unsafe
 {
     extern("rslib_std_return_itself") 
