@@ -1,7 +1,7 @@
 <div align="center">
 <img src="./image/woolang_logo.png" />
 <h1>Woolang</h1>
-<a href="https://gitlab.cinogama.com/cinogamaproject/woolang/-/commits/master">
+<a href="https://git.cinogama.net/cinogamaproject/woolang/-/commits/master">
 <img src="https://git.cinogama.net/cinogamaproject/woolang/badges/master/pipeline.svg" />
 <img src="https://git.cinogama.net/cinogamaproject/woolang/badges/master/coverage.svg" />
 </a>
