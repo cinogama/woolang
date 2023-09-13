@@ -138,6 +138,7 @@ namespace wo
                 return need_swap_back;
             }
 
+            bool completed_in_pass1 = false;
             bool completed_in_pass2 = false;
 
             lang_scope* located_scope;

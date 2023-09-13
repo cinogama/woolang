@@ -161,7 +161,6 @@ namespace wo
         std::vector<lang_symbol*> lang_symbols; // only used for storing symbols to release
         std::vector<opnum::opnumbase*> generated_opnum_list_for_clean;
         std::forward_list<grammar::ast_base*> generated_ast_nodes_buffers;
-        std::unordered_set<grammar::ast_base*> traving_node;
         std::unordered_set<lang_symbol*> traving_symbols;
         std::vector<lang_scope*> lang_scopes; // it is a stack like list;
         lang_scope* now_namespace = nullptr;
@@ -266,11 +265,8 @@ namespace wo
             const std::vector<ast::ast_type*>* template_args);
         std::vector<ast::ast_type*> judge_auto_type_in_funccall(ast::ast_value_funccall* funccall, bool update, ast::ast_defines* template_defines, const std::vector<ast::ast_type*>* template_args);
 
-        bool write_flag_complete_in_pass2 = true;
         bool has_step_in_step2 = false;
 
-        void start_trying_pass2();
-        void end_trying_pass2();
         void analyze_pass2(grammar::ast_base* ast_node, bool type_degradation=true);
         void clean_and_close_lang();
 
