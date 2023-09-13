@@ -2861,3 +2861,43 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     }
     return false;
 }
+
+// LSP-API
+size_t wo_lsp_get_compile_error_msg_count_from_vm(wo_vm vmm)
+{
+    return WO_VM(vmm)->compile_info->lex_error_list.size();
+}
+
+wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t index)
+{
+    auto& err_detail = WO_VM(vmm)->compile_info->lex_error_list[index];
+
+    wo_lsp_error_msg* msg = new wo_lsp_error_msg;
+
+    switch (err_detail.error_level)
+    {
+    case wo::lexer::errorlevel::error: msg->m_level = wo_lsp_error_level::WO_LSP_ERROR; break;
+    case wo::lexer::errorlevel::infom: msg->m_level = wo_lsp_error_level::WO_LSP_INFORMATION; break;
+    default:
+        wo_error("Unknown error level.");
+        break;
+    }
+    msg->m_begin_location[0] = err_detail.begin_row;
+    msg->m_begin_location[1] = err_detail.begin_col;
+    msg->m_end_location[0] = err_detail.end_row;
+    msg->m_end_location[1] = err_detail.end_col;
+
+    auto * filename = new char[err_detail.filename.size() + 1];
+    strcpy(filename, err_detail.filename.data());
+    msg->m_file_name = filename;
+    msg->m_describe = wo::wstr_to_str_ptr(err_detail.describe);
+
+    return msg;
+}
+
+void wo_lsp_free_compile_error_msg(wo_lsp_error_msg* msg)
+{
+    delete[] msg->m_describe;
+    delete[] msg->m_file_name;
+    delete msg;
+}
