@@ -3428,7 +3428,7 @@ namespace wo
             {
                 wo_assert(input.size() == 4);
                 // struct{ members }
-                //   0   1     2   3 
+                //   0   1     2   3
                 ast_type* struct_type = new ast_type(WO_PSTR(struct));
                 uint16_t membid = 0;
                 auto* members = WO_NEED_AST(2)->children;

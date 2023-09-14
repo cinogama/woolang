@@ -87,8 +87,16 @@ namespace test_basic
         do a07;do a17;do a27; do a37;do a47;do a57;do a67;do a77; do a87; do a97;
 
     }
+
+    using empty_st = struct{};
+
     func main()
     {
+        let a_empty_st = empty_st{};
+        let b_empty_st = struct{};
+
+        std::println(a_empty_st, b_empty_st, ());
+
         test_bug_sidx();
         test_oversized();
 
