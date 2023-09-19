@@ -131,14 +131,14 @@ namespace wo
         inline value* set_string(const char* str)
         {
             set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
+            string_t::gc_new<gcbase::gctype::young>(gcunit, str);
             return this;
         }
 
         inline value* set_buffer(const void* buf, size_t sz)
         {
             set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::eden>(gcunit, (const char*)buf, sz);
+            string_t::gc_new<gcbase::gctype::young>(gcunit, (const char*)buf, sz);
             return this;
         }
 
@@ -384,7 +384,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_arrray);
                 set_gcunit_with_barrier(valuetype::array_type);
 
-                auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
+                auto* created_arr = array_t::gc_new<gcbase::gctype::young>(gcunit, dup_arrray->size());
                 gcbase::gc_write_guard g2(created_arr);
                 *created_arr->elem() = *dup_arrray->elem();
             }
@@ -400,7 +400,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_mapping);
                 set_gcunit_with_barrier(valuetype::dict_type);
 
-                auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(gcunit);
+                auto* created_map = dict_t::gc_new<gcbase::gctype::young>(gcunit);
                 gcbase::gc_write_guard g2(created_map);
                 *created_map->elem() = *dup_mapping->elem();
             }
@@ -415,7 +415,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_struct);
                 set_gcunit_with_barrier(valuetype::struct_type);
 
-                auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
+                auto* created_struct = struct_t::gc_new<gcbase::gctype::young>(gcunit, dup_struct->m_count);
                 gcbase::gc_write_guard g2(created_struct);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)
                     created_struct->m_values[i].set_val(&dup_struct->m_values[i]);

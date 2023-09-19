@@ -34,6 +34,10 @@ namespace wo
 
             return result;
         }
+        NodeT* peek_list() const
+        {
+            return last_node.load();
+        }
     };
 
     struct value;
@@ -114,8 +118,7 @@ namespace wo
         {
             no_gc= 0x6c,
 
-            eden,
-            young = eden,
+            young,
             old,
         };
         enum class gcmarkcolor : uint8_t
@@ -229,14 +232,12 @@ namespace wo
     struct gcunit : public gcbase, public T
     {
         template<gcbase::gctype AllocType, typename ... ArgTs >
-        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
+        static gcunit<T>* gc_new_no_gc_flag(gcbase*& write_aim, ArgTs && ... args)
         {
             ++gc_new_count;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>)))gcunit<T>(args...);
-            *reinterpret_cast<std::atomic<gcbase*>*>(&write_aim) = created_gcnuit;
-
-            created_gcnuit->gc_type = AllocType;
+            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&write_aim)) = created_gcnuit;
 
 #ifndef NDEBUG
             created_gcnuit->gc_typename = typeid(T).name();
@@ -259,6 +260,14 @@ namespace wo
             }
 
             return created_gcnuit;
+        }
+
+        template<gcbase::gctype AllocType, typename ... ArgTs >
+        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
+        {
+            auto* unit = gc_new_no_gc_flag<AllocType>(write_aim, args...);
+            unit->gc_type = AllocType;
+            return unit;
         }
 
         template<typename ... ArgTs>
