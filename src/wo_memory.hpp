@@ -5,14 +5,13 @@
 #include <cstddef>
 #include <new>
 
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
+
 namespace wo
 {
-    inline void* alloc64(size_t memsz)
-    {
-        return malloc(memsz);
-    }
-    inline void free64(void* ptr)
-    {
-        free(ptr);
-    }
+    void* alloc64(size_t memsz);
+    void free64(void* ptr);
 }
