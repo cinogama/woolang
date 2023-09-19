@@ -888,8 +888,8 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type exce
     bool entered = wo_enter_gcguard(vm);
 
     wo::lexer lex(wo::str_to_wstr(str), "json");
-    auto result =  _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
-    
+    auto result = _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+
     if (entered)
         wo_asure(wo_leave_gcguard(vm));
 
@@ -907,7 +907,7 @@ bool _wo_cast_string(
     wo::value* value,
     std::string* out_str,
     cast_string_mode mode,
-    std::map<wo::gcbase*, int>* traveled_gcunit, 
+    std::map<wo::gcbase*, int>* traveled_gcunit,
     int depth)
 {
     switch (value->type)
@@ -2768,7 +2768,7 @@ void wo_unload_lib(void* lib)
     auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
         [lib](const auto& idx)
         {
-            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info) 
+            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info)
                 {
                     return info.m_lib_instance == lib;
                 }) != idx.second.end();
@@ -2848,7 +2848,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt & (
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT 
+            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
             | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
         {
             if (!WO_VM(vm)->gc_checkpoint())
@@ -2887,7 +2887,7 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t 
     msg->m_end_location[0] = err_detail.end_row;
     msg->m_end_location[1] = err_detail.end_col;
 
-    auto * filename = new char[err_detail.filename.size() + 1];
+    auto* filename = new char[err_detail.filename.size() + 1];
     strcpy(filename, err_detail.filename.data());
     msg->m_file_name = filename;
     msg->m_describe = wo::wstr_to_str_ptr(err_detail.describe);

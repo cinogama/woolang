@@ -103,11 +103,8 @@ namespace wo
 
         union
         {
-
             valuetype type;
-            // uint32_t type_hash;
 
-            // std::atomic_uint64_t atomic_type;
             uint64_t type_space;
         };
 

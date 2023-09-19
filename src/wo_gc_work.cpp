@@ -312,8 +312,8 @@ namespace wo
             {
                 auto* last = picked_list->last;
 
-                if (picked_list->gc_type != gcbase::gctype::no_gc &&
-                    gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
+                if (gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count)
+                    && picked_list->gc_type != gcbase::gctype::no_gc)
                 {
                     // Unit was not marked, delete it
                     picked_list->~gcbase();
@@ -338,7 +338,7 @@ namespace wo
             }
         }
 
-        void _gc_work_list()
+        bool _gc_work_list(bool stopworld, bool fullgc)
         {
 #ifdef WO_PLATRORM_OS_WINDOWS
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
@@ -373,7 +373,7 @@ namespace wo
 
             wo::gcbase* young_list = gcbase::young_age_gcunit_list.pick_all();
             wo::gcbase* old_list = nullptr;
-            if (_gc_advise_to_full_gc)
+            if (fullgc)
                 old_list = gcbase::old_age_gcunit_list.pick_all();
 
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
@@ -387,7 +387,7 @@ namespace wo
                 _gc_is_marking = true;
 
                 // 0. Prepare vm gray unit list
-                if (!_gc_stopping_world_gc)
+                if (!stopworld)
                 {
                     _gc_vm_gray_unit_lists.clear();
                     for (auto* vmimpl : vmbase::_alive_vm_list)
@@ -468,7 +468,7 @@ namespace wo
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
                 // 4. Wake up all hanged vm.
-                if (!_gc_stopping_world_gc)
+                if (!stopworld)
                 {
                     // 5. Wait until all self-marking vm work finished
                     for (auto* vmimpl : self_marking_vmlist)
@@ -531,7 +531,7 @@ namespace wo
             _gc_is_recycling = true;
 
             // 5. OK, All unit has been marked. reduce gcunits
-            if (_gc_advise_to_full_gc)
+            if (fullgc)
             {
                 check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
             }
@@ -607,8 +607,8 @@ namespace wo
             _gc_is_recycling = false;
 
             // All jobs done.
-            _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
-            _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
+
+            return old_list != nullptr || young_list != nullptr;
         }
 
         void _gc_main_thread()
@@ -618,7 +618,10 @@ namespace wo
                 if (_gc_round_count % 1000 == 0)
                     _gc_advise_to_full_gc = true;
 
-                _gc_work_list();
+                _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
+
+                _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+                _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
                 do
                 {
@@ -653,6 +656,12 @@ namespace wo
                 } while (false);
 
             } while (!_gc_stop_flag);
+
+            while (_gc_work_list(true, true))
+            {
+                using namespace std;
+                std::this_thread::sleep_for(10ms);
+            }
         }
 
         void gc_start()
@@ -736,7 +745,6 @@ void wo_gc_immediately(wo_bool_t fullgc)
     wo::gc::_gc_advise_to_full_gc = true;
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
-
 }
 
 void wo_gc_stop()

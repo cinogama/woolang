@@ -171,20 +171,14 @@ namespace wo
     runtime_env::~runtime_env()
     {
         free_jit(this);
-#ifndef NDEBUG
-        std::unordered_set<wo::gcbase*> freed_gcunits;
-#endif
+
         for (size_t ci = 0; ci < constant_value_count; ++ci)
             if (constant_global_reg_rtstack[ci].is_gcunit())
             {
                 wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
                 wo_assert(constant_global_reg_rtstack[ci].gcunit->gc_type == wo::gcbase::gctype::no_gc);
-#ifndef NDEBUG
-                wo_assert(freed_gcunits.find(constant_global_reg_rtstack[ci].gcunit) == freed_gcunits.end());
-                freed_gcunits.insert(constant_global_reg_rtstack[ci].gcunit);
-#endif
-                constant_global_reg_rtstack[ci].gcunit->~gcbase();
-                free64(constant_global_reg_rtstack[ci].gcunit);
+
+                constant_global_reg_rtstack[ci].gcunit->gc_type = wo::gcbase::gctype::old;
             }
 
         if (constant_global_reg_rtstack)
