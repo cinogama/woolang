@@ -236,7 +236,7 @@ namespace wo
         {
             ++gc_new_count;
 
-            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>, (womem_attrib_t)AllocType)))gcunit<T>(args...);
+            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), (womem_attrib_t)AllocType))gcunit<T>(args...);
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&write_aim)) = created_gcnuit;
 
 #ifndef NDEBUG
