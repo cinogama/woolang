@@ -70,9 +70,6 @@ namespace wo
         * --------------------------------------------------------------------
         *   Woolang will use asmjit to generate code in runtime.
         * --------------------------------------------------------------------
-        *   if ENABLE_JUST_IN_TIME is true, compiler will generate 'jitcall' 
-        * and 'ext0_jitend' in ir to notify jit work.
-        * --------------------------------------------------------------------
         */
         inline bool ENABLE_JUST_IN_TIME =
 #if defined(NDEBUG) && defined(WO_JIT_SUPPORT_ASMJIT)
@@ -83,5 +80,7 @@ namespace wo
             ;
 
         inline bool ENABLE_PDB_INFORMATIONS = true;
+
+        inline size_t MEMORY_CHUNK_SIZE = 1ull * 1024ull * 1024ull * 1024ull;
     }
 }

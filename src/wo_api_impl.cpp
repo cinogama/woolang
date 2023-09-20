@@ -12,6 +12,11 @@
 #include "wo_crc_64.hpp"
 #include "wo_vm_pool.hpp"
 
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
+
 #include <csignal>
 #include <sstream>
 #include <new>
@@ -207,6 +212,8 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             not_unload_lib_warn += "\n\t\t" + path;
         wo_warning(not_unload_lib_warn.c_str());
     }
+
+    womem_shutdown();
 }
 
 void wo_init(int argc, char** argv)
@@ -218,7 +225,6 @@ void wo_init(int argc, char** argv)
     bool enable_vm_pool = true;
     bool enable_shell_package = true;
     bool enable_file_package = true;
-    size_t coroutine_mgr_thread_count = 4;
 
     wo::wo_init_args(argc, argv);
 
@@ -242,6 +248,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
+            else if ("mem-chunk-size" == current_arg)
+                wo::config::MEMORY_CHUNK_SIZE = (size_t)atoll(argv[++command_idx]);
             else if ("enable-pdb" == current_arg)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else if ("enable-vm-pool" == current_arg)
@@ -252,6 +260,8 @@ void wo_init(int argc, char** argv)
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
     }
+
+    womem_init(wo::config::MEMORY_CHUNK_SIZE);
 
     wo::wo_init_locale(basic_env_local);
     wo::wstring_pool::init_global_str_pool();
@@ -1865,7 +1875,7 @@ void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length)
 }
 void wo_free_binary(void* buffer)
 {
-    wo::free64(buffer);
+    free(buffer);
 }
 
 wo_bool_t wo_has_compile_error(wo_vm vm)

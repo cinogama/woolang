@@ -5,6 +5,11 @@
 #include <chrono>
 #include <list>
 
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
+
 // PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false
@@ -18,7 +23,7 @@ namespace wo
     {
         uint16_t                    _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
-        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 15;
+        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 25;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -28,7 +33,7 @@ namespace wo
         std::atomic_flag            _gc_immediately = {};
 
         uint32_t                    _gc_immediately_edge = 250000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 10;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 20;
 
         std::atomic_size_t _gc_scan_vm_index;
         size_t _gc_scan_vm_count;
@@ -322,7 +327,7 @@ namespace wo
                 else
                 {
                     wo_assert(origin_list != nullptr);
-                    if ((picked_list->gc_mark_alive_count > max_count) && 
+                    if ((picked_list->gc_mark_alive_count > max_count) &&
                         aim_edge && picked_list->gc_type != gcbase::gctype::no_gc)
                     {
                         // It lived so long, move it to old_edge.
@@ -604,6 +609,8 @@ namespace wo
             for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 delete destruct_vm;
 
+            womem_tidy_pages(_gc_advise_to_full_gc ? 1 : 0);
+
             _gc_is_recycling = false;
 
             // All jobs done.
@@ -635,7 +642,6 @@ namespace wo
                         {
                             if (gcbase::gc_new_count > _gc_stop_the_world_edge)
                             {
-                                _gc_advise_to_full_gc = true;
                                 _gc_stopping_world_gc = true;
                                 gcbase::gc_new_count -= _gc_stop_the_world_edge;
                             }
@@ -737,6 +743,38 @@ namespace wo
         return false;
     }
 
+    void* alloc64(size_t memsz)
+    {
+        bool warn = true;
+        for (;;)
+        {
+            if (auto* p = womem_alloc(memsz, 0))
+                return p;
+
+            // Memory is not enough.
+            if (warn)
+            {
+                warn = false;
+                wo_warning("Out of memory, trying GC for extra memory");
+            }
+            wo_gc_immediately(true);
+
+            auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
+            bool need_re_entry = true;
+            if (curvm)
+                need_re_entry = wo_leave_gcguard(curvm);
+
+            using namespace std;
+            std::this_thread::sleep_for(0.1s);
+
+            if (curvm && need_re_entry)
+                wo_enter_gcguard(curvm);
+        }
+    }
+    void free64(void* ptr)
+    {
+        womem_free(ptr);
+    }
 }
 
 void wo_gc_immediately(wo_bool_t fullgc)

@@ -368,7 +368,7 @@ namespace wo
                 std::lock_guard g1(_alive_vm_list_mx);
 
                 if (_self_stack_reg_mem_buf)
-                    free64(_self_stack_reg_mem_buf);
+                    free(_self_stack_reg_mem_buf);
 
                 wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                     "This vm not exists in _alive_vm_list, that is illegal.");
@@ -447,7 +447,7 @@ namespace wo
                 stack_sz = env->runtime_stack_count;
             new_vm->stack_size = stack_sz;
 
-            new_vm->_self_stack_reg_mem_buf = (value*)alloc64(sizeof(value) *
+            new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
                 (env->real_register_count + stack_sz));
 
             memset(new_vm->_self_stack_reg_mem_buf, 0, sizeof(value) *

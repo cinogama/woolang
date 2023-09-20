@@ -6,7 +6,6 @@
 #include "wo_gc.hpp"
 #include "wo_assert.hpp"
 
-
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
@@ -14,6 +13,11 @@
 #include <set>
 #include <vector>
 #include <new>
+
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
 
 namespace wo
 {
@@ -110,15 +114,13 @@ namespace wo
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-
+            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = nullptr;
             return this;
         }
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
 
@@ -197,20 +199,12 @@ namespace wo
 
         inline gcbase* get_gcunit_with_barrier() const
         {
-            do
+            if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
             {
-                gcbase* gcunit_addr = *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit));
-                if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
-                {
-                    if (gcunit_addr == *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)))
-                        return gcunit_addr;
-
-                    continue;
-                }
-
-                return nullptr;
-
-            } while (true);
+                womem_attrib_t b;
+                return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), &b);
+            }
+            return nullptr;
         }
 
         inline bool is_gcunit() const
