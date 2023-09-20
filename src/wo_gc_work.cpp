@@ -743,12 +743,12 @@ namespace wo
         return false;
     }
 
-    void* alloc64(size_t memsz)
+    void* alloc64(size_t memsz, womem_attrib_t attrib)
     {
         bool warn = true;
         for (;;)
         {
-            if (auto* p = womem_alloc(memsz, 0))
+            if (auto* p = womem_alloc(memsz, attrib))
                 return p;
 
             // Memory is not enough.

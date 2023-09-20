@@ -12,6 +12,6 @@
 
 namespace wo
 {
-    void* alloc64(size_t memsz);
+    void* alloc64(size_t memsz, womem_attrib_t attrib);
     void free64(void* ptr);
 }
