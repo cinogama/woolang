@@ -12,6 +12,11 @@
 #include "wo_crc_64.hpp"
 #include "wo_vm_pool.hpp"
 
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
+
 #include <csignal>
 #include <sstream>
 #include <new>
@@ -185,7 +190,7 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
 
         using namespace std;
 
-        wo_gc_immediately();
+        wo_gc_immediately(true);
         std::this_thread::sleep_for(10ms);
 
         std::lock_guard g1(wo::vmbase::_alive_vm_list_mx);
@@ -207,6 +212,8 @@ void wo_finish(void(*do_after_shutdown)(void*), void* custom_data)
             not_unload_lib_warn += "\n\t\t" + path;
         wo_warning(not_unload_lib_warn.c_str());
     }
+
+    womem_shutdown();
 }
 
 void wo_init(int argc, char** argv)
@@ -218,7 +225,6 @@ void wo_init(int argc, char** argv)
     bool enable_vm_pool = true;
     bool enable_shell_package = true;
     bool enable_file_package = true;
-    size_t coroutine_mgr_thread_count = 4;
 
     wo::wo_init_args(argc, argv);
 
@@ -242,6 +248,8 @@ void wo_init(int argc, char** argv)
                 wo::config::ENABLE_OUTPUT_ANSI_COLOR_CTRL = atoi(argv[++command_idx]);
             else if ("enable-jit" == current_arg)
                 wo::config::ENABLE_JUST_IN_TIME = (bool)atoi(argv[++command_idx]);
+            else if ("mem-chunk-size" == current_arg)
+                wo::config::MEMORY_CHUNK_SIZE = (size_t)atoll(argv[++command_idx]);
             else if ("enable-pdb" == current_arg)
                 wo::config::ENABLE_PDB_INFORMATIONS = (bool)atoi(argv[++command_idx]);
             else if ("enable-vm-pool" == current_arg)
@@ -252,6 +260,8 @@ void wo_init(int argc, char** argv)
                 wo::wo_stderr << ANSI_HIR "Woolang: " << ANSI_RST << "unknown setting --" << current_arg << wo::wo_endl;
         }
     }
+
+    womem_init(wo::config::MEMORY_CHUNK_SIZE);
 
     wo::wo_init_locale(basic_env_local);
     wo::wstring_pool::init_global_str_pool();
@@ -495,7 +505,7 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
 
     wo_assert(resource_ptr != nullptr && destruct_func != nullptr);
 
-    auto* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::eden>(WO_VAL(value)->gcunit);
+    auto* handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>(WO_VAL(value)->gcunit);
     wo::gcbase::gc_write_guard g1(handle_ptr);
     handle_ptr->m_holding_handle = resource_ptr;
     handle_ptr->m_destructor = destruct_func;
@@ -519,7 +529,7 @@ void wo_set_struct(wo_value value, uint16_t structsz)
 {
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, structsz);
+    wo::struct_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit, structsz);
 }
 
 void wo_set_arr(wo_value value, wo_int_t count)
@@ -527,7 +537,7 @@ void wo_set_arr(wo_value value, wo_int_t count)
     auto* _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, (size_t)count);
+    wo::array_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit, (size_t)count);
 }
 
 void wo_set_map(wo_value value)
@@ -535,7 +545,7 @@ void wo_set_map(wo_value value)
     auto _rsvalue = WO_VAL(value);
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
 
-    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+    wo::dict_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit);
 }
 
 wo_integer_t wo_cast_int(wo_value value)
@@ -765,7 +775,7 @@ wo_bool_t _wo_cast_value(wo::value* value, wo::lexer* lex, wo::value::valuetype 
 wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
 {
     wo::array_t* rsarr;
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsarr));
+    wo::array_t::gc_new<wo::gcbase::gctype::young>(*std::launder((wo::gcbase**)&rsarr));
 
     while (true)
     {
@@ -790,7 +800,7 @@ wo_bool_t _wo_cast_array(wo::value* value, wo::lexer* lex)
 wo_bool_t _wo_cast_map(wo::value* value, wo::lexer* lex)
 {
     wo::dict_t* rsmap;
-    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(*std::launder((wo::gcbase**)&rsmap));
+    wo::dict_t::gc_new<wo::gcbase::gctype::young>(*std::launder((wo::gcbase**)&rsmap));
 
     while (true)
     {
@@ -888,8 +898,8 @@ wo_bool_t wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type exce
     bool entered = wo_enter_gcguard(vm);
 
     wo::lexer lex(wo::str_to_wstr(str), "json");
-    auto result =  _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
-    
+    auto result = _wo_cast_value(WO_VAL(value), &lex, (wo::value::valuetype)except_type);
+
     if (entered)
         wo_asure(wo_leave_gcguard(vm));
 
@@ -907,7 +917,7 @@ bool _wo_cast_string(
     wo::value* value,
     std::string* out_str,
     cast_string_mode mode,
-    std::map<wo::gcbase*, int>* traveled_gcunit, 
+    std::map<wo::gcbase*, int>* traveled_gcunit,
     int depth)
 {
     switch (value->type)
@@ -1270,7 +1280,7 @@ wo_result_t wo_ret_option_void(wo_vm vm)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1283,7 +1293,7 @@ wo_result_t  wo_ret_option_bool(wo_vm vm, wo_bool_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1300,7 +1310,7 @@ wo_result_t wo_ret_option_int(wo_vm vm, wo_integer_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1313,7 +1323,7 @@ wo_result_t wo_ret_option_real(wo_vm vm, wo_real_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1326,7 +1336,7 @@ wo_result_t wo_ret_option_float(wo_vm vm, float result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1339,7 +1349,7 @@ wo_result_t  wo_ret_option_handle(wo_vm vm, wo_handle_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1352,7 +1362,7 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1366,7 +1376,7 @@ wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1380,7 +1390,7 @@ wo_result_t wo_ret_option_pointer(wo_vm vm, wo_ptr_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1395,7 +1405,7 @@ wo_result_t wo_ret_option_ptr(wo_vm vm, wo_ptr_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     if (result)
@@ -1413,7 +1423,7 @@ wo_result_t wo_ret_option_val(wo_vm vm, wo_value val)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1427,7 +1437,7 @@ wo_result_t wo_ret_option_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value hol
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(1);
@@ -1439,7 +1449,7 @@ wo_result_t wo_ret_option_none(wo_vm vm)
 {
     auto* wovm = WO_VM(vm);
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1451,7 +1461,7 @@ wo_result_t wo_ret_err_void(wo_vm vm)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1468,7 +1478,7 @@ wo_result_t wo_ret_err_bool(wo_vm vm, wo_bool_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1481,7 +1491,7 @@ wo_result_t wo_ret_err_int(wo_vm vm, wo_integer_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1494,7 +1504,7 @@ wo_result_t wo_ret_err_real(wo_vm vm, wo_real_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1507,7 +1517,7 @@ wo_result_t wo_ret_err_float(wo_vm vm, float result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1520,7 +1530,7 @@ wo_result_t wo_ret_err_handle(wo_vm vm, wo_handle_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1533,7 +1543,7 @@ wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1547,7 +1557,7 @@ wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1561,7 +1571,7 @@ wo_result_t wo_ret_err_pointer(wo_vm vm, wo_ptr_t result)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1577,7 +1587,7 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value val)
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1591,7 +1601,7 @@ wo_result_t wo_ret_err_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holdin
     auto* wovm = WO_VM(vm);
 
     wovm->cr->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
-    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::eden>(wovm->cr->gcunit, 2);
+    auto* structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
     wo::gcbase::gc_write_guard gwg1(structptr);
 
     structptr->m_values[0].set_integer(2);
@@ -1865,7 +1875,7 @@ void* wo_dump_binary(wo_vm vm, wo_bool_t saving_pdi, size_t* out_length)
 }
 void wo_free_binary(void* buffer)
 {
-    wo::free64(buffer);
+    free(buffer);
 }
 
 wo_bool_t wo_has_compile_error(wo_vm vm)
@@ -2099,7 +2109,7 @@ wo_value wo_push_arr(wo_vm vm, wo_int_t count)
     auto* _rsvalue = WO_VM(vm)->sp--;
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::array_type);
 
-    wo::array_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, (size_t)count);
+    wo::array_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit, (size_t)count);
     return CS_VAL(_rsvalue);
 
 }
@@ -2108,7 +2118,7 @@ wo_value wo_push_struct(wo_vm vm, uint16_t count)
     auto* _rsvalue = WO_VM(vm)->sp--;
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::struct_type);
 
-    wo::struct_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit, count);
+    wo::struct_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit, count);
     return CS_VAL(_rsvalue);
 }
 wo_value wo_push_map(wo_vm vm)
@@ -2116,7 +2126,7 @@ wo_value wo_push_map(wo_vm vm)
     auto* _rsvalue = WO_VM(vm)->sp--;
     _rsvalue->set_gcunit_with_barrier(wo::value::valuetype::dict_type);
 
-    wo::dict_t::gc_new<wo::gcbase::gctype::eden>(_rsvalue->gcunit);
+    wo::dict_t::gc_new<wo::gcbase::gctype::young>(_rsvalue->gcunit);
     return CS_VAL(_rsvalue);
 }
 
@@ -2768,7 +2778,7 @@ void wo_unload_lib(void* lib)
     auto fnd = std::find_if(loaded_named_libs.begin(), loaded_named_libs.end(),
         [lib](const auto& idx)
         {
-            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info) 
+            return std::find_if(idx.second.begin(), idx.second.end(), [lib](const auto& info)
                 {
                     return info.m_lib_instance == lib;
                 }) != idx.second.end();
@@ -2848,7 +2858,7 @@ wo_bool_t wo_enter_gcguard(wo_vm vm)
     {
         // If in GC, hang up here to make sure safe.
         if ((WO_VM(vm)->vm_interrupt & (
-            wo::vmbase::vm_interrupt_type::GC_INTERRUPT 
+            wo::vmbase::vm_interrupt_type::GC_INTERRUPT
             | wo::vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT)) != 0)
         {
             if (!WO_VM(vm)->gc_checkpoint())
@@ -2887,7 +2897,7 @@ wo_lsp_error_msg* wo_lsp_get_compile_error_msg_detail_from_vm(wo_vm vmm, size_t 
     msg->m_end_location[0] = err_detail.end_row;
     msg->m_end_location[1] = err_detail.end_col;
 
-    auto * filename = new char[err_detail.filename.size() + 1];
+    auto* filename = new char[err_detail.filename.size() + 1];
     strcpy(filename, err_detail.filename.data());
     msg->m_file_name = filename;
     msg->m_describe = wo::wstr_to_str_ptr(err_detail.describe);

@@ -58,6 +58,9 @@ if (${WO_SUPPORT_ASMJIT})
     add_subdirectory("3rd/asmjit")
 endif()
 
+set(BUILD_SHARED_WOOMEM OFF CACHE BOOL "Build static-linked woomem" FORCE)
+add_subdirectory("3rd/womempool")
+
 if(UNIX)
     if(WO_BUILD_FOR_COVERAGE_TEST)
         add_compile_options("-fprofile-arcs")

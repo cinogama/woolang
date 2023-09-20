@@ -171,27 +171,21 @@ namespace wo
     runtime_env::~runtime_env()
     {
         free_jit(this);
-#ifndef NDEBUG
-        std::unordered_set<wo::gcbase*> freed_gcunits;
-#endif
+
         for (size_t ci = 0; ci < constant_value_count; ++ci)
             if (constant_global_reg_rtstack[ci].is_gcunit())
             {
                 wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
                 wo_assert(constant_global_reg_rtstack[ci].gcunit->gc_type == wo::gcbase::gctype::no_gc);
-#ifndef NDEBUG
-                wo_assert(freed_gcunits.find(constant_global_reg_rtstack[ci].gcunit) == freed_gcunits.end());
-                freed_gcunits.insert(constant_global_reg_rtstack[ci].gcunit);
-#endif
-                constant_global_reg_rtstack[ci].gcunit->~gcbase();
-                free64(constant_global_reg_rtstack[ci].gcunit);
+
+                constant_global_reg_rtstack[ci].gcunit->gc_type = wo::gcbase::gctype::old;
             }
 
         if (constant_global_reg_rtstack)
-            free64(constant_global_reg_rtstack);
+            free(constant_global_reg_rtstack);
 
         if (rt_codes)
-            free64((byte_t*)rt_codes);
+            free((byte_t*)rt_codes);
     }
 
     std::tuple<void*, size_t> runtime_env::create_env_binary(bool savepdi) noexcept
@@ -451,7 +445,7 @@ namespace wo
             }
         }
 
-        auto* finalbinary = wo::alloc64(binary_buffer.size());
+        auto* finalbinary = malloc(binary_buffer.size());
         memcpy(finalbinary, binary_buffer.data(), binary_buffer.size());
 
         return std::make_tuple(finalbinary, binary_buffer.size());
@@ -507,7 +501,7 @@ namespace wo
             + (size_t)register_count
             + result->runtime_stack_count;
 
-        value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
+        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
         memset(preserved_memory, 0, preserve_memory_size * sizeof(value));
 
         result->constant_global_reg_rtstack = preserved_memory;
@@ -554,7 +548,7 @@ namespace wo
         if (!stream->read_elem(&rt_code_with_padding_length))
             WO_LOAD_BIN_FAILED("Failed to restore code length.");
 
-        byte_t* code_buf = (byte_t*)alloc64((size_t)rt_code_with_padding_length * sizeof(byte_t));
+        byte_t* code_buf = (byte_t*)malloc((size_t)rt_code_with_padding_length * sizeof(byte_t));
         result->rt_codes = code_buf;
         result->rt_code_len = (size_t)rt_code_with_padding_length * sizeof(byte_t);
 
@@ -720,7 +714,8 @@ namespace wo
             if (!restore_string_from_buffer(string_index, &constant_string))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            preserved_memory[constant_offset].set_string_nogc(constant_string.c_str());
+            string_t::gc_new_no_gc_flag<gcbase::gctype::old>(
+                preserved_memory[constant_offset].gcunit, constant_string.c_str());
         }
 
         for (auto& extern_native_function : extern_native_functions)
@@ -1065,7 +1060,7 @@ namespace wo
             + real_register_count
             + runtime_stack_count;
 
-        value* preserved_memory = (value*)alloc64(preserve_memory_size * sizeof(value));
+        value* preserved_memory = (value*)malloc(preserve_memory_size * sizeof(value));
 
         cxx_vec_t<byte_t> generated_runtime_code_buf; // It will be put to 16 byte allign mem place.
 
@@ -1807,7 +1802,7 @@ namespace wo
         env->real_register_count = real_register_count;
         env->runtime_stack_count = runtime_stack_count;
         env->rt_code_len = generated_runtime_code_buf.size();
-        byte_t* code_buf = (byte_t*)alloc64(env->rt_code_len * sizeof(byte_t));
+        byte_t* code_buf = (byte_t*)malloc(env->rt_code_len * sizeof(byte_t));
 
         pdb_info->runtime_codes_length = env->rt_code_len;
 

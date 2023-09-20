@@ -105,7 +105,7 @@ WO_API void         wo_init(int argc, char** argv);
 #define wo_init(argc, argv) do{wo_init(argc, argv); setlocale(LC_CTYPE, wo_locale_name());}while(0)
 WO_API void         wo_finish(void(* do_after_shutdown)(void*), void* custom_data);
 
-WO_API void         wo_gc_immediately();
+WO_API void         wo_gc_immediately(wo_bool_t fullgc);
 
 WO_API void* wo_load_lib(const char* libname, const char* path, wo_bool_t panic_when_fail);
 WO_API void*/* func ptr */ wo_load_func(void* lib, const char* funcname);

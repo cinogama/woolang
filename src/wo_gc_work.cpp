@@ -5,9 +5,15 @@
 #include <chrono>
 #include <list>
 
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
+
 // PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false
+#define WO_GC_FORCE_FULL_GC false
 #define WO_GC_DEBUG false
 
 namespace wo
@@ -17,7 +23,7 @@ namespace wo
     {
         uint16_t                    _gc_round_count = 0;
         constexpr uint16_t          _gc_work_thread_count = 4;
-        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 15;
+        constexpr uint16_t          _gc_max_count_to_move_young_to_old = 25;
 
         std::atomic_bool            _gc_stop_flag = false;
         std::thread                 _gc_scheduler_thread;
@@ -27,7 +33,7 @@ namespace wo
         std::atomic_flag            _gc_immediately = {};
 
         uint32_t                    _gc_immediately_edge = 250000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 10;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 20;
 
         std::atomic_size_t _gc_scan_vm_index;
         size_t _gc_scan_vm_count;
@@ -37,6 +43,7 @@ namespace wo
         std::atomic_bool _gc_is_recycling = false;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+        bool _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
         bool gc_is_marking()
         {
@@ -300,18 +307,6 @@ namespace wo
             }
         };
 
-        void mark_nogc_child(gcbase* picked_list, size_t worker_id)
-        {
-            while (picked_list)
-            {
-                if (picked_list->gc_type == gcbase::gctype::no_gc
-                    && gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
-                    gc_mark_unit_as_gray(&_gc_gray_unit_lists[worker_id], picked_list);
-
-                picked_list = picked_list->last;
-            }
-        }
-
         void check_and_move_edge_to_edge(gcbase* picked_list,
             wo::atomic_list<wo::gcbase>* origin_list,
             wo::atomic_list<wo::gcbase>* aim_edge,
@@ -322,8 +317,8 @@ namespace wo
             {
                 auto* last = picked_list->last;
 
-                if (picked_list->gc_type != gcbase::gctype::no_gc &&
-                    gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count))
+                if (gcbase::gcmarkcolor::no_mark == picked_list->gc_marked(_gc_round_count)
+                    && picked_list->gc_type != gcbase::gctype::no_gc)
                 {
                     // Unit was not marked, delete it
                     picked_list->~gcbase();
@@ -331,31 +326,60 @@ namespace wo
                 } // ~
                 else
                 {
-                    if (!origin_list || ((picked_list->gc_mark_alive_count > max_count) && aim_edge))
+                    wo_assert(origin_list != nullptr);
+                    if ((picked_list->gc_mark_alive_count > max_count) &&
+                        aim_edge && picked_list->gc_type != gcbase::gctype::no_gc)
+                    {
                         // It lived so long, move it to old_edge.
                         aim_edge->add_one(picked_list);
+                        picked_list->gc_type = aim_gc_type;
+                    }
                     else
                         // Add it back
                         origin_list->add_one(picked_list);
-
-                    // ATTENTION: DONOT OVERWRITE NO_GC FLAG!
-                    if (picked_list->gc_type != gcbase::gctype::no_gc)
-                        picked_list->gc_type = aim_gc_type;
                 }
 
                 picked_list = last;
             }
         }
 
-        void _gc_work_list()
+        bool _gc_work_list(bool stopworld, bool fullgc)
         {
 #ifdef WO_PLATRORM_OS_WINDOWS
             SetThreadDescription(GetCurrentThread(), L"wo_gc_main");
 #endif
             // Pick all gcunit before 1st mark begin.
             // It means all unit alloced when marking will be skiped to free.
-            auto* young_list = gcbase::young_age_gcunit_list.pick_all();
-            auto* old_list = gcbase::old_age_gcunit_list.pick_all();
+
+#if WO_GC_DEBUG
+            wo::wo_stdout << "================================================" << wo::wo_endl;
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " A round of gc launched." << wo::wo_endl;
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " Before GC Free:" << wo::wo_endl;
+
+            size_t gcunit_count = 0;
+            auto* elem = gcbase::young_age_gcunit_list.peek_list();
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
+
+            gcunit_count = 0;
+            elem = gcbase::old_age_gcunit_list.peek_list();
+            while (elem)
+            {
+                ++gcunit_count;
+                elem = elem->last;
+            }
+            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
+            wo::wo_stdout << "------------------------------------------------" << wo::wo_endl;
+#endif
+
+            wo::gcbase* young_list = gcbase::young_age_gcunit_list.pick_all();
+            wo::gcbase* old_list = nullptr;
+            if (fullgc)
+                old_list = gcbase::old_age_gcunit_list.pick_all();
 
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
 
@@ -368,7 +392,7 @@ namespace wo
                 _gc_is_marking = true;
 
                 // 0. Prepare vm gray unit list
-                if (!_gc_stopping_world_gc)
+                if (!stopworld)
                 {
                     _gc_vm_gray_unit_lists.clear();
                     for (auto* vmimpl : vmbase::_alive_vm_list)
@@ -449,7 +473,7 @@ namespace wo
                 _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
                 // 4. Wake up all hanged vm.
-                if (!_gc_stopping_world_gc)
+                if (!stopworld)
                 {
                     // 5. Wait until all self-marking vm work finished
                     for (auto* vmimpl : self_marking_vmlist)
@@ -503,36 +527,6 @@ namespace wo
                 }
 
             } while (0);
-            // just full gc:
-
-            // Mark all no_gc_object
-            // mark_nogc_child(eden_list, 0 % _gc_work_thread_count);
-            // mark_nogc_child(young_list, 1 % _gc_work_thread_count);
-            // mark_nogc_child(old_list, 2 % _gc_work_thread_count);
-
-#if WO_GC_DEBUG
-            wo::wo_stdout << "================================================" << wo::wo_endl;
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " A round of gc launched." << wo::wo_endl;
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " Before GC Free:" << wo::wo_endl;
-
-            size_t gcunit_count = 0;
-            auto* elem = young_list;
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
-
-            gcunit_count = 0;
-            elem = old_list;
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
-#endif
 
             // 4. OK, Continue mark gray to black
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
@@ -542,15 +536,22 @@ namespace wo
             _gc_is_recycling = true;
 
             // 5. OK, All unit has been marked. reduce gcunits
-            check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
+            if (fullgc)
+            {
+                check_and_move_edge_to_edge(old_list, &gcbase::old_age_gcunit_list, nullptr, gcbase::gctype::old, UINT16_MAX);
+            }
+            else
+            {
+                wo_assert(old_list == nullptr);
+            }
+
             check_and_move_edge_to_edge(young_list, &gcbase::young_age_gcunit_list, &gcbase::old_age_gcunit_list, gcbase::gctype::old, _gc_max_count_to_move_young_to_old);
 
 #if WO_GC_DEBUG
-            wo::wo_stdout << "------------------------------------------------" << wo::wo_endl;
             wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " After GC Free:" << wo::wo_endl;
 
             gcunit_count = 0;
-            elem = gcbase::young_age_gcunit_list.last_node;
+            elem = gcbase::young_age_gcunit_list.peek_list();
             while (elem)
             {
                 ++gcunit_count;
@@ -559,7 +560,7 @@ namespace wo
             wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
 
             gcunit_count = 0;
-            elem = gcbase::old_age_gcunit_list.last_node;
+            elem = gcbase::old_age_gcunit_list.peek_list();
             while (elem)
             {
                 ++gcunit_count;
@@ -608,17 +609,26 @@ namespace wo
             for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 delete destruct_vm;
 
+            womem_tidy_pages(_gc_advise_to_full_gc ? 1 : 0);
+
             _gc_is_recycling = false;
 
             // All jobs done.
-            _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+
+            return old_list != nullptr || young_list != nullptr;
         }
 
         void _gc_main_thread()
         {
             do
             {
-                _gc_work_list();
+                if (_gc_round_count % 1000 == 0)
+                    _gc_advise_to_full_gc = true;
+
+                _gc_work_list(_gc_stopping_world_gc, _gc_advise_to_full_gc);
+
+                _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
+                _gc_advise_to_full_gc = WO_GC_FORCE_FULL_GC;
 
                 do
                 {
@@ -652,6 +662,12 @@ namespace wo
                 } while (false);
 
             } while (!_gc_stop_flag);
+
+            while (_gc_work_list(true, true))
+            {
+                using namespace std;
+                std::this_thread::sleep_for(10ms);
+            }
         }
 
         void gc_start()
@@ -727,11 +743,44 @@ namespace wo
         return false;
     }
 
+    void* alloc64(size_t memsz, womem_attrib_t attrib)
+    {
+        bool warn = true;
+        for (;;)
+        {
+            if (auto* p = womem_alloc(memsz, attrib))
+                return p;
+
+            // Memory is not enough.
+            if (warn)
+            {
+                warn = false;
+                wo_warning("Out of memory, trying GC for extra memory");
+            }
+            wo_gc_immediately(true);
+
+            auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
+            bool need_re_entry = true;
+            if (curvm)
+                need_re_entry = wo_leave_gcguard(curvm);
+
+            using namespace std;
+            std::this_thread::sleep_for(0.1s);
+
+            if (curvm && need_re_entry)
+                wo_enter_gcguard(curvm);
+        }
+    }
+    void free64(void* ptr)
+    {
+        womem_free(ptr);
+    }
 }
 
-void wo_gc_immediately()
+void wo_gc_immediately(wo_bool_t fullgc)
 {
     std::lock_guard g1(wo::gc::_gc_work_mx);
+    wo::gc::_gc_advise_to_full_gc = true;
     wo::gc::_gc_immediately.clear();
     wo::gc::_gc_work_cv.notify_one();
 }

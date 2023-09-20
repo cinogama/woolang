@@ -6,7 +6,6 @@
 #include "wo_gc.hpp"
 #include "wo_assert.hpp"
 
-
 #include <cstdint>
 #include <vector>
 #include <unordered_map>
@@ -14,6 +13,11 @@
 #include <set>
 #include <vector>
 #include <new>
+
+#ifndef WOMEM_STATIC_LIB
+#   define WOMEM_STATIC_LIB
+#endif
+#include "woomem.h"
 
 namespace wo
 {
@@ -103,25 +107,20 @@ namespace wo
 
         union
         {
-
             valuetype type;
-            // uint32_t type_hash;
 
-            // std::atomic_uint64_t atomic_type;
             uint64_t type_space;
         };
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-
+            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = nullptr;
             return this;
         }
 
         inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
         {
-            *std::launder(reinterpret_cast<std::atomic<wo_handle_t>*>(&handle)) = 0;
             *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
 
@@ -131,14 +130,14 @@ namespace wo
         inline value* set_string(const char* str)
         {
             set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::eden>(gcunit, str);
+            string_t::gc_new<gcbase::gctype::young>(gcunit, str);
             return this;
         }
 
         inline value* set_buffer(const void* buf, size_t sz)
         {
             set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::eden>(gcunit, (const char*)buf, sz);
+            string_t::gc_new<gcbase::gctype::young>(gcunit, (const char*)buf, sz);
             return this;
         }
 
@@ -200,20 +199,12 @@ namespace wo
 
         inline gcbase* get_gcunit_with_barrier() const
         {
-            do
+            if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
             {
-                gcbase* gcunit_addr = *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit));
-                if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
-                {
-                    if (gcunit_addr == *std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)))
-                        return gcunit_addr;
-
-                    continue;
-                }
-
-                return nullptr;
-
-            } while (true);
+                womem_attrib_t b;
+                return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), &b);
+            }
+            return nullptr;
         }
 
         inline bool is_gcunit() const
@@ -384,7 +375,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_arrray);
                 set_gcunit_with_barrier(valuetype::array_type);
 
-                auto* created_arr = array_t::gc_new<gcbase::gctype::eden>(gcunit, dup_arrray->size());
+                auto* created_arr = array_t::gc_new<gcbase::gctype::young>(gcunit, dup_arrray->size());
                 gcbase::gc_write_guard g2(created_arr);
                 *created_arr->elem() = *dup_arrray->elem();
             }
@@ -400,7 +391,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_mapping);
                 set_gcunit_with_barrier(valuetype::dict_type);
 
-                auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(gcunit);
+                auto* created_map = dict_t::gc_new<gcbase::gctype::young>(gcunit);
                 gcbase::gc_write_guard g2(created_map);
                 *created_map->elem() = *dup_mapping->elem();
             }
@@ -415,7 +406,7 @@ namespace wo
                 gcbase::gc_read_guard g1(dup_struct);
                 set_gcunit_with_barrier(valuetype::struct_type);
 
-                auto* created_struct = struct_t::gc_new<gcbase::gctype::eden>(gcunit, dup_struct->m_count);
+                auto* created_struct = struct_t::gc_new<gcbase::gctype::young>(gcunit, dup_struct->m_count);
                 gcbase::gc_write_guard g2(created_struct);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)
                     created_struct->m_values[i].set_val(&dup_struct->m_values[i]);

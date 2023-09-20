@@ -368,7 +368,7 @@ namespace wo
                 std::lock_guard g1(_alive_vm_list_mx);
 
                 if (_self_stack_reg_mem_buf)
-                    free64(_self_stack_reg_mem_buf);
+                    free(_self_stack_reg_mem_buf);
 
                 wo_assert(_alive_vm_list.find(this) != _alive_vm_list.end(),
                     "This vm not exists in _alive_vm_list, that is illegal.");
@@ -447,7 +447,7 @@ namespace wo
                 stack_sz = env->runtime_stack_count;
             new_vm->stack_size = stack_sz;
 
-            new_vm->_self_stack_reg_mem_buf = (value*)alloc64(sizeof(value) *
+            new_vm->_self_stack_reg_mem_buf = (value*)malloc(sizeof(value) *
                 (env->real_register_count + stack_sz));
 
             memset(new_vm->_self_stack_reg_mem_buf, 0, sizeof(value) *
@@ -1244,7 +1244,7 @@ namespace wo
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            auto* struct_data = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, 2);
+            auto* struct_data = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, 2);
             gcbase::gc_write_guard gwg1(struct_data);
 
             struct_data->m_values[0].set_integer((wo_integer_t)id);
@@ -1255,7 +1255,7 @@ namespace wo
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-            auto* created_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, (size_t)size);
+            auto* created_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, (size_t)size);
             gcbase::gc_write_guard gwg1(created_array);
 
             for (size_t i = 0; i < (size_t)size; i++)
@@ -1268,7 +1268,7 @@ namespace wo
         inline static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
-            auto* created_map = dict_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+            auto* created_map = dict_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
 
             gcbase::gc_write_guard gwg1(created_map);
 
@@ -1283,7 +1283,7 @@ namespace wo
         inline static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
             opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            struct_t* new_struct = struct_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, size);
+            struct_t* new_struct = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, size);
             gcbase::gc_write_guard gwg1(new_struct);
 
             for (size_t i = 0; i < size; i++)
@@ -1589,7 +1589,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
-                    string_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit, *opnum1->string + *opnum2->string);
+                    string_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, *opnum1->string + *opnum2->string);
                     break;
                 }
                 /// OPERATE
@@ -2379,7 +2379,7 @@ namespace wo
                         "Found broken ir-code in 'mkclos'.");
 
                     rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                    auto* created_closure = closure_t::gc_new<gcbase::gctype::eden>(rt_cr->gcunit, closure_arg_count);
+                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(rt_cr->gcunit, closure_arg_count);
 
                     gcbase::gc_write_guard gwg1(created_closure);
                     created_closure->m_native_call = !!dr;
@@ -2421,7 +2421,7 @@ namespace wo
                             WO_ADDRESSING_N2;
 
                             opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                            auto* packed_array = array_t::gc_new<gcbase::gctype::eden>(opnum1->gcunit);
+                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
                             wo::gcbase::gc_write_guard g1(packed_array);
                             packed_array->resize((size_t)(tc->integer - opnum2->integer));
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
