@@ -714,7 +714,8 @@ namespace wo
             if (!restore_string_from_buffer(string_index, &constant_string))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            preserved_memory[constant_offset].set_string_nogc(constant_string.c_str());
+            string_t::gc_new_no_gc_flag<gcbase::gctype::old>(
+                preserved_memory[constant_offset].gcunit, constant_string.c_str());
         }
 
         for (auto& extern_native_function : extern_native_functions)
