@@ -2,7 +2,3 @@
 	path = 3rd/asmjit
 	url = https://git.cinogama.net/mr_cino/asmjit.git
 	branch = oldstable
-[submodule "3rd/womempool"]
-	path = 3rd/womempool
-	url = https://git.cinogama.net/cinogamaproject/womempool.git
-	branch = master

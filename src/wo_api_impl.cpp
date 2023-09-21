@@ -12,11 +12,6 @@
 #include "wo_crc_64.hpp"
 #include "wo_vm_pool.hpp"
 
-#ifndef WOMEM_STATIC_LIB
-#   define WOMEM_STATIC_LIB
-#endif
-#include "woomem.h"
-
 #include <csignal>
 #include <sstream>
 #include <new>

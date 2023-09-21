@@ -5,11 +5,6 @@
 #include <chrono>
 #include <list>
 
-#ifndef WOMEM_STATIC_LIB
-#   define WOMEM_STATIC_LIB
-#endif
-#include "woomem.h"
-
 // PARALLEL-GC SUPPORTED
 
 #define WO_GC_FORCE_STOP_WORLD false

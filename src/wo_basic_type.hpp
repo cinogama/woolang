@@ -14,11 +14,6 @@
 #include <vector>
 #include <new>
 
-#ifndef WOMEM_STATIC_LIB
-#   define WOMEM_STATIC_LIB
-#endif
-#include "woomem.h"
-
 namespace wo
 {
     struct value;
