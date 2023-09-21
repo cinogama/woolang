@@ -44,9 +44,6 @@ namespace wo
 
     struct gcbase
     {
-        inline static atomic_list<gcbase> young_age_gcunit_list;
-        inline static atomic_list<gcbase> old_age_gcunit_list;
-
         // TODO : _shared_spin need to remake.
         struct _shared_spin
         {
@@ -127,11 +124,6 @@ namespace wo
             full_mark,
         };
 
-        struct memo_unit
-        {
-            gcbase* gcunit;
-            memo_unit* last;
-        };
         using rw_lock = _shared_spin;
         
         union unit_attrib
@@ -139,63 +131,28 @@ namespace wo
             struct
             {
                 uint8_t m_gc_age : 4;
-                uint8_t m_alloc_mask : 1;
                 uint8_t m_marked : 2;
+                uint8_t m_alloc_mask : 1;
                 uint8_t m_nogc : 1;
             };
             womem_attrib_t m_attr;
         };        
         static_assert(sizeof(unit_attrib) == 1);
 
-        gctype gc_type = gctype::no_gc;
-        gcmarkcolor gc_mark_color = gcmarkcolor::no_mark;
-        uint16_t gc_mark_version = 0;
-        uint16_t gc_mark_alive_count = 0;
+        struct memo_unit
+        {
+            gcbase* gcunit;
+            unit_attrib* gcunit_attr;
+            memo_unit* last;
+        };
 
         rw_lock gc_read_write_mx;
-
-        // used in linklist;
-        gcbase* last = nullptr;
         std::atomic<memo_unit*> m_memo = nullptr;
 
 #ifndef NDEBUG
         bool gc_destructed = false;
         const char* gc_typename = nullptr;
 #endif
-
-        inline void gc_mark(uint16_t version, gcmarkcolor color)
-        {
-            if (gc_mark_version != version)
-            {
-                // first mark
-                gc_mark_version = version;
-                gc_mark_color = color;
-
-                gc_mark_alive_count++;
-            }
-            else
-            {
-                gcmarkcolor aim_color = color;
-                while (aim_color > gc_mark_color)
-                {
-                    static_assert(sizeof(std::atomic<gcmarkcolor>) == sizeof(gcmarkcolor));
-
-                    gcmarkcolor old_color = ((std::atomic<gcmarkcolor>&)gc_mark_color).exchange(aim_color);
-                    if (aim_color < old_color)
-                    {
-                        aim_color = old_color;
-                    }
-                }
-            }
-        }
-        inline gcmarkcolor gc_marked(uint16_t version)
-        {
-            if (version == gc_mark_version)
-            {
-                return gc_mark_color;
-            }
-            return gc_mark_color = gcmarkcolor::no_mark;
-        }
 
         inline void write()
         {
@@ -222,10 +179,8 @@ namespace wo
 
         virtual ~gcbase() 
         {
-            wo_assert(gc_type == gctype::no_gc || gc::gc_is_recycling());
-         
 #ifndef NDEBUG
-            gc_destructed = false;
+            gc_destructed = true;
 #endif
             auto memoptr = pick_memo();
             while (memoptr)
@@ -244,7 +199,7 @@ namespace wo
     struct gcunit : public gcbase, public T
     {
         template<gcbase::gctype AllocType, typename ... ArgTs >
-        static gcunit<T>* gc_new_no_gc_flag(gcbase*& write_aim, ArgTs && ... args)
+        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
         {
             ++gc_new_count;
 
@@ -252,6 +207,7 @@ namespace wo
             a.m_gc_age = AllocType == gcbase::gctype::young ? 0x0Fui8 : 0;
             a.m_marked = 0;
             a.m_nogc = AllocType == gcbase::gctype::no_gc ? 1ui8 : 0;
+            a.m_alloc_mask = 0;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&write_aim)) = created_gcnuit;
@@ -259,32 +215,7 @@ namespace wo
 #ifndef NDEBUG
             created_gcnuit->gc_typename = typeid(T).name();
 #endif
-
-            switch (AllocType)
-            {
-            case wo::gcbase::gctype::no_gc:
-                /* DO NOTHING */
-                break;
-            case wo::gcbase::gctype::young:
-                young_age_gcunit_list.add_one(created_gcnuit);
-                break;
-            case wo::gcbase::gctype::old:
-                old_age_gcunit_list.add_one(created_gcnuit);
-                break;
-            default:
-                // wo_error("Unknown gc type.");
-                break;
-            }
-
             return created_gcnuit;
-        }
-
-        template<gcbase::gctype AllocType, typename ... ArgTs >
-        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
-        {
-            auto* unit = gc_new_no_gc_flag<AllocType>(write_aim, args...);
-            unit->gc_type = AllocType;
-            return unit;
         }
 
         template<typename ... ArgTs>

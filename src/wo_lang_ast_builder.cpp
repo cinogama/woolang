@@ -709,13 +709,9 @@ namespace wo
 
         ast_value::~ast_value()
         {
-            if (auto* gcunit = constant_value.get_gcunit_with_barrier())
+            if (constant_value.type == value::valuetype::string_type)
             {
-                wo_assert(constant_value.type == value::valuetype::string_type);
-                wo_assert(gcunit->gc_type == gcbase::gctype::no_gc);
-
-                gcunit->~gcbase();
-                free64(gcunit);
+                delete constant_value.string;
             }
         }
         ast_value::ast_value(ast_type* type)
