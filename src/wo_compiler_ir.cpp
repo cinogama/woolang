@@ -172,13 +172,20 @@ namespace wo
     {
         free_jit(this);
 
+        gcbase::unit_attrib cancel_nogc;
+        cancel_nogc.m_gc_age = 0;
+        cancel_nogc.m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
+        cancel_nogc.m_alloc_mask = 0;
+        cancel_nogc.m_nogc = 0;
+
         for (size_t ci = 0; ci < constant_value_count; ++ci)
             if (constant_global_reg_rtstack[ci].is_gcunit())
             {
                 wo_assert(constant_global_reg_rtstack[ci].type == wo::value::valuetype::string_type);
-                wo_assert(constant_global_reg_rtstack[ci].gcunit->gc_type == wo::gcbase::gctype::no_gc);
 
-                constant_global_reg_rtstack[ci].gcunit->gc_type = wo::gcbase::gctype::old;
+                gcbase::unit_attrib* attrib;
+                constant_global_reg_rtstack[ci].get_gcunit_with_barrier(&attrib);
+                attrib->m_attr = cancel_nogc.m_attr;
             }
 
         if (constant_global_reg_rtstack)
@@ -248,8 +255,6 @@ namespace wo
             if (constant_value.type == wo::value::valuetype::string_type)
             {
                 // Record for string
-                wo_assert(constant_value.string->gc_type == wo::gcbase::gctype::no_gc);
-
                 write_binary_to_buffer((uint32_t)string_buffer_size, 4);
                 constant_string_pool.push_back(constant_value.string->c_str());
                 write_binary_to_buffer((uint32_t)constant_value.string->size(), 4);
@@ -714,7 +719,7 @@ namespace wo
             if (!restore_string_from_buffer(string_index, &constant_string))
                 WO_LOAD_BIN_FAILED("Failed to restore string from string buffer.");
 
-            string_t::gc_new_no_gc_flag<gcbase::gctype::old>(
+            string_t::gc_new<gcbase::gctype::no_gc>(
                 preserved_memory[constant_offset].gcunit, constant_string.c_str());
         }
 
