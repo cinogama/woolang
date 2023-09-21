@@ -201,7 +201,7 @@ namespace wo
         {
             if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
             {
-                womem_attrib_t b;
+                womem_attrib_t* b;
                 return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), &b);
             }
             return nullptr;

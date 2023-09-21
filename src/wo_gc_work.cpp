@@ -717,6 +717,21 @@ namespace wo
             }
         }
 
+        void alloc_failed_retry()
+        {
+            wo_gc_immediately(true);
+
+            auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
+            bool need_re_entry = true;
+            if (curvm)
+                need_re_entry = wo_leave_gcguard(curvm);
+
+            using namespace std;
+            std::this_thread::sleep_for(0.1s);
+
+            if (curvm && need_re_entry)
+                wo_enter_gcguard(curvm);
+        }
     } // END NAME SPACE gc
 
     void gcbase::add_memo(const value* val)
@@ -748,7 +763,9 @@ namespace wo
         bool warn = true;
         for (;;)
         {
-            if (auto* p = womem_alloc(memsz, attrib))
+            gcbase::unit_attrib attr = {};
+            attr.m_alloc_mask = gc::_gc_round_count & 0b01ui8;
+            if (auto* p = womem_alloc(memsz, attrib & attr.m_attr))
                 return p;
 
             // Memory is not enough.

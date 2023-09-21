@@ -116,14 +116,13 @@ namespace wo
 
         enum class gctype : uint8_t
         {
-            no_gc= 0x6c,
-
+            no_gc= 0,
             young,
             old,
         };
         enum class gcmarkcolor : uint8_t
         {
-            no_mark = 0x7c,
+            no_mark = 0,
             self_mark,
             full_mark,
         };
@@ -134,6 +133,19 @@ namespace wo
             memo_unit* last;
         };
         using rw_lock = _shared_spin;
+        
+        union unit_attrib
+        {
+            struct
+            {
+                uint8_t m_gc_age : 4;
+                uint8_t m_alloc_mask : 1;
+                uint8_t m_marked : 2;
+                uint8_t m_nogc : 1;
+            };
+            womem_attrib_t m_attr;
+        };        
+        static_assert(sizeof(unit_attrib) == 1);
 
         gctype gc_type = gctype::no_gc;
         gcmarkcolor gc_mark_color = gcmarkcolor::no_mark;
@@ -236,7 +248,12 @@ namespace wo
         {
             ++gc_new_count;
 
-            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), (womem_attrib_t)AllocType))gcunit<T>(args...);
+            gcbase::unit_attrib a;
+            a.m_gc_age = AllocType == gcbase::gctype::young ? 0x0Fui8 : 0;
+            a.m_marked = 0;
+            a.m_nogc = AllocType == gcbase::gctype::no_gc ? 1ui8 : 0;
+
+            auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
             *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&write_aim)) = created_gcnuit;
 
 #ifndef NDEBUG
