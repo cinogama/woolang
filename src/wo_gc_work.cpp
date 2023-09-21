@@ -494,10 +494,10 @@ namespace wo
 
             // 5. OK, All unit has been marked. reduce gcunits
             gcbase::unit_attrib alloc_dur_current_gc_attrib_mask = {}, alloc_dur_current_gc_attrib = {};
-            alloc_dur_current_gc_attrib_mask.m_gc_age = 0x0Fui8;
-            alloc_dur_current_gc_attrib_mask.m_alloc_mask = 0x01ui8;
-            alloc_dur_current_gc_attrib.m_gc_age = 0x0Fui8;
-            alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)_gc_round_count & 0b01ui8;
+            alloc_dur_current_gc_attrib_mask.m_gc_age = (uint8_t)0x0F;
+            alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)0x01;
+            alloc_dur_current_gc_attrib.m_gc_age = (uint8_t)0x0F;
+            alloc_dur_current_gc_attrib_mask.m_alloc_mask = (uint8_t)_gc_round_count & (uint8_t)0x01;
 
             size_t page_count, page_size, alive_unit = 0;
             char* pages = (char*)womem_enum_pages(&page_count, &page_size);
@@ -759,7 +759,7 @@ namespace wo
         for (;;)
         {
             gcbase::unit_attrib attr = {};
-            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count & 0b01ui8;
+            attr.m_alloc_mask = (uint8_t)gc::_gc_round_count & (uint8_t)0b01;
             if (auto* p = womem_alloc(memsz, attrib | attr.m_attr))
                 return p;
 

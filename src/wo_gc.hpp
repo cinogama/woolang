@@ -204,9 +204,9 @@ namespace wo
             ++gc_new_count;
 
             gcbase::unit_attrib a;
-            a.m_gc_age = AllocType == gcbase::gctype::young ? 0x0Fui8 : 0;
+            a.m_gc_age = AllocType == gcbase::gctype::young ? (uint8_t)0x0F : (uint8_t)0;
             a.m_marked = 0;
-            a.m_nogc = AllocType == gcbase::gctype::no_gc ? 1ui8 : 0;
+            a.m_nogc = AllocType == gcbase::gctype::no_gc ? (uint8_t)0x01 : (uint8_t)0;
             a.m_alloc_mask = 0;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);

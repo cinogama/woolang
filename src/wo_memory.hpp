@@ -1,8 +1,8 @@
 #pragma once
 #include "wo_global_setting.hpp"
 
-#include <cstdlib>
-#include <cstddef>
+#include <stdint.h>
+#include <stddef.h>
 #include <new>
 
 void womem_init(size_t virtual_pre_alloc_size);
