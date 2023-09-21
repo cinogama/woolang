@@ -86,20 +86,9 @@ namespace wo
             wo_assert(unitattr->m_marked == (uint8_t)gcbase::gcmarkcolor::self_mark);
             unitattr->m_marked = (uint8_t)gcbase::gcmarkcolor::full_mark;
 
-            gcbase::memo_unit* memo = unit->pick_memo();
-            while (memo)
-            {
-                auto* curmemo = memo;
-                memo = memo->last;
-
-                gc_mark_unit_as_gray(worklist, curmemo->gcunit, curmemo->gcunit_attr);
-
-                delete curmemo;
-            }
+            gcbase::unit_attrib* attr;
 
             wo::gcbase::gc_read_guard g1(unit);
-
-            gcbase::unit_attrib* attr;
             if (array_t* wo_arr = dynamic_cast<array_t*>(unit))
             {
                 for (auto& val : *wo_arr)
@@ -134,6 +123,18 @@ namespace wo
                 for (uint16_t i = 0; i < wo_struct->m_count; ++i)
                     if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_with_barrier(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+            }
+
+            gcbase::memo_unit* memo = unit->pick_memo();
+            while (memo)
+            {
+                auto* curmemo = memo;
+                memo = memo->last;
+
+                wo_assert(nullptr != womem_verify(curmemo->gcunit, (womem_attrib_t**)&attr));
+
+                gc_mark_unit_as_gray(worklist, curmemo->gcunit, curmemo->gcunit_attr);
+                delete curmemo;
             }
         }
 
@@ -509,7 +510,7 @@ namespace wo
             {
                 size_t unit_count, unit_size;
                 char* units = (char*)womem_get_unit_buffer(pages + pageidx * page_size, &unit_count, &unit_size);
-                
+
                 if (units == nullptr)
                     continue;
 
