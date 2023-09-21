@@ -84,7 +84,7 @@ namespace wo
             // vm still stuck while gc-work next checking, GC_HANGUP_INTERRUPT will be set
             // and GC_INTERRUPT will clear by gc-work, gc-work will mark the vm. after this
             // mark, GC_HANGUP_INTERRUPT will be clear.
-            
+
 
             LEAVE_INTERRUPT = 1 << 9,
             // When GC work trying GC_INTERRUPT, it will wait for vm cleaning 
@@ -225,7 +225,7 @@ namespace wo
             return type & vm_interrupt.fetch_and(~type);
         }
 
-        enum class interrupt_wait_result: uint8_t
+        enum class interrupt_wait_result : uint8_t
         {
             ACCEPT,
             TIMEOUT,
@@ -241,10 +241,10 @@ namespace wo
             do
             {
                 uint32_t vm_interrupt_mask = vm_interrupt.load();
-              
+
                 if (0 == (vm_interrupt_mask & type))
                     break;
-                    
+
                 if (vm_interrupt_mask & vm_interrupt_type::LEAVE_INTERRUPT)
                 {
                     if (++i > MAX_TRY_COUNT)
@@ -266,7 +266,7 @@ namespace wo
                 }
 
             } while (true);
-            
+
             return interrupt_wait_result::ACCEPT;
         }
         inline void block_interrupt(vm_interrupt_type type)

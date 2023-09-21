@@ -465,11 +465,11 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
         if (fnd_place< split_begin || fnd_place>aim.size())
         {
             wo_value v = wo_arr_add(arr, nullptr);
-            wo_set_string(v, aim.substr(split_begin).c_str());
+            wo_set_string(v, vm, aim.substr(split_begin).c_str());
             break;
         }
         wo_value v = wo_arr_add(arr, nullptr);
-        wo_set_string(v, aim.substr(split_begin, fnd_place - split_begin).c_str());
+        wo_set_string(v, vm, aim.substr(split_begin, fnd_place - split_begin).c_str());
 
         split_begin = fnd_place + matchlen;
     }
@@ -698,7 +698,7 @@ WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value result = wo_push_empty(vm);
-    wo_set_arr(result, 0);
+    wo_set_arr(result, vm, 0);
 
     wo::value* arr_result = reinterpret_cast<wo::value*>(result);
     wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
@@ -723,7 +723,7 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value result = wo_push_empty(vm);
-    wo_set_arr(result, 0);
+    wo_set_arr(result, vm, 0);
 
     wo::value* arr_result = reinterpret_cast<wo::value*>(result);
     wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
@@ -997,8 +997,8 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%s%zn", string_buf, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), input + token_length);
-        wo_set_string(wo_struct_get(result, 1), string_buf);
+        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
+        wo_set_string(wo_struct_get(result, 1), vm, string_buf);
         return wo_ret_option_val(vm, result);
     }
 
@@ -1014,7 +1014,7 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%lld%zn", &integer, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), input + token_length);
+        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
         wo_set_int(wo_struct_get(result, 1), (wo_integer_t)integer);
         return wo_ret_option_val(vm, result);
     }
@@ -1031,7 +1031,7 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%lf%zn", &real, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), input + token_length);
+        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
         wo_set_real(wo_struct_get(result, 1), real);
         return wo_ret_option_val(vm, result);
     }
@@ -1263,7 +1263,7 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
     wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
     for (wo_integer_t i = 0; i < argcarr; ++i)
-        wo_set_string(wo_arr_get(argsarr, i), wo::wo_args[(size_t)i].c_str());
+        wo_set_string(wo_arr_get(argsarr, i), vm, wo::wo_args[(size_t)i].c_str());
 
     return wo_ret_val(vm, argsarr);
 }
@@ -2595,9 +2595,9 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
     auto token_type = lex->peek(&out_result);
 
     wo_value result = wo_push_empty(vm);
-    wo_set_struct(result, 2);
+    wo_set_struct(result, vm, 2);
     wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
+    wo_set_string(wo_struct_get(result, 1), vm, wo::wstr_to_str(out_result).c_str());
 
     return wo_ret_val(vm, result);
 }
@@ -2610,9 +2610,9 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
     auto token_type = lex->next(&out_result);
 
     wo_value result = wo_push_empty(vm);
-    wo_set_struct(result, 2);
+    wo_set_struct(result, vm, 2);
     wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), wo::wstr_to_str(out_result).c_str());
+    wo_set_string(wo_struct_get(result, 1), vm, wo::wstr_to_str(out_result).c_str());
 
     return wo_ret_val(vm, result);
 }

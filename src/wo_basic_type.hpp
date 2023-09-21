@@ -14,11 +14,6 @@
 #include <vector>
 #include <new>
 
-#ifndef WOMEM_STATIC_LIB
-#   define WOMEM_STATIC_LIB
-#endif
-#include "woomem.h"
-
 namespace wo
 {
     struct value;
@@ -145,7 +140,7 @@ namespace wo
         {
             // You must 'delete' it manual
             set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::no_gc>(gcunit, str);
+            gcunit = new string_t(str);
             return this;
         }
         inline value* set_val_compile_time(value* val)
@@ -197,13 +192,11 @@ namespace wo
             return type == valuetype::invalid || (is_gcunit() && gcunit == nullptr);
         }
 
-        inline gcbase* get_gcunit_with_barrier() const
+        inline gcbase* get_gcunit_with_barrier(gcbase::unit_attrib** attrib) const
         {
             if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
-            {
-                womem_attrib_t b;
-                return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), &b);
-            }
+                return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), 
+                    std::launder(reinterpret_cast<womem_attrib_t**>(attrib)));
             return nullptr;
         }
 

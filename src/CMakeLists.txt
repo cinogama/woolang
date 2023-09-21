@@ -4,7 +4,6 @@ cmake_minimum_required (VERSION 3.8)
 
 include_directories("../include")
 include_directories("../3rd/asmjit/src")
-include_directories("../3rd/womempool/include")
 
 file(GLOB_RECURSE woo_src_cpp *.cpp)
 file(GLOB_RECURSE woo_src_hpp *.hpp)
@@ -36,7 +35,7 @@ if(${WO_SUPPORT_ASMJIT})
     list(APPEND woo_system_libs asmjit)
 endif()
 
-target_link_libraries(woolang ${woo_system_libs} woomem)
+target_link_libraries(woolang ${woo_system_libs})
 set_target_properties(woolang PROPERTIES OUTPUT_NAME libwoo)
 set_target_properties(woolang PROPERTIES PREFIX "")
 

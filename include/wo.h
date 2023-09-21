@@ -113,16 +113,16 @@ WO_API void         wo_unload_lib(void* lib);
 
 WO_API wo_type      wo_valuetype(const wo_value value);
 
-WO_API wo_char_t    wo_char(const wo_value value);
-WO_API wo_integer_t wo_int(const wo_value value);
-WO_API wo_real_t    wo_real(const wo_value value);
-WO_API wo_handle_t  wo_handle(const wo_value value);
-WO_API wo_ptr_t     wo_pointer(const wo_value value);
-WO_API wo_string_t  wo_string(const wo_value value);
-WO_API wo_bool_t    wo_bool(const wo_value value);
+WO_API wo_char_t    wo_char(wo_value value);
+WO_API wo_integer_t wo_int(wo_value value);
+WO_API wo_real_t    wo_real(wo_value value);
+WO_API wo_handle_t  wo_handle(wo_value value);
+WO_API wo_ptr_t     wo_pointer(wo_value value);
+WO_API wo_string_t  wo_string(wo_value value);
+WO_API wo_bool_t    wo_bool(wo_value value);
 //WO_API wo_value     wo_value_of_gchandle(wo_value value);
-WO_API float        wo_float(const wo_value value);
-WO_API const void*  wo_buffer(const wo_value value);
+WO_API float        wo_float(wo_value value);
+WO_API const void*  wo_buffer(wo_value value);
 
 WO_API void wo_set_char(wo_value value, wo_char_t val);
 WO_API void wo_set_int(wo_value value, wo_integer_t val);
@@ -130,22 +130,23 @@ WO_API void wo_set_real(wo_value value, wo_real_t val);
 WO_API void wo_set_float(wo_value value, float val);
 WO_API void wo_set_handle(wo_value value, wo_handle_t val);
 WO_API void wo_set_pointer(wo_value value, wo_ptr_t val);
-WO_API void wo_set_string(wo_value value, wo_string_t val);
-WO_API void wo_set_buffer(wo_value value, const void* val, size_t len);
 WO_API void wo_set_bool(wo_value value, wo_bool_t val);
-WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
 WO_API void wo_set_val(wo_value value, wo_value val);
-WO_API void wo_set_struct(wo_value value, uint16_t structsz);
-WO_API void wo_set_arr(wo_value value, wo_int_t count);
-WO_API void wo_set_map(wo_value value);
 
-WO_API wo_integer_t wo_cast_int(const wo_value value);
-WO_API wo_real_t    wo_cast_real(const wo_value value);
-WO_API wo_handle_t  wo_cast_handle(const wo_value value);
-WO_API wo_ptr_t     wo_cast_pointer(const wo_value value);
-WO_API wo_bool_t    wo_cast_bool(const wo_value value);
-WO_API wo_string_t  wo_cast_string(const wo_value value);
-WO_API float        wo_cast_float(const wo_value value);
+WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
+WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len);
+WO_API void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
+WO_API void wo_set_struct(wo_value value, wo_vm vm, uint16_t structsz);
+WO_API void wo_set_arr(wo_value value, wo_vm vm, wo_int_t count);
+WO_API void wo_set_map(wo_value value, wo_vm vm);
+
+WO_API wo_integer_t wo_cast_int(wo_value value);
+WO_API wo_real_t    wo_cast_real(wo_value value);
+WO_API wo_handle_t  wo_cast_handle(wo_value value);
+WO_API wo_ptr_t     wo_cast_pointer(wo_value value);
+WO_API wo_bool_t    wo_cast_bool(wo_value value);
+WO_API float        wo_cast_float(wo_value value);
+WO_API wo_string_t  wo_cast_string(wo_value value);
 
 WO_API wo_bool_t    wo_serialize(wo_value value, wo_string_t* out_str);
 WO_API wo_bool_t    wo_deserialize(wo_vm vm, wo_value value, wo_string_t str, wo_type except_type);
@@ -154,18 +155,19 @@ WO_API wo_string_t  wo_type_name(wo_type value);
 
 WO_API wo_integer_t wo_argc(wo_vm vm);
 
+#define wo_ret_void(vmm) (0)
 WO_API wo_result_t  wo_ret_char(wo_vm vm, wo_char_t result);
 WO_API wo_result_t  wo_ret_int(wo_vm vm, wo_integer_t result);
 WO_API wo_result_t  wo_ret_real(wo_vm vm, wo_real_t result);
 WO_API wo_result_t  wo_ret_float(wo_vm vm, float result);
 WO_API wo_result_t  wo_ret_handle(wo_vm vm, wo_handle_t result);
 WO_API wo_result_t  wo_ret_pointer(wo_vm vm, wo_ptr_t result);
+WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
+WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
+
 WO_API wo_result_t  wo_ret_string(wo_vm vm, wo_string_t result);
 WO_API wo_result_t  wo_ret_buffer(wo_vm vm, const void* result, size_t len);
 WO_API wo_result_t  wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val, void(*destruct_func)(wo_ptr_t));
-#define wo_ret_void(vmm) (0)
-WO_API wo_result_t  wo_ret_bool(wo_vm vm, wo_bool_t result);
-WO_API wo_result_t  wo_ret_val(wo_vm vm, wo_value result);
 WO_API wo_result_t  wo_ret_dup(wo_vm vm, wo_value result);
 
 WO_API wo_result_t  wo_ret_halt(wo_vm vm, wo_string_t reason);
