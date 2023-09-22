@@ -459,17 +459,19 @@ WO_API wo_api rslib_std_string_split(wo_vm vm, wo_value args, size_t argc)
     size_t matchlen = strlen(match);
     size_t split_begin = 0;
 
+    wo_value elem = wo_push_empty(vm);
+
     while (true)
     {
         size_t fnd_place = aim.find(match, split_begin);
         if (fnd_place< split_begin || fnd_place>aim.size())
         {
-            wo_value v = wo_arr_add(arr, nullptr);
-            wo_set_string(v, vm, aim.substr(split_begin).c_str());
+            wo_set_string(elem, vm, aim.substr(split_begin).c_str());
+            wo_arr_add(arr, elem);
             break;
         }
-        wo_value v = wo_arr_add(arr, nullptr);
-        wo_set_string(v, vm, aim.substr(split_begin, fnd_place - split_begin).c_str());
+        wo_set_string(elem, vm, aim.substr(split_begin, fnd_place - split_begin).c_str());
+        wo_arr_add(arr, elem);
 
         split_begin = fnd_place + matchlen;
     }
@@ -628,8 +630,8 @@ WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -648,8 +650,8 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -673,8 +675,11 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
-    if (idx >= 0 && idx < wo_lengthof(arr))
-        return wo_ret_option_val(vm, wo_arr_get(arr, idx));
+
+    wo_value elem = wo_push_empty(vm);
+
+    if (wo_arr_get(elem, arr, idx))
+        return wo_ret_option_val(vm, elem);
 
     return wo_ret_option_none(vm);
 }
@@ -683,8 +688,11 @@ WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t arg
 {
     wo_value arr = args + 0;
     wo_integer_t idx = wo_int(args + 1);
-    if (idx >= 0 && idx < wo_lengthof(arr))
-        return wo_ret_val(vm, wo_arr_get(arr, idx));
+
+    wo_value elem = wo_push_empty(vm);
+
+    if (wo_arr_get(elem, arr, idx))
+        return wo_ret_val(vm, elem);
 
     return wo_ret_val(vm, args + 2);
 }
@@ -700,9 +708,9 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_push_empty(vm);
     wo_set_arr(result, vm, 0);
 
-    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     do
@@ -725,8 +733,8 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_push_empty(vm);
     wo_set_arr(result, vm, 0);
 
-    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     wo::gcbase::gc_read_guard rg2(arr1->array);
@@ -759,22 +767,18 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
 {
-    auto arrsz = wo_lengthof(args + 0);
-    auto ret = wo_ret_val(vm, wo_arr_get(args + 0, arrsz - 1));
-    if (arrsz)
-        wo_arr_remove(args + 0, arrsz - 1);
-
-    return ret;
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_pop_back(args + 0, elem))
+        return wo_ret_option_val(vm, elem);
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
 {
-    auto arrsz = wo_lengthof(args + 0);
-    auto ret = wo_ret_val(vm, wo_arr_get(args + 0, 0));
-    if (arrsz)
-        wo_arr_remove(args + 0, 0);
-
-    return ret;
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_pop_front(args + 0, elem))
+        return wo_ret_option_val(vm, elem);
+    return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
@@ -807,7 +811,7 @@ struct array_iter
 
 WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr = reinterpret_cast<wo::value*>(args);
+    wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args));
     return wo_ret_gchandle(vm,
         new array_iter{ arr->array->begin(), arr->array->end(), 0 },
         args + 0,
@@ -828,7 +832,7 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
     wo_value result_tuple = wo_push_struct(vm, 2);
 
     wo_set_int(wo_struct_get(result_tuple, 0), iter.index_count++); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&*(iter.iter++))); // val
+    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&*(iter.iter++)))); // val
 
     return wo_ret_option_val(vm, result_tuple);
 }
@@ -846,28 +850,32 @@ WO_API wo_api rslib_std_map_set(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_value result = wo_map_get(args + 0, args + 1);
+    wo_value elem = wo_push_empty(vm);
 
-    if (result)
-        return wo_ret_option_val(vm, result);
+    if (wo_map_get(elem, args + 0, args + 1))
+        return wo_ret_option_val(vm, elem);
 
     return wo_ret_option_none(vm);
 }
 
 WO_API wo_api rslib_std_map_get_or_set_default(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_val(vm, wo_map_get_or_set_default(args + 0, args + 1, args + 2));
+    wo_value elem = wo_push_empty(vm);
+    wo_map_get_or_set_default(elem, args + 0, args + 1, args + 2);
+    return wo_ret_val(vm, elem);
 }
 
 WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
 {
-    return wo_ret_val(vm, wo_map_get_or_default(args + 0, args + 1, args + 2));
+    wo_value elem = wo_push_empty(vm);
+    wo_map_get_or_default(elem, args + 0, args + 1, args + 2);
+    return wo_ret_val(vm, elem);
 }
 
 WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -892,8 +900,8 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -938,7 +946,7 @@ struct map_iter
 
 WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* mapp = reinterpret_cast<wo::value*>(args);
+    wo::value* mapp = std::launder(reinterpret_cast<wo::value*>(args));
 
     return wo_ret_gchandle(vm,
         new map_iter{ mapp->dict->begin(), mapp->dict->end() },
@@ -959,8 +967,8 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
 
     wo_value result_tuple = wo_push_struct(vm, 2);
 
-    wo_set_val(wo_struct_get(result_tuple, 0), reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&iter.iter->second)); // val
+    wo_set_val(wo_struct_get(result_tuple, 0), std::launder(reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first)))); // key
+    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&iter.iter->second))); // val
     iter.iter++;
 
     return wo_ret_option_val(vm, result_tuple);
@@ -1060,8 +1068,13 @@ WO_API wo_api rslib_std_create_wchars_from_str(wo_vm vm, wo_value args, size_t a
     std::wstring buf = wo_str_to_wstr(wo_string(args + 0));
     wo_value result_array = wo_push_arr(vm, buf.size());
 
+    wo_value elem = wo_push_empty(vm);
+
     for (size_t i = 0; i < buf.size(); ++i)
-        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)(wo_handle_t)buf[i]);
+    {
+        wo_set_int(elem, (wo_int_t)(wo_handle_t)buf[i]);
+        wo_arr_set(result_array, (wo_int_t)i, elem);
+    }
 
     return wo_ret_val(vm, result_array);
 }
@@ -1071,8 +1084,13 @@ WO_API wo_api rslib_std_create_chars_from_str(wo_vm vm, wo_value args, size_t ar
     std::string buf = wo_string(args + 0);
     wo_value result_array = wo_push_arr(vm, buf.size());
 
+    wo_value elem = wo_push_empty(vm);
+
     for (size_t i = 0; i < buf.size(); ++i)
-        wo_set_int(wo_arr_get(result_array, (wo_int_t)i), (wo_int_t)(wo_handle_t)(unsigned char)buf[i]);
+    {
+        wo_set_int(elem, (wo_int_t)(wo_handle_t)(unsigned char)buf[i]);
+        wo_arr_set(result_array, (wo_int_t)i, elem);
+    }
 
     return wo_ret_val(vm, result_array);
 }
@@ -1094,7 +1112,7 @@ WO_API wo_api rslib_std_array_create(wo_vm vm, wo_value args, size_t argc)
 
     wo_value newarr = wo_push_arr(vm, arrsz);
     for (wo_integer_t i = 0; i < arrsz; ++i)
-        wo_set_val(wo_arr_get(newarr, i), args + 1);
+        wo_arr_set(newarr, i, args + 1);
 
     return wo_ret_val(vm, newarr);
 }
@@ -1104,8 +1122,11 @@ WO_API wo_api rslib_std_create_str_by_wchar(wo_vm vm, wo_value args, size_t argc
     std::wstring buf;
     wo_int_t size = wo_lengthof(args + 0);
 
+    wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::gcbase::gc_read_guard rg1(arr->array);
+
     for (wo_int_t i = 0; i < size; ++i)
-        buf += (wchar_t)(wo_handle_t)wo_int(wo_arr_get(args + 0, i));
+        buf += (wchar_t)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at((size_t)i))));
 
     return wo_ret_string(vm, wo::wstr_to_str(buf).c_str());
 }
@@ -1115,8 +1136,11 @@ WO_API wo_api rslib_std_create_str_by_ascii(wo_vm vm, wo_value args, size_t argc
     std::string buf;
     wo_int_t size = wo_lengthof(args + 0);
 
+    wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::gcbase::gc_read_guard rg1(arr->array);
+
     for (wo_int_t i = 0; i < size; ++i)
-        buf += (char)(unsigned char)(wo_handle_t)wo_int(wo_arr_get(args + 0, i));
+        buf += (char)(unsigned char)(wo_handle_t)wo_int(std::launder(reinterpret_cast<wo_value>(&arr->array->at((size_t)i))));
 
     return wo_ret_string(vm, buf.c_str());
 }
@@ -1262,8 +1286,13 @@ WO_API wo_api rslib_std_get_args(wo_vm vm, wo_value args, size_t argc)
 {
     wo_integer_t argcarr = (wo_integer_t)wo::wo_args.size();
     wo_value argsarr = wo_push_arr(vm, argcarr);
+
+    wo_value elem = wo_push_empty(vm);
     for (wo_integer_t i = 0; i < argcarr; ++i)
-        wo_set_string(wo_arr_get(argsarr, i), vm, wo::wo_args[(size_t)i].c_str());
+    {
+        wo_set_string(elem, vm, wo::wo_args[(size_t)i].c_str());
+        wo_arr_set(argsarr, i, elem);
+    }
 
     return wo_ret_val(vm, argsarr);
 }
@@ -2106,10 +2135,10 @@ namespace vec
     public func subto<T>(self: vec<T>, begin: int, count: int)=> vec<T>;
 
     extern("rslib_std_array_pop") 
-        public func pop<T>(val: vec<T>)=> T;  
+        public func pop<T>(val: vec<T>)=> option<T>;  
 
     extern("rslib_std_array_dequeue") 
-        public func dequeue<T>(val: vec<T>)=> T;  
+        public func dequeue<T>(val: vec<T>)=> option<T>;  
 
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=> bool;
