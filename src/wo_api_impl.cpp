@@ -521,6 +521,8 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
     {
         _wo_enter_gc_guard g(vm);
         handle_ptr = wo::gchandle_t::gc_new<wo::gcbase::gctype::young>(WO_VAL(value)->gcunit);
+        if (holding_val)
+            handle_ptr->m_holding_value.set_val(WO_VAL(holding_val));
     }
 
     wo::gcbase::gc_write_guard g1(handle_ptr);
@@ -531,14 +533,13 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
     //      so we need store gc vm for decrease.
     WO_VM(vm)->inc_destructable_instance_count();
 
-    if (holding_val)
-        handle_ptr->m_holding_value.set_val(WO_VAL(holding_val));
-
     handle_ptr->m_gc_vm = wo_gc_vm(vm);
 }
 void wo_set_val(wo_value value, wo_value val)
 {
     auto* _rsvalue = WO_VAL(value);
+    
+    _wo_enter_gc_guard g(vm);
     _rsvalue->set_val(WO_VAL(val));
 }
 
@@ -1263,10 +1264,10 @@ wo_result_t wo_ret_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_va
 wo_result_t wo_ret_val(wo_vm vm, wo_value result)
 {
     wo_assert(result);
-    return reinterpret_cast<wo_result_t>(
-        WO_VM(vm)->cr->set_val(
-            reinterpret_cast<wo::value*>(result)
-        ));
+
+    _wo_enter_gc_guard g(vm);
+    WO_VM(vm)->cr->set_val(WO_VAL(result));
+    return 0;
 }
 
 wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
@@ -1275,7 +1276,6 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 
     _wo_enter_gc_guard g(vm);
     WO_VM(vm)->cr->set_dup(val);
-
     return 0;
 }
 
@@ -1433,11 +1433,9 @@ wo_result_t  wo_ret_option_string(wo_vm vm, wo_string_t result)
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
 
         wo::gcbase::gc_write_guard gwg1(structptr);
+        structptr->m_values[0].set_integer(1);
         structptr->m_values[1].set_string(result);
     }
-    structptr->m_values[0].set_integer(1);
-    
-
     return 0;
 }
 
@@ -1453,10 +1451,9 @@ wo_result_t  wo_ret_option_buffer(wo_vm vm, const void* result, size_t len)
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
 
         wo::gcbase::gc_write_guard gwg1(structptr);
+        structptr->m_values[0].set_integer(1);
         structptr->m_values[1].set_buffer(result, len);
     }
-
-    structptr->m_values[0].set_integer(1);
     return 0;
 }
 
@@ -1515,13 +1512,12 @@ wo_result_t wo_ret_option_val(wo_vm vm, wo_value val)
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
+
+        wo::gcbase::gc_write_guard gwg1(structptr);
+
+        structptr->m_values[0].set_integer(1);
+        structptr->m_values[1].set_val(WO_VAL(val));
     }
-
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(1);
-    structptr->m_values[1].set_val(WO_VAL(val));
-
     return 0;
 }
 
@@ -1691,11 +1687,9 @@ wo_result_t wo_ret_err_string(wo_vm vm, wo_string_t result)
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
 
         wo::gcbase::gc_write_guard gwg1(structptr);
+        structptr->m_values[0].set_integer(2);
         structptr->m_values[1].set_string(result);
     }
-
-    structptr->m_values[0].set_integer(2);
-
     return 0;
 }
 
@@ -1711,11 +1705,9 @@ wo_result_t wo_ret_err_buffer(wo_vm vm, const void* result, size_t len)
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
 
         wo::gcbase::gc_write_guard gwg1(structptr);
+        structptr->m_values[0].set_integer(2);
         structptr->m_values[1].set_buffer(result, len);
-    }
-
-    structptr->m_values[0].set_integer(2);
-    
+    }    
     return 0;
 }
 
@@ -1751,13 +1743,12 @@ wo_result_t wo_ret_err_val(wo_vm vm, wo_value val)
     {
         _wo_enter_gc_guard g(vm);
         structptr = wo::struct_t::gc_new<wo::gcbase::gctype::young>(wovm->cr->gcunit, 2);
+
+        wo::gcbase::gc_write_guard gwg1(structptr);
+
+        structptr->m_values[0].set_integer(2);
+        structptr->m_values[1].set_val(WO_VAL(val));
     }
-
-    wo::gcbase::gc_write_guard gwg1(structptr);
-
-    structptr->m_values[0].set_integer(2);
-    structptr->m_values[1].set_val(WO_VAL(val));
-
     return 0;
 }
 
@@ -2273,7 +2264,10 @@ wo_value wo_push_empty(wo_vm vm)
 wo_value wo_push_val(wo_vm vm, wo_value val)
 {
     if (val)
+    {
+        _wo_enter_gc_guard g(vm);
         return CS_VAL((WO_VM(vm)->sp--)->set_val(WO_VAL(val)));
+    }
     return CS_VAL((WO_VM(vm)->sp--)->set_nil());
 }
 
@@ -2513,6 +2507,7 @@ wo_value wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
         {
             auto index = _arr->array->insert(_arr->array->begin() + (size_t)place, wo::value());
             if (val)
+                // TODO: _wo_enter_gc_guard g(vm);
                 index->set_val(WO_VAL(val));
             else
                 index->set_nil();
@@ -2775,6 +2770,7 @@ wo_value wo_map_set(wo_value map, wo_value index, wo_value val)
         wo::gcbase::gc_write_guard g1(_map->dict);
         wo::value* result;
         if (val)
+            // TODO: _wo_enter_gc_guard g(vm);
             result = (*_map->dict)[*WO_VAL(index)].set_val(WO_VAL(val));
         else
             result = (*_map->dict)[*WO_VAL(index)].set_nil();
