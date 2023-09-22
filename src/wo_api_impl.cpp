@@ -1282,8 +1282,10 @@ wo_result_t wo_ret_dup(wo_vm vm, wo_value result)
 wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
 {
     auto* vmptr = WO_VM(vm);
-    vmptr->er->set_string(reason);
-
+    {
+        _wo_enter_gc_guard g(vm);
+        vmptr->er->set_string(reason);
+    }
     vmptr->interrupt(wo::vmbase::vm_interrupt_type::ABORT_INTERRUPT);
     wo::wo_stderr << ANSI_HIR "Halt happend: " ANSI_RST << wo_cast_string((wo_value)vmptr->er) << wo::wo_endl;
     vmptr->dump_call_stack(32, true, std::cerr);
@@ -1292,6 +1294,11 @@ wo_result_t wo_ret_halt(wo_vm vm, wo_string_t reason)
 
 wo_result_t wo_ret_panic(wo_vm vm, wo_string_t reason)
 {
+    auto* vmptr = WO_VM(vm);
+    {
+        _wo_enter_gc_guard g(vm);
+        vmptr->er->set_string(reason);
+    }
     wo_fail(WO_FAIL_DEADLY, reason);
     return 0;
 }
@@ -2251,10 +2258,12 @@ wo_value wo_push_gchandle(wo_vm vm, wo_ptr_t resource_ptr, wo_value holding_val,
 }
 wo_value wo_push_string(wo_vm vm, wo_string_t val)
 {
+    _wo_enter_gc_guard g(vm);
     return CS_VAL((WO_VM(vm)->sp--)->set_string(val));
 }
 wo_value wo_push_buffer(wo_vm vm, const void* val, size_t len)
 {
+    _wo_enter_gc_guard g(vm);
     return CS_VAL((WO_VM(vm)->sp--)->set_buffer(val, len));
 }
 wo_value wo_push_empty(wo_vm vm)
