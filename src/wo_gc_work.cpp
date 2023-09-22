@@ -9,7 +9,6 @@
 
 #define WO_GC_FORCE_STOP_WORLD false
 #define WO_GC_FORCE_FULL_GC false
-#define WO_GC_DEBUG false
 
 namespace wo
 {
@@ -313,31 +312,6 @@ namespace wo
 #endif
             // Pick all gcunit before 1st mark begin.
             // It means all unit alloced when marking will be skiped to free.
-
-#if WO_GC_DEBUG
-            wo::wo_stdout << "================================================" << wo::wo_endl;
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " A round of gc launched." << wo::wo_endl;
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " Before GC Free:" << wo::wo_endl;
-
-            size_t gcunit_count = 0;
-            auto* elem = gcbase::young_age_gcunit_list.peek_list();
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
-
-            gcunit_count = 0;
-            elem = gcbase::old_age_gcunit_list.peek_list();
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
-            wo::wo_stdout << "------------------------------------------------" << wo::wo_endl;
-#endif
             std::vector<vmbase*> gc_marking_vmlist, self_marking_vmlist, time_out_vmlist;
 
             // 0. get current vm list, set stop world flag to TRUE:
@@ -406,7 +380,10 @@ namespace wo
                         // NOTE: Let vm hang up for stop the world GC
                         if (vmimpl->virtual_machine_type == vmbase::vm_type::NORMAL)
                         {
-                            wo_asure(vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
+                            // NOTE: See gc_checkpoint, we have very small probability when last round
+                            // stw GC, an vm still in gc_checkpoint and mark GC_HANGUP_INTERRUPT it self,
+                            // we need mark until success.
+                            while (!vmimpl->interrupt(vmbase::vm_interrupt_type::GC_HANGUP_INTERRUPT));
                         }
                     }
 
@@ -538,30 +515,6 @@ namespace wo
                     }
                 }
             }
-
-#if WO_GC_DEBUG
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_RST " After GC Free:" << wo::wo_endl;
-
-            gcunit_count = 0;
-            elem = gcbase::young_age_gcunit_list.peek_list();
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIY " Young: " ANSI_RST << gcunit_count << wo::wo_endl;
-
-            gcunit_count = 0;
-            elem = gcbase::old_age_gcunit_list.peek_list();
-            while (elem)
-            {
-                ++gcunit_count;
-                elem = elem->last;
-            }
-            wo::wo_stdout << ANSI_HIG "[GCDEBUG]" ANSI_HIM " Old: " ANSI_RST << gcunit_count << wo::wo_endl;
-            wo::wo_stdout << "================================================" << wo::wo_endl;
-#endif
-
             // 6. Remove orpho vm
             std::list<vmbase*> need_destruct_gc_destructor_list;
 
