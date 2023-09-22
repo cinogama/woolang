@@ -535,7 +535,7 @@ void wo_set_gchandle(wo_value value, wo_vm vm, wo_ptr_t resource_ptr, wo_value h
 
     handle_ptr->m_gc_vm = wo_gc_vm(vm);
 }
-void wo_set_val(wo_value value, wo_value val)
+void wo_set_val(wo_value value, wo_vm vm, wo_value val)
 {
     auto* _rsvalue = WO_VAL(value);
     
