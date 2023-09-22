@@ -628,8 +628,8 @@ WO_API wo_api rslib_std_array_insert(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -648,8 +648,8 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
 
@@ -700,9 +700,9 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_push_empty(vm);
     wo_set_arr(result, vm, 0);
 
-    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* arr2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     do
@@ -725,8 +725,8 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
     wo_value result = wo_push_empty(vm);
     wo_set_arr(result, vm, 0);
 
-    wo::value* arr_result = reinterpret_cast<wo::value*>(result);
-    wo::value* arr1 = reinterpret_cast<wo::value*>(args + 0);
+    wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
+    wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
 
     wo::gcbase::gc_write_guard wg1(arr_result->array);
     wo::gcbase::gc_read_guard rg2(arr1->array);
@@ -807,7 +807,7 @@ struct array_iter
 
 WO_API wo_api rslib_std_array_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* arr = reinterpret_cast<wo::value*>(args);
+    wo::value* arr = std::launder(reinterpret_cast<wo::value*>(args));
     return wo_ret_gchandle(vm,
         new array_iter{ arr->array->begin(), arr->array->end(), 0 },
         args + 0,
@@ -828,7 +828,7 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
     wo_value result_tuple = wo_push_struct(vm, 2);
 
     wo_set_int(wo_struct_get(result_tuple, 0), iter.index_count++); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&*(iter.iter++))); // val
+    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&*(iter.iter++)))); // val
 
     return wo_ret_option_val(vm, result_tuple);
 }
@@ -866,8 +866,8 @@ WO_API wo_api rslib_std_map_get_or_default(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -892,8 +892,8 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* map1 = reinterpret_cast<wo::value*>(args + 0);
-    wo::value* map2 = reinterpret_cast<wo::value*>(args + 1);
+    wo::value* map1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
+    wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
 
@@ -938,7 +938,7 @@ struct map_iter
 
 WO_API wo_api rslib_std_map_iter(wo_vm vm, wo_value args, size_t argc)
 {
-    wo::value* mapp = reinterpret_cast<wo::value*>(args);
+    wo::value* mapp = std::launder(reinterpret_cast<wo::value*>(args));
 
     return wo_ret_gchandle(vm,
         new map_iter{ mapp->dict->begin(), mapp->dict->end() },
@@ -959,8 +959,8 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
 
     wo_value result_tuple = wo_push_struct(vm, 2);
 
-    wo_set_val(wo_struct_get(result_tuple, 0), reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first))); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), reinterpret_cast<wo_value>(&iter.iter->second)); // val
+    wo_set_val(wo_struct_get(result_tuple, 0), std::launder(reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first)))); // key
+    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&iter.iter->second))); // val
     iter.iter++;
 
     return wo_ret_option_val(vm, result_tuple);
