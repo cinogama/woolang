@@ -317,24 +317,27 @@ WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
 WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
 
 // Read operation
-WO_API wo_value     wo_arr_get(wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_pop_front(wo_value out_val, wo_value arr);
+WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
 WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
-WO_API wo_value     wo_map_get_or_default(wo_value map, wo_value index, wo_value default_value);
-WO_API wo_value     wo_map_get(wo_value map, wo_value index);
+WO_API wo_bool_t    wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
+WO_API wo_bool_t    wo_map_get(wo_value out_val, wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
 // Write operation
+WO_API wo_bool_t    wo_arr_set(wo_value arr, wo_int_t index, wo_value val);
 WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
-WO_API wo_value     wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
-WO_API wo_value     wo_arr_add(wo_value arr, wo_value elem);
-WO_API void         wo_arr_remove(wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
+WO_API void         wo_arr_add(wo_value arr, wo_value elem);
+WO_API wo_bool_t    wo_arr_remove(wo_value arr, wo_int_t index);
 WO_API void         wo_arr_clear(wo_value arr);
 
-WO_API wo_value     wo_map_set(wo_value map, wo_value index, wo_value val);
-WO_API wo_value     wo_map_get_or_set_default(wo_value map, wo_value index, wo_value default_value);
+WO_API void         wo_map_set(wo_value map, wo_value index, wo_value val);
+WO_API wo_bool_t    wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t    wo_map_remove(wo_value map, wo_value index);
 WO_API void         wo_map_clear(wo_value map);
 
