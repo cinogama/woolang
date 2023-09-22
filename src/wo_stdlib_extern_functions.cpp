@@ -781,6 +781,22 @@ WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
     return wo_ret_option_none(vm);
 }
 
+WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_pop_back(args + 0, elem))
+        return wo_ret_val(vm, elem);
+    return wo_ret_panic(vm, "Out of range.");
+}
+
+WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args, size_t argc)
+{
+    wo_value elem = wo_push_empty(vm);
+    if (wo_arr_pop_front(args + 0, elem))
+        return wo_ret_val(vm, elem);
+    return wo_ret_panic(vm, "Out of range.");
+}
+
 WO_API wo_api rslib_std_array_remove(wo_vm vm, wo_value args, size_t argc)
 {
     wo_arr_remove(args + 0, wo_int(args + 1));
@@ -2139,6 +2155,12 @@ namespace vec
 
     extern("rslib_std_array_dequeue") 
         public func dequeue<T>(val: vec<T>)=> option<T>;  
+
+    extern("rslib_std_array_pop_val") 
+        public func popval<T>(val: vec<T>)=> T;  
+
+    extern("rslib_std_array_dequeue_val") 
+        public func dequeueval<T>(val: vec<T>)=> T;  
 
     extern("rslib_std_array_remove")
         public func remove<T>(val:vec<T>, index:int)=> bool;
