@@ -2587,6 +2587,22 @@ wo_bool_t wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
     return false;
 }
 
+void wo_arr_get_val(wo_value out_val, wo_value arr, wo_int_t index)
+{
+    if (!wo_arr_get(out_val, arr, index))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
+    }
+}
+
+void wo_map_get_val(wo_value out_val, wo_value map, wo_value index)
+{
+    if (!wo_map_get(out_val, map, index))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Index failed, no such key.");
+    }
+}
+
 wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
 {
     auto _arr = WO_VAL(arr);
@@ -2628,6 +2644,22 @@ wo_bool_t wo_arr_pop_back(wo_value out_val, wo_value arr)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 
     return false;
+}
+
+void wo_arr_pop_front_val(wo_value out_val, wo_value arr)
+{
+    if (!wo_arr_pop_front(out_val, arr))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to pop front.");
+    }
+}
+
+void wo_arr_pop_back_val(wo_value out_val, wo_value arr)
+{
+    if (!wo_arr_pop_back(out_val, arr))
+    {
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to pop back.");
+    }
 }
 
 wo_int_t wo_arr_find(wo_value arr, wo_value elem)

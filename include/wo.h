@@ -318,14 +318,18 @@ WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
 
 // Read operation
 WO_API wo_bool_t    wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
+WO_API void         wo_arr_get_val(wo_value out_val, wo_value arr, wo_int_t index);
 WO_API wo_bool_t    wo_arr_pop_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_pop_front_val(wo_value out_val, wo_value arr);
+WO_API void         wo_arr_pop_back_val(wo_value out_val, wo_value arr);
 WO_API wo_int_t     wo_arr_find(wo_value arr, wo_value elem);
 WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
 WO_API wo_bool_t    wo_map_get(wo_value out_val, wo_value map, wo_value index);
+WO_API void         wo_map_get_val(wo_value out_val, wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
 // Write operation
