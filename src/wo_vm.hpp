@@ -1020,8 +1020,15 @@ namespace wo
         {
             if (interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT))
             {
-                wo_asure(clear_interrupt(vm_interrupt_type::GC_INTERRUPT));
-                gc::mark_vm(this, SIZE_MAX);
+                // In stw GC, if current VM in leaving while marking, and receive GC_HANGUP_INTERRUPT
+                // at the end of marking stage. vm might step here and failed to receive GC_INTERRUPT.
+                // In this case, we still need to clear GC_HANGUP_INTERRUPT.
+                //
+                // In very small probability that another round of stw GC start in here. 
+                // We will make sure GC_HANGUP_INTERRUPT marked repeatly until successful in gc-work.
+                if (clear_interrupt(vm_interrupt_type::GC_INTERRUPT))
+                    gc::mark_vm(this, SIZE_MAX);
+
                 wo_asure(clear_interrupt(vm_interrupt_type::GC_HANGUP_INTERRUPT));
                 return true;
             }
