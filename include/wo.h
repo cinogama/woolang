@@ -131,7 +131,7 @@ WO_API void wo_set_float(wo_value value, float val);
 WO_API void wo_set_handle(wo_value value, wo_handle_t val);
 WO_API void wo_set_pointer(wo_value value, wo_ptr_t val);
 WO_API void wo_set_bool(wo_value value, wo_bool_t val);
-WO_API void wo_set_val(wo_value value, wo_vm vm, wo_value val);
+WO_API void wo_set_val(wo_value value, wo_value val);
 
 WO_API void wo_set_string(wo_value value, wo_vm vm, wo_string_t val);
 WO_API void wo_set_buffer(wo_value value, wo_vm vm, const void* val, size_t len);
