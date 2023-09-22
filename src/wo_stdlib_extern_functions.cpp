@@ -768,7 +768,7 @@ WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value elem = wo_push_empty(vm);
-    if (wo_arr_pop_back(args + 0, elem))
+    if (wo_arr_pop_back(elem, args + 0))
         return wo_ret_option_val(vm, elem);
     return wo_ret_option_none(vm);
 }
@@ -776,7 +776,7 @@ WO_API wo_api rslib_std_array_pop(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value elem = wo_push_empty(vm);
-    if (wo_arr_pop_front(args + 0, elem))
+    if (wo_arr_pop_front(elem, args + 0))
         return wo_ret_option_val(vm, elem);
     return wo_ret_option_none(vm);
 }
@@ -784,7 +784,7 @@ WO_API wo_api rslib_std_array_dequeue(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value elem = wo_push_empty(vm);
-    if (wo_arr_pop_back(args + 0, elem))
+    if (wo_arr_pop_back(elem, args + 0))
         return wo_ret_val(vm, elem);
     return wo_ret_panic(vm, "Out of range.");
 }
@@ -792,7 +792,7 @@ WO_API wo_api rslib_std_array_pop_val(wo_vm vm, wo_value args, size_t argc)
 WO_API wo_api rslib_std_array_dequeue_val(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value elem = wo_push_empty(vm);
-    if (wo_arr_pop_front(args + 0, elem))
+    if (wo_arr_pop_front(elem, args + 0))
         return wo_ret_val(vm, elem);
     return wo_ret_panic(vm, "Out of range.");
 }
