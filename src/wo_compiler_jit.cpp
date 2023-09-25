@@ -463,8 +463,6 @@ namespace wo
             else
             {
                 auto* result = &opnum1->array->at(index);
-                if (wo::gc::gc_is_marking())
-                    opnum1->array->add_memo(result);
                 cr->set_val(result);
             }
         }
@@ -478,8 +476,6 @@ namespace wo
             if (fnd != opnum1->dict->end())
             {
                 auto* result = &fnd->second;
-                if (wo::gc::gc_is_marking())
-                    opnum1->dict->add_memo(result);
                 cr->set_val(result);
             }
             else
@@ -497,8 +493,6 @@ namespace wo
             gcbase::gc_read_guard gwg1(opnum2->structs);
 
             auto* result = &opnum2->structs->m_values[offset];
-            if (wo::gc::gc_is_marking())
-                opnum2->structs->add_memo(result);
             opnum1->set_val(result);
         }
         static void _vmjitcall_siddict(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
@@ -512,7 +506,7 @@ namespace wo
             {
                 auto* result = &fnd->second;
                 if (wo::gc::gc_is_marking())
-                    opnum1->dict->add_memo(result);
+                    wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
             else
@@ -526,7 +520,7 @@ namespace wo
 
             auto* result = &(*opnum1->dict)[*opnum2];
             if (wo::gc::gc_is_marking())
-                opnum1->dict->add_memo(result);
+                wo::gcbase::write_barrier(result);
             result->set_val(opnum3);
         }
         static void _vmjitcall_sidarr(wo::value* opnum1, wo::value* opnum2, wo::value* opnum3)
@@ -547,7 +541,7 @@ namespace wo
             {
                 auto* result = &opnum1->array->at(index);
                 if (wo::gc::gc_is_marking())
-                    opnum1->array->add_memo(result);
+                    wo::gcbase::write_barrier(result);
                 result->set_val(opnum3);
             }
         }
@@ -564,7 +558,7 @@ namespace wo
 
             auto* result = &opnum1->structs->m_values[offset];
             if (wo::gc::gc_is_marking())
-                opnum1->structs->add_memo(result);
+                wo::gcbase::write_barrier(result);
             result->set_val(opnum2);
         }
         struct WooJitErrorHandler :public asmjit::ErrorHandler

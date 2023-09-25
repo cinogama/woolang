@@ -638,9 +638,9 @@ WO_API wo_api rslib_std_array_swap(wo_vm vm, wo_value args, size_t argc)
     if (wo::gc::gc_is_marking())
     {
         for (auto& elem : *arr1->array)
-            arr1->array->add_memo(&elem);
+            wo::gcbase::write_barrier(&elem);
         for (auto& elem : *arr2->array)
-            arr2->array->add_memo(&elem);
+            wo::gcbase::write_barrier(&elem);
     }
 
     arr1->array->swap(*arr2->array);
@@ -654,13 +654,6 @@ WO_API wo_api rslib_std_array_copy(wo_vm vm, wo_value args, size_t argc)
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(arr1->array->gc_read_write_mx, arr2->array->gc_read_write_mx);
-
-    if (wo::gc::gc_is_marking())
-    {
-        for (auto& elem : *arr1->array)
-            arr1->array->add_memo(&elem);
-    }
-
     *arr1->array->elem() = *arr2->array->elem();
 
     return wo_ret_void(vm);
@@ -678,7 +671,7 @@ WO_API wo_api rslib_std_array_get(wo_vm vm, wo_value args, size_t argc)
 
     wo_value elem = wo_push_empty(vm);
 
-    if (wo_arr_get(elem, arr, idx))
+    if (wo_arr_try_get(elem, arr, idx))
         return wo_ret_option_val(vm, elem);
 
     return wo_ret_option_none(vm);
@@ -691,7 +684,7 @@ WO_API wo_api rslib_std_array_get_or_default(wo_vm vm, wo_value args, size_t arg
 
     wo_value elem = wo_push_empty(vm);
 
-    if (wo_arr_get(elem, arr, idx))
+    if (wo_arr_try_get(elem, arr, idx))
         return wo_ret_val(vm, elem);
 
     return wo_ret_val(vm, args + 2);
@@ -844,9 +837,12 @@ WO_API wo_api rslib_std_array_iter_next(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 
     wo_value result_tuple = wo_push_struct(vm, 2);
+    wo_value elem = wo_push_empty(vm);
 
-    wo_set_int(wo_struct_get(result_tuple, 0), iter.index_count++); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&*(iter.iter++)))); // val
+    wo_set_int(elem, iter.index_count++); // key
+    wo_struct_set(result_tuple, 0, elem);
+    wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(&*(iter.iter++)))); // val
+    wo_struct_set(result_tuple, 1, elem);
 
     return wo_ret_option_val(vm, result_tuple);
 }
@@ -866,7 +862,7 @@ WO_API wo_api rslib_std_map_only_get(wo_vm vm, wo_value args, size_t argc)
 {
     wo_value elem = wo_push_empty(vm);
 
-    if (wo_map_get(elem, args + 0, args + 1))
+    if (wo_map_try_get(elem, args + 0, args + 1))
         return wo_ret_option_val(vm, elem);
 
     return wo_ret_option_none(vm);
@@ -897,13 +893,13 @@ WO_API wo_api rslib_std_map_swap(wo_vm vm, wo_value args, size_t argc)
     {
         for (auto& [key, elem] : *map1->dict)
         {
-            map1->array->add_memo(&key);
-            map1->array->add_memo(&elem);
+            wo::gcbase::write_barrier(&key);
+            wo::gcbase::write_barrier(&elem);
         }
         for (auto& [key, elem] : *map2->dict)
         {
-            map2->array->add_memo(&key);
-            map2->array->add_memo(&elem);
+            wo::gcbase::write_barrier(&key);
+            wo::gcbase::write_barrier(&elem);
         }
     }
 
@@ -918,16 +914,6 @@ WO_API wo_api rslib_std_map_copy(wo_vm vm, wo_value args, size_t argc)
     wo::value* map2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
 
     std::scoped_lock ssg1(map1->dict->gc_read_write_mx, map2->dict->gc_read_write_mx);
-
-    if (wo::gc::gc_is_marking())
-    {
-        for (auto& [key, elem] : *map1->dict)
-        {
-            map1->array->add_memo(&key);
-            map1->array->add_memo(&elem);
-        }
-    }
-
     *map1->dict->elem() = *map2->dict->elem();
 
     return wo_ret_void(vm);
@@ -980,9 +966,12 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
         return wo_ret_option_none(vm);
 
     wo_value result_tuple = wo_push_struct(vm, 2);
+    wo_value elem = wo_push_empty(vm);
 
-    wo_set_val(wo_struct_get(result_tuple, 0), std::launder(reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first)))); // key
-    wo_set_val(wo_struct_get(result_tuple, 1), std::launder(reinterpret_cast<wo_value>(&iter.iter->second))); // val
+    wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first)))); // key
+    wo_struct_set(result_tuple, 0, elem);
+    wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(&iter.iter->second))); // val
+    wo_struct_set(result_tuple, 2, elem);
     iter.iter++;
 
     return wo_ret_option_val(vm, result_tuple);
@@ -1019,8 +1008,12 @@ WO_API wo_api rslib_std_take_string(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%s%zn", string_buf, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
-        wo_set_string(wo_struct_get(result, 1), vm, string_buf);
+        wo_value elem = wo_push_empty(vm);
+
+        wo_set_string(elem, vm, input + token_length);
+        wo_struct_set(result, 0, elem);
+        wo_set_string(elem, vm, string_buf);
+        wo_struct_set(result, 1, elem);
         return wo_ret_option_val(vm, result);
     }
 
@@ -1036,8 +1029,12 @@ WO_API wo_api rslib_std_take_int(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%lld%zn", &integer, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
-        wo_set_int(wo_struct_get(result, 1), (wo_integer_t)integer);
+        wo_value elem = wo_push_empty(vm);
+
+        wo_set_string(elem, vm, input + token_length);
+        wo_struct_set(result, 0, elem);
+        wo_set_int(elem, (wo_integer_t)integer);
+        wo_struct_set(result, 1, elem);
         return wo_ret_option_val(vm, result);
     }
 
@@ -1053,8 +1050,12 @@ WO_API wo_api rslib_std_take_real(wo_vm vm, wo_value args, size_t argc)
     if (sscanf(input, "%lf%zn", &real, &token_length) == 1)
     {
         wo_value result = wo_push_struct(vm, 2);
-        wo_set_string(wo_struct_get(result, 0), vm, input + token_length);
-        wo_set_real(wo_struct_get(result, 1), real);
+        wo_value elem = wo_push_empty(vm);
+
+        wo_set_string(elem, vm, input + token_length);
+        wo_struct_set(result, 0, elem);
+        wo_set_real(elem, real);
+        wo_struct_set(result, 1, elem);
         return wo_ret_option_val(vm, result);
     }
 
@@ -2644,9 +2645,13 @@ WO_API wo_api rslib_std_macro_lexer_peek(wo_vm vm, wo_value args, size_t argc)
     auto token_type = lex->peek(&out_result);
 
     wo_value result = wo_push_empty(vm);
+    wo_value elem = wo_push_empty(vm);
+
     wo_set_struct(result, vm, 2);
-    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), vm, wo::wstr_to_str(out_result).c_str());
+    wo_set_int(elem, (wo_integer_t)token_type);
+    wo_struct_set(result, 0, elem);
+    wo_set_string(elem, vm, wo::wstr_to_str(out_result).c_str());
+    wo_struct_set(result, 1, elem);
 
     return wo_ret_val(vm, result);
 }
@@ -2659,9 +2664,13 @@ WO_API wo_api rslib_std_macro_lexer_next(wo_vm vm, wo_value args, size_t argc)
     auto token_type = lex->next(&out_result);
 
     wo_value result = wo_push_empty(vm);
+    wo_value elem = wo_push_empty(vm);
+
     wo_set_struct(result, vm, 2);
-    wo_set_int(wo_struct_get(result, 0), (wo_integer_t)token_type);
-    wo_set_string(wo_struct_get(result, 1), vm, wo::wstr_to_str(out_result).c_str());
+    wo_set_int(elem, (wo_integer_t)token_type);
+    wo_struct_set(result, 0, elem);
+    wo_set_string(elem, vm, wo::wstr_to_str(out_result).c_str());
+    wo_struct_set(result, 1, elem);
 
     return wo_ret_val(vm, result);
 }

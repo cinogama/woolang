@@ -175,7 +175,7 @@ namespace wo
         {
             return m_memo.exchange(nullptr);
         }
-        void add_memo(const value* val);
+        static void write_barrier(const value* val);
 
         virtual ~gcbase() 
         {

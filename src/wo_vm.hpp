@@ -2158,11 +2158,7 @@ namespace wo
                         "Index out of range in 'idstruct'.");
 
                     gcbase::gc_read_guard gwg1(opnum2->structs);
-
-                    auto* result = &opnum2->structs->m_values[offset];
-                    if (wo::gc::gc_is_marking())
-                        opnum2->structs->add_memo(result);
-                    opnum1->set_val(result);
+                    opnum1->set_val(&opnum2->structs->m_values[offset]);
 
                     break;
                 }
@@ -2218,10 +2214,7 @@ namespace wo
                     }
                     else
                     {
-                        auto* result = &opnum1->array->at((size_t)index);
-                        if (wo::gc::gc_is_marking())
-                            opnum1->array->add_memo(result);
-                        rt_cr->set_val(result);
+                        rt_cr->set_val(&opnum1->array->at((size_t)index));
                     }
                     break;
                 }
@@ -2240,10 +2233,7 @@ namespace wo
                     auto fnd = opnum1->dict->find(*opnum2);
                     if (fnd != opnum1->dict->end())
                     {
-                        auto* result = &fnd->second;
-                        if (wo::gc::gc_is_marking())
-                            opnum1->dict->add_memo(result);
-                        rt_cr->set_val(result);
+                        rt_cr->set_val(&fnd->second);
                         break;
                     }
                     else
@@ -2266,7 +2256,7 @@ namespace wo
 
                     auto* result = &(*opnum1->dict)[*opnum2];
                     if (wo::gc::gc_is_marking())
-                        opnum1->dict->add_memo(result);
+                        wo::gcbase::write_barrier(result);
                     result->set_val(opnum3);
 
                     break;
@@ -2289,7 +2279,7 @@ namespace wo
                     {
                         auto* result = &fnd->second;
                         if (wo::gc::gc_is_marking())
-                            opnum1->dict->add_memo(result);
+                            wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                         break;
                     }
@@ -2324,7 +2314,7 @@ namespace wo
                     {
                         auto* result = &opnum1->array->at((size_t)index);
                         if (wo::gc::gc_is_marking())
-                            opnum1->array->add_memo(result);
+                            wo::gcbase::write_barrier(result);
                         result->set_val(opnum3);
                     }
                     break;
@@ -2346,7 +2336,7 @@ namespace wo
 
                     auto* result = &opnum1->structs->m_values[offset];
                     if (wo::gc::gc_is_marking())
-                        opnum1->structs->add_memo(result);
+                        wo::gcbase::write_barrier(result);
                     result->set_val(opnum2);
 
                     break;

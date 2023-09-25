@@ -314,11 +314,14 @@ WO_API wchar_t      wo_str_get_char(wo_string_t str, wo_int_t index);
 WO_API wo_wstring_t wo_str_to_wstr(wo_string_t str);
 WO_API wo_string_t  wo_wstr_to_str(wo_wstring_t str);
 
-WO_API wo_value     wo_struct_get(wo_value value, uint16_t offset);
+WO_API wo_bool_t    wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset);
+WO_API wo_bool_t    wo_struct_try_set(wo_value value, uint16_t offset, wo_value val);
+WO_API void         wo_struct_get(wo_value out_val, wo_value value, uint16_t offset);
+WO_API void         wo_struct_set(wo_value value, uint16_t offset, wo_value val);
 
 // Read operation
-WO_API wo_bool_t    wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
-WO_API void         wo_arr_get_val(wo_value out_val, wo_value arr, wo_int_t index);
+WO_API wo_bool_t    wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index);
+WO_API void         wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index);
 WO_API wo_bool_t    wo_arr_pop_front(wo_value out_val, wo_value arr);
 WO_API wo_bool_t    wo_arr_pop_back(wo_value out_val, wo_value arr);
 WO_API void         wo_arr_pop_front_val(wo_value out_val, wo_value arr);
@@ -328,12 +331,13 @@ WO_API wo_bool_t    wo_arr_is_empty(wo_value arr);
 
 WO_API wo_bool_t    wo_map_find(wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, wo_value default_value);
-WO_API wo_bool_t    wo_map_get(wo_value out_val, wo_value map, wo_value index);
-WO_API void         wo_map_get_val(wo_value out_val, wo_value map, wo_value index);
+WO_API wo_bool_t    wo_map_try_get(wo_value out_val, wo_value map, wo_value index);
+WO_API void         wo_map_get(wo_value out_val, wo_value map, wo_value index);
 WO_API wo_bool_t    wo_map_is_empty(wo_value arr);
 
 // Write operation
-WO_API wo_bool_t    wo_arr_set(wo_value arr, wo_int_t index, wo_value val);
+WO_API wo_bool_t    wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val);
+WO_API void         wo_arr_set(wo_value arr, wo_int_t index, wo_value val);
 WO_API void         wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val);
 WO_API wo_bool_t    wo_arr_insert(wo_value arr, wo_int_t place, wo_value val);
 WO_API void         wo_arr_add(wo_value arr, wo_value elem);
