@@ -490,9 +490,7 @@ namespace wo
                 auto* cur_unit = memo_units;
                 memo_units = memo_units->last;
 
-                mem_gray_list.emplace_back(
-                    std::make_pair(cur_unit->gcunit, cur_unit->gcunit_attr));
-
+                gc_mark_unit_as_gray(&mem_gray_list, cur_unit->gcunit, cur_unit->gcunit_attr);
                 delete cur_unit;
             }
             gc_mark_all_gray_unit(&mem_gray_list);
