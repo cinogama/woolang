@@ -2447,8 +2447,27 @@ wo_value wo_run(wo_vm vm)
 }
 
 // CONTAINER OPERATE
+wo_bool_t wo_struct_try_get(wo_value out_val, wo_value value, uint16_t offset)
+{
+    auto _struct = WO_VAL(value);
 
-wo_value wo_struct_get(wo_value value, uint16_t offset)
+    if (_struct->is_nil())
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
+    else if (_struct->type == wo::value::valuetype::struct_type)
+    {
+        wo::struct_t* struct_impl = _struct->structs;
+        wo::gcbase::gc_read_guard gwg1(struct_impl);
+        if (offset < struct_impl->m_count)
+        {
+            WO_VAL(out_val)->set_val(&struct_impl->m_values[offset]);
+            return true;
+        }
+    }
+    else
+        wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
+    return false;
+}
+wo_bool_t wo_struct_try_set(wo_value value, uint16_t offset, wo_value val)
 {
     auto _struct = WO_VAL(value);
 
@@ -2462,16 +2481,26 @@ wo_value wo_struct_get(wo_value value, uint16_t offset)
         {
             auto* result = &struct_impl->m_values[offset];
             if (wo::gc::gc_is_marking())
-                struct_impl->add_memo(result);
+                wo::gcbase::write_barrier(result);
 
-            return CS_VAL(result);
+            result->set_val(WO_VAL(val));
+            return true;
         }
-        else
-            wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a struct.");
-    return nullptr;
+    return false;
+}
+
+void wo_struct_get(wo_value out_val, wo_value value, uint16_t offset)
+{
+    if (!wo_struct_try_get(out_val, value, offset))
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
+}
+void wo_struct_set(wo_value value, uint16_t offset, wo_value val)
+{
+    if (!wo_struct_try_set(value, offset, val))
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
 void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
@@ -2487,7 +2516,7 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
         if ((size_t)newsz < arrsz && wo::gc::gc_is_marking())
         {
             for (size_t i = (size_t)newsz; i < arrsz; ++i)
-                _arr->array->add_memo(&(*_arr->array)[i]);
+                wo::gcbase::write_barrier(&(*_arr->array)[i]);
         }
 
         if (init_val != nullptr)
@@ -2498,7 +2527,6 @@ void wo_arr_resize(wo_value arr, wo_int_t newsz, wo_value init_val)
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
-
 wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 {
     auto _arr = WO_VAL(arr);
@@ -2512,10 +2540,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
         if ((size_t)place <= _arr->array->size())
         {
             auto index = _arr->array->insert(_arr->array->begin() + (size_t)place, wo::value());
-            if (val)
-                index->set_val(WO_VAL(val));
-            else
-                index->set_nil();
+            index->set_val(WO_VAL(val));
 
             return true;
         }
@@ -2525,8 +2550,7 @@ wo_bool_t wo_arr_insert(wo_value arr, wo_int_t place, wo_value val)
 
     return false;
 }
-
-wo_bool_t wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
+wo_bool_t wo_arr_try_set(wo_value arr, wo_int_t index, wo_value val)
 {
     auto _arr = WO_VAL(arr);
     if (_arr->is_nil())
@@ -2537,7 +2561,9 @@ wo_bool_t wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
 
         if ((size_t)index < _arr->array->size())
         {
-            _arr->array->at((size_t)index).set_val(WO_VAL(val));
+            auto* store_val = &_arr->array->at((size_t)index);
+            wo::gcbase::write_barrier(store_val);
+            store_val->set_val(WO_VAL(val));
             return true;
         }
     }
@@ -2546,7 +2572,11 @@ wo_bool_t wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
 
     return false;
 }
-
+void wo_arr_set(wo_value arr, wo_int_t index, wo_value val)
+{
+    if (!wo_arr_try_set(arr, index, val))
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
+}
 void wo_arr_add(wo_value arr, wo_value elem)
 {
     auto _arr = WO_VAL(arr);
@@ -2566,7 +2596,7 @@ void wo_arr_add(wo_value arr, wo_value elem)
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not an array.");
 }
 
-wo_bool_t wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
+wo_bool_t wo_arr_try_get(wo_value out_val, wo_value arr, wo_int_t index)
 {
     auto _arr = WO_VAL(arr);
     if (_arr->is_nil())
@@ -2586,21 +2616,16 @@ wo_bool_t wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
 
     return false;
 }
-
-void wo_arr_get_val(wo_value out_val, wo_value arr, wo_int_t index)
+void wo_arr_get(wo_value out_val, wo_value arr, wo_int_t index)
 {
-    if (!wo_arr_get(out_val, arr, index))
-    {
-        wo_fail(WO_FAIL_INDEX_FAIL, "Index out of range.");
-    }
+    if (!wo_arr_try_get(out_val, arr, index))
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
-void wo_map_get_val(wo_value out_val, wo_value map, wo_value index)
+void wo_map_get(wo_value out_val, wo_value map, wo_value index)
 {
-    if (!wo_map_get(out_val, map, index))
-    {
-        wo_fail(WO_FAIL_INDEX_FAIL, "Index failed, no such key.");
-    }
+    if (!wo_map_try_get(out_val, map, index))
+        wo_fail(WO_FAIL_INDEX_FAIL, "Failed to index: out of range.");
 }
 
 wo_bool_t wo_arr_pop_front(wo_value out_val, wo_value arr)
@@ -2705,7 +2730,7 @@ wo_bool_t wo_arr_remove(wo_value arr, wo_int_t index)
             if ((size_t)index < _arr->array->size())
             {
                 if (wo::gc::gc_is_marking())
-                    _arr->array->add_memo(&(*_arr->array)[(size_t)index]);
+                    wo::gcbase::write_barrier(&(*_arr->array)[(size_t)index]);
                 _arr->array->erase(_arr->array->begin() + (size_t)index);
 
                 return true;
@@ -2727,7 +2752,7 @@ void wo_arr_clear(wo_value arr)
         wo::gcbase::gc_write_guard g1(_arr->array);
         if (wo::gc::gc_is_marking())
             for (auto& val : *_arr->array)
-                _arr->array->add_memo(&val);
+                wo::gcbase::write_barrier(&val);
         _arr->array->clear();
     }
     else
@@ -2774,30 +2799,21 @@ wo_bool_t wo_map_get_or_set_default(wo_value out_val, wo_value map, wo_value ind
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is 'nil'.");
     else if (_map->type == wo::value::valuetype::dict_type)
     {
-        wo::value* result = nullptr;
+        wo::value* store_val = nullptr;
         wo::gcbase::gc_write_guard g1(_map->dict);
 
         auto fnd = _map->dict->find(*WO_VAL(index));
         bool found = fnd != _map->dict->end();
         if (found)
+            store_val = &fnd->second;
+
+        if (!store_val)
         {
-            result = &fnd->second;
-            if (wo::gc::gc_is_marking())
-                _map->dict->add_memo(result);
+            store_val = &(*_map->dict)[*WO_VAL(index)];
+            store_val->set_val(WO_VAL(default_value));
         }
 
-        if (!result)
-        {
-            if (default_value)
-                result = &((*_map->dict)[*WO_VAL(index)] = *WO_VAL(default_value));
-            else
-            {
-                result = &((*_map->dict)[*WO_VAL(index)]);
-                result->set_nil();
-            }
-        }
-
-        WO_VAL(out_val)->set_val(result);
+        WO_VAL(out_val)->set_val(store_val);
         return found;
     }
     else
@@ -2827,10 +2843,6 @@ wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, 
             WO_VAL(out_val)->set_val(WO_VAL(default_value));
             return false;
         }
-
-        if (wo::gc::gc_is_marking())
-            _map->dict->add_memo(result);
-
         WO_VAL(out_val)->set_val(result);
         return true;
     }
@@ -2840,7 +2852,7 @@ wo_bool_t wo_map_get_or_default(wo_value out_val, wo_value map, wo_value index, 
     return false;
 }
 
-wo_bool_t wo_map_get(wo_value out_val, wo_value map, wo_value index)
+wo_bool_t wo_map_try_get(wo_value out_val, wo_value map, wo_value index)
 {
     auto _map = WO_VAL(map);
     if (_map->is_nil())
@@ -2851,8 +2863,6 @@ wo_bool_t wo_map_get(wo_value out_val, wo_value map, wo_value index)
         auto fnd = _map->dict->find(*WO_VAL(index));
         if (fnd != _map->dict->end())
         {
-            if (wo::gc::gc_is_marking())
-                _map->dict->add_memo(&fnd->second);
             WO_VAL(out_val)->set_val(&fnd->second);
             return true;
         }
@@ -2871,11 +2881,9 @@ void wo_map_set(wo_value map, wo_value index, wo_value val)
     else if (_map->type == wo::value::valuetype::dict_type)
     {
         wo::gcbase::gc_write_guard g1(_map->dict);
-        wo::value* result;
-        if (val)
-            result = (*_map->dict)[*WO_VAL(index)].set_val(WO_VAL(val));
-        else
-            result = (*_map->dict)[*WO_VAL(index)].set_nil();
+        auto* store_val = &(*_map->dict)[*WO_VAL(index)];
+        wo::gcbase::write_barrier(store_val);
+        store_val->set_val(WO_VAL(val));
     }
     else
         wo_fail(WO_FAIL_TYPE_FAIL, "Value is not a map.");
@@ -2894,8 +2902,8 @@ wo_bool_t wo_map_remove(wo_value map, wo_value index)
             auto fnd = _map->dict->find(*WO_VAL(index));
             if (fnd != _map->dict->end())
             {
-                _map->dict->add_memo(&fnd->first);
-                _map->dict->add_memo(&fnd->second);
+                wo::gcbase::write_barrier(&fnd->first);
+                wo::gcbase::write_barrier(&fnd->second);
             }
         }
         return 0 != _map->dict->erase(*WO_VAL(index));
@@ -2917,8 +2925,8 @@ void wo_map_clear(wo_value map)
         {
             for (auto& kvpair : *_map->dict)
             {
-                _map->dict->add_memo(&kvpair.first);
-                _map->dict->add_memo(&kvpair.second);
+                wo::gcbase::write_barrier(&kvpair.first);
+                wo::gcbase::write_barrier(&kvpair.second);
             }
         }
         _map->dict->clear();

@@ -34,6 +34,7 @@ namespace wo
         std::atomic<vmbase**> _gc_vm_list;
 
         std::atomic_bool _gc_is_marking = false;
+        std::atomic_flag _gc_writing_barrier = {};
         std::atomic_bool _gc_is_recycling = false;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
@@ -60,6 +61,7 @@ namespace wo
             return nullptr;
         }
 
+        std::list<std::pair<gcbase*, gcbase::unit_attrib*>> m_memo_mark_gray_list;
         std::list<std::pair<gcbase*, gcbase::unit_attrib*>> _gc_gray_unit_lists[_gc_work_thread_count];
         std::unordered_map<vmbase*, std::list<std::pair<gcbase*, gcbase::unit_attrib*>>> _gc_vm_gray_unit_lists;
 
@@ -129,6 +131,20 @@ namespace wo
 
                 gc_mark_unit_as_gray(worklist, curmemo->gcunit, curmemo->gcunit_attr);
                 delete curmemo;
+            }
+        }
+        
+        void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
+        {
+            std::list<std::pair<gcbase*, gcbase::unit_attrib*>> graylist;
+            while (!worklist->empty())
+            {
+                graylist.clear();
+                graylist.swap(*worklist);
+                for (auto [markingunit, attrib] : graylist)
+                {
+                    gc_mark_unit_as_black(worklist, markingunit, attrib);
+                }
             }
         }
 
@@ -224,16 +240,7 @@ namespace wo
 
                     } while (false);
 
-                    std::list<std::pair<gcbase*, gcbase::unit_attrib*>> graylist;
-                    while (!_gc_gray_unit_lists[worker_id].empty())
-                    {
-                        graylist.clear();
-                        graylist.swap(_gc_gray_unit_lists[worker_id]);
-                        for (auto [markingunit, attrib] : graylist)
-                        {
-                            gc_mark_unit_as_black(&_gc_gray_unit_lists[worker_id], markingunit, attrib);
-                        }
-                    }
+                    gc_mark_all_gray_unit(&_gc_gray_unit_lists[worker_id]);
 
                     if (_gc_work_thread_count == ++self->_m_gc_mark_end_count)
                     {
@@ -320,7 +327,10 @@ namespace wo
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
                 _gc_round_count++;
 
+                while (_gc_writing_barrier.test_and_set());
+                wo_assert(m_memo_mark_gray_list.peek_list() == nullptr);
                 _gc_is_marking = true;
+                _gc_writing_barrier.clear();
 
                 // 0. Prepare vm gray unit list
                 if (!stopworld)
@@ -466,7 +476,13 @@ namespace wo
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
             // Marking finished.
+            while (_gc_writing_barrier.test_and_set());
             _gc_is_marking = false;
+            _gc_writing_barrier.clear();
+
+            // 4.1 Collect gray units
+            gc_mark_all_gray_unit(&m_memo_mark_gray_list);
+
             _gc_is_recycling = true;
 
             // 5. OK, All unit has been marked. reduce gcunits
@@ -681,13 +697,18 @@ namespace wo
         }
     } // END NAME SPACE gc
 
-    void gcbase::add_memo(const value* val)
+    void gcbase::write_barrier(const value* val)
     {
         gcbase::unit_attrib* attr;
         if (auto* mem = val->get_gcunit_with_barrier(&attr))
         {
-            memo_unit* new_memo = new memo_unit{ mem, attr, m_memo.load() };
-            while (!m_memo.compare_exchange_weak(new_memo->last, new_memo));
+            if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
+            {
+                while (gc::_gc_writing_barrier.test_and_set());
+                if (gc::gc_is_marking())
+                    gc::gc_mark_unit_as_gray(&gc::m_memo_mark_gray_list, mem, attr );
+                gc::_gc_writing_barrier.clear();
+            }
         }
     }
 
