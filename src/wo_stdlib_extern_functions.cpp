@@ -971,7 +971,7 @@ WO_API wo_api rslib_std_map_iter_next(wo_vm vm, wo_value args, size_t argc)
     wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(const_cast<wo::value*>(&iter.iter->first)))); // key
     wo_struct_set(result_tuple, 0, elem);
     wo_set_val(elem, std::launder(reinterpret_cast<wo_value>(&iter.iter->second))); // val
-    wo_struct_set(result_tuple, 2, elem);
+    wo_struct_set(result_tuple, 1, elem);
     iter.iter++;
 
     return wo_ret_option_val(vm, result_tuple);
