@@ -328,7 +328,7 @@ namespace wo
                 _gc_round_count++;
 
                 while (_gc_writing_barrier.test_and_set());
-                wo_assert(m_memo_mark_gray_list.peek_list() == nullptr);
+                wo_assert(m_memo_mark_gray_list.empty());
                 _gc_is_marking = true;
                 _gc_writing_barrier.clear();
 
