@@ -120,18 +120,6 @@ namespace wo
                     if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_with_barrier(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
-
-            gcbase::memo_unit* memo = unit->pick_memo();
-            while (memo)
-            {
-                auto* curmemo = memo;
-                memo = memo->last;
-
-                wo_assert(nullptr != womem_verify(curmemo->gcunit, (womem_attrib_t**)&attr));
-
-                gc_mark_unit_as_gray(worklist, curmemo->gcunit, curmemo->gcunit_attr);
-                delete curmemo;
-            }
         }
         
         void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
