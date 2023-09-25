@@ -120,18 +120,6 @@ namespace wo
                     if (gcbase* gcunit_addr = wo_struct->m_values[i].get_gcunit_with_barrier(&attr))
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
-
-            gcbase::memo_unit* memo = unit->pick_memo();
-            while (memo)
-            {
-                auto* curmemo = memo;
-                memo = memo->last;
-
-                wo_assert(nullptr != womem_verify(curmemo->gcunit, (womem_attrib_t**)&attr));
-
-                gc_mark_unit_as_gray(worklist, curmemo->gcunit, curmemo->gcunit_attr);
-                delete curmemo;
-            }
         }
         
         void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
@@ -476,11 +464,22 @@ namespace wo
             _gc_mark_thread_groups::instancce().launch_round_of_mark();
 
             // Marking finished.
+            // NOTE: It is safe to do this here, because if the mark has ended, 
+            //      if there is a unit trying to enter the memory set at the same time
+            //      there are only two possibilities:
+            //      1) This unit is a new unit generated during the GC process. In this case, 
+            //          this unit will be regarded as marked and will not be recycled.
+            //      2) This unit is being removed from a fullmark object. In this case, 
+            //          it means that this object is actually attached to the fullmark object 
+            //          during the GC process. Since this unit is still in the nomark stage, 
+            //          it means that this unit is either generated during the gc process like case 1,
+            //          or it is detached from other objects and is not marked: for this case, 
+            //          this unit should have entered the memory set, it's safe to skip.
             while (_gc_writing_barrier.test_and_set());
             _gc_is_marking = false;
             _gc_writing_barrier.clear();
 
-            // 4.1 Collect gray units
+            // 4.1 Collect gray units in memo set.
             gc_mark_all_gray_unit(&m_memo_mark_gray_list);
 
             _gc_is_recycling = true;
@@ -552,7 +551,7 @@ namespace wo
                     }
                 }
 
-                if (_gc_stopping_world_gc)
+                if (stopworld)
                 {
                     for (auto* vmimpl : vmbase::_alive_vm_list)
                     {

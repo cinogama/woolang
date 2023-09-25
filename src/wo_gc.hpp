@@ -147,7 +147,6 @@ namespace wo
         };
 
         rw_lock gc_read_write_mx;
-        std::atomic<memo_unit*> m_memo = nullptr;
 
 #ifndef NDEBUG
         bool gc_destructed = false;
@@ -171,10 +170,6 @@ namespace wo
             gc_read_write_mx.unlock_shared();
         }
 
-        memo_unit* pick_memo()
-        {
-            return m_memo.exchange(nullptr);
-        }
         static void write_barrier(const value* val);
 
         virtual ~gcbase() 
@@ -182,14 +177,6 @@ namespace wo
 #ifndef NDEBUG
             gc_destructed = true;
 #endif
-            auto memoptr = pick_memo();
-            while (memoptr)
-            {
-                auto* curmemo = memoptr;
-                memoptr = memoptr->last;
-
-                delete curmemo;
-            }
         };
 
         inline static std::atomic_uint32_t gc_new_count = 0;
