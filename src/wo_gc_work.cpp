@@ -34,7 +34,6 @@ namespace wo
         std::atomic<vmbase**> _gc_vm_list;
 
         std::atomic_bool _gc_is_marking = false;
-        std::atomic_flag _gc_writing_barrier = {};
         std::atomic_bool _gc_is_recycling = false;
 
         bool _gc_stopping_world_gc = WO_GC_FORCE_STOP_WORLD;
@@ -61,7 +60,7 @@ namespace wo
             return nullptr;
         }
 
-        std::list<std::pair<gcbase*, gcbase::unit_attrib*>> m_memo_mark_gray_list;
+        atomic_list<gcbase::memo_unit> m_memo_mark_gray_list;
         std::list<std::pair<gcbase*, gcbase::unit_attrib*>> _gc_gray_unit_lists[_gc_work_thread_count];
         std::unordered_map<vmbase*, std::list<std::pair<gcbase*, gcbase::unit_attrib*>>> _gc_vm_gray_unit_lists;
 
@@ -121,7 +120,7 @@ namespace wo
                         gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
             }
         }
-        
+
         void gc_mark_all_gray_unit(std::list<std::pair<gcbase*, gcbase::unit_attrib*>>* worklist)
         {
             std::list<std::pair<gcbase*, gcbase::unit_attrib*>> graylist;
@@ -315,10 +314,16 @@ namespace wo
                 std::shared_lock sg1(vmbase::_alive_vm_list_mx); // Lock alive vm list, block new vm create.
                 _gc_round_count++;
 
-                while (_gc_writing_barrier.test_and_set());
-                wo_assert(m_memo_mark_gray_list.empty());
+                // Ignore old memo, they are useless.
+                auto* old_mem_units = m_memo_mark_gray_list.pick_all();
+                while (old_mem_units)
+                {
+                    auto* cur_unit = old_mem_units;
+                    old_mem_units = old_mem_units->last;
+
+                    delete cur_unit;
+                }
                 _gc_is_marking = true;
-                _gc_writing_barrier.clear();
 
                 // 0. Prepare vm gray unit list
                 if (!stopworld)
@@ -475,12 +480,22 @@ namespace wo
             //          it means that this unit is either generated during the gc process like case 1,
             //          or it is detached from other objects and is not marked: for this case, 
             //          this unit should have entered the memory set, it's safe to skip.
-            while (_gc_writing_barrier.test_and_set());
             _gc_is_marking = false;
-            _gc_writing_barrier.clear();
 
             // 4.1 Collect gray units in memo set.
-            gc_mark_all_gray_unit(&m_memo_mark_gray_list);
+            std::list<std::pair<gcbase*, gcbase::unit_attrib*>> mem_gray_list;
+            auto* memo_units = m_memo_mark_gray_list.pick_all();
+            while (memo_units)
+            {
+                auto* cur_unit = memo_units;
+                memo_units = memo_units->last;
+
+                mem_gray_list.emplace_back(
+                    std::make_pair(cur_unit->gcunit, cur_unit->gcunit_attr));
+
+                delete cur_unit;
+            }
+            gc_mark_all_gray_unit(&mem_gray_list);
 
             _gc_is_recycling = true;
 
@@ -703,10 +718,8 @@ namespace wo
         {
             if (attr->m_marked == (uint8_t)gcbase::gcmarkcolor::no_mark)
             {
-                while (gc::_gc_writing_barrier.test_and_set());
-                if (gc::gc_is_marking())
-                    gc::gc_mark_unit_as_gray(&gc::m_memo_mark_gray_list, mem, attr );
-                gc::_gc_writing_barrier.clear();
+                gc::m_memo_mark_gray_list.add_one(
+                    new gcbase::memo_unit{ mem, attr });
             }
         }
     }
