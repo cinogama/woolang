@@ -698,14 +698,11 @@ WO_API wo_api rslib_std_array_add(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_value result = wo_push_empty(vm);
-    wo_set_arr(result, vm, 0);
+    wo_value result = wo_push_arr(vm, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
     wo::value* arr2 = std::launder(reinterpret_cast<wo::value*>(args + 1));
-
-    wo::gcbase::gc_write_guard wg1(arr_result->array);
     do
     {
         wo::gcbase::gc_read_guard rg2(arr1->array);
@@ -723,13 +720,11 @@ WO_API wo_api rslib_std_array_connect(wo_vm vm, wo_value args, size_t argc)
 
 WO_API wo_api rslib_std_array_sub(wo_vm vm, wo_value args, size_t argc)
 {
-    wo_value result = wo_push_empty(vm);
-    wo_set_arr(result, vm, 0);
+    wo_value result = wo_push_arr(vm, 0);
 
     wo::value* arr_result = std::launder(reinterpret_cast<wo::value*>(result));
     wo::value* arr1 = std::launder(reinterpret_cast<wo::value*>(args + 0));
 
-    wo::gcbase::gc_write_guard wg1(arr_result->array);
     wo::gcbase::gc_read_guard rg2(arr1->array);
 
     auto begin = (size_t)wo_int(args + 1);
@@ -1687,7 +1682,7 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_print") public func print(...)=> void;
+    extern("rslib_std_print", slow) public func print(...)=> void;
     extern("rslib_std_time_sec") public func time()=> real;
 
     public func println(...)
@@ -1705,7 +1700,7 @@ namespace std
         {
             if (std::declval:<T>() is int)
             {
-                extern("rslib_std_input_readint") 
+                extern("rslib_std_input_readint", slow) 
                 public func _input_int()=> int;
 
                 let result = _input_int();
@@ -1714,7 +1709,7 @@ namespace std
             }
             else if (std::declval:<T>() is real)
             {
-                extern("rslib_std_input_readreal") 
+                extern("rslib_std_input_readreal", slow) 
                 public func _input_real()=> real;
 
                 let result = _input_real();
@@ -1723,7 +1718,7 @@ namespace std
             }
             else
             {
-                extern("rslib_std_input_readstring") 
+                extern("rslib_std_input_readstring", slow) 
                 public func _input_string()=> string;
 
                 let result = _input_string();
@@ -1737,7 +1732,7 @@ namespace std
     {
         while (true)
         {
-            extern("rslib_std_input_readline") 
+            extern("rslib_std_input_readline", slow) 
             public func _input_line()=> string;
 
             match (parser(_input_line()))
@@ -1759,7 +1754,7 @@ namespace std
     extern("rslib_std_break_yield") 
         public func yield()=> void;
 
-    extern("rslib_std_thread_sleep")
+    extern("rslib_std_thread_sleep", slow)
         public func sleep(tm:real)=> void;
    
     extern("rslib_std_get_args")
@@ -2077,7 +2072,7 @@ namespace array
         public func iter<T>(val:array<T>)=> iterator<T>;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
+        public func connect<T>(self: array<T>, another: array<T>)=> array<T>;
 
     extern("rslib_std_array_sub")
     public func sub<T>(self: array<T>, begin: int)=> array<T>;
@@ -2141,7 +2136,7 @@ namespace vec
         public func add<T>(val: vec<T>, elem: T)=> void;
 
     extern("rslib_std_array_connect")
-    public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
+        public func connect<T>(self: vec<T>, another: vec<T>)=> vec<T>;
 
     extern("rslib_std_array_sub")
     public func sub<T>(self: vec<T>, begin: int)=> vec<T>;
@@ -2507,7 +2502,7 @@ namespace handle
 
 namespace gchandle
 {
-    extern("rslib_std_gchandle_close")
+    extern("rslib_std_gchandle_close", slow)
         public func close(handle:gchandle)=> bool;
 }
 
@@ -2568,7 +2563,7 @@ namespace std
 {
     namespace debug
     {
-        extern("rslib_std_debug_breakpoint")
+        extern("rslib_std_debug_breakpoint", slow)
             public func breakpoint()=> void;
 
         extern("rslib_std_debug_attach_default_debuggee")
@@ -2594,7 +2589,7 @@ namespace std
             return result;
         }
 
-        extern("rslib_std_debug_invoke")
+        extern("rslib_std_debug_invoke", slow)
         public func invoke<FT>(foo:FT, ...)=> typeof(foo(......));
 
         // Used for create a value with specify type, it's a dangergous function.
@@ -2947,7 +2942,7 @@ const char* wo_stdlib_shell_src_data = {
 u8R"(
 namespace std
 {
-    extern("rslib_std_call_shell")
+    extern("rslib_std_call_shell", slow)
         public func shell(cmd: string)=> int;
 
     extern("rslib_std_get_env")

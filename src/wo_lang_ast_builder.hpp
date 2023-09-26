@@ -700,6 +700,8 @@ namespace wo
         {
             wo_extern_native_func_t externed_func = nullptr;
 
+            bool leaving_call = false;
+
             std::wstring load_from_lib;
             std::wstring symbol_name;
 
@@ -2241,7 +2243,8 @@ namespace wo
             static grammar::produce build(lexer& lex, inputs_t& input)
             {
                 ast_extern_info* extern_symb = new ast_extern_info;
-                if (input.size() == 4)
+                ast_list* extern_attribs = nullptr;
+                if (input.size() == 5)
                 {
                     extern_symb->symbol_name = WO_NEED_TOKEN(2).identifier;
                     extern_symb->externed_func =
@@ -2250,8 +2253,14 @@ namespace wo
 
                     if (!extern_symb->externed_func)
                         lex.parser_error(lexer::errorlevel::error, WO_ERR_CANNOT_FIND_EXT_SYM, extern_symb->symbol_name.c_str());
+
+                    if (!ast_empty::is_empty(input[3]))
+                    {
+                        extern_attribs = dynamic_cast<ast_list*>(WO_NEED_AST(3));
+                        wo_assert(extern_attribs != nullptr);
+                    }
                 }
-                else if (input.size() == 6)
+                else if (input.size() == 7)
                 {
                     // extern ( lib , symb )
                     extern_symb->load_from_lib = WO_NEED_TOKEN(2).identifier;
@@ -2259,10 +2268,35 @@ namespace wo
                     extern_symb->externed_func = nullptr;
 
                     // Load it in pass
+                    if (!ast_empty::is_empty(input[5]))
+                    {
+                        extern_attribs = dynamic_cast<ast_list*>(WO_NEED_AST(5));
+                        wo_assert(extern_attribs != nullptr);
+                    }
                 }
                 else
                 {
                     wo_error("error grammar..");
+                }
+
+                if (extern_attribs != nullptr)
+                {
+                    ast_token* attrib = dynamic_cast<ast_token*>(extern_attribs->children);
+                    while (attrib)
+                    {
+                        wo_assert(attrib->tokens.type == +lex_type::l_identifier);
+
+                        if (attrib->tokens.identifier == L"slow")
+                            extern_symb->leaving_call = true;
+                        else if (attrib->tokens.identifier == L"fast")
+                            extern_symb->leaving_call = false;
+                        else
+                            lex.lang_error(lexer::errorlevel::error, attrib, 
+                                WO_ERR_UNKNOWN_EXTERN_ATTRIB, attrib->tokens.identifier.c_str());
+
+                        attrib = dynamic_cast<ast_token*>(attrib->sibling);
+                    }
+
                 }
 
                 return (ast_basic*)extern_symb;

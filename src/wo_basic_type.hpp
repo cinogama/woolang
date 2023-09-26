@@ -63,13 +63,11 @@ namespace wo
             nativecallstack,
 
             need_gc = 0xF0,
-
             string_type,
             dict_type,
             array_type,
             gchandle_type,
             closure_type,
-
             struct_type,
         };
 
@@ -103,43 +101,27 @@ namespace wo
         union
         {
             valuetype type;
-
             uint64_t type_space;
         };
 
-        inline value* set_gcunit_with_barrier(valuetype gcunit_type)
-        {
-            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = nullptr;
-            return this;
-        }
-
-        inline value* set_gcunit_with_barrier(valuetype gcunit_type, gcbase* gcunit_ptr)
-        {
-            *std::launder(reinterpret_cast<std::atomic_uint8_t*>(&type)) = (uint8_t)gcunit_type;
-            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&gcunit)) = gcunit_ptr;
-
-            return this;
-        }
-
         inline value* set_string(const char* str)
         {
-            set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::young>(gcunit, str);
+            type = valuetype::string_type;
+            string = string_t::gc_new<gcbase::gctype::young>(str);
             return this;
         }
 
         inline value* set_buffer(const void* buf, size_t sz)
         {
-            set_gcunit_with_barrier(valuetype::string_type);
-            string_t::gc_new<gcbase::gctype::young>(gcunit, (const char*)buf, sz);
+            type = valuetype::string_type;
+            string = string_t::gc_new<gcbase::gctype::young>((const char*)buf, sz);
             return this;
         }
 
         inline value* set_string_nogc(const char* str)
         {
             // You must 'delete' it manual
-            set_gcunit_with_barrier(valuetype::string_type);
+            type = valuetype::string_type;
             gcunit = new string_t(str);
             return this;
         }
@@ -194,9 +176,9 @@ namespace wo
 
         inline gcbase* get_gcunit_with_barrier(gcbase::unit_attrib** attrib) const
         {
-            if (*std::launder(reinterpret_cast<const std::atomic_uint8_t*>(&type)) & (uint8_t)valuetype::need_gc)
-                return (gcbase*)womem_verify(*std::launder(reinterpret_cast<const std::atomic<gcbase*>*>(&gcunit)), 
-                    std::launder(reinterpret_cast<womem_attrib_t**>(attrib)));
+            if ((uint8_t)type & (uint8_t)valuetype::need_gc)
+                return std::launder(reinterpret_cast<gcbase*>(womem_verify(gcunit,
+                    std::launder(reinterpret_cast<womem_attrib_t**>(attrib)))));
             return nullptr;
         }
 
@@ -207,15 +189,8 @@ namespace wo
 
         inline value* set_val(const value* _val)
         {
-            // PARALLEL GC FIX: Value to be set need check is gcunit, too;
-            if (_val->is_gcunit())
-                set_gcunit_with_barrier(_val->type, _val->gcunit);
-            else
-            {
-                type = _val->type;
-                handle = _val->handle;
-            }
-
+            type = _val->type;
+            handle = _val->handle;
             return this;
         }
 
@@ -344,11 +319,11 @@ namespace wo
     {
         using destructor_func_t = void(*)(void*);
 
-        value               m_holding_value = {};
-        std::atomic<void*>  m_holding_handle = nullptr;
-        destructor_func_t   m_destructor = nullptr;
+        gcbase*             m_holding_gcbase;
+        void*               m_holding_handle;
+        destructor_func_t   m_destructor;
         // ATTENTION: Only used for decrease destructable count in env of vm;
-        wo_vm               m_gc_vm = nullptr;
+        wo_vm               m_gc_vm;
 
         bool close();
 
@@ -365,12 +340,11 @@ namespace wo
             auto* dup_arrray = from->array;
             if (dup_arrray)
             {
-                gcbase::gc_read_guard g1(dup_arrray);
-                set_gcunit_with_barrier(valuetype::array_type);
+                type = valuetype::array_type;
+                array = array_t::gc_new<gcbase::gctype::young>(dup_arrray->size());
 
-                auto* created_arr = array_t::gc_new<gcbase::gctype::young>(gcunit, dup_arrray->size());
-                gcbase::gc_write_guard g2(created_arr);
-                *created_arr->elem() = *dup_arrray->elem();
+                gcbase::gc_read_guard g1(dup_arrray);
+                *array->elem() = *dup_arrray->elem();
             }
             else
                 set_nil();
@@ -381,12 +355,11 @@ namespace wo
             auto* dup_mapping = from->dict;
             if (dup_mapping)
             {
-                gcbase::gc_read_guard g1(dup_mapping);
-                set_gcunit_with_barrier(valuetype::dict_type);
+                type = valuetype::dict_type;
+                dict = dict_t::gc_new<gcbase::gctype::young>();
 
-                auto* created_map = dict_t::gc_new<gcbase::gctype::young>(gcunit);
-                gcbase::gc_write_guard g2(created_map);
-                *created_map->elem() = *dup_mapping->elem();
+                gcbase::gc_read_guard g1(dup_mapping);
+                *dict->elem() = *dup_mapping->elem();
             }
             else
                 set_nil();
@@ -396,20 +369,18 @@ namespace wo
             auto* dup_struct = from->structs;
             if (dup_struct)
             {
-                gcbase::gc_read_guard g1(dup_struct);
-                set_gcunit_with_barrier(valuetype::struct_type);
+                type = valuetype::struct_type;
+                structs = struct_t::gc_new<gcbase::gctype::young>(dup_struct->m_count);
 
-                auto* created_struct = struct_t::gc_new<gcbase::gctype::young>(gcunit, dup_struct->m_count);
-                gcbase::gc_write_guard g2(created_struct);
+                gcbase::gc_read_guard g1(dup_struct);
                 for (uint16_t i = 0; i < dup_struct->m_count; ++i)
-                    created_struct->m_values[i].set_val(&dup_struct->m_values[i]);
+                    structs->m_values[i].set_val(&dup_struct->m_values[i]);
             }
             else
                 set_nil();
         }
         else
             set_val(from);
-
         return this;
     }
 }

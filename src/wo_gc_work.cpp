@@ -26,8 +26,8 @@ namespace wo
 
         std::atomic_flag            _gc_immediately = {};
 
-        uint32_t                    _gc_immediately_edge = 250000;
-        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 20;
+        uint32_t                    _gc_immediately_edge = 500000;
+        uint32_t                    _gc_stop_the_world_edge = _gc_immediately_edge * 200;
 
         std::atomic_size_t _gc_scan_vm_index;
         size_t _gc_scan_vm_count;
@@ -104,8 +104,16 @@ namespace wo
             }
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
-                if (gcbase* gcunit_addr = wo_gchandle->m_holding_value.get_gcunit_with_barrier(&attr))
-                    gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                gcbase::unit_attrib* guard_val_attr;
+                if (gcbase* guard_gcunit_addr =
+                    std::launder(
+                        reinterpret_cast<gcbase*>(
+                            womem_verify(wo_gchandle->m_holding_gcbase,
+                                std::launder(reinterpret_cast<womem_attrib_t**>(&guard_val_attr)
+                                )
+                            ))
+                    ))
+                    gc_mark_unit_as_gray(worklist, guard_gcunit_addr, guard_val_attr);
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
@@ -582,7 +590,7 @@ namespace wo
             for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 delete destruct_vm;
 
-            womem_tidy_pages(_gc_advise_to_full_gc ? 1 : 0);
+            womem_tidy_pages(fullgc);
 
             _gc_is_recycling = false;
 
@@ -724,14 +732,16 @@ namespace wo
 
     bool gc_handle_base_t::close()
     {
-        void* holding_handle = m_holding_handle.exchange(nullptr);
-        if (holding_handle != nullptr)
+        if (m_holding_handle != nullptr)
         {
             wo_assert(m_destructor != nullptr && m_gc_vm != nullptr);
 
-            m_destructor(holding_handle);
+            m_destructor(m_holding_handle);
             std::launder(reinterpret_cast<wo::vmbase*>(m_gc_vm))
                 ->dec_destructable_instance_count();
+
+            m_holding_handle = nullptr;
+
             return true;
         }
         return false;
@@ -751,20 +761,17 @@ namespace wo
             if (warn)
             {
                 warn = false;
-                wo_warning("Out of memory, trying GC for extra memory");
+                std::string warning_info = "Out of memory, trying GC for extra memory.\n";
+                auto* cur_vm = wo::vmbase::_this_thread_vm;
+                if (cur_vm != nullptr)
+                {
+                    std::stringstream dump_callstack_info;
+                    cur_vm->dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                }
+                wo_warning(warning_info.c_str());
             }
-            wo_gc_immediately(true);
-
-            auto* curvm = (wo_vm)wo::vmbase::_this_thread_vm;
-            bool need_re_entry = true;
-            if (curvm)
-                need_re_entry = wo_leave_gcguard(curvm);
-
-            using namespace std;
-            std::this_thread::sleep_for(0.1s);
-
-            if (curvm && need_re_entry)
-                wo_enter_gcguard(curvm);
+            wo::gc::alloc_failed_retry();
         }
     }
     void free64(void* ptr)

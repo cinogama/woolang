@@ -218,7 +218,7 @@ namespace wo
             {
                 v->type = type();
                 if constexpr (meta::is_string<T>::value)
-                    string_t::gc_new<gcbase::gctype::no_gc>(v->gcunit, val);
+                    v->string = string_t::gc_new<gcbase::gctype::no_gc>(val);
                 else if constexpr (std::is_pointer<T>::value)
                     v->handle = (uint64_t)val;
                 else if constexpr (std::is_integral<T>::value)
@@ -1320,6 +1320,11 @@ namespace wo
                     && !std::is_integral<OP1T>::value
                     , "Argument(s) should be opnum or integer.");
             }
+        }
+
+        void callfast(void* op1)
+        {
+            WO_PUT_IR_TO_BUFFER(instruct::opcode::calln, reinterpret_cast<opnum::opnumbase*>(op1), nullptr, 1);
         }
 
         void jt(const opnum::tag& op1)

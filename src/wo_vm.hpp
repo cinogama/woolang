@@ -15,6 +15,7 @@
 #include <cmath>
 #include <sstream>
 #include <ctime>
+#include <chrono>
 
 namespace wo
 {
@@ -234,7 +235,8 @@ namespace wo
 
         inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
-            auto waitbegin_tm = clock();
+            using namespace std;
+            auto first_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
 
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
@@ -254,10 +256,12 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
-                if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
+                
+                auto current_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
+                if (current_tm_ms - first_tm_ms >= 100)
                 {
                     // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 1s) for waiting interrupt.\n";
+                    std::string warning_info = "Wait for too much time(out of 0.1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
@@ -667,7 +671,7 @@ namespace wo
 
                 case instruct::calln:
                     if (main_command & 0b10)
-                        tmpos << "callnjit\t";
+                        tmpos << "callnfast\t";
                     else
                         tmpos << "calln\t";
 
@@ -1250,113 +1254,88 @@ namespace wo
     public:
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            auto* struct_data = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, 2);
-            gcbase::gc_write_guard gwg1(struct_data);
+            opnum1->type = (value::valuetype::struct_type);
+            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(2);
 
-            struct_data->m_values[0].set_integer((wo_integer_t)id);
-            struct_data->m_values[1].set_val(opnum2);
+            opnum1->structs->m_values[0].set_integer((wo_integer_t)id);
+            opnum1->structs->m_values[1].set_val(opnum2);
 
             return opnum1;
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-            auto* created_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, (size_t)size);
-            gcbase::gc_write_guard gwg1(created_array);
+            opnum1->type = (value::valuetype::array_type);
+            opnum1->array = array_t::gc_new<gcbase::gctype::young>((size_t)size);
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 auto* arr_val = ++rt_sp;
-                (*created_array)[size - i - 1].set_val(arr_val);
+                opnum1->array->at(size - i - 1).set_val(arr_val);
             }
             return rt_sp;
         }
         inline static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
-            auto* created_map = dict_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
-
-            gcbase::gc_write_guard gwg1(created_map);
+            opnum1->type = (value::valuetype::dict_type);
+            opnum1->dict = dict_t::gc_new<gcbase::gctype::young>();
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 value* val = ++rt_sp;
                 value* key = ++rt_sp;
-                (*created_map)[*key].set_val(val);
+                (*opnum1->dict)[*key].set_val(val);
             }
             return rt_sp;
         }
         inline static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            struct_t* new_struct = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, size);
-            gcbase::gc_write_guard gwg1(new_struct);
+            opnum1->type = (value::valuetype::struct_type);
+            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(size);
 
             for (size_t i = 0; i < size; i++)
-                new_struct->m_values[size - i - 1].set_val(rt_sp + 1 + i);
+                opnum1->structs->m_values[size - i - 1].set_val(rt_sp + 1 + i);
 
             return rt_sp + size;
         }
+
+        // used for restoring local state
+        template<typename T>
+        struct _restore_raii
+        {
+            T& ot;
+            T& nt;
+
+            _restore_raii(T& _nt, T& _ot)
+                : ot(_ot)
+                , nt(_nt)
+            {
+                _nt = _ot;
+            }
+
+            ~_restore_raii()
+            {
+                ot = nt;
+            }
+        };
 
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
         {
             // Must not leave when run.
             wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+            wo_assert(_this_thread_vm == this);
 
-            // used for restoring IP
-            struct ip_restore_raii
-            {
-                void*& ot;
-                void*& nt;
+            runtime_env *   rt_env = env.get();
+            const byte_t*   rt_ip;
+            value       *   rt_bp, 
+                        *   rt_sp;
+            value*          const_global_begin = rt_env->constant_global_reg_rtstack;
+            value*          reg_begin = register_mem_begin;
+            value* const    rt_cr = cr;
 
-                ip_restore_raii(void*& _nt, void*& _ot)
-                    : ot(_ot)
-                    , nt(_nt)
-                {
-                    _nt = _ot;
-                }
-
-                ~ip_restore_raii()
-                {
-                    ot = nt;
-                }
-            };
-
-            struct ip_restore_raii_stack
-            {
-                void*& ot;
-                void*& nt;
-
-                ip_restore_raii_stack(void*& _nt, void*& _ot)
-                    : ot(_ot)
-                    , nt(_nt)
-                {
-                    _nt = _ot;
-                }
-
-                ~ip_restore_raii_stack()
-                {
-                    nt = ot;
-                }
-            };
-
-            runtime_env* rt_env = env.get();
-            const byte_t* rt_ip;
-            value* rt_bp, * rt_sp;
-            value* const_global_begin = rt_env->constant_global_reg_rtstack;
-            value* reg_begin = register_mem_begin;
-            value* const rt_cr = cr;
-
-            ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
-            ip_restore_raii _o2((void*&)rt_sp, (void*&)sp);
-            ip_restore_raii _o3((void*&)rt_bp, (void*&)bp);
-
-            vmbase* last_this_thread_vm = _this_thread_vm;
-            vmbase* _nullptr = this;
-            ip_restore_raii_stack _o4((void*&)_this_thread_vm, (void*&)_nullptr);
-            _nullptr = last_this_thread_vm;
+            _restore_raii _o1(rt_ip, ip);
+            _restore_raii _o2(rt_sp, sp);
+            _restore_raii _o3(rt_bp, bp);
 
             wo_assert(rt_env->reg_begin == rt_env->constant_global_reg_rtstack
                 + rt_env->constant_and_global_value_takeplace_count);
@@ -1596,7 +1575,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
-                    string_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, *opnum1->string + *opnum2->string);
+                    opnum1->string = string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string);
                     break;
                 }
                 /// OPERATE
@@ -2019,8 +1998,8 @@ namespace wo
 
                         wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)), 
-                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                            std::launder(reinterpret_cast<wo_vm>(this)),
+                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                             (size_t)tc->integer);
                         wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
@@ -2082,14 +2061,14 @@ namespace wo
 
                         if (dr & 0b10)
                             call_aim_native_func(
-                                std::launder(reinterpret_cast<wo_vm>(this)), 
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                                 (size_t)tc->integer);
                         else
                         {
                             wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             call_aim_native_func(
-                                std::launder(reinterpret_cast<wo_vm>(this)), 
+                                std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                                 (size_t)tc->integer);
                             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
@@ -2375,10 +2354,8 @@ namespace wo
                     WO_VM_ASSERT((dr & 0b01) == 0,
                         "Found broken ir-code in 'mkclos'.");
 
-                    rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(rt_cr->gcunit, closure_arg_count);
-
-                    gcbase::gc_write_guard gwg1(created_closure);
+                    rt_cr->type = (value::valuetype::closure_type);
+                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
                     created_closure->m_native_call = !!dr;
 
                     if (dr)
@@ -2394,6 +2371,7 @@ namespace wo
                         auto* arg_val = ++rt_sp;
                         created_closure->m_closure_args[i].set_val(arg_val);
                     }
+                    rt_cr->closure = created_closure;
                     break;
                 }
                 case instruct::opcode::ext:
@@ -2417,15 +2395,14 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-                            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
-                            wo::gcbase::gc_write_guard g1(packed_array);
+                            opnum1->type = (value::valuetype::array_type);
+                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
                             packed_array->resize((size_t)(tc->integer - opnum2->integer));
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {
                                 (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                             }
-
+                            opnum1->array = packed_array;
                             break;
                         }
                         case instruct::extern_opcode_page_0::unpackargs:
