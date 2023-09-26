@@ -761,7 +761,15 @@ namespace wo
             if (warn)
             {
                 warn = false;
-                wo_warning("Out of memory, trying GC for extra memory");
+                std::string warning_info = "Out of memory, trying GC for extra memory.\n";
+                auto* cur_vm = wo::vmbase::_this_thread_vm;
+                if (cur_vm != nullptr)
+                {
+                    std::stringstream dump_callstack_info;
+                    cur_vm->dump_call_stack(32, false, dump_callstack_info);
+                    warning_info += dump_callstack_info.str();
+                }
+                wo_warning(warning_info.c_str());
             }
             wo::gc::alloc_failed_retry();
         }
