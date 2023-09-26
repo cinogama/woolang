@@ -360,9 +360,13 @@ namespace womem
             Page* last = nullptr;
             for (size_t i = 0; i < alloc_page_count; ++i)
             {
-                auto* page = _alloc_page(elem_sz, group);
-                page->last = last;
-                last = page;
+                if (auto* page = _alloc_page(elem_sz, group))
+                {
+                    page->last = last;
+                    last = page;
+                }
+                else
+                    break;
             }
             return last;
         }
