@@ -29,6 +29,11 @@
 struct _wo_enter_gc_guard
 {
     wo_vm _vm;
+    _wo_enter_gc_guard() = delete;
+    _wo_enter_gc_guard(const _wo_enter_gc_guard&) = delete;
+    _wo_enter_gc_guard(_wo_enter_gc_guard&&) = delete;
+    _wo_enter_gc_guard& operator = (const _wo_enter_gc_guard&) = delete;
+    _wo_enter_gc_guard& operator = (_wo_enter_gc_guard&&) = delete;
     _wo_enter_gc_guard(wo_vm vm)
         : _vm(wo_enter_gcguard(vm) ? vm : nullptr)
     {
@@ -37,6 +42,26 @@ struct _wo_enter_gc_guard
     {
         if (_vm)
             wo_leave_gcguard(_vm);
+    }
+};
+struct _wo_in_thread_vm_guard
+{
+    wo_vm last_vm;
+
+    _wo_in_thread_vm_guard() = delete;
+    _wo_in_thread_vm_guard(const _wo_in_thread_vm_guard&) = delete;
+    _wo_in_thread_vm_guard(_wo_in_thread_vm_guard&&) = delete;
+    _wo_in_thread_vm_guard& operator = (const _wo_in_thread_vm_guard&) = delete;
+    _wo_in_thread_vm_guard& operator = (_wo_in_thread_vm_guard&&) = delete;
+
+    _wo_in_thread_vm_guard(wo_vm target_vm)
+        : last_vm(wo_set_this_thread_vm(target_vm))
+    {
+
+    }
+    ~_wo_in_thread_vm_guard()
+    {
+        wo_set_this_thread_vm(last_vm);
     }
 };
 
@@ -2446,9 +2471,11 @@ void wo_pop_stack(wo_vm vm)
 {
     ++WO_VM(vm)->sp;
 }
+
 wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
     wo_asure(wo_enter_gcguard(vm));
+    _wo_in_thread_vm_guard g(vm);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
     wo_asure(wo_leave_gcguard(vm));
     return result;
@@ -2456,6 +2483,7 @@ wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
     wo_asure(wo_enter_gcguard(vm));
+    _wo_in_thread_vm_guard g(vm);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
     wo_asure(wo_leave_gcguard(vm));
     return result;
@@ -2463,6 +2491,7 @@ wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
     wo_asure(wo_enter_gcguard(vm));
+    _wo_in_thread_vm_guard g(vm);
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
     if (!vmfunc)
@@ -2484,7 +2513,7 @@ wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
     wo_asure(wo_enter_gcguard(vm));
-
+    _wo_in_thread_vm_guard g(vm);
     auto* vmm = WO_VM(vm);
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
@@ -2496,6 +2525,7 @@ wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
     wo_asure(wo_enter_gcguard(vm));
+    _wo_in_thread_vm_guard g(vm);
     auto* vmm = WO_VM(vm);
 
     if (WO_VAL(vmfunc)->type != wo::value::valuetype::closure_type)
@@ -2510,7 +2540,7 @@ wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 wo_value wo_dispatch(wo_vm vm)
 {
     wo_asure(wo_enter_gcguard(vm));
-
+    _wo_in_thread_vm_guard g(vm);
     wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
@@ -2555,7 +2585,7 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 wo_value wo_run(wo_vm vm)
 {
     wo_asure(wo_enter_gcguard(vm));
-
+    _wo_in_thread_vm_guard g(vm);
     wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {

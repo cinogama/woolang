@@ -1294,64 +1294,44 @@ namespace wo
             return rt_sp + size;
         }
 
+        // used for restoring local state
+        template<typename T>
+        struct _restore_raii
+        {
+            T& ot;
+            T& nt;
+
+            _restore_raii(T& _nt, T& _ot)
+                : ot(_ot)
+                , nt(_nt)
+            {
+                _nt = _ot;
+            }
+
+            ~_restore_raii()
+            {
+                ot = nt;
+            }
+        };
+
         template<int/* wo::platform_info::ArchType */ ARCH = wo::platform_info::ARCH_TYPE>
         void run_impl()
         {
             // Must not leave when run.
             wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
+            wo_assert(_this_thread_vm == this);
 
-            // used for restoring IP
-            struct ip_restore_raii
-            {
-                void*& ot;
-                void*& nt;
+            runtime_env *   rt_env = env.get();
+            const byte_t*   rt_ip;
+            value       *   rt_bp, 
+                        *   rt_sp;
+            value*          const_global_begin = rt_env->constant_global_reg_rtstack;
+            value*          reg_begin = register_mem_begin;
+            value* const    rt_cr = cr;
 
-                ip_restore_raii(void*& _nt, void*& _ot)
-                    : ot(_ot)
-                    , nt(_nt)
-                {
-                    _nt = _ot;
-                }
-
-                ~ip_restore_raii()
-                {
-                    ot = nt;
-                }
-            };
-
-            struct ip_restore_raii_stack
-            {
-                void*& ot;
-                void*& nt;
-
-                ip_restore_raii_stack(void*& _nt, void*& _ot)
-                    : ot(_ot)
-                    , nt(_nt)
-                {
-                    _nt = _ot;
-                }
-
-                ~ip_restore_raii_stack()
-                {
-                    nt = ot;
-                }
-            };
-
-            runtime_env* rt_env = env.get();
-            const byte_t* rt_ip;
-            value* rt_bp, * rt_sp;
-            value* const_global_begin = rt_env->constant_global_reg_rtstack;
-            value* reg_begin = register_mem_begin;
-            value* const rt_cr = cr;
-
-            ip_restore_raii _o1((void*&)rt_ip, (void*&)ip);
-            ip_restore_raii _o2((void*&)rt_sp, (void*&)sp);
-            ip_restore_raii _o3((void*&)rt_bp, (void*&)bp);
-
-            vmbase* last_this_thread_vm = _this_thread_vm;
-            vmbase* _nullptr = this;
-            ip_restore_raii_stack _o4((void*&)_this_thread_vm, (void*&)_nullptr);
-            _nullptr = last_this_thread_vm;
+            _restore_raii _o1(rt_ip, ip);
+            _restore_raii _o2(rt_sp, sp);
+            _restore_raii _o3(rt_bp, bp);
 
             wo_assert(rt_env->reg_begin == rt_env->constant_global_reg_rtstack
                 + rt_env->constant_and_global_value_takeplace_count);
@@ -2014,8 +1994,8 @@ namespace wo
 
                         wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                         call_aim_native_func(
-                            std::launder(reinterpret_cast<wo_vm>(this)), 
-                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                            std::launder(reinterpret_cast<wo_vm>(this)),
+                            std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                             (size_t)tc->integer);
                         wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
@@ -2077,14 +2057,14 @@ namespace wo
 
                         if (dr & 0b10)
                             call_aim_native_func(
-                                std::launder(reinterpret_cast<wo_vm>(this)), 
-                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)), 
+                                std::launder(reinterpret_cast<wo_vm>(this)),
+                                std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                                 (size_t)tc->integer);
                         else
                         {
                             wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
                             call_aim_native_func(
-                                std::launder(reinterpret_cast<wo_vm>(this)), 
+                                std::launder(reinterpret_cast<wo_vm>(this)),
                                 std::launder(reinterpret_cast<wo_value>(rt_sp + 2)),
                                 (size_t)tc->integer);
                             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
