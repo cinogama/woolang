@@ -879,13 +879,31 @@ namespace wo
 
             size_t call_trace_count = 0;
 
-            if (src_location_info)
+            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
             {
-                os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
+                if (src_location_info)
+                {
+                    os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
+                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
+                }
+                else
+                    os << call_trace_count << ": " << (void*)ip << std::endl;
             }
             else
-                os << call_trace_count << ": " << (void*)ip << std::endl;
+            {
+                auto fnd = env->extern_native_functions.find((intptr_t)ip);
+
+                if (fnd != env->extern_native_functions.end())
+                {
+                    os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
+                    os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                }
+                else
+                {
+                    os << call_trace_count << ": extern func __native_function__at_" << (void*)ip << std::endl;
+                    os << "\t--at unknon native" << std::endl;
+                }
+            }
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
