@@ -186,7 +186,7 @@ namespace wo
     struct gcunit : public gcbase, public T
     {
         template<gcbase::gctype AllocType, typename ... ArgTs >
-        static gcunit<T>* gc_new(gcbase*& write_aim, ArgTs && ... args)
+        static gcunit<T>* gc_new(ArgTs && ... args)
         {
             ++gc_new_count;
 
@@ -197,7 +197,6 @@ namespace wo
             a.m_alloc_mask = 0;
 
             auto* created_gcnuit = new (alloc64(sizeof(gcunit<T>), a.m_attr))gcunit<T>(args...);
-            *std::launder(reinterpret_cast<std::atomic<gcbase*>*>(&write_aim)) = created_gcnuit;
 
 #ifndef NDEBUG
             created_gcnuit->gc_typename = typeid(T).name();

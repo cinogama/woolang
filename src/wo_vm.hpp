@@ -1250,51 +1250,46 @@ namespace wo
     public:
         inline static value* make_union_impl(value* opnum1, value* opnum2, uint16_t id)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            auto* struct_data = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, 2);
-            gcbase::gc_write_guard gwg1(struct_data);
+            opnum1->type = (value::valuetype::struct_type);
+            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(2);
 
-            struct_data->m_values[0].set_integer((wo_integer_t)id);
-            struct_data->m_values[1].set_val(opnum2);
+            opnum1->structs->m_values[0].set_integer((wo_integer_t)id);
+            opnum1->structs->m_values[1].set_val(opnum2);
 
             return opnum1;
         }
         inline static value* make_array_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-            auto* created_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, (size_t)size);
-            gcbase::gc_write_guard gwg1(created_array);
+            opnum1->type = (value::valuetype::array_type);
+            opnum1->array = array_t::gc_new<gcbase::gctype::young>((size_t)size);
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 auto* arr_val = ++rt_sp;
-                (*created_array)[size - i - 1].set_val(arr_val);
+                opnum1->array->at(size - i - 1).set_val(arr_val);
             }
             return rt_sp;
         }
         inline static value* make_map_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::dict_type);
-            auto* created_map = dict_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
-
-            gcbase::gc_write_guard gwg1(created_map);
+            opnum1->type = (value::valuetype::dict_type);
+            opnum1->dict = dict_t::gc_new<gcbase::gctype::young>();
 
             for (size_t i = 0; i < (size_t)size; i++)
             {
                 value* val = ++rt_sp;
                 value* key = ++rt_sp;
-                (*created_map)[*key].set_val(val);
+                (*opnum1->dict)[*key].set_val(val);
             }
             return rt_sp;
         }
         inline static value* make_struct_impl(value* opnum1, uint16_t size, value* rt_sp)
         {
-            opnum1->set_gcunit_with_barrier(value::valuetype::struct_type);
-            struct_t* new_struct = struct_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, size);
-            gcbase::gc_write_guard gwg1(new_struct);
+            opnum1->type = (value::valuetype::struct_type);
+            opnum1->structs = struct_t::gc_new<gcbase::gctype::young>(size);
 
             for (size_t i = 0; i < size; i++)
-                new_struct->m_values[size - i - 1].set_val(rt_sp + 1 + i);
+                opnum1->structs->m_values[size - i - 1].set_val(rt_sp + 1 + i);
 
             return rt_sp + size;
         }
@@ -1596,7 +1591,7 @@ namespace wo
                     WO_VM_ASSERT(opnum1->type == opnum2->type
                         && opnum1->type == value::valuetype::string_type, "Operand should be string in 'adds'.");
 
-                    string_t::gc_new<gcbase::gctype::young>(opnum1->gcunit, *opnum1->string + *opnum2->string);
+                    opnum1->string = string_t::gc_new<gcbase::gctype::young>(*opnum1->string + *opnum2->string);
                     break;
                 }
                 /// OPERATE
@@ -2375,10 +2370,8 @@ namespace wo
                     WO_VM_ASSERT((dr & 0b01) == 0,
                         "Found broken ir-code in 'mkclos'.");
 
-                    rt_cr->set_gcunit_with_barrier(value::valuetype::closure_type);
-                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(rt_cr->gcunit, closure_arg_count);
-
-                    gcbase::gc_write_guard gwg1(created_closure);
+                    rt_cr->type = (value::valuetype::closure_type);
+                    auto* created_closure = closure_t::gc_new<gcbase::gctype::young>(closure_arg_count);
                     created_closure->m_native_call = !!dr;
 
                     if (dr)
@@ -2394,6 +2387,7 @@ namespace wo
                         auto* arg_val = ++rt_sp;
                         created_closure->m_closure_args[i].set_val(arg_val);
                     }
+                    rt_cr->closure = created_closure;
                     break;
                 }
                 case instruct::opcode::ext:
@@ -2417,15 +2411,14 @@ namespace wo
                             WO_ADDRESSING_N1;
                             WO_ADDRESSING_N2;
 
-                            opnum1->set_gcunit_with_barrier(value::valuetype::array_type);
-                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>(opnum1->gcunit);
-                            wo::gcbase::gc_write_guard g1(packed_array);
+                            opnum1->type = (value::valuetype::array_type);
+                            auto* packed_array = array_t::gc_new<gcbase::gctype::young>();
                             packed_array->resize((size_t)(tc->integer - opnum2->integer));
                             for (auto argindex = 0 + opnum2->integer; argindex < tc->integer; argindex++)
                             {
                                 (*packed_array)[(size_t)(argindex - opnum2->integer)].set_val(rt_bp + 2 + argindex + skip_closure_arg_count);
                             }
-
+                            opnum1->array = packed_array;
                             break;
                         }
                         case instruct::extern_opcode_page_0::unpackargs:

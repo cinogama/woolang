@@ -104,8 +104,16 @@ namespace wo
             }
             else if (gchandle_t* wo_gchandle = dynamic_cast<gchandle_t*>(unit))
             {
-                if (gcbase* gcunit_addr = wo_gchandle->m_holding_value.get_gcunit_with_barrier(&attr))
-                    gc_mark_unit_as_gray(worklist, gcunit_addr, attr);
+                gcbase::unit_attrib* guard_val_attr;
+                if (gcbase* guard_gcunit_addr =
+                    std::launder(
+                        reinterpret_cast<gcbase*>(
+                            womem_verify(wo_gchandle->m_holding_gcbase,
+                                std::launder(reinterpret_cast<womem_attrib_t**>(&guard_val_attr)
+                                )
+                            ))
+                    ))
+                    gc_mark_unit_as_gray(worklist, guard_gcunit_addr, guard_val_attr);
             }
             else if (closure_t* wo_closure = dynamic_cast<closure_t*>(unit))
             {
@@ -724,14 +732,16 @@ namespace wo
 
     bool gc_handle_base_t::close()
     {
-        void* holding_handle = m_holding_handle.exchange(nullptr);
-        if (holding_handle != nullptr)
+        if (m_holding_handle != nullptr)
         {
             wo_assert(m_destructor != nullptr && m_gc_vm != nullptr);
 
-            m_destructor(holding_handle);
+            m_destructor(m_holding_handle);
             std::launder(reinterpret_cast<wo::vmbase*>(m_gc_vm))
                 ->dec_destructable_instance_count();
+
+            m_holding_handle = nullptr;
+
             return true;
         }
         return false;

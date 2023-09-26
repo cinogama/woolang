@@ -183,10 +183,10 @@ namespace womem
     public:
         enum AllocGroup :uint8_t
         {
-            L8,
             L16,
             L24,
             L32,
+            L40,
             L48,
             L64,
             L96,
@@ -219,10 +219,10 @@ namespace womem
         {
 #define WOMEM_CASE(N) if (sz <= N) return AllocGroup::L##N
 
-            WOMEM_CASE(8);
             WOMEM_CASE(16);
             WOMEM_CASE(24);
             WOMEM_CASE(32);
+            WOMEM_CASE(40);
             WOMEM_CASE(48);
             WOMEM_CASE(64);
             WOMEM_CASE(96);
@@ -299,7 +299,7 @@ namespace womem
                     abort();
                 }
             }
-            for (size_t i = (size_t)AllocGroup::L8; i < (size_t)AllocGroup::COUNT; ++i)
+            for (size_t i = (size_t)AllocGroup::L16; i < (size_t)AllocGroup::COUNT; ++i)
             {
                 auto& pages = m_free_pages[i];
                 for (auto* page : pages)
@@ -412,7 +412,7 @@ namespace womem
 
             if (full)
             {
-                for (size_t i = (size_t)AllocGroup::L8; i < (size_t)AllocGroup::COUNT; ++i)
+                for (size_t i = (size_t)AllocGroup::L16; i < (size_t)AllocGroup::COUNT; ++i)
                 {
                     auto e = m_free_pages[i].end();
                     for (auto iter = m_free_pages[i].begin(); iter != e;)
