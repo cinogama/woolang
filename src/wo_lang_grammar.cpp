@@ -310,12 +310,6 @@ namespace wo
                                 gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_extern),
 
-                gm::nt(L"xxx") >> gm::symlist{ gm::te(gm::ttype::l_extern),
-                                gm::te(gm::ttype::l_left_brackets),
-                                    gm::te(gm::ttype::l_literal_string),
-                                gm::te(gm::ttype::l_right_brackets) }
-                >> WO_ASTBUILDER_INDEX(ast::pass_extern),
-
                 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                                     gm::nt(L"EXTERN_FROM"),
                                     gm::nt(L"DECL_ATTRIBUTE"),
