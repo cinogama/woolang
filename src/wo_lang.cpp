@@ -463,7 +463,7 @@ namespace wo
         auto* a_value_arr = WO_AST();
         analyze_pass1(a_value_arr->array_items);
 
-        wo_assert((a_value_arr->value_type->is_array() || a_value_arr->value_type->is_vec()) 
+        wo_assert((a_value_arr->value_type->is_array() || a_value_arr->value_type->is_vec())
             && a_value_arr->value_type->template_arguments.size() == 1);
         if (a_value_arr->value_type->template_arguments[0]->is_pure_pending())
         {
@@ -1345,8 +1345,8 @@ namespace wo
         {
             if (a_value_funcdef->is_template_reification)
             {
-                wo_asure(begin_template_scope(a_value_funcdef, 
-                    a_value_funcdef->template_type_name_list, 
+                wo_asure(begin_template_scope(a_value_funcdef,
+                    a_value_funcdef->template_type_name_list,
                     a_value_funcdef->this_reification_template_args));
             }
 
@@ -2035,7 +2035,7 @@ namespace wo
                     true))
                 {
                     lang_anylizer->lang_error(
-                        lexer::errorlevel::infom, 
+                        lexer::errorlevel::infom,
                         struct_type_symbol->get_typedef(),
                         WO_INFO_CANNOT_USE_UNREACHABLE_TYPE);
                 }
@@ -2376,7 +2376,7 @@ namespace wo
             sym->is_marked_as_used_variable = true;
 
         if (a_value_var->value_type->is_pending())
-        {    
+        {
             if (sym && (!sym->define_in_function || sym->has_been_defined_in_pass2 || sym->is_captured_variable))
             {
                 if (sym->is_template_symbol && (!a_value_var->is_auto_judge_function_overload || sym->type == lang_symbol::symbol_type::variable))
@@ -4226,9 +4226,9 @@ namespace wo
 #define WO_TRY_PASS(NODETYPE) if(pass1_##NODETYPE(dynamic_cast<NODETYPE*>(ast_node)))break;
 #define WO_TRY_END }while(0)
         entry_pass ep1(in_pass2, false);
-        
+
         if (!ast_node)return;
-            
+
         if (ast_node->completed_in_pass1)
             return;
 
@@ -4596,7 +4596,7 @@ namespace wo
 
                     end_template_scope();
                 }
-                
+
                 return new_type;
             }
         }
@@ -5891,7 +5891,12 @@ namespace wo
                     compiler->mov(*reg_for_current_funccall_argc, reg(reg::tc));
                 }
 
-                compiler->call(complete_using_register(*called_func_aim));
+                if (funcdef != nullptr 
+                    && funcdef->externed_func_info != nullptr 
+                    && funcdef->externed_func_info->leaving_call == false)
+                    compiler->callfast((void*)funcdef->externed_func_info->externed_func);
+                else
+                    compiler->call(complete_using_register(*called_func_aim));
 
                 last_value_stored_to_cr_flag.set_true();
 
@@ -7429,7 +7434,7 @@ namespace wo
                 fnd != indet_finding_namespace->symbols.end())
             {
                 if ((fnd->second->type & target_type_mask) != 0
-                    && (fnd->second->type == lang_symbol::symbol_type::typing 
+                    && (fnd->second->type == lang_symbol::symbol_type::typing
                         || fnd->second->type == lang_symbol::symbol_type::type_alias
                         || check_symbol_is_accessable(fnd->second, searching_from_scope, var_ident, false)))
                     return var_ident->symbol = fnd->second;

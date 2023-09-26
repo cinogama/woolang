@@ -67,6 +67,11 @@ struct _wo_in_thread_vm_guard
 
 void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t functionname, uint32_t rterrcode, wo_string_t reason)
 {
+    auto* cur_thread_vm = wo::vmbase::_this_thread_vm;
+    bool leaved_flag = cur_thread_vm != nullptr
+        ? wo_leave_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm))
+        : false;
+
     wo::wo_stderr << ANSI_HIR "WooLang Runtime happend a failure: "
         << ANSI_HIY << reason << " (E" << std::hex << rterrcode << std::dec << ")" << ANSI_RST << wo::wo_endl;
     wo::wo_stderr << "\tAt source: \t" << src_file << wo::wo_endl;
@@ -76,8 +81,10 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
 
     wo::wo_stderr << ANSI_HIR "callstack: " ANSI_RST << wo::wo_endl;
 
-    if (wo::vmbase::_this_thread_vm)
-        wo::vmbase::_this_thread_vm->dump_call_stack(32, true, std::cerr);
+    if (cur_thread_vm != nullptr)
+        cur_thread_vm->dump_call_stack(32, true, std::cerr);
+    else
+        wo::wo_stderr << ANSI_HIM "No woolang vm found in this thread." ANSI_RST << wo::wo_endl;
 
     wo::wo_stderr << wo::wo_endl;
 
@@ -91,17 +98,15 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
         // Just throw it..
         wo::wo_stderr << ANSI_HIY "This is a medium failure, abort." ANSI_RST << wo::wo_endl;
 
-        if (wo::vmbase::_this_thread_vm)
-            wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
-        return;
+        if (cur_thread_vm != nullptr)
+            wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
     }
     else if ((rterrcode & WO_FAIL_TYPE_MASK) == WO_FAIL_HEAVY)
     {
         // Just throw it..
         wo::wo_stderr << ANSI_HIY "This is a heavy failure, abort." ANSI_RST << wo::wo_endl;
-        if (wo::vmbase::_this_thread_vm)
-            wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
-        return;
+        if (cur_thread_vm != nullptr)
+            wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
     }
     else
     {
@@ -110,8 +115,17 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
         wo::wo_stderr << "2) Continue.(May cause unknown errors.)" << wo::wo_endl;
         wo::wo_stderr << "3) Halt (Not exactly safe, this vm will be abort.)" << wo::wo_endl;
         wo::wo_stderr << "4) Attach debuggee and break immediately." << wo::wo_endl;
-        do
+
+        bool breakout = false;
+        while (true)
         {
+            char _useless_for_clear = 0;
+            std::cin.clear();
+            while (std::cin.readsome(&_useless_for_clear, 1));
+
+            if (breakout)
+                break;
+
             int choice;
             wo::wo_stderr << "Please input your choice: " ANSI_HIY;
             std::cin >> choice;
@@ -119,41 +133,43 @@ void _default_fail_handler(wo_string_t src_file, uint32_t lineno, wo_string_t fu
             switch (choice)
             {
             case 1:
-                wo_error(reason); break;
+                wo_error(reason); 
+                breakout = true;
+                break;
             case 2:
-                return;
+                breakout = true;
+                break;
             case 3:
-                if (wo::vmbase::_this_thread_vm)
+                if (cur_thread_vm != nullptr)
                 {
                     wo::wo_stderr << ANSI_HIR "Current virtual machine will abort." ANSI_RST << wo::wo_endl;
-                    wo_ret_halt(reinterpret_cast<wo_vm>(wo::vmbase::_this_thread_vm), reason);
-                    return;
+                    wo_ret_halt(reinterpret_cast<wo_vm>(cur_thread_vm), reason);
+                    breakout = true;
                 }
                 else
                     wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
-
                 break;
             case 4:
-                if (wo::vmbase::_this_thread_vm)
+                if (cur_thread_vm != nullptr)
                 {
                     if (!wo_has_attached_debuggee())
                         wo_attach_default_debuggee();
                     wo_break_immediately();
-                    return;
+                    breakout = true;
                 }
                 else
                     wo::wo_stderr << ANSI_HIR "No virtual machine running in this thread." ANSI_RST << wo::wo_endl;
-
                 break;
             default:
                 wo::wo_stderr << ANSI_HIR "Invalid choice" ANSI_RST << wo::wo_endl;
             }
+        }
+    }
 
-            char _useless_for_clear = 0;
-            std::cin.clear();
-            while (std::cin.readsome(&_useless_for_clear, 1));
-
-        } while (true);
+    if (leaved_flag)
+    {
+        wo_assert(cur_thread_vm != nullptr);
+        wo_enter_gcguard(reinterpret_cast<wo_vm>(cur_thread_vm));
     }
 }
 static std::atomic<wo_fail_handler> _wo_fail_handler_function = &_default_fail_handler;
@@ -2474,24 +2490,22 @@ void wo_pop_stack(wo_vm vm)
 
 wo_value wo_invoke_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(vmfunc, argc));
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 wo_value wo_invoke_exfunc(wo_vm vm, wo_handle_t exfunc, wo_int_t argc)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     wo_value result = CS_VAL(WO_VM(vm)->invoke(exfunc, argc));
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     wo::value* valfunc = WO_VAL(vmfunc);
     wo_value result = nullptr;
     if (!vmfunc)
@@ -2504,28 +2518,23 @@ wo_value wo_invoke_value(wo_vm vm, wo_value vmfunc, wo_int_t argc)
         result = CS_VAL(WO_VM(vm)->invoke(valfunc->closure, argc));
     else
         wo_fail(WO_FAIL_CALL_FAIL, "Not callable type.");
-
-    wo_asure(wo_leave_gcguard(vm));
-
     return result;
 }
 
 wo_value wo_dispatch_rsfunc(wo_vm vm, wo_int_t vmfunc, wo_int_t argc)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     auto* vmm = WO_VM(vm);
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(vmfunc, argc));
-
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 
 wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     auto* vmm = WO_VM(vm);
 
     if (WO_VAL(vmfunc)->type != wo::value::valuetype::closure_type)
@@ -2533,14 +2542,13 @@ wo_value wo_dispatch_closure(wo_vm vm, wo_value vmfunc, wo_int_t argc)
 
     vmm->set_br_yieldable(true);
     wo_value result = CS_VAL(vmm->co_pre_invoke(WO_VAL(vmfunc)->closure, argc));
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 
 wo_value wo_dispatch(wo_vm vm)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
@@ -2551,8 +2559,6 @@ wo_value wo_dispatch(wo_vm vm)
         else
             result = CS_VAL(WO_VM(vm)->cr);
     }
-
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 
@@ -2584,8 +2590,8 @@ wo_bool_t wo_load_file(wo_vm vm, wo_string_t virtual_src_path)
 
 wo_value wo_run(wo_vm vm)
 {
-    wo_asure(wo_enter_gcguard(vm));
     _wo_in_thread_vm_guard g(vm);
+    _wo_enter_gc_guard g2(vm);
     wo_value result = nullptr;
     if (WO_VM(vm)->env)
     {
@@ -2600,8 +2606,6 @@ wo_value wo_run(wo_vm vm)
 
         result = CS_VAL(WO_VM(vm)->cr);
     }
-
-    wo_asure(wo_leave_gcguard(vm));
     return result;
 }
 

@@ -1540,7 +1540,10 @@ namespace wo
                 }
                 else if (WO_IR.op1)
                 {
-                    temp_this_command_code_buf.push_back(WO_OPCODE(calln, 01));
+                    if(WO_IR.opinteger)
+                        temp_this_command_code_buf.push_back(WO_OPCODE(calln, 11));
+                    else
+                        temp_this_command_code_buf.push_back(WO_OPCODE(calln, 01));
 
                     uint64_t addr = (uint64_t)(WO_IR.op1);
 

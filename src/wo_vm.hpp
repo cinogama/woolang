@@ -15,6 +15,7 @@
 #include <cmath>
 #include <sstream>
 #include <ctime>
+#include <chrono>
 
 namespace wo
 {
@@ -234,7 +235,8 @@ namespace wo
 
         inline interrupt_wait_result wait_interrupt(vm_interrupt_type type)
         {
-            auto waitbegin_tm = clock();
+            using namespace std;
+            auto first_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
 
             constexpr int MAX_TRY_COUNT = 0;
             int i = 0;
@@ -254,10 +256,12 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
-                if (clock() - waitbegin_tm >= 1 * CLOCKS_PER_SEC)
+                
+                auto current_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
+                if (current_tm_ms - first_tm_ms >= 100)
                 {
                     // Wait for too much time.
-                    std::string warning_info = "Wait for too much time(out of 1s) for waiting interrupt.\n";
+                    std::string warning_info = "Wait for too much time(out of 0.1s) for waiting interrupt.\n";
                     std::stringstream dump_callstack_info;
                     dump_call_stack(32, false, dump_callstack_info);
                     warning_info += dump_callstack_info.str();
@@ -667,7 +671,7 @@ namespace wo
 
                 case instruct::calln:
                     if (main_command & 0b10)
-                        tmpos << "callnjit\t";
+                        tmpos << "callnfast\t";
                     else
                         tmpos << "calln\t";
 

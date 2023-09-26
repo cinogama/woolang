@@ -431,7 +431,7 @@ namespace womem
     // ThreadCache is page cache in thread local
     class ThreadCache
     {
-        uint8_t m_prepare_alloc_page_reserve_count[Chunk::AllocGroup::COUNT];
+        size_t m_prepare_alloc_page_reserve_count[Chunk::AllocGroup::COUNT];
         Page* m_prepare_alloc_pages[Chunk::AllocGroup::COUNT] = {};
     public:
         ThreadCache()
@@ -463,9 +463,9 @@ namespace womem
             if (nullptr == *pages)
             {
                 auto& preserve = m_prepare_alloc_page_reserve_count[group];
-                preserve = std::min(128, preserve * 2);
+                preserve = std::min((size_t)1024, preserve * 2);
 
-                *pages = _global_chunk->alloc_pages((uint8_t)sz, group, (size_t)preserve);
+                *pages = _global_chunk->alloc_pages((uint8_t)sz, group, preserve);
             }
             if (*pages == nullptr)
             {

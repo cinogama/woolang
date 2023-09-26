@@ -700,6 +700,8 @@ namespace wo
         {
             wo_extern_native_func_t externed_func = nullptr;
 
+            bool leaving_call = false;
+
             std::wstring load_from_lib;
             std::wstring symbol_name;
 

@@ -2942,7 +2942,7 @@ const char* wo_stdlib_shell_src_data = {
 u8R"(
 namespace std
 {
-    extern("rslib_std_call_shell")
+    extern("rslib_std_call_shell", break)
         public func shell(cmd: string)=> int;
 
     extern("rslib_std_get_env")
