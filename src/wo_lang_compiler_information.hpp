@@ -263,6 +263,8 @@
 
 #define WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED L"只允许声明泛型变量，但此处是其他模式"
 
+#define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"未知的外部函数说明符: '%ls'"
+
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"编译器在此处找到了 '%ls' 的上一次定义"
 
@@ -528,6 +530,8 @@
 #define WO_ERR_DECL_BUILTIN_TYPE_IS_NOT_ALLOWED L"Creation of a new type or type alias with the same name as a built-in type is not allowed."
 
 #define WO_ERR_DECL_TEMPLATE_PATTERN_IS_NOT_ALLOWED L"Only template variables are allowed, but here are other patterns."
+
+#define WO_ERR_UNKNOWN_EXTERN_ATTRIB L"Unknown extern attribute: '%ls'."
 
 
 #define WO_INFO_ITEM_IS_DEFINED_HERE L"Compiler found last defination of '%ls'."

@@ -375,7 +375,7 @@ namespace womem
         {
             m_released_page.add_one(page);
         }
-        void tidy_pages()
+        void tidy_pages(bool full)
         {
             std::lock_guard g1(m_free_pages_mx);
 
@@ -403,6 +403,34 @@ namespace womem
                 }
                 else
                     m_released_page.add_one(cur_page);
+            }
+
+            if (full)
+            {
+                for (size_t i = (size_t)AllocGroup::L16; i < (size_t)AllocGroup::COUNT; ++i)
+                {
+                    auto* pages = m_free_pages[i];
+                    m_free_pages[i] = nullptr;
+
+                    while (pages)
+                    {
+                        auto* cur_page = pages;
+                        pages = pages->last;
+
+                        if (cur_page->m_alloc_count == 0)
+                        {
+                            // Currne page should move to free pages.
+                            cur_page->last = m_free_pages[AllocGroup::FREEPAGE];
+                            m_free_pages[AllocGroup::FREEPAGE] = cur_page;
+                        }
+                        else
+                        {
+                            // Add it back
+                            cur_page->last = m_free_pages[i];
+                            m_free_pages[i] = cur_page;
+                        }
+                    }
+                }
             }
         }
 
@@ -467,7 +495,7 @@ namespace womem
             if (nullptr == *pages)
             {
                 auto& preserve = m_prepare_alloc_page_reserve_count[group];
-                preserve = std::min((size_t)1024, preserve * 2);
+                preserve = std::min((size_t)512, preserve * 2);
 
                 *pages = _global_chunk->alloc_pages((uint8_t)sz, group, preserve);
             }
@@ -515,9 +543,9 @@ void womem_free(void* memptr)
     --page->m_alloc_count;
     head->m_in_used_flag = 0;
 }
-void womem_tidy_pages()
+void womem_tidy_pages(bool full)
 {
-    womem::_global_chunk->tidy_pages();
+    womem::_global_chunk->tidy_pages(full);
 }
 void* womem_verify(void* memptr, womem_attrib_t** attrib)
 {

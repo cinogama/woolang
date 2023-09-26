@@ -12,7 +12,7 @@ typedef uint8_t womem_attrib_t;
 
 void* womem_alloc(size_t size, womem_attrib_t attrib);
 void womem_free(void* memptr);
-void womem_tidy_pages();
+void womem_tidy_pages(bool full);
 
 void* womem_verify(void* memptr, womem_attrib_t** attrib);
 

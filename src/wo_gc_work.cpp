@@ -590,7 +590,7 @@ namespace wo
             for (auto* destruct_vm : need_destruct_gc_destructor_list)
                 delete destruct_vm;
 
-            womem_tidy_pages();
+            womem_tidy_pages(fullgc);
 
             _gc_is_recycling = false;
 

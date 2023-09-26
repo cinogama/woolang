@@ -301,14 +301,42 @@ namespace wo
                                     gm::te(gm::ttype::l_literal_string),
                                     gm::te(gm::ttype::l_comma),
                                     gm::te(gm::ttype::l_literal_string),
+                                    gm::nt(L"EXTERN_ATTRIBUTES"),
                                 gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_extern),
 
                 gm::nt(L"EXTERN_FROM") >> gm::symlist{ gm::te(gm::ttype::l_extern),
                                 gm::te(gm::ttype::l_left_brackets),
                                     gm::te(gm::ttype::l_literal_string),
+                                    gm::nt(L"EXTERN_ATTRIBUTES"),
                                 gm::te(gm::ttype::l_right_brackets) }
                 >> WO_ASTBUILDER_INDEX(ast::pass_extern),
+
+                gm::nt(L"EXTERN_ATTRIBUTES") >> gm::symlist{ 
+                    gm::te(gm::ttype::l_empty)}
+                >> WO_ASTBUILDER_INDEX(ast::pass_empty),
+
+                gm::nt(L"EXTERN_ATTRIBUTES") >> gm::symlist{
+                    gm::te(gm::ttype::l_comma),
+                        gm::nt(L"EXTERN_ATTRIBUTE_LIST") }
+                >> WO_ASTBUILDER_INDEX(ast::pass_direct<1>),
+
+                gm::nt(L"EXTERN_ATTRIBUTE_LIST") >> gm::symlist{
+                    gm::nt(L"EXTERN_ATTRIBUTE")
+                }
+                >> WO_ASTBUILDER_INDEX(ast::pass_create_list<0>),
+
+                gm::nt(L"EXTERN_ATTRIBUTE_LIST") >> gm::symlist{
+                    gm::nt(L"EXTERN_ATTRIBUTE_LIST"),
+                    gm::te(gm::ttype::l_comma),
+                    gm::nt(L"EXTERN_ATTRIBUTE")
+                }
+                >> WO_ASTBUILDER_INDEX(ast::pass_append_list<2, 0>),
+
+                gm::nt(L"EXTERN_ATTRIBUTE") >> gm::symlist{
+                    gm::te(gm::ttype::l_identifier),
+                }
+                >> WO_ASTBUILDER_INDEX(ast::pass_token),
 
                 gm::nt(L"FUNC_DEFINE_WITH_NAME") >> gm::symlist{
                                     gm::nt(L"EXTERN_FROM"),

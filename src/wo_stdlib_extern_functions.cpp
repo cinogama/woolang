@@ -1682,7 +1682,7 @@ namespace result
 }
 namespace std
 {
-    extern("rslib_std_print") public func print(...)=> void;
+    extern("rslib_std_print", slow) public func print(...)=> void;
     extern("rslib_std_time_sec") public func time()=> real;
 
     public func println(...)
@@ -1700,7 +1700,7 @@ namespace std
         {
             if (std::declval:<T>() is int)
             {
-                extern("rslib_std_input_readint") 
+                extern("rslib_std_input_readint", slow) 
                 public func _input_int()=> int;
 
                 let result = _input_int();
@@ -1709,7 +1709,7 @@ namespace std
             }
             else if (std::declval:<T>() is real)
             {
-                extern("rslib_std_input_readreal") 
+                extern("rslib_std_input_readreal", slow) 
                 public func _input_real()=> real;
 
                 let result = _input_real();
@@ -1718,7 +1718,7 @@ namespace std
             }
             else
             {
-                extern("rslib_std_input_readstring") 
+                extern("rslib_std_input_readstring", slow) 
                 public func _input_string()=> string;
 
                 let result = _input_string();
@@ -1732,7 +1732,7 @@ namespace std
     {
         while (true)
         {
-            extern("rslib_std_input_readline") 
+            extern("rslib_std_input_readline", slow) 
             public func _input_line()=> string;
 
             match (parser(_input_line()))
@@ -1754,7 +1754,7 @@ namespace std
     extern("rslib_std_break_yield") 
         public func yield()=> void;
 
-    extern("rslib_std_thread_sleep")
+    extern("rslib_std_thread_sleep", slow)
         public func sleep(tm:real)=> void;
    
     extern("rslib_std_get_args")
@@ -2502,7 +2502,7 @@ namespace handle
 
 namespace gchandle
 {
-    extern("rslib_std_gchandle_close")
+    extern("rslib_std_gchandle_close", slow)
         public func close(handle:gchandle)=> bool;
 }
 
@@ -2563,7 +2563,7 @@ namespace std
 {
     namespace debug
     {
-        extern("rslib_std_debug_breakpoint")
+        extern("rslib_std_debug_breakpoint", slow)
             public func breakpoint()=> void;
 
         extern("rslib_std_debug_attach_default_debuggee")
@@ -2942,7 +2942,7 @@ const char* wo_stdlib_shell_src_data = {
 u8R"(
 namespace std
 {
-    extern("rslib_std_call_shell", break)
+    extern("rslib_std_call_shell", slow)
         public func shell(cmd: string)=> int;
 
     extern("rslib_std_get_env")
