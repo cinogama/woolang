@@ -337,7 +337,7 @@ namespace womem
             }
         }
 
-        Page* _alloc_page(uint8_t elem_sz)
+        Page* alloc_page(uint8_t elem_sz)
         {
             auto group = eval_alloc_group(elem_sz);
 
@@ -356,6 +356,7 @@ namespace womem
                     m_free_pages[AllocGroup::FREEPAGE].pop_front();
                     p->m_page_unit_size = 0;
                     p->m_alloc_count = 0;
+                    p->init(m_chunk_id, eval_alloc_size(elem_sz));
                     return p;
                 }
             } while (0);
@@ -374,14 +375,8 @@ namespace womem
             new_p->m_page_unit_size = 0;
             new_p->m_alloc_count = 0;
             new_p->m_free_page = 1;
+            new_p->init(m_chunk_id, eval_alloc_size(elem_sz));
             return new_p;
-        }
-        Page* alloc_page(uint8_t elem_sz)
-        {
-            auto* p = _alloc_page(elem_sz);
-            if (p != nullptr)
-                p->init(m_chunk_id, eval_alloc_size(elem_sz));
-            return p;
         }
 
         void release_page(Page* page)
@@ -406,7 +401,10 @@ namespace womem
                         m_free_pages[AllocGroup::FREEPAGE].push_back(cur_page);
                     }
                     else
+                    {
+                        cur_page->init(m_chunk_id, cur_page->m_page_unit_size);
                         m_free_pages[eval_alloc_group(cur_page->m_page_unit_size)].push_back(cur_page);
+                    }
                 }
                 else
                     m_released_page.add_one(cur_page);
