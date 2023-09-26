@@ -2589,7 +2589,7 @@ namespace std
             return result;
         }
 
-        extern("rslib_std_debug_invoke")
+        extern("rslib_std_debug_invoke", slow)
         public func invoke<FT>(foo:FT, ...)=> typeof(foo(......));
 
         // Used for create a value with specify type, it's a dangergous function.
