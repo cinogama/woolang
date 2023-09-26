@@ -256,7 +256,7 @@ namespace wo
                     i = 0;
 
                 std::this_thread::yield();
-                
+
                 auto current_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
                 if (current_tm_ms - first_tm_ms >= 100)
                 {
@@ -879,13 +879,31 @@ namespace wo
 
             size_t call_trace_count = 0;
 
-            if (src_location_info)
+            if (ip >= env->rt_codes && ip < env->rt_codes + env->rt_code_len)
             {
-                os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
-                os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
+                if (src_location_info)
+                {
+                    os << call_trace_count << ": " << env->program_debug_info->get_current_func_signature_by_runtime_ip(ip - (need_offset ? 1 : 0)) << std::endl;
+                    os << "\t--at " << wstr_to_str(src_location_info->source_file) << "(" << src_location_info->begin_row_no << ", " << src_location_info->begin_col_no << ")" << std::endl;
+                }
+                else
+                    os << call_trace_count << ": " << (void*)ip << std::endl;
             }
             else
-                os << call_trace_count << ": " << (void*)ip << std::endl;
+            {
+                auto fnd = env->extern_native_functions.find((intptr_t)ip);
+
+                if (fnd != env->extern_native_functions.end())
+                {
+                    os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
+                    os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                }
+                else
+                {
+                    os << call_trace_count << ": extern func __native_function__at_" << (void*)ip << std::endl;
+                    os << "\t--at unknon native" << std::endl;
+                }
+            }
 
             value* base_callstackinfo_ptr = (bp + 1);
             while (base_callstackinfo_ptr <= this->stack_mem_begin)
@@ -911,6 +929,38 @@ namespace wo
 
                     base_callstackinfo_ptr = this->stack_mem_begin - base_callstackinfo_ptr->vmcallstack.bp;
                     base_callstackinfo_ptr++;
+                }
+                else if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack)
+                {
+                    auto fnd = env->extern_native_functions.find((intptr_t)base_callstackinfo_ptr->native_function_addr);
+
+                    if (fnd != env->extern_native_functions.end())
+                    {
+                        os << call_trace_count << ": extern func " << fnd->second.function_name << std::endl;
+                        os << "\t--at " << (fnd->second.library_name == "" ? "woolang" : fnd->second.library_name) << std::endl;
+                    }
+                    else
+                    {
+                        os << call_trace_count << ": extern func __native_function__at_" << (void*)base_callstackinfo_ptr->native_function_addr << std::endl;
+                        os << "\t--at unknon native" << std::endl;
+                    }
+
+                    for (;;)
+                    {
+                        base_callstackinfo_ptr++;
+                        if (base_callstackinfo_ptr <= stack_mem_begin)
+                        {
+                            if (base_callstackinfo_ptr->type == value::valuetype::nativecallstack
+                                || base_callstackinfo_ptr->type == value::valuetype::callstack)
+                                break;
+                            else
+                            {
+                                os << "??" << std::endl;
+                                return;
+                            }
+                        }
+
+                    }
                 }
                 else
                 {
@@ -1325,12 +1375,12 @@ namespace wo
             wo_assert((this->vm_interrupt & vm_interrupt_type::LEAVE_INTERRUPT) == 0);
             wo_assert(_this_thread_vm == this);
 
-            runtime_env *   rt_env = env.get();
-            const byte_t*   rt_ip;
-            value       *   rt_bp, 
-                        *   rt_sp;
-            value*          const_global_begin = rt_env->constant_global_reg_rtstack;
-            value*          reg_begin = register_mem_begin;
+            runtime_env* rt_env = env.get();
+            const byte_t* rt_ip;
+            value* rt_bp,
+                * rt_sp;
+            value* const_global_begin = rt_env->constant_global_reg_rtstack;
+            value* reg_begin = register_mem_begin;
             value* const    rt_cr = cr;
 
             _restore_raii _o1(rt_ip, ip);

@@ -333,6 +333,27 @@ namespace wo
             //rt_bp = stored_bp;
         }
 
+        static void native_do_calln_nativefunc_fast(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
+        {
+            rt_sp->type = value::valuetype::callstack;
+            rt_sp->vmcallstack.ret_ip = (uint32_t)(rt_ip - vm->env->rt_codes);
+            rt_sp->vmcallstack.bp = (uint32_t)(vm->stack_mem_begin - rt_bp);
+            rt_bp = --rt_sp;
+            vm->bp = vm->sp = rt_sp;
+
+            // May be useless?
+            vm->cr->set_nil();
+
+            vm->ip = reinterpret_cast<byte_t*>(call_aim_native_func);
+
+            call_aim_native_func(reinterpret_cast<wo_vm>(vm), reinterpret_cast<wo_value>(rt_sp + 2), vm->tc->integer);
+
+            wo_assert((rt_bp + 1)->type == value::valuetype::callstack);
+            //value* stored_bp = vm->stack_mem_begin - (++rt_bp)->bp;
+            //rt_sp = rt_bp;
+            //rt_bp = stored_bp;
+        }
+
         static void native_do_calln_vmfunc(vmbase* vm, wo_extern_native_func_t call_aim_native_func, const byte_t* rt_ip, value* rt_sp, value* rt_bp)
         {
             rt_sp->type = value::valuetype::callstack;
@@ -363,6 +384,24 @@ namespace wo
         {
             auto invoke_node =
                 x86compiler.call((size_t)&native_do_calln_nativefunc,
+                    asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
+
+            invoke_node->setArg(0, vm);
+            invoke_node->setArg(1, asmjit::Imm((size_t)call_aim_native_func));
+            invoke_node->setArg(2, asmjit::Imm((size_t)rt_ip));
+            invoke_node->setArg(3, rt_sp);
+            invoke_node->setArg(4, rt_bp);
+        }
+
+        static void x86_do_calln_native_func_fast(asmjit::X86Compiler& x86compiler,
+            asmjit::X86Gp vm,
+            wo_extern_native_func_t call_aim_native_func,
+            const byte_t* rt_ip,
+            asmjit::X86Gp rt_sp,
+            asmjit::X86Gp rt_bp)
+        {
+            auto invoke_node =
+                x86compiler.call((size_t)&native_do_calln_nativefunc_fast,
                     asmjit::FuncSignatureT<void, vmbase*, wo_extern_native_func_t, const byte_t*, value*, value*>());
 
             invoke_node->setArg(0, vm);
@@ -1125,7 +1164,11 @@ namespace wo
                     {
                         // Call native
                         jit_packed_func_t call_aim_native_func = (jit_packed_func_t)(WO_IPVAL_MOVE_8);
-                        x86_do_calln_native_func(x86compiler, _vmbase, call_aim_native_func, rt_ip, _vmssp, _vmsbp);
+
+                        if (dr & 0b10)
+                            x86_do_calln_native_func_fast(x86compiler, _vmbase, call_aim_native_func, rt_ip, _vmssp, _vmsbp);
+                        else
+                            x86_do_calln_native_func(x86compiler, _vmbase, call_aim_native_func, rt_ip, _vmssp, _vmsbp);
                     }
                     else
                     {
