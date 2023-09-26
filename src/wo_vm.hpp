@@ -255,7 +255,7 @@ namespace wo
                 else
                     i = 0;
 
-                std::this_thread::yield();
+                std::this_thread::sleep_for(10ms);
 
                 auto current_tm_ms = (std::chrono::steady_clock::now().time_since_epoch() / 1ms);
                 if (current_tm_ms - first_tm_ms >= 100)
@@ -275,8 +275,10 @@ namespace wo
         }
         inline void block_interrupt(vm_interrupt_type type)
         {
+            using namespace std;
+
             while (vm_interrupt & type)
-                std::this_thread::yield();
+                std::this_thread::sleep_for(10ms);
         }
 
         inline void hangup()
