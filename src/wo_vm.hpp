@@ -416,19 +416,19 @@ namespace wo
             wo_asure(wo_enter_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
             wo_assert(nullptr == _self_stack_reg_mem_buf);
-            env = runtime_environment;
+            
+            stack_mem_begin = runtime_environment->stack_begin;
+            register_mem_begin = runtime_environment->reg_begin;
+            stack_size = runtime_environment->runtime_stack_count;
 
-            ++env->_running_on_vm_count;
-
-            stack_mem_begin = env->stack_begin;
-            register_mem_begin = env->reg_begin;
-            stack_size = env->runtime_stack_count;
-
-            ip = env->rt_codes;
+            ip = runtime_environment->rt_codes;
             cr = register_mem_begin + opnum::reg::spreg::cr;
             tc = register_mem_begin + opnum::reg::spreg::tc;
             er = register_mem_begin + opnum::reg::spreg::er;
             sp = bp = stack_mem_begin;
+
+            env = runtime_environment;
+            ++env->_running_on_vm_count;
 
             wo_asure(wo_leave_gcguard(std::launder(reinterpret_cast<wo_vm>(this))));
 
@@ -869,7 +869,12 @@ namespace wo
         }
         inline void dump_call_stack(size_t max_count = 32, bool need_offset = true, std::ostream& os = std::cout)const
         {
-            // TODO; Dump call stack without pdb
+            if (env == nullptr)
+            {
+                os << "<current vm is not ready!>" << std::endl;
+                return;
+            }
+
             const program_debug_data_info::location* src_location_info = nullptr;
             if (env->program_debug_info != nullptr)
                 src_location_info = &env->program_debug_info->get_src_location_by_runtime_ip(ip - (need_offset ? 1 : 0));
